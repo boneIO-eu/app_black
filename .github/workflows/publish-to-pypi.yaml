@@ -1,0 +1,58 @@
+name: Publish BoneIO 🐍 distributions 📦 to PyPI
+
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - 'master'
+      - 'main'
+    paths:
+      - '**.py'
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    branches: [ master ]
+    inputs:
+      tags:
+        description: "Testing workflow"
+test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+    - uses: actions/checkout@v2
+    #TODO add flake, linter, black, maybe tox?
+
+jobs:
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@master
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: Install pypa/build
+      run: >-
+        python -m
+        pip install
+        build
+        --user
+    - name: Build a binary wheel and a source tarball
+      run: >-
+        python -m
+        build
+        --sdist
+        --wheel
+        --outdir dist/
+        .
+    - name: Publish distribution 📦 to PyPI
+      if: startsWith(github.ref, 'refs/tags') || startsWith(github.event.inputs.tags, 'Deploy')
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        skip_existing: true
+
