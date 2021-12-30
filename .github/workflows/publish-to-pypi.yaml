@@ -16,13 +16,13 @@ on:
       - created
       - edited
 
-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [3.7]
-    steps:
-    - uses: actions/checkout@v2
+# test:
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         python-version: [3.7]
+#     steps:
+#     - uses: actions/checkout@v2
     #TODO add flake, linter, black, maybe tox?
 
 jobs:
