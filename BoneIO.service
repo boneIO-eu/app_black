@@ -1,0 +1,10 @@
+[Unit]
+Description=boneIO
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/home/debian/dev/venv/bin/boneio run -c /home/debian/config.yaml
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,200 @@
+- id: J1_2
+  pin: P9_29
+  actions:
+    single:
+      action: output
+      pin: light 1
+    double:
+      action: output
+      pin: switch 1
+- id: J1_3
+  pin: P9_30
+  actions:
+    single:
+      action: output
+      pin: light 2
+    double:
+      action: output
+      pin: switch 2
+- id: J1_4
+  pin: P9_31
+  actions:
+    single:
+      action: output
+      pin: light 3
+    double:
+      action: output
+      pin: switch 3
+- id: J1_5
+  pin: P9_42
+  actions:
+    single:
+      action: output
+      pin: light 4
+    double:
+      action: output
+      pin: switch 4
+- id: J1_6
+  pin: P8_46
+  actions:
+    single:
+      action: output
+      pin: light 5
+    double:
+      action: output
+      pin: switch 5
+- id: J1_7
+  pin: P8_45
+  actions:
+    single:
+      action: output
+      pin: light 6
+    double:
+      action: output
+      pin: switch 6
+- id: J1_8
+  pin: P8_44
+  actions:
+    single:
+      action: output
+      pin: light 7
+
+- id: J2_2
+  pin: P8_36
+  actions:
+    single:
+      action: output
+      pin: light 8
+- id: J2_3
+  pin: P8_35
+  actions:
+    single:
+      action: output
+      pin: light 9
+- id: J2_4
+  pin: P8_34
+  actions:
+    single:
+      action: output
+      pin: light 10
+- id: J2_5
+  pin: P8_33
+  actions:
+    single:
+      action: output
+      pin: light 11
+- id: J2_6
+  pin: P8_32
+  actions:
+    single:
+      action: output
+      pin: light 12
+- id: J2_7
+  pin: P8_31
+  actions:
+    single:
+      action: output
+      pin: light 13
+- id: J2_8
+  pin: P8_30
+  actions:
+    single:
+      action: output
+      pin: light 14
+
+- id: J3_2
+  pin: P8_43
+  actions:
+    single:
+      action: output
+      pin: light 15
+- id: J3_3
+  pin: P8_42
+  actions:
+    single:
+      action: output
+      pin: light 16
+- id: J3_4
+  pin: P8_41
+  actions:
+    single:
+      action: output
+      pin: light 4
+- id: J3_5
+  pin: P8_40
+- id: J3_6
+  pin: P8_39
+- id: J3_7
+  pin: P8_38
+- id: J3_8
+  pin: P8_37
+
+- id: J4_2
+  pin: P8_29
+- id: J4_3
+  pin: P8_28
+- id: J4_4
+  pin: P8_27
+- id: J4_5
+  pin: P8_26
+- id: J4_6
+  pin: P8_19
+- id: J4_7
+  pin: P8_18
+- id: J4_8
+  pin: P8_17
+
+- id: J5_2
+  pin: P9_18
+- id: J5_3
+  pin: P9_21
+- id: J5_4
+  pin: P9_22
+- id: J5_5
+  pin: P9_23
+- id: J5_6
+  pin: P8_25 #MMC1_DAT0
+- id: J5_7
+  pin: P8_27 #LCD VSYNC
+- id: J5_8
+  pin: P8_28 #LCD_PCLK
+
+- id: J6_2
+  pin: P8_16
+- id: J6_3
+  pin: P8_15
+- id: J6_4
+  pin: P8_14
+- id: J6_5
+  pin: P8_13
+- id: J6_6
+  pin: P8_12
+- id: J6_7
+  pin: P8_11
+- id: J6_8
+  pin: P8_10
+
+- id: J7_2
+  pin: P9_11
+- id: J7_3
+  pin: P9_12
+- id: J7_4
+  pin: P9_13
+- id: J7_5
+  pin: P9_14
+- id: J7_6
+  pin: P9_15
+- id: J7_7
+  pin: P9_16
+- id: J7_8
+  pin: P9_17
+
+- id: J8_2
+  pin: P8_9
+  kind: sensor
+- id: J8_3
+  pin: P8_8
+  kind: sensor
+- id: J8_4
+  pin: P8_7
+  kind: sensor

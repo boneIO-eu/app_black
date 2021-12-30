@@ -1,0 +1,160 @@
+- id: light 1
+  kind: mcp
+  mcp_id: mcp1
+  pin: 0
+  ha_type: light
+- id: light 2
+  kind: mcp
+  mcp_id: mcp1
+  pin: 1
+  ha_type: light
+- id: light 3
+  kind: mcp
+  mcp_id: mcp1
+  pin: 2
+  ha_type: light
+- id: light 4
+  kind: mcp
+  mcp_id: mcp1
+  pin: 3
+  ha_type: light
+- id: light 5
+  kind: mcp
+  mcp_id: mcp1
+  pin: 4
+  ha_type: light
+- id: light 6
+  kind: mcp
+  mcp_id: mcp1
+  pin: 5
+  ha_type: light
+- id: light 7
+  kind: mcp
+  mcp_id: mcp1
+  pin: 6
+  ha_type: light
+- id: light 8
+  kind: mcp
+  mcp_id: mcp1
+  pin: 7
+  ha_type: light
+- id: light 9
+  kind: mcp
+  mcp_id: mcp1
+  pin: 8
+  ha_type: light
+- id: light 10
+  kind: mcp
+  mcp_id: mcp1
+  pin: 9
+  ha_type: light
+- id: light 11
+  kind: mcp
+  mcp_id: mcp1
+  pin: 10
+  ha_type: light
+- id: light 12
+  kind: mcp
+  mcp_id: mcp1
+  pin: 11
+  ha_type: light
+- id: light 13
+  kind: mcp
+  mcp_id: mcp1
+  pin: 12
+  ha_type: light
+- id: light 14
+  kind: mcp
+  mcp_id: mcp1
+  pin: 13
+  ha_type: light
+- id: light 15
+  kind: mcp
+  mcp_id: mcp1
+  pin: 14
+  ha_type: light
+- id: light 16
+  kind: mcp
+  mcp_id: mcp1
+  pin: 15
+  ha_type: light
+- id: switch 1
+  kind: mcp
+  mcp_id: mcp2
+  pin: 0
+  ha_type: switch
+- id: switch 2
+  kind: mcp
+  mcp_id: mcp2
+  pin: 1
+  ha_type: switch
+- id: switch 3
+  kind: mcp
+  mcp_id: mcp2
+  pin: 2
+  ha_type: switch
+- id: switch 4
+  kind: mcp
+  mcp_id: mcp2
+  pin: 3
+  ha_type: switch
+- id: switch 5
+  kind: mcp
+  mcp_id: mcp2
+  pin: 4
+  ha_type: switch
+- id: switch 6
+  kind: mcp
+  mcp_id: mcp2
+  pin: 5
+  ha_type: switch
+- id: switch 7
+  kind: mcp
+  mcp_id: mcp2
+  pin: 6
+  ha_type: switch
+- id: switch 8
+  kind: mcp
+  mcp_id: mcp2
+  pin: 7
+  ha_type: switch
+- id: switch 9
+  kind: mcp
+  mcp_id: mcp2
+  pin: 8
+  ha_type: switch
+- id: switch 10
+  kind: mcp
+  mcp_id: mcp2
+  pin: 9
+  ha_type: switch
+- id: switch 11
+  kind: mcp
+  mcp_id: mcp2
+  pin: 10
+  ha_type: switch
+- id: switch 12
+  kind: mcp
+  mcp_id: mcp2
+  pin: 11
+  ha_type: switch
+- id: switch 13
+  kind: mcp
+  mcp_id: mcp2
+  pin: 12
+  ha_type: switch
+- id: switch 14
+  kind: mcp
+  mcp_id: mcp2
+  pin: 13
+  ha_type: switch
+- id: switch 15
+  kind: mcp
+  mcp_id: mcp2
+  pin: 14
+  ha_type: switch
+- id: switch 16
+  kind: mcp
+  mcp_id: mcp2
+  pin: 15
+  ha_type: switch

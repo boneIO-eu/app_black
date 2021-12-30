@@ -1,0 +1,14 @@
+- id: adc1
+  pin: P9_39
+- id: adc2
+  pin: P9_40
+- id: adc3
+  pin: P9_37
+- id: adc4
+  pin: P9_38
+- id: adc5
+  pin: P9_35
+- id: adc6
+  pin: P9_36
+- id: adc7
+  pin: P9_33

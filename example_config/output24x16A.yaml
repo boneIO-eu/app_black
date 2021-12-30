@@ -1,0 +1,139 @@
+
+- id: mcp1-gpa0
+  kind: mcp
+  mcp_id: mcp1
+  pin: 0
+  ha_type: light
+- id: mcp1-gpa1
+  kind: mcp
+  mcp_id: mcp1
+  pin: 1
+  ha_type: light
+
+- id: mcp1-gpb0
+  kind: mcp
+  mcp_id: mcp1
+  pin: 8
+  ha_type: light
+- id: mcp1-gpb1
+  kind: mcp
+  mcp_id: mcp1
+  pin: 9
+  ha_type: light
+- id: mcp1-gpb2
+  kind: mcp
+  mcp_id: mcp1
+  pin: 10
+  ha_type: light
+- id: mcp1-gpb3
+  kind: mcp
+  mcp_id: mcp1
+  pin: 11
+  ha_type: light
+- id: mcp1-gpb4
+  kind: mcp
+  mcp_id: mcp1
+  pin: 12
+  ha_type: light
+- id: mcp1-gpb5
+  kind: mcp
+  mcp_id: mcp1
+  pin: 13
+  ha_type: light
+- id: mcp1-gpb6
+  kind: mcp
+  mcp_id: mcp1
+  pin: 14
+  ha_type: light
+- id: mcp1-gpb7
+  kind: mcp
+  mcp_id: mcp1
+  pin: 15
+  ha_type: light
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+- id: mcp2-gpa0
+  kind: mcp
+  mcp_id: mcp2
+  pin: 0
+  ha_type: switch
+- id: mcp2-gpa1 
+  kind: mcp
+  mcp_id: mcp2
+  pin: 1
+  ha_type: switch
+- id: mcp2-gpa2
+  kind: mcp
+  mcp_id: mcp2
+  pin: 2
+  ha_type: switch
+- id: mcp2-gpa3
+  kind: mcp
+  mcp_id: mcp2
+  pin: 3
+  ha_type: switch
+- id: mcp2-gpa4
+  kind: mcp
+  mcp_id: mcp2
+  pin: 4
+  ha_type: switch
+- id: mcp2-gpa5
+  kind: mcp
+  mcp_id: mcp2
+  pin: 5
+  ha_type: switch
+- id: mcp2-gpa6
+  kind: mcp
+  mcp_id: mcp2
+  pin: 6
+  ha_type: switch
+- id: mcp2-gpa7
+  kind: mcp
+  mcp_id: mcp2
+  pin: 7
+  ha_type: switch
+
+
+- id: mcp2-gpb0
+  kind: mcp
+  mcp_id: mcp2
+  pin: 8
+  ha_type: switch
+- id: mcp2-gpb1
+  kind: mcp
+  mcp_id: mcp2
+  pin: 9
+  ha_type: switch
+- id: mcp2-gpb2
+  kind: mcp
+  mcp_id: mcp2
+  pin: 10
+  ha_type: switch
+- id: mcp2-gpb3
+  kind: mcp
+  mcp_id: mcp2
+  pin: 11
+  ha_type: switch
+- id: mcp2-gpb4
+  kind: mcp
+  mcp_id: mcp2
+  pin: 12
+  ha_type: switch
+- id: mcp2-gpb5
+  kind: mcp
+  mcp_id: mcp2
+  pin: 13
+  ha_type: switch
+
