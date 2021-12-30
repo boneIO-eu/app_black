@@ -11,11 +11,11 @@ on:
       - '**.py'
   pull_request:
     branches: [ master ]
-  workflow_dispatch:
-    branches: [ master ]
-    inputs:
-      tags:
-        description: "Testing workflow"
+  release:
+    types: # This configuration does not affect the page_build event above
+      - created
+      - edited
+
 test:
     runs-on: ubuntu-latest
     strategy:
