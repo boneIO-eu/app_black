@@ -22,7 +22,8 @@ from boneio.const import (
     MAC,
     NONE,
 )
-from boneio.sensor import LM75Sensor
+from boneio.sensor import LM75Sensor, MCP9808Sensor
+
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 
@@ -144,11 +145,11 @@ class HostData:
 
     data = {UPTIME: {}, NETWORK: {}, CPU: {}, DISK: {}, MEMORY: {}, SWAP: {}}
 
-    def __init__(self, output: dict, callback: Callable, lm75: LM75Sensor) -> None:
+    def __init__(self, output: dict, callback: Callable, temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None]) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
         self.data[UPTIME] = {HOST: self._hostname, UPTIME: 0}
-        self._lm75 = lm75
+        self._temp_sensor = temp_sensor
         self._output = output
         self._callback = callback
         self._loop = asyncio.get_running_loop()
@@ -161,8 +162,8 @@ class HostData:
     def write_uptime(self, uptime: str) -> None:
         """Write uptime."""
         self.data[UPTIME][UPTIME] = uptime
-        if self._lm75:
-            self.data[UPTIME][self._lm75.name] = self._lm75.state
+        if self._temp_sensor:
+            self.data[UPTIME][self._temp_sensor.name] = self._temp_sensor.state
         self._loop.call_soon_threadsafe(partial(self._callback, UPTIME))
 
     def get(self, type: str) -> dict:

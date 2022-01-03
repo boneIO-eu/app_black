@@ -18,8 +18,10 @@ from boneio.const import (
     INIT_SLEEP,
     INPUT,
     KIND,
+    LM75,
     MCP,
     MCP_ID,
+    MCP_TEMP_9808,
     OFF,
     ON,
     ONLINE,
@@ -64,6 +66,7 @@ class Manager:
         relay_pins: List,
         input_pins: List,
         lm75: dict = None,
+        mcp9808: dict = None,
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
         mcp23017: Optional[List] = None,
@@ -84,20 +87,24 @@ class Manager:
         self._grouped_outputs = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
-        self._lm75 = None
+        self._temp_sensors = []
 
-        def create_lm75_sensor():
+        def create_temp_sensor(sensor_type: str, temp_def: dict = {}):
             """Create LM sensor in manager."""
-            from .sensor.lm75 import LM75Sensor
-
-            name = lm75.get(ID)
+            if sensor_type == LM75:
+                from .sensor import LM75Sensor as TempSensor
+            elif sensor_type == MCP_TEMP_9808:
+                from .sensor import MCP9808Sensor as TempSensor
+            else:
+                return
+            name = temp_def.get(ID)
             id = name.replace(" ", "")
             try:
-                self._lm75 = LM75Sensor(
+                temp_sensor = TempSensor(
                     id=id,
                     name=name,
                     i2c=self._i2cbusio,
-                    address=lm75[ADDRESS],
+                    address=temp_def[ADDRESS],
                     send_message=self.send_message,
                     topic_prefix=topic_prefix,
                 )
@@ -108,9 +115,10 @@ class Manager:
                     prefix=ha_discovery_prefix,
                     availibilty_msg_func=ha_sensor_temp_availibilty_message,
                 )
-                self._tasks.append(asyncio.create_task(self._lm75.send_state()))
+                self._tasks.append(asyncio.create_task(temp_sensor.send_state()))
+                self._temp_sensors.append(temp_sensor)
             except I2CError as err:
-                _LOGGER.error("Can't configure LM75 sensor. %s", err)
+                _LOGGER.error("Can't configure Temp sensor. %s", err)
                 pass
 
         def create_mcp23017():
@@ -163,7 +171,10 @@ class Manager:
             return True
 
         if lm75:
-            create_lm75_sensor()
+            create_temp_sensor(sensor_type=LM75, temp_def=lm75)
+
+        if mcp9808:
+            create_temp_sensor(sensor_type=MCP_TEMP_9808, temp_def=mcp9808)
 
         if mcp23017:
             create_mcp23017()
@@ -274,7 +285,7 @@ class Manager:
 
             self._host_data = HostData(
                 output=self._grouped_outputs,
-                lm75=self._lm75,
+                temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
                 callback=self._host_data_callback,
             )
             for f in host_stats.values():

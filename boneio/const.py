@@ -84,6 +84,7 @@ TEMPERATURE = "temperature"
 SENSOR = "sensor"
 BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"
+MCP_TEMP_9808 = "mcp9808"
 INPUT_SENSOR = "inputsensor"
 
 # TYPING

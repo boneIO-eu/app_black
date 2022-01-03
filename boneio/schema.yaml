@@ -68,6 +68,23 @@ lm75:
       meta:
         label: GPIO of I2C SDA
 
+
+mcp9808:
+  type: dict
+  required: False
+  schema:
+    id:
+      type: string
+      required: False
+      meta:
+        label: Id of I2C to use in pin config
+    address:
+      type: string
+      required: True
+      default: 0x18
+      meta:
+        label: GPIO of I2C SDA
+
 mcp23017:
   type: list
   required: False

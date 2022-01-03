@@ -12,6 +12,7 @@ from boneio.const import (
     HA_DISCOVERY,
     HOST,
     MCP23017,
+    MCP_TEMP_9808,
     MQTT,
     OLED,
     OUTPUT,
@@ -121,8 +122,6 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
     schema = load_yaml_file(os.path.join(MAINPATH, "schema.yaml"))
     v = CustomValidator(schema, purge_unknown=True)
     config_yaml = load_yaml_file(config)
-    print("aaa", schema)
-    print("bbb", config_yaml)
     if not config_yaml:
         _LOGGER.info("Missing file.")
         return
@@ -143,6 +142,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         ha_discovery_prefix=_config[MQTT][HA_DISCOVERY][TOPIC_PREFIX],
         mcp23017=_config.get(MCP23017, []),
         lm75=_config.get(LM75),
+        mcp9808=_config.get(MCP_TEMP_9808),
         oled=_config.get(OLED),
         adc_list=_config.get(ADC, []),
     )
