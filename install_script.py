@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def is_root():
     return True if os.geteuid() == 0 else False
-~
+
 
 def flatten(data):
     return list(itertools.chain.from_iterable(data))
