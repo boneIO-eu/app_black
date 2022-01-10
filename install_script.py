@@ -123,7 +123,7 @@ def read_os_release():
 def check_os():
     if os.path.isfile("/etc/debian_version"):
         os_data = read_os_release()
-        if os_data["ID"] == "debian" and int(os_data["VERSION_ID"] == 10):
+        if os_data["id"] == "debian" and int(os_data["version_id"] == 10):
             return True
         _LOGGER.error("Wrong OS type.")
         return False
