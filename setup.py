@@ -48,7 +48,8 @@ setup(
         "psutil==5.8.0",
         "pyaml==21.10.1",
         "pymodbus==2.5.3",
-        "pyserial-asyncio==0.6" "typing-extensions==3.10.0.2",
+        "pyserial-asyncio==0.6",
+        "typing-extensions==3.10.0.2",
     ],
     entry_points={"console_scripts": ["boneio=boneio.bonecli:cli"]},
 )

@@ -12,6 +12,7 @@ import re
 
 
 _LOGGER = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 def is_root():
@@ -101,7 +102,8 @@ class Whiptail:
         return shlex.split(self.run(control, msg, extra).value)
 
     def radiolist(self, msg="", items=(), prefix=" - "):
-        return self.showlist("radiolist", msg, items, prefix)[0]
+        ret_list = self.showlist("radiolist", msg, items, prefix)
+        return ret_list[0] if len(ret_list) > 0 else []
 
     def node_radiolist(self, msg="", items=(), prefix=""):
         return self.show_tag_only_list("radiolist", msg, items, prefix)[0]
@@ -176,12 +178,17 @@ if __name__ == "__main__":
     except FileNotFoundError:
         _LOGGER.error("No such path")
         sys.exit(1)
+    except FileExistsError:
+        pass
+    _LOGGER.info("Installing packages which might be missing")
     run_command(
         cmd=shlex.split(
-            "sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv python3-ruamel.yaml"
+            "sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv python3-yaml"
         )
     )
+    _LOGGER.info("Creating Python3 Venv in %s", maindir)
     run_command(cmd=shlex.split(f"python3 -m venv {maindir}/venv"))
+    _LOGGER.info("Installing BoneIO package")
     run_command(cmd=shlex.split(f"{maindir}/venv/bin/pip3 install --upgrade boneio"))
     _configure = whiptail.confirm(
         msg="Would you like to give some basic mqtt credentials so we can configure boneio for you?"
@@ -241,7 +248,9 @@ if __name__ == "__main__":
             "password": _mqtt_password,
         }
         output = {"mqtt": mqtt_part}
-        exampled_dir = f"{sys.path[-1]}/boneio/example_config/"
+        exampled_dir = (
+            f"{maindir}/venv/lib/python3.7/site-packages/boneio/example_config/"
+        )
         os.makedirs(maindir, exist_ok=True)
         if _oled_enabled:
             output["oled"] = None
@@ -287,5 +296,20 @@ if __name__ == "__main__":
     _configure = whiptail.confirm(
         msg="Would you like to create startup script for you?"
     )
+    if _configure:
+        with open("/tmp/test.service", "w+") as file:
+            file.write(
+                """
+            [Unit]
+            Description=boneIO
+            After=multi-user.target
+
+            [Service]
+            Type=simple
+            ExecStart=/home/debian/dev/venv/bin/boneio run -c /home/debian/config.yaml
+
+            [Install]
+            WantedBy=multi-user.target"""
+            )
     _configure = whiptail.confirm(msg="Start BoneIO at system startup automatically?")
     sys.exit(0)
