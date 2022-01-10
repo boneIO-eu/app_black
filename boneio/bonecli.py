@@ -7,24 +7,24 @@ import click
 from colorlog import ColoredFormatter
 
 from boneio.const import (
+    ADC,
     ENABLED,
-    INPUT,
     HA_DISCOVERY,
     HOST,
+    INPUT,
+    LM75,
     MCP23017,
     MCP_TEMP_9808,
+    MODBUS,
     MQTT,
     OLED,
     OUTPUT,
     PAHO,
     PASSWORD,
     PYMODBUS,
+    SDM630,
     TOPIC_PREFIX,
     USERNAME,
-    LM75,
-    ADC,
-    SDM630,
-    MODBUS,
 )
 from boneio.helper import CustomValidator, load_yaml_file
 from boneio.manager import Manager

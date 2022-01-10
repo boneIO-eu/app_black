@@ -12,11 +12,11 @@ with open("boneio/version.py") as f:
 setup(
     name="boneio",
     version=__version__,  # type: ignore # noqa: F821,
-    description="Python Helper for BoneIO",
+    description="Python App for BoneIO",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/maciejk1984/boneIO",
-    download_url="https://github.com/maciejk1984/boneIO/archive/{}.zip".format(
+    url="https://github.com/boneIO-eu/app_bbb",
+    download_url="https://github.com/boneIO-eu/app_bbb/archive/{}.zip".format(
         __version__  # type: ignore # noqa: F821
     ),
     packages=find_packages(exclude=["tests*"]),
@@ -48,8 +48,7 @@ setup(
         "psutil==5.8.0",
         "pyaml==21.10.1",
         "pymodbus==2.5.3",
-        "pyserial-asyncio==0.6"
-        "typing-extensions==3.10.0.2",
+        "pyserial-asyncio==0.6" "typing-extensions==3.10.0.2",
     ],
     entry_points={"console_scripts": ["boneio=boneio.bonecli:cli"]},
 )
