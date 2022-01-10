@@ -4,7 +4,7 @@ from boneio.version import __version__
 from boneio.const import INPUT, OFF, ON, RELAY, STATE, SENSOR, INPUT_SENSOR
 
 
-def ha_relay_availibilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneio"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -25,7 +25,7 @@ def ha_relay_availibilty_message(id: str, name: str, topic: str = "boneio"):
     }
 
 
-def ha_availibilty_message(
+def ha_availabilty_message(
     id: str, name: str, topic: str = "boneio", sensor_type: str = INPUT
 ):
     """Create availability topic for HA."""
@@ -45,25 +45,25 @@ def ha_availibilty_message(
     }
 
 
-def ha_input_availibilty_message(**kwargs):
-    return ha_availibilty_message(sensor_type=INPUT, **kwargs)
+def ha_input_availabilty_message(**kwargs):
+    return ha_availabilty_message(sensor_type=INPUT, **kwargs)
 
 
-def ha_adc_sensor_availibilty_message(**kwargs):
-    msg = ha_availibilty_message(sensor_type=SENSOR, **kwargs)
+def ha_adc_sensor_availabilty_message(**kwargs):
+    msg = ha_availabilty_message(sensor_type=SENSOR, **kwargs)
     msg["unit_of_measurement"] = "V"
     msg["device_class"] = "voltage"
     msg["state_class"] = "measurement"
     return msg
 
 
-def ha_sensor_availibilty_message(unit_of_measurement: str = None, **kwargs):
-    msg = ha_availibilty_message(sensor_type=SENSOR, **kwargs)
+def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
+    msg = ha_availabilty_message(sensor_type=SENSOR, **kwargs)
     if not unit_of_measurement:
         return msg
 
 
-def ha_binary_sensor_availibilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneio"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -82,7 +82,7 @@ def ha_binary_sensor_availibilty_message(id: str, name: str, topic: str = "bonei
     }
 
 
-def ha_sensor_temp_availibilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneio"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -100,4 +100,29 @@ def ha_sensor_temp_availibilty_message(id: str, name: str, topic: str = "boneio"
         "state_class": "measurement",
         "unit_of_measurement": "°C",
         "value_template": "{{ value_json.state }}",
+    }
+
+
+def sdm630_availabilty_message(
+    id: str,
+    sensor_id: str,
+    name: str,
+    topic: str = "sdm630",
+    sensor_type: str = SENSOR,
+    **kwargs,
+):
+    """Create SDM630 availability topic for HA."""
+    return {
+        "availability": [{"topic": f"{topic}/{id}{STATE}"}],
+        "device": {
+            "identifiers": [topic, id],
+            "manufacturer": "BoneIO",
+            "model": "SDM630",
+            "name": f"BoneIO {name.upper()}",
+            "sw_version": __version__,
+        },
+        "name": sensor_id,
+        "state_topic": f"{topic}/{sensor_type}/{id}/{sensor_id}",
+        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
+        **kwargs,
     }

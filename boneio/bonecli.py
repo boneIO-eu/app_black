@@ -18,10 +18,13 @@ from boneio.const import (
     OUTPUT,
     PAHO,
     PASSWORD,
+    PYMODBUS,
     TOPIC_PREFIX,
     USERNAME,
     LM75,
     ADC,
+    SDM630,
+    MODBUS,
 )
 from boneio.helper import CustomValidator, load_yaml_file
 from boneio.manager import Manager
@@ -117,6 +120,8 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         _LOGGER.debug(f"Lib version is {__version__}")
     if debug > 1:
         logging.getLogger(PAHO).setLevel(logging.DEBUG)
+        logging.getLogger(PYMODBUS).setLevel(logging.DEBUG)
+        logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
     else:
         logging.getLogger(PAHO).setLevel(logging.WARN)
     schema = load_yaml_file(os.path.join(MAINPATH, "schema.yaml"))
@@ -140,9 +145,13 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         input_pins=_config.get(INPUT, []),
         ha_discovery=_config[MQTT][HA_DISCOVERY][ENABLED],
         ha_discovery_prefix=_config[MQTT][HA_DISCOVERY][TOPIC_PREFIX],
+        sensors={
+            LM75: _config.get(LM75),
+            MCP_TEMP_9808: _config.get(MCP_TEMP_9808),
+            SDM630: _config.get(SDM630),
+        },
         mcp23017=_config.get(MCP23017, []),
-        lm75=_config.get(LM75),
-        mcp9808=_config.get(MCP_TEMP_9808),
+        modbus=_config.get(MODBUS),
         oled=_config.get(OLED),
         adc_list=_config.get(ADC, []),
     )

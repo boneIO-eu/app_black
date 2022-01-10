@@ -141,55 +141,12 @@ def check_arch():
 
 class BoneIODumper(yaml.Dumper):  # pylint: disable=too-many-ancestors
     def represent_stringify(self, value):
-        # if "!include" in value:
-        #     return self.represent_data(value)
         return self.represent_scalar(tag="tag:yaml.org,2002:str", value=str(value))
 
     def represent_none(self, v):
         return self.represent_scalar(tag="tag:yaml.org,2002:null", value="")
 
 
-# class Include(yaml.YAMLObject):
-#     # yaml_constructor = yaml.RoundTripConstructor
-#     # yaml_representer = yaml.RoundTripRepresenter
-#     yaml_tag = "!include"
-
-#     def __init__(self, file):
-#         self.file = file
-
-#     @classmethod
-#     def from_yaml(cls, loader, node):
-#         print("Ty nic nie robisz")
-#         return cls(loader.construct_scalar(node))
-
-#     @classmethod
-#     def to_yaml(cls, dumper, data):
-
-#         # if isinstance(data.file, yaml.scalarstring.ScalarString):
-#         #     style = data.file.style  # ruamel.yaml>0.15.8
-#         # else:
-#         #     style = None
-#         print("data", data.file, cls.yaml_tag)
-#         return dumper.represent_scalar(cls.yaml_tag, data.file)
-
-
-def _include_yaml(loader, node):
-    """Load another YAML file and embeds it using the !include tag.
-    Example:
-        device_tracker: !include device_tracker.yaml
-    """
-    fname = os.path.join(os.path.dirname(loader.name), node.value)
-    try:
-        return _add_reference(load_yaml(fname, loader.secrets), loader, node)
-    except FileNotFoundError as exc:
-        raise HomeAssistantError(
-            f"{node.start_mark}: Unable to read file {fname}."
-        ) from exc
-
-
-yaml.SafeDumper.add_representer("!include", _include_yaml)
-
-# yaml.add_representer(Include, Include.to_yaml)
 BoneIODumper.add_representer(str, BoneIODumper.represent_stringify)
 
 BoneIODumper.add_representer(type(None), BoneIODumper.represent_none)
@@ -197,31 +154,35 @@ BoneIODumper.add_representer(type(None), BoneIODumper.represent_none)
 ON = "ON"
 OFF = "OFF"
 if __name__ == "__main__":
-    # if is_root():
-    #     _LOGGER.error("Can't run this script as root!")
-    #     sys.exit(1)
-    # if not check_os() or not check_arch():
-    #     sys.exit(1)
+    if is_root():
+        _LOGGER.error("Can't run this script as root!")
+        sys.exit(1)
+    if not check_os() or not check_arch():
+        _LOGGER.error("Wrong operating system or CPU architecture!")
+        sys.exit(1)
+    if sys.version_info[:2] <= (3, 7):
+        _LOGGER.error("Wrong Python version")
+        exit(1)
     run_command(cmd=["sudo", "true"])
     whiptail = Whiptail(
         title="BoneIO", backtitle="Installation script", height=39, width=120
     )
     maindir = whiptail.prompt(
         msg="Where would you like to install package? Last part of directory will be created for you",
-        default="/home/debian/boneio",
+        default=f"{os.environ.get('HOME', '/home/debian')}/boneIO",
     )
-    # try:
-    #     os.mkdir(maindir)
-    # except FileNotFoundError:
-    #     _LOGGER.error("No such path")
-    #     sys.exit(1)
-    # run_command(
-    #     cmd=shlex.split(
-    #         "sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv python3-ruamel.yaml"
-    #     )
-    # )
-    # run_command(cmd=shlex.split(f"python3 -m venv {maindir}/venv"))
-    # run_command(cmd=shlex.split(f"{maindir}/venv/bin/pip3 install --upgrade boneio"))
+    try:
+        os.mkdir(maindir)
+    except FileNotFoundError:
+        _LOGGER.error("No such path")
+        sys.exit(1)
+    run_command(
+        cmd=shlex.split(
+            "sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv python3-ruamel.yaml"
+        )
+    )
+    run_command(cmd=shlex.split(f"python3 -m venv {maindir}/venv"))
+    run_command(cmd=shlex.split(f"{maindir}/venv/bin/pip3 install --upgrade boneio"))
     _configure = whiptail.confirm(
         msg="Would you like to give some basic mqtt credentials so we can configure boneio for you?"
     )
@@ -231,28 +192,45 @@ if __name__ == "__main__":
         _mqtt_username = whiptail.prompt("Type mqtt username", default="mqtt")
         _mqtt_password = whiptail.prompt("Type mqtt password", password=True)
         _ha_discovery = whiptail.confirm(msg="Enable HA discovery", default="yes")
-        _enabled_modules = whiptail.checklist(
-            "Modules chooser",
+        _oled_enabled = whiptail.confirm(
+            msg="Do you want OLED screen ON", default="yes"
+        )
+        _enabled_inputs = whiptail.checklist(
+            "Inputs",
             items=[
-                ("OLED", "Turn on OLED", ON),
                 (
                     "Input",
                     "Enable inputs (better to edit them anyway according to your needs later)",
                     ON,
                 ),
-                ("ADC", "Enable ADC input sensors", OFF),
-                ("RB32", "Enable relay board 32x5A", ON),
-                (
-                    "LM75_RB32",
-                    "Enable temperature on Relay board 32x5A",
-                    ON,
-                ),
-                ("RB24", "Enable relay board 24x16A", OFF),
+            ],
+        )
+        _enabled_sensors = whiptail.checklist(
+            "Sensors, choose which sensors you have onboard.",
+            items=[
                 (
                     "LM75_RB24",
-                    "Enable temperature on Relay board 24x16A",
+                    "Enable LM75 temperature sensor on Relay board 24x16A",
                     OFF,
                 ),
+                (
+                    "LM75_RB32",
+                    "Enable LM75 temperature sensor on Relay board 32x5A",
+                    OFF,
+                ),
+                (
+                    "MCP9808_RB32",
+                    "Enable MCP9808 temperature sensor on Relay board 32x5A",
+                    OFF,
+                ),
+                ("ADC", "Enable ADC input sensors", OFF),
+            ],
+        )
+        _enabled_outputs = whiptail.radiolist(
+            "Outputs, choose which output you want to enable.",
+            items=[
+                ("RB32", "Enable relay board 32x5A", OFF),
+                ("RB24", "Enable relay board 24x16A", OFF),
             ],
         )
         mqtt_part = {
@@ -263,37 +241,38 @@ if __name__ == "__main__":
             "password": _mqtt_password,
         }
         output = {"mqtt": mqtt_part}
-        exampled_dir = (
-            f"{maindir}/venv/lib/python3.7/site-packages/boneio/example_config/"
-        )
-        if "OLED" in _enabled_modules:
+        exampled_dir = f"{sys.path[-1]}/boneio/example_config/"
+        os.makedirs(maindir, exist_ok=True)
+        if _oled_enabled:
             output["oled"] = None
-        if "RB32" and "RB24" in _enabled_modules:
-            ##TODO Add RB24 in future
-            copyfile(f"{exampled_dir}")
+        if "RB24" in _enabled_outputs:
+            copyfile(f"{exampled_dir}output24x16A.yaml", f"{maindir}/output24x16A.yaml")
             output["mcp23017"] = (
-                [{"id": "mcp1", "address": 32}, {"id": "mcp2", "address": 33}],
+                [{"id": "mcp1", "address": "0x20"}, {"id": "mcp2", "address": "0x21"}],
             )
-        elif "RB32" in _enabled_modules:
+            output["output"] = "!include output24x16A.yaml"
+        elif "RB32" in _enabled_outputs:
+            copyfile(f"{exampled_dir}output32x5A.yaml", f"{maindir}/output32x5A.yaml")
+            if "mcp23017" in output:
+                output["mcp23017"].append({"id": "mcp1", "address": "0x32"})
+                output["mcp23017"].append({"id": "mcp1", "address": "0x33"})
             output["mcp23017"] = [
-                {"id": "mcp1", "address": 32},
-                {"id": "mcp2", "address": 33},
+                {"id": "mcp1", "address": "0x32"},
+                {"id": "mcp2", "address": "0x33"},
             ]
-        if "LM75_RB32" in _enabled_modules:
-            output["lm75"] = {"id": "temp", "address": 72}
-        if "Input" in _enabled_modules:
-            # TODO copy input file
-            output["input"] = "!include input.yaml"
-        if "RB32" in _enabled_modules:
             output["output"] = "!include output32x5A.yaml"
-        if "ADC" in _enabled_modules:
+        if "LM75_RB32" in _enabled_sensors:
+            output["lm75"] = {"id": "temp", "address": "0x72"}
+        if "Input" in _enabled_inputs:
+            copyfile(f"{exampled_dir}input.yaml", f"{maindir}/input.yaml")
+            output["input"] = "!include input.yaml"
+        if "ADC" in _enabled_sensors:
+            copyfile(f"{exampled_dir}adc.yaml", f"{maindir}/adc.yaml")
             output["adc"] = "!include adc.yaml"
 
-        print("ma", maindir)
-
-        with open(f"{maindir}/config.yaml", "w") as file:
+        with open(f"{maindir}/config.yaml", "w+") as file:
             result = re.sub(
-                r"(.*): (')(!include.*.yaml)(')",
+                r"(.*): (')(.+)(')",
                 "\\1: \\3",
                 yaml.dump(
                     output,
@@ -310,82 +289,3 @@ if __name__ == "__main__":
     )
     _configure = whiptail.confirm(msg="Start BoneIO at system startup automatically?")
     sys.exit(0)
-
-
-# function askQuestion(){
-#     Q=$(whiptail --inputbox "$1" 8 39 "$2" --title "$3" 3>&1 1>&2 2>&3)
-#     exitstatus=$?
-#     if [ $exitstatus == 0 ]; then
-#         echo $Q;
-#     else
-#         echo "Wrong selection."
-#         exit 1;
-#     fi
-# }
-
-# function passwordPrompt(){
-#     Q=$(whiptail --passwordbox "Enter mqtt password" 8 78 --title "MQTT password" 3>&1 1>&2 2>&3)
-#     exitstatus=$?
-#     if [ $exitstatus == 0 ]; then
-#         echo $Q
-#     else
-#         echo $Q
-#     fi
-# }
-
-# function askYesNoQuestion(){
-#     Q=$(whiptail --yesno "$1" 8 39 --title "$2" 3>&1 1>&2 2>&3)
-#     exitstatus=$?
-#     if [ $exitstatus == 0 ]; then
-#         return 0;
-#     else
-#         return 1;
-#     fi
-# }
-# # function configYaml() {
-
-# # }
-
-# function install() {
-#     local INSTALL_PATH=$(askQuestion "Where would you like to install package? Last part of directory will be created for you" "/home/debian/boneio" "Installation PATH")
-#     echo "User entered installation path:" $INSTALL_PATH
-#         # sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv
-#         # mkdir -p $INSTALL_PATH
-#         # python3 -m venv $INSTALL_PATH/venv
-#         # $INSTALL_PATH/venv/bin/pip3 install --upgrade boneio
-#     askYesNoQuestion "Would you like to give some basic mqtt credentials so we can configure boneio for you?" "Auto configuration"
-#     local YAML_AUTOCONFIGURE=$?
-#     echo "dupa"
-#     echo $YAML_AUTOCONFIGURE
-#     if [ $YAML_AUTOCONFIGURE == 0 ]; then
-#         echo "Configuring YAML file:" $INSTALL_PATH
-#         local MQTT_HOST=$(askQuestion "Type mqtt hostname" "localhost" "MQTT hostname")
-#         local MQTT_USERNAME=$(askQuestion "Type mqtt username" "mqtt" "MQTT username")
-#         local MQTT_PASSWORD=$(passwordPrompt)
-#         echo "ask"
-#         eval `resize`
-#         ASK=$(whiptail --title "Modules chooser" --checklist \
-#             "Choose what you want to include in your yaml" $LINES $COLUMNS $(( $LINES - 5 )) \
-#             "OLED" "Turn on OLED" ON \
-#             "Input" "Enable inputs (better to edit them anyway according to your needs later)" ON \
-#             "ADC" "Enable ADC input sensors" OFF \
-#             "Relay Board 32 x 5A" "Enable relay board 32x5A" ON \
-#             "Temperature sensor on Relay Board 32 x 5A" "Enable temperature on Relay board" ON)
-#         echo $ASK
-
-#     fi
-#     #     if (whiptail --title "Auto configuration" --yesno "Would you like to give some basic mqtt credentials so we can configure boneio for you?" 8 78); then
-#     #         echo "User selected Yes, exit status was $?."
-#     #     else
-#     #         echo "User selected No, exit status was $?."
-#     #     fi
-
-#     # else
-#     #     echo "User selected Cancel."
-#     # fi
-
-# }
-
-# initialCheck
-# # sudo true
-# install

@@ -1,9 +1,7 @@
 """MCP23017 Relay module."""
 
 import logging
-
 from adafruit_mcp230xx.mcp23017 import MCP23017
-
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)

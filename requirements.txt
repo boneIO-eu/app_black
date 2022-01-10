@@ -33,6 +33,8 @@ pyparsing==2.2.0
 PyQRCode==1.2.1
 pyserial==3.5
 pyusb==1.2.1
+pymodbus==2.5.3
+pyserial-asyncio==0.6
 PyYAML==6.0
 recordclass==0.16.3
 requests==2.26.0

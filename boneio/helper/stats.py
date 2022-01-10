@@ -145,7 +145,12 @@ class HostData:
 
     data = {UPTIME: {}, NETWORK: {}, CPU: {}, DISK: {}, MEMORY: {}, SWAP: {}}
 
-    def __init__(self, output: dict, callback: Callable, temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None]) -> None:
+    def __init__(
+        self,
+        output: dict,
+        callback: Callable,
+        temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+    ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
         self.data[UPTIME] = {HOST: self._hostname, UPTIME: 0}

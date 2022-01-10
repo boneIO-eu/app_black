@@ -9,14 +9,9 @@ from boneio.helper.exceptions import I2CError
 from boneio.helper import BasicMqtt
 
 
-from boneio.const import STATE, SENSOR, LM75
-
-from boneio.helper.exceptions import I2CError
-from boneio.helper import BasicMqtt
-
-
 class TempSensor(BasicMqtt):
     """Represent Temp sensor in BoneIO."""
+
     SensorClass = None
     DefaultName = TEMPERATURE
 
@@ -45,10 +40,13 @@ class TempSensor(BasicMqtt):
 
 class LM75Sensor(TempSensor):
     """Represent LM75 sensor in BoneIO."""
+
     SensorClass = PCT2075
     DefaultName = LM75
 
+
 class MCP9808Sensor(TempSensor):
     """Represent MCP9808 sensor in BoneIO."""
+
     SensorClass = MCP9808
     DefaultName = MCP_TEMP_9808

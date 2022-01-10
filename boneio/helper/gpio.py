@@ -16,11 +16,11 @@ from boneio.const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def configure_pin(pin: str) -> None:
+def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
     pin = f"{pin[0:3]}0{pin[3]}" if len(pin) == 4 else pin
-    _LOGGER.debug(f"Configuring pin for GPIO {pin}")
+    _LOGGER.debug(f"Configuring pin {pin} for mode {mode}.")
     subprocess.run(
-        [CONFIG_PIN, pin, GPIO_STR],
+        [CONFIG_PIN, pin, mode],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.STDOUT,
         timeout=1,

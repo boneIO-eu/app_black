@@ -49,20 +49,6 @@ class MQTTClient:
             **self.client_options,
         )
 
-    async def connect(self, *, timeout: float = 10.0) -> None:
-        """Connect to the broker.
-
-        Can raise asyncio_mqtt.MqttError.
-        """
-        await self.asyncio_client.connect(timeout=timeout)
-
-    async def disconnect(self, *, timeout: float = 10.0) -> None:
-        """Disconnect from the broker.
-
-        Can raise asyncio_mqtt.MqttError.
-        """
-        await self.asyncio_client.disconnect(timeout=timeout)
-
     async def publish(  # pylint:disable=too-many-arguments
         self,
         topic: str,

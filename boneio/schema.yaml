@@ -52,6 +52,41 @@ oled:
   type: boolean
   coerce: to_bool
 
+modbus:
+  type: dict
+  required: False
+  schema:
+    uart:
+      type: string
+      required: True
+      meta:
+        label: Uart ID to use
+
+sdm630:
+  type: list
+  required: False
+  meta:
+    label: SDM630 sensor
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        meta:
+          label: Id of SDM630
+      address:
+        type: string
+        required: True
+        default: 0x33
+        meta:
+          label: Address of SDM to use.
+      update_interval:
+        type: integer
+        required: True
+        default: 30
+        meta:
+          label: Update interval in seconds.
 lm75:
   type: dict
   required: False

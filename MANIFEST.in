@@ -2,5 +2,4 @@ include README.md
 include requirements.txt
 include LICENSE
 recursive-include boneio *.yaml
-recursive-include example_config *.yaml
 recursive-include boneio *.ttf
