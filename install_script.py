@@ -16,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def is_root():
     return True if os.geteuid() == 0 else False
-
+~
 
 def flatten(data):
     return list(itertools.chain.from_iterable(data))
@@ -123,7 +123,7 @@ def read_os_release():
 def check_os():
     if os.path.isfile("/etc/debian_version"):
         os_data = read_os_release()
-        if os_data["id"] == "debian" and int(os_data["version_id"] == 10):
+        if os_data["id"] == "debian" and int(os_data["version_id"]) == 10:
             return True
         _LOGGER.error("Wrong OS type.")
         return False
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     if not check_os() or not check_arch():
         _LOGGER.error("Wrong operating system or CPU architecture!")
         sys.exit(1)
-    if sys.version_info[:2] <= (3, 7):
+    if sys.version_info[:2] < (3, 7):
         _LOGGER.error("Wrong Python version")
         exit(1)
     run_command(cmd=["sudo", "true"])
