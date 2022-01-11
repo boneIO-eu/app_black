@@ -14,6 +14,8 @@ import re
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+maindir = sys.argv[1]
+
 
 def is_root():
     return True if os.geteuid() == 0 else False
@@ -24,8 +26,13 @@ def flatten(data):
 
 
 def run_command(cmd):
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    return res
+    try:
+        subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return True
 
 
 Response = namedtuple("Response", "returncode value")
@@ -162,34 +169,21 @@ if __name__ == "__main__":
     if not check_os() or not check_arch():
         _LOGGER.error("Wrong operating system or CPU architecture!")
         sys.exit(1)
-    if sys.version_info[:2] < (3, 7):
+    py_version = sys.version_info
+    if py_version[:2] < (3, 7):
         _LOGGER.error("Wrong Python version")
         exit(1)
-    run_command(cmd=["sudo", "true"])
     whiptail = Whiptail(
         title="BoneIO", backtitle="Installation script", height=39, width=120
     )
-    maindir = whiptail.prompt(
-        msg="Where would you like to install package? Last part of directory will be created for you",
-        default=f"{os.environ.get('HOME', '/home/debian')}/boneIO",
-    )
-    try:
-        os.mkdir(maindir)
-    except FileNotFoundError:
-        _LOGGER.error("No such path")
-        sys.exit(1)
-    except FileExistsError:
-        pass
-    _LOGGER.info("Installing packages which might be missing")
-    run_command(
-        cmd=shlex.split(
-            "sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv python3-yaml"
-        )
-    )
-    _LOGGER.info("Creating Python3 Venv in %s", maindir)
-    run_command(cmd=shlex.split(f"python3 -m venv {maindir}/venv"))
     _LOGGER.info("Installing BoneIO package")
-    run_command(cmd=shlex.split(f"{maindir}/venv/bin/pip3 install --upgrade boneio"))
+    _command = run_command(
+        cmd=shlex.split(f"{maindir}/venv/bin/pip3 install --upgrade boneio")
+    )
+    if not _command:
+        _LOGGER.error("BoneIO installed failed.")
+        sys.exit(1)
+    print("copmma", _command)
     _configure = whiptail.confirm(
         msg="Would you like to give some basic mqtt credentials so we can configure boneio for you?"
     )
@@ -249,7 +243,8 @@ if __name__ == "__main__":
         }
         output = {"mqtt": mqtt_part}
         exampled_dir = (
-            f"{maindir}/venv/lib/python3.7/site-packages/boneio/example_config/"
+            f"{maindir}/venv/lib/python{py_version.major}.{py_version.minor}"
+            "/site-packages/boneio/example_config/"
         )
         os.makedirs(maindir, exist_ok=True)
         if _oled_enabled:
@@ -297,19 +292,27 @@ if __name__ == "__main__":
         msg="Would you like to create startup script for you?"
     )
     if _configure:
-        with open("/tmp/test.service", "w+") as file:
+        with open(f"{maindir}/boneio.service", "w+") as file:
             file.write(
-                """
-            [Unit]
-            Description=boneIO
-            After=multi-user.target
+                f"""[Unit]
+Description=boneIO
+After=multi-user.target
 
-            [Service]
-            Type=simple
-            ExecStart=/home/debian/dev/venv/bin/boneio run -c /home/debian/config.yaml
+[Service]
+Type=simple
+ExecStart={maindir}/venv/bin/boneio run -c {maindir}/config.yaml
 
-            [Install]
-            WantedBy=multi-user.target"""
+[Install]
+WantedBy=multi-user.target
+"""
             )
     _configure = whiptail.confirm(msg="Start BoneIO at system startup automatically?")
+    if _configure:
+        run_command(
+            cmd=shlex.split(
+                f"sudo cp {maindir}/boneio.service /lib/systemd/system/boneio.service"
+            )
+        )
+        run_command(cmd=shlex.split("sudo systemctl daemon-reload"))
+        run_command(cmd=shlex.split("sudo systemctl enable --now boneio"))
     sys.exit(0)
