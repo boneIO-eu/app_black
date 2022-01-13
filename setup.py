@@ -44,6 +44,7 @@ setup(
         "luma.core==2.3.1",
         "luma.oled==3.8.1",
         "numpy==1.21.4",
+        "Pillow==9.0.0",
         "paho-mqtt==1.6.1",
         "psutil==5.8.0",
         "pyaml==21.10.1",
