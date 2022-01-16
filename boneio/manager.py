@@ -12,6 +12,7 @@ from boneio.const import (
     ACTION,
     ACTIONS,
     ADDRESS,
+    BONEIO,
     GPIO,
     HA_TYPE,
     HOMEASSISTANT,
@@ -66,10 +67,10 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict]], None],
-        topic_prefix: str,
-        relay_pins: List,
-        input_pins: List,
+        relay_pins: List = [],
+        input_pins: List = [],
         sensors: dict = {},
+        topic_prefix: str = BONEIO,
         modbus: dict = None,
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
@@ -257,10 +258,10 @@ class Manager:
                 self._grouped_outputs[GPIO][relay_id] = gpio_relay
                 return gpio_relay
 
-        self.output = {
+        self._output = {
             gpio[ID].replace(" ", ""): configure_relay(gpio) for gpio in relay_pins
         }
-        for out in self.output.values():
+        for out in self._output.values():
             self.send_ha_autodiscovery(
                 id=out.id,
                 name=out.name,
@@ -359,7 +360,7 @@ class Manager:
         if action:
             if action[ACTION] == OUTPUT:
                 """For now only output type is supported"""
-                relay = self.output.get(action[PIN].replace(" ", ""))
+                relay = self._output.get(action[PIN].replace(" ", ""))
                 if relay:
                     relay.toggle()
         # This is similar how Z2M is clearing click sensor.
@@ -390,9 +391,14 @@ class Manager:
         extracted_relay = topic.replace(f"{self._topic_prefix}/{RELAY}/", "").replace(
             "/set", ""
         )
-        target_device = self.output.get(extracted_relay)
+        target_device = self._output.get(extracted_relay)
         if target_device:
             if message == ON:
                 target_device.turn_on()
             elif message == OFF:
                 target_device.turn_off()
+
+    @property
+    def output(self) -> dict:
+        """Get list of output."""
+        return self._output

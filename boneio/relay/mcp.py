@@ -26,6 +26,11 @@ class MCPRelay(BasicRelay):
         return True
 
     @property
+    def pin_id(self) -> str:
+        """Return PIN id."""
+        return self._pin_id
+
+    @property
     def mcp_id(self) -> str:
         """Retrieve parent MCP ID."""
         return self._mcp_id

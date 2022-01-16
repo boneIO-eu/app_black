@@ -3,6 +3,8 @@ from datetime import timedelta
 from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
 from typing_extensions import Literal
 
+BONEIO = "boneIO"
+
 
 # MISCELLANEOUS CONSTS
 RELAY = "relay"

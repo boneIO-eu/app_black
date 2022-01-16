@@ -11,7 +11,13 @@ from boneio.helper.gpio import (
 from boneio.helper.oled import make_font
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.stats import HostData, host_stats
-from boneio.helper.yaml import CustomValidator, load_yaml_file
+from boneio.helper.yaml import (
+    CustomValidator,
+    load_yaml_file,
+    schema_file,
+    load_config_from_string,
+    load_config_from_file,
+)
 from boneio.helper.ha_discovery import (
     ha_relay_availabilty_message,
     ha_sensor_temp_availabilty_message,
@@ -47,4 +53,7 @@ __all__ = [
     "configure_pin",
     "BasicMqtt",
     "UniqueQueue",
+    "schema_file",
+    "load_config_from_string",
+    "load_config_from_file",
 ]
