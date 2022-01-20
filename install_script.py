@@ -306,13 +306,15 @@ ExecStart={maindir}/venv/bin/boneio run -c {maindir}/config.yaml
 WantedBy=multi-user.target
 """
             )
-    _configure = whiptail.confirm(msg="Start BoneIO at system startup automatically?")
-    if _configure:
-        run_command(
-            cmd=shlex.split(
-                f"sudo cp {maindir}/boneio.service /lib/systemd/system/boneio.service"
-            )
+        _configure = whiptail.confirm(
+            msg="Start BoneIO at system startup automatically?"
         )
-        run_command(cmd=shlex.split("sudo systemctl daemon-reload"))
-        run_command(cmd=shlex.split("sudo systemctl enable --now boneio"))
+        if _configure:
+            run_command(
+                cmd=shlex.split(
+                    f"sudo cp {maindir}/boneio.service /lib/systemd/system/boneio.service"
+                )
+            )
+            run_command(cmd=shlex.split("sudo systemctl daemon-reload"))
+            run_command(cmd=shlex.split("sudo systemctl enable --now boneio"))
     sys.exit(0)
