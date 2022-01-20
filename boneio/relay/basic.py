@@ -14,11 +14,11 @@ class BasicRelay(BasicMqtt):
     """Basic relay class."""
 
     def __init__(
-        self, callback: Callable, id: str = None, ha_type=SWITCH, **kwargs
+        self, callback: Callable, id: str = None, output_type=SWITCH, **kwargs
     ) -> None:
         """Initialize Basic relay."""
         super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
-        self._ha_type = ha_type
+        self._output_type = output_type
         self._state = False
         self._callback = callback
         self._loop = asyncio.get_running_loop()
@@ -27,6 +27,11 @@ class BasicRelay(BasicMqtt):
     def is_mcp_type(self) -> bool:
         """Check if relay is mcp type."""
         return False
+
+    @property
+    def output_type(self) -> str:
+        """HA type."""
+        return self._output_type
 
     @property
     def id(self) -> bool:

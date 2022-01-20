@@ -174,13 +174,13 @@ output:
         required: True
         meta:
           label: PIN to use.
-      ha_type:
+      output_type:
         type: string
         required: True
-        allowed: ['switch', 'light']
+        allowed: ['switch', 'light', 'none']
         default: 'switch'
         meta:
-          label: If HA discovery is used device if relay is light or switch.
+          label: If HA discovery is used device if relay is light or switch. If None is declared then any state is not published to MQTT (used for cover).
 
 
 input:

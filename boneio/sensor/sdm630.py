@@ -135,7 +135,7 @@ class Sdm630(BasicMqtt):
         _LOGGER.debug("Sending HA discovery for sensor %s %s.", sdm_name, sensor_id)
         self._send_message(
             topic=(
-                f"{self._ha_discovery_prefix}/{SENSOR}/{self._topic_prefix}"
+                f"{self._ha_discovery_prefix}/{SENSOR}/{self._topic_prefix}{id}"
                 f"/{id}{sensor_id.replace('_', '').lower()}/config"
             ),
             payload=sdm630_availabilty_message(

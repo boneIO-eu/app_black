@@ -26,7 +26,7 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
-from boneio.helper import load_config
+from boneio.helper import load_config_from_file
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.version import __version__
@@ -124,7 +124,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
     else:
         logging.getLogger(PAHO).setLevel(logging.WARN)
-    _config = load_config(config)
+    _config = load_config_from_file(config_file=config)
     if not _config:
         return
     _LOGGER.info("Connecting to MQTT.")

@@ -15,6 +15,7 @@ from boneio.const import (
     BONEIO,
     GPIO,
     HA_TYPE,
+    OUTPUT_TYPE,
     HOMEASSISTANT,
     ID,
     INIT_SLEEP,
@@ -240,7 +241,7 @@ class Manager:
                     topic_prefix=topic_prefix,
                     mcp=mcp,
                     mcp_id=mcp_id,
-                    ha_type=gpio[HA_TYPE],
+                    output_type=gpio[OUTPUT_TYPE],
                     callback=lambda: self._host_data_callback(mcp_id),
                 )
                 self._grouped_outputs[mcp_id][relay_id] = mcp_relay
@@ -262,13 +263,14 @@ class Manager:
             gpio[ID].replace(" ", ""): configure_relay(gpio) for gpio in relay_pins
         }
         for out in self._output.values():
-            self.send_ha_autodiscovery(
-                id=out.id,
-                name=out.name,
-                ha_type=out.ha_type,
-                ha_discovery_prefix=ha_discovery_prefix,
-                availabilty_msg_func=ha_relay_availabilty_message,
-            )
+            if out.output_type != "none":
+                self.send_ha_autodiscovery(
+                    id=out.id,
+                    name=out.name,
+                    ha_type=out.output_type,
+                    ha_discovery_prefix=ha_discovery_prefix,
+                    availabilty_msg_func=ha_relay_availabilty_message,
+                )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
                 0.5,
@@ -371,8 +373,8 @@ class Manager:
         id: str,
         name: str,
         ha_discovery_prefix: str,
+        ha_type: str,
         availabilty_msg_func: Callable,
-        ha_type: str = "switch",
         topic_prefix: str = None,
         **kwargs,
     ) -> None:

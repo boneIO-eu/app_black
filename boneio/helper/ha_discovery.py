@@ -4,16 +4,16 @@ from boneio.version import __version__
 from boneio.const import INPUT, OFF, ON, RELAY, STATE, SENSOR, INPUT_SENSOR
 
 
-def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "command_topic": f"{topic}/relay/{id}/set",
         "device": {
             "identifiers": [topic],
-            "manufacturer": "BoneIO",
-            "model": "BoneIO Relay Board",
-            "name": f"BoneIO {topic}",
+            "manufacturer": "boneIO",
+            "model": "boneIO Relay Board",
+            "name": f"boneIO {topic}",
             "sw_version": __version__,
         },
         "name": name,
@@ -26,16 +26,16 @@ def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneio"):
 
 
 def ha_availabilty_message(
-    id: str, name: str, topic: str = "boneio", sensor_type: str = INPUT
+    id: str, name: str, topic: str = "boneIO", sensor_type: str = INPUT
 ):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "device": {
             "identifiers": [topic],
-            "manufacturer": "BoneIO",
-            "model": "BoneIO Relay Board",
-            "name": f"BoneIO {topic}",
+            "manufacturer": "boneIO",
+            "model": "boneIO Relay Board",
+            "name": f"boneIO {topic}",
             "sw_version": __version__,
         },
         "icon": "mdi:gesture-double-tap",
@@ -63,15 +63,15 @@ def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
         return msg
 
 
-def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "device": {
             "identifiers": [topic],
-            "manufacturer": "BoneIO",
-            "model": "BoneIO Relay Board",
-            "name": f"BoneIO {topic}",
+            "manufacturer": "boneIO",
+            "model": "boneIO Relay Board",
+            "name": f"boneIO {topic}",
             "sw_version": __version__,
         },
         "payload_on": "pressed",
@@ -82,15 +82,15 @@ def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "bonei
     }
 
 
-def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneio"):
+def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "device": {
             "identifiers": [topic],
-            "manufacturer": "BoneIO",
-            "model": "BoneIO Relay Board",
-            "name": f"BoneIO {topic}",
+            "manufacturer": "boneIO",
+            "model": "boneIO Relay Board",
+            "name": f"boneIO {topic}",
             "sw_version": __version__,
         },
         "name": name,
@@ -115,10 +115,10 @@ def sdm630_availabilty_message(
     return {
         "availability": [{"topic": f"{topic}/{id}{STATE}"}],
         "device": {
-            "identifiers": [topic, id],
-            "manufacturer": "BoneIO",
+            "identifiers": [id],
+            "manufacturer": "boneIO",
             "model": "SDM630",
-            "name": f"BoneIO {name.upper()}",
+            "name": f"boneIO {name.upper()}",
             "sw_version": __version__,
         },
         "name": sensor_id,

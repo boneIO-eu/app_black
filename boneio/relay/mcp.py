@@ -45,11 +45,6 @@ class MCPRelay(BasicRelay):
         """PIN of the relay"""
         return self._pin
 
-    @property
-    def ha_type(self) -> str:
-        """HA type."""
-        return self._ha_type
-
     def turn_on(self) -> None:
         """Call turn on action."""
         self.pin.value = True
