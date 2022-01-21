@@ -32,7 +32,7 @@ screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
 STANDARD_ROWS = [17, 32, 47]
 UPTIME_ROWS = list(range(22, 60, 10))
 OUTPUT_ROWS = list(range(14, 60, 6))
-OUTPUT_COLS = range(0, 101, 50)
+OUTPUT_COLS = range(0, 113, 56)
 
 
 class Oled:
