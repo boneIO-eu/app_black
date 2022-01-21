@@ -10,6 +10,7 @@ import subprocess
 from boneio.const import (
     CONFIG_PIN,
     GPIO as GPIO_STR,
+    GPIO_MODE,
     ClickTypes,
 )
 
@@ -27,13 +28,13 @@ def configure_pin(pin: str, mode: str = GPIO_STR) -> None:
     )
 
 
-def setup_output(pin: str):
+def setup_output(pin: str) -> None:
     """Set up a GPIO as output."""
 
     GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_DOWN)
 
 
-def setup_input(pin: str, pull_mode: str = "UP"):
+def setup_input(pin: str, pull_mode: str = "UP") -> None:
     """Set up a GPIO as input."""
     try:
         GPIO.setup(pin, GPIO.IN, GPIO.PUD_DOWN if pull_mode == "DOWN" else GPIO.PUD_UP)
@@ -41,20 +42,20 @@ def setup_input(pin: str, pull_mode: str = "UP"):
         raise GPIOInputException(err)
 
 
-def write_output(pin: str, value: str):
+def write_output(pin: str, value: str) -> None:
     """Write a value to a GPIO."""
 
     GPIO.output(pin, value)
 
 
-def read_input(pin: str, on_state: Gpio_States = LOW):
+def read_input(pin: str, on_state: Gpio_States = LOW) -> None:
     """Read a value from a GPIO."""
     return GPIO.input(pin) is on_state
 
 
 def edge_detect(
     pin: str, callback: Callable, bounce: int = 0, edge: Gpio_Edges = FALLING
-):
+) -> None:
     """Add detection for RISING and FALLING events."""
     try:
         GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
@@ -70,10 +71,11 @@ class GpioBaseClass:
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin
-        configure_pin(pin)
+        gpio = kwargs.get("rest_pin", {GPIO_MODE: GPIO_STR})
+        configure_pin(pin=pin, mode=gpio.get(GPIO_MODE, GPIO_STR))
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
-        setup_input(self._pin)
+        setup_input(pin=self._pin)
 
     @property
     def is_pressed(self):

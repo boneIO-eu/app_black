@@ -200,6 +200,13 @@ input:
         required: True
         meta:
           label: PIN to use.
+      gpio_mode:
+        type: string
+        required: True
+        default: "gpio"
+        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
+        meta:
+          label: What mode to use in config PIN.
       show_in_ha:
         type: boolean
         required: True
