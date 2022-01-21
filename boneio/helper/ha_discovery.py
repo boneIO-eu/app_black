@@ -107,6 +107,7 @@ def sdm630_availabilty_message(
     id: str,
     sensor_id: str,
     name: str,
+    state_topic_base: str,
     topic: str = "sdm630",
     sensor_type: str = SENSOR,
     **kwargs,
@@ -122,7 +123,7 @@ def sdm630_availabilty_message(
             "sw_version": __version__,
         },
         "name": sensor_id,
-        "state_topic": f"{topic}/{sensor_type}/{id}/{sensor_id}",
+        "state_topic": f"{topic}/{sensor_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
         **kwargs,
     }

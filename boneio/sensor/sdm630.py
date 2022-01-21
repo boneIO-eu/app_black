@@ -155,13 +155,16 @@ class Sdm630(BasicMqtt):
                     kwargs = {
                         "unit_of_measurement": getattr(register, "unit_of_measurement"),
                         "state_class": getattr(register, "state_class"),
-                        "value_template": "{{ value | round(2)}}",
+                        "value_template": f'{{{{ value_json.{getattr(register, "sensor_id")} | round(2) }}}}',
                         "sensor_id": getattr(register, "sensor_id"),
                     }
                     if getattr(register, "device_class"):
                         kwargs["device_class"] = getattr(register, "device_class")
                     self._send_ha_autodiscovery(
-                        id=self._id, sdm_name=self._name, **kwargs
+                        id=self._id,
+                        sdm_name=self._name,
+                        state_topic_base=data[BASE],
+                        **kwargs,
                     )
             return True
         return False
@@ -183,11 +186,13 @@ class Sdm630(BasicMqtt):
                         topic=f"{self._topic_prefix}/{self._id}{STATE}",
                         payload=payload_online,
                     )
+                output = {}
                 for register in data["registers"]:
-                    self._send_message(
-                        topic=f'{self._send_topic}/{getattr(register, "sensor_id")}',
-                        payload=float32(
-                            values, data[BASE], getattr(register, "address")
-                        ),
+                    output[getattr(register, "sensor_id")] = float32(
+                        values, data[BASE], getattr(register, "address")
                     )
+                self._send_message(
+                    topic=f"{self._send_topic}/{data[BASE]}",
+                    payload=output,
+                )
             await asyncio.sleep(self._update_interval)
