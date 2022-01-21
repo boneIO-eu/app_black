@@ -324,7 +324,7 @@ class Manager:
         for gpio in self._input_pins:
             pin = gpio[PIN]
             if pin in input_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting.", pin)
+                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
                 continue
             input_pins.add(configure_input(gpio=gpio, pin=pin))
 
