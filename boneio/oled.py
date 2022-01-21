@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from itertools import cycle
 from typing import List
@@ -37,12 +38,19 @@ OUTPUT_COLS = range(0, 101, 50)
 class Oled:
     """Oled display class."""
 
-    def __init__(self, host_data: HostData, output_groups: List[str]) -> None:
+    def __init__(
+        self, host_data: HostData, output_groups: List[str], sleep_timeout: int
+    ) -> None:
         """Initialize OLED screen."""
+        self._loop = asyncio.get_running_loop()
         self._screen_order = cycle(screen_order + output_groups)
         self._output_groups = output_groups
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
+        if sleep_timeout:
+            self._sleep = False
+            self._sleep_handle = None
+            self._sleep_timeout = sleep_timeout
         configure_pin(OLED_PIN)
         setup_input(OLED_PIN)
         edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=80)
@@ -65,6 +73,11 @@ class Oled:
                 fill=WHITE,
             )
             i += 1
+
+    def _sleeptime(self):
+        with canvas(self._device) as draw:
+            draw.rectangle(self._device.bounding_box, outline="black", fill="black")
+        self._sleep = True
 
     def _draw_uptime(self, data: dict, draw: ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
@@ -106,13 +119,25 @@ class Oled:
                     self._draw_uptime(data, draw)
                 else:
                     self._draw_standard(data, draw)
+        if not self._sleep_handle and self._sleep_timeout > 0:
+            self._sleep_handle = self._loop.call_soon_threadsafe(
+                self._loop.call_later,
+                self._sleep_timeout,
+                self._sleeptime,
+            )
 
     def handle_data_update(self, type: str):
         """Callback to handle new data present into screen."""
-        if type == self._current_screen:
+        if type == self._current_screen and not self._sleep:
             self.render_display()
 
     def _handle_press(self, pin: any) -> None:
         """Handle press of PIN for OLED display."""
-        self._current_screen = next(self._screen_order)
+        if self._sleep_handle:
+            self._sleep_handle.cancel()
+            self._sleep_handle = None
+        if not self._sleep:
+            self._current_screen = next(self._screen_order)
+        else:
+            self._sleep = False
         self.render_display()

@@ -76,7 +76,7 @@ class Manager:
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
         mcp23017: Optional[List] = None,
-        oled: bool = False,
+        oled: dict = {},
         adc_list: Optional[List] = None,
     ) -> None:
         """Initialize the manager."""
@@ -328,7 +328,7 @@ class Manager:
                 continue
             input_pins.add(configure_input(gpio=gpio, pin=pin))
 
-        if oled:
+        if oled.get("enabled", False):
             from boneio.oled import Oled
 
             self._host_data = HostData(
@@ -341,7 +341,9 @@ class Manager:
             _LOGGER.debug("Gathering host data enabled.")
             try:
                 self._oled = Oled(
-                    host_data=self._host_data, output_groups=list(self._grouped_outputs)
+                    host_data=self._host_data,
+                    output_groups=list(self._grouped_outputs),
+                    sleep_timeout=oled.get("screensaver_timeout", 60),
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)

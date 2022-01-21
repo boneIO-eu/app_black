@@ -49,8 +49,20 @@ mqtt:
             label: Prefix topic of HA discovery.
 
 oled:
-  type: boolean
-  coerce: to_bool
+  type: dict
+  default: {}
+  required: True
+  schema:
+    enabled:
+      type: boolean
+      default: True
+      meta:
+        label: Disable builtin screen.
+    screensaver_timeout:
+      type: integer
+      default: 60
+      meta:
+        label: How many seconds to wait to enable screensaver. 0 means disable screensaver.
 
 modbus:
   type: dict
