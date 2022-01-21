@@ -22,14 +22,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 fontBig = make_font("DejaVuSans.ttf", 12)
-fontSmall = make_font("DejaVuSans.ttf", 10)
+fontSmall = make_font("DejaVuSans.ttf", 9)
 fontExtraSmall = make_font("DejaVuSans.ttf", 7)
 danube = make_font("danube__.ttf", 15, local=True)
 
 screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
 
 STANDARD_ROWS = [17, 32, 47]
-UPTIME_ROWS = list(range(25, 50, 10))
+UPTIME_ROWS = list(range(22, 60, 10))
 OUTPUT_ROWS = list(range(14, 60, 6))
 OUTPUT_COLS = range(0, 101, 50)
 
@@ -68,8 +68,8 @@ class Oled:
 
     def _draw_uptime(self, data: dict, draw: ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
-        draw.text((3, 5), "bone", font=danube, fill=WHITE)
-        draw.text((53, 5), "iO", font=danube, fill=WHITE)
+        draw.text((3, 3), "bone", font=danube, fill=WHITE)
+        draw.text((53, 3), "iO", font=danube, fill=WHITE)
         i = 0
         for k in data:
             draw.text(

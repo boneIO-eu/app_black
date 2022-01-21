@@ -277,9 +277,8 @@ class Manager:
                 out.send_state,
             )
 
-        def configure_input(gpio):
+        def configure_input(gpio: dict, pin: str) -> str:
             try:
-                pin = gpio[PIN]
                 input_type = gpio.get(KIND)
                 if input_type == SENSOR:
                     GpioInputSensor(
@@ -315,13 +314,19 @@ class Manager:
                         ha_discovery_prefix=ha_discovery_prefix,
                         availabilty_msg_func=availabilty_msg_func,
                     )
+                return pin
             except GPIOInputException as err:
                 _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
                 pass
 
         _LOGGER.info("Initializing inputs. This will take a while.")
+        input_pins = set()
         for gpio in self._input_pins:
-            configure_input(gpio=gpio)
+            pin = gpio[PIN]
+            if pin in input_pins:
+                _LOGGER.warn("This PIN %s is already configured. Omitting.", pin)
+                continue
+            input_pins.add(configure_input(gpio=gpio, pin=pin))
 
         if oled:
             from boneio.oled import Oled

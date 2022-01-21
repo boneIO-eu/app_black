@@ -23,6 +23,7 @@ from boneio.const import (
     NONE,
 )
 from boneio.sensor import LM75Sensor, MCP9808Sensor
+from boneio.version import __version__
 
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
@@ -153,7 +154,7 @@ class HostData:
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
-        self.data[UPTIME] = {HOST: self._hostname, UPTIME: 0}
+        self.data[UPTIME] = {HOST: self._hostname, UPTIME: 0, "version": __version__}
         self._temp_sensor = temp_sensor
         self._output = output
         self._callback = callback
