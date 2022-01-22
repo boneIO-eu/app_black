@@ -14,7 +14,6 @@ from boneio.const import (
     ADDRESS,
     BONEIO,
     GPIO,
-    HA_TYPE,
     OUTPUT_TYPE,
     HOMEASSISTANT,
     ID,
@@ -25,6 +24,7 @@ from boneio.const import (
     MCP,
     MCP_ID,
     MCP_TEMP_9808,
+    NONE,
     OFF,
     ON,
     ONLINE,
@@ -241,7 +241,7 @@ class Manager:
                     topic_prefix=topic_prefix,
                     mcp=mcp,
                     mcp_id=mcp_id,
-                    output_type=gpio[OUTPUT_TYPE],
+                    output_type=gpio[OUTPUT_TYPE].lower(),
                     callback=lambda: self._host_data_callback(mcp_id),
                 )
                 self._grouped_outputs[mcp_id][relay_id] = mcp_relay
@@ -263,7 +263,7 @@ class Manager:
             gpio[ID].replace(" ", ""): configure_relay(gpio) for gpio in relay_pins
         }
         for out in self._output.values():
-            if out.output_type != "none":
+            if out.output_type != NONE:
                 self.send_ha_autodiscovery(
                     id=out.id,
                     name=out.name,

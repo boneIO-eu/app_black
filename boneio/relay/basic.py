@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Callable
 
-from boneio.const import OFF, ON, RELAY, STATE, SWITCH
+from boneio.const import OFF, ON, RELAY, STATE, SWITCH, NONE
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,10 +53,11 @@ class BasicRelay(BasicMqtt):
         """Send state to Mqtt on action."""
         state = ON if self.is_active else OFF
         self._state = state
-        self._send_message(
-            topic=self._send_topic,
-            payload={STATE: state},
-        )
+        if self.output_type != NONE:
+            self._send_message(
+                topic=self._send_topic,
+                payload={STATE: state},
+            )
         self._loop.call_soon_threadsafe(self._callback)
 
     def toggle(self) -> None:
