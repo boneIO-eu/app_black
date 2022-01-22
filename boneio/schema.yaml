@@ -55,7 +55,7 @@ oled:
   schema:
     enabled:
       type: boolean
-      default: True
+      default: False
       meta:
         label: Disable builtin screen.
     screensaver_timeout:

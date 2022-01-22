@@ -248,12 +248,13 @@ if __name__ == "__main__":
         )
         os.makedirs(maindir, exist_ok=True)
         if _oled_enabled:
-            output["oled"] = None
+            output["oled"] = {"enabled": True}
         if "RB24" in _enabled_outputs:
             copyfile(f"{exampled_dir}output24x16A.yaml", f"{maindir}/output24x16A.yaml")
-            output["mcp23017"] = (
-                [{"id": "mcp1", "address": "0x20"}, {"id": "mcp2", "address": "0x21"}],
-            )
+            output["mcp23017"] = [
+                {"id": "mcp1", "address": "0x20"},
+                {"id": "mcp2", "address": "0x21"},
+            ]
             output["output"] = "!include output24x16A.yaml"
         elif "RB32" in _enabled_outputs:
             copyfile(f"{exampled_dir}output32x5A.yaml", f"{maindir}/output32x5A.yaml")
