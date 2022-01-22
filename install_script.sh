@@ -21,4 +21,5 @@ echo Creating Python3 Venv
 python3 -m venv $INSTALL_PATH/venv
 echo Installing PyYaml
 $INSTALL_PATH/venv/bin/pip3 install --upgrade pyyaml
+echo Fetching script to install boneIO.
 $INSTALL_PATH/venv/bin/python3 <(wget https://github.com/boneIO-eu/app_bbb/raw/main/install_script.py -q -O-) $INSTALL_PATH

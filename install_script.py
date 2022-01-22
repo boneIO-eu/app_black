@@ -27,9 +27,16 @@ def flatten(data):
 
 def run_command(cmd):
     try:
-        subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
-        )
+        _LOGGER.info("Running command %s", cmd)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        for line in p.stdout:
+            print(line.decode().strip())
+        out, err = p.communicate()
+        # subprocess.run(
+        #     cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True
+        # )
+        if p.returncode in (1, 255):
+            return False
     except subprocess.CalledProcessError:
         return False
     return True
