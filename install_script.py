@@ -181,7 +181,7 @@ if __name__ == "__main__":
         _LOGGER.error("Wrong Python version")
         exit(1)
     whiptail = Whiptail(
-        title="BoneIO", backtitle="Installation script", height=39, width=120
+        title="BoneIO", backtitle="Installation script", height=20, width=80
     )
     _LOGGER.info("Installing BoneIO package")
     _command = run_command(
@@ -190,7 +190,6 @@ if __name__ == "__main__":
     if not _command:
         _LOGGER.error("BoneIO installed failed.")
         sys.exit(1)
-    print("copmma", _command)
     _configure = whiptail.confirm(
         msg="Would you like to give some basic mqtt credentials so we can configure boneio for you?"
     )
@@ -207,8 +206,8 @@ if __name__ == "__main__":
             "Inputs",
             items=[
                 (
-                    "Input",
-                    "Enable inputs (better to edit them anyway according to your needs later)",
+                    "Input board",
+                    "(edit them later according to your needs!)",
                     ON,
                 ),
             ],
@@ -218,27 +217,27 @@ if __name__ == "__main__":
             items=[
                 (
                     "LM75_RB24",
-                    "Enable LM75 temperature sensor on Relay board 24x16A",
+                    "LM75 temp sensor on Relay board 24x16A",
                     OFF,
                 ),
                 (
                     "LM75_RB32",
-                    "Enable LM75 temperature sensor on Relay board 32x5A",
+                    "LM75 temp sensor on Relay board 32x5A",
                     OFF,
                 ),
                 (
                     "MCP9808_RB32",
-                    "Enable MCP9808 temperature sensor on Relay board 32x5A",
+                    "MCP9808 temp sensor on Relay board 32x5A",
                     OFF,
                 ),
-                ("ADC", "Enable ADC input sensors", OFF),
+                ("ADC", "ADC input sensors", OFF),
             ],
         )
         _enabled_outputs = whiptail.radiolist(
             "Outputs, choose which output you want to enable.",
             items=[
-                ("RB32", "Enable relay board 32x5A", OFF),
-                ("RB24", "Enable relay board 24x16A", OFF),
+                ("RB32", "Relay board 32x5A", OFF),
+                ("RB24", "Relay board 24x16A", OFF),
             ],
         )
         mqtt_part = {
