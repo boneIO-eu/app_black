@@ -265,11 +265,11 @@ if __name__ == "__main__":
         elif "RB32" in _enabled_outputs:
             copyfile(f"{exampled_dir}output32x5A.yaml", f"{maindir}/output32x5A.yaml")
             if "mcp23017" in output:
-                output["mcp23017"].append({"id": "mcp1", "address": "0x32"})
-                output["mcp23017"].append({"id": "mcp1", "address": "0x33"})
+                output["mcp23017"].append({"id": "mcp1", "address": "0x22"})
+                output["mcp23017"].append({"id": "mcp1", "address": "0x23"})
             output["mcp23017"] = [
-                {"id": "mcp1", "address": "0x32"},
-                {"id": "mcp2", "address": "0x33"},
+                {"id": "mcp1", "address": "0x22"},
+                {"id": "mcp2", "address": "0x23"},
             ]
             output["output"] = "!include output32x5A.yaml"
         if "LM75_RB32" in _enabled_sensors:
