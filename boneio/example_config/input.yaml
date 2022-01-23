@@ -194,7 +194,7 @@
   kind: sensor
 
 - id: IN_50
-  pin: P8_12
+  pin: P8_9
   kind: sensor
 - id: IN_51
   pin: P8_8

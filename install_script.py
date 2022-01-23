@@ -325,6 +325,6 @@ WantedBy=multi-user.target
             run_command(cmd=shlex.split("sudo systemctl daemon-reload"))
             run_command(cmd=shlex.split("sudo systemctl enable --now boneio"))
     whiptail.alert(
-        f"Your config is in {maindir}config.yaml. \nChange it according to your needs.\nRead more at https://docs.boneio.eu"
+        f"Your config is in {maindir}/config.yaml. \nChange it according to your needs.\nRead more at https://docs.boneio.eu"
     )
     sys.exit(0)
