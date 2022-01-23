@@ -181,7 +181,7 @@ if __name__ == "__main__":
         _LOGGER.error("Wrong Python version")
         exit(1)
     whiptail = Whiptail(
-        title="BoneIO", backtitle="Installation script", height=20, width=80
+        title="boneIO", backtitle="Installation script", height=20, width=80
     )
     _LOGGER.info("Installing BoneIO package")
     _command = run_command(
@@ -212,6 +212,13 @@ if __name__ == "__main__":
                 ),
             ],
         )
+        _enabled_outputs = whiptail.radiolist(
+            "Outputs, choose which output you want to enable.",
+            items=[
+                ("RB32", "Relay board 32x5A", OFF),
+                ("RB24", "Relay board 24x16A", OFF),
+            ],
+        )
         _enabled_sensors = whiptail.checklist(
             "Sensors, choose which sensors you have onboard.",
             items=[
@@ -231,13 +238,6 @@ if __name__ == "__main__":
                     OFF,
                 ),
                 ("ADC", "ADC input sensors", OFF),
-            ],
-        )
-        _enabled_outputs = whiptail.radiolist(
-            "Outputs, choose which output you want to enable.",
-            items=[
-                ("RB32", "Relay board 32x5A", OFF),
-                ("RB24", "Relay board 24x16A", OFF),
             ],
         )
         mqtt_part = {
@@ -274,7 +274,7 @@ if __name__ == "__main__":
             output["output"] = "!include output32x5A.yaml"
         if "LM75_RB32" in _enabled_sensors:
             output["lm75"] = {"id": "temp", "address": "0x72"}
-        if "Input" in _enabled_inputs:
+        if "Input board" in _enabled_inputs:
             copyfile(f"{exampled_dir}input.yaml", f"{maindir}/input.yaml")
             output["input"] = "!include input.yaml"
         if "ADC" in _enabled_sensors:
@@ -324,4 +324,7 @@ WantedBy=multi-user.target
             )
             run_command(cmd=shlex.split("sudo systemctl daemon-reload"))
             run_command(cmd=shlex.split("sudo systemctl enable --now boneio"))
+    whiptail.alert(
+        f"Your config is in {maindir}config.yaml. \nChange it according to your needs.\nRead more at https://docs.boneio.eu"
+    )
     sys.exit(0)
