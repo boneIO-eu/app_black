@@ -33,6 +33,7 @@ MODBUS = "modbus"
 UART = "uart"
 RX = "rx"
 TX = "tx"
+RESTORE_STATE = "restore_state"
 
 UARTS = {
     "uart1": {ID: "/dev/ttyS1", TX: "P9.24", RX: "P9.26"},
