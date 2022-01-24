@@ -1,6 +1,5 @@
 """State files manager."""
 import json
-import logging
 import asyncio
 from typing import Any
 

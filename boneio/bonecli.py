@@ -26,7 +26,7 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
-from boneio.helper import load_config_from_file, StateManager, state_manager
+from boneio.helper import load_config_from_file, StateManager
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.version import __version__
