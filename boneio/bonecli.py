@@ -26,7 +26,7 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
-from boneio.helper import load_config_from_file
+from boneio.helper import load_config_from_file, StateManager, state_manager
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
 from boneio.version import __version__
@@ -124,6 +124,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
     else:
         logging.getLogger(PAHO).setLevel(logging.WARN)
+    split_path = os.path.split(config)
     _config = load_config_from_file(config_file=config)
     if not _config:
         return
@@ -139,6 +140,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         topic_prefix=_config[MQTT][TOPIC_PREFIX],
         relay_pins=_config.get(OUTPUT, []),
         input_pins=_config.get(INPUT, []),
+        state_manager=StateManager(state_file=f"{split_path[0]}state.json"),
         ha_discovery=_config[MQTT][HA_DISCOVERY][ENABLED],
         ha_discovery_prefix=_config[MQTT][HA_DISCOVERY][TOPIC_PREFIX],
         sensors={

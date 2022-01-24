@@ -186,6 +186,12 @@ output:
         required: True
         meta:
           label: PIN to use.
+      restore_state:
+        type: boolean
+        required: True
+        default: False
+        meta:
+          label: Restore saved state of boneio. Not used for 'none' output_type!
       output_type:
         type: string
         required: True

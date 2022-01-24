@@ -60,5 +60,12 @@ class CustomValidator(Validator):
         if len(all_ids) != len(set(all_ids)):
             self._error(field, "Output IDs are not unique.")
 
+    def _check_with_output_restore_state(self, field, value):
+        """Check if outputs ids are unique."""
+        print("aaa")
+        all_ids = [x[ID] for x in self.document[OUTPUT]]
+        if len(all_ids) != len(set(all_ids)):
+            self._error(field, "Output IDs are not unique.")
+
     def _normalize_coerce_to_bool(self, value):
         return True

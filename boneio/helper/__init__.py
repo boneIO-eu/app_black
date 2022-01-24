@@ -18,6 +18,7 @@ from boneio.helper.yaml import (
     load_config_from_string,
     load_config_from_file,
 )
+from boneio.helper.state_manager import StateManager
 from boneio.helper.ha_discovery import (
     ha_relay_availabilty_message,
     ha_sensor_temp_availabilty_message,
@@ -50,6 +51,7 @@ __all__ = [
     "GPIOInputException",
     "I2CError",
     "GpioBaseClass",
+    "StateManager",
     "configure_pin",
     "BasicMqtt",
     "UniqueQueue",

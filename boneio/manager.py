@@ -42,6 +42,7 @@ from boneio.const import (
     UART,
     UPDATE_INTERVAL,
     UARTS,
+    RESTORE_STATE,
 )
 from boneio.helper import (
     HostData,
@@ -53,6 +54,7 @@ from boneio.helper import (
     host_stats,
     GPIOInputException,
     I2CError,
+    StateManager,
 )
 from boneio.input import GpioInputButton
 
@@ -68,6 +70,7 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict]], None],
+        state_manager: StateManager,
         relay_pins: List = [],
         input_pins: List = [],
         sensors: dict = {},
@@ -84,6 +87,7 @@ class Manager:
         self._loop = asyncio.get_event_loop()
         self._host_data = None
         self._ha_discovery = ha_discovery
+        self._state_manager = state_manager
 
         self.send_message = send_message
         self._topic_prefix = topic_prefix
@@ -91,6 +95,7 @@ class Manager:
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
+        self._output = {}
         self._grouped_outputs = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
@@ -225,28 +230,38 @@ class Manager:
         if adc_list:
             create_adc()
 
-        def configure_relay(gpio: dict) -> Any:
+        def configure_relay(relay_id: str, config: dict) -> Any:
             """Configure kind of relay. Most common MCP."""
-            relay_id = gpio[ID].replace(" ", "")
-            if gpio[KIND] == MCP:
-                mcp_id = gpio.get(MCP_ID, "")
+            relay_id = config[ID].replace(" ", "")
+            restored_state = (
+                self._state_manager.get(attr_type=RELAY, attr=relay_id)
+                if config[RESTORE_STATE]
+                else False
+            )
+            if config[KIND] == MCP:
+                mcp_id = config.get(MCP_ID, "")
                 mcp = self._mcp.get(mcp_id)
                 if not mcp:
                     _LOGGER.error("No such MCP configured!")
                     return
                 mcp_relay = MCPRelay(
-                    pin=int(gpio[PIN]),
-                    id=gpio[ID],
+                    pin=int(config[PIN]),
+                    id=config[ID],
                     send_message=self.send_message,
                     topic_prefix=topic_prefix,
                     mcp=mcp,
                     mcp_id=mcp_id,
-                    output_type=gpio[OUTPUT_TYPE].lower(),
-                    callback=lambda: self._host_data_callback(mcp_id),
+                    output_type=config[OUTPUT_TYPE].lower(),
+                    restored_state=restored_state,
+                    callback=lambda: self._relay_callback(
+                        relay_type=mcp_id,
+                        relay_id=relay_id,
+                        restore_state=config[RESTORE_STATE],
+                    ),
                 )
                 self._grouped_outputs[mcp_id][relay_id] = mcp_relay
                 return mcp_relay
-            elif gpio[KIND] == GPIO:
+            elif config[KIND] == GPIO:
                 if GPIO not in self._grouped_outputs:
                     self._grouped_outputs[GPIO] = {}
                 gpio_relay = GpioRelay(
@@ -254,15 +269,22 @@ class Manager:
                     id=gpio[ID],
                     send_message=self.send_message,
                     topic_prefix=topic_prefix,
-                    callback=lambda: self._host_data_callback(GPIO),
+                    restored_state=restored_state,
+                    callback=lambda: self._relay_callback(
+                        relay_type=GPIO,
+                        relay_id=relay_id,
+                        restore_state=config[RESTORE_STATE],
+                    ),
                 )
                 self._grouped_outputs[GPIO][relay_id] = gpio_relay
                 return gpio_relay
 
-        self._output = {
-            gpio[ID].replace(" ", ""): configure_relay(gpio) for gpio in relay_pins
-        }
-        for out in self._output.values():
+        for _config in relay_pins:
+            relay_id = _config[ID].replace(" ", "")
+            out = configure_relay(relay_id=relay_id, config=_config)
+            if not out:
+                continue
+            self._output[relay_id] = out
             if out.output_type != NONE:
                 self.send_ha_autodiscovery(
                     id=out.id,
@@ -351,7 +373,18 @@ class Manager:
         self.send_message(topic=f"{topic_prefix}/{STATE}", payload=ONLINE)
         _LOGGER.info("BoneIO manager is ready.")
 
-    def _host_data_callback(self, type: str):
+    def _relay_callback(
+        self, relay_type: str, relay_id: str, restore_state: bool
+    ) -> None:
+        if restore_state:
+            self._state_manager.save_attribute(
+                attr_type=RELAY,
+                attribute=relay_id,
+                value=self._output[relay_id].is_active,
+            )
+        self._host_data_callback(type=relay_type)
+
+    def _host_data_callback(self, type: str) -> None:
         if self._oled:
             self._oled.handle_data_update(type)
 
