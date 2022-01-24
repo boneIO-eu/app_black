@@ -252,8 +252,20 @@ input:
                 default: output
               pin:
                 type: string
+              topic:
+                type: string
+                meta:
+                  label: If mqtt action then topic to send
               message:
                 type: string
+                meta:
+                  label: If mqtt action -> message to send
+              action_type:
+                type: string
+                allowed: ['toggle', 'on', 'off']
+                default: toggle
+                meta:
+                  label: If output action is chosen then what action to perform.
           double:
             required: False
             type: dict
@@ -264,8 +276,20 @@ input:
                 default: output
               pin:
                 type: string
+              topic:
+                type: string
+                meta:
+                  label: If mqtt action then topic to send
               message:
                 type: string
+                meta:
+                  label: If mqtt action -> message to send
+              action_type:
+                type: string
+                allowed: ['toggle', 'on', 'off']
+                default: toggle
+                meta:
+                  label: If output action is chosen then what action to perform.
           long:
             required: False
             type: dict
@@ -276,8 +300,20 @@ input:
                 default: output
               pin:
                 type: string
+              topic:
+                type: string
+                meta:
+                  label: If mqtt action then topic to send
               message:
                 type: string
+                meta:
+                  label: If mqtt action -> message to send
+              action_type:
+                type: string
+                allowed: ['toggle', 'on', 'off']
+                default: toggle
+                meta:
+                  label: If output action is chosen then what action to perform.
           pressed:
             required: False
             type: dict
@@ -288,8 +324,20 @@ input:
                 default: output
               pin:
                 type: string
+              topic:
+                type: string
+                meta:
+                  label: If mqtt action then topic to send
               message:
                 type: string
+                meta:
+                  label: If mqtt action -> message to send
+              action_type:
+                type: string
+                allowed: ['toggle', 'on', 'off']
+                default: toggle
+                meta:
+                  label: If output action is chosen then what action to perform.
           released:
             required: False
             type: dict
@@ -300,9 +348,20 @@ input:
                 default: output
               pin:
                 type: string
+              topic:
+                type: string
+                meta:
+                  label: If mqtt action then topic to send
               message:
                 type: string
-
+                meta:
+                  label: If mqtt action -> message to send
+              action_type:
+                type: string
+                allowed: ['toggle', 'on', 'off']
+                default: toggle
+                meta:
+                  label: If output action is chosen then what action to perform.
 adc:
   type: list
   meta:
