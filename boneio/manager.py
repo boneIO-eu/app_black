@@ -11,9 +11,11 @@ from busio import I2C
 from boneio.const import (
     ACTION,
     ACTIONS,
+    ACTION_TYPE,
     ADDRESS,
     BONEIO,
     GPIO,
+    MQTT,
     OUTPUT_TYPE,
     HOMEASSISTANT,
     ID,
@@ -33,6 +35,7 @@ from boneio.const import (
     RELAY,
     SDM630,
     STATE,
+    TOPIC,
     ClickTypes,
     InputTypes,
     SENSOR,
@@ -404,7 +407,13 @@ class Manager:
                 """For now only output type is supported"""
                 relay = self._output.get(action[PIN].replace(" ", ""))
                 if relay:
-                    relay.toggle()
+                    getattr(relay, action[ACTION_TYPE])()
+            elif action[ACTION] == MQTT:
+                topic = action.get(TOPIC)
+                payload = action.get("message")
+                if topic and payload:
+                    self.send_message(topic=topic, payload=payload)
+
         # This is similar how Z2M is clearing click sensor.
         self._loop.call_soon_threadsafe(self.send_message, topic, "")
 
