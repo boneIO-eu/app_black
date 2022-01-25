@@ -103,22 +103,23 @@ def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneIO"
     }
 
 
-def sdm630_availabilty_message(
+def modbus_sensor_availabilty_message(
     id: str,
     sensor_id: str,
     name: str,
     state_topic_base: str,
-    topic: str = "sdm630",
+    topic: str,
+    model: str,
     sensor_type: str = SENSOR,
     **kwargs,
 ):
-    """Create SDM630 availability topic for HA."""
+    """Create Modbus Sensor availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{id}{STATE}"}],
         "device": {
             "identifiers": [id],
             "manufacturer": "boneIO",
-            "model": "SDM630",
+            "model": model,
             "name": f"boneIO {name.upper()}",
             "sw_version": __version__,
         },

@@ -58,17 +58,14 @@ class Modbus:
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
         try:
-            self._client.connect()  # type: ignore[union-attr]
+            return self._client.connect()  # type: ignore[union-attr]
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
             return False
-        else:
-            _LOGGER.info("modbus communication open")
-            return True
 
     def read_single_register(self, unit: int, address: int, count: int = 2) -> float:
         """Call sync. pymodbus."""
-        if not self._pymodbus_connect:
+        if not self._pymodbus_connect():
             _LOGGER.error("Can't connect to Modbus.")
             return None
         kwargs = {"unit": unit, "count": count} if unit else {}
@@ -90,7 +87,7 @@ class Modbus:
         self, unit: int, address: int, count: int = 2
     ) -> ModbusResponse:
         """Call sync. pymodbus."""
-        if not self._pymodbus_connect:
+        if not self._pymodbus_connect():
             _LOGGER.error("Can't connect to Modbus.")
             return None
         kwargs = {"unit": unit, "count": count} if unit else {}
