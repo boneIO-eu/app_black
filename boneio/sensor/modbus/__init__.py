@@ -164,7 +164,7 @@ class ModbusSensor(BasicMqtt):
         """Get first register and check if it's available."""
         if (
             not self._discovery_sent
-            or (datetime.now() - self._discovery_sent).hours > 1
+            or (datetime.now() - self._discovery_sent).seconds > 3600
         ) and self._ha_discovery:
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]
