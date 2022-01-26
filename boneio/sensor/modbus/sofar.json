@@ -1,0 +1,150 @@
+{
+    "model": "Sofar",
+    "registers_base": [
+        {
+            "base": 6,
+            "length": 23,
+            "register_type": "holding",
+            "registers": [
+                {
+                    "name": "DC Voltage 1",
+                    "address": 6,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "multiply0_1",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "DC Current 1",
+                    "address": 7,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "multiply0_01",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "DC Voltage 2",
+                    "address": 8,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "multiply0_1",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "DC Current 2",
+                    "address": 9,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "multiply0_01",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "Current Power",
+                    "address": 12,
+                    "unit_of_measurement": "W",
+                    "state_class": "measurement",
+                    "device_class": "power",
+                    "return_type": "multiply10",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "AC Frequency",
+                    "address": 14,
+                    "unit_of_measurement": "Hz",
+                    "state_class": "measurement",
+                    "return_type": "multiply0_01"
+                },
+                {
+                    "name": "AC Voltage 1",
+                    "address": 15,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "multiply0_1",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "AC Current 1",
+                    "address": 16,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "multiply0_01"
+                },
+                {
+                    "name": "AC Voltage 2",
+                    "address": 17,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "multiply0_1",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "AC Current 2",
+                    "address": 18,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "multiply0_01"
+                },
+                {
+                    "name": "AC Voltage 3",
+                    "address": 19,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "multiply0_1",
+                    "ha_filter": "round(1)"
+                },
+                {
+                    "name": "AC Current 3",
+                    "address": 20,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "multiply0_01"
+                },
+                {
+                    "name": "Total Production",
+                    "address": 22,
+                    "unit_of_measurement": "kWh",
+                    "state_class": "total_increasing",
+                    "device_class": "energy",
+                    "return_type": "floatsofar",
+                    "ha_filter": "round(0)"
+                },
+                {
+                    "name": "Daily Production",
+                    "address": 25,
+                    "unit_of_measurement": "kWh",
+                    "state_class": "total_increasing",
+                    "device_class": "energy",
+                    "return_type": "multiply0_01",
+                    "ha_filter": "round(2)"
+                },
+                {
+                    "name": "Temp Module",
+                    "address": 27,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "ha_filter": "round(0)"
+                },
+                {
+                    "name": "Temp Inverter",
+                    "address": 28,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "ha_filter": "round(0)"
+                }
+            ]
+
+        }
+    ]
+}

@@ -74,25 +74,31 @@ modbus:
       meta:
         label: Uart ID to use
 
-sdm630:
+modbus_sensors:
   type: list
   required: False
   meta:
-    label: SDM630 sensor
+    label: Modbus sensors
   schema:
     type: dict
     schema:
       id:
         type: string
-        required: False
+        required: True
         meta:
-          label: Id of SDM630
+          label: Id of Modbus sensor
       address:
         type: string
         required: True
         default: 0x33
         meta:
-          label: Address of SDM to use.
+          label: Address of Modbus sensor to use.
+      model:
+        type: string
+        required: True
+        allowed: ['sdm630']
+        meta:
+          label: Model to load from database.
       update_interval:
         type: integer
         required: True

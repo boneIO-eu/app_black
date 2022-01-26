@@ -15,6 +15,7 @@ from boneio.const import (
     ADDRESS,
     BONEIO,
     GPIO,
+    MODBUS,
     MQTT,
     OUTPUT_TYPE,
     HOMEASSISTANT,
@@ -26,6 +27,7 @@ from boneio.const import (
     MCP,
     MCP_ID,
     MCP_TEMP_9808,
+    MODEL,
     NONE,
     OFF,
     ON,
@@ -33,7 +35,6 @@ from boneio.const import (
     OUTPUT,
     PIN,
     RELAY,
-    SDM630,
     STATE,
     TOPIC,
     ClickTypes,
@@ -187,34 +188,34 @@ class Manager:
                     _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
                     pass
 
-            return True
-
-        def create_sdm_630(sensors):
+        def create_modbus_sensors(sensors):
             """Create SDM sensor for each device."""
-            from boneio.sensor.sdm630 import Sdm630
+            from boneio.sensor.modbus import ModbusSensor
 
             for sensor in sensors:
                 name = sensor.get(ID)
                 id = name.replace(" ", "")
                 try:
-                    sdm = Sdm630(
+                    sdm = ModbusSensor(
                         modbus=self._modbus,
                         address=sensor[ADDRESS],
                         id=id,
                         name=name,
+                        model=sensor[MODEL],
                         send_message=self.send_message,
                         topic_prefix=topic_prefix,
                         ha_discovery=ha_discovery,
                         ha_discovery_prefix=ha_discovery_prefix,
                         update_interval=sensor.get(UPDATE_INTERVAL, 30),
                     )
-
                     self._tasks.append(asyncio.create_task(sdm.send_state()))
-                except I2CError as err:
-                    _LOGGER.error("Can't configure SDM630 sensor %s. %s", id, err)
+                except FileNotFoundError as err:
+                    _LOGGER.error(
+                        "Can't configure Modbus sensor %s. %s. No such model in database.",
+                        id,
+                        err,
+                    )
                     pass
-
-            return True
 
         if sensors.get(LM75):
             create_temp_sensor(sensor_type=LM75, temp_def=sensors.get(LM75))
@@ -224,8 +225,8 @@ class Manager:
                 sensor_type=MCP_TEMP_9808, temp_def=sensors.get(MCP_TEMP_9808)
             )
 
-        if sensors.get(SDM630) and self._modbus:
-            create_sdm_630(sensors=sensors.get(SDM630))
+        if sensors.get(MODBUS) and self._modbus:
+            create_modbus_sensors(sensors=sensors.get(MODBUS))
 
         if mcp23017:
             create_mcp23017()

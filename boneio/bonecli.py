@@ -22,7 +22,6 @@ from boneio.const import (
     PAHO,
     PASSWORD,
     PYMODBUS,
-    SDM630,
     TOPIC_PREFIX,
     USERNAME,
 )
@@ -146,7 +145,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         sensors={
             LM75: _config.get(LM75),
             MCP_TEMP_9808: _config.get(MCP_TEMP_9808),
-            SDM630: _config.get(SDM630),
+            MODBUS: _config.get("modbus_sensors"),
         },
         mcp23017=_config.get(MCP23017, []),
         modbus=_config.get(MODBUS),
