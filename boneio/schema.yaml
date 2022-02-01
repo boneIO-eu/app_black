@@ -409,6 +409,12 @@ cover:
         required: True
         meta:
           label: Id to use in HA if needed.
+      restore_state:
+        type: boolean
+        required: True
+        default: False
+        meta:
+          label: Restore saved state of boneio.
       open_relay:
         type: string
         required: True
@@ -429,6 +435,12 @@ cover:
         required: True
         meta:
           label: Time to close cover in seconds
+      device_class:
+        type: string
+        required: False
+        allowed: ["awning", "blind", "curtain", "damper", "door", "garage", "gate", "shade", "shutter", "window"]
+        meta:
+          label: Device class to use in HA
       show_in_ha:
         type: boolean
         required: True

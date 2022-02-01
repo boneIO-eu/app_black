@@ -10,6 +10,7 @@ from boneio.const import (
     ACTIONS,
     ADDRESS,
     BINARY_SENSOR,
+    COVER,
     GPIO,
     ID,
     INIT_SLEEP,
@@ -29,7 +30,9 @@ from boneio.const import (
     SENSOR,
     SHOW_HA,
     UPDATE_INTERVAL,
+    DEVICE_CLASS,
 )
+from boneio.cover import Cover
 from boneio.helper import (
     GPIOInputException,
     I2CError,
@@ -39,6 +42,7 @@ from boneio.helper import (
     ha_input_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
+from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.input.gpio import GpioInputButton
 
 # Typing imports that create a circular dependency
@@ -74,13 +78,14 @@ def create_adc(
                 topic_prefix=topic_prefix,
                 update_interval=gpio.get(UPDATE_INTERVAL, 60),
             )
-            manager.send_ha_autodiscovery(
-                id=id,
-                name=name,
-                ha_type=SENSOR,
-                ha_discovery_prefix=ha_discovery_prefix,
-                availabilty_msg_func=ha_adc_sensor_availabilty_message,
-            )
+            if gpio.get(SHOW_HA, True):
+                manager.send_ha_autodiscovery(
+                    id=id,
+                    name=name,
+                    ha_type=SENSOR,
+                    ha_discovery_prefix=ha_discovery_prefix,
+                    availabilty_msg_func=ha_adc_sensor_availabilty_message,
+                )
             manager.append_task(asyncio.create_task(adc.send_state()))
         except I2CError as err:
             _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
@@ -195,7 +200,6 @@ def configure_relay(
     config: dict,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
-    relay_id = config[ID].replace(" ", "")
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id)
         if config[RESTORE_STATE]
@@ -294,3 +298,35 @@ def configure_input(
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
+
+
+def configure_cover(
+    manager: Manager,
+    cover_id: str,
+    state_manager: StateManager,
+    ha_discovery_prefix: str,
+    send_ha_autodiscovery: Callable,
+    config: dict,
+    **kwargs,
+) -> Cover:
+    restored_state = (
+        state_manager.get(attr_type=COVER, attr=cover_id)
+        if config[RESTORE_STATE]
+        else 100
+    )
+    cover = Cover(
+        id=cover_id,
+        send_message=manager.send_message,
+        restored_state=restored_state,
+        **kwargs,
+    )
+    if config.get(SHOW_HA, True):
+        send_ha_autodiscovery(
+            id=cover.id,
+            name=cover.name,
+            ha_type=COVER,
+            device_class=config.get(DEVICE_CLASS),
+            ha_discovery_prefix=ha_discovery_prefix,
+            availabilty_msg_func=ha_cover_availabilty_message,
+        )
+    return cover

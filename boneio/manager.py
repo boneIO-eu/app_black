@@ -1,69 +1,57 @@
 import asyncio
-from boneio.modbus import Modbus
 import logging
-import time
-from typing import Any, Callable, List, Optional, Set, Union
-
-from adafruit_mcp230xx.mcp23017 import MCP23017
+from typing import Callable, List, Optional, Set, Union
+from collections import deque
 from board import SCL, SDA
 from busio import I2C
 
 from boneio.const import (
     ACTION,
-    ACTIONS,
     ACTION_TYPE,
-    ADDRESS,
     BONEIO,
-    GPIO,
-    MODBUS,
-    MQTT,
-    OUTPUT_TYPE,
+    CLOSE,
+    COVER,
     HOMEASSISTANT,
     ID,
-    INIT_SLEEP,
     INPUT,
-    KIND,
     LM75,
-    MCP,
-    MCP_ID,
     MCP_TEMP_9808,
-    MODEL,
+    MODBUS,
+    MQTT,
     NONE,
     OFF,
     ON,
     ONLINE,
+    OPEN,
     OUTPUT,
     PIN,
     RELAY,
+    SHOW_HA,
     STATE,
+    STOP,
     TOPIC,
+    UART,
+    UARTS,
     ClickTypes,
     InputTypes,
-    SENSOR,
-    SHOW_HA,
-    BINARY_SENSOR,
-    INPUT_SENSOR,
-    UART,
-    UPDATE_INTERVAL,
-    UARTS,
-    RESTORE_STATE,
 )
 from boneio.helper import (
-    HostData,
-    ha_relay_availabilty_message,
-    ha_input_availabilty_message,
-    ha_adc_sensor_availabilty_message,
-    ha_sensor_temp_availabilty_message,
-    ha_binary_sensor_availabilty_message,
-    host_stats,
     GPIOInputException,
+    HostData,
     I2CError,
     StateManager,
+    ha_relay_availabilty_message,
+    host_stats,
 )
-from boneio.input import GpioInputButton
-
-from boneio.relay import GpioRelay, MCPRelay
-from boneio.sensor import GpioInputSensor
+from boneio.helper.events import EventBus
+from boneio.helper.loader import (
+    configure_cover,
+    configure_input,
+    configure_relay,
+    create_mcp23017,
+    create_temp_sensor,
+)
+from boneio.modbus import Modbus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +73,7 @@ class Manager:
         mcp23017: Optional[List] = None,
         oled: dict = {},
         adc_list: Optional[List] = None,
+        covers: Optional[List] = [],
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
@@ -92,203 +81,75 @@ class Manager:
         self._host_data = None
         self._ha_discovery = ha_discovery
         self._state_manager = state_manager
+        self._event_bus = EventBus(self._loop)
 
         self.send_message = send_message
         self._topic_prefix = topic_prefix
-        self.relay_topic = f"{topic_prefix}/{RELAY}/+/set"
+        self._command_topic_prefix = f"{topic_prefix}/cmd/"
+        self.subscribe_topic = f"{self._command_topic_prefix}+/+/#"
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
         self._output = {}
-        self._grouped_outputs = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
+        self._covers = {}
         self._temp_sensors = []
         self._modbus = None
         if modbus and modbus.get(UART) in UARTS:
             self._modbus = Modbus(UARTS[modbus.get(UART)])
 
-        def create_temp_sensor(sensor_type: str, temp_def: dict = {}):
-            """Create LM sensor in manager."""
-            if sensor_type == LM75:
-                from .sensor import LM75Sensor as TempSensor
-            elif sensor_type == MCP_TEMP_9808:
-                from .sensor import MCP9808Sensor as TempSensor
-            else:
-                return
-            name = temp_def.get(ID)
-            id = name.replace(" ", "")
-            try:
-                temp_sensor = TempSensor(
-                    id=id,
-                    name=name,
-                    i2c=self._i2cbusio,
-                    address=temp_def[ADDRESS],
-                    send_message=self.send_message,
+        for sensor_type in (LM75, MCP_TEMP_9808):
+            if sensors.get(sensor_type):
+                create_temp_sensor(
+                    manager=self,
                     topic_prefix=topic_prefix,
-                )
-                self.send_ha_autodiscovery(
-                    id=id,
-                    name=name,
-                    ha_type=SENSOR,
                     ha_discovery_prefix=ha_discovery_prefix,
-                    availabilty_msg_func=ha_sensor_temp_availabilty_message,
+                    sensor_type=sensor_type,
+                    temp_def=sensors.get(sensor_type),
+                    i2cbusio=self._i2cbusio,
+                    temp_sensors=self._temp_sensors,
                 )
-                self._tasks.append(asyncio.create_task(temp_sensor.send_state()))
-                self._temp_sensors.append(temp_sensor)
-            except I2CError as err:
-                _LOGGER.error("Can't configure Temp sensor. %s", err)
-                pass
-
-        def create_mcp23017():
-            """Create MCP23017."""
-            for mcp in mcp23017:
-                id = mcp[ID] or mcp[ADDRESS]
-                try:
-                    self._mcp[id] = MCP23017(i2c=self._i2cbusio, address=mcp[ADDRESS])
-                    sleep_time = mcp.get(INIT_SLEEP, 0)
-                    _LOGGER.debug(
-                        f"Sleeping for {sleep_time}s while MCP {id} is initializing."
-                    )
-                    time.sleep(sleep_time)
-                    self._grouped_outputs[id] = {}
-                except TimeoutError as err:
-                    _LOGGER.error("Can't connect to MCP %s. %s", id, err)
-                    pass
-
-        def create_adc():
-            """Create ADC sensor."""
-            from boneio.sensor import initialize_adc, GpioADCSensor
-
-            initialize_adc()
-
-            # TODO: find what exception can ADC gpio throw.
-            for gpio in adc_list:
-                name = gpio.get(ID)
-                id = name.replace(" ", "")
-                pin = gpio[PIN]
-                try:
-                    adc = GpioADCSensor(
-                        id=id,
-                        pin=pin,
-                        name=name,
-                        send_message=self.send_message,
-                        topic_prefix=topic_prefix,
-                        update_interval=gpio.get(UPDATE_INTERVAL, 60),
-                    )
-                    self.send_ha_autodiscovery(
-                        id=id,
-                        name=name,
-                        ha_type=SENSOR,
-                        ha_discovery_prefix=ha_discovery_prefix,
-                        availabilty_msg_func=ha_adc_sensor_availabilty_message,
-                    )
-                    self._tasks.append(asyncio.create_task(adc.send_state()))
-                except I2CError as err:
-                    _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
-                    pass
-
-        def create_modbus_sensors(sensors):
-            """Create SDM sensor for each device."""
-            from boneio.sensor.modbus import ModbusSensor
-
-            for sensor in sensors:
-                name = sensor.get(ID)
-                id = name.replace(" ", "")
-                try:
-                    sdm = ModbusSensor(
-                        modbus=self._modbus,
-                        address=sensor[ADDRESS],
-                        id=id,
-                        name=name,
-                        model=sensor[MODEL],
-                        send_message=self.send_message,
-                        topic_prefix=topic_prefix,
-                        ha_discovery=ha_discovery,
-                        ha_discovery_prefix=ha_discovery_prefix,
-                        update_interval=sensor.get(UPDATE_INTERVAL, 30),
-                    )
-                    self._tasks.append(asyncio.create_task(sdm.send_state()))
-                except FileNotFoundError as err:
-                    _LOGGER.error(
-                        "Can't configure Modbus sensor %s. %s. No such model in database.",
-                        id,
-                        err,
-                    )
-                    pass
-
-        if sensors.get(LM75):
-            create_temp_sensor(sensor_type=LM75, temp_def=sensors.get(LM75))
-
-        if sensors.get(MCP_TEMP_9808):
-            create_temp_sensor(
-                sensor_type=MCP_TEMP_9808, temp_def=sensors.get(MCP_TEMP_9808)
-            )
 
         if sensors.get(MODBUS) and self._modbus:
-            create_modbus_sensors(sensors=sensors.get(MODBUS))
+            from boneio.helper.loader import create_modbus_sensors
 
-        if mcp23017:
-            create_mcp23017()
+            create_modbus_sensors(
+                manager=self,
+                topic_prefix=topic_prefix,
+                ha_discovery=ha_discovery,
+                ha_discovery_prefix=ha_discovery_prefix,
+                sensors=sensors.get(MODBUS),
+                modbus=self._modbus,
+            )
+
+        self.grouped_outputs = create_mcp23017(
+            manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
+        )
 
         if adc_list:
-            create_adc()
+            from boneio.helper.loader import create_adc
 
-        def configure_relay(relay_id: str, config: dict) -> Any:
-            """Configure kind of relay. Most common MCP."""
-            relay_id = config[ID].replace(" ", "")
-            restored_state = (
-                self._state_manager.get(attr_type=RELAY, attr=relay_id)
-                if config[RESTORE_STATE]
-                else False
+            create_adc(
+                manager=self,
+                topic_prefix=topic_prefix,
+                adc_list=adc_list,
+                ha_discovery_prefix=ha_discovery_prefix,
             )
-            if config[KIND] == MCP:
-                mcp_id = config.get(MCP_ID, "")
-                mcp = self._mcp.get(mcp_id)
-                if not mcp:
-                    _LOGGER.error("No such MCP configured!")
-                    return
-                mcp_relay = MCPRelay(
-                    pin=int(config[PIN]),
-                    id=config[ID],
-                    send_message=self.send_message,
-                    topic_prefix=topic_prefix,
-                    mcp=mcp,
-                    mcp_id=mcp_id,
-                    output_type=config[OUTPUT_TYPE].lower(),
-                    restored_state=restored_state,
-                    callback=lambda: self._relay_callback(
-                        relay_type=mcp_id,
-                        relay_id=relay_id,
-                        restore_state=config[RESTORE_STATE],
-                    ),
-                )
-                self._grouped_outputs[mcp_id][relay_id] = mcp_relay
-                return mcp_relay
-            elif config[KIND] == GPIO:
-                if GPIO not in self._grouped_outputs:
-                    self._grouped_outputs[GPIO] = {}
-                gpio_relay = GpioRelay(
-                    pin=gpio[PIN],
-                    id=gpio[ID],
-                    send_message=self.send_message,
-                    topic_prefix=topic_prefix,
-                    restored_state=restored_state,
-                    callback=lambda: self._relay_callback(
-                        relay_type=GPIO,
-                        relay_id=relay_id,
-                        restore_state=config[RESTORE_STATE],
-                    ),
-                )
-                self._grouped_outputs[GPIO][relay_id] = gpio_relay
-                return gpio_relay
 
         for _config in relay_pins:
-            relay_id = _config[ID].replace(" ", "")
-            out = configure_relay(relay_id=relay_id, config=_config)
+            _id = _config[ID].replace(" ", "")
+            out = configure_relay(
+                manager=self,
+                state_manager=self._state_manager,
+                topic_prefix=topic_prefix,
+                relay_id=_id,
+                relay_callback=self._relay_callback,
+                config=_config,
+            )
             if not out:
                 continue
-            self._output[relay_id] = out
+            self._output[_id] = out
             if out.output_type != NONE:
                 self.send_ha_autodiscovery(
                     id=out.id,
@@ -303,47 +164,31 @@ class Manager:
                 out.send_state,
             )
 
-        def configure_input(gpio: dict, pin: str) -> str:
-            try:
-                input_type = gpio.get(KIND)
-                if input_type == SENSOR:
-                    GpioInputSensor(
-                        pin=pin,
-                        press_callback=lambda x, i: self.press_callback(
-                            x=x,
-                            inpin=i,
-                            actions=gpio.get(ACTIONS, {}),
-                            input_type=INPUT_SENSOR,
-                        ),
-                        rest_pin=gpio,
-                    )
-                    availabilty_msg_func = ha_binary_sensor_availabilty_message
-                    ha_type = BINARY_SENSOR
-                else:
-                    GpioInputButton(
-                        pin=pin,
-                        press_callback=lambda x, i: self.press_callback(
-                            x=x,
-                            inpin=i,
-                            actions=gpio.get(ACTIONS, {}),
-                            input_type=INPUT,
-                        ),
-                        rest_pin=gpio,
-                    )
-                    availabilty_msg_func = ha_input_availabilty_message
-                    ha_type = SENSOR
-                if gpio.get(SHOW_HA, True):
-                    self.send_ha_autodiscovery(
-                        id=pin,
-                        name=gpio.get(ID, pin),
-                        ha_type=ha_type,
-                        ha_discovery_prefix=ha_discovery_prefix,
-                        availabilty_msg_func=availabilty_msg_func,
-                    )
-                return pin
-            except GPIOInputException as err:
-                _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
-                pass
+        for _config in covers:
+            _id = _config[ID].replace(" ", "")
+            open_relay = self._output.get(_config.get("open_relay"))
+            close_relay = self._output.get(_config.get("close_relay"))
+            if open_relay.output_type != NONE or close_relay.output_type != NONE:
+                _LOGGER.error(
+                    "Can't configure cover %s. %s",
+                    _id,
+                    "You have to explicity set types of relays to None so you can't turn it on directly.",
+                )
+                continue
+            self._covers[_id] = configure_cover(
+                manager=self,
+                cover_id=_id,
+                state_manager=self._state_manager,
+                config=_config,
+                open_relay=open_relay,
+                close_relay=close_relay,
+                open_time=_config.get("open_time"),
+                close_time=_config.get("close_time"),
+                event_bus=self._event_bus,
+                ha_discovery_prefix=ha_discovery_prefix,
+                send_ha_autodiscovery=self.send_ha_autodiscovery,
+                topic_prefix=topic_prefix,
+            )
 
         _LOGGER.info("Initializing inputs. This will take a while.")
         input_pins = set()
@@ -352,13 +197,21 @@ class Manager:
             if pin in input_pins:
                 _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
                 continue
-            input_pins.add(configure_input(gpio=gpio, pin=pin))
+            input_pins.add(
+                configure_input(
+                    gpio=gpio,
+                    pin=pin,
+                    press_callback=self.press_callback,
+                    ha_discovery_prefix=ha_discovery_prefix,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                )
+            )
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
             self._host_data = HostData(
-                output=self._grouped_outputs,
+                output=self.grouped_outputs,
                 temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
                 callback=self._host_data_callback,
             )
@@ -368,7 +221,7 @@ class Manager:
             try:
                 self._oled = Oled(
                     host_data=self._host_data,
-                    output_groups=list(self._grouped_outputs),
+                    output_groups=list(self.grouped_outputs),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
                 )
             except (GPIOInputException, I2CError) as err:
@@ -394,6 +247,13 @@ class Manager:
 
     def get_tasks(self) -> Set[asyncio.Task]:
         return self._tasks
+
+    def append_task(self, task: asyncio.Task) -> None:
+        self._tasks.append(task)
+
+    @property
+    def mcp(self):
+        return self._mcp
 
     def press_callback(
         self, x: ClickTypes, inpin: str, actions: dict, input_type: InputTypes = INPUT
@@ -438,17 +298,41 @@ class Manager:
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
         self.send_message(topic=topic, payload=msg)
 
-    def receive_message(self, topic: str, message: str) -> None:
+    async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
-        extracted_relay = topic.replace(f"{self._topic_prefix}/{RELAY}/", "").replace(
-            "/set", ""
-        )
-        target_device = self._output.get(extracted_relay)
-        if target_device:
-            if message == ON:
-                target_device.turn_on()
-            elif message == OFF:
-                target_device.turn_off()
+        assert topic.startswith(self._command_topic_prefix)
+        # topic = topic.replace(self._command_topic_prefix, "")
+        topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
+        topic_parts = deque(topic_parts_raw)
+        msg_type = topic_parts.popleft()
+        device_id = topic_parts.popleft()
+        command = topic_parts.pop()
+
+        if msg_type == RELAY and command == "set":
+            target_device = self._output.get(device_id)
+            if target_device and target_device.output_type != NONE:
+                if message == ON:
+                    target_device.turn_on()
+                elif message == OFF:
+                    target_device.turn_off()
+        elif msg_type == COVER:
+            cover = self._covers.get(device_id)
+            print("WIADOMOSC", command, message)
+            if command == "set":
+                if message == OPEN:
+                    await cover.open_cover()
+                elif message == CLOSE:
+                    await cover.close_cover()
+                elif message == STOP:
+                    cover.stop_cover()
+            elif command == "pos":
+                position = int(message)
+                if 0 <= position <= 100:
+                    await cover.set_cover_position(position=position)
+                else:
+                    _LOGGER.warn(
+                        "Positon cannot be set. Not number between 0-100. %s", message
+                    )
 
     @property
     def output(self) -> dict:

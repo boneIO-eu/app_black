@@ -109,9 +109,19 @@ BASE = "base"
 LENGTH = "length"
 REGISTERS = "registers"
 
+COVER = "cover"
+IDLE = "idle"
+OPENING = "opening"
+CLOSING = "closing"
+CLOSED = "closed"
+OPEN = "open"
+CLOSE = "close"
+STOP = "stop"
+
 # TYPING
 ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 Gpio_States = Literal[HIGH, LOW]
 Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
+DEVICE_CLASS = "device_class"

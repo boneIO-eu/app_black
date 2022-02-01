@@ -8,6 +8,7 @@ from colorlog import ColoredFormatter
 
 from boneio.const import (
     ADC,
+    COVER,
     ENABLED,
     HA_DISCOVERY,
     HOST,
@@ -151,6 +152,7 @@ async def run(ctx, debug: int, config: str, mqttpassword: str = ""):
         modbus=_config.get(MODBUS),
         oled=_config.get(OLED),
         adc_list=_config.get(ADC, []),
+        covers=_config.get(COVER, []),
     )
     tasks = set()
     tasks.update(manager.get_tasks())
