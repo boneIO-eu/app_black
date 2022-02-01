@@ -149,7 +149,6 @@ mcp23017:
       id:
         type: string
         required: True
-        default: lm75
         meta:
           label: Id of I2C to use in pin config
       address:
@@ -392,6 +391,44 @@ adc:
         default: 60
         meta:
           label: Update interval in seconds.
+      show_in_ha:
+        type: boolean
+        required: True
+        default: True
+        meta:
+          label: If you want you can disable discovering this input in HA.
+cover:
+  type: list
+  meta:
+    label: Cover section
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: True
+        meta:
+          label: Id to use in HA if needed.
+      open_relay:
+        type: string
+        required: True
+        meta:
+          label: ID of open relay of output.
+      close_relay:
+        type: string
+        required: True
+        meta:
+          label: ID of close relay of output.
+      open_time:
+        type: integer
+        required: True
+        meta:
+          label: Time to open cover in seconds
+      close_time:
+        type: integer
+        required: True
+        meta:
+          label: Time to close cover in seconds
       show_in_ha:
         type: boolean
         required: True
