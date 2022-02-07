@@ -1,6 +1,10 @@
 # from typing import Literal
 from datetime import timedelta
-from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+
+try:
+    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+except ModuleNotFoundError:
+    pass
 from typing_extensions import Literal
 
 BONEIO = "boneIO"

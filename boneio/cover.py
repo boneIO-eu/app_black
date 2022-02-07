@@ -1,5 +1,7 @@
+"""Cover module."""
 import asyncio
-import atexit
+
+# import atexit
 from typing import Any
 from boneio.const import COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED
 from boneio.helper.events import EventBus
@@ -8,21 +10,26 @@ from boneio.relay import MCPRelay
 
 
 class RelayHelper:
-    def __init__(self, relay, time):
+    """Relay helper for cover either open/close."""
+
+    def __init__(self, relay: MCPRelay, time: int) -> None:
+        """Initialize helper."""
         self._relay = relay
         self._steps = 100 / time
 
     @property
-    def relay(self):
+    def relay(self) -> MCPRelay:
+        """Get relay."""
         return self._relay
 
     @property
-    def steps(self):
+    def steps(self) -> int:
+        """Get steps for each time."""
         return self._steps
 
 
 class Cover(BasicMqtt):
-    # react on messages
+    """Cover class of boneIO"""
 
     def __init__(
         self,
@@ -34,7 +41,8 @@ class Cover(BasicMqtt):
         event_bus: EventBus,
         restored_state: int = 0,
         **kwargs,
-    ):
+    ) -> None:
+        """Initialize cover class."""
         self._loop = asyncio.get_event_loop()
         self._id = id
         super().__init__(id=id, name=id, topic_type=COVER, **kwargs)
@@ -51,7 +59,7 @@ class Cover(BasicMqtt):
             self._closed = True
         else:
             self._closed = self._position <= 0
-        atexit.register(self.__exit__)
+        self._event_bus.add_sigterm_listener(self.on_exit)
         self._loop.call_soon_threadsafe(
             self._loop.call_later,
             0.5,
@@ -62,6 +70,7 @@ class Cover(BasicMqtt):
         self,
         current_operation: str,
     ) -> None:
+        """Run cover engine."""
         if self._current_operation != IDLE:
             self._stop_cover()
         self._current_operation = current_operation
@@ -81,24 +90,29 @@ class Cover(BasicMqtt):
             )
             relay.turn_on()
 
-    def __exit__(self):
+    def on_exit(self) -> None:
+        """Stop on exit."""
         self._stop_cover(on_exit=True)
 
     @property
     def cover_state(self):
+        """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
     def stop_cover(self):
+        """Public Stop cover graceful."""
         if self._current_operation != IDLE:
             self._stop_cover(on_exit=False)
 
     def send_state(self):
+        """Send state of cover to mqtt."""
         self._send_message(topic=f"{self._send_topic}/state", payload=self.cover_state)
         self._send_message(
             topic=f"{self._send_topic}/pos", payload=round(self._position, 0)
         )
 
     def _stop_cover(self, on_exit=False):
+        """Stop cover."""
         self._open.relay.turn_off()
         self._close.relay.turn_off()
         if self._timer_handle is not None:
@@ -115,10 +129,12 @@ class Cover(BasicMqtt):
         return round(self._position, 0)
 
     def listen_cover(self, *args):
+        """Listen for change in cover."""
         if self._current_operation == IDLE:
             return
 
         def get_step():
+            """Get step for current operation."""
             if self._requested_closing:
                 return -self._close.steps
             else:
@@ -133,7 +149,6 @@ class Cover(BasicMqtt):
                     rounded_pos = round(self._position, -1)
             elif rounded_pos > 5:
                 rounded_pos = round(self._position, -1)
-        print("POSTIION PUBLISHED", rounded_pos)
         self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
         if rounded_pos in (100, 0, self._set_position):
             self._stop_cover()
@@ -142,6 +157,7 @@ class Cover(BasicMqtt):
         self._closed = self.current_cover_position <= 0
 
     async def close_cover(self):
+        """Close cover."""
         if self._position == 0:
             return
         if self._position is None:
@@ -155,6 +171,7 @@ class Cover(BasicMqtt):
         )
 
     async def open_cover(self):
+        """Open cover."""
         if self._position == 100:
             return
         if self._position is None:
@@ -168,9 +185,8 @@ class Cover(BasicMqtt):
         )
 
     async def set_cover_position(self, position: int):
-        """Move the cover to a specific position."""
+        """Move cover to a specific position."""
         set_position = round(position, -1)
-        print("SETTING POSITION", position, set_position)
         if self._position == position or set_position == self._set_position:
             return
         if self._set_position:

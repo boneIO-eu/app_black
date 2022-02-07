@@ -26,7 +26,6 @@ from boneio.const import (
     OUTPUT,
     PIN,
     RELAY,
-    SHOW_HA,
     STATE,
     STOP,
     TOPIC,
@@ -317,7 +316,6 @@ class Manager:
                     target_device.turn_off()
         elif msg_type == COVER:
             cover = self._covers.get(device_id)
-            print("WIADOMOSC", command, message)
             if command == "set":
                 if message == OPEN:
                     await cover.open_cover()
