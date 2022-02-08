@@ -1,6 +1,10 @@
 # from typing import Literal
 from datetime import timedelta
-from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+
+try:
+    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+except ModuleNotFoundError:
+    pass
 from typing_extensions import Literal
 
 BONEIO = "boneIO"
@@ -20,6 +24,7 @@ GPIO = "gpio"
 GPIO_MODE = "gpio_mode"
 ACTIONS = "actions"
 ACTION = "action"
+ACTION_TYPE = "action_type"
 OUTPUT = "output"
 SWITCH = "switch"
 CONFIG_PIN = "/usr/bin/config-pin"
@@ -33,7 +38,8 @@ MODBUS = "modbus"
 UART = "uart"
 RX = "rx"
 TX = "tx"
-
+RESTORE_STATE = "restore_state"
+MODEL = "model"
 UARTS = {
     "uart1": {ID: "/dev/ttyS1", TX: "P9.24", RX: "P9.26"},
     "uart4": {ID: "/dev/ttyS4", TX: "P9.13", RX: "P9.11"},
@@ -85,6 +91,7 @@ USERNAME = "username"
 PASSWORD = "password"
 ONLINE = "online"
 OFFLINE = "offline"
+TOPIC = "topic"
 TOPIC_PREFIX = "topic_prefix"
 
 # I2C and MCP CONST
@@ -101,11 +108,19 @@ BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"
 MCP_TEMP_9808 = "mcp9808"
 INPUT_SENSOR = "inputsensor"
-SDM630 = "sdm630"
 
 BASE = "base"
 LENGTH = "length"
 REGISTERS = "registers"
+
+COVER = "cover"
+IDLE = "idle"
+OPENING = "opening"
+CLOSING = "closing"
+CLOSED = "closed"
+OPEN = "open"
+CLOSE = "close"
+STOP = "stop"
 
 # TYPING
 ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
@@ -113,3 +128,4 @@ OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 Gpio_States = Literal[HIGH, LOW]
 Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
+DEVICE_CLASS = "device_class"

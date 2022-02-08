@@ -1,14 +1,29 @@
 from boneio.version import __version__
 
 
-from boneio.const import INPUT, OFF, ON, RELAY, STATE, SENSOR, INPUT_SENSOR
+from boneio.const import (
+    CLOSE,
+    CLOSED,
+    CLOSING,
+    COVER,
+    INPUT,
+    OFF,
+    ON,
+    OPEN,
+    OPENING,
+    RELAY,
+    STATE,
+    SENSOR,
+    INPUT_SENSOR,
+    STOP,
+)
 
 
 def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
-        "command_topic": f"{topic}/relay/{id}/set",
+        "command_topic": f"{topic}/cmd/relay/{id}/set",
         "device": {
             "identifiers": [topic],
             "manufacturer": "boneIO",
@@ -103,27 +118,59 @@ def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneIO"
     }
 
 
-def sdm630_availabilty_message(
+def modbus_sensor_availabilty_message(
     id: str,
     sensor_id: str,
     name: str,
     state_topic_base: str,
-    topic: str = "sdm630",
+    topic: str,
+    model: str,
     sensor_type: str = SENSOR,
     **kwargs,
 ):
-    """Create SDM630 availability topic for HA."""
+    """Create Modbus Sensor availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{id}{STATE}"}],
         "device": {
             "identifiers": [id],
             "manufacturer": "boneIO",
-            "model": "SDM630",
+            "model": model,
             "name": f"boneIO {name.upper()}",
             "sw_version": __version__,
         },
         "name": sensor_id,
         "state_topic": f"{topic}/{sensor_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
+        **kwargs,
+    }
+
+
+def ha_cover_availabilty_message(
+    id: str, name: str, device_class: str, topic: str = "boneIO"
+):
+    """Create Cover availability topic for HA."""
+    kwargs = {"device_class": device_class} if device_class else {}
+    return {
+        "availability": [{"topic": f"{topic}/{STATE}"}],
+        "command_topic": f"{topic}/cmd/cover/{id}/set",
+        "set_position_topic": f"{topic}/cmd/cover/{id}/pos",
+        "device": {
+            "identifiers": [topic],
+            "manufacturer": "boneIO",
+            "model": "boneIO Cover Board",
+            "name": f"boneIO {topic}",
+            "sw_version": __version__,
+        },
+        "name": name,
+        "payload_open": OPEN,
+        "payload_close": CLOSE,
+        "payload_stop": STOP,
+        "state_open": OPEN,
+        "state_opening": OPENING,
+        "state_closed": CLOSED,
+        "state_closing": CLOSING,
+        "state_topic": f"{topic}/{COVER}/{id}/state",
+        "position_topic": f"{topic}/{COVER}/{id}/pos",
+        "unique_id": f"{topic}{COVER}{id}",
         **kwargs,
     }

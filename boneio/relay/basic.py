@@ -14,12 +14,17 @@ class BasicRelay(BasicMqtt):
     """Basic relay class."""
 
     def __init__(
-        self, callback: Callable, id: str = None, output_type=SWITCH, **kwargs
+        self,
+        callback: Callable,
+        id: str = None,
+        output_type=SWITCH,
+        restored_state: bool = False,
+        **kwargs,
     ) -> None:
         """Initialize Basic relay."""
         super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
         self._output_type = output_type
-        self._state = False
+        self._state = restored_state
         self._callback = callback
         self._loop = asyncio.get_running_loop()
 

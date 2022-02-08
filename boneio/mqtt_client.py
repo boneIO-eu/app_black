@@ -1,4 +1,7 @@
-"""Provide an MQTT client for providing BoneIO MQTT broker."""
+"""
+Provide an MQTT client for providing BoneIO MQTT broker.
+Code based on cgarwood/python-openzwave-mqtt.
+"""
 import asyncio
 import json
 import logging
@@ -30,10 +33,8 @@ class MQTTClient:
         """Set up client."""
         self.host = host
         self.port = port
-        if "client_id" not in client_options:
-            client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
-        if "logger" not in client_options:
-            client_options["logger"] = logging.getLogger(PAHO)
+        client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
+        client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
         self.client_options = client_options
         self.asyncio_client: AsyncioClient = None
@@ -155,8 +156,7 @@ class MQTTClient:
             )
             tasks.add(messages_task)
 
-            topic = f"{manager.relay_topic}"
-            await self.subscribe(topic)
+            await self.subscribe(manager.subscribe_topic)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
@@ -167,4 +167,4 @@ async def handle_messages(messages: Any, callback: Callable[[str, str], None]) -
     async for message in messages:
         payload = message.payload.decode()
         _LOGGER.debug("Received message topic: %s, payload: %s", message.topic, payload)
-        callback(message.topic, payload)
+        await callback(message.topic, payload)

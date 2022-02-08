@@ -40,6 +40,10 @@ class Modbus:
                 bytesize=8,
                 parity="N",
             )
+            self._read_methods = {
+                "input": self._client.read_input_registers,
+                "holding": self._client.read_holding_registers,
+            }
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
 
@@ -58,50 +62,51 @@ class Modbus:
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
         try:
-            self._client.connect()  # type: ignore[union-attr]
+            return self._client.connect()  # type: ignore[union-attr]
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
             return False
-        else:
-            _LOGGER.info("modbus communication open")
-            return True
 
-    def read_single_register(self, unit: int, address: int, count: int = 2) -> float:
+    async def read_single_register(
+        self, unit: int, address: int, count: int = 2, method: str = "input"
+    ) -> float:
         """Call sync. pymodbus."""
-        if not self._pymodbus_connect:
-            _LOGGER.error("Can't connect to Modbus.")
-            return None
-        kwargs = {"unit": unit, "count": count} if unit else {}
-        try:
-            result: ReadInputRegistersResponse = self._client.read_input_registers(
-                address, **kwargs
-            )
-        except ModbusException as exception_error:
-            _LOGGER.error(exception_error)
-            return None
-        if not hasattr(result, REGISTERS):
-            _LOGGER.error(str(result))
-            return None
-        return BinaryPayloadDecoder.fromRegisters(
-            result.registers, byteorder=Endian.Big, wordorder=Endian.Big
-        ).decode_32bit_float()
+        async with self._lock:
+            if not self._pymodbus_connect():
+                _LOGGER.error("Can't connect to Modbus.")
+                return None
+            kwargs = {"unit": unit, "count": count} if unit else {}
+            try:
+                result: ReadInputRegistersResponse = self._read_methods[method](
+                    address, **kwargs
+                )
+            except ModbusException as exception_error:
+                _LOGGER.error(exception_error)
+                return None
+            if not hasattr(result, REGISTERS):
+                _LOGGER.error(str(result))
+                return None
+            return BinaryPayloadDecoder.fromRegisters(
+                result.registers, byteorder=Endian.Big, wordorder=Endian.Big
+            ).decode_32bit_float()
 
-    def read_multiple_registers(
-        self, unit: int, address: int, count: int = 2
+    async def read_multiple_registers(
+        self, unit: int, address: int, count: int = 2, method: str = "input"
     ) -> ModbusResponse:
         """Call sync. pymodbus."""
-        if not self._pymodbus_connect:
-            _LOGGER.error("Can't connect to Modbus.")
-            return None
-        kwargs = {"unit": unit, "count": count} if unit else {}
-        try:
-            result: ReadInputRegistersResponse = self._client.read_input_registers(
-                address, **kwargs
-            )
-        except ModbusException as exception_error:
-            _LOGGER.error(exception_error)
-            return None
-        if not hasattr(result, REGISTERS):
-            _LOGGER.error(str(result))
-            return None
-        return result
+        async with self._lock:
+            if not self._pymodbus_connect():
+                _LOGGER.error("Can't connect to Modbus.")
+                return None
+            kwargs = {"unit": unit, "count": count} if unit else {}
+            try:
+                result: ReadInputRegistersResponse = self._read_methods[method](
+                    address, **kwargs
+                )
+            except ModbusException as exception_error:
+                _LOGGER.error(exception_error)
+                return None
+            if not hasattr(result, REGISTERS):
+                _LOGGER.error(str(result))
+                return None
+            return result

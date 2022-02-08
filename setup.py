@@ -38,7 +38,6 @@ setup(
         "Adafruit-PureIO==1.1.9",
         "asyncio-mqtt==0.10.0",
         "Cerberus==1.3.4",
-        "click==8.0.3",
         "colorlog==6.5.0",
         "gpio==0.3.0",
         "luma.core==2.3.1",
@@ -52,5 +51,5 @@ setup(
         "pyserial-asyncio==0.6",
         "typing-extensions==3.10.0.2",
     ],
-    entry_points={"console_scripts": ["boneio=boneio.bonecli:cli"]},
+    entry_points={"console_scripts": ["boneio=boneio.bonecli:main"]},
 )
