@@ -169,30 +169,8 @@ def ha_cover_availabilty_message(
         "state_opening": OPENING,
         "state_closed": CLOSED,
         "state_closing": CLOSING,
-        # "state_stopped": "stopped",
         "state_topic": f"{topic}/{COVER}/{id}/state",
         "position_topic": f"{topic}/{COVER}/{id}/pos",
         "unique_id": f"{topic}{COVER}{id}",
         **kwargs,
     }
-
-
-#     command_topic: "home-assistant/cover/set"
-#     state_topic: "home-assistant/cover/state"
-#     position_topic: "home-assistant/cover/position"
-#     availability:
-#       - topic: "home-assistant/cover/availability"
-#     qos: 0
-#     retain: true
-#     payload_open: "OPEN"
-#     payload_close: "CLOSE"
-#     payload_stop: "STOP"
-#     state_opening: "opening"
-#     state_closed: "closed"
-#     state_stopped: "stopped"
-#     payload_available: "online"
-#     payload_not_available: "offline"
-#     optimistic: false
-#     value_template: "{{ value.x }}"
-#     position_template: "{{ value.y }}"
-# YAML
