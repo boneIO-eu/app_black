@@ -1,12 +1,21 @@
 """Cover module."""
 import asyncio
-
-# import atexit
-from typing import Any
-from boneio.const import COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED
+import logging
+from typing import Any, Callable
+from boneio.const import CLOSE, COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED, STOP
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
 from boneio.relay import MCPRelay
+
+_LOGGER = logging.getLogger(__name__)
+
+COVER_COMMANDS = {
+    OPEN: "open_cover",
+    CLOSE: "close_cover",
+    STOP: "stop",
+    "toggle": "toggle",
+    "toggle_open": "toggle_open",
+}
 
 
 class RelayHelper:
@@ -36,10 +45,11 @@ class Cover(BasicMqtt):
         id: str,
         open_relay: Any,
         close_relay: MCPRelay,
+        state_save: Callable,
         open_time: int,
         close_time: int,
         event_bus: EventBus,
-        restored_state: int = 0,
+        restored_state: int = 100,
         **kwargs,
     ) -> None:
         """Initialize cover class."""
@@ -47,6 +57,7 @@ class Cover(BasicMqtt):
         self._id = id
         super().__init__(id=id, name=id, topic_type=COVER, **kwargs)
         self._lock = asyncio.Lock()
+        self._state_save = state_save
         self._open = RelayHelper(relay=open_relay, time=open_time)
         self._close = RelayHelper(relay=close_relay, time=close_time)
         self._set_position = None
@@ -99,17 +110,18 @@ class Cover(BasicMqtt):
         """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
-    def stop_cover(self):
+    def stop(self):
         """Public Stop cover graceful."""
+        _LOGGER.info("Stopping cover.")
         if self._current_operation != IDLE:
             self._stop_cover(on_exit=False)
 
     def send_state(self):
         """Send state of cover to mqtt."""
         self._send_message(topic=f"{self._send_topic}/state", payload=self.cover_state)
-        self._send_message(
-            topic=f"{self._send_topic}/pos", payload=round(self._position, 0)
-        )
+        pos = round(self._position, 0)
+        self._send_message(topic=f"{self._send_topic}/pos", payload=str(pos))
+        self._state_save(position=pos)
 
     def _stop_cover(self, on_exit=False):
         """Stop cover."""
@@ -144,15 +156,19 @@ class Cover(BasicMqtt):
         self._position += step
         rounded_pos = round(self._position, 0)
         if self._set_position:
-            if self._requested_closing:
-                if rounded_pos < 95:
-                    rounded_pos = round(self._position, -1)
-            elif rounded_pos > 5:
+            # Set position is only working for every 10%, so round to nearest 10.
+            # Except for start moving time
+            if (self._requested_closing and rounded_pos < 95) or rounded_pos > 5:
                 rounded_pos = round(self._position, -1)
+        else:
+            if rounded_pos > 100:
+                rounded_pos = 100
+            elif rounded_pos < 0:
+                rounded_pos = 0
         self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
-        if rounded_pos in (100, 0, self._set_position):
-            self._stop_cover()
+        if rounded_pos == self._set_position or rounded_pos >= 100 or rounded_pos <= 0:
             self._position = rounded_pos
+            self._stop_cover()
 
         self._closed = self.current_cover_position <= 0
 
@@ -163,6 +179,7 @@ class Cover(BasicMqtt):
         if self._position is None:
             self._closed = True
             return
+        _LOGGER.info("Closing cover.")
 
         self._requested_closing = True
         self._send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
@@ -177,6 +194,7 @@ class Cover(BasicMqtt):
         if self._position is None:
             self._closed = False
             return
+        _LOGGER.info("Opening cover.")
 
         self._requested_closing = False
         self._send_message(topic=f"{self._send_topic}/state", payload=OPENING)
@@ -191,6 +209,7 @@ class Cover(BasicMqtt):
             return
         if self._set_position:
             self._stop_cover(on_exit=True)
+        _LOGGER.info("Setting cover at position %s.", set_position)
         self._set_position = set_position
 
         self._requested_closing = position < self._position
@@ -199,3 +218,32 @@ class Cover(BasicMqtt):
         await self.run_cover(
             current_operation=current_operation,
         )
+
+    def open(self):
+        _LOGGER.debug("Opening cover.")
+        asyncio.create_task(self.open_cover())
+
+    def close(self):
+        _LOGGER.debug("Closing cover.")
+        asyncio.create_task(self.close_cover())
+
+    def toggle(self):
+        _LOGGER.debug("Toggle cover from input.")
+        if self.cover_state == CLOSED:
+            self.close()
+        else:
+            self.open()
+
+    def toggle_open(self):
+        _LOGGER.debug("Toggle open cover from input.")
+        if self._current_operation != IDLE:
+            self.stop_cover()
+        else:
+            self.open_cover()
+
+    def toggle_close(self):
+        _LOGGER.debug("Toggle close cover from input.")
+        if self._current_operation != IDLE:
+            self.stop_cover()
+        else:
+            self.close_cover()

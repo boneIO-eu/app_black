@@ -253,7 +253,7 @@ input:
             schema:
               action:
                 type: string
-                allowed: ['mqtt', 'output', 'cover_open', 'cover_close']
+                allowed: ['mqtt', 'output', 'cover']
                 default: output
               pin:
                 type: string
@@ -267,7 +267,7 @@ input:
                   label: If mqtt action -> message to send
               action_type:
                 type: string
-                allowed: ['toggle', 'on', 'off']
+                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
                 default: toggle
                 meta:
                   label: If output action is chosen then what action to perform.
@@ -301,7 +301,7 @@ input:
             schema:
               action:
                 type: string
-                allowed: ['mqtt', 'output', 'cover_open', 'cover_close']
+                allowed: ['mqtt', 'output', 'cover']
                 default: output
               pin:
                 type: string
@@ -315,7 +315,7 @@ input:
                   label: If mqtt action -> message to send
               action_type:
                 type: string
-                allowed: ['toggle', 'on', 'off']
+                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
                 default: toggle
                 meta:
                   label: If output action is chosen then what action to perform.
@@ -325,7 +325,7 @@ input:
             schema:
               action:
                 type: string
-                allowed: ['mqtt', 'output']
+                allowed: ['mqtt', 'output', 'cover']
                 default: output
               pin:
                 type: string
@@ -339,7 +339,7 @@ input:
                   label: If mqtt action -> message to send
               action_type:
                 type: string
-                allowed: ['toggle', 'on', 'off']
+                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
                 default: toggle
                 meta:
                   label: If output action is chosen then what action to perform.
@@ -349,7 +349,7 @@ input:
             schema:
               action:
                 type: string
-                allowed: ['mqtt', 'output']
+                allowed: ['mqtt', 'output', 'cover']
                 default: output
               pin:
                 type: string
@@ -363,7 +363,7 @@ input:
                   label: If mqtt action -> message to send
               action_type:
                 type: string
-                allowed: ['toggle', 'on', 'off']
+                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
                 default: toggle
                 meta:
                   label: If output action is chosen then what action to perform.

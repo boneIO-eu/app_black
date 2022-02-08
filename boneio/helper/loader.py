@@ -143,7 +143,7 @@ def create_mcp23017(
     for mcp in mcp23017:
         id = mcp[ID] or mcp[ADDRESS]
         try:
-            manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS])
+            manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS], reset=False)
             sleep_time = mcp.get(INIT_SLEEP, 0)
             _LOGGER.debug(f"Sleeping for {sleep_time}s while MCP {id} is initializing.")
             time.sleep(sleep_time)
@@ -201,10 +201,16 @@ def configure_relay(
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
     restored_state = (
-        state_manager.get(attr_type=RELAY, attr=relay_id)
+        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
         if config[RESTORE_STATE]
         else False
     )
+    if config[OUTPUT_TYPE] == NONE and state_manager.get(
+        attr_type=RELAY, attr=relay_id
+    ):
+        state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
+        restored_state = False
+
     if config[KIND] == MCP:
         mcp_id = config.get(MCP_ID, "")
         mcp = manager.mcp.get(mcp_id)
@@ -309,13 +315,21 @@ def configure_cover(
     config: dict,
     **kwargs,
 ) -> Cover:
-    restored_state = (
-        state_manager.get(attr_type=COVER, attr=cover_id)
-        if config[RESTORE_STATE]
-        else 100
+    restored_state = state_manager.get(
+        attr_type=COVER, attr=cover_id, default_value=100
     )
+
+    def state_save(position: int):
+        if config[RESTORE_STATE]:
+            state_manager.save_attribute(
+                attr_type=COVER,
+                attribute=cover_id,
+                value=position,
+            )
+
     cover = Cover(
         id=cover_id,
+        state_save=state_save,
         send_message=manager.send_message,
         restored_state=restored_state,
         **kwargs,

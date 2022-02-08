@@ -25,6 +25,11 @@ class StateManager:
             pass
         return {}
 
+    def del_attribute(self, attr_type: str, attribute: str) -> None:
+        """Delete attribute"""
+        if attr_type in self._state and attribute in self._state[attr_type]:
+            del self._state[attr_type][attribute]
+
     def save_attribute(self, attr_type: str, attribute: str, value: str) -> None:
         """Save single attribute to file."""
         if attr_type not in self._state:
@@ -32,12 +37,12 @@ class StateManager:
         self._state[attr_type][attribute] = value
         asyncio.run_coroutine_threadsafe(self.save_state(), self._loop)
 
-    def get(self, attr_type: str, attr: str) -> Any:
+    def get(self, attr_type: str, attr: str, default_value: Any = None) -> Any:
         """Retrieve attribute from json."""
         attrs = self._state.get(attr_type)
         if attrs:
-            return attrs.get(attr)
-        return None
+            return attrs.get(attr, default_value)
+        return default_value
 
     @property
     def state(self) -> dict:
@@ -51,4 +56,4 @@ class StateManager:
             return
         async with self._lock:
             with open(self._file, "w+", encoding="utf-8") as f:
-                json.dump(self._state, f, ensure_ascii=False, indent=4)
+                json.dump(self._state, f, indent=2)

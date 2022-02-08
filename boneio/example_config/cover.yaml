@@ -1,0 +1,8 @@
+cover:
+  - id: kitchen
+    open_relay: test1
+    close_relay: test2
+    open_time: 20
+    close_time: 22
+    show_in_ha: yes
+    restore_state: yes

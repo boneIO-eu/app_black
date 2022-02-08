@@ -273,6 +273,10 @@ class Manager:
                 payload = action.get("message")
                 if topic and payload:
                     self.send_message(topic=topic, payload=payload)
+            elif action[ACTION] == COVER:
+                cover = self._covers.get(action[PIN].replace(" ", ""))
+                if cover:
+                    getattr(cover, action[ACTION_TYPE])()
 
         # This is similar how Z2M is clearing click sensor.
         self._loop.call_soon_threadsafe(self.send_message, topic, "")
@@ -300,7 +304,6 @@ class Manager:
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         assert topic.startswith(self._command_topic_prefix)
-        # topic = topic.replace(self._command_topic_prefix, "")
         topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
         msg_type = topic_parts.popleft()
@@ -316,13 +319,18 @@ class Manager:
                     target_device.turn_off()
         elif msg_type == COVER:
             cover = self._covers.get(device_id)
+            if not cover:
+                return
             if command == "set":
-                if message == OPEN:
-                    await cover.open_cover()
-                elif message == CLOSE:
-                    await cover.close_cover()
-                elif message == STOP:
-                    cover.stop_cover()
+                if message in (
+                    OPEN,
+                    CLOSE,
+                    STOP,
+                    "toggle",
+                    "toggle_open",
+                    "toggle_close",
+                ):
+                    getattr(cover, message.lower())()
             elif command == "pos":
                 position = int(message)
                 if 0 <= position <= 100:
