@@ -255,31 +255,37 @@ class Manager:
         return self._mcp
 
     def press_callback(
-        self, x: ClickTypes, inpin: str, actions: dict, input_type: InputTypes = INPUT
+        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay."""
         topic = f"{self._topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
-        action = actions.get(x)
-        if action:
-            if action[ACTION] == OUTPUT:
-                """For now only output type is supported"""
-                relay = self._output.get(action[PIN].replace(" ", ""))
+        for action_definition in actions:
+            if action_definition[ACTION] == OUTPUT:
+                device = action_definition.get(PIN)
+                if not device:
+                    continue
+                relay = self._output.get(device.replace(" ", ""))
                 if relay:
-                    getattr(relay, action[ACTION_TYPE])()
-            elif action[ACTION] == MQTT:
-                topic = action.get(TOPIC)
-                payload = action.get("message")
-                if topic and payload:
-                    self.send_message(topic=topic, payload=payload)
-            elif action[ACTION] == COVER:
-                cover = self._covers.get(action[PIN].replace(" ", ""))
+                    getattr(relay, action_definition["action_output"])()
+            elif action_definition[ACTION] == MQTT:
+                action_topic = action_definition.get(TOPIC)
+                action_payload = action_definition.get("action_mqtt_msg")
+                if action_topic and action_payload:
+                    self.send_message(topic=action_topic, payload=action_payload)
+            elif action_definition[ACTION] == COVER:
+                device = action_definition.get(PIN)
+                if not device:
+                    continue
+                cover = self._covers.get(device.replace(" ", ""))
                 if cover:
-                    getattr(cover, action[ACTION_TYPE])()
+                    getattr(cover, action_definition["action_cover"])()
 
         # This is similar how Z2M is clearing click sensor.
-        self._loop.call_soon_threadsafe(self.send_message, topic, "")
+        self._loop.call_soon_threadsafe(
+            self._loop.call_later, 0.2, self.send_message, topic, ""
+        )
 
     def send_ha_autodiscovery(
         self,
@@ -306,9 +312,13 @@ class Manager:
         assert topic.startswith(self._command_topic_prefix)
         topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
-        msg_type = topic_parts.popleft()
-        device_id = topic_parts.popleft()
-        command = topic_parts.pop()
+        try:
+            msg_type = topic_parts.popleft()
+            device_id = topic_parts.popleft()
+            command = topic_parts.pop()
+        except IndexError:
+            _LOGGER.error("Part of topic is missing. Not invoking command.")
+            return
 
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)

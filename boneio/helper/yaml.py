@@ -5,7 +5,7 @@ from cerberus import Validator
 from boneio.const import ID, OUTPUT
 from yaml import load, YAMLError, SafeLoader
 
-schema_file = os.path.join(os.path.dirname(__file__), "../schema.yaml")
+schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
 
 

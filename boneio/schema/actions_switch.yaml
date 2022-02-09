@@ -1,0 +1,5 @@
+required: False
+type: list
+dependencies:
+  kind: ['switch']
+schema: !include actions.yaml

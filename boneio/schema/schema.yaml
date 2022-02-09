@@ -238,7 +238,7 @@ input:
           label: If you want you can disable discovering this input in HA.
       kind:
         type: string
-        allowed: ['switch', 'sensor', 'cover']
+        allowed: ['switch', 'sensor']
         default: switch
         required: True
         meta:
@@ -247,126 +247,11 @@ input:
         required: False
         type: dict
         schema:
-          single:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output', 'cover']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          double:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output', 'cover']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          long:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output', 'cover']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          pressed:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output', 'cover']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          released:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output', 'cover']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
+          single: !include actions_switch.yaml
+          double: !include actions_switch.yaml
+          long: !include actions_switch.yaml
+          pressed: !include actions_sensor.yaml
+          released: !include actions_sensor.yaml
 adc:
   type: list
   meta:
