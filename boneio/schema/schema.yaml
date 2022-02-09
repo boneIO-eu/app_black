@@ -238,7 +238,7 @@ input:
           label: If you want you can disable discovering this input in HA.
       kind:
         type: string
-        allowed: ['switch', 'sensor', 'cover']
+        allowed: ['switch', 'sensor']
         default: switch
         required: True
         meta:
@@ -247,11 +247,11 @@ input:
         required: False
         type: dict
         schema:
-          single: !include actions.yaml
-          double: !include actions.yaml
-          long: !include actions.yaml
-          pressed: !include actions.yaml
-          released: !include actions.yaml
+          single: !include actions_switch.yaml
+          double: !include actions_switch.yaml
+          long: !include actions_switch.yaml
+          pressed: !include actions_sensor.yaml
+          released: !include actions_sensor.yaml
 adc:
   type: list
   meta:
