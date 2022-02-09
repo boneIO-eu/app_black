@@ -239,11 +239,11 @@ class Cover(BasicMqtt):
         if self._current_operation != IDLE:
             self.stop_cover()
         else:
-            self.open_cover()
+            self.open()
 
     def toggle_close(self):
         _LOGGER.debug("Toggle close cover from input.")
         if self._current_operation != IDLE:
             self.stop_cover()
         else:
-            self.close_cover()
+            self.close()

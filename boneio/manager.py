@@ -312,9 +312,13 @@ class Manager:
         assert topic.startswith(self._command_topic_prefix)
         topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
-        msg_type = topic_parts.popleft()
-        device_id = topic_parts.popleft()
-        command = topic_parts.pop()
+        try:
+            msg_type = topic_parts.popleft()
+            device_id = topic_parts.popleft()
+            command = topic_parts.pop()
+        except IndexError:
+            _LOGGER.error("Part of topic is missing. Not invoking command.")
+            return
 
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
