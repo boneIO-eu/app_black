@@ -255,14 +255,13 @@ class Manager:
         return self._mcp
 
     def press_callback(
-        self, x: ClickTypes, inpin: str, actions: dict, input_type: InputTypes = INPUT
+        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay."""
         topic = f"{self._topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
-        action = actions.get(x)
-        if action:
+        for action in actions:
             if action[ACTION] == OUTPUT:
                 """For now only output type is supported"""
                 relay = self._output.get(action[PIN].replace(" ", ""))
