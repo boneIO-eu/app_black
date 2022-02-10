@@ -24,7 +24,6 @@ GPIO = "gpio"
 GPIO_MODE = "gpio_mode"
 ACTIONS = "actions"
 ACTION = "action"
-ACTION_TYPE = "action_type"
 OUTPUT = "output"
 SWITCH = "switch"
 CONFIG_PIN = "/usr/bin/config-pin"
@@ -54,7 +53,6 @@ SECOND_DELAY_DURATION = 0.3
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
 HA_DISCOVERY = "ha_discovery"
-HA_TYPE = "ha_type"
 OUTPUT_TYPE = "output_type"
 SHOW_HA = "show_in_ha"
 

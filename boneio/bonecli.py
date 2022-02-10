@@ -7,10 +7,10 @@ import sys
 
 from colorlog import ColoredFormatter
 
-from boneio.const import ACTION, PAHO, PYMODBUS
+from boneio.const import ACTION
 from boneio.helper import load_config_from_file
 from boneio.runner import async_run
-from boneio.version import __version__
+
 
 TASK_CANCELATION_TIMEOUT = 1
 
@@ -85,24 +85,14 @@ def main() -> int:
 
     args = get_arguments()
     debug = args.debug
-    if debug == 0:
-        logging.getLogger().setLevel(logging.INFO)
-    if debug > 0:
-        logging.getLogger().setLevel(logging.DEBUG)
-        _LOGGER.info("Debug mode active")
-        _LOGGER.debug(f"Lib version is {__version__}")
-    if debug > 1:
-        logging.getLogger(PAHO).setLevel(logging.DEBUG)
-        logging.getLogger(PYMODBUS).setLevel(logging.DEBUG)
-        logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
-    else:
-        logging.getLogger(PAHO).setLevel(logging.WARN)
+
     exit_code = 0
     if args.action == "run":
         exit_code = run(
             config=args.config,
             mqttusername=args.mqttusername,
             mqttpassword=args.mqttpassword,
+            debug=debug,
         )
 
     return exit_code

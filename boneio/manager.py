@@ -7,7 +7,6 @@ from busio import I2C
 
 from boneio.const import (
     ACTION,
-    ACTION_TYPE,
     BONEIO,
     CLOSE,
     COVER,

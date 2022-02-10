@@ -19,18 +19,66 @@ from boneio.const import (
     PASSWORD,
     TOPIC_PREFIX,
     USERNAME,
+    PAHO,
+    PYMODBUS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 from boneio.helper import StateManager
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
+from boneio.version import __version__
+
+_nameToLevel = {
+    "CRITICAL": logging.CRITICAL,
+    "FATAL": logging.FATAL,
+    "ERROR": logging.ERROR,
+    "WARN": logging.WARNING,
+    "WARNING": logging.WARNING,
+    "INFO": logging.INFO,
+    "DEBUG": logging.DEBUG,
+    "NOTSET": logging.NOTSET,
+}
+
+
+def configure_logger(log_config: dict) -> None:
+    """Configure logger based on config yaml."""
+    if not log_config:
+        return
+    default = log_config.get("default")
+    if default.upper() in _nameToLevel:
+        logging.getLogger().setLevel(_nameToLevel[default.upper()])
+    for k, v in log_config.get("logs", []).items():
+        logger = logging.getLogger(k)
+        val = v.upper()
+        if val in _nameToLevel and logger:
+            logger.setLevel(_nameToLevel[val])
 
 
 async def async_run(
-    config: dict, config_path: str, mqttusername: str = "", mqttpassword: str = ""
+    config: dict,
+    config_path: str,
+    debug: int,
+    mqttusername: str = "",
+    mqttpassword: str = "",
 ):
     """Run BoneIO."""
+
+    configure_logger(log_config=config.get("logger"))
+
+    if debug == 0:
+        logging.getLogger().setLevel(logging.INFO)
+    if debug > 0:
+        logging.getLogger().setLevel(logging.DEBUG)
+        _LOGGER.info("Debug mode active")
+        _LOGGER.debug(f"Lib version is {__version__}")
+    if debug > 1:
+        logging.getLogger(PAHO).setLevel(logging.DEBUG)
+        logging.getLogger(PYMODBUS).setLevel(logging.DEBUG)
+        logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger(PAHO).setLevel(logging.WARN)
+
     client = MQTTClient(
         host=config[MQTT][HOST],
         username=config[MQTT].get(USERNAME, mqttusername),
