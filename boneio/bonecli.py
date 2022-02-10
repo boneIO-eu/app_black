@@ -9,8 +9,8 @@ from colorlog import ColoredFormatter
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.runner import async_run
-
+from boneio.runner import async_run, configure_logger
+from boneio.version import __version__
 
 TASK_CANCELATION_TIMEOUT = 1
 
@@ -64,12 +64,13 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(config: str, mqttusername: str = "", mqttpassword: str = ""):
+def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
     """Run BoneIO."""
     _LOGGER.info("BoneIO starting.")
     _config = load_config_from_file(config_file=config)
     if not _config:
         return
+    configure_logger(log_config=_config.get("logger"), debug=debug)
     return asyncio.run(
         async_run(
             config=_config,

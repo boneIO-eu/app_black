@@ -59,7 +59,7 @@ logger:
       meta:
         label: Module which you want logger to set. Default for app logger.
     logs:
-      type: list
+      type: dict
       meta:
         label: List of dict module\:level.
       
