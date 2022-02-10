@@ -285,7 +285,7 @@ def configure_input(
                 press_callback=lambda x, i: press_callback(
                     x=x,
                     inpin=i,
-                    actions=gpio.get(ACTIONS, {}),
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
                     input_type=INPUT,
                 ),
                 rest_pin=gpio,

@@ -166,9 +166,13 @@ class Cover(BasicMqtt):
             elif rounded_pos < 0:
                 rounded_pos = 0
         self._send_message(topic=f"{self._send_topic}/pos", payload=rounded_pos)
-        if rounded_pos == self._set_position or rounded_pos >= 100 or rounded_pos <= 0:
+        if rounded_pos == self._set_position or (
+            self._set_position is None and (rounded_pos >= 100 or rounded_pos <= 0)
+        ):
             self._position = rounded_pos
+            self._closed = self.current_cover_position <= 0
             self._stop_cover()
+            return
 
         self._closed = self.current_cover_position <= 0
 
@@ -212,8 +216,11 @@ class Cover(BasicMqtt):
         _LOGGER.info("Setting cover at position %s.", set_position)
         self._set_position = set_position
 
-        self._requested_closing = position < self._position
+        self._requested_closing = set_position < self._position
         current_operation = CLOSING if self._requested_closing else OPENING
+        _LOGGER.debug(
+            "Requested set position %s. Operation %s", set_position, current_operation
+        )
         self._send_message(topic=f"{self._send_topic}/state", payload=current_operation)
         await self.run_cover(
             current_operation=current_operation,
@@ -237,13 +244,13 @@ class Cover(BasicMqtt):
     def toggle_open(self):
         _LOGGER.debug("Toggle open cover from input.")
         if self._current_operation != IDLE:
-            self.stop_cover()
+            self.stop()
         else:
             self.open()
 
     def toggle_close(self):
         _LOGGER.debug("Toggle close cover from input.")
         if self._current_operation != IDLE:
-            self.stop_cover()
+            self.stop()
         else:
             self.close()

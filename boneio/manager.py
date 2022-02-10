@@ -258,7 +258,7 @@ class Manager:
         self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
     ) -> None:
         """Press callback to use in input gpio.
-        If relay input map is provided also toggle action on relay."""
+        If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
         for action_definition in actions:
