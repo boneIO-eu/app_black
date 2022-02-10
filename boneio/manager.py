@@ -59,7 +59,7 @@ class Manager:
 
     def __init__(
         self,
-        send_message: Callable[[str, Union[str, dict]], None],
+        send_message: Callable[[str, Union[str, dict], bool], None],
         state_manager: StateManager,
         relay_pins: List = [],
         input_pins: List = [],
@@ -304,7 +304,7 @@ class Manager:
         msg = availabilty_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
-        self.send_message(topic=topic, payload=msg)
+        self.send_message(topic=topic, payload=msg, retain=True)
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
