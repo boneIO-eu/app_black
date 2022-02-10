@@ -7,9 +7,9 @@ import sys
 
 from colorlog import ColoredFormatter
 
-from boneio.const import ACTION, PAHO, PYMODBUS
+from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.runner import async_run
+from boneio.runner import async_run, configure_logger
 from boneio.version import __version__
 
 TASK_CANCELATION_TIMEOUT = 1
@@ -64,12 +64,13 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(config: str, mqttusername: str = "", mqttpassword: str = ""):
+def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
     """Run BoneIO."""
     _LOGGER.info("BoneIO starting.")
     _config = load_config_from_file(config_file=config)
     if not _config:
         return
+    configure_logger(log_config=_config.get("logger"), debug=debug)
     return asyncio.run(
         async_run(
             config=_config,
@@ -85,24 +86,14 @@ def main() -> int:
 
     args = get_arguments()
     debug = args.debug
-    if debug == 0:
-        logging.getLogger().setLevel(logging.INFO)
-    if debug > 0:
-        logging.getLogger().setLevel(logging.DEBUG)
-        _LOGGER.info("Debug mode active")
-        _LOGGER.debug(f"Lib version is {__version__}")
-    if debug > 1:
-        logging.getLogger(PAHO).setLevel(logging.DEBUG)
-        logging.getLogger(PYMODBUS).setLevel(logging.DEBUG)
-        logging.getLogger("pymodbus.client").setLevel(logging.DEBUG)
-    else:
-        logging.getLogger(PAHO).setLevel(logging.WARN)
+
     exit_code = 0
     if args.action == "run":
         exit_code = run(
             config=args.config,
             mqttusername=args.mqttusername,
             mqttpassword=args.mqttpassword,
+            debug=debug,
         )
 
     return exit_code

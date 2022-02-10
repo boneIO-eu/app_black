@@ -48,6 +48,23 @@ mqtt:
           meta:
             label: Prefix topic of HA discovery.
 
+logger:
+  type: dict
+  required: False
+  schema:
+    default:
+      type: string
+      required: False
+      allowed: ["critical", "error", "warning", "info", "debug"]
+      meta:
+        label: Module which you want logger to set. Default for app logger.
+    logs:
+      type: dict
+      meta:
+        label: List of dict module\:level.
+      
+
+
 oled:
   type: dict
   default: {}
