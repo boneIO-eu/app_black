@@ -10,7 +10,7 @@ mqtt:
       meta:
         label: Mqtt broker hostname or IP address
     username:
-      required: True
+      required: False
       type: string
       meta:
         label: Username to connect ot mqtt broker
@@ -107,13 +107,12 @@ modbus_sensors:
       address:
         type: string
         required: True
-        default: 0x33
         meta:
           label: Address of Modbus sensor to use.
       model:
         type: string
         required: True
-        allowed: ['sdm630']
+        allowed: ['sdm630', 'sdm120', 'sofar']
         meta:
           label: Model to load from database.
       update_interval:
@@ -136,7 +135,7 @@ lm75:
       required: True
       default: 0x48
       meta:
-        label: GPIO of I2C SDA
+        label: Address of I2C
 
 
 mcp9808:
@@ -247,6 +246,12 @@ input:
         allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
+      bounce_time:
+        type: integer
+        required: True
+        default: 25
+        meta:
+          label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
         type: boolean
         required: True

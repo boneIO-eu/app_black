@@ -154,7 +154,7 @@ class Manager:
                     name=out.name,
                     ha_type=out.output_type,
                     ha_discovery_prefix=ha_discovery_prefix,
-                    availabilty_msg_func=ha_relay_availabilty_message,
+                    availability_msg_func=ha_relay_availabilty_message,
                 )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
@@ -292,7 +292,7 @@ class Manager:
         name: str,
         ha_discovery_prefix: str,
         ha_type: str,
-        availabilty_msg_func: Callable,
+        availability_msg_func: Callable,
         topic_prefix: str = None,
         **kwargs,
     ) -> None:
@@ -301,7 +301,7 @@ class Manager:
             return
         if not topic_prefix:
             topic_prefix = self._topic_prefix
-        msg = availabilty_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
+        msg = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
         self.send_message(topic=topic, payload=msg, retain=True)

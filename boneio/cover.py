@@ -97,7 +97,7 @@ class Cover(BasicMqtt):
             if inverted_relay.is_active:
                 inverted_relay.turn_off()
             self._timer_handle = self._event_bus.add_listener(
-                f"{COVER}{id}", self.listen_cover
+                f"{COVER}{self.id}", self.listen_cover
             )
             relay.turn_on()
 
@@ -112,7 +112,7 @@ class Cover(BasicMqtt):
 
     def stop(self):
         """Public Stop cover graceful."""
-        _LOGGER.info("Stopping cover.")
+        _LOGGER.info("Stopping cover %s.", self._id)
         if self._current_operation != IDLE:
             self._stop_cover(on_exit=False)
 
@@ -128,7 +128,7 @@ class Cover(BasicMqtt):
         self._open.relay.turn_off()
         self._close.relay.turn_off()
         if self._timer_handle is not None:
-            self._event_bus.remove_listener(f"{COVER}{id}")
+            self._event_bus.remove_listener(f"{COVER}{self.id}")
             self._timer_handle = None
             self._set_position = None
             if not on_exit:
@@ -183,7 +183,7 @@ class Cover(BasicMqtt):
         if self._position is None:
             self._closed = True
             return
-        _LOGGER.info("Closing cover.")
+        _LOGGER.info("Closing cover %s.", self._id)
 
         self._requested_closing = True
         self._send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
@@ -198,7 +198,7 @@ class Cover(BasicMqtt):
         if self._position is None:
             self._closed = False
             return
-        _LOGGER.info("Opening cover.")
+        _LOGGER.info("Opening cover %s.", self._id)
 
         self._requested_closing = False
         self._send_message(topic=f"{self._send_topic}/state", payload=OPENING)
@@ -227,29 +227,29 @@ class Cover(BasicMqtt):
         )
 
     def open(self):
-        _LOGGER.debug("Opening cover.")
+        _LOGGER.debug("Opening cover %s.", self._id)
         asyncio.create_task(self.open_cover())
 
     def close(self):
-        _LOGGER.debug("Closing cover.")
+        _LOGGER.debug("Closing cover %s.", self._id)
         asyncio.create_task(self.close_cover())
 
     def toggle(self):
-        _LOGGER.debug("Toggle cover from input.")
+        _LOGGER.debug("Toggle cover %s from input.", self._id)
         if self.cover_state == CLOSED:
             self.close()
         else:
             self.open()
 
     def toggle_open(self):
-        _LOGGER.debug("Toggle open cover from input.")
+        _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
             self.stop()
         else:
             self.open()
 
     def toggle_close(self):
-        _LOGGER.debug("Toggle close cover from input.")
+        _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
             self.stop()
         else:

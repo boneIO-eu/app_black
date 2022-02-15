@@ -33,7 +33,6 @@ schema:
       label: If output action chosen then what action to perform.
   action_mqtt_msg:
     type: string
-    default: toggle
     dependencies:
       action: ['mqtt']
     meta:
