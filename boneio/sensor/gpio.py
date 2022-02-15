@@ -14,7 +14,9 @@ class GpioInputSensor(GpioBaseClass):
     def __init__(self, **kwargs) -> None:
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
-        edge_detect(self._pin, callback=self._handle_press, bounce=25, edge=BOTH)
+        edge_detect(
+            self._pin, callback=self._handle_press, bounce=self._bounce_time, edge=BOTH
+        )
         _LOGGER.debug("Configured sensor pin %s", self._pin)
 
     def _handle_press(self, pin: str) -> None:

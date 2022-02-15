@@ -49,6 +49,9 @@ def configure_logger(log_config: dict, debug: int) -> None:
             logging.getLogger().setLevel(logging.INFO)
         if debug > 0:
             logging.getLogger().setLevel(logging.DEBUG)
+            logging.getLogger(PAHO).setLevel(logging.WARN)
+            logging.getLogger(PYMODBUS).setLevel(logging.WARN)
+            logging.getLogger("pymodbus.client").setLevel(logging.WARN)
             _LOGGER.info("Debug mode active")
             _LOGGER.debug(f"Lib version is {__version__}")
         if debug > 1:

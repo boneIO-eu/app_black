@@ -54,8 +54,8 @@ class MQTTClient:
         self,
         topic: str,
         payload: Optional[str] = None,
-        qos: int = 0,
         retain: bool = False,
+        qos: int = 0,
         properties: Optional[Properties] = None,
         timeout: float = 10,
     ) -> None:
@@ -105,9 +105,15 @@ class MQTTClient:
 
         await self.asyncio_client.unsubscribe(topic, **params)
 
-    def send_message(self, topic: str, payload: Union[str, dict]) -> None:
+    def send_message(
+        self, topic: str, payload: Union[str, dict], retain: bool = False
+    ) -> None:
         """Send a message from the manager options."""
-        to_publish = (topic, json.dumps(payload) if type(payload) == dict else payload)
+        to_publish = (
+            topic,
+            json.dumps(payload) if type(payload) == dict else payload,
+            retain,
+        )
         self.publish_queue.put_nowait(to_publish)
 
     async def _handle_publish(self) -> None:

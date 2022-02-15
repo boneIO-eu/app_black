@@ -4,6 +4,7 @@ import logging
 import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Callable
+from collections import namedtuple
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from boneio.const import (
@@ -84,7 +85,7 @@ def create_adc(
                     name=name,
                     ha_type=SENSOR,
                     ha_discovery_prefix=ha_discovery_prefix,
-                    availabilty_msg_func=ha_adc_sensor_availabilty_message,
+                    availability_msg_func=ha_adc_sensor_availabilty_message,
                 )
             manager.append_task(asyncio.create_task(adc.send_state()))
         except I2CError as err:
@@ -124,7 +125,7 @@ def create_temp_sensor(
             name=name,
             ha_type=SENSOR,
             ha_discovery_prefix=ha_discovery_prefix,
-            availabilty_msg_func=ha_sensor_temp_availabilty_message,
+            availability_msg_func=ha_sensor_temp_availabilty_message,
         )
         manager.append_task(asyncio.create_task(temp_sensor.send_state()))
         temp_sensors.append(temp_sensor)
@@ -257,6 +258,24 @@ def configure_relay(
         return gpio_relay
 
 
+InputEntry = namedtuple(
+    "InputEntry", "InputClass input_type ha_type availability_msg_f"
+)
+
+
+def input_chooser(input_type: str):
+    """Get named tuple based on input."""
+    if input_type == SENSOR:
+        return InputEntry(
+            GpioInputSensor,
+            INPUT_SENSOR,
+            BINARY_SENSOR,
+            ha_binary_sensor_availabilty_message,
+        )
+    else:
+        return InputEntry(GpioInputButton, INPUT, SENSOR, ha_input_availabilty_message)
+
+
 def configure_input(
     gpio: dict,
     pin: str,
@@ -264,41 +283,26 @@ def configure_input(
     send_ha_autodiscovery: Callable,
     ha_discovery_prefix: str,
 ) -> str:
+    """Configure input sensor or button."""
     try:
-        input_type = gpio.get(KIND)
-        if input_type == SENSOR:
-            GpioInputSensor(
-                pin=pin,
-                press_callback=lambda x, i: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT_SENSOR,
-                ),
-                rest_pin=gpio,
-            )
-            availabilty_msg_func = ha_binary_sensor_availabilty_message
-            ha_type = BINARY_SENSOR
-        else:
-            GpioInputButton(
-                pin=pin,
-                press_callback=lambda x, i: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                ),
-                rest_pin=gpio,
-            )
-            availabilty_msg_func = ha_input_availabilty_message
-            ha_type = SENSOR
+        input = input_chooser(input_type=gpio.get(KIND))
+        getattr(input, "InputClass")(
+            pin=pin,
+            press_callback=lambda x, i: press_callback(
+                x=x,
+                inpin=i,
+                actions=gpio.get(ACTIONS, {}).get(x, []),
+                input_type=getattr(input, "input_type"),
+            ),
+            rest_pin=gpio,
+        )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
                 name=gpio.get(ID, pin),
-                ha_type=ha_type,
+                ha_type=getattr(input, "ha_type"),
                 ha_discovery_prefix=ha_discovery_prefix,
-                availabilty_msg_func=availabilty_msg_func,
+                availability_msg_func=getattr(input, "availability_msg_f"),
             )
         return pin
     except GPIOInputException as err:
@@ -341,6 +345,6 @@ def configure_cover(
             ha_type=COVER,
             device_class=config.get(DEVICE_CLASS),
             ha_discovery_prefix=ha_discovery_prefix,
-            availabilty_msg_func=ha_cover_availabilty_message,
+            availability_msg_func=ha_cover_availabilty_message,
         )
     return cover
