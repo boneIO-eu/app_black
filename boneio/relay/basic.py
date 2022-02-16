@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Callable
 
-from boneio.const import OFF, ON, RELAY, STATE, SWITCH, NONE
+from boneio.const import LIGHT, OFF, ON, RELAY, STATE, SWITCH, NONE
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +37,11 @@ class BasicRelay(BasicMqtt):
     def output_type(self) -> str:
         """HA type."""
         return self._output_type
+
+    @property
+    def is_light(self) -> bool:
+        """Check if HA type is light"""
+        return self._output_type == LIGHT
 
     @property
     def id(self) -> bool:
