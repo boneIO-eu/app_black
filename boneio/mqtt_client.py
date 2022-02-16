@@ -1,4 +1,7 @@
-"""Provide an MQTT client for providing BoneIO MQTT broker."""
+"""
+Provide an MQTT client for providing BoneIO MQTT broker.
+Code based on cgarwood/python-openzwave-mqtt.
+"""
 import asyncio
 import json
 import logging
@@ -30,10 +33,8 @@ class MQTTClient:
         """Set up client."""
         self.host = host
         self.port = port
-        if "client_id" not in client_options:
-            client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
-        if "logger" not in client_options:
-            client_options["logger"] = logging.getLogger(PAHO)
+        client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
+        client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
         self.client_options = client_options
         self.asyncio_client: AsyncioClient = None
@@ -53,8 +54,8 @@ class MQTTClient:
         self,
         topic: str,
         payload: Optional[str] = None,
-        qos: int = 0,
         retain: bool = False,
+        qos: int = 0,
         properties: Optional[Properties] = None,
         timeout: float = 10,
     ) -> None:
@@ -104,9 +105,15 @@ class MQTTClient:
 
         await self.asyncio_client.unsubscribe(topic, **params)
 
-    def send_message(self, topic: str, payload: Union[str, dict]) -> None:
+    def send_message(
+        self, topic: str, payload: Union[str, dict], retain: bool = False
+    ) -> None:
         """Send a message from the manager options."""
-        to_publish = (topic, json.dumps(payload) if type(payload) == dict else payload)
+        to_publish = (
+            topic,
+            json.dumps(payload) if type(payload) == dict else payload,
+            retain,
+        )
         self.publish_queue.put_nowait(to_publish)
 
     async def _handle_publish(self) -> None:
@@ -155,8 +162,7 @@ class MQTTClient:
             )
             tasks.add(messages_task)
 
-            topic = f"{manager.relay_topic}"
-            await self.subscribe(topic)
+            await self.subscribe(manager.subscribe_topic)
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
@@ -167,4 +173,4 @@ async def handle_messages(messages: Any, callback: Callable[[str, str], None]) -
     async for message in messages:
         payload = message.payload.decode()
         _LOGGER.debug("Received message topic: %s, payload: %s", message.topic, payload)
-        callback(message.topic, payload)
+        await callback(message.topic, payload)

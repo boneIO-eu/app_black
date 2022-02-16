@@ -10,7 +10,7 @@ mqtt:
       meta:
         label: Mqtt broker hostname or IP address
     username:
-      required: True
+      required: False
       type: string
       meta:
         label: Username to connect ot mqtt broker
@@ -47,6 +47,23 @@ mqtt:
           default: homeassistant
           meta:
             label: Prefix topic of HA discovery.
+
+logger:
+  type: dict
+  required: False
+  schema:
+    default:
+      type: string
+      required: False
+      allowed: ["critical", "error", "warning", "info", "debug"]
+      meta:
+        label: Module which you want logger to set. Default for app logger.
+    logs:
+      type: dict
+      meta:
+        label: List of dict module\:level.
+      
+
 
 oled:
   type: dict
@@ -90,13 +107,12 @@ modbus_sensors:
       address:
         type: string
         required: True
-        default: 0x33
         meta:
           label: Address of Modbus sensor to use.
       model:
         type: string
         required: True
-        allowed: ['sdm630']
+        allowed: ['sdm630', 'sdm120', 'sofar']
         meta:
           label: Model to load from database.
       update_interval:
@@ -119,7 +135,7 @@ lm75:
       required: True
       default: 0x48
       meta:
-        label: GPIO of I2C SDA
+        label: Address of I2C
 
 
 mcp9808:
@@ -149,7 +165,6 @@ mcp23017:
       id:
         type: string
         required: True
-        default: lm75
         meta:
           label: Id of I2C to use in pin config
       address:
@@ -231,6 +246,12 @@ input:
         allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
+      bounce_time:
+        type: integer
+        required: True
+        default: 25
+        meta:
+          label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
         type: boolean
         required: True
@@ -248,126 +269,11 @@ input:
         required: False
         type: dict
         schema:
-          single:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          double:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          long:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          pressed:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
-          released:
-            required: False
-            type: dict
-            schema:
-              action:
-                type: string
-                allowed: ['mqtt', 'output']
-                default: output
-              pin:
-                type: string
-              topic:
-                type: string
-                meta:
-                  label: If mqtt action then topic to send
-              message:
-                type: string
-                meta:
-                  label: If mqtt action -> message to send
-              action_type:
-                type: string
-                allowed: ['toggle', 'on', 'off']
-                default: toggle
-                meta:
-                  label: If output action is chosen then what action to perform.
+          single: !include actions_switch.yaml
+          double: !include actions_switch.yaml
+          long: !include actions_switch.yaml
+          pressed: !include actions_sensor.yaml
+          released: !include actions_sensor.yaml
 adc:
   type: list
   meta:
@@ -392,6 +298,56 @@ adc:
         default: 60
         meta:
           label: Update interval in seconds.
+      show_in_ha:
+        type: boolean
+        required: True
+        default: True
+        meta:
+          label: If you want you can disable discovering this input in HA.
+cover:
+  type: list
+  meta:
+    label: Cover section
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: True
+        meta:
+          label: Id to use in HA if needed.
+      restore_state:
+        type: boolean
+        required: True
+        default: False
+        meta:
+          label: Restore saved state of boneio.
+      open_relay:
+        type: string
+        required: True
+        meta:
+          label: ID of open relay of output.
+      close_relay:
+        type: string
+        required: True
+        meta:
+          label: ID of close relay of output.
+      open_time:
+        type: integer
+        required: True
+        meta:
+          label: Time to open cover in seconds
+      close_time:
+        type: integer
+        required: True
+        meta:
+          label: Time to close cover in seconds
+      device_class:
+        type: string
+        required: False
+        allowed: ["awning", "blind", "curtain", "damper", "door", "garage", "gate", "shade", "shutter", "window"]
+        meta:
+          label: Device class to use in HA
       show_in_ha:
         type: boolean
         required: True

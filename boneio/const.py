@@ -1,6 +1,10 @@
 # from typing import Literal
 from datetime import timedelta
-from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+
+try:
+    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+except ModuleNotFoundError:
+    pass
 from typing_extensions import Literal
 
 BONEIO = "boneIO"
@@ -20,9 +24,10 @@ GPIO = "gpio"
 GPIO_MODE = "gpio_mode"
 ACTIONS = "actions"
 ACTION = "action"
-ACTION_TYPE = "action_type"
 OUTPUT = "output"
 SWITCH = "switch"
+LIGHT = "light"
+BUTTON = "button"
 CONFIG_PIN = "/usr/bin/config-pin"
 UPDATE_INTERVAL = "update_interval"
 ADC = "adc"
@@ -50,7 +55,6 @@ SECOND_DELAY_DURATION = 0.3
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
 HA_DISCOVERY = "ha_discovery"
-HA_TYPE = "ha_type"
 OUTPUT_TYPE = "output_type"
 SHOW_HA = "show_in_ha"
 
@@ -109,9 +113,19 @@ BASE = "base"
 LENGTH = "length"
 REGISTERS = "registers"
 
+COVER = "cover"
+IDLE = "idle"
+OPENING = "opening"
+CLOSING = "closing"
+CLOSED = "closed"
+OPEN = "open"
+CLOSE = "close"
+STOP = "stop"
+
 # TYPING
 ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 Gpio_States = Literal[HIGH, LOW]
 Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
+DEVICE_CLASS = "device_class"

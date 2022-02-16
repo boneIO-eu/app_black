@@ -1,0 +1,5 @@
+required: False
+type: list
+dependencies:
+  kind: ['sensor']
+schema: !include actions.yaml

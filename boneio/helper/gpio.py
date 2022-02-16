@@ -72,6 +72,7 @@ class GpioBaseClass:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio = kwargs.get("rest_pin", {GPIO_MODE: GPIO_STR})
+        self._bounce_time = gpio.get("bounce_time", 25)
         configure_pin(pin=pin, mode=gpio.get(GPIO_MODE, GPIO_STR))
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback

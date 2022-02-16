@@ -1,0 +1,39 @@
+type: dict
+schema:
+  action:
+    type: string
+    allowed: ['mqtt', 'output', 'cover']
+    default: output
+  pin:
+    type: string
+    dependencies:
+      action: ['output', 'cover']
+  topic:
+    type: string
+    dependencies:
+      action: ['mqtt']
+    meta:
+      label: If mqtt action then topic to send
+  action_cover:
+    type: string
+    allowed:
+      ['toggle', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
+    default: toggle
+    dependencies:
+      action: ['cover']
+    meta:
+      label: If cover action chosen then what action to perform.
+  action_output:
+    type: string
+    allowed: ['toggle', 'on', 'off']
+    default: toggle
+    dependencies:
+      action: ['output']
+    meta:
+      label: If output action chosen then what action to perform.
+  action_mqtt_msg:
+    type: string
+    dependencies:
+      action: ['mqtt']
+    meta:
+      label: What message to send to mqtt topic

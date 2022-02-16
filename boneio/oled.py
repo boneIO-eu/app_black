@@ -47,13 +47,12 @@ class Oled:
         self._output_groups = output_groups
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
-        if sleep_timeout:
-            self._sleep = False
-            self._sleep_handle = None
-            self._sleep_timeout = sleep_timeout
+        self._sleep = False
+        self._sleep_handle = None
+        self._sleep_timeout = sleep_timeout
         configure_pin(OLED_PIN)
         setup_input(OLED_PIN)
-        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=80)
+        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=120)
         try:
             serial = i2c(port=2, address=0x3C)
             self._device = sh1106(serial)
