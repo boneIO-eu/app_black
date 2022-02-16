@@ -2,14 +2,14 @@
 import argparse
 import asyncio
 import logging
-import os
 import sys
 
 from colorlog import ColoredFormatter
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.runner import async_run, configure_logger
+from boneio.helper.logger import configure_logger
+from boneio.runner import async_run
 from boneio.version import __version__
 
 TASK_CANCELATION_TIMEOUT = 1
@@ -74,7 +74,7 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
     return asyncio.run(
         async_run(
             config=_config,
-            config_path=os.path.split(config),
+            config_file=config,
             mqttusername=mqttusername,
             mqttpassword=mqttpassword,
         ),

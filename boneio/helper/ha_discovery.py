@@ -19,29 +19,13 @@ from boneio.const import (
 )
 
 
-def ha_relay_availabilty_message(id: str, name: str, topic: str = "boneIO"):
-    """Create availability topic for HA."""
-    return {
-        "availability": [{"topic": f"{topic}/{STATE}"}],
-        "command_topic": f"{topic}/cmd/relay/{id}/set",
-        "device": {
-            "identifiers": [topic],
-            "manufacturer": "boneIO",
-            "model": "boneIO Relay Board",
-            "name": f"boneIO {topic}",
-            "sw_version": __version__,
-        },
-        "name": name,
-        "payload_off": OFF,
-        "payload_on": ON,
-        "state_topic": f"{topic}/{RELAY}/{id}",
-        "unique_id": f"{topic}{RELAY}{id}",
-        "value_template": "{{ value_json.state }}",
-    }
-
-
 def ha_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", sensor_type: str = INPUT
+    id: str,
+    name: str,
+    topic: str = "boneIO",
+    device_type: str = INPUT,
+    model: str = "boneIO Relay Board",
+    **kwargs,
 ):
     """Create availability topic for HA."""
     return {
@@ -49,23 +33,53 @@ def ha_availabilty_message(
         "device": {
             "identifiers": [topic],
             "manufacturer": "boneIO",
-            "model": "boneIO Relay Board",
+            "model": model,
             "name": f"boneIO {topic}",
             "sw_version": __version__,
         },
-        "icon": "mdi:gesture-double-tap",
         "name": name,
-        "state_topic": f"{topic}/{sensor_type}/{id}",
-        "unique_id": f"{topic}{sensor_type}{id}",
+        "state_topic": f"{topic}/{device_type}/{id}",
+        "unique_id": f"{topic}{device_type}{id}",
+        **kwargs,
     }
 
 
+def ha_light_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+    """Create LIGHT availability topic for HA."""
+    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/relay/{id}/set"
+    msg["payload_off"] = OFF
+    msg["payload_on"] = ON
+    msg["state_value_template"] = "{{ value_json.state }}"
+    return msg
+
+
+def ha_button_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+    """Create BUTTON availability topic for HA."""
+    msg = ha_availabilty_message(device_type="button", topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/button/{id}/set"
+    msg["payload_press"] = "reload"
+    return msg
+
+
+def ha_switch_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+    """Create SWITCH availability topic for HA."""
+    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/relay/{id}/set"
+    msg["payload_off"] = OFF
+    msg["payload_on"] = ON
+    msg["value_template"] = "{{ value_json.state }}"
+    return msg
+
+
 def ha_input_availabilty_message(**kwargs):
-    return ha_availabilty_message(sensor_type=INPUT, **kwargs)
+    msg = ha_availabilty_message(device_type=INPUT, **kwargs)
+    msg["icon"] = "mdi:gesture-double-tap"
+    return msg
 
 
 def ha_adc_sensor_availabilty_message(**kwargs):
-    msg = ha_availabilty_message(sensor_type=SENSOR, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, **kwargs)
     msg["unit_of_measurement"] = "V"
     msg["device_class"] = "voltage"
     msg["state_class"] = "measurement"
@@ -73,7 +87,7 @@ def ha_adc_sensor_availabilty_message(**kwargs):
 
 
 def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
-    msg = ha_availabilty_message(sensor_type=SENSOR, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, **kwargs)
     if not unit_of_measurement:
         return msg
 
@@ -125,7 +139,7 @@ def modbus_sensor_availabilty_message(
     state_topic_base: str,
     topic: str,
     model: str,
-    sensor_type: str = SENSOR,
+    device_type: str = SENSOR,
     **kwargs,
 ):
     """Create Modbus Sensor availability topic for HA."""
@@ -139,7 +153,7 @@ def modbus_sensor_availabilty_message(
             "sw_version": __version__,
         },
         "name": sensor_id,
-        "state_topic": f"{topic}/{sensor_type}/{id}/{state_topic_base}",
+        "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
         **kwargs,
     }
@@ -150,18 +164,13 @@ def ha_cover_availabilty_message(
 ):
     """Create Cover availability topic for HA."""
     kwargs = {"device_class": device_class} if device_class else {}
+    msg = ha_availabilty_message(
+        device_type=COVER, topic=topic, id=id, name=name, **kwargs
+    )
+
     return {
-        "availability": [{"topic": f"{topic}/{STATE}"}],
         "command_topic": f"{topic}/cmd/cover/{id}/set",
         "set_position_topic": f"{topic}/cmd/cover/{id}/pos",
-        "device": {
-            "identifiers": [topic],
-            "manufacturer": "boneIO",
-            "model": "boneIO Cover Board",
-            "name": f"boneIO {topic}",
-            "sw_version": __version__,
-        },
-        "name": name,
         "payload_open": OPEN,
         "payload_close": CLOSE,
         "payload_stop": STOP,
@@ -171,6 +180,5 @@ def ha_cover_availabilty_message(
         "state_closing": CLOSING,
         "state_topic": f"{topic}/{COVER}/{id}/state",
         "position_topic": f"{topic}/{COVER}/{id}/pos",
-        "unique_id": f"{topic}{COVER}{id}",
-        **kwargs,
+        **msg,
     }

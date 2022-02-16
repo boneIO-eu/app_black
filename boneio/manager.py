@@ -8,6 +8,7 @@ from busio import I2C
 from boneio.const import (
     ACTION,
     BONEIO,
+    BUTTON,
     CLOSE,
     COVER,
     HOMEASSISTANT,
@@ -38,7 +39,9 @@ from boneio.helper import (
     HostData,
     I2CError,
     StateManager,
-    ha_relay_availabilty_message,
+    ha_switch_availabilty_message,
+    ha_light_availabilty_message,
+    ha_button_availabilty_message,
     host_stats,
 )
 from boneio.helper.events import EventBus
@@ -49,7 +52,9 @@ from boneio.helper.loader import (
     create_mcp23017,
     create_temp_sensor,
 )
+from boneio.helper.yaml import load_config_from_file
 from boneio.modbus import Modbus
+from boneio.helper.logger import configure_logger
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +66,7 @@ class Manager:
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
         state_manager: StateManager,
+        config_file_path: str,
         relay_pins: List = [],
         input_pins: List = [],
         sensors: dict = {},
@@ -78,6 +84,7 @@ class Manager:
         self._loop = asyncio.get_event_loop()
         self._host_data = None
         self._ha_discovery = ha_discovery
+        self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = EventBus(self._loop)
 
@@ -154,7 +161,9 @@ class Manager:
                     name=out.name,
                     ha_type=out.output_type,
                     ha_discovery_prefix=ha_discovery_prefix,
-                    availability_msg_func=ha_relay_availabilty_message,
+                    availability_msg_func=ha_light_availabilty_message
+                    if out.is_light
+                    else ha_switch_availabilty_message,
                 )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
@@ -224,13 +233,14 @@ class Manager:
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
-
+        self.prepare_button(ha_discovery_prefix=ha_discovery_prefix)
         self.send_message(topic=f"{topic_prefix}/{STATE}", payload=ONLINE)
         _LOGGER.info("BoneIO manager is ready.")
 
     def _relay_callback(
         self, relay_type: str, relay_id: str, restore_state: bool
     ) -> None:
+        """Relay callback function."""
         if restore_state:
             self._state_manager.save_attribute(
                 attr_type=RELAY,
@@ -239,18 +249,38 @@ class Manager:
             )
         self._host_data_callback(type=relay_type)
 
+    def _logger_reload(self) -> None:
+        """_Logger reload function."""
+        _config = load_config_from_file(config_file=self._config_file_path)
+        if not _config:
+            return
+        configure_logger(log_config=_config.get("logger"), debug=-1)
+
     def _host_data_callback(self, type: str) -> None:
         if self._oled:
             self._oled.handle_data_update(type)
 
     def get_tasks(self) -> Set[asyncio.Task]:
+        """Retrieve asyncio tasks to run."""
         return self._tasks
 
     def append_task(self, task: asyncio.Task) -> None:
+        """Add task to run with asyncio loop."""
         self._tasks.append(task)
+
+    def prepare_button(self, ha_discovery_prefix: str) -> None:
+        """Prepare buttons for reload."""
+        self.send_ha_autodiscovery(
+            id="Logger",
+            name="Logger",
+            ha_type=BUTTON,
+            ha_discovery_prefix=ha_discovery_prefix,
+            availability_msg_func=ha_button_availabilty_message,
+        )
 
     @property
     def mcp(self):
+        """Get MCP by it's id."""
         return self._mcp
 
     def press_callback(
@@ -348,6 +378,11 @@ class Manager:
                     _LOGGER.warn(
                         "Positon cannot be set. Not number between 0-100. %s", message
                     )
+        elif msg_type == BUTTON:
+            if device_id == "logger" and command == "set":
+                if message == "reload":
+                    _LOGGER.info("Reloading logger configuration.")
+                    self._logger_reload()
 
     @property
     def output(self) -> dict:

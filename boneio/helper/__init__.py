@@ -20,8 +20,10 @@ from boneio.helper.yaml import (
 )
 from boneio.helper.state_manager import StateManager
 from boneio.helper.ha_discovery import (
-    ha_relay_availabilty_message,
+    ha_light_availabilty_message,
+    ha_switch_availabilty_message,
     ha_sensor_temp_availabilty_message,
+    ha_button_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_input_availabilty_message,
     ha_sensor_availabilty_message,
@@ -42,11 +44,13 @@ __all__ = [
     "read_input",
     "write_output",
     "make_font",
-    "ha_relay_availabilty_message",
+    "ha_light_availabilty_message",
+    "ha_switch_availabilty_message",
     "ha_sensor_availabilty_message",
     "ha_adc_sensor_availabilty_message",
     "ha_sensor_temp_availabilty_message",
     "ha_binary_sensor_availabilty_message",
+    "ha_button_availabilty_message",
     "ha_input_availabilty_message",
     "GPIOInputException",
     "I2CError",
