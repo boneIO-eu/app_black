@@ -1,5 +1,5 @@
-"""GPIO Relay module. 
-!!Not used in BoneIO. 
+"""GPIO Relay module.
+!!Not used in BoneIO.
 Created just in case.
 """
 
