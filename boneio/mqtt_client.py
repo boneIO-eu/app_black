@@ -44,6 +44,7 @@ class MQTTClient:
 
     def create_client(self) -> None:
         """Create the asyncio client."""
+        _LOGGER.debug("Creating client %s:%s", self.host, self.port)
         self.asyncio_client = AsyncioClient(
             self.host,
             self.port,

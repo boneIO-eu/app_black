@@ -17,6 +17,7 @@ from boneio.const import (
     OLED,
     OUTPUT,
     PASSWORD,
+    PORT,
     TOPIC_PREFIX,
     USERNAME,
 )
@@ -39,6 +40,7 @@ async def async_run(
         host=config[MQTT][HOST],
         username=config[MQTT].get(USERNAME, mqttusername),
         password=config[MQTT].get(PASSWORD, mqttpassword),
+        port=config[MQTT].get(PORT, 1883),
     )
 
     manager = Manager(
