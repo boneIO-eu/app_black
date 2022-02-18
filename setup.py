@@ -44,7 +44,6 @@ setup(
         "gpio==0.3.0",
         "luma.core==2.3.1",
         "luma.oled==3.8.1",
-        "numpy==1.21.5",
         "Pillow==9.0.1",
         "paho-mqtt==1.6.1",
         "psutil==5.9.0",

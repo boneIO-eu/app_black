@@ -169,6 +169,7 @@ def ha_cover_availabilty_message(
     )
 
     return {
+        **msg,
         "command_topic": f"{topic}/cmd/cover/{id}/set",
         "set_position_topic": f"{topic}/cmd/cover/{id}/pos",
         "payload_open": OPEN,
@@ -180,5 +181,4 @@ def ha_cover_availabilty_message(
         "state_closing": CLOSING,
         "state_topic": f"{topic}/{COVER}/{id}/state",
         "position_topic": f"{topic}/{COVER}/{id}/pos",
-        **msg,
     }
