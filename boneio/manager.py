@@ -58,6 +58,8 @@ from boneio.helper.logger import configure_logger
 
 _LOGGER = logging.getLogger(__name__)
 
+relay_actions = {ON: "turn_on", OFF: "turn_off", "toggle": "toggle"}
+
 
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
@@ -352,10 +354,9 @@ class Manager:
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
             if target_device and target_device.output_type != NONE:
-                if message == ON:
-                    target_device.turn_on()
-                elif message == OFF:
-                    target_device.turn_off()
+                action_from_msg = relay_actions.get(message.lower())
+                if action_from_msg:
+                    getattr(target_device, action_from_msg)()
         elif msg_type == COVER:
             cover = self._covers.get(device_id)
             if not cover:
