@@ -40,9 +40,8 @@ def load_yaml_file(filename: str) -> Any:
 def load_config_from_string(config_yaml: str):
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
-    aa = v.normalized(config_yaml)
-    bb = v.validate(aa)
-    return aa
+    v.validate(config_yaml)
+    return v.normalized(v.validated)
 
 
 def load_config_from_file(config_file: str):
