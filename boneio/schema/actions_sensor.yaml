@@ -1,5 +1,6 @@
 required: False
 type: list
+excludes: ["single", "double", "long"]
 dependencies:
   kind: ['sensor']
 schema: !include actions.yaml

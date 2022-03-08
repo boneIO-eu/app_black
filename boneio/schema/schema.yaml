@@ -268,6 +268,7 @@ input:
       actions:
         required: False
         type: dict
+        coerce: check_actions
         schema:
           single: !include actions_switch.yaml
           double: !include actions_switch.yaml

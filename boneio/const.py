@@ -4,6 +4,10 @@ from datetime import timedelta
 try:
     from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
 except ModuleNotFoundError:
+    HIGH = "high"
+    LOW = "low"
+    BOTH = "both"
+    FALLING = "falling"
     pass
 from typing_extensions import Literal
 

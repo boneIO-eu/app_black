@@ -58,7 +58,7 @@ from boneio.helper.logger import configure_logger
 
 _LOGGER = logging.getLogger(__name__)
 
-relay_actions = {ON: "turn_on", OFF: "turn_off", "toggle": "toggle"}
+relay_actions = {ON: "turn_on", OFF: "turn_off", "TOGGLE": "toggle"}
 
 
 class Manager:
@@ -292,7 +292,9 @@ class Manager:
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
+        print("acke", actions)
         for action_definition in actions:
+            _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] == OUTPUT:
                 device = action_definition.get(PIN)
                 if not device:
@@ -354,7 +356,7 @@ class Manager:
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
             if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.lower())
+                action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
                     getattr(target_device, action_from_msg)()
         elif msg_type == COVER:

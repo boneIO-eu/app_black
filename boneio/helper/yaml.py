@@ -2,7 +2,7 @@ import logging
 from typing import Any
 import os
 from cerberus import Validator
-from boneio.const import ID, OUTPUT
+from boneio.const import COVER, ID, OUTPUT
 from yaml import load, YAMLError, SafeLoader
 
 schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
@@ -40,7 +40,9 @@ def load_yaml_file(filename: str) -> Any:
 def load_config_from_string(config_yaml: str):
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
-    return v.normalized(config_yaml)
+    aa = v.normalized(config_yaml)
+    bb = v.validate(aa)
+    return aa
 
 
 def load_config_from_file(config_file: str):
@@ -62,3 +64,43 @@ class CustomValidator(Validator):
 
     def _normalize_coerce_to_bool(self, value):
         return True
+
+    def _normalize_coerce_check_actions(self, value):
+        _path = self.document_path
+        parent = self.root_document[_path[0]][_path[1]]
+        keys = value.keys()
+        _schema = self.schema["actions"]
+        out = {}
+        for key in keys:
+            _deps = _schema["schema"][key]["dependencies"].items()
+            d = next(iter(_deps))
+            _parent_key_value = parent[d[0]]
+            for _v in d[1]:
+                if _v == _parent_key_value:
+                    out[key] = value[key]
+        return out
+
+    def _normalize_coerce_check_action_def(self, value):
+        parent = self.root_document[self.document_path[0]][self.document_path[1]]
+        _schema = self.schema["actions"]
+        keys = value.keys()
+        out = {}
+        for key in keys:
+            _deps = _schema["schema"][key]["dependencies"].items()
+            d = next(iter(_deps))
+            _parent_key_value = parent[d[0]]
+            for _v in d[1]:
+                if _v == _parent_key_value:
+                    out[key] = value[key]
+        return out
+
+    def _normalize_default_setter_toggle_cover(self, document):
+        def get_parent():
+            out = self.root_document
+            for _p in self.document_path:
+                out = out[_p]
+            return out
+
+        parent = get_parent()
+        if parent["action"] == COVER:
+            return "toggle"

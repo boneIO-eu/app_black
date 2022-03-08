@@ -12,7 +12,6 @@ from PIL import ImageDraw
 from boneio.const import CPU, DISK, MEMORY, NETWORK, OLED_PIN, SWAP, UPTIME, WHITE
 from boneio.helper import (
     HostData,
-    configure_pin,
     edge_detect,
     make_font,
     setup_input,
@@ -50,8 +49,7 @@ class Oled:
         self._sleep = False
         self._sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        configure_pin(OLED_PIN)
-        setup_input(OLED_PIN)
+        setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
         edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=120)
         try:
             serial = i2c(port=2, address=0x3C)
