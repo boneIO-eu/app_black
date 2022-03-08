@@ -71,7 +71,6 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
     if not _config:
         return
     configure_logger(log_config=_config.get("logger"), debug=debug)
-    return
     return asyncio.run(
         async_run(
             config=_config,
