@@ -192,6 +192,17 @@ def create_modbus_sensors(
             pass
 
 
+OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind output_id")
+
+
+def output_chooser(output_kind: str, mcp_id: str | None):
+    """Get named tuple based on input."""
+    if output_kind == MCP:
+        return OutputEntry(MCPRelay, MCP, mcp_id)
+    else:
+        return OutputEntry(GpioRelay, GPIO, GPIO)
+
+
 def configure_relay(
     manager: Manager,
     state_manager: StateManager,
@@ -201,61 +212,55 @@ def configure_relay(
     config: dict,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
+    restore_state = config.pop(RESTORE_STATE, False)
+    output_type = config.pop(OUTPUT_TYPE)
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if config[RESTORE_STATE]
+        if restore_state
         else False
     )
-    if config[OUTPUT_TYPE] == NONE and state_manager.get(
-        attr_type=RELAY, attr=relay_id
-    ):
+    if output_type == NONE and state_manager.get(attr_type=RELAY, attr=relay_id):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
-    if config[KIND] == MCP:
-        mcp_id = config.get(MCP_ID, "")
-        mcp = manager.mcp.get(mcp_id)
+    output = output_chooser(
+        output_kind=config.pop(KIND), mcp_id=config.pop(MCP_ID, None)
+    )
+
+    if getattr(output, "output_kind") == MCP:
+        mcp = manager.mcp.get(getattr(output, "output_id"))
         if not mcp:
             _LOGGER.error("No such MCP configured!")
-            return
-        mcp_relay = MCPRelay(
-            pin=int(config[PIN]),
-            id=config[ID],
-            send_message=manager.send_message,
-            topic_prefix=topic_prefix,
-            mcp=mcp,
-            mcp_id=mcp_id,
-            output_type=config[OUTPUT_TYPE].lower(),
-            restored_state=restored_state,
-            callback=lambda: relay_callback(
-                relay_type=mcp_id,
-                relay_id=relay_id,
-                restore_state=False
-                if config[OUTPUT_TYPE] == NONE
-                else config[RESTORE_STATE],
-            ),
-        )
-        manager.grouped_outputs[mcp_id][relay_id] = mcp_relay
-        return mcp_relay
-    elif config[KIND] == GPIO:
+            return None
+        kwargs = {
+            "pin": int(config.pop(PIN)),
+            "mcp": mcp,
+            "mcp_id": getattr(output, "output_id"),
+            "output_type": output_type,
+        }
+    elif getattr(output, "output_kind") == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
-        gpio_relay = GpioRelay(
-            pin=config[PIN],
-            id=config[ID],
-            send_message=manager.send_message,
-            topic_prefix=topic_prefix,
-            restored_state=restored_state,
-            callback=lambda: relay_callback(
-                relay_type=GPIO,
-                relay_id=relay_id,
-                restore_state=False
-                if config[OUTPUT_TYPE] == NONE
-                else config[RESTORE_STATE],
-            ),
-        )
-        manager.grouped_outputs[GPIO][relay_id] = gpio_relay
-        return gpio_relay
+        kwargs = {
+            "pin": config.pop(PIN),
+        }
+    else:
+        return
+    relay = getattr(output, "OutputClass")(
+        send_message=manager.send_message,
+        topic_prefix=topic_prefix,
+        id=config.pop(ID),
+        restored_state=restored_state,
+        **config,
+        **kwargs,
+        callback=lambda: relay_callback(
+            relay_type=getattr(output, "output_id"),
+            relay_id=relay_id,
+            restore_state=False if output_type == NONE else restore_state,
+        ),
+    )
+    manager.grouped_outputs[getattr(output, "output_id")][relay_id] = relay
+    return relay
 
 
 InputEntry = namedtuple(

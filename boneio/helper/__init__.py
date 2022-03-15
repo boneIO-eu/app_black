@@ -1,4 +1,6 @@
 """Helper dir for BoneIO."""
+from typing import Callable, TypeVar, Any
+
 from boneio.helper.gpio import (
     edge_detect,
     setup_input,
@@ -11,7 +13,7 @@ from boneio.helper.gpio import (
 from boneio.helper.oled import make_font
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.stats import HostData, host_stats
-from boneio.helper.yaml import (
+from boneio.helper.yaml_util import (
     CustomValidator,
     load_yaml_file,
     schema_file,
@@ -31,6 +33,21 @@ from boneio.helper.ha_discovery import (
 )
 from boneio.helper.exceptions import GPIOInputException, I2CError
 from boneio.helper.queue import UniqueQueue
+from boneio.helper.timeperiod import TimePeriod
+
+CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
+CALLBACK_TYPE = Callable[[], None]
+
+
+def callback(func: CALLABLE_T) -> CALLABLE_T:
+    """Annotation to mark method as safe to call from within the event loop."""
+    setattr(func, "_boneio_callback", True)
+    return func
+
+
+def is_callback(func: Callable[..., Any]) -> bool:
+    """Check if function is safe to be called in the event loop."""
+    return getattr(func, "_boneio_callback", False) is True
 
 
 __all__ = [
@@ -62,4 +79,5 @@ __all__ = [
     "schema_file",
     "load_config_from_string",
     "load_config_from_file",
+    "TimePeriod",
 ]

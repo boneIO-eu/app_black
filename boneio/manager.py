@@ -52,7 +52,7 @@ from boneio.helper.loader import (
     create_mcp23017,
     create_temp_sensor,
 )
-from boneio.helper.yaml import load_config_from_file
+from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus import Modbus
 from boneio.helper.logger import configure_logger
 
@@ -292,7 +292,6 @@ class Manager:
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
-        print("acke", actions)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] == OUTPUT:

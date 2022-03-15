@@ -76,7 +76,8 @@ oled:
       meta:
         label: Disable builtin screen.
     screensaver_timeout:
-      type: integer
+      type: string
+      coerce: positive_time_period
       default: 60
       meta:
         label: How many seconds to wait to enable screensaver. 0 means disable screensaver.
@@ -207,17 +208,30 @@ output:
         required: True
         meta:
           label: PIN to use.
+      momentary_turn_on:
+        type: string
+        required: False
+        coerce: positive_time_period
+        meta:
+          label: How long can this relay be off. Can't be used if output_type is 'none'.
+      momentary_turn_off:
+        type: string
+        required: False
+        coerce: positive_time_period
+        meta:
+          label: How long can this relay be on. Can't be used if output_type is 'none'.
       restore_state:
         type: boolean
         required: True
         default: False
         meta:
-          label: Restore saved state of boneio. Not used for 'none' output_type!
+          label: Restore saved state of boneio. Not used for 'none' and output_type!
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light', 'none']
+        allowed: ['switch', 'light', 'none', 'momentary']
         default: 'switch'
+        coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch. If None is declared then any state is not published to MQTT (used for cover).
 
