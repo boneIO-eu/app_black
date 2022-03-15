@@ -236,8 +236,13 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_button(ha_discovery_prefix=ha_discovery_prefix)
-        self.send_message(topic=f"{topic_prefix}/{STATE}", payload=ONLINE)
+
         _LOGGER.info("BoneIO manager is ready.")
+
+    async def reconnect_callback(self) -> None:
+        """Function to invoke when connection to MQTT is (re-)established."""
+        _LOGGER.info("Sending online state.")
+        self.send_message(topic=f"{self._topic_prefix}/{STATE}", payload=ONLINE)
 
     def _relay_callback(
         self, relay_type: str, relay_id: str, restore_state: bool

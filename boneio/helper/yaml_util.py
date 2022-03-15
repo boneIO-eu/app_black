@@ -2,13 +2,14 @@ import re
 import fnmatch
 from collections import OrderedDict
 import logging
-from typing import Any
+from typing import Any, Tuple
 import os
-from cerberus import Validator
+from cerberus import Validator, TypeDefinition
 from boneio.const import COVER, ID, OUTPUT
 from yaml import load, YAMLError, SafeLoader, MarkedYAMLError
-from .exceptions import ConfigurationException
-from .timeperiod import TimePeriod
+from boneio.helper.exceptions import ConfigurationException
+from boneio.helper.timeperiod import TimePeriod
+
 
 schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
@@ -133,8 +134,10 @@ def load_config_from_string(config_yaml: str):
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
     v.validate(config_yaml)
-    norm = v.normalized(config_yaml)
-    return norm
+    doc = v.normalized(v.document, always_return_document=True)
+    # validated = v.validated(document=doc, normalize=True, always_return_document=True)
+    # doc = v.normalized(validated, always_return_document=True)
+    return doc
 
 
 def load_config_from_file(config_file: str):
@@ -174,8 +177,42 @@ def one_of(*values, **kwargs):
     return validator
 
 
+timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
+
+
 class CustomValidator(Validator):
     """Custom validator of cerberus"""
+
+    types_mapping = Validator.types_mapping.copy()
+    types_mapping["timeperiod"] = timeperiod_type
+
+    def _lookup_field(self, path: str) -> Tuple:
+        """
+        Implement relative paths with dot (.) notation, following Python
+        guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
+        - A single leading dot indicates a relative import
+        starting with the current package.
+        - Two or more leading dots give a relative import to the parent(s)
+        of the current package, one level per dot after the first
+        Return: Tuple(dependency_name: str, dependency_value: Any)
+        """
+        # Python relative imports use a single leading dot
+        # for the current level, however no dot in Cerberus
+        # does the same thing, thus we need to check 2 or more dots
+        if path.startswith(".."):
+            parts = path.split(".")
+            dot_count = path.count(".")
+            context = self.root_document
+
+            for key in self.document_path[:dot_count]:
+                context = context[key]
+
+            context = context.get(parts[-1])
+
+            return parts[-1], context
+
+        else:
+            return super()._lookup_field(path)
 
     def _check_with_output_id_uniqueness(self, field, value):
         """Check if outputs ids are unique."""
@@ -189,6 +226,9 @@ class CustomValidator(Validator):
     def _normalize_coerce_lower(self, value):
         return str(value).lower()
 
+    def _normalize_coerce_str(self, value):
+        return str(value)
+
     def _normalize_coerce_check_actions(self, value):
         _path = self.document_path
         parent = self.root_document[_path[0]][_path[1]]
@@ -198,13 +238,13 @@ class CustomValidator(Validator):
         for key in keys:
             _deps = _schema["schema"][key]["dependencies"].items()
             d = next(iter(_deps))
-            _parent_key_value = parent[d[0]]
+            _parent_key_value = parent.get(d[0], "switch")
             for _v in d[1]:
                 if _v == _parent_key_value:
                     out[key] = value[key]
         return out
 
-    def _normalize_coerce_positive_time_period(self, value):
+    def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
 
         if isinstance(value, int):

@@ -40,6 +40,7 @@ class MQTTClient:
         self.asyncio_client: AsyncioClient = None
         self.create_client()
         self.reconnect_interval = 1
+        self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
 
     def create_client(self) -> None:
@@ -137,6 +138,7 @@ class MQTTClient:
                     err,
                     self.reconnect_interval,
                 )
+                self._connection_established = False
                 await asyncio.sleep(self.reconnect_interval)
                 self.create_client()  # reset connect/reconnect futures
 
@@ -161,6 +163,10 @@ class MQTTClient:
             messages_task = asyncio.create_task(
                 handle_messages(messages, manager.receive_message)
             )
+            if not self._connection_established:
+                self._connection_established = True
+                reconnect_task = asyncio.create_task(manager.reconnect_callback())
+                tasks.add(reconnect_task)
             tasks.add(messages_task)
 
             await self.subscribe(manager.subscribe_topic)

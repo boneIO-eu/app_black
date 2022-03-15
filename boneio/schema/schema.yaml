@@ -76,9 +76,13 @@ oled:
       meta:
         label: Disable builtin screen.
     screensaver_timeout:
-      type: string
-      coerce: positive_time_period
-      default: 60
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      default: 60s
       meta:
         label: How many seconds to wait to enable screensaver. 0 means disable screensaver.
 
@@ -113,7 +117,7 @@ modbus_sensors:
       model:
         type: string
         required: True
-        allowed: ['sdm630', 'sdm120', 'sofar']
+        allowed: ["sdm630", "sdm120", "sofar"]
         meta:
           label: Model to load from database.
       update_interval:
@@ -169,7 +173,7 @@ mcp23017:
         meta:
           label: Id of I2C to use in pin config
       address:
-        type: string
+        type: integer
         required: True
         meta:
           label: GPIO of I2C SDA
@@ -191,11 +195,12 @@ output:
       id:
         type: string
         required: False
+        coerce: str
         meta:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ['gpio', 'mcp']
+        allowed: ["gpio", "mcp"]
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -204,33 +209,43 @@ output:
         meta:
           label: MCP ID to connect
       pin:
-        type: string
+        type:
+          - string
+          - integer
         required: True
         meta:
           label: PIN to use.
       momentary_turn_on:
-        type: string
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: False
-        coerce: positive_time_period
         meta:
-          label: How long can this relay be off. Can't be used if output_type is 'none'.
+          label: How long can this relay be off. Can"t be used if output_type is "none".
       momentary_turn_off:
-        type: string
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: False
-        coerce: positive_time_period
         meta:
-          label: How long can this relay be on. Can't be used if output_type is 'none'.
+          label: How long can this relay be on. Can"t be used if output_type is "none".
       restore_state:
         type: boolean
         required: True
         default: False
         meta:
-          label: Restore saved state of boneio. Not used for 'none' and output_type!
+          label: Restore saved state of boneio. Not used for "none" and output_type!
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light', 'none']
-        default: 'switch'
+        allowed: ["switch", "light", "none"]
+        default: "switch"
         coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch. If None is declared then any state is not published to MQTT (used for cover).
@@ -274,8 +289,8 @@ input:
           label: If you want you can disable discovering this input in HA.
       kind:
         type: string
-        allowed: ['switch', 'sensor']
-        default: switch
+        allowed: ["switch", "sensor"]
+        default: "switch"
         required: True
         meta:
           label: Either switch or sensor. If sensor then no clicks are detected, just simple on/off on gpio.
@@ -304,7 +319,7 @@ adc:
       pin:
         type: string
         required: True
-        allowed: ['P9_33', 'P9_35', 'P9_36', 'P9_37', 'P9_38', 'P9_39', 'P9_40']
+        allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
         meta:
           label: PIN to use.
       update_interval:
