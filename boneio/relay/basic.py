@@ -22,8 +22,13 @@ class BasicRelay(BasicMqtt):
         **kwargs,
     ) -> None:
         """Initialize Basic relay."""
+        self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
+        self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
         super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
         self._output_type = output_type
+        if output_type == NONE:
+            self._momentary_turn_on = None
+            self._momentary_turn_off = None
         self._state = restored_state
         self._callback = callback
         self._loop = asyncio.get_running_loop()

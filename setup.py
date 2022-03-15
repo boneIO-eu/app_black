@@ -47,7 +47,7 @@ setup(
         "Pillow==9.0.1",
         "paho-mqtt==1.6.1",
         "psutil==5.9.0",
-        "pyaml==21.10.1",
+        "PyYAML==6.0",
         "pymodbus==2.5.3",
         "pyserial-asyncio==0.6",
         "typing_extensions==4.1.0",

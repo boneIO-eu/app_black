@@ -11,3 +11,7 @@ class GPIOInputException(BoneIOException):
 
 class I2CError(BoneIOException):
     """I2C Exception."""
+
+
+class ConfigurationException(BoneIOException):
+    """Configuration yaml exception."""

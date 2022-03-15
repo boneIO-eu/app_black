@@ -12,12 +12,13 @@ from PIL import ImageDraw
 from boneio.const import CPU, DISK, MEMORY, NETWORK, OLED_PIN, SWAP, UPTIME, WHITE
 from boneio.helper import (
     HostData,
-    configure_pin,
     edge_detect,
     make_font,
     setup_input,
     I2CError,
+    TimePeriod,
 )
+from boneio.helper.events import async_track_point_in_time, utcnow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class Oled:
     """Oled display class."""
 
     def __init__(
-        self, host_data: HostData, output_groups: List[str], sleep_timeout: int
+        self, host_data: HostData, output_groups: List[str], sleep_timeout: TimePeriod
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
@@ -50,8 +51,7 @@ class Oled:
         self._sleep = False
         self._sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        configure_pin(OLED_PIN)
-        setup_input(OLED_PIN)
+        setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
         edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=120)
         try:
             serial = i2c(port=2, address=0x3C)
@@ -118,11 +118,11 @@ class Oled:
                     self._draw_uptime(data, draw)
                 else:
                     self._draw_standard(data, draw)
-        if not self._sleep_handle and self._sleep_timeout > 0:
-            self._sleep_handle = self._loop.call_soon_threadsafe(
-                self._loop.call_later,
-                self._sleep_timeout,
-                self._sleeptime,
+        if not self._sleep_handle and self._sleep_timeout.total_seconds > 0:
+            self._sleep_handle = async_track_point_in_time(
+                loop=self._loop,
+                action=lambda x: self._sleeptime(),
+                point_in_time=utcnow() + self._sleep_timeout.as_timedelta,
             )
 
     def handle_data_update(self, type: str):
@@ -133,7 +133,7 @@ class Oled:
     def _handle_press(self, pin: any) -> None:
         """Handle press of PIN for OLED display."""
         if self._sleep_handle:
-            self._sleep_handle.cancel()
+            self._sleep_handle()
             self._sleep_handle = None
         if not self._sleep:
             self._current_screen = next(self._screen_order)

@@ -4,7 +4,16 @@ import asyncio
 
 from boneio.const import SENSOR
 from boneio.helper import BasicMqtt
-import Adafruit_BBIO.ADC as ADC
+
+try:
+    import Adafruit_BBIO.ADC as ADC
+except ModuleNotFoundError:
+
+    class ADC:
+        def __init__(self):
+            pass
+
+    pass
 
 _LOGGER = logging.getLogger(__name__)
 
