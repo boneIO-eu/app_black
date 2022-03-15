@@ -229,7 +229,7 @@ output:
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light', 'none', 'momentary']
+        allowed: ['switch', 'light', 'none']
         default: 'switch'
         coerce: lower
         meta:
