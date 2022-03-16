@@ -23,7 +23,11 @@ class GpioInputButton(GpioBaseClass):
     def __init__(self, **kwargs) -> None:
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
-        edge_detect(self._pin, callback=self._handle_press, bounce=self._bounce_time)
+        edge_detect(
+            self._pin,
+            callback=self._handle_press,
+            bounce=self._bounce_time.total_milliseconds,
+        )
         self._first_press_timestamp = None
         self._is_long_press = False
         self._second_press_timestamp = None

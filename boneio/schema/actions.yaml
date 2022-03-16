@@ -18,7 +18,7 @@ schema:
     type: string
     allowed:
       ['toggle', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
-    default: toggle
+    default_setter: toggle_cover
     dependencies:
       action: ['cover']
     meta:
