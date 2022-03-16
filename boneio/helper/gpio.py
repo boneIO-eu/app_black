@@ -17,6 +17,8 @@ except ModuleNotFoundError:
 
 from boneio.helper.exceptions import GPIOInputException
 from boneio.const import LOW, FALLING, Gpio_Edges, Gpio_States
+from boneio.helper.timeperiod import TimePeriod
+
 from typing import Callable
 import subprocess
 
@@ -95,7 +97,7 @@ class GpioBaseClass:
         self._pin = pin
         gpio = kwargs.get("rest_pin", {GPIO_MODE: GPIO_STR})
         gpio_mode = gpio.get(GPIO_MODE, GPIO_STR)
-        self._bounce_time = gpio.get("bounce_time", 25)
+        self._bounce_time = gpio.get("bounce_time", TimePeriod(milliseconds=25))
         configure_pin(pin=pin, mode=gpio_mode)
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback

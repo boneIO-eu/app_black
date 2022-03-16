@@ -276,9 +276,14 @@ input:
         meta:
           label: What mode to use in config PIN.
       bounce_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 25
+        default: "25ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:

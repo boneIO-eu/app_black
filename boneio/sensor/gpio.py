@@ -15,7 +15,10 @@ class GpioInputSensor(GpioBaseClass):
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
         edge_detect(
-            self._pin, callback=self._handle_press, bounce=self._bounce_time, edge=BOTH
+            self._pin,
+            callback=self._handle_press,
+            bounce=self._bounce_time.total_milliseconds,
+            edge=BOTH,
         )
         _LOGGER.debug("Configured sensor pin %s", self._pin)
 
