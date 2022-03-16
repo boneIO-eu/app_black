@@ -44,6 +44,7 @@ from boneio.helper import (
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
+from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
 
 # Typing imports that create a circular dependency
@@ -145,9 +146,11 @@ def create_mcp23017(
         id = mcp[ID] or mcp[ADDRESS]
         try:
             manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS], reset=False)
-            sleep_time = mcp.get(INIT_SLEEP, 0)
-            _LOGGER.debug(f"Sleeping for {sleep_time}s while MCP {id} is initializing.")
-            time.sleep(sleep_time)
+            sleep_time = mcp.get(INIT_SLEEP, TimePeriod(seconds=0))
+            _LOGGER.debug(
+                f"Sleeping for {sleep_time.total_seconds}s while MCP {id} is initializing."
+            )
+            time.sleep(sleep_time.total_seconds)
             grouped_outputs[id] = {}
         except TimeoutError as err:
             _LOGGER.error("Can't connect to MCP %s. %s", id, err)

@@ -121,11 +121,16 @@ modbus_sensors:
         meta:
           label: Model to load from database.
       update_interval:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 30
+        default: 30s
         meta:
-          label: Update interval in seconds.
+          label: Update interval.
 lm75:
   type: dict
   required: False
@@ -178,9 +183,14 @@ mcp23017:
         meta:
           label: GPIO of I2C SDA
       init_sleep:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 0
+        default: 0s
         meta:
           label: How long to sleep for MCP to initialize.
 
@@ -328,11 +338,16 @@ adc:
         meta:
           label: PIN to use.
       update_interval:
-        type: integer
         required: True
-        default: 60
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        default: 60s
         meta:
-          label: Update interval in seconds.
+          label: Update interval.
       show_in_ha:
         type: boolean
         required: True
@@ -368,15 +383,25 @@ cover:
         meta:
           label: ID of close relay of output.
       open_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
         meta:
-          label: Time to open cover in seconds
+          label: Time to open cover. Example 30s. Minimum is 1s.
       close_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
         meta:
-          label: Time to close cover in seconds
+          label: Time to close cover. Example 30s. Minimum is 1s.
       device_class:
         type: string
         required: False

@@ -19,6 +19,7 @@ from boneio.const import (
 )
 from boneio.helper import BasicMqtt
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
+from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class ModbusSensor(BasicMqtt):
         topic_prefix: str,
         ha_discovery: bool = False,
         id: str = DefaultName,
-        update_interval: int = 60,
+        update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs,
     ):
         """Initialize Modbus sensor class."""
@@ -185,7 +186,7 @@ class ModbusSensor(BasicMqtt):
 
     async def send_state(self) -> None:
         """Fetch state periodically and send to MQTT."""
-        update_interval = self._update_interval
+        update_interval = self._update_interval.total_seconds
         payload_online = OFFLINE
         while True:
             await self.check_availability()
@@ -215,7 +216,7 @@ class ModbusSensor(BasicMqtt):
                             payload=payload_online,
                         )
                     _LOGGER.warn(
-                        "Can't fetch data from modbus device. Will sleep for %s",
+                        "Can't fetch data from modbus device. Will sleep for %s seconds",
                         update_interval,
                     )
                     self._discovery_sent = False
