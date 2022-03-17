@@ -221,8 +221,8 @@ class ModbusSensor(BasicMqtt):
                     )
                     self._discovery_sent = False
                     continue
-                elif update_interval != self._update_interval:
-                    update_interval = self._update_interval
+                elif update_interval != self._update_interval.total_seconds:
+                    update_interval = self._update_interval.total_seconds
                 output = {}
                 for register in data["registers"]:
                     output[register.get("name").replace(" ", "")] = CONVERT_METHODS[

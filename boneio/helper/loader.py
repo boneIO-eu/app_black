@@ -78,7 +78,7 @@ def create_adc(
                 name=name,
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(UPDATE_INTERVAL, 60),
+                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             )
             if gpio.get(SHOW_HA, True):
                 manager.send_ha_autodiscovery(
@@ -183,7 +183,7 @@ def create_modbus_sensors(
                 topic_prefix=topic_prefix,
                 ha_discovery=ha_discovery,
                 ha_discovery_prefix=ha_discovery_prefix,
-                update_interval=sensor.get(UPDATE_INTERVAL, 30),
+                update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             )
             manager.append_task(asyncio.create_task(sdm.send_state()))
         except FileNotFoundError as err:
