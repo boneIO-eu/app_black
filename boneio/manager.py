@@ -108,15 +108,17 @@ class Manager:
 
         for sensor_type in (LM75, MCP_TEMP_9808):
             if sensors.get(sensor_type):
-                create_temp_sensor(
-                    manager=self,
-                    topic_prefix=topic_prefix,
-                    ha_discovery_prefix=ha_discovery_prefix,
-                    sensor_type=sensor_type,
-                    temp_def=sensors.get(sensor_type),
-                    i2cbusio=self._i2cbusio,
-                    temp_sensors=self._temp_sensors,
-                )
+                for temp_def in sensors.get(sensor_type):
+                    temp_sensor = create_temp_sensor(
+                        manager=self,
+                        topic_prefix=topic_prefix,
+                        ha_discovery_prefix=ha_discovery_prefix,
+                        sensor_type=sensor_type,
+                        temp_def=temp_def,
+                        i2cbusio=self._i2cbusio,
+                    )
+                    if temp_sensor:
+                        self._temp_sensors.append(temp_sensor)
 
         if sensors.get(MODBUS) and self._modbus:
             from boneio.helper.loader import create_modbus_sensors

@@ -101,7 +101,6 @@ def create_temp_sensor(
     sensor_type: str,
     i2cbusio: I2C,
     temp_def: dict = {},
-    temp_sensors: list = [],
 ):
     """Create LM sensor in manager."""
     if sensor_type == LM75:
@@ -129,7 +128,7 @@ def create_temp_sensor(
             availability_msg_func=ha_sensor_temp_availabilty_message,
         )
         manager.append_task(asyncio.create_task(temp_sensor.send_state()))
-        temp_sensors.append(temp_sensor)
+        return temp_sensor
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
         pass

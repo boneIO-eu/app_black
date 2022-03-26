@@ -55,8 +55,8 @@ async def async_run(
         ha_discovery=config[MQTT][HA_DISCOVERY][ENABLED],
         ha_discovery_prefix=config[MQTT][HA_DISCOVERY][TOPIC_PREFIX],
         sensors={
-            LM75: config.get(LM75),
-            MCP_TEMP_9808: config.get(MCP_TEMP_9808),
+            LM75: config.get(LM75, []),
+            MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             MODBUS: config.get("modbus_sensors"),
         },
         mcp23017=config.get(MCP23017, []),
