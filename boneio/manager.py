@@ -348,6 +348,7 @@ class Manager:
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
+        _LOGGER.debug("Processing topic %s with message %s.", topic, message)
         assert topic.startswith(self._command_topic_prefix)
         topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
@@ -355,16 +356,27 @@ class Manager:
             msg_type = topic_parts.popleft()
             device_id = topic_parts.popleft()
             command = topic_parts.pop()
+            _LOGGER.debug(
+                "Divide topic to: msg_type: %s, device_id: %s, command: %s",
+                msg_type,
+                device_id,
+                command,
+            )
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
 
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
+
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
                     getattr(target_device, action_from_msg)()
+                else:
+                    _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == COVER:
             cover = self._covers.get(device_id)
             if not cover:
