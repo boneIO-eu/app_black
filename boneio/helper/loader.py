@@ -155,8 +155,6 @@ def create_mcp23017(
 
 def create_modbus_sensors(
     manager: Manager,
-    topic_prefix: str,
-    ha_discovery: bool,
     config_helper: ConfigHelper,
     modbus: Modbus,
     sensors,
@@ -175,10 +173,7 @@ def create_modbus_sensors(
                 name=name,
                 model=sensor[MODEL],
                 send_message=manager.send_message,
-                topic_prefix=topic_prefix,
                 config_helper=config_helper,
-                ha_discovery=ha_discovery,
-                ha_discovery_prefix=ha_discovery_prefix,
                 update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             )
             manager.append_task(asyncio.create_task(sdm.send_state()))

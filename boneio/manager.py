@@ -121,8 +121,6 @@ class Manager:
 
             create_modbus_sensors(
                 manager=self,
-                topic_prefix=self._config_helper.topic_prefix,
-                ha_discovery=self._config_helper.ha_discovery,
                 sensors=sensors.get(MODBUS),
                 modbus=self._modbus,
                 config_helper=self._config_helper,
