@@ -1,7 +1,7 @@
 """MCP23017 Relay module."""
 
 import logging
-from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
 from boneio.helper import callback
 from boneio.relay.basic import BasicRelay
 from boneio.const import SWITCH, NONE
@@ -23,7 +23,7 @@ class MCPRelay(BasicRelay):
         **kwargs
     ) -> None:
         """Initialize MCP relay."""
-        self._pin = mcp.get_pin(pin)
+        self._pin: DigitalInOut = mcp.get_pin(pin)
         self._pin.switch_to_output(value=True)
         if output_type == NONE:
             """Just in case to not restore state of covers etc."""

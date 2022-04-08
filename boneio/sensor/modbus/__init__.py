@@ -1,3 +1,4 @@
+from distutils.command.config import config
 import logging
 import asyncio
 from datetime import datetime
@@ -20,6 +21,7 @@ from boneio.const import (
 from boneio.helper import BasicMqtt
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
+from boneio.helper.config import ConfigHelper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,6 +95,7 @@ class ModbusSensor(BasicMqtt):
         modbus,
         address: str,
         model: str,
+        config_helper: ConfigHelper,
         ha_discovery_prefix: str,
         topic_prefix: str,
         ha_discovery: bool = False,
@@ -105,6 +108,7 @@ class ModbusSensor(BasicMqtt):
             id=id or address, topic_type=SENSOR, topic_prefix=topic_prefix, **kwargs
         )
         self._topic_prefix = topic_prefix
+        self._config_helper = config_helper
         self._modbus = modbus
         self._db = open_json(model=model)
         self._model = self._db[MODEL]

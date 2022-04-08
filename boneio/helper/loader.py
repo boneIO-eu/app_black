@@ -46,6 +46,7 @@ from boneio.helper import (
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
+from boneio.helper.config import ConfigHelper
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
@@ -59,9 +60,7 @@ from busio import I2C
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_adc(
-    manager: Manager, topic_prefix: str, ha_discovery_prefix: str, adc_list: list = []
-):
+def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
     """Create ADC sensor."""
 
     initialize_adc()
@@ -85,7 +84,6 @@ def create_adc(
                     id=id,
                     name=name,
                     ha_type=SENSOR,
-                    ha_discovery_prefix=ha_discovery_prefix,
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )
             manager.append_task(asyncio.create_task(adc.send_state()))
@@ -97,7 +95,6 @@ def create_adc(
 def create_temp_sensor(
     manager: Manager,
     topic_prefix: str,
-    ha_discovery_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
     temp_def: dict = {},
@@ -124,7 +121,6 @@ def create_temp_sensor(
             id=id,
             name=name,
             ha_type=SENSOR,
-            ha_discovery_prefix=ha_discovery_prefix,
             availability_msg_func=ha_sensor_temp_availabilty_message,
         )
         manager.append_task(asyncio.create_task(temp_sensor.send_state()))
@@ -161,7 +157,7 @@ def create_modbus_sensors(
     manager: Manager,
     topic_prefix: str,
     ha_discovery: bool,
-    ha_discovery_prefix: str,
+    config_helper: ConfigHelper,
     modbus: Modbus,
     sensors,
 ) -> None:
@@ -180,6 +176,7 @@ def create_modbus_sensors(
                 model=sensor[MODEL],
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
+                config_helper=config_helper,
                 ha_discovery=ha_discovery,
                 ha_discovery_prefix=ha_discovery_prefix,
                 update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
@@ -288,7 +285,6 @@ def configure_input(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    ha_discovery_prefix: str,
 ) -> str:
     """Configure input sensor or button."""
     try:
@@ -308,7 +304,6 @@ def configure_input(
                 id=pin,
                 name=gpio.get(ID, pin),
                 ha_type=getattr(input, "ha_type"),
-                ha_discovery_prefix=ha_discovery_prefix,
                 availability_msg_func=getattr(input, "availability_msg_f"),
             )
         return pin
@@ -321,7 +316,6 @@ def configure_cover(
     manager: Manager,
     cover_id: str,
     state_manager: StateManager,
-    ha_discovery_prefix: str,
     send_ha_autodiscovery: Callable,
     config: dict,
     **kwargs,
@@ -351,7 +345,6 @@ def configure_cover(
             name=cover.name,
             ha_type=COVER,
             device_class=config.get(DEVICE_CLASS),
-            ha_discovery_prefix=ha_discovery_prefix,
             availability_msg_func=ha_cover_availabilty_message,
         )
     return cover

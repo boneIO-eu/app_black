@@ -7,11 +7,9 @@ from busio import I2C
 
 from boneio.const import (
     ACTION,
-    BONEIO,
     BUTTON,
     CLOSE,
     COVER,
-    HOMEASSISTANT,
     ID,
     INPUT,
     LM75,
@@ -44,6 +42,8 @@ from boneio.helper import (
     ha_button_availabilty_message,
     host_stats,
 )
+
+from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.loader import (
     configure_cover,
@@ -68,14 +68,12 @@ class Manager:
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
         state_manager: StateManager,
+        config_helper: ConfigHelper,
         config_file_path: str,
         relay_pins: List = [],
         input_pins: List = [],
         sensors: dict = {},
-        topic_prefix: str = BONEIO,
         modbus: dict = None,
-        ha_discovery: bool = True,
-        ha_discovery_prefix: str = HOMEASSISTANT,
         mcp23017: Optional[List] = None,
         oled: dict = {},
         adc_list: Optional[List] = None,
@@ -83,17 +81,16 @@ class Manager:
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
+
         self._loop = asyncio.get_event_loop()
+        self._config_helper = config_helper
         self._host_data = None
-        self._ha_discovery = ha_discovery
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = EventBus(self._loop)
+        self._autodiscovery_messages = []
 
         self.send_message = send_message
-        self._topic_prefix = topic_prefix
-        self._command_topic_prefix = f"{topic_prefix}/cmd/"
-        self.subscribe_topic = f"{self._command_topic_prefix}+/+/#"
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
@@ -111,8 +108,7 @@ class Manager:
                 for temp_def in sensors.get(sensor_type):
                     temp_sensor = create_temp_sensor(
                         manager=self,
-                        topic_prefix=topic_prefix,
-                        ha_discovery_prefix=ha_discovery_prefix,
+                        topic_prefix=self._config_helper.topic_prefix,
                         sensor_type=sensor_type,
                         temp_def=temp_def,
                         i2cbusio=self._i2cbusio,
@@ -125,11 +121,11 @@ class Manager:
 
             create_modbus_sensors(
                 manager=self,
-                topic_prefix=topic_prefix,
-                ha_discovery=ha_discovery,
-                ha_discovery_prefix=ha_discovery_prefix,
+                topic_prefix=self._config_helper.topic_prefix,
+                ha_discovery=self._config_helper.ha_discovery,
                 sensors=sensors.get(MODBUS),
                 modbus=self._modbus,
+                config_helper=self._config_helper,
             )
 
         self.grouped_outputs = create_mcp23017(
@@ -141,9 +137,8 @@ class Manager:
 
             create_adc(
                 manager=self,
-                topic_prefix=topic_prefix,
+                topic_prefix=self._config_helper.topic_prefix,
                 adc_list=adc_list,
-                ha_discovery_prefix=ha_discovery_prefix,
             )
 
         for _config in relay_pins:
@@ -151,7 +146,7 @@ class Manager:
             out = configure_relay(
                 manager=self,
                 state_manager=self._state_manager,
-                topic_prefix=topic_prefix,
+                topic_prefix=self._config_helper.topic_prefix,
                 relay_id=_id,
                 relay_callback=self._relay_callback,
                 config=_config,
@@ -164,7 +159,6 @@ class Manager:
                     id=out.id,
                     name=out.name,
                     ha_type=out.output_type,
-                    ha_discovery_prefix=ha_discovery_prefix,
                     availability_msg_func=ha_light_availabilty_message
                     if out.is_light
                     else ha_switch_availabilty_message,
@@ -196,9 +190,8 @@ class Manager:
                 open_time=_config.get("open_time"),
                 close_time=_config.get("close_time"),
                 event_bus=self._event_bus,
-                ha_discovery_prefix=ha_discovery_prefix,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
-                topic_prefix=topic_prefix,
+                topic_prefix=self._config_helper.topic_prefix,
             )
 
         _LOGGER.info("Initializing inputs. This will take a while.")
@@ -213,7 +206,6 @@ class Manager:
                     gpio=gpio,
                     pin=pin,
                     press_callback=self.press_callback,
-                    ha_discovery_prefix=ha_discovery_prefix,
                     send_ha_autodiscovery=self.send_ha_autodiscovery,
                 )
             )
@@ -237,14 +229,15 @@ class Manager:
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
-        self.prepare_button(ha_discovery_prefix=ha_discovery_prefix)
+        self.prepare_button()
 
         _LOGGER.info("BoneIO manager is ready.")
 
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
-        self.send_message(topic=f"{self._topic_prefix}/{STATE}", payload=ONLINE)
+        topic = f"{self._config_helper.topic_prefix}/{STATE}"
+        self.send_message(topic=topic, payload=ONLINE, retain=True)
 
     def _relay_callback(
         self, relay_type: str, relay_id: str, restore_state: bool
@@ -277,13 +270,12 @@ class Manager:
         """Add task to run with asyncio loop."""
         self._tasks.append(task)
 
-    def prepare_button(self, ha_discovery_prefix: str) -> None:
+    def prepare_button(self) -> None:
         """Prepare buttons for reload."""
         self.send_ha_autodiscovery(
             id="Logger",
             name="Logger",
             ha_type=BUTTON,
-            ha_discovery_prefix=ha_discovery_prefix,
             availability_msg_func=ha_button_availabilty_message,
         )
 
@@ -297,7 +289,7 @@ class Manager:
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
-        topic = f"{self._topic_prefix}/{input_type}/{inpin}"
+        topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
         self.send_message(topic=topic, payload=x)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
@@ -330,27 +322,34 @@ class Manager:
         self,
         id: str,
         name: str,
-        ha_discovery_prefix: str,
         ha_type: str,
         availability_msg_func: Callable,
         topic_prefix: str = None,
         **kwargs,
     ) -> None:
         """Send HA autodiscovery information for each relay."""
-        if not self._ha_discovery:
+        if not self._config_helper.ha_discovery:
             return
-        if not topic_prefix:
-            topic_prefix = self._topic_prefix
+        topic_prefix = topic_prefix or self._config_helper.topic_prefix
         msg = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
-        topic = f"{ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
+        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
+        self._autodiscovery_messages.append({"topic": topic, "payload": msg})
         self.send_message(topic=topic, payload=msg, retain=True)
+
+    def resend_autodiscovery(self):
+        for msg in self._autodiscovery_messages:
+            self.send_message(**msg, retain=True)
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        assert topic.startswith(self._command_topic_prefix)
-        topic_parts_raw = topic[len(self._command_topic_prefix) :].split("/")
+        if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
+            if message == ONLINE:
+                self.resend_autodiscovery()
+            return
+        assert topic.startswith(self._config_helper.cmd_topic_prefix)
+        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
         try:
             msg_type = topic_parts.popleft()
