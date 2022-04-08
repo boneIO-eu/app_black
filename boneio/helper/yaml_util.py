@@ -263,6 +263,7 @@ class CustomValidator(Validator):
             "milliseconds": "milliseconds",
             "s": "seconds",
             "sec": "seconds",
+            "secs": "seconds",
             "seconds": "seconds",
             "min": "minutes",
             "minutes": "minutes",

@@ -69,7 +69,7 @@ class Modbus:
 
     async def read_single_register(
         self, unit: int, address: int, count: int = 2, method: str = "input"
-    ) -> float:
+    ) -> float | None:
         """Call sync. pymodbus."""
         async with self._lock:
             if not self._pymodbus_connect():

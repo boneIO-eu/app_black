@@ -1,3 +1,4 @@
+from distutils.command.config import config
 import logging
 import asyncio
 from datetime import datetime
@@ -20,6 +21,7 @@ from boneio.const import (
 from boneio.helper import BasicMqtt
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
+from boneio.helper.config import ConfigHelper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,25 +95,24 @@ class ModbusSensor(BasicMqtt):
         modbus,
         address: str,
         model: str,
-        ha_discovery_prefix: str,
-        topic_prefix: str,
-        ha_discovery: bool = False,
+        config_helper: ConfigHelper,
         id: str = DefaultName,
         update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs,
     ):
         """Initialize Modbus sensor class."""
         super().__init__(
-            id=id or address, topic_type=SENSOR, topic_prefix=topic_prefix, **kwargs
+            id=id or address,
+            topic_type=SENSOR,
+            topic_prefix=self._config_helper.topic_prefix,
+            **kwargs,
         )
-        self._topic_prefix = topic_prefix
+        self._config_helper = config_helper
         self._modbus = modbus
         self._db = open_json(model=model)
         self._model = self._db[MODEL]
         self._address = address
-        self._ha_discovery = ha_discovery
         self._discovery_sent = False
-        self._ha_discovery_prefix = ha_discovery_prefix
         self._update_interval = update_interval
 
     def _send_ha_autodiscovery(
@@ -121,11 +122,11 @@ class ModbusSensor(BasicMqtt):
         _LOGGER.debug("Sending HA discovery for sensor %s %s.", sdm_name, sensor_id)
         self._send_message(
             topic=(
-                f"{self._ha_discovery_prefix}/{SENSOR}/{self._topic_prefix}{id}"
+                f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
                 f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
             ),
             payload=modbus_sensor_availabilty_message(
-                topic=self._topic_prefix,
+                topic=self._config_helper.topic_prefix,
                 id=id,
                 name=sdm_name,
                 model=self._model,
@@ -166,7 +167,7 @@ class ModbusSensor(BasicMqtt):
         if (
             not self._discovery_sent
             or (datetime.now() - self._discovery_sent).seconds > 3600
-        ) and self._ha_discovery:
+        ) and self._config_helper.topic_prefix:
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]
             register_method = first_register_base.get("register_type", "input")
@@ -201,7 +202,7 @@ class ModbusSensor(BasicMqtt):
                     _LOGGER.info("Sending online payload about device.")
                     payload_online = ONLINE
                     self._send_message(
-                        topic=f"{self._topic_prefix}/{self._id}{STATE}",
+                        topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                         payload=payload_online,
                     )
                 if not values:
@@ -212,7 +213,7 @@ class ModbusSensor(BasicMqtt):
                         # Let's assume device is offline.
                         payload_online = OFFLINE
                         self._send_message(
-                            topic=f"{self._topic_prefix}/{self._id}{STATE}",
+                            topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                             payload=payload_online,
                         )
                     _LOGGER.warn(

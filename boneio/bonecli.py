@@ -68,7 +68,7 @@ def get_arguments() -> argparse.Namespace:
 
 def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
     """Run BoneIO."""
-    _LOGGER.info("BoneIO starting.")
+    _LOGGER.info("BoneIO %s starting.", __version__)
     try:
         _config = load_config_from_file(config_file=config)
         if not _config:
