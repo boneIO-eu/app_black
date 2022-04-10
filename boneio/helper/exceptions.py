@@ -15,3 +15,7 @@ class I2CError(BoneIOException):
 
 class ConfigurationException(BoneIOException):
     """Configuration yaml exception."""
+
+
+class CoverRelayException(BoneIOException):
+    """Cover configuration exception."""
