@@ -171,6 +171,18 @@ class Manager:
             _id = _config[ID].replace(" ", "")
             open_relay = self._output.get(_config.get("open_relay"))
             close_relay = self._output.get(_config.get("close_relay"))
+            if not open_relay:
+                _LOGGER.error(
+                    "Can't configure cover %s. This relay doesn't exist.",
+                    _config.get("open_relay"),
+                )
+                continue
+            if not close_relay:
+                _LOGGER.error(
+                    "Can't configure cover %s. This relay doesn't exist.",
+                    _config.get("close_relay"),
+                )
+                continue
             if open_relay.output_type != NONE or close_relay.output_type != NONE:
                 _LOGGER.error(
                     "Can't configure cover %s. %s",

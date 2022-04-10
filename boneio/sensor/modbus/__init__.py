@@ -22,6 +22,8 @@ from boneio.helper import BasicMqtt
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.config import ConfigHelper
+from boneio.modbus import Modbus
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ class ModbusSensor(BasicMqtt):
 
     def __init__(
         self,
-        modbus,
+        modbus: Modbus,
         address: str,
         model: str,
         config_helper: ConfigHelper,
@@ -104,7 +106,7 @@ class ModbusSensor(BasicMqtt):
         super().__init__(
             id=id or address,
             topic_type=SENSOR,
-            topic_prefix=self._config_helper.topic_prefix,
+            topic_prefix=config_helper.topic_prefix,
             **kwargs,
         )
         self._config_helper = config_helper

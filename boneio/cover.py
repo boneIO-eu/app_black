@@ -4,6 +4,7 @@ import logging
 from typing import Any, Callable
 from boneio.const import CLOSE, COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED, STOP
 from boneio.helper.events import EventBus
+from boneio.helper.exceptions import CoverRelayException
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.timeperiod import TimePeriod
 from boneio.relay import MCPRelay
@@ -44,7 +45,7 @@ class Cover(BasicMqtt):
     def __init__(
         self,
         id: str,
-        open_relay: Any,
+        open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
         open_time: TimePeriod,
