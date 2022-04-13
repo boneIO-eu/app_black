@@ -31,6 +31,7 @@ setup(
     install_requires=[
         "Adafruit-BBIO==1.2.0",
         "Adafruit-Blinka==6.20.4",
+        "adafruit-circuitpython-ds18x20==1.3.10",
         "adafruit-circuitpython-mcp230xx==2.5.3",
         "adafruit-circuitpython-mcp9808==3.3.10",
         "adafruit-circuitpython-pct2075==1.1.12",

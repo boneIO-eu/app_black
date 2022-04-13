@@ -3,9 +3,9 @@ import datetime as dt
 import signal
 import logging
 import time
-from typing import Callable
+from typing import Callable, Optional
 from datetime import datetime
-from boneio.helper import callback
+from boneio.helper.util import callback
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
@@ -139,9 +139,9 @@ def async_track_point_in_time(
     # Ensure point_in_time is UTC
     utc_point_in_time = as_utc(point_in_time)
 
-    # Since this is called once, we accept a HassJob so we can avoid
+    # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
-    cancel_callback: asyncio.TimerHandle | None = None
+    cancel_callback: Optional[asyncio.TimerHandle] = None
 
     @callback
     def run_action(job) -> None:
