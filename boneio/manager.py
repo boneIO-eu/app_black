@@ -7,6 +7,7 @@ from busio import I2C
 
 from boneio.const import (
     ACTION,
+    ADDRESS,
     BUTTON,
     CLOSE,
     COVER,
@@ -51,6 +52,7 @@ from boneio.helper.loader import (
     configure_relay,
     create_mcp23017,
     create_temp_sensor,
+    create_ds2482_dallas_sensor,
 )
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus import Modbus
@@ -75,6 +77,8 @@ class Manager:
         sensors: dict = {},
         modbus: dict = None,
         mcp23017: Optional[List] = None,
+        ds2482: Optional[dict] = None,
+        dallas: Optional[List] = None,
         oled: dict = {},
         adc_list: Optional[List] = None,
         covers: Optional[List] = [],
@@ -98,6 +102,8 @@ class Manager:
         self._oled = None
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
+        self._ds_onewire = {}
+        self._ds_onewire_bus = {}
         self._temp_sensors = []
         self._modbus = None
         if modbus and modbus.get(UART) in UARTS:
@@ -129,6 +135,33 @@ class Manager:
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
         )
+
+        if ds2482:
+            _LOGGER.debug("Preparing DS2482 bus.")
+            from boneio.helper.loader import configure_ds2482, find_onewire_devices
+
+            self._ds_onewire_bus[ds2482[ID]] = configure_ds2482(
+                i2cbusio=self._i2cbusio, address=ds2482[ADDRESS]
+            )
+            self._ds_onewire = find_onewire_devices(
+                ow_bus=self._ds_onewire_bus[ds2482[ID]]
+            )
+        for sensor in dallas:
+            ds2482_bus_id = sensor.get("ds2482_id")
+            if ds2482_bus_id and ds2482_bus_id in self._ds_onewire_bus:
+                address = self._ds_onewire.get(sensor[ADDRESS])
+                if not address:
+                    continue
+
+                self._temp_sensors.append(
+                    create_ds2482_dallas_sensor(
+                        manager=self,
+                        ds2482_bus=self._ds_onewire_bus[ds2482_bus_id],
+                        address=address,
+                        topic_prefix=self._config_helper.topic_prefix,
+                        config=sensor,
+                    )
+                )
 
         if adc_list:
             from boneio.helper.loader import create_adc

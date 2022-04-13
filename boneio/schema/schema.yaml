@@ -146,6 +146,17 @@ lm75:
       default: 0x48
       meta:
         label: Address of I2C
+    update_interval:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: True
+      default: 60s
+      meta:
+        label: Update interval.
 
 
 mcp9808:
@@ -162,7 +173,18 @@ mcp9808:
       required: True
       default: 0x18
       meta:
-        label: GPIO of I2C SDA
+        label: Address of I2C device
+    update_interval:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: True
+      default: 60s
+      meta:
+        label: Update interval.
 
 mcp23017:
   type: list
@@ -356,6 +378,7 @@ adc:
           label: If you want you can disable discovering this input in HA.
 cover:
   type: list
+  required: False
   meta:
     label: Cover section
   schema:
@@ -414,3 +437,60 @@ cover:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
+
+ds2482:
+  type: dict
+  required: False
+  schema:
+    id:
+      type: string
+      required: True
+      meta:
+        label: Id of I2C to use in pin config
+    address:
+      type: string
+      required: True
+      default: 0x18
+      meta:
+        label: GPIO of I2C SDA
+
+dallas:
+  type: list
+  required: False
+  meta:
+    label: Dallas DS18B20 section
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        meta:
+          label: Id to use in HA if needed. Default to address.
+      address:
+        type: integer
+        required: True
+        meta:
+          label: Address of Dallas device
+      ds2482_id:
+        type: string
+        required: False
+        meta:
+          label: Put DS2482 defined id if you want to add DS18B20 connected via DS2482.
+      show_in_ha:
+        type: boolean
+        required: True
+        default: True
+        meta:
+          label: If you want you can disable discovering this input in HA.
+      update_interval:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: 60s
+        meta:
+          label: Update interval.

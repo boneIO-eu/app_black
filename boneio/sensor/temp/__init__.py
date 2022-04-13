@@ -1,12 +1,20 @@
 """Manage BoneIO onboard temp sensors."""
 
 import asyncio
-from adafruit_pct2075 import PCT2075
-from adafruit_mcp9808 import MCP9808
-from boneio.const import STATE, SENSOR, LM75, MCP_TEMP_9808, TEMPERATURE
+from datetime import datetime, timedelta
+from typing import Optional
+
+from boneio.const import STATE, SENSOR, TEMPERATURE
+
 
 from boneio.helper.exceptions import I2CError
 from boneio.helper import BasicMqtt
+
+from boneio.helper.util import callback
+from boneio.helper.events import async_track_point_in_time, utcnow
+
+
+from boneio.helper.timeperiod import TimePeriod
 
 
 class TempSensor(BasicMqtt):
@@ -15,11 +23,22 @@ class TempSensor(BasicMqtt):
     SensorClass = None
     DefaultName = TEMPERATURE
 
-    def __init__(self, i2c, address, id: str = DefaultName, **kwargs):
+    def __init__(
+        self,
+        i2c,
+        address: str,
+        id: str = DefaultName,
+        update_interval: int = TimePeriod(seconds=60),
+        **kwargs
+    ):
         """Initialize Temp class."""
         super().__init__(id=id, topic_type=SENSOR, **kwargs)
+        self._update_interval = update_interval
+        self._loop = asyncio.get_event_loop()
         try:
             self._pct = self.SensorClass(i2c_bus=i2c, address=address)
+            self._unsub_refresh = None
+            self._schedule_refresh(utcnow() + timedelta(seconds=2))
         except ValueError as err:
             raise I2CError(err)
 
@@ -28,25 +47,30 @@ class TempSensor(BasicMqtt):
         """Give rounded value of temperature."""
         return round(self._pct.temperature, 2)
 
-    async def send_state(self):
+    def _schedule_refresh(self, update_time: Optional[datetime] = None):
+        if self._unsub_refresh:
+            self._unsub_refresh()
+            self._unsub_refresh = None
+        if not update_time:
+            update_time = utcnow() + self._update_interval.as_timedelta
+        self._unsub_refresh = async_track_point_in_time(
+            loop=self._loop,
+            action=self._refresh,
+            point_in_time=update_time,
+        )
+
+    @callback
+    def _refresh(self, time: datetime):
+        if self._unsub_refresh:
+            self._unsub_refresh()
+            self._unsub_refresh = None
+
+        self.send_state()
+        self._schedule_refresh()
+
+    def send_state(self):
         """Fetch temperature periodically and send to MQTT."""
-        while True:
-            self._send_message(
-                topic=self._send_topic,
-                payload={STATE: self.state},
-            )
-            await asyncio.sleep(60)
-
-
-class LM75Sensor(TempSensor):
-    """Represent LM75 sensor in BoneIO."""
-
-    SensorClass = PCT2075
-    DefaultName = LM75
-
-
-class MCP9808Sensor(TempSensor):
-    """Represent MCP9808 sensor in BoneIO."""
-
-    SensorClass = MCP9808
-    DefaultName = MCP_TEMP_9808
+        self._send_message(
+            topic=self._send_topic,
+            payload={STATE: self.state},
+        )

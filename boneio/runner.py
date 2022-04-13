@@ -5,6 +5,7 @@ import os
 from boneio.const import (
     ADC,
     COVER,
+    DALLAS,
     ENABLED,
     HA_DISCOVERY,
     HOST,
@@ -20,6 +21,7 @@ from boneio.const import (
     PORT,
     TOPIC_PREFIX,
     USERNAME,
+    DS2482,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,6 +68,8 @@ async def async_run(
             MODBUS: config.get("modbus_sensors"),
         },
         mcp23017=config.get(MCP23017, []),
+        ds2482=config.get(DS2482),
+        dallas=config.get(DALLAS, []),
         modbus=config.get(MODBUS),
         oled=config.get(OLED),
         adc_list=config.get(ADC, []),

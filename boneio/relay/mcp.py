@@ -2,7 +2,7 @@
 
 import logging
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
-from boneio.helper import callback
+from boneio.helper.util import callback
 from boneio.relay.basic import BasicRelay
 from boneio.const import SWITCH, NONE
 from boneio.helper.events import async_track_point_in_time, utcnow

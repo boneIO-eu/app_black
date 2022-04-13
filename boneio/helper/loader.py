@@ -43,10 +43,13 @@ from boneio.helper import (
     ha_input_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
+from adafruit_onewire.bus import OneWireAddress
+from boneio.helper.ds2482 import DS2482, OneWireBus, ds_address, DS2482_ADDRESS
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
 from boneio.helper.config import ConfigHelper
+from boneio.sensor import DallasSensor
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
@@ -116,6 +119,7 @@ def create_temp_sensor(
             address=temp_def[ADDRESS],
             send_message=manager.send_message,
             topic_prefix=topic_prefix,
+            update_interval=temp_def.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         )
         manager.send_ha_autodiscovery(
             id=id,
@@ -343,3 +347,47 @@ def configure_cover(
             availability_msg_func=ha_cover_availabilty_message,
         )
     return cover
+
+
+def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
+    ds2482 = DS2482(i2c=i2cbusio, address=address)
+    ow_bus = OneWireBus(ds2482=ds2482)
+    return ow_bus
+
+
+def find_onewire_devices(ow_bus: OneWireBus):
+    devices = ow_bus.scan()
+    out = {}
+    for device in devices:
+        _addr: int = ds_address(device.rom)
+        _LOGGER.debug("Found device with address %s", hex(_addr))
+        out[_addr] = device
+    return out
+
+
+def create_ds2482_dallas_sensor(
+    manager: Manager,
+    ds2482_bus: OneWireBus,
+    address: OneWireAddress,
+    config: dict,
+    **kwargs,
+):
+    name = config.get(ID) or hex(address)
+    id = name.replace(" ", "")
+    sensor = DallasSensor(
+        bus=ds2482_bus,
+        address=address,
+        id=id,
+        name=name,
+        update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+        send_message=manager.send_message,
+        **kwargs,
+    )
+    if config.get(SHOW_HA, True):
+        manager.send_ha_autodiscovery(
+            id=sensor.id,
+            name=sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_temp_availabilty_message,
+        )
+    return sensor
