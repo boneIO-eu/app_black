@@ -93,6 +93,7 @@ modbus:
     uart:
       type: string
       required: True
+      allowed: ["uart1", "uart2", "uart3", "uart4", "uart5"]
       meta:
         label: Uart ID to use
 

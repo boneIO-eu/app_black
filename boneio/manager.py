@@ -46,6 +46,7 @@ from boneio.helper import (
 
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
+from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.loader import (
     configure_cover,
     configure_input,
@@ -107,7 +108,14 @@ class Manager:
         self._temp_sensors = []
         self._modbus = None
         if modbus and modbus.get(UART) in UARTS:
-            self._modbus = Modbus(UARTS[modbus.get(UART)])
+            try:
+                self._modbus = Modbus(UARTS[modbus.get(UART)])
+            except ModbusUartException:
+                _LOGGER.error(
+                    "This UART %s can't be used for modbus communication.",
+                    modbus.get(UART),
+                )
+                self._modbus = None
 
         for sensor_type in (LM75, MCP_TEMP_9808):
             if sensors.get(sensor_type):

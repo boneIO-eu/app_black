@@ -23,3 +23,7 @@ class ConfigurationException(BoneIOException):
 
 class CoverRelayException(BoneIOException):
     """Cover configuration exception."""
+
+
+class ModbusUartException(BoneIOException):
+    """Cover configuration exception."""
