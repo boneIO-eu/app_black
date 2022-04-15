@@ -1,18 +1,20 @@
 """GPIOInputButton to receive signals."""
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 
 from boneio.const import (
-    DEBOUNCE_DURATION,
-    DELAY_DURATION,
     DOUBLE,
     LONG,
-    LONG_PRESS_DURATION,
-    SECOND_DELAY_DURATION,
     SINGLE,
 )
 from boneio.helper import edge_detect, GpioBaseClass
+
+# TIMINGS FOR BUTTONS
+DEBOUNCE_DURATION = timedelta(microseconds=150000)
+LONG_PRESS_DURATION = timedelta(microseconds=700000)
+DELAY_DURATION = 0.08
+SECOND_DELAY_DURATION = 0.14
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +56,6 @@ class GpioInputButton(GpioBaseClass):
             and now - self._second_press_timestamp < DEBOUNCE_DURATION
         ):
             return
-
         if not self._first_press_timestamp:
             self._first_press_timestamp = now
         elif not self._second_press_timestamp:
@@ -105,7 +106,7 @@ class GpioInputButton(GpioBaseClass):
             if self._second_check:
                 if self._second_press_timestamp:
                     _LOGGER.debug(
-                        "Double click event on pin %s, roznica %s",
+                        "Double click event on pin %s, diff %s",
                         self._pin,
                         self._second_press_timestamp - self._first_press_timestamp,
                     )
