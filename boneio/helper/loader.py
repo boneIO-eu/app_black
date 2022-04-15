@@ -127,7 +127,6 @@ def create_temp_sensor(
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
         )
-        manager.append_task(asyncio.create_task(temp_sensor.send_state()))
         return temp_sensor
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
