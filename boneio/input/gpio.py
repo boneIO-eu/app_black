@@ -11,10 +11,10 @@ from boneio.const import (
 from boneio.helper import edge_detect, GpioBaseClass
 
 # TIMINGS FOR BUTTONS
-DEBOUNCE_DURATION = timedelta(microseconds=120000)
+DEBOUNCE_DURATION = timedelta(microseconds=150000)
 LONG_PRESS_DURATION = timedelta(microseconds=700000)
-DELAY_DURATION = 0.05
-SECOND_DELAY_DURATION = 0.1
+DELAY_DURATION = 0.08
+SECOND_DELAY_DURATION = 0.14
 
 _LOGGER = logging.getLogger(__name__)
 
