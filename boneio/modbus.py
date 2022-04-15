@@ -27,9 +27,7 @@ class Modbus:
         rx = uart.get(RX)
         tx = uart.get(TX)
         if not tx or not rx:
-            raise ModbusUartException(
-                "This UART %s can't be used for modbus communication."
-            )
+            raise ModbusUartException
 
         configure_pin(pin=rx, mode=UART)
         configure_pin(pin=tx, mode=UART)

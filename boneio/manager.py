@@ -110,8 +110,11 @@ class Manager:
         if modbus and modbus.get(UART) in UARTS:
             try:
                 self._modbus = Modbus(UARTS[modbus.get(UART)])
-            except ModbusUartException as err:
-                _LOGGER.error(err)
+            except ModbusUartException:
+                _LOGGER.error(
+                    "This UART %s can't be used for modbus communication.",
+                    modbus.get(UART),
+                )
                 self._modbus = None
 
         for sensor_type in (LM75, MCP_TEMP_9808):
