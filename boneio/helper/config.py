@@ -2,6 +2,7 @@
 Module to provide basic config options.
 """
 from boneio.const import BONEIO, HOMEASSISTANT
+from _collections_abc import dict_values
 
 
 class ConfigHelper:
@@ -14,7 +15,7 @@ class ConfigHelper:
         self._topic_prefix = topic_prefix
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
-        self._autodiscovery_messages = set()
+        self._autodiscovery_messages = {}
 
     @property
     def topic_prefix(self) -> str:
@@ -38,9 +39,9 @@ class ConfigHelper:
 
     def add_autodiscovery_msg(self, topic: str, payload: str):
         """Add autodiscovery message."""
-        self._autodiscovery_messages.add({"topic": topic, "payload": payload})
+        self._autodiscovery_messages[topic] = {"topic": topic, "payload": payload}
 
     @property
-    def autodiscovery_msgs(self) -> set:
+    def autodiscovery_msgs(self) -> dict_values:
         """Get autodiscovery messages"""
-        return self._autodiscovery_messages
+        return self._autodiscovery_messages.values()
