@@ -374,14 +374,14 @@ class Manager:
         if not self._config_helper.ha_discovery:
             return
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
-        msg = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
+        payload = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
-        self._autodiscovery_messages.append({"topic": topic, "payload": msg})
-        self.send_message(topic=topic, payload=msg, retain=True)
+        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self):
-        for msg in self._autodiscovery_messages:
+        for msg in self._config_helper.autodiscovery_msgs:
             self.send_message(**msg, retain=True)
 
     async def receive_message(self, topic: str, message: str) -> None:

@@ -122,20 +122,20 @@ class ModbusSensor(BasicMqtt):
     ) -> None:
         """Send HA autodiscovery information for each Modbus sensor."""
         _LOGGER.debug("Sending HA discovery for sensor %s %s.", sdm_name, sensor_id)
-        self._send_message(
-            topic=(
-                f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
-                f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
-            ),
-            payload=modbus_sensor_availabilty_message(
-                topic=self._config_helper.topic_prefix,
-                id=id,
-                name=sdm_name,
-                model=self._model,
-                sensor_id=sensor_id,
-                **kwargs,
-            ),
+        topic = (
+            f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
+            f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
         )
+        payload = modbus_sensor_availabilty_message(
+            topic=self._config_helper.topic_prefix,
+            id=id,
+            name=sdm_name,
+            model=self._model,
+            sensor_id=sensor_id,
+            **kwargs,
+        )
+        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self._send_message(topic=topic, payload=payload)
 
     def _send_discovery_for_all_registers(self, register: int = 0) -> bool:
         """Send discovery message to HA for each register."""
