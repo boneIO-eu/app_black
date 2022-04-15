@@ -2,12 +2,13 @@
 from datetime import timedelta
 
 try:
-    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING, RISING
 except ModuleNotFoundError:
     HIGH = "high"
     LOW = "low"
     BOTH = "both"
     FALLING = "falling"
+    RISING = "rising"
     pass
 from typing_extensions import Literal
 
@@ -49,12 +50,6 @@ UARTS = {
     "uart1": {ID: "/dev/ttyS1", TX: "P9.24", RX: "P9.26"},
     "uart4": {ID: "/dev/ttyS4", TX: "P9.13", RX: "P9.11"},
 }
-
-# TIMINGS FOR BUTTONS
-DEBOUNCE_DURATION = timedelta(seconds=0.2)
-LONG_PRESS_DURATION = timedelta(seconds=0.7)
-DELAY_DURATION = 0.1
-SECOND_DELAY_DURATION = 0.3
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
