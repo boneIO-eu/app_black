@@ -1,4 +1,3 @@
-from distutils.command.config import config
 import logging
 import asyncio
 from datetime import datetime
@@ -23,7 +22,7 @@ from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.config import ConfigHelper
 from boneio.modbus import Modbus
-
+from boneio.helper.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,6 +97,7 @@ class ModbusSensor(BasicMqtt):
         address: str,
         model: str,
         config_helper: ConfigHelper,
+        event_bus: EventBus,
         id: str = DefaultName,
         update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs,
@@ -116,6 +116,11 @@ class ModbusSensor(BasicMqtt):
         self._address = address
         self._discovery_sent = False
         self._update_interval = update_interval
+        self._payload_online = OFFLINE
+        event_bus.add_haonline_listener(target=self.set_payload_offline)
+
+    def set_payload_offline(self):
+        self._payload_online = OFFLINE
 
     def _send_ha_autodiscovery(
         self, id: str, sdm_name: str, sensor_id: str, **kwargs
@@ -190,7 +195,7 @@ class ModbusSensor(BasicMqtt):
     async def send_state(self) -> None:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_seconds
-        payload_online = OFFLINE
+        self.set_payload_offline()
         while True:
             await self.check_availability()
             for data in self._db[REGISTERS_BASE]:
@@ -200,12 +205,12 @@ class ModbusSensor(BasicMqtt):
                     count=data[LENGTH],
                     method=data.get("register_type", "input"),
                 )
-                if payload_online == OFFLINE and values:
+                if self._payload_online == OFFLINE and values:
                     _LOGGER.info("Sending online payload about device.")
-                    payload_online = ONLINE
+                    self._payload_online = ONLINE
                     self._send_message(
                         topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
-                        payload=payload_online,
+                        payload=self._payload_online,
                     )
                 if not values:
                     if update_interval < 600:
@@ -213,10 +218,10 @@ class ModbusSensor(BasicMqtt):
                         update_interval = update_interval * 1.5
                     else:
                         # Let's assume device is offline.
-                        payload_online = OFFLINE
+                        self.set_payload_offline()
                         self._send_message(
                             topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
-                            payload=payload_online,
+                            payload=self._payload_online,
                         )
                     _LOGGER.warn(
                         "Can't fetch data from modbus device. Will sleep for %s seconds",

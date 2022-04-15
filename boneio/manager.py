@@ -135,6 +135,7 @@ class Manager:
 
             create_modbus_sensors(
                 manager=self,
+                event_bus=self._event_bus,
                 sensors=sensors.get(MODBUS),
                 modbus=self._modbus,
                 config_helper=self._config_helper,
@@ -398,6 +399,7 @@ class Manager:
         if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
             if message == ONLINE:
                 self.resend_autodiscovery()
+                self._event_bus.signal_ha_online()
             return
         assert topic.startswith(self._config_helper.cmd_topic_prefix)
         topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix) :].split("/")

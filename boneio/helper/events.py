@@ -79,6 +79,7 @@ class EventBus:
         self._loop = loop or asyncio.get_event_loop()
         self._listeners = {}
         self._sigterm_listeners = []
+        self._haonline_listeners = []
         self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
         for signame in {"SIGINT", "SIGTERM"}:
             self._loop.add_signal_handler(
@@ -112,6 +113,15 @@ class EventBus:
     def add_sigterm_listener(self, target):
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
+
+    def add_haonline_listener(self, target):
+        """Add HA Online listener."""
+        self._haonline_listeners.append(target)
+
+    def signal_ha_online(self):
+        """Call events if HA goes online."""
+        for target in self._haonline_listeners:
+            target()
 
     def remove_listener(self, name):
         """Remove regular listener."""
