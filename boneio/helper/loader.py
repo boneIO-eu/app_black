@@ -156,12 +156,7 @@ def create_mcp23017(
     return grouped_outputs
 
 
-def create_modbus_sensors(
-    manager: Manager,
-    config_helper: ConfigHelper,
-    modbus: Modbus,
-    sensors,
-) -> None:
+def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
     """Create Modbus sensor for each device."""
     from boneio.sensor.modbus import ModbusSensor
 
@@ -170,14 +165,13 @@ def create_modbus_sensors(
         id = name.replace(" ", "")
         try:
             sdm = ModbusSensor(
-                modbus=modbus,
                 address=sensor[ADDRESS],
                 id=id,
                 name=name,
                 model=sensor[MODEL],
                 send_message=manager.send_message,
-                config_helper=config_helper,
                 update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                **kwargs,
             )
             manager.append_task(asyncio.create_task(sdm.send_state()))
         except FileNotFoundError as err:
