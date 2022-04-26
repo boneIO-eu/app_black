@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from boneio.helper import configure_pin
+from boneio.helper.exceptions import ModbusUartException
 from boneio.const import ID, RX, TX, UART, REGISTERS
 from pymodbus.client.sync import (
     BaseModbusClient,
@@ -23,9 +24,13 @@ class Modbus:
 
     def __init__(self, uart: dict[str, Any]) -> None:
         """Initialize the Modbus hub."""
+        rx = uart.get(RX)
+        tx = uart.get(TX)
+        if not tx or not rx:
+            raise ModbusUartException
 
-        configure_pin(pin=uart[RX], mode=UART)
-        configure_pin(pin=uart[TX], mode=UART)
+        configure_pin(pin=rx, mode=UART)
+        configure_pin(pin=tx, mode=UART)
         self._uart = uart
 
         # generic configuration
@@ -69,7 +74,7 @@ class Modbus:
 
     async def read_single_register(
         self, unit: int, address: int, count: int = 2, method: str = "input"
-    ) -> float:
+    ) -> float | None:
         """Call sync. pymodbus."""
         async with self._lock:
             if not self._pymodbus_connect():

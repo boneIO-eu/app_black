@@ -19,6 +19,10 @@ from boneio.const import (
 )
 from boneio.helper import BasicMqtt
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
+from boneio.helper.timeperiod import TimePeriod
+from boneio.helper.config import ConfigHelper
+from boneio.modbus import Modbus
+from boneio.helper.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,49 +93,54 @@ class ModbusSensor(BasicMqtt):
 
     def __init__(
         self,
-        modbus,
+        modbus: Modbus,
         address: str,
         model: str,
-        ha_discovery_prefix: str,
-        topic_prefix: str,
-        ha_discovery: bool = False,
+        config_helper: ConfigHelper,
+        event_bus: EventBus,
         id: str = DefaultName,
-        update_interval: int = 60,
+        update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs,
     ):
         """Initialize Modbus sensor class."""
         super().__init__(
-            id=id or address, topic_type=SENSOR, topic_prefix=topic_prefix, **kwargs
+            id=id or address,
+            topic_type=SENSOR,
+            topic_prefix=config_helper.topic_prefix,
+            **kwargs,
         )
-        self._topic_prefix = topic_prefix
+        self._config_helper = config_helper
         self._modbus = modbus
         self._db = open_json(model=model)
         self._model = self._db[MODEL]
         self._address = address
-        self._ha_discovery = ha_discovery
         self._discovery_sent = False
-        self._ha_discovery_prefix = ha_discovery_prefix
         self._update_interval = update_interval
+        self._payload_online = OFFLINE
+        event_bus.add_haonline_listener(target=self.set_payload_offline)
+
+    def set_payload_offline(self):
+        self._payload_online = OFFLINE
 
     def _send_ha_autodiscovery(
         self, id: str, sdm_name: str, sensor_id: str, **kwargs
     ) -> None:
         """Send HA autodiscovery information for each Modbus sensor."""
         _LOGGER.debug("Sending HA discovery for sensor %s %s.", sdm_name, sensor_id)
-        self._send_message(
-            topic=(
-                f"{self._ha_discovery_prefix}/{SENSOR}/{self._topic_prefix}{id}"
-                f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
-            ),
-            payload=modbus_sensor_availabilty_message(
-                topic=self._topic_prefix,
-                id=id,
-                name=sdm_name,
-                model=self._model,
-                sensor_id=sensor_id,
-                **kwargs,
-            ),
+        topic = (
+            f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
+            f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
         )
+        payload = modbus_sensor_availabilty_message(
+            topic=self._config_helper.topic_prefix,
+            id=id,
+            name=sdm_name,
+            model=self._model,
+            sensor_id=sensor_id,
+            **kwargs,
+        )
+        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self._send_message(topic=topic, payload=payload)
 
     def _send_discovery_for_all_registers(self, register: int = 0) -> bool:
         """Send discovery message to HA for each register."""
@@ -165,7 +174,7 @@ class ModbusSensor(BasicMqtt):
         if (
             not self._discovery_sent
             or (datetime.now() - self._discovery_sent).seconds > 3600
-        ) and self._ha_discovery:
+        ) and self._config_helper.topic_prefix:
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]
             register_method = first_register_base.get("register_type", "input")
@@ -185,8 +194,8 @@ class ModbusSensor(BasicMqtt):
 
     async def send_state(self) -> None:
         """Fetch state periodically and send to MQTT."""
-        update_interval = self._update_interval
-        payload_online = OFFLINE
+        update_interval = self._update_interval.total_seconds
+        self.set_payload_offline()
         while True:
             await self.check_availability()
             for data in self._db[REGISTERS_BASE]:
@@ -196,12 +205,12 @@ class ModbusSensor(BasicMqtt):
                     count=data[LENGTH],
                     method=data.get("register_type", "input"),
                 )
-                if payload_online == OFFLINE and values:
+                if self._payload_online == OFFLINE and values:
                     _LOGGER.info("Sending online payload about device.")
-                    payload_online = ONLINE
+                    self._payload_online = ONLINE
                     self._send_message(
-                        topic=f"{self._topic_prefix}/{self._id}{STATE}",
-                        payload=payload_online,
+                        topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                        payload=self._payload_online,
                     )
                 if not values:
                     if update_interval < 600:
@@ -209,19 +218,19 @@ class ModbusSensor(BasicMqtt):
                         update_interval = update_interval * 1.5
                     else:
                         # Let's assume device is offline.
-                        payload_online = OFFLINE
+                        self.set_payload_offline()
                         self._send_message(
-                            topic=f"{self._topic_prefix}/{self._id}{STATE}",
-                            payload=payload_online,
+                            topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                            payload=self._payload_online,
                         )
                     _LOGGER.warn(
-                        "Can't fetch data from modbus device. Will sleep for %s",
+                        "Can't fetch data from modbus device. Will sleep for %s seconds",
                         update_interval,
                     )
                     self._discovery_sent = False
                     continue
-                elif update_interval != self._update_interval:
-                    update_interval = self._update_interval
+                elif update_interval != self._update_interval.total_seconds:
+                    update_interval = self._update_interval.total_seconds
                 output = {}
                 for register in data["registers"]:
                     output[register.get("name").replace(" ", "")] = CONVERT_METHODS[

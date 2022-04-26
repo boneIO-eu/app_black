@@ -7,16 +7,17 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import Any, Callable, Optional, Set, Union
+from typing import Any, Callable, Optional, Set, Tuple, Union
 
 import paho.mqtt.client as mqtt
-from asyncio_mqtt import Client as AsyncioClient
+from asyncio_mqtt import Client as AsyncioClient, Will
 from asyncio_mqtt import MqttError
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.const import PAHO
+from boneio.const import PAHO, STATE, ONLINE
 from boneio.helper import UniqueQueue
+from boneio.helper.config import ConfigHelper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,12 +28,14 @@ class MQTTClient:
     def __init__(
         self,
         host: str,
+        config_helper: ConfigHelper,
         port: int = 1883,
         **client_options: Any,
     ) -> None:
         """Set up client."""
         self.host = host
         self.port = port
+        self._config_helper = config_helper
         client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
         client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
@@ -40,6 +43,7 @@ class MQTTClient:
         self.asyncio_client: AsyncioClient = None
         self.create_client()
         self.reconnect_interval = 1
+        self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
 
     def create_client(self) -> None:
@@ -48,6 +52,12 @@ class MQTTClient:
         self.asyncio_client = AsyncioClient(
             self.host,
             self.port,
+            will=Will(
+                topic=f"{self._config_helper.topic_prefix}/{STATE}",
+                payload=ONLINE,
+                qos=0,
+                retain=False,
+            ),
             **self.client_options,
         )
 
@@ -75,7 +85,7 @@ class MQTTClient:
 
     async def subscribe(  # pylint:disable=too-many-arguments
         self,
-        topic: str,
+        topics: Tuple[str, str],
         qos: int = 0,
         options: Optional[SubscribeOptions] = None,
         properties: Optional[Properties] = None,
@@ -85,13 +95,17 @@ class MQTTClient:
 
         Can raise asyncio_mqtt.MqttError.
         """
-        params: dict = {"qos": qos, "timeout": timeout}
+        args = []
+        for topic in topics:
+            args.append((topic, qos))
+        params: dict = {"qos": qos}
         if options:
             params["options"] = options
         if properties:
             params["properties"] = properties
 
-        await self.asyncio_client.subscribe(topic, **params)
+        # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
+        await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
 
     async def unsubscribe(
         self, topic: str, properties: Optional[Properties] = None, timeout: float = 10.0
@@ -137,6 +151,7 @@ class MQTTClient:
                     err,
                     self.reconnect_interval,
                 )
+                self._connection_established = False
                 await asyncio.sleep(self.reconnect_interval)
                 self.create_client()  # reset connect/reconnect futures
 
@@ -161,9 +176,15 @@ class MQTTClient:
             messages_task = asyncio.create_task(
                 handle_messages(messages, manager.receive_message)
             )
+            if not self._connection_established:
+                self._connection_established = True
+                reconnect_task = asyncio.create_task(manager.reconnect_callback())
+                tasks.add(reconnect_task)
             tasks.add(messages_task)
 
-            await self.subscribe(manager.subscribe_topic)
+            await self.subscribe(
+                topics=(self._config_helper.subscribe_topic, "homeassistant/status")
+            )
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)

@@ -4,7 +4,17 @@ import asyncio
 
 from boneio.const import SENSOR
 from boneio.helper import BasicMqtt
-import Adafruit_BBIO.ADC as ADC
+from boneio.helper.timeperiod import TimePeriod
+
+try:
+    import Adafruit_BBIO.ADC as ADC
+except ModuleNotFoundError:
+
+    class ADC:
+        def __init__(self):
+            pass
+
+    pass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +26,9 @@ def initialize_adc():
 class GpioADCSensor(BasicMqtt):
     """Represent Gpio ADC sensor."""
 
-    def __init__(self, pin: str, update_interval: int = 60, **kwargs) -> None:
+    def __init__(
+        self, pin: str, update_interval: int = TimePeriod(seconds=60), **kwargs
+    ) -> None:
         """Setup GPIO ADC Sensor"""
         super().__init__(topic_type=SENSOR, **kwargs)
         self._pin = pin
@@ -35,4 +47,4 @@ class GpioADCSensor(BasicMqtt):
                 topic=self._send_topic,
                 payload=self.state,
             )
-            await asyncio.sleep(self._update_interval)
+            await asyncio.sleep(self._update_interval.total_seconds)

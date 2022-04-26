@@ -1,10 +1,11 @@
 """Cover module."""
 import asyncio
 import logging
-from typing import Any, Callable
+from typing import Callable
 from boneio.const import CLOSE, COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED, STOP
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
+from boneio.helper.timeperiod import TimePeriod
 from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,10 +22,10 @@ COVER_COMMANDS = {
 class RelayHelper:
     """Relay helper for cover either open/close."""
 
-    def __init__(self, relay: MCPRelay, time: int) -> None:
+    def __init__(self, relay: MCPRelay, time: TimePeriod) -> None:
         """Initialize helper."""
         self._relay = relay
-        self._steps = 100 / time
+        self._steps = 100 / time.total_seconds
 
     @property
     def relay(self) -> MCPRelay:
@@ -43,11 +44,11 @@ class Cover(BasicMqtt):
     def __init__(
         self,
         id: str,
-        open_relay: Any,
+        open_relay: MCPRelay,
         close_relay: MCPRelay,
         state_save: Callable,
-        open_time: int,
-        close_time: int,
+        open_time: TimePeriod,
+        close_time: TimePeriod,
         event_bus: EventBus,
         restored_state: int = 100,
         **kwargs,

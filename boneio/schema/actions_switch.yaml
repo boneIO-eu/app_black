@@ -1,5 +1,6 @@
 required: False
 type: list
+excludes: ["pressed", "released"]
 dependencies:
   kind: ['switch']
 schema: !include actions.yaml

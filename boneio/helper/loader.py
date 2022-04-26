@@ -43,8 +43,13 @@ from boneio.helper import (
     ha_input_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
+from adafruit_onewire.bus import OneWireAddress
+from boneio.helper.ds2482 import DS2482, OneWireBus, ds_address, DS2482_ADDRESS
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
+from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
+from boneio.helper.config import ConfigHelper
+from boneio.sensor import DallasSensor
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
@@ -58,9 +63,7 @@ from busio import I2C
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_adc(
-    manager: Manager, topic_prefix: str, ha_discovery_prefix: str, adc_list: list = []
-):
+def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
     """Create ADC sensor."""
 
     initialize_adc()
@@ -77,14 +80,13 @@ def create_adc(
                 name=name,
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
-                update_interval=gpio.get(UPDATE_INTERVAL, 60),
+                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
             )
             if gpio.get(SHOW_HA, True):
                 manager.send_ha_autodiscovery(
                     id=id,
                     name=name,
                     ha_type=SENSOR,
-                    ha_discovery_prefix=ha_discovery_prefix,
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )
             manager.append_task(asyncio.create_task(adc.send_state()))
@@ -96,11 +98,9 @@ def create_adc(
 def create_temp_sensor(
     manager: Manager,
     topic_prefix: str,
-    ha_discovery_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
     temp_def: dict = {},
-    temp_sensors: list = [],
 ):
     """Create LM sensor in manager."""
     if sensor_type == LM75:
@@ -119,16 +119,15 @@ def create_temp_sensor(
             address=temp_def[ADDRESS],
             send_message=manager.send_message,
             topic_prefix=topic_prefix,
+            update_interval=temp_def.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         )
         manager.send_ha_autodiscovery(
             id=id,
             name=name,
             ha_type=SENSOR,
-            ha_discovery_prefix=ha_discovery_prefix,
             availability_msg_func=ha_sensor_temp_availabilty_message,
         )
-        manager.append_task(asyncio.create_task(temp_sensor.send_state()))
-        temp_sensors.append(temp_sensor)
+        return temp_sensor
     except I2CError as err:
         _LOGGER.error("Can't configure Temp sensor. %s", err)
         pass
@@ -145,9 +144,11 @@ def create_mcp23017(
         id = mcp[ID] or mcp[ADDRESS]
         try:
             manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS], reset=False)
-            sleep_time = mcp.get(INIT_SLEEP, 0)
-            _LOGGER.debug(f"Sleeping for {sleep_time}s while MCP {id} is initializing.")
-            time.sleep(sleep_time)
+            sleep_time = mcp.get(INIT_SLEEP, TimePeriod(seconds=0))
+            _LOGGER.debug(
+                f"Sleeping for {sleep_time.total_seconds}s while MCP {id} is initializing."
+            )
+            time.sleep(sleep_time.total_seconds)
             grouped_outputs[id] = {}
         except TimeoutError as err:
             _LOGGER.error("Can't connect to MCP %s. %s", id, err)
@@ -155,14 +156,7 @@ def create_mcp23017(
     return grouped_outputs
 
 
-def create_modbus_sensors(
-    manager: Manager,
-    topic_prefix: str,
-    ha_discovery: bool,
-    ha_discovery_prefix: str,
-    modbus: Modbus,
-    sensors,
-) -> None:
+def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
     """Create Modbus sensor for each device."""
     from boneio.sensor.modbus import ModbusSensor
 
@@ -171,16 +165,13 @@ def create_modbus_sensors(
         id = name.replace(" ", "")
         try:
             sdm = ModbusSensor(
-                modbus=modbus,
                 address=sensor[ADDRESS],
                 id=id,
                 name=name,
                 model=sensor[MODEL],
                 send_message=manager.send_message,
-                topic_prefix=topic_prefix,
-                ha_discovery=ha_discovery,
-                ha_discovery_prefix=ha_discovery_prefix,
-                update_interval=sensor.get(UPDATE_INTERVAL, 30),
+                update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                **kwargs,
             )
             manager.append_task(asyncio.create_task(sdm.send_state()))
         except FileNotFoundError as err:
@@ -192,6 +183,17 @@ def create_modbus_sensors(
             pass
 
 
+OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind output_id")
+
+
+def output_chooser(output_kind: str, mcp_id: str | None):
+    """Get named tuple based on input."""
+    if output_kind == MCP:
+        return OutputEntry(MCPRelay, MCP, mcp_id)
+    else:
+        return OutputEntry(GpioRelay, GPIO, GPIO)
+
+
 def configure_relay(
     manager: Manager,
     state_manager: StateManager,
@@ -201,61 +203,55 @@ def configure_relay(
     config: dict,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
+    restore_state = config.pop(RESTORE_STATE, False)
+    output_type = config.pop(OUTPUT_TYPE)
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if config[RESTORE_STATE]
+        if restore_state
         else False
     )
-    if config[OUTPUT_TYPE] == NONE and state_manager.get(
-        attr_type=RELAY, attr=relay_id
-    ):
+    if output_type == NONE and state_manager.get(attr_type=RELAY, attr=relay_id):
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
-    if config[KIND] == MCP:
-        mcp_id = config.get(MCP_ID, "")
-        mcp = manager.mcp.get(mcp_id)
+    output = output_chooser(
+        output_kind=config.pop(KIND), mcp_id=config.pop(MCP_ID, None)
+    )
+
+    if getattr(output, "output_kind") == MCP:
+        mcp = manager.mcp.get(getattr(output, "output_id"))
         if not mcp:
             _LOGGER.error("No such MCP configured!")
-            return
-        mcp_relay = MCPRelay(
-            pin=int(config[PIN]),
-            id=config[ID],
-            send_message=manager.send_message,
-            topic_prefix=topic_prefix,
-            mcp=mcp,
-            mcp_id=mcp_id,
-            output_type=config[OUTPUT_TYPE].lower(),
-            restored_state=restored_state,
-            callback=lambda: relay_callback(
-                relay_type=mcp_id,
-                relay_id=relay_id,
-                restore_state=False
-                if config[OUTPUT_TYPE] == NONE
-                else config[RESTORE_STATE],
-            ),
-        )
-        manager.grouped_outputs[mcp_id][relay_id] = mcp_relay
-        return mcp_relay
-    elif config[KIND] == GPIO:
+            return None
+        kwargs = {
+            "pin": int(config.pop(PIN)),
+            "mcp": mcp,
+            "mcp_id": getattr(output, "output_id"),
+            "output_type": output_type,
+        }
+    elif getattr(output, "output_kind") == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
-        gpio_relay = GpioRelay(
-            pin=config[PIN],
-            id=config[ID],
-            send_message=manager.send_message,
-            topic_prefix=topic_prefix,
-            restored_state=restored_state,
-            callback=lambda: relay_callback(
-                relay_type=GPIO,
-                relay_id=relay_id,
-                restore_state=False
-                if config[OUTPUT_TYPE] == NONE
-                else config[RESTORE_STATE],
-            ),
-        )
-        manager.grouped_outputs[GPIO][relay_id] = gpio_relay
-        return gpio_relay
+        kwargs = {
+            "pin": config.pop(PIN),
+        }
+    else:
+        return
+    relay = getattr(output, "OutputClass")(
+        send_message=manager.send_message,
+        topic_prefix=topic_prefix,
+        id=config.pop(ID),
+        restored_state=restored_state,
+        **config,
+        **kwargs,
+        callback=lambda: relay_callback(
+            relay_type=getattr(output, "output_id"),
+            relay_id=relay_id,
+            restore_state=False if output_type == NONE else restore_state,
+        ),
+    )
+    manager.grouped_outputs[getattr(output, "output_id")][relay_id] = relay
+    return relay
 
 
 InputEntry = namedtuple(
@@ -281,7 +277,6 @@ def configure_input(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    ha_discovery_prefix: str,
 ) -> str:
     """Configure input sensor or button."""
     try:
@@ -301,7 +296,6 @@ def configure_input(
                 id=pin,
                 name=gpio.get(ID, pin),
                 ha_type=getattr(input, "ha_type"),
-                ha_discovery_prefix=ha_discovery_prefix,
                 availability_msg_func=getattr(input, "availability_msg_f"),
             )
         return pin
@@ -314,7 +308,6 @@ def configure_cover(
     manager: Manager,
     cover_id: str,
     state_manager: StateManager,
-    ha_discovery_prefix: str,
     send_ha_autodiscovery: Callable,
     config: dict,
     **kwargs,
@@ -344,7 +337,50 @@ def configure_cover(
             name=cover.name,
             ha_type=COVER,
             device_class=config.get(DEVICE_CLASS),
-            ha_discovery_prefix=ha_discovery_prefix,
             availability_msg_func=ha_cover_availabilty_message,
         )
     return cover
+
+
+def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus:
+    ds2482 = DS2482(i2c=i2cbusio, address=address)
+    ow_bus = OneWireBus(ds2482=ds2482)
+    return ow_bus
+
+
+def find_onewire_devices(ow_bus: OneWireBus):
+    devices = ow_bus.scan()
+    out = {}
+    for device in devices:
+        _addr: int = ds_address(device.rom)
+        _LOGGER.debug("Found device with address %s", hex(_addr))
+        out[_addr] = device
+    return out
+
+
+def create_ds2482_dallas_sensor(
+    manager: Manager,
+    ds2482_bus: OneWireBus,
+    address: OneWireAddress,
+    config: dict,
+    **kwargs,
+):
+    name = config.get(ID) or hex(address)
+    id = name.replace(" ", "")
+    sensor = DallasSensor(
+        bus=ds2482_bus,
+        address=address,
+        id=id,
+        name=name,
+        update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+        send_message=manager.send_message,
+        **kwargs,
+    )
+    if config.get(SHOW_HA, True):
+        manager.send_ha_autodiscovery(
+            id=sensor.id,
+            name=sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_temp_availabilty_message,
+        )
+    return sensor

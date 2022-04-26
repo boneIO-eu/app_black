@@ -8,9 +8,11 @@ from colorlog import ColoredFormatter
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
+from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
 from boneio.version import __version__
+from yaml import MarkedYAMLError
 
 TASK_CANCELATION_TIMEOUT = 1
 
@@ -66,19 +68,24 @@ def get_arguments() -> argparse.Namespace:
 
 def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
     """Run BoneIO."""
-    _LOGGER.info("BoneIO starting.")
-    _config = load_config_from_file(config_file=config)
-    if not _config:
-        return
-    configure_logger(log_config=_config.get("logger"), debug=debug)
-    return asyncio.run(
-        async_run(
-            config=_config,
-            config_file=config,
-            mqttusername=mqttusername,
-            mqttpassword=mqttpassword,
-        ),
-    )
+    _LOGGER.info("BoneIO %s starting.", __version__)
+    try:
+        _config = load_config_from_file(config_file=config)
+        if not _config:
+            _LOGGER.error("Config not loaded. Exiting.")
+            return 1
+        configure_logger(log_config=_config.get("logger"), debug=debug)
+        return asyncio.run(
+            async_run(
+                config=_config,
+                config_file=config,
+                mqttusername=mqttusername,
+                mqttpassword=mqttpassword,
+            ),
+        )
+    except (ConfigurationException, MarkedYAMLError) as err:
+        _LOGGER.error("Failed to load config. %s Exiting.", err)
+        return 1
 
 
 def main() -> int:

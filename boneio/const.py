@@ -2,8 +2,13 @@
 from datetime import timedelta
 
 try:
-    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING
+    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING, RISING
 except ModuleNotFoundError:
+    HIGH = "high"
+    LOW = "low"
+    BOTH = "both"
+    FALLING = "falling"
+    RISING = "rising"
     pass
 from typing_extensions import Literal
 
@@ -43,14 +48,12 @@ RESTORE_STATE = "restore_state"
 MODEL = "model"
 UARTS = {
     "uart1": {ID: "/dev/ttyS1", TX: "P9.24", RX: "P9.26"},
+    "uart2": {ID: "/dev/ttyS2", TX: "P9.21", RX: "P9.22"},
+    "uart3": {ID: "/dev/ttyS3", TX: "P9.42", RX: None},
     "uart4": {ID: "/dev/ttyS4", TX: "P9.13", RX: "P9.11"},
+    "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
-# TIMINGS FOR BUTTONS
-DEBOUNCE_DURATION = timedelta(seconds=0.2)
-LONG_PRESS_DURATION = timedelta(seconds=0.7)
-DELAY_DURATION = 0.1
-SECOND_DELAY_DURATION = 0.3
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
@@ -109,6 +112,8 @@ BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"
 MCP_TEMP_9808 = "mcp9808"
 INPUT_SENSOR = "inputsensor"
+DS2482 = "ds2482"
+DALLAS = "dallas"
 
 BASE = "base"
 LENGTH = "length"

@@ -31,6 +31,7 @@ setup(
     install_requires=[
         "Adafruit-BBIO==1.2.0",
         "Adafruit-Blinka==6.20.4",
+        "adafruit-circuitpython-ds18x20==1.3.10",
         "adafruit-circuitpython-mcp230xx==2.5.3",
         "adafruit-circuitpython-mcp9808==3.3.10",
         "adafruit-circuitpython-pct2075==1.1.12",
@@ -47,7 +48,7 @@ setup(
         "Pillow==9.0.1",
         "paho-mqtt==1.6.1",
         "psutil==5.9.0",
-        "pyaml==21.10.1",
+        "PyYAML==6.0",
         "pymodbus==2.5.3",
         "pyserial-asyncio==0.6",
         "typing_extensions==4.1.0",

@@ -1,9 +1,24 @@
 import asyncio
 import logging
-from Adafruit_BBIO import GPIO
+
+try:
+    from Adafruit_BBIO import GPIO
+except ModuleNotFoundError:
+
+    class GPIO:
+        PUD_OFF = "poff"
+        PUD_UP = "poff"
+        PUD_DOWN = "poff"
+
+        def __init__(self):
+            pass
+
+    pass
 
 from boneio.helper.exceptions import GPIOInputException
 from boneio.const import LOW, FALLING, Gpio_Edges, Gpio_States
+from boneio.helper.timeperiod import TimePeriod
+
 from typing import Callable
 import subprocess
 
@@ -34,10 +49,19 @@ def setup_output(pin: str) -> None:
     GPIO.setup(pin, GPIO.OUT, pull_up_down=GPIO.PUD_DOWN)
 
 
-def setup_input(pin: str, pull_mode: str = "UP") -> None:
+gpio_modes = {
+    "gpio": GPIO.PUD_OFF,
+    "gpio_pu": GPIO.PUD_UP,
+    "gpio_pd": GPIO.PUD_DOWN,
+    "gpio_input": GPIO.PUD_OFF,
+}
+
+
+def setup_input(pin: str, pull_mode: str = "gpio") -> None:
     """Set up a GPIO as input."""
+    gpio_mode = gpio_modes.get(pull_mode, GPIO.PUD_OFF)
     try:
-        GPIO.setup(pin, GPIO.IN, GPIO.PUD_DOWN if pull_mode == "DOWN" else GPIO.PUD_UP)
+        GPIO.setup(pin, GPIO.IN, gpio_mode)
     except (ValueError, SystemError) as err:
         raise GPIOInputException(err)
 
@@ -72,11 +96,11 @@ class GpioBaseClass:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio = kwargs.get("rest_pin", {GPIO_MODE: GPIO_STR})
-        self._bounce_time = gpio.get("bounce_time", 25)
-        configure_pin(pin=pin, mode=gpio.get(GPIO_MODE, GPIO_STR))
+        gpio_mode = gpio.get(GPIO_MODE, GPIO_STR)
+        self._bounce_time = gpio.get("bounce_time", TimePeriod(milliseconds=10))
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
-        setup_input(pin=self._pin)
+        setup_input(pin=self._pin, pull_mode=gpio_mode)
 
     @property
     def is_pressed(self):

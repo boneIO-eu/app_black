@@ -76,8 +76,13 @@ oled:
       meta:
         label: Disable builtin screen.
     screensaver_timeout:
-      type: integer
-      default: 60
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      default: 60s
       meta:
         label: How many seconds to wait to enable screensaver. 0 means disable screensaver.
 
@@ -88,6 +93,7 @@ modbus:
     uart:
       type: string
       required: True
+      allowed: ["uart1", "uart2", "uart3", "uart4", "uart5"]
       meta:
         label: Uart ID to use
 
@@ -112,15 +118,20 @@ modbus_sensors:
       model:
         type: string
         required: True
-        allowed: ['sdm630', 'sdm120', 'sofar']
+        allowed: ["sdm630", "sdm120", "sofar"]
         meta:
           label: Model to load from database.
       update_interval:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 30
+        default: 30s
         meta:
-          label: Update interval in seconds.
+          label: Update interval.
 lm75:
   type: dict
   required: False
@@ -136,6 +147,17 @@ lm75:
       default: 0x48
       meta:
         label: Address of I2C
+    update_interval:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: True
+      default: 60s
+      meta:
+        label: Update interval.
 
 
 mcp9808:
@@ -152,7 +174,18 @@ mcp9808:
       required: True
       default: 0x18
       meta:
-        label: GPIO of I2C SDA
+        label: Address of I2C device
+    update_interval:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: True
+      default: 60s
+      meta:
+        label: Update interval.
 
 mcp23017:
   type: list
@@ -168,14 +201,19 @@ mcp23017:
         meta:
           label: Id of I2C to use in pin config
       address:
-        type: string
+        type: integer
         required: True
         meta:
           label: GPIO of I2C SDA
       init_sleep:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 0
+        default: 0s
         meta:
           label: How long to sleep for MCP to initialize.
 
@@ -190,11 +228,12 @@ output:
       id:
         type: string
         required: False
+        coerce: str
         meta:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ['gpio', 'mcp']
+        allowed: ["gpio", "mcp"]
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -203,21 +242,44 @@ output:
         meta:
           label: MCP ID to connect
       pin:
-        type: string
+        type:
+          - string
+          - integer
         required: True
         meta:
           label: PIN to use.
+      momentary_turn_on:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: How long can this relay be off. Can"t be used if output_type is "none".
+      momentary_turn_off:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: How long can this relay be on. Can"t be used if output_type is "none".
       restore_state:
         type: boolean
         required: True
         default: False
         meta:
-          label: Restore saved state of boneio. Not used for 'none' output_type!
+          label: Restore saved state of boneio. Not used for "none" and output_type!
       output_type:
         type: string
         required: True
-        allowed: ['switch', 'light', 'none']
-        default: 'switch'
+        allowed: ["switch", "light", "none"]
+        default: "switch"
+        coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch. If None is declared then any state is not published to MQTT (used for cover).
 
@@ -247,9 +309,14 @@ input:
         meta:
           label: What mode to use in config PIN.
       bounce_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
-        default: 25
+        default: "25ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
@@ -260,14 +327,15 @@ input:
           label: If you want you can disable discovering this input in HA.
       kind:
         type: string
-        allowed: ['switch', 'sensor']
-        default: switch
+        allowed: ["switch", "sensor"]
+        default: "switch"
         required: True
         meta:
           label: Either switch or sensor. If sensor then no clicks are detected, just simple on/off on gpio.
       actions:
         required: False
         type: dict
+        coerce: check_actions
         schema:
           single: !include actions_switch.yaml
           double: !include actions_switch.yaml
@@ -289,15 +357,20 @@ adc:
       pin:
         type: string
         required: True
-        allowed: ['P9_33', 'P9_35', 'P9_36', 'P9_37', 'P9_38', 'P9_39', 'P9_40']
+        allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
         meta:
           label: PIN to use.
       update_interval:
-        type: integer
         required: True
-        default: 60
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        default: 60s
         meta:
-          label: Update interval in seconds.
+          label: Update interval.
       show_in_ha:
         type: boolean
         required: True
@@ -306,6 +379,7 @@ adc:
           label: If you want you can disable discovering this input in HA.
 cover:
   type: list
+  required: False
   meta:
     label: Cover section
   schema:
@@ -333,15 +407,25 @@ cover:
         meta:
           label: ID of close relay of output.
       open_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
         meta:
-          label: Time to open cover in seconds
+          label: Time to open cover. Example 30s. Minimum is 1s.
       close_time:
-        type: integer
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
         required: True
         meta:
-          label: Time to close cover in seconds
+          label: Time to close cover. Example 30s. Minimum is 1s.
       device_class:
         type: string
         required: False
@@ -354,3 +438,60 @@ cover:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
+
+ds2482:
+  type: dict
+  required: False
+  schema:
+    id:
+      type: string
+      required: True
+      meta:
+        label: Id of I2C to use in pin config
+    address:
+      type: string
+      required: True
+      default: 0x18
+      meta:
+        label: GPIO of I2C SDA
+
+dallas:
+  type: list
+  required: False
+  meta:
+    label: Dallas DS18B20 section
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        meta:
+          label: Id to use in HA if needed. Default to address.
+      address:
+        type: integer
+        required: True
+        meta:
+          label: Address of Dallas device
+      ds2482_id:
+        type: string
+        required: False
+        meta:
+          label: Put DS2482 defined id if you want to add DS18B20 connected via DS2482.
+      show_in_ha:
+        type: boolean
+        required: True
+        default: True
+        meta:
+          label: If you want you can disable discovering this input in HA.
+      update_interval:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: 60s
+        meta:
+          label: Update interval.
