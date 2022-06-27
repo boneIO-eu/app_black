@@ -62,7 +62,7 @@ logger:
       type: dict
       meta:
         label: List of dict module\:level.
-      
+
 
 
 oled:

@@ -1,7 +1,6 @@
-from collections import OrderedDict
-
-from datetime import timedelta
 import math
+from collections import OrderedDict
+from datetime import timedelta
 
 
 def is_approximately_integer(value):

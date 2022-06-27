@@ -1,22 +1,20 @@
-from boneio.version import __version__
-
-
 from boneio.const import (
     CLOSE,
     CLOSED,
     CLOSING,
     COVER,
     INPUT,
+    INPUT_SENSOR,
     OFF,
     ON,
     OPEN,
     OPENING,
     RELAY,
-    STATE,
     SENSOR,
-    INPUT_SENSOR,
+    STATE,
     STOP,
 )
+from boneio.version import __version__
 
 
 def ha_availabilty_message(

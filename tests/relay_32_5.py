@@ -1,16 +1,12 @@
 import asyncio
 import logging
-from boneio.manager import Manager
+
 from boneio.helper import load_config_from_file
+from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
-from boneio.const import (
-    MCP23017,
-    LM75,
-    MCP_TEMP_9808,
-    OUTPUT,
-)
+from boneio.const import LM75, MCP23017, MCP_TEMP_9808, OUTPUT
 
 
 async def test_32_5():

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-import subprocess
-import shlex
-import sys
 import itertools
+import logging
+import os
+import re
+import shlex
+import subprocess
+import sys
 from collections import namedtuple
 from shutil import copyfile
-import os
-import logging
-import yaml
-import re
 
+import yaml
 
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

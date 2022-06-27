@@ -88,7 +88,7 @@
   mcp_id: mcp2
   pin: 0
   output_type: light
-- id: OUT_19 
+- id: OUT_19
   kind: mcp
   mcp_id: mcp2
   pin: 1

@@ -1,6 +1,6 @@
 """State files manager."""
-import json
 import asyncio
+import json
 from typing import Any
 
 

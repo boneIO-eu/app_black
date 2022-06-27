@@ -10,12 +10,12 @@ from contextlib import AsyncExitStack
 from typing import Any, Callable, Optional, Set, Tuple, Union
 
 import paho.mqtt.client as mqtt
-from asyncio_mqtt import Client as AsyncioClient, Will
-from asyncio_mqtt import MqttError
+from asyncio_mqtt import Client as AsyncioClient
+from asyncio_mqtt import MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.const import PAHO, STATE, ONLINE
+from boneio.const import ONLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
 

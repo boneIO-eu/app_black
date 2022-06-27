@@ -15,19 +15,14 @@ except ModuleNotFoundError:
 
     pass
 
-from boneio.helper.exceptions import GPIOInputException
-from boneio.const import LOW, FALLING, Gpio_Edges, Gpio_States
-from boneio.helper.timeperiod import TimePeriod
-
-from typing import Callable
 import subprocess
+from typing import Callable
 
-from boneio.const import (
-    CONFIG_PIN,
-    GPIO as GPIO_STR,
-    GPIO_MODE,
-    ClickTypes,
-)
+from boneio.const import CONFIG_PIN, FALLING
+from boneio.const import GPIO as GPIO_STR
+from boneio.const import GPIO_MODE, LOW, ClickTypes, Gpio_Edges, Gpio_States
+from boneio.helper.exceptions import GPIOInputException
+from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 

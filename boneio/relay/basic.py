@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Callable
 
-from boneio.const import LIGHT, OFF, ON, RELAY, STATE, SWITCH, NONE
+from boneio.const import LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)

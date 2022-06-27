@@ -4,17 +4,12 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 
-from boneio.const import STATE, SENSOR, TEMPERATURE
-
-
-from boneio.helper.exceptions import I2CError
+from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import BasicMqtt
-
-from boneio.helper.util import callback
 from boneio.helper.events import async_track_point_in_time, utcnow
-
-
+from boneio.helper.exceptions import I2CError
 from boneio.helper.timeperiod import TimePeriod
+from boneio.helper.util import callback
 
 
 class TempSensor(BasicMqtt):
@@ -28,7 +23,7 @@ class TempSensor(BasicMqtt):
         i2c,
         address: str,
         id: str = DefaultName,
-        update_interval: int = TimePeriod(seconds=60),
+        update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs
     ):
         """Initialize Temp class."""

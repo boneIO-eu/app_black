@@ -12,19 +12,18 @@ from boneio.const import (
     DISK,
     GIGABYTE,
     HOST,
+    IP,
+    MAC,
+    MASK,
     MEGABYTE,
     MEMORY,
     NETWORK,
+    NONE,
     SWAP,
     UPTIME,
-    IP,
-    MASK,
-    MAC,
-    NONE,
 )
 from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__
-
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
 

@@ -1,8 +1,9 @@
 """
 Module to provide basic config options.
 """
-from boneio.const import BONEIO, HOMEASSISTANT
 from _collections_abc import dict_values
+
+from boneio.const import BONEIO, HOMEASSISTANT
 
 
 class ConfigHelper:

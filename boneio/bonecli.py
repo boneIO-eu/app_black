@@ -5,6 +5,7 @@ import logging
 import sys
 
 from colorlog import ColoredFormatter
+from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
@@ -12,7 +13,6 @@ from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
 from boneio.version import __version__
-from yaml import MarkedYAMLError
 
 TASK_CANCELATION_TIMEOUT = 1
 
