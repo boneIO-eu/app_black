@@ -24,11 +24,10 @@ class MCPRelay(BasicRelay):
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = mcp.get_pin(pin)
-        self._pin.switch_to_output(value=True)
         if output_type == NONE:
             """Just in case to not restore state of covers etc."""
             restored_state = False
-        self._pin.value = restored_state
+        self._pin.switch_to_output(value=restored_state)
         super().__init__(
             **kwargs, output_type=output_type, restored_state=restored_state
         )
