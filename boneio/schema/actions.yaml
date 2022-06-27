@@ -29,6 +29,9 @@ schema:
     default: toggle
     dependencies:
       action: ['output']
+    coerce:
+      - lower
+      - actions_output
     meta:
       label: If output action chosen then what action to perform.
   action_mqtt_msg:

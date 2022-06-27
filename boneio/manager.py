@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from typing import Callable, List, Optional, Set, Union
 from collections import deque
+from typing import Callable, List, Optional, Set, Union
+
 from board import SCL, SDA
 from busio import I2C
 
@@ -18,8 +19,6 @@ from boneio.const import (
     MODBUS,
     MQTT,
     NONE,
-    OFF,
-    ON,
     ONLINE,
     OPEN,
     OUTPUT,
@@ -32,18 +31,18 @@ from boneio.const import (
     UARTS,
     ClickTypes,
     InputTypes,
+    relay_actions,
 )
 from boneio.helper import (
     GPIOInputException,
     HostData,
     I2CError,
     StateManager,
-    ha_switch_availabilty_message,
-    ha_light_availabilty_message,
     ha_button_availabilty_message,
+    ha_light_availabilty_message,
+    ha_switch_availabilty_message,
     host_stats,
 )
-
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
@@ -51,17 +50,15 @@ from boneio.helper.loader import (
     configure_cover,
     configure_input,
     configure_relay,
+    create_ds2482_dallas_sensor,
     create_mcp23017,
     create_temp_sensor,
-    create_ds2482_dallas_sensor,
 )
+from boneio.helper.logger import configure_logger
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus import Modbus
-from boneio.helper.logger import configure_logger
 
 _LOGGER = logging.getLogger(__name__)
-
-relay_actions = {ON: "turn_on", OFF: "turn_off", "TOGGLE": "toggle"}
 
 
 class Manager:
@@ -107,39 +104,12 @@ class Manager:
         self._ds_onewire_bus = {}
         self._temp_sensors = []
         self._modbus = None
-        if modbus and modbus.get(UART) in UARTS:
-            try:
-                self._modbus = Modbus(UARTS[modbus.get(UART)])
-            except ModbusUartException:
-                _LOGGER.error(
-                    "This UART %s can't be used for modbus communication.",
-                    modbus.get(UART),
-                )
-                self._modbus = None
 
-        for sensor_type in (LM75, MCP_TEMP_9808):
-            if sensors.get(sensor_type):
-                for temp_def in sensors.get(sensor_type):
-                    temp_sensor = create_temp_sensor(
-                        manager=self,
-                        topic_prefix=self._config_helper.topic_prefix,
-                        sensor_type=sensor_type,
-                        temp_def=temp_def,
-                        i2cbusio=self._i2cbusio,
-                    )
-                    if temp_sensor:
-                        self._temp_sensors.append(temp_sensor)
+        self._configure_modbus(modbus=modbus)
 
-        if sensors.get(MODBUS) and self._modbus:
-            from boneio.helper.loader import create_modbus_sensors
+        self._configure_temp_sensors(sensors=sensors)
 
-            create_modbus_sensors(
-                manager=self,
-                event_bus=self._event_bus,
-                sensors=sensors.get(MODBUS),
-                modbus=self._modbus,
-                config_helper=self._config_helper,
-            )
+        self._configure_modbus_sensors(sensors=sensors)
 
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
@@ -172,14 +142,7 @@ class Manager:
                     )
                 )
 
-        if adc_list:
-            from boneio.helper.loader import create_adc
-
-            create_adc(
-                manager=self,
-                topic_prefix=self._config_helper.topic_prefix,
-                adc_list=adc_list,
-            )
+        self._configure_adc(adc_list=adc_list)
 
         for _config in relay_pins:
             _id = _config[ID].replace(" ", "")
@@ -284,6 +247,53 @@ class Manager:
         self.prepare_button()
 
         _LOGGER.info("BoneIO manager is ready.")
+
+    def _configure_adc(self, adc_list: Optional[List]) -> None:
+        if adc_list:
+            from boneio.helper.loader import create_adc
+
+            create_adc(
+                manager=self,
+                topic_prefix=self._config_helper.topic_prefix,
+                adc_list=adc_list,
+            )
+
+    def _configure_modbus(self, modbus: dict) -> None:
+        if modbus and modbus.get(UART) in UARTS:
+            try:
+                self._modbus = Modbus(UARTS[modbus.get(UART)])
+            except ModbusUartException:
+                _LOGGER.error(
+                    "This UART %s can't be used for modbus communication.",
+                    modbus.get(UART),
+                )
+                self._modbus = None
+
+    def _configure_temp_sensors(self, sensors: dict) -> None:
+        for sensor_type in (LM75, MCP_TEMP_9808):
+            if sensors.get(sensor_type):
+                for temp_def in sensors.get(sensor_type):
+                    temp_sensor = create_temp_sensor(
+                        manager=self,
+                        topic_prefix=self._config_helper.topic_prefix,
+                        sensor_type=sensor_type,
+                        temp_def=temp_def,
+                        i2cbusio=self._i2cbusio,
+                    )
+                    if temp_sensor:
+                        self._temp_sensors.append(temp_sensor)
+
+    def _configure_modbus_sensors(self, sensors: dict) -> None:
+        if sensors.get(MODBUS) and self._modbus:
+            from boneio.helper.loader import create_modbus_sensors
+
+            create_modbus_sensors(
+                manager=self,
+                event_bus=self._event_bus,
+                sensors=sensors.get(MODBUS),
+                modbus=self._modbus,
+                config_helper=self._config_helper,
+            )
 
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established."""

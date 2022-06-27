@@ -1,11 +1,13 @@
 """MCP23017 Relay module."""
 
 import logging
+
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
+
+from boneio.const import NONE, SWITCH
+from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.helper.util import callback
 from boneio.relay.basic import BasicRelay
-from boneio.const import SWITCH, NONE
-from boneio.helper.events import async_track_point_in_time, utcnow
 
 _LOGGER = logging.getLogger(__name__)
 

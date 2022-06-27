@@ -1,8 +1,6 @@
 # from typing import Literal
-from datetime import timedelta
-
 try:
-    from Adafruit_BBIO.GPIO import HIGH, LOW, BOTH, FALLING, RISING
+    from Adafruit_BBIO.GPIO import BOTH, FALLING, HIGH, LOW, RISING
 except ModuleNotFoundError:
     HIGH = "high"
     LOW = "low"
@@ -54,6 +52,7 @@ UARTS = {
     "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
+relay_actions = {ON: "turn_on", OFF: "turn_off", "TOGGLE": "toggle"}
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"

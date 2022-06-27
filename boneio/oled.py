@@ -3,20 +3,20 @@ import logging
 from itertools import cycle
 from typing import List
 
+from luma.core.error import DeviceNotFoundError
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
 from luma.oled.device import sh1106
-from luma.core.error import DeviceNotFoundError
 from PIL import ImageDraw
 
 from boneio.const import CPU, DISK, MEMORY, NETWORK, OLED_PIN, SWAP, UPTIME, WHITE
 from boneio.helper import (
     HostData,
+    I2CError,
+    TimePeriod,
     edge_detect,
     make_font,
     setup_input,
-    I2CError,
-    TimePeriod,
 )
 from boneio.helper.events import async_track_point_in_time, utcnow
 

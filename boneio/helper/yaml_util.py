@@ -1,15 +1,16 @@
-import re
 import fnmatch
-from collections import OrderedDict
 import logging
-from typing import Any, Tuple
 import os
-from cerberus import Validator, TypeDefinition
+import re
+from collections import OrderedDict
+from typing import Any, Tuple
+
+from cerberus import TypeDefinition, Validator
+from yaml import MarkedYAMLError, SafeLoader, YAMLError, load
+
 from boneio.const import COVER, ID, OUTPUT
-from yaml import load, YAMLError, SafeLoader, MarkedYAMLError
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.timeperiod import TimePeriod
-
 
 schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
@@ -224,6 +225,12 @@ class CustomValidator(Validator):
         return True
 
     def _normalize_coerce_lower(self, value):
+        return str(value).lower()
+
+    def _normalize_coerce_upper(self, value):
+        return str(value).upper()
+
+    def _normalize_coerce_actions_output(self, value):
         return str(value).lower()
 
     def _normalize_coerce_str(self, value):

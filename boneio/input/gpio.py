@@ -3,12 +3,8 @@ import logging
 from datetime import datetime, timedelta
 from functools import partial
 
-from boneio.const import (
-    DOUBLE,
-    LONG,
-    SINGLE,
-)
-from boneio.helper import edge_detect, GpioBaseClass
+from boneio.const import DOUBLE, LONG, SINGLE
+from boneio.helper import GpioBaseClass, edge_detect
 
 # TIMINGS FOR BUTTONS
 DEBOUNCE_DURATION = timedelta(microseconds=150000)

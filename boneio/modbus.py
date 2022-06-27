@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
+
+from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
+from pymodbus.constants import Endian
+from pymodbus.exceptions import ModbusException
+from pymodbus.payload import BinaryPayloadDecoder
+from pymodbus.pdu import ModbusResponse
+from pymodbus.register_read_message import ReadInputRegistersResponse
+
+from boneio.const import ID, REGISTERS, RX, TX, UART
 from boneio.helper import configure_pin
 from boneio.helper.exceptions import ModbusUartException
-from boneio.const import ID, RX, TX, UART, REGISTERS
-from pymodbus.client.sync import (
-    BaseModbusClient,
-    ModbusSerialClient,
-)
-from pymodbus.register_read_message import ReadInputRegistersResponse
-from pymodbus.payload import BinaryPayloadDecoder
-from pymodbus.constants import Endian
-from typing import Any
-from pymodbus.exceptions import ModbusException
-from pymodbus.pdu import ModbusResponse
 
 _LOGGER = logging.getLogger(__name__)
 
