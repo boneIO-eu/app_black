@@ -1,6 +1,7 @@
 [project]
 name = "boneIO"
-description = ""
+description="Python App for BoneIO"
+readme = 'README.md'
 dynamic = ["version"]
 authors = [
     {name = "Paweł Szafer", email = "pszafer@gmail.com"},
