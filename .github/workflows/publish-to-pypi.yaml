@@ -17,15 +17,6 @@ on:
       - created
       - edited
 
-# test:
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         python-version: [3.7]
-#     steps:
-#     - uses: actions/checkout@v2
-    #TODO add flake, linter, black, maybe tox?
-
 jobs:
   build-n-publish:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
@@ -50,8 +41,3 @@ jobs:
       run: |
         pdm plugin add pdm-publish
         pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
-    # - name: Publish distribution 📦 to PyPI
-    #   uses: pypa/gh-action-pypi-publish@master
-    #   with:
-    #     password: ${{ secrets.PYPI_API_TOKEN }}
-    #     skip_existing: true
