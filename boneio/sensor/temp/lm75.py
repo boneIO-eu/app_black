@@ -1,7 +1,9 @@
 """LM75 temp sensor."""
-from . import TempSensor
 from adafruit_pct2075 import PCT2075
+
 from boneio.const import LM75
+
+from . import TempSensor
 
 
 class LM75Sensor(TempSensor):

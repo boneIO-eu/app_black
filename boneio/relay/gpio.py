@@ -5,9 +5,9 @@ Created just in case.
 
 import logging
 
+from boneio.const import HIGH, LOW
 from boneio.helper import read_input, setup_output, write_output
 from boneio.relay.basic import BasicRelay
-from boneio.const import HIGH, LOW
 
 _LOGGER = logging.getLogger(__name__)
 

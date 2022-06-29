@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 import time
-from typing import TYPE_CHECKING, Any, Callable
 from collections import namedtuple
+from typing import TYPE_CHECKING, Any, Callable
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_onewire.bus import OneWireAddress
+
 from boneio.const import (
     ACTIONS,
     ADDRESS,
     BINARY_SENSOR,
     COVER,
+    DEVICE_CLASS,
     GPIO,
     ID,
     INIT_SLEEP,
@@ -31,7 +34,6 @@ from boneio.const import (
     SENSOR,
     SHOW_HA,
     UPDATE_INTERVAL,
-    DEVICE_CLASS,
 )
 from boneio.cover import Cover
 from boneio.helper import (
@@ -43,22 +45,21 @@ from boneio.helper import (
     ha_input_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
-from adafruit_onewire.bus import OneWireAddress
-from boneio.helper.ds2482 import DS2482, OneWireBus, ds_address, DS2482_ADDRESS
+from boneio.helper.ds2482 import DS2482, DS2482_ADDRESS, OneWireBus, ds_address
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
-from boneio.helper.config import ConfigHelper
 from boneio.sensor import DallasSensor
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
     from ..manager import Manager
-from boneio.modbus import Modbus
+
+from busio import I2C
+
 from boneio.relay import GpioRelay, MCPRelay
 from boneio.sensor import GpioADCSensor, initialize_adc
 from boneio.sensor.gpio import GpioInputSensor
-from busio import I2C
 
 _LOGGER = logging.getLogger(__name__)
 

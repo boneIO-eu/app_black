@@ -1,6 +1,6 @@
 """ADC GPIO BBB sensor."""
-import logging
 import asyncio
+import logging
 
 from boneio.const import SENSOR
 from boneio.helper import BasicMqtt

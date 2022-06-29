@@ -1,4 +1,5 @@
 import logging
+
 from boneio.const import PAHO, PYMODBUS
 from boneio.version import __version__
 

@@ -2,10 +2,12 @@
 import asyncio
 import logging
 import os
+
 from boneio.const import (
     ADC,
     COVER,
     DALLAS,
+    DS2482,
     ENABLED,
     HA_DISCOVERY,
     HOST,
@@ -21,14 +23,13 @@ from boneio.const import (
     PORT,
     TOPIC_PREFIX,
     USERNAME,
-    DS2482,
 )
-
-_LOGGER = logging.getLogger(__name__)
 from boneio.helper import StateManager
+from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
-from boneio.helper.config import ConfigHelper
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_run(

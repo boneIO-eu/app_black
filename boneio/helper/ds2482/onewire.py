@@ -2,10 +2,10 @@
 Module by https://github.com/fgervais/ds2482
 """
 import adafruit_onewire.bus
-import busio
+from onewireio import OneWire as OneWireIO
 
 
-class OneWire(busio.OneWire):
+class OneWire(OneWireIO):
     def __init__(self, ds2482):
         self.ds2482 = ds2482
 

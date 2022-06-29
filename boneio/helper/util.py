@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar, Any
+from typing import Any, Callable, TypeVar
 
 CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
 CALLBACK_TYPE = Callable[[], None]

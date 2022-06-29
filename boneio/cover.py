@@ -2,7 +2,8 @@
 import asyncio
 import logging
 from typing import Callable
-from boneio.const import CLOSE, COVER, IDLE, OPEN, OPENING, CLOSING, CLOSED, STOP
+
+from boneio.const import CLOSE, CLOSED, CLOSING, COVER, IDLE, OPEN, OPENING, STOP
 from boneio.helper.events import EventBus
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.timeperiod import TimePeriod

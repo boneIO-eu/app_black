@@ -1,10 +1,11 @@
 import asyncio
 import datetime as dt
-import signal
 import logging
+import signal
 import time
-from typing import Callable, Optional
 from datetime import datetime
+from typing import Callable, Optional
+
 from boneio.helper.util import callback
 
 _LOGGER = logging.getLogger(__name__)

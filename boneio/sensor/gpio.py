@@ -3,7 +3,7 @@ import logging
 from functools import partial
 
 from boneio.const import BOTH, PRESSED, RELEASED
-from boneio.helper import edge_detect, GpioBaseClass
+from boneio.helper import GpioBaseClass, edge_detect
 
 _LOGGER = logging.getLogger(__name__)
 
