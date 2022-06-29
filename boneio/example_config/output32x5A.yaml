@@ -97,36 +97,35 @@
   pin: 7
   output_type: light
 
-
 # mcp1 - lower left 8 relays
 - id: OUT_17
   kind: mcp
   mcp_id: mcp1
-  pin: 8
+  pin: 15
   output_type: light
 
 - id: OUT_18
   kind: mcp
   mcp_id: mcp1
-  pin: 9
+  pin: 14
   output_type: light
 
 - id: OUT_19
   kind: mcp
   mcp_id: mcp1
-  pin: 10
+  pin: 13
   output_type: light
 
 - id: OUT_20
   kind: mcp
   mcp_id: mcp1
-  pin: 11
+  pin: 12
   output_type: light
 
 - id: OUT_21
   kind: mcp
   mcp_id: mcp1
-  pin: 12
+  pin: 11
   output_type: light
 
 - id: OUT_22
@@ -138,13 +137,13 @@
 - id: OUT_23
   kind: mcp
   mcp_id: mcp1
-  pin: 14
+  pin: 9
   output_type: light
 
 - id: OUT_24
   kind: mcp
   mcp_id: mcp1
-  pin: 15
+  pin: 8
   output_type: light
 
 
@@ -152,7 +151,7 @@
 - id: OUT_25
   kind: mcp
   mcp_id: mcp2
-  pin: 8
+  pin: 15
   output_type: light
 
 - id: OUT_26
@@ -164,31 +163,31 @@
 - id: OUT_27
   kind: mcp
   mcp_id: mcp2
-  pin: 10
+  pin: 13
   output_type: light
 
 - id: OUT_28
   kind: mcp
   mcp_id: mcp2
-  pin: 11
+  pin: 12
   output_type: light
 
 - id: OUT_29
   kind: mcp
   mcp_id: mcp2
-  pin: 12
+  pin: 11
   output_type: light
 
 - id: OUT_30
   kind: mcp
   mcp_id: mcp2
-  pin: 13
+  pin: 10
   output_type: light
 
 - id: OUT_31
   kind: mcp
   mcp_id: mcp2
-  pin: 14
+  pin: 9
   output_type: light
 
 - id: OUT_32
