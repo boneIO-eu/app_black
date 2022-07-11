@@ -272,8 +272,8 @@ if __name__ == "__main__":
                 {"id": "mcp2", "address": "0x23"},
             ]
             output["output"] = "!include output32x5A.yaml"
-        if "LM75_RB32" in _enabled_sensors:
-            output["lm75"] = {"id": "temp", "address": "0x72"}
+        if "LM75_RB32" in _enabled_sensors or "LM75_RB24" in _enabled_sensors:
+            output["lm75"] = [{"id": "temp", "address": "0x72"}]
         if "Input board" in _enabled_inputs:
             copyfile(f"{exampled_dir}input.yaml", f"{maindir}/input.yaml")
             output["input"] = "!include input.yaml"
