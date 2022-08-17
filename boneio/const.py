@@ -113,6 +113,7 @@ MCP_TEMP_9808 = "mcp9808"
 INPUT_SENSOR = "inputsensor"
 DS2482 = "ds2482"
 DALLAS = "dallas"
+ONEWIRE = "onewire"
 
 BASE = "base"
 LENGTH = "length"
@@ -134,3 +135,4 @@ Gpio_States = Literal[HIGH, LOW]
 Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 DEVICE_CLASS = "device_class"
+DallasBusTypes = Literal[DS2482, DALLAS]
