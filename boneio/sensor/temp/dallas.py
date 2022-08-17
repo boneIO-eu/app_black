@@ -6,14 +6,14 @@ from datetime import datetime
 from adafruit_ds18x20 import DS18X20
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
-from boneio.helper import BasicMqtt, PeriodicUpdater
+from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.exceptions import OneWireError
 from boneio.helper.onewire import OneWireBus, AsyncBoneIOW1ThermSensor, OneWireAddress
 
 from . import TempSensor
 
 
-class DallasSensorDS2482(TempSensor, PeriodicUpdater):
+class DallasSensorDS2482(TempSensor, AsyncUpdater):
     DefaultName = TEMPERATURE
     SensorClass = DS18X20
 
@@ -32,10 +32,10 @@ class DallasSensorDS2482(TempSensor, PeriodicUpdater):
             self._state = None
         except ValueError as err:
             raise OneWireError(err)
-        PeriodicUpdater.__init__(self, **kwargs)
+        AsyncUpdater.__init__(self, **kwargs)
 
 
-class DallasSensorW1(TempSensor, PeriodicUpdater):
+class DallasSensorW1(TempSensor, AsyncUpdater):
     DefaultName = TEMPERATURE
     SensorClass = AsyncBoneIOW1ThermSensor
 
@@ -52,7 +52,7 @@ class DallasSensorW1(TempSensor, PeriodicUpdater):
             self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
         except ValueError as err:
             raise OneWireError(err)
-        PeriodicUpdater.__init__(self, **kwargs)
+        AsyncUpdater.__init__(self, **kwargs)
 
     async def async_update(self, time: datetime):
         self._state = await self._pct.get_temperature()

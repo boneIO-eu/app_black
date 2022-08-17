@@ -3,11 +3,11 @@
 import asyncio
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
-from boneio.helper import BasicMqtt, PeriodicUpdater
+from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.exceptions import I2CError
 
 
-class TempSensor(BasicMqtt, PeriodicUpdater):
+class TempSensor(BasicMqtt, AsyncUpdater):
     """Represent Temp sensor in BoneIO."""
 
     SensorClass = None
@@ -22,7 +22,7 @@ class TempSensor(BasicMqtt, PeriodicUpdater):
             self._state: float | None = None
         except ValueError as err:
             raise I2CError(err)
-        PeriodicUpdater.__init__(self, **kwargs)
+        AsyncUpdater.__init__(self, **kwargs)
 
     @property
     def state(self) -> float:

@@ -16,11 +16,10 @@ from boneio.const import (
     SENSOR,
     STATE,
 )
-from boneio.helper import BasicMqtt
+from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
-from boneio.helper.timeperiod import TimePeriod
 from boneio.modbus import Modbus
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ def open_json(model: str) -> dict:
         return datastore
 
 
-class ModbusSensor(BasicMqtt):
+class ModbusSensor(BasicMqtt, AsyncUpdater):
     """Represent Modbus sensor in BoneIO."""
 
     SensorClass = None
@@ -98,7 +97,6 @@ class ModbusSensor(BasicMqtt):
         config_helper: ConfigHelper,
         event_bus: EventBus,
         id: str = DefaultName,
-        update_interval: TimePeriod = TimePeriod(seconds=60),
         **kwargs,
     ):
         """Initialize Modbus sensor class."""
@@ -114,9 +112,9 @@ class ModbusSensor(BasicMqtt):
         self._model = self._db[MODEL]
         self._address = address
         self._discovery_sent = False
-        self._update_interval = update_interval
         self._payload_online = OFFLINE
         event_bus.add_haonline_listener(target=self.set_payload_offline)
+        AsyncUpdater.__init__(self, **kwargs)
 
     def set_payload_offline(self):
         self._payload_online = OFFLINE
@@ -191,52 +189,50 @@ class ModbusSensor(BasicMqtt):
                     await asyncio.sleep(2)
                     break
 
-    async def send_state(self) -> None:
+    async def async_update(self, time: datetime) -> None:
         """Fetch state periodically and send to MQTT."""
-        update_interval = self._update_interval.total_seconds
-        self.set_payload_offline()
-        while True:
-            await self.check_availability()
-            for data in self._db[REGISTERS_BASE]:
-                values = await self._modbus.read_multiple_registers(
-                    unit=self._address,
-                    address=data[BASE],
-                    count=data[LENGTH],
-                    method=data.get("register_type", "input"),
+        update_interval = self._update_interval.total_in_seconds
+        await self.check_availability()
+        for data in self._db[REGISTERS_BASE]:
+            values = await self._modbus.read_multiple_registers(
+                unit=self._address,
+                address=data[BASE],
+                count=data[LENGTH],
+                method=data.get("register_type", "input"),
+            )
+            if self._payload_online == OFFLINE and values:
+                _LOGGER.info("Sending online payload about device.")
+                self._payload_online = ONLINE
+                self._send_message(
+                    topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
+                    payload=self._payload_online,
                 )
-                if self._payload_online == OFFLINE and values:
-                    _LOGGER.info("Sending online payload about device.")
-                    self._payload_online = ONLINE
+            if not values:
+                if update_interval < 600:
+                    # Let's wait litte more for device.
+                    update_interval = update_interval * 1.5
+                else:
+                    # Let's assume device is offline.
+                    self.set_payload_offline()
                     self._send_message(
                         topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
                         payload=self._payload_online,
                     )
-                if not values:
-                    if update_interval < 600:
-                        # Let's wait litte more for device.
-                        update_interval = update_interval * 1.5
-                    else:
-                        # Let's assume device is offline.
-                        self.set_payload_offline()
-                        self._send_message(
-                            topic=f"{self._config_helper.topic_prefix}/{self._id}{STATE}",
-                            payload=self._payload_online,
-                        )
-                    _LOGGER.warn(
-                        "Can't fetch data from modbus device. Will sleep for %s seconds",
-                        update_interval,
-                    )
-                    self._discovery_sent = False
-                    continue
-                elif update_interval != self._update_interval.total_seconds:
-                    update_interval = self._update_interval.total_seconds
-                output = {}
-                for register in data["registers"]:
-                    output[register.get("name").replace(" ", "")] = CONVERT_METHODS[
-                        register.get("return_type", "regular")
-                    ](result=values, base=data[BASE], addr=register.get("address"))
-                self._send_message(
-                    topic=f"{self._send_topic}/{data[BASE]}",
-                    payload=output,
+                _LOGGER.warn(
+                    "Can't fetch data from modbus device. Will sleep for %s seconds",
+                    update_interval,
                 )
-            await asyncio.sleep(update_interval)
+                self._discovery_sent = False
+                return update_interval
+            elif update_interval != self._update_interval.total_in_seconds:
+                update_interval = self._update_interval.total_in_seconds
+            output = {}
+            for register in data["registers"]:
+                output[register.get("name").replace(" ", "")] = CONVERT_METHODS[
+                    register.get("return_type", "regular")
+                ](result=values, base=data[BASE], addr=register.get("address"))
+            self._send_message(
+                topic=f"{self._send_topic}/{data[BASE]}",
+                payload=output,
+            )
+            return update_interval
