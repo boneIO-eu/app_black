@@ -12,6 +12,7 @@ class BasicMqtt:
         name: str,
         send_message: Callable[[str, Union[str, dict]], None],
         topic_type: str,
+        **kwargs,
     ):
         """Initialize module."""
         self._id = id.replace(" ", "")
