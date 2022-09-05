@@ -1,7 +1,8 @@
+from __future__ import annotations
 import asyncio
+from datetime import datetime
 import socket
 import time
-from functools import partial
 from math import floor
 from typing import Callable
 
@@ -11,7 +12,6 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
-    HOST,
     IP,
     MAC,
     MASK,
@@ -21,9 +21,17 @@ from boneio.const import (
     NONE,
     SWAP,
     UPTIME,
+    HOST,
 )
-from boneio.manager import Manager
-from boneio.helper import TimePeriod, AsyncUpdater
+
+# Typing imports that create a circular dependency
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from boneio.manager import Manager
+
+from boneio.helper.async_updater import AsyncUpdater
+from boneio.helper.timeperiod import TimePeriod
 from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__
 
@@ -115,7 +123,7 @@ class HostSensor(AsyncUpdater):
         self._state = None
         super().__init__(**kwargs)
 
-    async def async_update(self):
+    async def async_update(self, time: datetime) -> None:
         self._state = self._update_function()
 
     @property

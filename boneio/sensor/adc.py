@@ -1,4 +1,5 @@
 """ADC GPIO BBB sensor."""
+from datetime import datetime
 import logging
 
 from boneio.const import SENSOR
@@ -36,7 +37,7 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater):
         """Give rounded value of temperature."""
         return round(ADC.read(self._pin) * 1.8, 2)
 
-    def update(self):
+    def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
         self._send_message(
             topic=self._send_topic,

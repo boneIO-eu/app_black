@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, List, Optional, Set, Union
+from typing import Callable, Coroutine, List, Optional, Set, Union
 
 from board import SCL, SDA
 from busio import I2C
@@ -12,6 +12,7 @@ from boneio.const import (
     BUTTON,
     CLOSE,
     COVER,
+    DALLAS,
     ID,
     INPUT,
     LM75,
@@ -19,6 +20,7 @@ from boneio.const import (
     MODBUS,
     MQTT,
     NONE,
+    ONEWIRE,
     ONLINE,
     OPEN,
     OUTPUT,
@@ -32,6 +34,7 @@ from boneio.const import (
     ClickTypes,
     InputTypes,
     relay_actions,
+    DS2482,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -41,7 +44,6 @@ from boneio.helper import (
     ha_button_availabilty_message,
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
-    host_stats,
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
@@ -50,7 +52,7 @@ from boneio.helper.loader import (
     configure_cover,
     configure_input,
     configure_relay,
-    create_ds2482_dallas_sensor,
+    create_dallas_sensor,
     create_mcp23017,
     create_temp_sensor,
 )
@@ -75,8 +77,8 @@ class Manager:
         sensors: dict = {},
         modbus: dict = None,
         mcp23017: Optional[List] = None,
-        ds2482: Optional[dict] = None,
-        dallas: Optional[List] = None,
+        ds2482: Optional[List] = [],
+        dallas: Optional[dict] = None,
         oled: dict = {},
         adc_list: Optional[List] = None,
         covers: Optional[List] = [],
@@ -100,8 +102,6 @@ class Manager:
         self._oled = None
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
-        self._ds_onewire = {}
-        self._ds_onewire_bus = {}
         self._temp_sensors = []
         self._modbus = None
 
@@ -110,37 +110,13 @@ class Manager:
         self._configure_temp_sensors(sensors=sensors)
 
         self._configure_modbus_sensors(sensors=sensors)
+        self._configure_sensors(
+            dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
+        )
 
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
         )
-
-        if ds2482:
-            _LOGGER.debug("Preparing DS2482 bus.")
-            from boneio.helper.loader import configure_ds2482, find_onewire_devices
-
-            self._ds_onewire_bus[ds2482[ID]] = configure_ds2482(
-                i2cbusio=self._i2cbusio, address=ds2482[ADDRESS]
-            )
-            self._ds_onewire = find_onewire_devices(
-                ow_bus=self._ds_onewire_bus[ds2482[ID]]
-            )
-        for sensor in dallas:
-            ds2482_bus_id = sensor.get("ds2482_id")
-            if ds2482_bus_id and ds2482_bus_id in self._ds_onewire_bus:
-                address = self._ds_onewire.get(sensor[ADDRESS])
-                if not address:
-                    continue
-
-                self._temp_sensors.append(
-                    create_ds2482_dallas_sensor(
-                        manager=self,
-                        ds2482_bus=self._ds_onewire_bus[ds2482_bus_id],
-                        address=address,
-                        topic_prefix=self._config_helper.topic_prefix,
-                        config=sensor,
-                    )
-                )
 
         self._configure_adc(adc_list=adc_list)
 
@@ -229,13 +205,11 @@ class Manager:
             from boneio.oled import Oled
 
             self._host_data = HostData(
+                manager=self,
                 output=self.grouped_outputs,
                 temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
                 callback=self._host_data_callback,
             )
-            for f in host_stats.values():
-                self._tasks.append(asyncio.create_task(f(self._host_data)))
-            _LOGGER.debug("Gathering host data enabled.")
             try:
                 self._oled = Oled(
                     host_data=self._host_data,
@@ -244,9 +218,78 @@ class Manager:
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
-        self.prepare_button()
+            self.prepare_button()
 
         _LOGGER.info("BoneIO manager is ready.")
+
+    def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Future:
+        """Add task to run with asyncio loop."""
+        _LOGGER.debug("Appending update task for %s", name)
+        task: asyncio.Future = asyncio.create_task(coro())
+        self._tasks.append(task)
+        return task
+
+    def _configure_sensors(
+        self, dallas: Optional[dict], ds2482: Optional[List], sensors: Optional[List]
+    ):
+        """
+        Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
+        """
+        if not ds2482 and not dallas:
+            return
+        from boneio.helper.loader import (
+            find_onewire_devices,
+        )
+
+        _one_wire_devices = {}
+        _ds_onewire_bus = {}
+
+        for _single_ds in ds2482:
+            _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds[ADDRESS])
+            from boneio.helper.loader import (
+                configure_ds2482,
+            )
+
+            _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
+                i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
+            )
+            _one_wire_devices.update(
+                find_onewire_devices(
+                    ow_bus=_ds_onewire_bus[_single_ds[ID]],
+                    bus_id=_single_ds[ID],
+                    bus_type=DS2482,
+                )
+            )
+        if dallas:
+            _LOGGER.debug("Preparing Dallas bus.")
+            from boneio.helper.loader import configure_dallas
+
+            _one_wire_devices.update(
+                find_onewire_devices(
+                    ow_bus=configure_dallas(),
+                    bus_id=dallas[ID],
+                    bus_type=DALLAS,
+                )
+            )
+        for sensor in sensors:
+            address = _one_wire_devices.get(sensor[ADDRESS])
+            if not address:
+                continue
+            ds2482_bus_id = sensor.get("bus_id")
+            if ds2482_bus_id and ds2482_bus_id in _ds_onewire_bus:
+                kwargs = {"bus": _ds_onewire_bus[ds2482_bus_id]}
+            else:
+                kwargs = {}
+            _LOGGER.debug("Configuring sensor %s for boneIO", address)
+            self._temp_sensors.append(
+                create_dallas_sensor(
+                    manager=self,
+                    address=address,
+                    topic_prefix=self._config_helper.topic_prefix,
+                    config=sensor,
+                    **kwargs,
+                )
+            )
 
     def _configure_adc(self, adc_list: Optional[List]) -> None:
         if adc_list:
@@ -327,10 +370,6 @@ class Manager:
     def get_tasks(self) -> Set[asyncio.Task]:
         """Retrieve asyncio tasks to run."""
         return self._tasks
-
-    def append_task(self, task: asyncio.Task) -> None:
-        """Add task to run with asyncio loop."""
-        self._tasks.append(task)
 
     def prepare_button(self) -> None:
         """Prepare buttons for reload."""
