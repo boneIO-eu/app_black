@@ -1,6 +1,7 @@
 """Manage BoneIO onboard temp sensors."""
 
 import asyncio
+from datetime import datetime
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import BasicMqtt, AsyncUpdater
@@ -29,7 +30,7 @@ class TempSensor(BasicMqtt, AsyncUpdater):
         """Give rounded value of temperature."""
         return self._state
 
-    def update(self):
+    def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
         self._state = round(self._pct.temperature, 2)
         self._send_message(

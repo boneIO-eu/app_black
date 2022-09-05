@@ -13,7 +13,7 @@ class AsyncUpdater:
     def __init__(self, manager: Manager, update_interval: TimePeriod, **kwargs):
         self.manager = manager
         self._update_interval = update_interval or TimePeriod(seconds=60)
-        self.manager.append_task(coro=self._refresh)
+        self.manager.append_task(coro=self._refresh, name=self.id)
 
     async def _refresh(self):
         while True:

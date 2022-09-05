@@ -498,7 +498,7 @@ sensor:
         type: string
         required: False
         meta:
-          label: Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Omit
+          label: Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.
       show_in_ha:
         type: boolean
         required: True
@@ -513,6 +513,6 @@ sensor:
           - str
           - positive_time_period
         required: True
-        default: 60s
+        default: 60 s
         meta:
           label: Update interval.

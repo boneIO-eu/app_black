@@ -1,16 +1,20 @@
 """Dallas temp sensor."""
 
 import asyncio
+import logging
 from datetime import datetime
 
 from adafruit_ds18x20 import DS18X20
+from w1thermsensor import SensorNotReadyError
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
-from boneio.helper import BasicMqtt, AsyncUpdater
+from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import OneWireError
-from boneio.helper.onewire import OneWireBus, AsyncBoneIOW1ThermSensor, OneWireAddress
+from boneio.helper.onewire import AsyncBoneIOW1ThermSensor, OneWireAddress, OneWireBus
 
 from . import TempSensor
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class DallasSensorDS2482(TempSensor, AsyncUpdater):
@@ -54,9 +58,12 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
             raise OneWireError(err)
         AsyncUpdater.__init__(self, **kwargs)
 
-    async def async_update(self, time: datetime):
-        self._state = await self._pct.get_temperature()
-        self._send_message(
-            topic=self._send_topic,
-            payload={STATE: self._state},
-        )
+    async def async_update(self, time: datetime) -> None:
+        try:
+            self._state = round(await self._pct.get_temperature(), 2)
+            self._send_message(
+                topic=self._send_topic,
+                payload={STATE: self._state},
+            )
+        except SensorNotReadyError as err:
+            _LOGGER.error("Sensor not ready, can't update %s", err)

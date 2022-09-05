@@ -376,7 +376,7 @@ def find_onewire_devices(
     return out
 
 
-def create_ds2482_dallas_sensor(
+def create_dallas_sensor(
     manager: Manager,
     address: OneWireAddress,
     config: dict,
@@ -386,7 +386,6 @@ def create_ds2482_dallas_sensor(
     id = name.replace(" ", "")
     bus: OneWireBus = kwargs.get("bus")
     cls = DallasSensorDS2482 if bus else DallasSensorW1
-    print("START!")
     sensor = cls(
         manager=manager,
         address=address,
