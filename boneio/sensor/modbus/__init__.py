@@ -235,4 +235,4 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                 topic=f"{self._send_topic}/{data[BASE]}",
                 payload=output,
             )
-            return update_interval
+        return update_interval
