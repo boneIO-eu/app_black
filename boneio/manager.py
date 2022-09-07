@@ -218,7 +218,7 @@ class Manager:
                 )
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
-            self.prepare_button()
+        self.prepare_ha_buttons()
 
         _LOGGER.info("BoneIO manager is ready.")
 
@@ -320,7 +320,7 @@ class Manager:
                         manager=self,
                         topic_prefix=self._config_helper.topic_prefix,
                         sensor_type=sensor_type,
-                        temp_def=temp_def,
+                        config=temp_def,
                         i2cbusio=self._i2cbusio,
                     )
                     if temp_sensor:
@@ -371,11 +371,11 @@ class Manager:
         """Retrieve asyncio tasks to run."""
         return self._tasks
 
-    def prepare_button(self) -> None:
-        """Prepare buttons for reload."""
+    def prepare_ha_buttons(self) -> None:
+        """Prepare HA buttons for reload."""
         self.send_ha_autodiscovery(
             id="Logger",
-            name="Logger",
+            name="Logger reload",
             ha_type=BUTTON,
             availability_msg_func=ha_button_availabilty_message,
         )
@@ -438,7 +438,7 @@ class Manager:
         self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)
 
-    def resend_autodiscovery(self):
+    def resend_autodiscovery(self) -> None:
         for msg in self._config_helper.autodiscovery_msgs:
             self.send_message(**msg, retain=True)
 
@@ -500,11 +500,10 @@ class Manager:
                     _LOGGER.warn(
                         "Positon cannot be set. Not number between 0-100. %s", message
                     )
-        elif msg_type == BUTTON:
-            if device_id == "logger" and command == "set":
-                if message == "reload":
-                    _LOGGER.info("Reloading logger configuration.")
-                    self._logger_reload()
+        elif msg_type == BUTTON and command == "set":
+            if device_id == "logger" and message == "reload":
+                _LOGGER.info("Reloading logger configuration.")
+                self._logger_reload()
 
     @property
     def output(self) -> dict:
