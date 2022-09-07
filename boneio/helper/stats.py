@@ -117,10 +117,13 @@ def get_uptime():
 class HostSensor(AsyncUpdater):
     """Host sensor."""
 
-    def __init__(self, update_function: Callable, static_data: dict, **kwargs) -> None:
+    def __init__(
+        self, update_function: Callable, static_data: dict, id: str, **kwargs
+    ) -> None:
         self._update_function = update_function
         self._static_data = static_data
         self._state = None
+        self.id = id
         super().__init__(**kwargs)
 
     async def async_update(self, time: datetime) -> None:
@@ -160,10 +163,11 @@ class HostData:
             },
         }
         for k, _v in host_stats.items():
-            self._data[k] = HostSensor(
+            self.data[k] = HostSensor(
                 update_function=_v["f"],
                 static_data=_v.get("static"),
                 manager=manager,
+                id=f"{k}_hoststats",
                 update_interval=_v["update_interval"],
             )
         self._temp_sensor = temp_sensor
