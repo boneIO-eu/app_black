@@ -1,4 +1,5 @@
 """Cover module."""
+from __future__ import annotations
 import asyncio
 import logging
 from typing import Callable
@@ -108,24 +109,24 @@ class Cover(BasicMqtt):
         self._stop_cover(on_exit=True)
 
     @property
-    def cover_state(self):
+    def cover_state(self) -> CLOSED | OPEN:
         """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
-    def stop(self):
+    def stop(self) -> None:
         """Public Stop cover graceful."""
         _LOGGER.info("Stopping cover %s.", self._id)
         if self._current_operation != IDLE:
             self._stop_cover(on_exit=False)
 
-    def send_state(self):
+    def send_state(self) -> None:
         """Send state of cover to mqtt."""
         self._send_message(topic=f"{self._send_topic}/state", payload=self.cover_state)
         pos = round(self._position, 0)
         self._send_message(topic=f"{self._send_topic}/pos", payload=str(pos))
         self._state_save(position=pos)
 
-    def _stop_cover(self, on_exit=False):
+    def _stop_cover(self, on_exit=False) -> None:
         """Stop cover."""
         self._open.relay.turn_off()
         self._close.relay.turn_off()
@@ -138,11 +139,11 @@ class Cover(BasicMqtt):
         self._current_operation = IDLE
 
     @property
-    def current_cover_position(self):
+    def current_cover_position(self) -> int:
         """Return the current position of the cover."""
         return round(self._position, 0)
 
-    def listen_cover(self, *args):
+    def listen_cover(self, *args) -> None:
         """Listen for change in cover."""
         if self._current_operation == IDLE:
             return
@@ -178,7 +179,7 @@ class Cover(BasicMqtt):
 
         self._closed = self.current_cover_position <= 0
 
-    async def close_cover(self):
+    async def close_cover(self) -> None:
         """Close cover."""
         if self._position == 0:
             return
@@ -193,7 +194,7 @@ class Cover(BasicMqtt):
             current_operation=CLOSING,
         )
 
-    async def open_cover(self):
+    async def open_cover(self) -> None:
         """Open cover."""
         if self._position == 100:
             return
@@ -208,7 +209,7 @@ class Cover(BasicMqtt):
             current_operation=OPENING,
         )
 
-    async def set_cover_position(self, position: int):
+    async def set_cover_position(self, position: int) -> None:
         """Move cover to a specific position."""
         set_position = round(position, -1)
         if self._position == position or set_position == self._set_position:
@@ -228,29 +229,29 @@ class Cover(BasicMqtt):
             current_operation=current_operation,
         )
 
-    def open(self):
+    def open(self) -> None:
         _LOGGER.debug("Opening cover %s.", self._id)
         asyncio.create_task(self.open_cover())
 
-    def close(self):
+    def close(self) -> None:
         _LOGGER.debug("Closing cover %s.", self._id)
         asyncio.create_task(self.close_cover())
 
-    def toggle(self):
+    def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self._id)
         if self.cover_state == CLOSED:
             self.close()
         else:
             self.open()
 
-    def toggle_open(self):
+    def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
             self.stop()
         else:
             self.open()
 
-    def toggle_close(self):
+    def toggle_close(self) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
             self.stop()
