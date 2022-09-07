@@ -148,6 +148,7 @@ lm75:
       meta:
         label: Address of I2C
     update_interval: !include update_interval.yaml
+    filters: !include filters.yaml
 
 
 mcp9808:
