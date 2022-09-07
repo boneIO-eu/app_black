@@ -454,6 +454,13 @@ sensor:
         required: False
         meta:
           label: Id to use in HA if needed. Default to address.
+      platform:
+        type: string
+        required: True
+        default: dallas
+        allowed: ["dallas"]
+        meta:
+          label: Platform of sensor to use. Currently only Dallas platform is supported.
       address:
         type: integer
         required: True

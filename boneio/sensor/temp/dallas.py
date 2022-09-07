@@ -54,7 +54,6 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
         """Initialize Temp class."""
         self._loop = asyncio.get_event_loop()
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
-        print("filters", filters)
         self._filters = filters
         try:
             self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)

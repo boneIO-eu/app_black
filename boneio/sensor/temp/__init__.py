@@ -26,7 +26,6 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
         """Initialize Temp class."""
         super().__init__(id=id, topic_type=SENSOR, **kwargs)
         self._loop = asyncio.get_event_loop()
-        print("filters", filters)
         self._filters = filters
         try:
             self._pct = self.SensorClass(i2c_bus=i2c, address=address)
