@@ -3,6 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from ast import literal_eval
 
 from adafruit_ds18x20 import DS18X20
 from w1thermsensor import SensorNotReadyError
@@ -47,11 +48,14 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
         self,
         address: OneWireAddress,
         id: str = DefaultName,
+        filters: list = ["round(x, 2)"],
         **kwargs,
     ):
         """Initialize Temp class."""
         self._loop = asyncio.get_event_loop()
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
+        print("filters", filters)
+        self._filters = filters
         try:
             self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
         except ValueError as err:
@@ -60,7 +64,12 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
 
     async def async_update(self, time: datetime) -> None:
         try:
-            self._state = round(await self._pct.get_temperature(), 2)
+            _temp = await self._pct.get_temperature()
+            _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
+            _temp = self._apply_filters(value=_temp)
+            if not _temp:
+                return
+            self._state = _temp
             self._send_message(
                 topic=self._send_topic,
                 payload={STATE: self._state},

@@ -13,6 +13,7 @@ from boneio.const import (
     BINARY_SENSOR,
     COVER,
     DEVICE_CLASS,
+    FILTERS,
     GPIO,
     ID,
     INIT_SLEEP,
@@ -107,7 +108,7 @@ def create_temp_sensor(
     topic_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
-    temp_def: dict = {},
+    config: dict = {},
 ):
     """Create LM sensor in manager."""
     if sensor_type == LM75:
@@ -116,17 +117,18 @@ def create_temp_sensor(
         from boneio.sensor import MCP9808Sensor as TempSensor
     else:
         return
-    name = temp_def.get(ID)
+    name = config.get(ID)
     id = name.replace(" ", "")
     try:
         temp_sensor = TempSensor(
             id=id,
             name=name,
             i2c=i2cbusio,
-            address=temp_def[ADDRESS],
+            address=config[ADDRESS],
             send_message=manager.send_message,
             topic_prefix=topic_prefix,
-            update_interval=temp_def.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            filters=config.get(FILTERS, []),
         )
         manager.send_ha_autodiscovery(
             id=id,
@@ -393,6 +395,7 @@ def create_dallas_sensor(
         name=name,
         update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         send_message=manager.send_message,
+        filters=config.get(FILTERS, []),
         **kwargs,
     )
     if config.get(SHOW_HA, True):

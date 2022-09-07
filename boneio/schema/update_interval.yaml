@@ -1,0 +1,10 @@
+type:
+  - string
+  - timeperiod
+coerce:
+  - str
+  - positive_time_period
+required: True
+default: 60s
+meta:
+  label: Update interval.

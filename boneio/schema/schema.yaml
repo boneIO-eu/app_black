@@ -147,17 +147,7 @@ lm75:
       default: 0x48
       meta:
         label: Address of I2C
-    update_interval:
-      type:
-        - string
-        - timeperiod
-      coerce:
-        - str
-        - positive_time_period
-      required: True
-      default: 60s
-      meta:
-        label: Update interval.
+    update_interval: !include update_interval.yaml
 
 
 mcp9808:
@@ -175,17 +165,8 @@ mcp9808:
       default: 0x18
       meta:
         label: Address of I2C device
-    update_interval:
-      type:
-        - string
-        - timeperiod
-      coerce:
-        - str
-        - positive_time_period
-      required: True
-      default: 60s
-      meta:
-        label: Update interval.
+    update_interval: !include update_interval.yaml
+    filters: !include filters.yaml
 
 mcp23017:
   type: list
@@ -360,17 +341,7 @@ adc:
         allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
         meta:
           label: PIN to use.
-      update_interval:
-        required: True
-        type:
-          - string
-          - timeperiod
-        coerce:
-          - str
-          - positive_time_period
-        default: 60s
-        meta:
-          label: Update interval.
+      update_interval: !include update_interval.yaml
       show_in_ha:
         type: boolean
         required: True
@@ -488,12 +459,6 @@ sensor:
         required: True
         meta:
           label: Address of Dallas device
-      via_ds2482:
-        type: boolean
-        required: True
-        default: False
-        meta:
-          label: Choose if sensor is connected via DS2482 bus.
       bus_id:
         type: string
         required: False
@@ -505,14 +470,5 @@ sensor:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
-      update_interval:
-        type:
-          - string
-          - timeperiod
-        coerce:
-          - str
-          - positive_time_period
-        required: True
-        default: 60 s
-        meta:
-          label: Update interval.
+      filters: !include filters.yaml
+      update_interval: !include update_interval.yaml

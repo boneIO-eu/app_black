@@ -136,3 +136,4 @@ Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 DEVICE_CLASS = "device_class"
 DallasBusTypes = Literal[DS2482, DALLAS]
+FILTERS = "filters"
