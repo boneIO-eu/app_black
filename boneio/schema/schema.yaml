@@ -75,7 +75,7 @@ oled:
       default: False
       meta:
         label: Disable builtin screen.
-    screen_order:
+    screens:
       type: list
       required: True
       allowed: ["uptime", "network", "cpu", "disk", "memory", "swap", "outputs"]
