@@ -28,7 +28,7 @@ fontSmall = make_font("DejaVuSans.ttf", 9)
 fontExtraSmall = make_font("DejaVuSans.ttf", 7)
 danube = make_font("danube__.ttf", 15, local=True)
 
-screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
+# screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
 
 STANDARD_ROWS = [17, 32, 47]
 UPTIME_ROWS = list(range(22, 60, 10))
@@ -40,19 +40,32 @@ class Oled:
     """Oled display class."""
 
     def __init__(
-        self, host_data: HostData, output_groups: List[str], sleep_timeout: TimePeriod
+        self,
+        host_data: HostData,
+        output_groups: List[str],
+        sleep_timeout: TimePeriod,
+        screen_order: List[str],
     ) -> None:
         """Initialize OLED screen."""
         self._loop = asyncio.get_running_loop()
-        self._screen_order = cycle(screen_order + output_groups)
-        self._output_groups = output_groups
+        self._output_groups = None
+        try:
+            _ind_screen = screen_order.index("outputs")
+            if not output_groups:
+                _LOGGER.debug("No outputs configured. Omitting in screen.")
+                screen_order.pop(_ind_screen)
+            screen_order[_ind_screen:_ind_screen] = output_groups
+            self._output_groups = output_groups
+        except ValueError:
+            pass
+        self._screen_order = cycle(screen_order)
         self._current_screen = next(self._screen_order)
         self._host_data = host_data
         self._sleep = False
         self._sleep_handle = None
         self._sleep_timeout = sleep_timeout
         setup_input(pin=OLED_PIN, pull_mode="gpio_pu")
-        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=120)
+        edge_detect(pin=OLED_PIN, callback=self._handle_press, bounce=240)
         try:
             serial = i2c(port=2, address=0x3C)
             self._device = sh1106(serial)
@@ -112,7 +125,7 @@ class Oled:
         data = self._host_data.get(self._current_screen)
         if data:
             with canvas(self._device) as draw:
-                if self._current_screen in self._output_groups:
+                if self._output_groups and self._current_screen in self._output_groups:
                     self._draw_output(data, draw)
                 elif self._current_screen == UPTIME:
                     self._draw_uptime(data, draw)

@@ -4,7 +4,8 @@ from datetime import datetime
 import socket
 import time
 from math import floor
-from typing import Callable
+from typing import Callable, List
+from functools import partial
 
 import psutil
 
@@ -118,21 +119,31 @@ class HostSensor(AsyncUpdater):
     """Host sensor."""
 
     def __init__(
-        self, update_function: Callable, static_data: dict, id: str, **kwargs
+        self,
+        update_function: Callable,
+        manager_callback: Callable,
+        static_data: dict,
+        id: str,
+        type: str,
+        **kwargs,
     ) -> None:
         self._update_function = update_function
         self._static_data = static_data
         self._state = None
+        self._type = type
+        self._manager_callback = manager_callback
+        self._loop = asyncio.get_event_loop()
         self.id = id
         super().__init__(**kwargs)
 
     async def async_update(self, time: datetime) -> None:
         self._state = self._update_function()
+        self._loop.call_soon_threadsafe(partial(self._manager_callback, self._type))
 
     @property
     def state(self) -> dict:
         if self._static_data:
-            return {**self._static_data, **self._state}
+            return {**self._static_data, self._type: self._state}
         return self._state
 
 
@@ -147,6 +158,7 @@ class HostData:
         callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
         manager: Manager,
+        enabled_screens: List[str],
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
@@ -163,11 +175,15 @@ class HostData:
             },
         }
         for k, _v in host_stats.items():
+            if k not in enabled_screens:
+                continue
             self.data[k] = HostSensor(
                 update_function=_v["f"],
                 static_data=_v.get("static"),
                 manager=manager,
+                manager_callback=callback,
                 id=f"{k}_hoststats",
+                type=k,
                 update_interval=_v["update_interval"],
             )
         self._temp_sensor = temp_sensor

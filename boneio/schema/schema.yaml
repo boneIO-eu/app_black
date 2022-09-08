@@ -75,6 +75,18 @@ oled:
       default: False
       meta:
         label: Disable builtin screen.
+    screen_order:
+      type: list
+      required: True
+      allowed: ["uptime", "network", "cpu", "disk", "memory", "swap", "outputs"]
+      default:
+        - uptime
+        - network
+        - cpu
+        - disk
+        - memory
+        - swap
+        - outputs
     screensaver_timeout:
       type:
         - string

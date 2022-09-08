@@ -204,8 +204,11 @@ class Manager:
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
+            screen_order = oled.get("screen_order")
+
             self._host_data = HostData(
                 manager=self,
+                enabled_screens=screen_order,
                 output=self.grouped_outputs,
                 temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
                 callback=self._host_data_callback,
@@ -213,6 +216,7 @@ class Manager:
             try:
                 self._oled = Oled(
                     host_data=self._host_data,
+                    screen_order=screen_order,
                     output_groups=list(self.grouped_outputs),
                     sleep_timeout=oled.get("screensaver_timeout", 60),
                 )
