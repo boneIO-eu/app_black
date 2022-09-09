@@ -125,6 +125,7 @@ def create_temp_sensor(
             name=name,
             i2c=i2cbusio,
             address=config[ADDRESS],
+            manager=manager,
             send_message=manager.send_message,
             topic_prefix=topic_prefix,
             update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
