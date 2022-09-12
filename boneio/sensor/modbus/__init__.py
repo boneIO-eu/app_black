@@ -219,7 +219,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                         payload=self._payload_online,
                     )
                 _LOGGER.warn(
-                    "Can't fetch data from modbus device. Will sleep for %s seconds",
+                    "Can't fetch data from modbus device %s. Will sleep for %s seconds",
+                    self.id,
                     update_interval,
                 )
                 self._discovery_sent = False

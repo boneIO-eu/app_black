@@ -152,7 +152,7 @@ def modbus_sensor_availabilty_message(
         },
         "name": sensor_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
+        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
 
