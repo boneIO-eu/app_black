@@ -123,7 +123,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
         self, id: str, sdm_name: str, sensor_id: str, **kwargs
     ) -> None:
         """Send HA autodiscovery information for each Modbus sensor."""
-        _LOGGER.debug("Sending HA discovery for sensor %s %s.", sdm_name, sensor_id)
+        _LOGGER.debug(
+            "Sending HA discovery for modbus sensor %s %s.", sdm_name, sensor_id
+        )
         topic = (
             f"{self._config_helper.ha_discovery_prefix}/{SENSOR}/{self._config_helper.topic_prefix}{id}"
             f"/{id}{sensor_id.replace('_', '').replace(' ', '').lower()}/config"
@@ -164,6 +166,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                         **kwargs,
                     )
             return datetime.now()
+        _LOGGER.error(
+            "Discovery for %s not sent. First register not available.", self._id
+        )
         return False
 
     async def check_availability(self) -> None:
