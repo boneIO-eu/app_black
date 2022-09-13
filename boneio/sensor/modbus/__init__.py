@@ -187,7 +187,7 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     address=first_register_base[REGISTERS][0][ADDRESS],
                     method=register_method,
                 )
-                if register:
+                if register is not None:
                     self._discovery_sent = self._send_discovery_for_all_registers(
                         register
                     )
