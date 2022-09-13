@@ -326,6 +326,12 @@ input:
         required: True
         meta:
           label: Either switch or sensor. If sensor then no clicks are detected, just simple on/off on gpio.
+      inverted:
+        type: boolean
+        default: False
+        required: True
+        meta:
+          label: Check if sensor type is inverted. Only aplicable for sensor kind.
       actions:
         required: False
         type: dict

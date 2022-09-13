@@ -1,8 +1,8 @@
 import asyncio
 import logging
+import os
 from collections import deque
 from typing import Callable, Coroutine, List, Optional, Set, Union
-
 from board import SCL, SDA
 from busio import I2C
 
@@ -59,6 +59,9 @@ from boneio.helper.loader import (
 from boneio.helper.logger import configure_logger
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus import Modbus
+
+os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
+from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -253,6 +256,7 @@ class Manager:
             from boneio.helper.loader import (
                 configure_ds2482,
             )
+            from boneio.sensor import DallasSensorDS2482
 
             _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
                 i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
@@ -268,22 +272,35 @@ class Manager:
             _LOGGER.debug("Preparing Dallas bus.")
             from boneio.helper.loader import configure_dallas
 
-            _one_wire_devices.update(
-                find_onewire_devices(
-                    ow_bus=configure_dallas(),
-                    bus_id=dallas[ID],
-                    bus_type=DALLAS,
+            try:
+                from w1thermsensor.kernel import load_kernel_modules
+
+                load_kernel_modules()
+                from boneio.sensor.temp.dallas_w1 import DallasSensorW1
+
+                _one_wire_devices.update(
+                    find_onewire_devices(
+                        ow_bus=configure_dallas(),
+                        bus_id=dallas[ID],
+                        bus_type=DALLAS,
+                    )
                 )
-            )
+            except KernelModuleLoadError as err:
+                _LOGGER.error("Can't configure Dallas W1 device %s", err)
+                pass
+
         for sensor in sensors:
             address = _one_wire_devices.get(sensor[ADDRESS])
             if not address:
                 continue
             ds2482_bus_id = sensor.get("bus_id")
             if ds2482_bus_id and ds2482_bus_id in _ds_onewire_bus:
-                kwargs = {"bus": _ds_onewire_bus[ds2482_bus_id]}
+                kwargs = {
+                    "bus": _ds_onewire_bus[ds2482_bus_id],
+                    "cls": DallasSensorDS2482,
+                }
             else:
-                kwargs = {}
+                kwargs = {"cls": DallasSensorW1}
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
             self._temp_sensors.append(
                 create_dallas_sensor(
