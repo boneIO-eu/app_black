@@ -143,33 +143,28 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
 
     def _send_discovery_for_all_registers(self, register: int = 0) -> bool:
         """Send discovery message to HA for each register."""
-        if register > 0:
-            for data in self._db[REGISTERS_BASE]:
-                for register in data[REGISTERS]:
-                    value_template = (
-                        f'{{{{ value_json.{register.get("name").replace(" ", "")} | '
-                        f'{register.get("ha_filter", "round(2)")} }}}}'
-                    )
-                    kwargs = {
-                        "unit_of_measurement": register.get("unit_of_measurement"),
-                        "state_class": register.get("state_class"),
-                        "value_template": value_template,
-                        "sensor_id": register.get("name"),
-                    }
-                    device_class = register.get("device_class")
-                    if device_class:
-                        kwargs["device_class"] = device_class
-                    self._send_ha_autodiscovery(
-                        id=self._id,
-                        sdm_name=self._name,
-                        state_topic_base=data[BASE],
-                        **kwargs,
-                    )
-            return datetime.now()
-        _LOGGER.error(
-            "Discovery for %s not sent. First register not available.", self._id
-        )
-        return False
+        for data in self._db[REGISTERS_BASE]:
+            for register in data[REGISTERS]:
+                value_template = (
+                    f'{{{{ value_json.{register.get("name").replace(" ", "")} | '
+                    f'{register.get("ha_filter", "round(2)")} }}}}'
+                )
+                kwargs = {
+                    "unit_of_measurement": register.get("unit_of_measurement"),
+                    "state_class": register.get("state_class"),
+                    "value_template": value_template,
+                    "sensor_id": register.get("name"),
+                }
+                device_class = register.get("device_class")
+                if device_class:
+                    kwargs["device_class"] = device_class
+                self._send_ha_autodiscovery(
+                    id=self._id,
+                    sdm_name=self._name,
+                    state_topic_base=data[BASE],
+                    **kwargs,
+                )
+        return datetime.now()
 
     async def check_availability(self) -> None:
         """Get first register and check if it's available."""
@@ -193,6 +188,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     )
                     await asyncio.sleep(2)
                     break
+            _LOGGER.error(
+                "Discovery for %s not sent. First register not available.", self._id
+            )
 
     async def async_update(self, time: datetime) -> None:
         """Fetch state periodically and send to MQTT."""
