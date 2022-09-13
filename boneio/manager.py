@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from collections import deque
 from typing import Callable, Coroutine, List, Optional, Set, Union
 from board import SCL, SDA
@@ -60,7 +59,6 @@ from boneio.helper.logger import configure_logger
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.modbus import Modbus
 
-os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
