@@ -66,7 +66,7 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
             _temp = await self._pct.get_temperature()
             _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
             _temp = self._apply_filters(value=_temp)
-            if not _temp:
+            if _temp is None:
                 return
             self._state = _temp
             self._send_message(

@@ -123,7 +123,9 @@ modbus_sensors:
         meta:
           label: Id of Modbus sensor
       address:
-        type: string
+        type:
+          - string
+          - integer
         required: True
         meta:
           label: Address of Modbus sensor to use.
@@ -145,41 +147,47 @@ modbus_sensors:
         meta:
           label: Update interval.
 lm75:
-  type: dict
+  type: list
   required: False
+  meta:
+    label: LM75 Sensor list.
   schema:
-    id:
-      type: string
-      required: False
-      meta:
-        label: Id of I2C to use in pin config
-    address:
-      type: string
-      required: True
-      default: 0x48
-      meta:
-        label: Address of I2C
-    update_interval: !include update_interval.yaml
-    filters: !include filters.yaml
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x48
+        meta:
+          label: Address of I2C
+      update_interval: !include update_interval.yaml
+      filters: !include filters.yaml
 
 
 mcp9808:
-  type: dict
+  type: list
   required: False
+  meta:
+    label: MCP9808 Sensor list.
   schema:
-    id:
-      type: string
-      required: False
-      meta:
-        label: Id of I2C to use in pin config
-    address:
-      type: string
-      required: True
-      default: 0x18
-      meta:
-        label: Address of I2C device
-    update_interval: !include update_interval.yaml
-    filters: !include filters.yaml
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x18
+        meta:
+          label: Address of I2C device
+      update_interval: !include update_interval.yaml
+      filters: !include filters.yaml
 
 mcp23017:
   type: list
@@ -189,11 +197,7 @@ mcp23017:
   schema:
     type: dict
     schema:
-      id:
-        type: string
-        required: True
-        meta:
-          label: Id of I2C to use in pin config
+      id: !include id.yaml
       address:
         type: integer
         required: True
@@ -438,11 +442,7 @@ ds2482:
     type: dict
     required: False
     schema:
-      id:
-        type: string
-        required: True
-        meta:
-          label: Id of I2C to use in pin config
+      id: !include id.yaml
       address:
         type: string
         required: True
