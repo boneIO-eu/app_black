@@ -1,0 +1,11 @@
+type: list
+required: False
+schema:
+  type: dict
+  keysrules:
+    type: string
+    allowed: ["offset", "round", "multiply", "filter_out", "filter_out_greater", "filter_out_lower"]
+default:
+  - round: 2
+meta:
+  label: List of filters to apply. Allowed filters visible in allowed section.

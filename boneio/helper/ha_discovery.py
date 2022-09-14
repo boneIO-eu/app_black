@@ -109,7 +109,9 @@ def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneI
     }
 
 
-def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneIO"):
+def ha_sensor_temp_availabilty_message(
+    id: str, name: str, topic: str = "boneIO", **kwargs
+):
     """Create availability topic for HA."""
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -125,8 +127,8 @@ def ha_sensor_temp_availabilty_message(id: str, name: str, topic: str = "boneIO"
         "unique_id": f"{topic}{SENSOR}{id}",
         "device_class": "temperature",
         "state_class": "measurement",
-        "unit_of_measurement": "°C",
         "value_template": "{{ value_json.state }}",
+        **kwargs,
     }
 
 
@@ -152,7 +154,7 @@ def modbus_sensor_availabilty_message(
         },
         "name": sensor_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}",
+        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
 

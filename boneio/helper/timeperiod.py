@@ -74,6 +74,7 @@ class TimePeriod:
             milliseconds=self.milliseconds or 0,
             microseconds=self.microseconds or 0,
         )
+        self._total_in_seconds = self.total_microseconds / 1000000.0
 
     @property
     def as_timedelta(self) -> timedelta:
@@ -111,7 +112,11 @@ class TimePeriod:
         return "0s"
 
     def __repr__(self):
-        return f"TimePeriod<{self.total_microseconds}>"
+        return f"TimePeriod<{self.__str__()}>"
+
+    @property
+    def total_in_seconds(self) -> float:
+        return self._total_in_seconds
 
     @property
     def total_microseconds(self):

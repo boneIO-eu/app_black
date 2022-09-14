@@ -75,6 +75,18 @@ oled:
       default: False
       meta:
         label: Disable builtin screen.
+    screens:
+      type: list
+      required: True
+      allowed: ["uptime", "network", "cpu", "disk", "memory", "swap", "outputs"]
+      default:
+        - uptime
+        - network
+        - cpu
+        - disk
+        - memory
+        - swap
+        - outputs
     screensaver_timeout:
       type:
         - string
@@ -111,7 +123,9 @@ modbus_sensors:
         meta:
           label: Id of Modbus sensor
       address:
-        type: string
+        type:
+          - string
+          - integer
         required: True
         meta:
           label: Address of Modbus sensor to use.
@@ -133,59 +147,50 @@ modbus_sensors:
         meta:
           label: Update interval.
 lm75:
-  type: dict
+  type: list
   required: False
+  meta:
+    label: LM75 Sensor list.
   schema:
-    id:
-      type: string
-      required: False
-      meta:
-        label: Id of I2C to use in pin config
-    address:
-      type: string
-      required: True
-      default: 0x48
-      meta:
-        label: Address of I2C
-    update_interval:
-      type:
-        - string
-        - timeperiod
-      coerce:
-        - str
-        - positive_time_period
-      required: True
-      default: 60s
-      meta:
-        label: Update interval.
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x48
+        meta:
+          label: Address of I2C
+      update_interval: !include update_interval.yaml
+      filters: !include filters.yaml
+      unit_of_measurement: !include temp_unit.yaml
 
 
 mcp9808:
-  type: dict
+  type: list
   required: False
+  meta:
+    label: MCP9808 Sensor list.
   schema:
-    id:
-      type: string
-      required: False
-      meta:
-        label: Id of I2C to use in pin config
-    address:
-      type: string
-      required: True
-      default: 0x18
-      meta:
-        label: Address of I2C device
-    update_interval:
-      type:
-        - string
-        - timeperiod
-      coerce:
-        - str
-        - positive_time_period
-      required: True
-      default: 60s
-      meta:
-        label: Update interval.
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x18
+        meta:
+          label: Address of I2C device
+      update_interval: !include update_interval.yaml
+      filters: !include filters.yaml
+      unit_of_measurement: !include temp_unit.yaml
+      
 
 mcp23017:
   type: list
@@ -195,11 +200,7 @@ mcp23017:
   schema:
     type: dict
     schema:
-      id:
-        type: string
-        required: True
-        meta:
-          label: Id of I2C to use in pin config
+      id: !include id.yaml
       address:
         type: integer
         required: True
@@ -332,6 +333,12 @@ input:
         required: True
         meta:
           label: Either switch or sensor. If sensor then no clicks are detected, just simple on/off on gpio.
+      inverted:
+        type: boolean
+        default: False
+        required: True
+        meta:
+          label: Check if sensor type is inverted. Only aplicable for sensor kind.
       actions:
         required: False
         type: dict
@@ -360,17 +367,7 @@ adc:
         allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
         meta:
           label: PIN to use.
-      update_interval:
-        required: True
-        type:
-          - string
-          - timeperiod
-        coerce:
-          - str
-          - positive_time_period
-        default: 60s
-        meta:
-          label: Update interval.
+      update_interval: !include update_interval.yaml
       show_in_ha:
         type: boolean
         required: True
@@ -440,6 +437,23 @@ cover:
           label: If you want you can disable discovering this input in HA.
 
 ds2482:
+  type: list
+  required: False
+  meta:
+    label: DS2482 list
+  schema:
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type: string
+        required: True
+        default: 0x18
+        meta:
+          label: GPIO of I2C SDA
+
+dallas:
   type: dict
   required: False
   schema:
@@ -447,19 +461,13 @@ ds2482:
       type: string
       required: True
       meta:
-        label: Id of I2C to use in pin config
-    address:
-      type: string
-      required: True
-      default: 0x18
-      meta:
-        label: GPIO of I2C SDA
+        label: Id of bus to use in sensor config.
 
-dallas:
+sensor:
   type: list
   required: False
   meta:
-    label: Dallas DS18B20 section
+    label: Sensor list. Currently only Dallas DS18B20 support.
   schema:
     type: dict
     schema:
@@ -468,30 +476,29 @@ dallas:
         required: False
         meta:
           label: Id to use in HA if needed. Default to address.
+      platform:
+        type: string
+        required: True
+        default: dallas
+        allowed: ["dallas"]
+        meta:
+          label: Platform of sensor to use. Currently only Dallas platform is supported.
       address:
         type: integer
         required: True
         meta:
           label: Address of Dallas device
-      ds2482_id:
+      bus_id:
         type: string
         required: False
         meta:
-          label: Put DS2482 defined id if you want to add DS18B20 connected via DS2482.
+          label: Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.
       show_in_ha:
         type: boolean
         required: True
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
-      update_interval:
-        type:
-          - string
-          - timeperiod
-        coerce:
-          - str
-          - positive_time_period
-        required: True
-        default: 60s
-        meta:
-          label: Update interval.
+      filters: !include filters.yaml
+      update_interval: !include update_interval.yaml
+      unit_of_measurement: !include temp_unit.yaml

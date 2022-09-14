@@ -3,6 +3,9 @@ import argparse
 import asyncio
 import logging
 import sys
+import os
+
+os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
 from colorlog import ColoredFormatter
 from yaml import MarkedYAMLError

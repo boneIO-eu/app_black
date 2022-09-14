@@ -135,6 +135,8 @@ def load_config_from_string(config_yaml: str):
     schema = load_yaml_file(schema_file)
     v = CustomValidator(schema, purge_unknown=True)
     v.validate(config_yaml)
+    if v.errors:
+        _LOGGER.error("There are errors in your config %s", v.errors)
     doc = v.normalized(v.document, always_return_document=True)
     # validated = v.validated(document=doc, normalize=True, always_return_document=True)
     # doc = v.normalized(validated, always_return_document=True)
@@ -253,7 +255,6 @@ class CustomValidator(Validator):
 
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
-
         if isinstance(value, int):
             raise ConfigurationException(
                 f"Don't know what '{value}' means as it has no time *unit*! Did you mean '{value}s'?"

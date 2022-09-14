@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
-from adafruit_onewire.bus import OneWireAddress
 
 from boneio.const import (
     ACTIONS,
@@ -15,6 +13,7 @@ from boneio.const import (
     BINARY_SENSOR,
     COVER,
     DEVICE_CLASS,
+    FILTERS,
     GPIO,
     ID,
     INIT_SLEEP,
@@ -34,6 +33,7 @@ from boneio.const import (
     SENSOR,
     SHOW_HA,
     UPDATE_INTERVAL,
+    DallasBusTypes,
 )
 from boneio.cover import Cover
 from boneio.helper import (
@@ -45,11 +45,18 @@ from boneio.helper import (
     ha_input_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
-from boneio.helper.ds2482 import DS2482, DS2482_ADDRESS, OneWireBus, ds_address
+from boneio.helper.onewire import (
+    DS2482,
+    DS2482_ADDRESS,
+    OneWireBus,
+    AsyncBoneIOW1ThermSensor,
+    OneWireAddress,
+)
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input.gpio import GpioInputButton
-from boneio.sensor import DallasSensor
+from boneio.sensor import DallasSensorDS2482
+from boneio.sensor.temp.dallas import DallasSensorW1
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
@@ -75,10 +82,11 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
         id = name.replace(" ", "")
         pin = gpio[PIN]
         try:
-            adc = GpioADCSensor(
+            GpioADCSensor(
                 id=id,
                 pin=pin,
                 name=name,
+                manager=manager,
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
                 update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
@@ -90,7 +98,6 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
                     ha_type=SENSOR,
                     availability_msg_func=ha_adc_sensor_availabilty_message,
                 )
-            manager.append_task(asyncio.create_task(adc.send_state()))
         except I2CError as err:
             _LOGGER.error("Can't configure ADC sensor %s. %s", id, err)
             pass
@@ -101,7 +108,7 @@ def create_temp_sensor(
     topic_prefix: str,
     sensor_type: str,
     i2cbusio: I2C,
-    temp_def: dict = {},
+    config: dict = {},
 ):
     """Create LM sensor in manager."""
     if sensor_type == LM75:
@@ -110,23 +117,26 @@ def create_temp_sensor(
         from boneio.sensor import MCP9808Sensor as TempSensor
     else:
         return
-    name = temp_def.get(ID)
+    name = config.get(ID)
     id = name.replace(" ", "")
     try:
         temp_sensor = TempSensor(
             id=id,
             name=name,
             i2c=i2cbusio,
-            address=temp_def[ADDRESS],
+            address=config[ADDRESS],
+            manager=manager,
             send_message=manager.send_message,
             topic_prefix=topic_prefix,
-            update_interval=temp_def.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            filters=config.get(FILTERS, []),
         )
         manager.send_ha_autodiscovery(
             id=id,
             name=name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
+            unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
         return temp_sensor
     except I2CError as err:
@@ -165,16 +175,16 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
         name = sensor.get(ID)
         id = name.replace(" ", "")
         try:
-            sdm = ModbusSensor(
+            ModbusSensor(
                 address=sensor[ADDRESS],
                 id=id,
                 name=name,
+                manager=manager,
                 model=sensor[MODEL],
                 send_message=manager.send_message,
                 update_interval=sensor.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
                 **kwargs,
             )
-            manager.append_task(asyncio.create_task(sdm.send_state()))
         except FileNotFoundError as err:
             _LOGGER.error(
                 "Can't configure Modbus sensor %s. %s. No such model in database.",
@@ -349,32 +359,45 @@ def configure_ds2482(i2cbusio: I2C, address: str = DS2482_ADDRESS) -> OneWireBus
     return ow_bus
 
 
-def find_onewire_devices(ow_bus: OneWireBus):
-    devices = ow_bus.scan()
+def configure_dallas() -> AsyncBoneIOW1ThermSensor:
+    return AsyncBoneIOW1ThermSensor
+
+
+def find_onewire_devices(
+    ow_bus: Union[OneWireBus, AsyncBoneIOW1ThermSensor],
+    bus_id: str,
+    bus_type: DallasBusTypes,
+) -> Dict[OneWireAddress]:
     out = {}
-    for device in devices:
-        _addr: int = ds_address(device.rom)
-        _LOGGER.debug("Found device with address %s", hex(_addr))
-        out[_addr] = device
+    try:
+        devices = ow_bus.scan()
+        for device in devices:
+            _addr: int = device.int_address
+            _LOGGER.debug("Found device on bus %s with address %s", bus_id, hex(_addr))
+            out[_addr] = device
+    except RuntimeError as err:
+        _LOGGER.error("Problem with scanning %s bus. %s", bus_type, err)
     return out
 
 
-def create_ds2482_dallas_sensor(
+def create_dallas_sensor(
     manager: Manager,
-    ds2482_bus: OneWireBus,
     address: OneWireAddress,
     config: dict,
     **kwargs,
-):
+) -> Union[DallasSensorDS2482, DallasSensorW1]:
     name = config.get(ID) or hex(address)
     id = name.replace(" ", "")
-    sensor = DallasSensor(
-        bus=ds2482_bus,
+    bus: OneWireBus = kwargs.get("bus")
+    cls = DallasSensorDS2482 if bus else DallasSensorW1
+    sensor = cls(
+        manager=manager,
         address=address,
         id=id,
         name=name,
         update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
         send_message=manager.send_message,
+        filters=config.get(FILTERS, []),
         **kwargs,
     )
     if config.get(SHOW_HA, True):
@@ -383,5 +406,6 @@ def create_ds2482_dallas_sensor(
             name=sensor.name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
+            unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
     return sensor

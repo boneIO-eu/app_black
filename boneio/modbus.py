@@ -77,7 +77,7 @@ class Modbus:
         """Call sync. pymodbus."""
         async with self._lock:
             if not self._pymodbus_connect():
-                _LOGGER.error("Can't connect to Modbus.")
+                _LOGGER.error("Can't connect to Modbus address %s.", address)
                 return None
             kwargs = {"unit": unit, "count": count} if unit else {}
             try:

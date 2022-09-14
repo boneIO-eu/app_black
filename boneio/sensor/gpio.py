@@ -14,6 +14,11 @@ class GpioInputSensor(GpioBaseClass):
     def __init__(self, **kwargs) -> None:
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
+        self._click_type = (
+            (PRESSED, RELEASED)
+            if kwargs.get("inverted", False)
+            else (PRESSED, RELEASED)
+        )
         edge_detect(
             self._pin,
             callback=self._handle_press,
@@ -25,13 +30,8 @@ class GpioInputSensor(GpioBaseClass):
     def _handle_press(self, pin: str) -> None:
         """Handle the button press callback"""
         # Ignore if we are in a long press
-        if self.is_pressed:
-            _LOGGER.debug("Pressed event on pin %s", self._pin)
-            self._loop.call_soon_threadsafe(
-                partial(self._press_callback, PRESSED, self._pin)
-            )
-        else:
-            _LOGGER.debug("Released event on pin %s", self._pin)
-            self._loop.call_soon_threadsafe(
-                partial(self._press_callback, RELEASED, self._pin)
-            )
+        click_type = self._click_type[0] if self.is_pressed else self._click_type[1]
+        _LOGGER.debug("%s event on pin %s", click_type, self._pin)
+        self._loop.call_soon_threadsafe(
+            partial(self._press_callback, click_type, self._pin)
+        )

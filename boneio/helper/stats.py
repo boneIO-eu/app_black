@@ -1,9 +1,11 @@
+from __future__ import annotations
 import asyncio
+from datetime import datetime
 import socket
 import time
-from functools import partial
 from math import floor
-from typing import Callable
+from typing import Callable, List
+from functools import partial
 
 import psutil
 
@@ -11,7 +13,6 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
-    HOST,
     IP,
     MAC,
     MASK,
@@ -21,7 +22,17 @@ from boneio.const import (
     NONE,
     SWAP,
     UPTIME,
+    HOST,
 )
+
+# Typing imports that create a circular dependency
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from boneio.manager import Manager
+
+from boneio.helper.async_updater import AsyncUpdater
+from boneio.helper.timeperiod import TimePeriod
 from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__
 
@@ -42,7 +53,7 @@ def display_time(seconds):
     return "".join(result)
 
 
-async def get_network_info(host_data):
+def get_network_info():
     """Fetch network info."""
 
     def retrieve_from_psutil():
@@ -56,88 +67,84 @@ async def get_network_info(host_data):
                 out["mac"] = addr.address
         return out
 
-    while True:
-        data = retrieve_from_psutil()
-        host_data.write(NETWORK, data)
-        await asyncio.sleep(60)
+    return retrieve_from_psutil()
 
 
-async def get_cpu_info(host_data):
+def get_cpu_info():
     """Fetch CPU info."""
-    while True:
-        cpu = psutil.cpu_times_percent()
-        host_data.write(
-            CPU,
-            {
-                "total": f"{int(100 - cpu.idle)}%",
-                "user": f"{cpu.user}%",
-                "system": f"{cpu.system}%",
-            },
-        )
-        await asyncio.sleep(5)
+    cpu = psutil.cpu_times_percent()
+    return {
+        "total": f"{int(100 - cpu.idle)}%",
+        "user": f"{cpu.user}%",
+        "system": f"{cpu.system}%",
+    }
 
 
-async def get_disk_info(host_data):
+def get_disk_info():
     """Fetch disk info."""
-    while True:
-        disk = psutil.disk_usage("/")
-        host_data.write(
-            DISK,
-            {
-                "total": f"{floor(disk.total / GIGABYTE)}GB",
-                "used": f"{floor(disk.used / GIGABYTE)}GB",
-                "free": f"{floor(disk.free / GIGABYTE)}GB",
-            },
-        )
-        await asyncio.sleep(60)
+    disk = psutil.disk_usage("/")
+    return {
+        "total": f"{floor(disk.total / GIGABYTE)}GB",
+        "used": f"{floor(disk.used / GIGABYTE)}GB",
+        "free": f"{floor(disk.free / GIGABYTE)}GB",
+    }
 
 
-async def get_memory_info(host_data):
+def get_memory_info():
     """Fetch memory info."""
-    while True:
-        vm = psutil.virtual_memory()
-        host_data.write(
-            MEMORY,
-            {
-                "total": f"{floor(vm.total / MEGABYTE)}MB",
-                "used": f"{floor(vm.used / MEGABYTE)}MB",
-                "free": f"{floor(vm.available / MEGABYTE)}MB",
-            },
-        )
-        await asyncio.sleep(10)
+    vm = psutil.virtual_memory()
+    return {
+        "total": f"{floor(vm.total / MEGABYTE)}MB",
+        "used": f"{floor(vm.used / MEGABYTE)}MB",
+        "free": f"{floor(vm.available / MEGABYTE)}MB",
+    }
 
 
-async def get_swap_info(host_data):
+def get_swap_info():
     """Fetch swap info."""
-    while True:
-        swap = psutil.swap_memory()
-        host_data.write(
-            SWAP,
-            {
-                "total": f"{floor(swap.total / MEGABYTE)}MB",
-                "used": f"{floor(swap.used / MEGABYTE)}MB",
-                "free": f"{floor(swap.free / MEGABYTE)}MB",
-            },
-        )
-        await asyncio.sleep(10)
+    swap = psutil.swap_memory()
+    return {
+        "total": f"{floor(swap.total / MEGABYTE)}MB",
+        "used": f"{floor(swap.used / MEGABYTE)}MB",
+        "free": f"{floor(swap.free / MEGABYTE)}MB",
+    }
 
 
-async def get_uptime(host_data):
+def get_uptime():
     """Fetch uptime info."""
-    while True:
-        uptime = display_time(time.clock_gettime(time.CLOCK_BOOTTIME))
-        host_data.write_uptime(uptime)
-        await asyncio.sleep(30)
+    return display_time(time.clock_gettime(time.CLOCK_BOOTTIME))
 
 
-host_stats = {
-    NETWORK: get_network_info,
-    CPU: get_cpu_info,
-    DISK: get_disk_info,
-    MEMORY: get_memory_info,
-    SWAP: get_swap_info,
-    UPTIME: get_uptime,
-}
+class HostSensor(AsyncUpdater):
+    """Host sensor."""
+
+    def __init__(
+        self,
+        update_function: Callable,
+        manager_callback: Callable,
+        static_data: dict,
+        id: str,
+        type: str,
+        **kwargs,
+    ) -> None:
+        self._update_function = update_function
+        self._static_data = static_data
+        self._state = None
+        self._type = type
+        self._manager_callback = manager_callback
+        self._loop = asyncio.get_event_loop()
+        self.id = id
+        super().__init__(**kwargs)
+
+    async def async_update(self, time: datetime) -> None:
+        self._state = self._update_function()
+        self._loop.call_soon_threadsafe(partial(self._manager_callback, self._type))
+
+    @property
+    def state(self) -> dict:
+        if self._static_data:
+            return {**self._static_data, self._type: self._state}
+        return self._state
 
 
 class HostData:
@@ -150,32 +157,45 @@ class HostData:
         output: dict,
         callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+        manager: Manager,
+        enabled_screens: List[str],
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
-        self.data[UPTIME] = {HOST: self._hostname, UPTIME: 0, "version": __version__}
+        host_stats = {
+            NETWORK: {"f": get_network_info, "update_interval": TimePeriod(seconds=60)},
+            CPU: {"f": get_cpu_info, "update_interval": TimePeriod(seconds=5)},
+            DISK: {"f": get_disk_info, "update_interval": TimePeriod(seconds=60)},
+            MEMORY: {"f": get_memory_info, "update_interval": TimePeriod(seconds=10)},
+            SWAP: {"f": get_swap_info, "update_interval": TimePeriod(seconds=60)},
+            UPTIME: {
+                "f": get_uptime,
+                "static": {HOST: self._hostname, "version": __version__},
+                "update_interval": TimePeriod(seconds=30),
+            },
+        }
+        for k, _v in host_stats.items():
+            if k not in enabled_screens:
+                continue
+            self.data[k] = HostSensor(
+                update_function=_v["f"],
+                static_data=_v.get("static"),
+                manager=manager,
+                manager_callback=callback,
+                id=f"{k}_hoststats",
+                type=k,
+                update_interval=_v["update_interval"],
+            )
         self._temp_sensor = temp_sensor
         self._output = output
         self._callback = callback
         self._loop = asyncio.get_running_loop()
 
-    def write(self, type: str, data: dict) -> None:
-        """Write data of chosen type."""
-        self.data[type] = data
-        self._loop.call_soon_threadsafe(partial(self._callback, type))
-
-    def write_uptime(self, uptime: str) -> None:
-        """Write uptime."""
-        self.data[UPTIME][UPTIME] = uptime
-        if self._temp_sensor:
-            self.data[UPTIME][self._temp_sensor.name] = self._temp_sensor.state
-        self._loop.call_soon_threadsafe(partial(self._callback, UPTIME))
-
     def get(self, type: str) -> dict:
         """Get saved stats."""
         if type in self._output:
             return self._get_output(type)
-        return self.data[type]
+        return self.data[type].state
 
     def _get_output(self, type: str) -> dict:
         """Get stats for output."""

@@ -1,0 +1,4 @@
+type: string
+required: False
+meta:
+  label: Id of I2C to use in pin config
