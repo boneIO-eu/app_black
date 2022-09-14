@@ -1,12 +1,15 @@
 """Manage BoneIO onboard temp sensors."""
 
 import asyncio
+import logging
 from datetime import datetime
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import BasicMqtt, AsyncUpdater
 from boneio.helper.exceptions import I2CError
 from boneio.helper.filter import Filter
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class TempSensor(BasicMqtt, AsyncUpdater, Filter):
@@ -41,8 +44,10 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
 
     def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
+        _temp = self._pct.temperature
+        _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
         _temp = self._apply_filters(value=self._pct.temperature)
-        if not _temp:
+        if _temp is None:
             return
         self._state = _temp
         self._send_message(

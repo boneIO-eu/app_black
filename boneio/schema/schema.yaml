@@ -166,6 +166,7 @@ lm75:
           label: Address of I2C
       update_interval: !include update_interval.yaml
       filters: !include filters.yaml
+      unit_of_measurement: !include temp_unit.yaml
 
 
 mcp9808:
@@ -188,6 +189,8 @@ mcp9808:
           label: Address of I2C device
       update_interval: !include update_interval.yaml
       filters: !include filters.yaml
+      unit_of_measurement: !include temp_unit.yaml
+      
 
 mcp23017:
   type: list
@@ -498,3 +501,4 @@ sensor:
           label: If you want you can disable discovering this input in HA.
       filters: !include filters.yaml
       update_interval: !include update_interval.yaml
+      unit_of_measurement: !include temp_unit.yaml

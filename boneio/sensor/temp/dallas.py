@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from datetime import datetime
-from ast import literal_eval
 
 from adafruit_ds18x20 import DS18X20
 from w1thermsensor import SensorNotReadyError

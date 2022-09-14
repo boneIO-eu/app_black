@@ -136,6 +136,7 @@ def create_temp_sensor(
             name=name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
+            unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
         return temp_sensor
     except I2CError as err:
@@ -405,5 +406,6 @@ def create_dallas_sensor(
             name=sensor.name,
             ha_type=SENSOR,
             availability_msg_func=ha_sensor_temp_availabilty_message,
+            unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
     return sensor
