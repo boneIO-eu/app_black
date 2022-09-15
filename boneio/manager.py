@@ -88,6 +88,7 @@ class Manager:
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
+        used_pins = set()
         self._config_helper = config_helper
         self._host_data = None
         self._config_file_path = config_file_path
@@ -187,13 +188,12 @@ class Manager:
             )
 
         _LOGGER.info("Initializing inputs. This will take a while.")
-        input_pins = set()
         for gpio in self._input_pins:
-            pin = gpio[PIN]
-            if pin in input_pins:
+            pin = gpio.pop(PIN)
+            if pin in used_pins:
                 _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
                 continue
-            input_pins.add(
+            used_pins.add(
                 configure_input(
                     gpio=gpio,
                     pin=pin,
@@ -274,7 +274,7 @@ class Manager:
                 from w1thermsensor.kernel import load_kernel_modules
 
                 load_kernel_modules()
-                from boneio.sensor.temp.dallas_w1 import DallasSensorW1
+                from boneio.sensor.temp.dallas import DallasSensorW1
 
                 _one_wire_devices.update(
                     find_onewire_devices(

@@ -300,7 +300,7 @@ def configure_input(
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=getattr(input, "input_type"),
             ),
-            rest_pin=gpio,
+            **gpio,
         )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(

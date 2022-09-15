@@ -16,6 +16,8 @@ schema:
       label: If mqtt action then topic to send
   action_cover:
     type: string
+    required: False
+    nullable: True
     allowed:
       ['toggle', 'open', 'close', 'stop', 'toggle_open', 'toggle_close']
     default_setter: toggle_cover

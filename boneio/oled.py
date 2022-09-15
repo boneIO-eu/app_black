@@ -9,7 +9,7 @@ from luma.core.render import canvas
 from luma.oled.device import sh1106
 from PIL import ImageDraw
 
-from boneio.const import CPU, DISK, MEMORY, NETWORK, OLED_PIN, SWAP, UPTIME, WHITE
+from boneio.const import OLED_PIN, UPTIME, WHITE
 from boneio.helper import (
     HostData,
     I2CError,
