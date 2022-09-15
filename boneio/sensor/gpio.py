@@ -15,7 +15,7 @@ class GpioInputSensor(GpioBaseClass):
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
         self._click_type = (
-            (PRESSED, RELEASED)
+            (RELEASED, PRESSED)
             if kwargs.get("inverted", False)
             else (PRESSED, RELEASED)
         )
@@ -25,6 +25,7 @@ class GpioInputSensor(GpioBaseClass):
             bounce=self._bounce_time.total_milliseconds,
             edge=BOTH,
         )
+        self._loop.call_soon(self._handle_press, self._pin)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
 
     def _handle_press(self, pin: str) -> None:
