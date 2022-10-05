@@ -68,6 +68,10 @@ from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
 
+AVAILABILITY_FUNCTION_CHOOSER = {
+  LIGHT: ha_light_availabilty_message,
+  LED: ha_led_availabilty_message,
+}
 
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
@@ -149,19 +153,8 @@ class Manager:
                     self.send_ha_autodiscovery(
                         id=out.id,
                         name=out.name,
-                        ha_type=out.output_type,
-                        availability_msg_func=ha_light_availabilty_message
-                        if out.is_light
-                        else ha_switch_availabilty_message,
-                    )
-                elif out.output_type == LED:
-                    self.send_ha_autodiscovery(
-                        id=out.id,
-                        name=out.name,
-                        ha_type=LIGHT,
-                        availability_msg_func=ha_led_availabilty_message
-                        if out.is_led
-                        else ha_switch_availabilty_message,
+                        ha_type=LIGHT if out.output_type == LED else out.output_type,
+                        availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(out.output_type, ha_switch_availabilty_message)
                     )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
