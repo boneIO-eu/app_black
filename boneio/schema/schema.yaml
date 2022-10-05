@@ -218,6 +218,32 @@ mcp23017:
         meta:
           label: How long to sleep for MCP to initialize.
 
+pca9685:
+  type: list
+  required: False
+  meta:
+    label: pca9685 Pin config
+  schema:
+    type: dict
+    schema:
+      id: !include id.yaml
+      address:
+        type: integer
+        required: True
+        meta:
+          label: GPIO of I2C SDA
+      init_sleep:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: 0s
+        meta:
+          label: How long to sleep for PCA to initialize.
+
 output:
   type: list
   meta:
@@ -234,7 +260,7 @@ output:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ["gpio", "mcp"]
+        allowed: ["gpio", "mcp", "pca"]
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -242,6 +268,11 @@ output:
         required: False
         meta:
           label: MCP ID to connect
+      pca_id:
+        type: string
+        required: False
+        meta:
+          label: PCA ID to connect
       pin:
         type:
           - string
