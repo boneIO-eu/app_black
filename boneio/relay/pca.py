@@ -90,12 +90,11 @@ class PWMPCA(BasicMqtt):
 
     @property
     def brightness(self) -> int:
-        """Get brightness in 0-255 scale."""
+        """Get brightness in 0-65535 scale."""
         return self._pin.duty_cycle
 
-    @brightness.setter
-    def brightness(self, value: int):
-        """Set brightness in 0-255 vale, and convert to hex for PCA."""
+    def set_brightness(self, value: int):
+        """Set brightness in 0-65535 vale"""
         _LOGGER.debug("Set brightness relay.")
         self._pin.duty_cycle = value
         self.last_brightness = value
@@ -103,12 +102,12 @@ class PWMPCA(BasicMqtt):
 
     @property
     def last_brightness(self) -> int:
-        """Get brightness in 0-255 scale."""
+        """Get last brightness in 0-65535 scale."""
         return self._last_brightness
 
     @last_brightness.setter
     def last_brightness(self, value: int):
-        """Set brightness in 0-255 vale, and convert to hex for PCA."""
+        """Set last brightness in 0-65535 vale."""
         self._last_brightness = value
 
     def toggle(self) -> None:
@@ -127,7 +126,7 @@ class PWMPCA(BasicMqtt):
     def turn_on(self) -> None:
         """Call turn on action."""
         _LOGGER.debug("Turn on relay.")
-        self.brightness = self.last_brightness
+        self.set_brightness(self.last_brightness)
         if self._momentary_turn_on:
             async_track_point_in_time(
                 loop=self._loop,

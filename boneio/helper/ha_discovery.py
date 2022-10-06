@@ -56,7 +56,7 @@ def ha_led_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
     msg["brightness_state_topic"] = f"{topic}/{RELAY}/{id}"
-    msg["brightness_command_topic"] = f"{topic}/cmd/{RELAY}/{id}/brightness"
+    msg["brightness_command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set_brightness"
     msg["brightness_scale"] = 65535
     msg["payload_off"] = OFF
     msg["payload_on"] = ON

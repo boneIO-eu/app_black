@@ -36,7 +36,7 @@ from boneio.const import (
     DS2482,
     LIGHT,
     LED,
-    BRIGHTNESS,
+    SET_BRIGHTNESS,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -149,7 +149,7 @@ class Manager:
                 continue
             self._output[_id] = out
             if out.output_type != NONE:
-                if out.output_type == LIGHT:
+                if out.output_type in AVAILABILITY_FUNCTION_CHOOSER:
                     self.send_ha_autodiscovery(
                         id=out.id,
                         name=out.name,
@@ -502,7 +502,6 @@ class Manager:
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
-
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
 
@@ -514,10 +513,10 @@ class Manager:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
-        elif msg_type == RELAY and command == BRIGHTNESS:
+        elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self._output.get(device_id)
             if target_device and target_device.output_type != NONE and message is not '':
-                setattr(target_device, command, int(message))
+                target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == COVER:
