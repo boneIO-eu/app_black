@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import time
 from typing import Callable
 
 from adafruit_pca9685 import PCA9685, PCAChannels
@@ -10,7 +9,7 @@ from adafruit_pca9685 import PCA9685, PCAChannels
 from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.helper.util import callback
 
-from boneio.const import LED, NONE, OFF, ON, STATE, SWITCH, BRIGHTNESS, RELAY, LAST_BRIGHTNESS
+from boneio.const import LED, NONE, OFF, ON, STATE, SWITCH, BRIGHTNESS, RELAY
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ class PWMPCA(BasicMqtt):
         self,
         pin: int,
         pca: PCA9685,
-        pca_id: str,
+        percentage_default_brightness: int,
         callback: Callable,
         id: str = None,
         output_type = SWITCH,
@@ -31,8 +30,6 @@ class PWMPCA(BasicMqtt):
         **kwargs,
     ) -> None:
         """Initialize PWMPCA."""
-
-        pca.frequency = 1100.0
         self._pin: PCAChannels = pca.channels[pin]
 
         self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
@@ -40,16 +37,18 @@ class PWMPCA(BasicMqtt):
         super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
 
         self._output_type = output_type
+        self._percentage_default_brightness = percentage_default_brightness
+
         if output_type == NONE:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
 
         if restored_state:
             self._state = ON
-            self._brightness = self._last_brightness = restored_brightness
+            self._brightness = restored_brightness
         else:
             self._state = OFF
-            self._brightness = self._last_brightness = 0
+            self._brightness = 0
 
         self._callback = callback
         self._loop = asyncio.get_running_loop()
@@ -90,33 +89,22 @@ class PWMPCA(BasicMqtt):
 
     @property
     def brightness(self) -> int:
-        """Get brightness in 0-65535 scale."""
-        return self._pin.duty_cycle
+        """Get brightness in 0-65535 scale. PCA can force over 65535 value after restart, so we treat that as a 0"""
+        try:
+            if self._pin.duty_cycle > 65535:
+                return 0
+            return self._pin.duty_cycle
+        except:
+            _LOGGER.error("Cant read value form driver on pin %s", self._pin_id)
+            return 0
 
     def set_brightness(self, value: int):
-        """Set brightness in 0-65535 vale"""
-        _LOGGER.debug("Set brightness relay.")
-        self._pin.duty_cycle = value
-        self.last_brightness = value
-        self.send_state()
-
-    @property
-    def last_brightness(self) -> int:
-        """Get last brightness in 0-65535 scale."""
-        return self._last_brightness
-
-    @last_brightness.setter
-    def last_brightness(self, value: int):
-        """Set last brightness in 0-65535 vale."""
-        self._last_brightness = value
-
-    def toggle(self) -> None:
-        """Toggle relay."""
-        _LOGGER.debug("Toggle relay.")
-        if self.is_active:
-            self.turn_off()
-        else:
-            self.turn_on()
+        try:
+            """Set brightness in 0-65535 vale"""
+            _LOGGER.debug("Set brightness relay.")
+            self._pin.duty_cycle = value
+        except:
+            _LOGGER.error("Cant set value form driver on pin %s", self._pin_id)
 
     @property
     def is_active(self) -> bool:
@@ -124,9 +112,11 @@ class PWMPCA(BasicMqtt):
         return self.brightness > 1
 
     def turn_on(self) -> None:
-        """Call turn on action."""
+        """Call turn on action. When brightness is 0, and turn on by switch, default set value to 1%"""
         _LOGGER.debug("Turn on relay.")
-        self.set_brightness(self.last_brightness)
+        if self.brightness == 0:
+            self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
+
         if self._momentary_turn_on:
             async_track_point_in_time(
                 loop=self._loop,
@@ -155,10 +145,9 @@ class PWMPCA(BasicMqtt):
     def send_state(self) -> None:
         """Send state to Mqtt on action."""
         state = ON if self.is_active else OFF
-        self._state = state
         if self.output_type != NONE:
             self._send_message(
                 topic=self._send_topic,
-                payload={BRIGHTNESS: self.brightness, LAST_BRIGHTNESS: self.last_brightness, STATE: self.is_active},
+                payload={BRIGHTNESS: self.brightness, STATE: state},
             )
         self._loop.call_soon_threadsafe(self._callback)

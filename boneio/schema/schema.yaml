@@ -306,6 +306,12 @@ output:
         default: False
         meta:
           label: Restore saved state of boneio. Not used for "none" and output_type!
+      percentage_default_brightness:
+        type: integer
+        required: False
+        default: 1
+        meta:
+          label: When the brightness is not set in ha, and we switch led to turn this value will be used
       output_type:
         type: string
         required: True
