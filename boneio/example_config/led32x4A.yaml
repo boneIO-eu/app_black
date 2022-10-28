@@ -1,0 +1,226 @@
+# pca1 - upper 12 outputs
+- id: PWM_01
+  kind: pca
+  pca_id: pca1
+  pin: 0
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_02
+  kind: pca
+  pca_id: pca1
+  pin: 1
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_03
+  kind: pca
+  pca_id: pca1
+  pin: 2
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_04
+  kind: pca
+  pca_id: pca1
+  pin: 3
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_05
+  kind: pca
+  pca_id: pca1
+  pin: 4
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_06
+  kind: pca
+  pca_id: pca1
+  pin: 5
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_07
+  kind: pca
+  pca_id: pca1
+  pin: 6
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_08
+  kind: pca
+  pca_id: pca1
+  pin: 7
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_09
+  kind: pca
+  pca_id: pca1
+  pin: 8
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_10
+  kind: pca
+  pca_id: pca1
+  pin: 9
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_11
+  kind: pca
+  pca_id: pca1
+  pin: 10
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_12
+  kind: pca
+  pca_id: pca1
+  pin: 11
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_13
+  kind: pca
+  pca_id: pca1
+  pin: 12
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_14
+  kind: pca
+  pca_id: pca1
+  pin: 13
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_15
+  kind: pca
+  pca_id: pca1
+  pin: 14
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_16
+  kind: pca
+  pca_id: pca1
+  pin: 15
+  output_type: led
+  percentage_default_brightness: 1
+
+# pca2 - lower 12 outputs
+
+- id: PWM_17
+  kind: pca
+  pca_id: pca2
+  pin: 0
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_18
+  kind: pca
+  pca_id: pca2
+  pin: 1
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_19
+  kind: pca
+  pca_id: pca2
+  pin: 2
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_20
+  kind: pca
+  pca_id: pca2
+  pin: 3
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_21
+  kind: pca
+  pca_id: pca2
+  pin: 4
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_22
+  kind: pca
+  pca_id: pca2
+  pin: 5
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_23
+  kind: pca
+  pca_id: pca2
+  pin: 6
+  output_type: led
+
+  percentage_default_brightness: 1
+- id: PWM_24
+  kind: pca
+  pca_id: pca2
+  pin: 7
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_25
+  kind: pca
+  pca_id: pca2
+  pin: 8
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_26
+  kind: pca
+  pca_id: pca2
+  pin: 9
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_27
+  kind: pca
+  pca_id: pca2
+  pin: 10
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_28
+  kind: pca
+  pca_id: pca2
+  pin: 11
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_29
+  kind: pca
+  pca_id: pca2
+  pin: 12
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_30
+  kind: pca
+  pca_id: pca2
+  pin: 13
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_31
+  kind: pca
+  pca_id: pca2
+  pin: 14
+  output_type: led
+  percentage_default_brightness: 1
+
+- id: PWM_32
+  kind: pca
+  pca_id: pca2
+  pin: 15
+  output_type: led
+  percentage_default_brightness: 1

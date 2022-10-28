@@ -1,6 +1,6 @@
 """Helper dir for BoneIO."""
 
-from boneio.helper.exceptions import GPIOInputException, I2CError
+from boneio.helper.exceptions import GPIOInputException, GPIOOutputException, I2CError
 from boneio.helper.gpio import (
     GpioBaseClass,
     configure_pin,
@@ -19,6 +19,7 @@ from boneio.helper.ha_discovery import (
     ha_sensor_availabilty_message,
     ha_sensor_temp_availabilty_message,
     ha_switch_availabilty_message,
+    ha_led_availabilty_message,
 )
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.async_updater import AsyncUpdater
@@ -53,7 +54,9 @@ __all__ = [
     "ha_binary_sensor_availabilty_message",
     "ha_button_availabilty_message",
     "ha_input_availabilty_message",
+    "ha_led_availabilty_message",
     "GPIOInputException",
+    "GPIOOutputException",
     "I2CError",
     "GpioBaseClass",
     "StateManager",

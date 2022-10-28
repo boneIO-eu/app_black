@@ -34,6 +34,9 @@ from boneio.const import (
     InputTypes,
     relay_actions,
     DS2482,
+    LIGHT,
+    LED,
+    SET_BRIGHTNESS,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -43,6 +46,7 @@ from boneio.helper import (
     ha_button_availabilty_message,
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
+    ha_led_availabilty_message
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
@@ -53,6 +57,7 @@ from boneio.helper.loader import (
     configure_relay,
     create_dallas_sensor,
     create_mcp23017,
+    create_pca9685,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
@@ -63,10 +68,13 @@ from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
 
+AVAILABILITY_FUNCTION_CHOOSER = {
+  LIGHT: ha_light_availabilty_message,
+  LED: ha_led_availabilty_message,
+}
 
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
-
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
@@ -77,6 +85,7 @@ class Manager:
         input_pins: List = [],
         sensors: dict = {},
         modbus: dict = None,
+        pca9685: Optional[List] = None,
         mcp23017: Optional[List] = None,
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
@@ -100,6 +109,7 @@ class Manager:
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
+        self._pca = {}
         self._output = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
@@ -119,6 +129,9 @@ class Manager:
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
         )
+        self.grouped_outputs.update(create_pca9685(
+            manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio
+        ))
 
         self._configure_adc(adc_list=adc_list)
 
@@ -136,14 +149,13 @@ class Manager:
                 continue
             self._output[_id] = out
             if out.output_type != NONE:
-                self.send_ha_autodiscovery(
-                    id=out.id,
-                    name=out.name,
-                    ha_type=out.output_type,
-                    availability_msg_func=ha_light_availabilty_message
-                    if out.is_light
-                    else ha_switch_availabilty_message,
-                )
+                if out.output_type in AVAILABILITY_FUNCTION_CHOOSER:
+                    self.send_ha_autodiscovery(
+                        id=out.id,
+                        name=out.name,
+                        ha_type=LIGHT if out.output_type == LED else out.output_type,
+                        availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(out.output_type, ha_switch_availabilty_message)
+                    )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
                 0.5,
@@ -404,6 +416,11 @@ class Manager:
         """Get MCP by it's id."""
         return self._mcp
 
+    @property
+    def pca(self):
+        """Get PCA by it's id."""
+        return self._pca
+
     def press_callback(
         self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
     ) -> None:
@@ -485,7 +502,6 @@ class Manager:
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
-
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
 
@@ -495,6 +511,12 @@ class Manager:
                     getattr(target_device, action_from_msg)()
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
+        elif msg_type == RELAY and command == SET_BRIGHTNESS:
+            target_device = self._output.get(device_id)
+            if target_device and target_device.output_type != NONE and message is not '':
+                target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == COVER:

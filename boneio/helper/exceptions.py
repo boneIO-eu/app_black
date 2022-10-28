@@ -8,6 +8,9 @@ class BoneIOException(Exception):
 class GPIOInputException(BoneIOException):
     """GPIOInput Exception."""
 
+class GPIOOutputException(BoneIOException):
+    """GPIOInput Exception."""
+
 
 class I2CError(BoneIOException):
     """I2C Exception."""
