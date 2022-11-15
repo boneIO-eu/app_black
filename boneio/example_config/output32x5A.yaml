@@ -131,7 +131,7 @@
 - id: OUT_22
   kind: mcp
   mcp_id: mcp1
-  pin: 13
+  pin: 10
   output_type: light
 
 - id: OUT_23
@@ -157,7 +157,7 @@
 - id: OUT_26
   kind: mcp
   mcp_id: mcp2
-  pin: 9
+  pin: 14
   output_type: light
 
 - id: OUT_27
@@ -193,5 +193,5 @@
 - id: OUT_32
   kind: mcp
   mcp_id: mcp2
-  pin: 15
+  pin: 8
   output_type: light
