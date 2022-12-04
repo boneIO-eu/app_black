@@ -205,7 +205,7 @@
                     "address": 52,
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
-				          	"device_class": "energy",
+		    "device_class": "energy",
                     "return_type": "float32"
                 },
                 {
@@ -213,7 +213,7 @@
                     "address": 54,
                     "unit_of_measurement": "kWh",
                     "state_class": "total_increasing",
-				          	"device_class": "energy",
+		    "device_class": "energy",
                     "return_type": "float32"
                 },
                 {
