@@ -1,5 +1,5 @@
 {
-    "model": "DTS1964",
+    "model": "DTS1964_3F",
     "registers_base": [
         {
             "base": 0,
