@@ -1,0 +1,76 @@
+{
+    "model": "R4DCB08",
+    "registers_base": [
+        {
+            "base": 0,
+            "length": 16,
+            "register_type": "holding",
+            "registers": [
+                {
+                    "name": "Temperature 1",
+                    "address": 0,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 2",
+                    "address": 1,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 3",
+                    "address": 2,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 4",
+                    "address": 3,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 5",
+                    "address": 4,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 6",
+                    "address": 5,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 7",
+                    "address": 6,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                },
+                {
+                    "name": "Temperature 8",
+                    "address": 7,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "return_type": "multiply0_1"
+                }
+            ]
+        }
+    ]
+}
