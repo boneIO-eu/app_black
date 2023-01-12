@@ -1,0 +1,236 @@
+{
+    "model": "DTS1964_3F",
+    "registers_base": [
+        {
+            "base": 0,
+            "length": 60,
+            "registers": [
+                {
+                    "name": "Voltage_Phase1",
+                    "address": 0,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Voltage_Phase2",
+                    "address": 2,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Voltage_Phase3",
+                    "address": 4,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Voltage_Phase1_to_Phase2",
+                    "address": 6,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Voltage_Phase2_to_Phase3",
+                    "address": 8,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Voltage_Phase3_to_Phase1",
+                    "address": 10,
+                    "unit_of_measurement": "V",
+                    "state_class": "measurement",
+                    "device_class": "voltage",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Current_Phase1",
+                    "address": 12,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Current_Phase2",
+                    "address": 14,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Current_Phase3",
+                    "address": 16,
+                    "unit_of_measurement": "A",
+                    "state_class": "measurement",
+                    "device_class": "current",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Power_Phase1",
+                    "address": 18,
+                    "unit_of_measurement": "kW",
+                    "state_class": "measurement",
+                    "device_class": "power",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_Phase2",
+                    "address": 20,
+                    "unit_of_measurement": "kW",
+                    "state_class": "measurement",
+                    "device_class": "power",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_Phase3",
+                    "address": 22,
+                    "unit_of_measurement": "kW",
+                    "state_class": "measurement",
+                    "device_class": "power",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Total_Power_Watt",
+                    "address": 24,
+                    "unit_of_measurement": "kW",
+                    "state_class": "measurement",
+                    "device_class": "power",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_kvar_Phase1",
+                    "address": 26,
+                    "unit_of_measurement": "kvar",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_kvar_Phase2",
+                    "address": 28,
+                    "unit_of_measurement": "kvar",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_kvar_Phase3",
+                    "address": 30,
+                    "unit_of_measurement": "kvar",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Total_Power_kvar",
+                    "address": 32,
+                    "unit_of_measurement": "kvar",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Power_kVA_Phase1",
+                    "address": 34,
+                    "unit_of_measurement": "kVA",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_kVA_Phase2",
+                    "address": 36,
+                    "unit_of_measurement": "kVA",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_kVA_Phase3",
+                    "address": 38,
+                    "unit_of_measurement": "kVA",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Total_Power_kVA",
+                    "address": 40,
+                    "unit_of_measurement": "kVA",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Power_Factor_Phase1",
+                    "address": 42,
+                    "unit_of_measurement": "",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_Factor_Phase2",
+                    "address": 44,
+                    "unit_of_measurement": "",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_Factor_Phase3",
+                    "address": 46,
+                    "unit_of_measurement": "",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Power_Factor_Total",
+                    "address": 48,
+                    "unit_of_measurement": "",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Frequency",
+                    "address": 50,
+                    "unit_of_measurement": "Hz",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Import_Energy_kWh_Total",
+                    "address": 52,
+                    "unit_of_measurement": "kWh",
+                    "state_class": "total_increasing",
+		    "device_class": "energy",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Export_Energy_kWh_Total",
+                    "address": 54,
+                    "unit_of_measurement": "kWh",
+                    "state_class": "total_increasing",
+		    "device_class": "energy",
+                    "return_type": "float32"
+                },
+                {
+                    "name": "Import_Energy_kvarh_Total",
+                    "address": 56,
+                    "unit_of_measurement": "kvarh",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                },
+                 {
+                    "name": "Export_Energy_kvarh_Total",
+                    "address": 58,
+                    "unit_of_measurement": "kvarh",
+                    "state_class": "measurement",
+                    "return_type": "float32"
+                }
+            ]
+        }
+    ]
+}
