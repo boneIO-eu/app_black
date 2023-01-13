@@ -1,9 +1,9 @@
 """PCA9685 PWM module."""
 
+from __future__ import annotations
 import asyncio
 import logging
 from typing import Callable
-
 from adafruit_pca9685 import PCA9685, PCAChannels
 
 from boneio.helper.events import async_track_point_in_time, utcnow
@@ -17,14 +17,15 @@ _LOGGER = logging.getLogger(__name__)
 
 class PWMPCA(BasicMqtt):
     """Initialize PWMPCA."""
+
     def __init__(
         self,
         pin: int,
         pca: PCA9685,
         percentage_default_brightness: int,
         callback: Callable,
-        id: str = None,
-        output_type = SWITCH,
+        id: str | None = None,
+        output_type=SWITCH,
         restored_state: bool = False,
         restored_brightness: int = 0,
         **kwargs,
@@ -72,7 +73,7 @@ class PWMPCA(BasicMqtt):
         return self._output_type == LED
 
     @property
-    def id(self) -> bool:
+    def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
         return self._id
@@ -101,7 +102,7 @@ class PWMPCA(BasicMqtt):
     def set_brightness(self, value: int):
         try:
             """Set brightness in 0-65535 vale"""
-            _LOGGER.debug("Set brightness relay.")
+            _LOGGER.debug("Set brightness relay %s.", value)
             self._pin.duty_cycle = value
         except:
             _LOGGER.error("Cant set value form driver on pin %s", self._pin_id)
