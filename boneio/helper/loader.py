@@ -170,6 +170,7 @@ def create_mcp23017(
             pass
     return grouped_outputs
 
+
 def create_pca9685(
     manager: Manager,
     pca9685: list,
@@ -181,6 +182,7 @@ def create_pca9685(
         id = pca[ID] or pca[ADDRESS]
         try:
             manager._pca[id] = PCA9685(i2c_bus=i2cbusio, address=pca[ADDRESS])
+            manager._pca[id].frequency = 500
             sleep_time = pca.get(INIT_SLEEP, TimePeriod(seconds=0))
             _LOGGER.debug(
                 f"Sleeping for {sleep_time.total_seconds}s while PCA {id} is initializing."
@@ -257,9 +259,7 @@ def configure_relay(
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
-    output = output_chooser(
-        output_kind=config.pop(KIND), config=config
-    )
+    output = output_chooser(output_kind=config.pop(KIND), config=config)
 
     if getattr(output, "output_kind") == MCP:
         mcp = manager.mcp.get(getattr(output, "output_id"))
@@ -290,7 +290,9 @@ def configure_relay(
             "pin": config.pop(PIN),
         }
     else:
-        _LOGGER.error("Output kind: %s is not configured", getattr(output, "output_kind"))
+        _LOGGER.error(
+            "Output kind: %s is not configured", getattr(output, "output_kind")
+        )
         return
 
     relay = getattr(output, "OutputClass")(
