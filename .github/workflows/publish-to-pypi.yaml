@@ -10,7 +10,7 @@ on:
     paths:
       - '**.py'
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
     types: # This configuration does not affect the page_build event above
       - created
@@ -21,22 +21,22 @@ jobs:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - uses: pdm-project/setup-pdm@v2.6
-      name: Setup Python and PDM
-      with:
-        python-version: 3.7
-        architecture: x64
-        version: 1.15.3
-        enable-pep582: true # Enable PEP 582 package loading globally
-    - name: Install dependencies
-      run: |
-        python -m pip install -U twine
-    - name: Build
-      run: |
-        pdm build
-    - name: Publish package
-      if: startsWith(github.ref, 'refs/tags') || startsWith(github.event.inputs.tags, 'Deploy')
-      run: |
-        pdm plugin add pdm-publish
-        pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
+      - uses: actions/checkout@master
+      - uses: pdm-project/setup-pdm@v3
+        name: Setup Python and PDM
+        with:
+          python-version: 3.7
+          architecture: x64
+          version: 1.15.3
+          enable-pep582: true # Enable PEP 582 package loading globally
+      - name: Install dependencies
+        run: |
+          python -m pip install -U twine
+      - name: Build
+        run: |
+          pdm build
+      - name: Publish package
+        if: startsWith(github.ref, 'refs/tags') || startsWith(github.event.inputs.tags, 'Deploy')
+        run: |
+          pdm plugin add pdm-publish
+          pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
