@@ -46,7 +46,7 @@ from boneio.helper import (
     ha_button_availabilty_message,
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
-    ha_led_availabilty_message
+    ha_led_availabilty_message,
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
@@ -69,12 +69,14 @@ from w1thermsensor.errors import KernelModuleLoadError
 _LOGGER = logging.getLogger(__name__)
 
 AVAILABILITY_FUNCTION_CHOOSER = {
-  LIGHT: ha_light_availabilty_message,
-  LED: ha_led_availabilty_message,
+    LIGHT: ha_light_availabilty_message,
+    LED: ha_led_availabilty_message,
 }
+
 
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
+
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
@@ -129,9 +131,9 @@ class Manager:
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
         )
-        self.grouped_outputs.update(create_pca9685(
-            manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio
-        ))
+        self.grouped_outputs.update(
+            create_pca9685(manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio)
+        )
 
         self._configure_adc(adc_list=adc_list)
 
@@ -154,7 +156,9 @@ class Manager:
                         id=out.id,
                         name=out.name,
                         ha_type=LIGHT if out.output_type == LED else out.output_type,
-                        availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(out.output_type, ha_switch_availabilty_message)
+                        availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
+                            out.output_type, ha_switch_availabilty_message
+                        ),
                     )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
@@ -435,13 +439,16 @@ class Manager:
                 if not device:
                     continue
                 relay = self._output.get(device.replace(" ", ""))
-                if relay:
-                    getattr(relay, action_definition["action_output"])()
+                action = relay_actions.get(action_definition["action_output"])
+                if relay and action:
+                    getattr(relay, action)()
             elif action_definition[ACTION] == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
                 if action_topic and action_payload:
-                    self.send_message(topic=action_topic, payload=action_payload)
+                    self.send_message(
+                        topic=action_topic, payload=action_payload, retain=False
+                    )
             elif action_definition[ACTION] == COVER:
                 device = action_definition.get(PIN)
                 if not device:
@@ -515,7 +522,11 @@ class Manager:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self._output.get(device_id)
-            if target_device and target_device.output_type != NONE and message is not '':
+            if (
+                target_device
+                and target_device.output_type != NONE
+                and message is not ""
+            ):
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
