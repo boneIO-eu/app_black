@@ -1,6 +1,7 @@
 """Helper dir for BoneIO."""
 
 from boneio.helper.exceptions import GPIOInputException, GPIOOutputException, I2CError
+from boneio.helper.click_timer import ClickTimer
 from boneio.helper.gpio import (
     GpioBaseClass,
     configure_pin,
@@ -70,4 +71,5 @@ __all__ = [
     "TimePeriod",
     "callback",
     "is_callback",
+    "ClickTimer",
 ]
