@@ -18,6 +18,7 @@ RELAY = "relay"
 LED = "led"
 ON = "ON"
 OFF = "OFF"
+TOGGLE = "TOGGLE"
 STATE = "state"
 BRIGHTNESS = "brightness"
 SET_BRIGHTNESS = "set_brightness"
@@ -55,7 +56,7 @@ UARTS = {
     "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
-relay_actions = {ON: "turn_on", OFF: "turn_off", "TOGGLE": "toggle"}
+relay_actions = {ON: "turn_on", OFF: "turn_off", TOGGLE: "toggle"}
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"

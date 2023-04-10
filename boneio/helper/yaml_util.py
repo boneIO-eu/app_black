@@ -8,7 +8,7 @@ from typing import Any, Tuple
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, load
 
-from boneio.const import COVER, ID, OUTPUT
+from boneio.const import COVER, ID, OUTPUT, TOGGLE
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.timeperiod import TimePeriod
 
@@ -103,9 +103,7 @@ BoneIOLoader.add_constructor(
 BoneIOLoader.add_constructor(
     "!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named
 )
-BoneIOLoader.add_constructor(
-    "!include_files", BoneIOLoader.construct_include_files
-)
+BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
 
 
 def filter_yaml_files(files):
@@ -246,7 +244,7 @@ class CustomValidator(Validator):
         return str(value).upper()
 
     def _normalize_coerce_actions_output(self, value):
-        return str(value).lower()
+        return str(value).upper()
 
     def _normalize_coerce_str(self, value):
         return str(value)
@@ -324,4 +322,4 @@ class CustomValidator(Validator):
 
         parent = get_parent()
         if parent["action"] == COVER:
-            return "toggle"
+            return TOGGLE
