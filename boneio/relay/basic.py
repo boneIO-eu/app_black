@@ -49,13 +49,13 @@ class BasicRelay(BasicMqtt):
         return self._output_type == LIGHT
 
     @property
-    def id(self) -> bool:
+    def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
         return self._id or self._pin
 
     @property
-    def name(self) -> bool:
+    def name(self) -> str:
         """Not trimmed id."""
         return self._name or self._pin
 
@@ -70,8 +70,7 @@ class BasicRelay(BasicMqtt):
         self._state = state
         if self.output_type != NONE:
             self._send_message(
-                topic=self._send_topic,
-                payload={STATE: state},
+                topic=self._send_topic, payload={STATE: state}, retain=True
             )
         self._loop.call_soon_threadsafe(self._callback)
 

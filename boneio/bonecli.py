@@ -1,9 +1,11 @@
 """Bonecli script."""
+from __future__ import annotations
 import argparse
 import asyncio
 import logging
 import sys
 import os
+from typing import Any
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
@@ -69,7 +71,9 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
+def run(
+    config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
+) -> int | None | list[Any]:
     """Run BoneIO."""
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -78,7 +82,7 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
         configure_logger(log_config=_config.get("logger"), debug=debug)
-        return asyncio.run(
+        asyncio.run(
             async_run(
                 config=_config,
                 config_file=config,
