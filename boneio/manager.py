@@ -86,20 +86,20 @@ class Manager:
         relay_pins: List = [],
         input_pins: List = [],
         sensors: dict = {},
-        modbus: dict = None,
-        pca9685: Optional[List] = None,
-        mcp23017: Optional[List] = None,
+        modbus: dict = {},
+        pca9685: list = [],
+        mcp23017: list = [],
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
         oled: dict = {},
         adc_list: Optional[List] = None,
-        covers: Optional[List] = [],
+        cover: list = [],
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
-        used_pins = set()
+
         self._config_helper = config_helper
         self._host_data = None
         self._config_file_path = config_file_path
@@ -166,7 +166,7 @@ class Manager:
                 out.send_state,
             )
 
-        for _config in covers:
+        for _config in cover:
             _id = _config[ID].replace(" ", "")
             open_relay = self._output.get(_config.get("open_relay"))
             close_relay = self._output.get(_config.get("close_relay"))
@@ -204,24 +204,12 @@ class Manager:
             )
 
         _LOGGER.info("Initializing inputs. This will take a while.")
-        for gpio in self._input_pins:
-            pin = gpio.pop(PIN)
-            if pin in used_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
-                continue
-            used_pins.add(
-                configure_input(
-                    gpio=gpio,
-                    pin=pin,
-                    press_callback=self.press_callback,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                )
-            )
+        self.configure_inputs(reload_config=False)
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
-            screens = oled.get("screens")
+            screens = oled.get("screens", [])
 
             self._host_data = HostData(
                 manager=self,
@@ -242,6 +230,24 @@ class Manager:
         self.prepare_ha_buttons()
 
         _LOGGER.info("BoneIO manager is ready.")
+
+    def configure_inputs(self, reload_config: bool = False):
+        used_pins = set()
+        if reload_config:
+            load_config_from_file(self._config_file_path)
+        for gpio in self._input_pins:
+            pin = gpio.pop(PIN)
+            if pin in used_pins:
+                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
+                continue
+            used_pins.add(
+                configure_input(
+                    gpio=gpio,
+                    pin=pin,
+                    press_callback=self.press_callback,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                )
+            )
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Future:
         """Add task to run with asyncio loop."""
@@ -337,20 +343,22 @@ class Manager:
             )
 
     def _configure_modbus(self, modbus: dict) -> None:
-        if modbus and modbus.get(UART) in UARTS:
+        uart = modbus.get(UART)
+        if uart and uart in UARTS:
             try:
-                self._modbus = Modbus(UARTS[modbus.get(UART)])
+                self._modbus = Modbus(UARTS[uart])
             except ModbusUartException:
                 _LOGGER.error(
                     "This UART %s can't be used for modbus communication.",
-                    modbus.get(UART),
+                    uart,
                 )
                 self._modbus = None
 
     def _configure_temp_sensors(self, sensors: dict) -> None:
         for sensor_type in (LM75, MCP_TEMP_9808):
-            if sensors.get(sensor_type):
-                for temp_def in sensors.get(sensor_type):
+            sensor = sensors.get(sensor_type)
+            if sensor:
+                for temp_def in sensor:
                     temp_sensor = create_temp_sensor(
                         manager=self,
                         topic_prefix=self._config_helper.topic_prefix,
