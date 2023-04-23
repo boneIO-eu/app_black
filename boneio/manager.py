@@ -439,7 +439,7 @@ class Manager:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
-        self.send_message(topic=topic, payload=x)
+        self.send_message(topic=topic, payload=x, retain=False)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] == OUTPUT:
