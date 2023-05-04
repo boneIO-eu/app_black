@@ -8,6 +8,7 @@ class BoneIOException(Exception):
 class GPIOInputException(BoneIOException):
     """GPIOInput Exception."""
 
+
 class GPIOOutputException(BoneIOException):
     """GPIOInput Exception."""
 
@@ -30,3 +31,7 @@ class CoverRelayException(BoneIOException):
 
 class ModbusUartException(BoneIOException):
     """Cover configuration exception."""
+
+
+class RestartRequestException(BoneIOException):
+    """Restart exception."""

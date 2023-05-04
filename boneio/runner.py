@@ -1,4 +1,5 @@
 """Runner code for boneIO. Based on HA runner."""
+from __future__ import annotations
 import asyncio
 import logging
 import os
@@ -75,6 +76,7 @@ async def async_run(
 
     manager = Manager(
         send_message=client.send_message,
+        stop_client=client.stop_client,
         relay_pins=config.get(OUTPUT, []),
         input_pins=config.get(INPUT, []),
         config_file_path=config_file,

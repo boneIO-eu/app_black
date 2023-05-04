@@ -51,6 +51,7 @@ def ha_light_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     msg["state_value_template"] = "{{ value_json.state }}"
     return msg
 
+
 def ha_led_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     """Create LED availability topic for HA."""
     msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
@@ -64,11 +65,14 @@ def ha_led_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     msg["brightness_value_template"] = "{{ value_json.brightness }}"
     return msg
 
-def ha_button_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+
+def ha_button_availabilty_message(
+    id: str, topic: str = "boneIO", payload_press: str = "reload", **kwargs
+):
     """Create BUTTON availability topic for HA."""
     msg = ha_availabilty_message(device_type="button", topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/button/{id}/set"
-    msg["payload_press"] = "reload"
+    msg["payload_press"] = payload_press
     return msg
 
 

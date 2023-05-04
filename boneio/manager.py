@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set, Union
+from typing import Callable, Coroutine, List, Optional, Set, Union, Awaitable
 from board import SCL, SDA
 from busio import I2C
 
@@ -80,6 +80,7 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
+        stop_client: Callable[[], Awaitable[None]],
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
@@ -92,7 +93,7 @@ class Manager:
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
         oled: dict = {},
-        adc_list: Optional[List] = None,
+        adc: Optional[List] = None,
         cover: list = [],
     ) -> None:
         """Initialize the manager."""
@@ -108,6 +109,7 @@ class Manager:
         self._autodiscovery_messages = []
 
         self.send_message = send_message
+        self.stop_client = stop_client
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
@@ -135,7 +137,7 @@ class Manager:
             create_pca9685(manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio)
         )
 
-        self._configure_adc(adc_list=adc_list)
+        self._configure_adc(adc_list=adc)
 
         for _config in relay_pins:
             _id = _config[ID].replace(" ", "")
@@ -421,6 +423,15 @@ class Manager:
             name="Logger reload",
             ha_type=BUTTON,
             availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
+        )
+        self.send_ha_autodiscovery(
+            id="Restart",
+            name="Restart boneIO",
+            ha_type=BUTTON,
+            payload_press="restart",
+            availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
         )
 
     @property
@@ -566,6 +577,9 @@ class Manager:
             if device_id == "logger" and message == "reload":
                 _LOGGER.info("Reloading logger configuration.")
                 self._logger_reload()
+            elif device_id == "restart" and message == "restart":
+                _LOGGER.info("Exiting process. Systemd should restart it soon.")
+                await self.stop_client()
 
     @property
     def output(self) -> dict:

@@ -14,7 +14,7 @@ from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.helper.exceptions import ConfigurationException
+from boneio.helper.exceptions import ConfigurationException, RestartRequestException
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
 from boneio.version import __version__
@@ -71,9 +71,7 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(
-    config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
-) -> int | None | list[Any]:
+def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "") -> int:
     """Run BoneIO."""
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -90,6 +88,10 @@ def run(
                 mqttpassword=mqttpassword,
             ),
         )
+        return 0
+    except RestartRequestException as err:
+        _LOGGER.info("Restart requested %s.", err)
+        return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1

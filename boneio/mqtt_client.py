@@ -7,7 +7,7 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import Any, Callable, Optional, Set, Tuple, Union
+from typing import Any, Callable, Optional, Set, Tuple, Union, Awaitable
 
 import paho.mqtt.client as mqtt
 from asyncio_mqtt import Client as AsyncioClient
@@ -18,6 +18,8 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 from boneio.const import ONLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
+from boneio.manager import Manager
+from boneio.helper.exceptions import RestartRequestException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -108,17 +110,23 @@ class MQTTClient:
         await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
 
     async def unsubscribe(
-        self, topic: str, properties: Optional[Properties] = None, timeout: float = 10.0
+        self,
+        topics: Tuple[str, str],
+        properties: Optional[Properties] = None,
+        timeout: float = 10.0,
     ) -> None:
         """Unsubscribe from topic.
 
         Can raise asyncio_mqtt.MqttError.
         """
+        args = []
+        for topic in topics:
+            args.append(topic)
         params: dict = {"timeout": timeout}
         if properties:
             params["properties"] = properties
 
-        await self.asyncio_client.unsubscribe(topic, **params)
+        await self.asyncio_client.unsubscribe(topic=args, **params)
 
     def send_message(
         self, topic: str, payload: Union[str, dict], retain: bool = False
@@ -138,7 +146,7 @@ class MQTTClient:
             await self.publish(*to_publish)
             self.publish_queue.task_done()
 
-    async def start_client(self, manager: any) -> None:
+    async def start_client(self, manager: Manager) -> None:
         """Start the client with the manager."""
         # Reconnect automatically until the client is stopped.
         while True:
@@ -155,7 +163,13 @@ class MQTTClient:
                 await asyncio.sleep(self.reconnect_interval)
                 self.create_client()  # reset connect/reconnect futures
 
-    async def _subscribe_manager(self, manager: any) -> None:
+    async def stop_client(self) -> None:
+        await self.unsubscribe(
+            topics=(self._config_helper.subscribe_topic, "homeassistant/status")
+        )
+        raise RestartRequestException("Restart requested.")
+
+    async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             tasks: Set[asyncio.Task] = set()
@@ -190,7 +204,9 @@ class MQTTClient:
             await asyncio.gather(*tasks)
 
 
-async def handle_messages(messages: Any, callback: Callable[[str, str], None]) -> None:
+async def handle_messages(
+    messages: Any, callback: Callable[[str, str], Awaitable[None]]
+) -> None:
     """Handle messages with callback."""
     async for message in messages:
         payload = message.payload.decode()
