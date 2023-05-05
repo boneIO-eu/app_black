@@ -90,7 +90,7 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
         )
         return 0
     except RestartRequestException as err:
-        _LOGGER.info("Restart requested %s.", err)
+        _LOGGER.info(err)
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
