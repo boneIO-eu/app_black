@@ -53,7 +53,7 @@ class GpioInputButton(GpioBaseClass):
             self.check_state(state=self.is_pressed)
             await asyncio.sleep(self._bounce_time.total_in_seconds)
 
-    def check_state(self, state):
+    def check_state(self, state: bool) -> None:
         if state == self._state:
             return
         self._state = state

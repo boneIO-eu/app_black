@@ -1,6 +1,6 @@
 required: False
 type: list
-excludes: ["single", "double", "long"]
+excludes: ["pressed", "released"]
 dependencies:
   kind: ['sensor']
 schema: !include actions.yaml
