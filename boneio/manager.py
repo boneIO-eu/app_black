@@ -106,7 +106,6 @@ class Manager:
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = EventBus(self._loop)
-        self._autodiscovery_messages = []
 
         self.send_message = send_message
         self.stop_client = stop_client
@@ -230,7 +229,6 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
-
         _LOGGER.info("BoneIO manager is ready.")
 
     def configure_inputs(self, reload_config: bool = False):
@@ -419,14 +417,14 @@ class Manager:
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
         self.send_ha_autodiscovery(
-            id="Logger",
+            id="logger",
             name="Logger reload",
             ha_type=BUTTON,
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
         self.send_ha_autodiscovery(
-            id="Restart",
+            id="restart",
             name="Restart boneIO",
             ha_type=BUTTON,
             payload_press="restart",
@@ -499,12 +497,13 @@ class Manager:
         payload = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
-        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self) -> None:
         for msg in self._config_helper.autodiscovery_msgs:
             self.send_message(**msg, retain=True)
+
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""

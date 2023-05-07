@@ -21,11 +21,11 @@ class BasicMqtt:
         self._send_topic = f"{topic_prefix}/{topic_type}/{self.id}"
 
     @property
-    def id(self) -> bool:
+    def id(self) -> str:
         """Id of the module."""
         return self._id
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return name of the sensor."""
         return self._name

@@ -1,9 +1,9 @@
 """
 Module to provide basic config options.
 """
+from __future__ import annotations
 from _collections_abc import dict_values
-
-from boneio.const import BONEIO, HOMEASSISTANT
+from boneio.const import BONEIO, HOMEASSISTANT, LIGHT, SENSOR, COVER, BUTTON, SWITCH, BINARY_SENSOR
 
 
 class ConfigHelper:
@@ -16,7 +16,16 @@ class ConfigHelper:
         self._topic_prefix = topic_prefix
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
-        self._autodiscovery_messages = {}
+        self._fetch_old_discovery = None
+        self._autodiscovery_messages = {
+            SWITCH: {},
+            LIGHT: {},
+            BINARY_SENSOR: {},
+            SENSOR: {},
+            COVER: {},
+            BUTTON: {}
+        }
+        self.manager_ready: bool = False
 
     @property
     def topic_prefix(self) -> str:
@@ -38,11 +47,28 @@ class ConfigHelper:
     def subscribe_topic(self) -> str:
         return f"{self.cmd_topic_prefix}+/+/#"
 
-    def add_autodiscovery_msg(self, topic: str, payload: str):
+    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: str):
         """Add autodiscovery message."""
-        self._autodiscovery_messages[topic] = {"topic": topic, "payload": payload}
+        self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
+
+    @property
+    def ha_types(self) -> list[str]:
+        return list(self._autodiscovery_messages.keys())
+
+    def is_topic_in_autodiscovery(self, topic: str) -> bool:
+        topic_parts_raw = topic[len(f"{self._ha_discovery_prefix}/") :].split("/")
+        ha_type = topic_parts_raw[0]
+        if ha_type in self._autodiscovery_messages:
+            if topic in self._autodiscovery_messages[ha_type]:
+                return True
+        return False
+
+
 
     @property
     def autodiscovery_msgs(self) -> dict_values:
         """Get autodiscovery messages"""
-        return self._autodiscovery_messages.values()
+        output = {}
+        for ha_type in self._autodiscovery_messages:
+            output.update(self._autodiscovery_messages[ha_type])
+        return output.values()
