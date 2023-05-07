@@ -2,8 +2,6 @@ name: Publish BoneIO 🐍 distributions 📦 to PyPI
 
 on:
   push:
-    tags:
-      - v*
     branches:
       - 'main'
       - 'dev'
