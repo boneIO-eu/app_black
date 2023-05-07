@@ -106,9 +106,11 @@ def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
         return msg
 
 
-def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneIO"):
+def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
+    kwargs = {"device_class": device_class} if device_class else {}
     return {
+        **kwargs,
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "device": {
             "identifiers": [topic],

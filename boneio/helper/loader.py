@@ -354,6 +354,7 @@ def configure_input(
                 id=pin,
                 name=gpio.get(ID, pin),
                 ha_type=getattr(input, "ha_type"),
+                device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=getattr(input, "availability_msg_f"),
             )
         return pin
