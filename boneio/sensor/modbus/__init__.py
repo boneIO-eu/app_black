@@ -138,10 +138,10 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
             sensor_id=sensor_id,
             **kwargs,
         )
-        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload, ha_type=SENSOR)
         self._send_message(topic=topic, payload=payload)
 
-    def _send_discovery_for_all_registers(self, register: int = 0) -> bool:
+    def _send_discovery_for_all_registers(self, register: int = 0) -> datetime:
         """Send discovery message to HA for each register."""
         for data in self._db[REGISTERS_BASE]:
             for register in data[REGISTERS]:

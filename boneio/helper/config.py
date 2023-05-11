@@ -3,6 +3,7 @@ Module to provide basic config options.
 """
 from __future__ import annotations
 from _collections_abc import dict_values
+from typing import Union
 from boneio.const import BONEIO, HOMEASSISTANT, LIGHT, SENSOR, COVER, BUTTON, SWITCH, BINARY_SENSOR
 
 
@@ -47,7 +48,7 @@ class ConfigHelper:
     def subscribe_topic(self) -> str:
         return f"{self.cmd_topic_prefix}+/+/#"
 
-    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: str):
+    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: Union[str, dict, None]):
         """Add autodiscovery message."""
         self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
 
