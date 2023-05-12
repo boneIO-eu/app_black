@@ -152,15 +152,14 @@ class Manager:
                 continue
             self._output[_id] = out
             if out.output_type != NONE:
-                if out.output_type in AVAILABILITY_FUNCTION_CHOOSER:
-                    self.send_ha_autodiscovery(
-                        id=out.id,
-                        name=out.name,
-                        ha_type=LIGHT if out.output_type == LED else out.output_type,
-                        availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
-                            out.output_type, ha_switch_availabilty_message
-                        ),
-                    )
+                self.send_ha_autodiscovery(
+                    id=out.id,
+                    name=out.name,
+                    ha_type=LIGHT if out.output_type == LED else out.output_type,
+                    availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
+                        out.output_type, ha_switch_availabilty_message
+                    ),
+                )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
                 0.5,
