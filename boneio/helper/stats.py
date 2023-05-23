@@ -129,7 +129,7 @@ class HostSensor(AsyncUpdater):
     ) -> None:
         self._update_function = update_function
         self._static_data = static_data
-        self._state = None
+        self._state = {}
         self._type = type
         self._manager_callback = manager_callback
         self._loop = asyncio.get_event_loop()
@@ -143,7 +143,7 @@ class HostSensor(AsyncUpdater):
     @property
     def state(self) -> dict:
         if self._static_data:
-            return {**self._static_data, self._type: self._state}
+            return {**self._static_data, **self._state}
         return self._state
 
 
@@ -162,6 +162,7 @@ class HostData:
     ) -> None:
         """Initialize HostData."""
         self._hostname = socket.gethostname()
+        self._temp_sensor = temp_sensor
         host_stats = {
             NETWORK: {"f": get_network_info, "update_interval": TimePeriod(seconds=60)},
             CPU: {"f": get_cpu_info, "update_interval": TimePeriod(seconds=5)},
@@ -169,7 +170,10 @@ class HostData:
             MEMORY: {"f": get_memory_info, "update_interval": TimePeriod(seconds=10)},
             SWAP: {"f": get_swap_info, "update_interval": TimePeriod(seconds=60)},
             UPTIME: {
-                "f": get_uptime,
+                "f": lambda: {
+                    "uptime": get_uptime(),
+                    "temp": f"{self._temp_sensor.state} C"
+                } if self._temp_sensor else {"uptime": get_uptime() },
                 "static": {HOST: self._hostname, "version": __version__},
                 "update_interval": TimePeriod(seconds=30),
             },
@@ -186,7 +190,6 @@ class HostData:
                 type=k,
                 update_interval=_v["update_interval"],
             )
-        self._temp_sensor = temp_sensor
         self._output = output
         self._callback = callback
         self._loop = asyncio.get_running_loop()
