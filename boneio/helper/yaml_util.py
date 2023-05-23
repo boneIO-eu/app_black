@@ -8,7 +8,7 @@ from typing import Any, Tuple
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, load
 
-from boneio.const import COVER, ID, OUTPUT
+from boneio.const import COVER, ID, OUTPUT, TOGGLE
 from boneio.helper.exceptions import ConfigurationException
 from boneio.helper.timeperiod import TimePeriod
 
@@ -79,6 +79,15 @@ class BoneIOLoader(SafeLoader):
                 mapping.update(loaded_yaml)
         return mapping
 
+    def construct_include_files(self, node):
+        files = os.path.join(self._root, self.construct_scalar(node)).split()
+        merged_list = []
+        for fname in files:
+            loaded_yaml = load_yaml_file(fname.strip())
+            if isinstance(loaded_yaml, list):
+                merged_list.extend(loaded_yaml)
+        return merged_list
+
 
 BoneIOLoader.add_constructor("!include", BoneIOLoader.include)
 BoneIOLoader.add_constructor("!secret", BoneIOLoader.construct_secret)
@@ -94,6 +103,7 @@ BoneIOLoader.add_constructor(
 BoneIOLoader.add_constructor(
     "!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named
 )
+BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
 
 
 def filter_yaml_files(files):
@@ -218,10 +228,11 @@ class CustomValidator(Validator):
             return super()._lookup_field(path)
 
     def _check_with_output_id_uniqueness(self, field, value):
-        """Check if outputs ids are unique."""
-        all_ids = [x[ID] for x in self.document[OUTPUT]]
-        if len(all_ids) != len(set(all_ids)):
-            self._error(field, "Output IDs are not unique.")
+        """Check if outputs ids are unique if they exists."""
+        if self.document[OUTPUT] is not None:
+            all_ids = [x[ID] for x in self.document[OUTPUT]]
+            if len(all_ids) != len(set(all_ids)):
+                self._error(field, "Output IDs are not unique.")
 
     def _normalize_coerce_to_bool(self, value):
         return True
@@ -233,7 +244,7 @@ class CustomValidator(Validator):
         return str(value).upper()
 
     def _normalize_coerce_actions_output(self, value):
-        return str(value).lower()
+        return str(value).upper()
 
     def _normalize_coerce_str(self, value):
         return str(value)
@@ -311,4 +322,4 @@ class CustomValidator(Validator):
 
         parent = get_parent()
         if parent["action"] == COVER:
-            return "toggle"
+            return TOGGLE

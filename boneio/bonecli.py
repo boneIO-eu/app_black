@@ -1,9 +1,11 @@
 """Bonecli script."""
+from __future__ import annotations
 import argparse
 import asyncio
 import logging
 import sys
 import os
+from typing import Any
 
 os.environ["W1THERMSENSOR_NO_KERNEL_MODULE"] = "1"
 
@@ -12,7 +14,7 @@ from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
-from boneio.helper.exceptions import ConfigurationException
+from boneio.helper.exceptions import ConfigurationException, RestartRequestException
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
 from boneio.version import __version__
@@ -69,7 +71,7 @@ def get_arguments() -> argparse.Namespace:
     return arguments
 
 
-def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""):
+def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "") -> int:
     """Run BoneIO."""
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:
@@ -78,7 +80,7 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
         configure_logger(log_config=_config.get("logger"), debug=debug)
-        return asyncio.run(
+        asyncio.run(
             async_run(
                 config=_config,
                 config_file=config,
@@ -86,6 +88,10 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
                 mqttpassword=mqttpassword,
             ),
         )
+        return 0
+    except RestartRequestException as err:
+        _LOGGER.info(err)
+        return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
         return 1

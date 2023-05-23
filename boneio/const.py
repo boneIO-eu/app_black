@@ -15,19 +15,23 @@ NONE = "none"
 
 # MISCELLANEOUS CONSTS
 RELAY = "relay"
+LED = "led"
 ON = "ON"
 OFF = "OFF"
+TOGGLE = "TOGGLE"
 STATE = "state"
+BRIGHTNESS = "brightness"
+SET_BRIGHTNESS = "set_brightness"
 ENABLED = "enabled"
 OUTPUT = "output"
 PIN = "pin"
 ID = "id"
 KIND = "kind"
 GPIO = "gpio"
+PCA = "pca"
 GPIO_MODE = "gpio_mode"
 ACTIONS = "actions"
 ACTION = "action"
-OUTPUT = "output"
 SWITCH = "switch"
 LIGHT = "light"
 BUTTON = "button"
@@ -52,7 +56,7 @@ UARTS = {
     "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
-relay_actions = {ON: "turn_on", OFF: "turn_off", "TOGGLE": "toggle"}
+relay_actions = {ON: "turn_on", OFF: "turn_off", TOGGLE: "toggle"}
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
@@ -97,11 +101,13 @@ OFFLINE = "offline"
 TOPIC = "topic"
 TOPIC_PREFIX = "topic_prefix"
 
-# I2C and MCP CONST
+# I2C, PCA and MCP CONST
 ADDRESS = "address"
 MCP23017 = "mcp23017"
+PCA9685 = "pca9685"
 MCP = "mcp"
 MCP_ID = "mcp_id"
+PCA_ID = "pca_id"
 INIT_SLEEP = "init_sleep"
 
 # SENSOR CONST

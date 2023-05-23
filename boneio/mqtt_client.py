@@ -2,12 +2,13 @@
 Provide an MQTT client for providing BoneIO MQTT broker.
 Code based on cgarwood/python-openzwave-mqtt.
 """
+from __future__ import annotations
 import asyncio
 import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import Any, Callable, Optional, Set, Tuple, Union
+from typing import Any, Callable, Optional, Set, Union, Awaitable
 
 import paho.mqtt.client as mqtt
 from asyncio_mqtt import Client as AsyncioClient
@@ -18,6 +19,8 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 from boneio.const import ONLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
+from boneio.manager import Manager
+from boneio.helper.exceptions import RestartRequestException
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +48,8 @@ class MQTTClient:
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
+        self._discovery_topics = [f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/#" for ha_type in self._config_helper.ha_types] if self._config_helper.ha_discovery else []
+        self._topics = [self._config_helper.subscribe_topic, "homeassistant/status"]
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -85,7 +90,7 @@ class MQTTClient:
 
     async def subscribe(  # pylint:disable=too-many-arguments
         self,
-        topics: Tuple[str, str],
+        topics: list[str],
         qos: int = 0,
         options: Optional[SubscribeOptions] = None,
         properties: Optional[Properties] = None,
@@ -108,7 +113,10 @@ class MQTTClient:
         await self.asyncio_client.subscribe(topic=args, **params, timeout=timeout)
 
     async def unsubscribe(
-        self, topic: str, properties: Optional[Properties] = None, timeout: float = 10.0
+        self,
+        topics: list[str],
+        properties: Optional[Properties] = None,
+        timeout: float = 10.0,
     ) -> None:
         """Unsubscribe from topic.
 
@@ -118,10 +126,10 @@ class MQTTClient:
         if properties:
             params["properties"] = properties
 
-        await self.asyncio_client.unsubscribe(topic, **params)
+        await self.asyncio_client.unsubscribe(topic=topics, **params)
 
     def send_message(
-        self, topic: str, payload: Union[str, dict], retain: bool = False
+        self, topic: str, payload: Union[str, dict, None], retain: bool = False
     ) -> None:
         """Send a message from the manager options."""
         to_publish = (
@@ -138,7 +146,7 @@ class MQTTClient:
             await self.publish(*to_publish)
             self.publish_queue.task_done()
 
-    async def start_client(self, manager: any) -> None:
+    async def start_client(self, manager: Manager) -> None:
         """Start the client with the manager."""
         # Reconnect automatically until the client is stopped.
         while True:
@@ -155,7 +163,13 @@ class MQTTClient:
                 await asyncio.sleep(self.reconnect_interval)
                 self.create_client()  # reset connect/reconnect futures
 
-    async def _subscribe_manager(self, manager: any) -> None:
+    async def stop_client(self) -> None:
+        await self.unsubscribe(
+            topics=self._topics
+        )
+        raise RestartRequestException("Restart requested.")
+
+    async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
             tasks: Set[asyncio.Task] = set()
@@ -170,11 +184,11 @@ class MQTTClient:
 
             # Messages that doesn't match a filter will get logged and handled here.
             messages = await stack.enter_async_context(
-                self.asyncio_client.unfiltered_messages()
+                self.asyncio_client.messages()
             )
 
             messages_task = asyncio.create_task(
-                handle_messages(messages, manager.receive_message)
+                self.handle_messages(messages, manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
@@ -183,16 +197,28 @@ class MQTTClient:
             tasks.add(messages_task)
 
             await self.subscribe(
-                topics=(self._config_helper.subscribe_topic, "homeassistant/status")
+                topics=self._topics
+            )
+            await self.subscribe(
+                topics=self._discovery_topics
             )
 
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
 
-
-async def handle_messages(messages: Any, callback: Callable[[str, str], None]) -> None:
-    """Handle messages with callback."""
-    async for message in messages:
-        payload = message.payload.decode()
-        _LOGGER.debug("Received message topic: %s, payload: %s", message.topic, payload)
-        await callback(message.topic, payload)
+    async def handle_messages(self, messages: Any, callback: Callable[[str, str], Awaitable[None]]):
+        """Handle messages with callback or remove osbolete HA discovery messages."""
+        async for message in messages:
+            payload = message.payload.decode()
+            callback_start = True
+            for discovery_topic in self._discovery_topics:
+                if message.topic.matches(discovery_topic):
+                    callback_start = False
+                    topic = str(message.topic)
+                    if message.payload and not self._config_helper.is_topic_in_autodiscovery(topic):
+                        _LOGGER.info("Removing unused discovery entity %s", topic)
+                        self.send_message(topic=topic, payload=None, retain=True)
+                    break
+            if callback_start:
+                _LOGGER.debug("Received message topic: %s, payload: %s", message.topic, payload)
+                await callback(str(message.topic), payload)

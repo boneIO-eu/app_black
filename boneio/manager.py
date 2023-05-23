@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set, Union
+from typing import Callable, Coroutine, List, Optional, Set, Union, Awaitable
 from board import SCL, SDA
 from busio import I2C
 
@@ -34,6 +34,9 @@ from boneio.const import (
     InputTypes,
     relay_actions,
     DS2482,
+    LIGHT,
+    LED,
+    SET_BRIGHTNESS,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -43,6 +46,7 @@ from boneio.helper import (
     ha_button_availabilty_message,
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
+    ha_led_availabilty_message,
 )
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
@@ -53,6 +57,7 @@ from boneio.helper.loader import (
     configure_relay,
     create_dallas_sensor,
     create_mcp23017,
+    create_pca9685,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
@@ -63,6 +68,11 @@ from w1thermsensor.errors import KernelModuleLoadError
 
 _LOGGER = logging.getLogger(__name__)
 
+AVAILABILITY_FUNCTION_CHOOSER = {
+    LIGHT: ha_light_availabilty_message,
+    LED: ha_led_availabilty_message,
+}
+
 
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
@@ -70,36 +80,39 @@ class Manager:
     def __init__(
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
+        stop_client: Callable[[], Awaitable[None]],
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
         relay_pins: List = [],
         input_pins: List = [],
         sensors: dict = {},
-        modbus: dict = None,
-        mcp23017: Optional[List] = None,
+        modbus: dict = {},
+        pca9685: list = [],
+        mcp23017: list = [],
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
         oled: dict = {},
-        adc_list: Optional[List] = None,
-        covers: Optional[List] = [],
+        adc: Optional[List] = None,
+        cover: list = [],
     ) -> None:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
 
         self._loop = asyncio.get_event_loop()
-        used_pins = set()
+
         self._config_helper = config_helper
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
         self._event_bus = EventBus(self._loop)
-        self._autodiscovery_messages = []
 
         self.send_message = send_message
+        self.stop_client = stop_client
         self._input_pins = input_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
+        self._pca = {}
         self._output = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
@@ -119,8 +132,11 @@ class Manager:
         self.grouped_outputs = create_mcp23017(
             manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
         )
+        self.grouped_outputs.update(
+            create_pca9685(manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio)
+        )
 
-        self._configure_adc(adc_list=adc_list)
+        self._configure_adc(adc_list=adc)
 
         for _config in relay_pins:
             _id = _config[ID].replace(" ", "")
@@ -139,10 +155,10 @@ class Manager:
                 self.send_ha_autodiscovery(
                     id=out.id,
                     name=out.name,
-                    ha_type=out.output_type,
-                    availability_msg_func=ha_light_availabilty_message
-                    if out.is_light
-                    else ha_switch_availabilty_message,
+                    ha_type=LIGHT if out.output_type == LED else out.output_type,
+                    availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
+                        out.output_type, ha_switch_availabilty_message
+                    ),
                 )
             self._loop.call_soon_threadsafe(
                 self._loop.call_later,
@@ -150,7 +166,7 @@ class Manager:
                 out.send_state,
             )
 
-        for _config in covers:
+        for _config in cover:
             _id = _config[ID].replace(" ", "")
             open_relay = self._output.get(_config.get("open_relay"))
             close_relay = self._output.get(_config.get("close_relay"))
@@ -188,24 +204,12 @@ class Manager:
             )
 
         _LOGGER.info("Initializing inputs. This will take a while.")
-        for gpio in self._input_pins:
-            pin = gpio.pop(PIN)
-            if pin in used_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
-                continue
-            used_pins.add(
-                configure_input(
-                    gpio=gpio,
-                    pin=pin,
-                    press_callback=self.press_callback,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                )
-            )
+        self.configure_inputs(reload_config=False)
 
         if oled.get("enabled", False):
             from boneio.oled import Oled
 
-            screens = oled.get("screens")
+            screens = oled.get("screens", [])
 
             self._host_data = HostData(
                 manager=self,
@@ -224,8 +228,25 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
-
         _LOGGER.info("BoneIO manager is ready.")
+
+    def configure_inputs(self, reload_config: bool = False):
+        used_pins = set()
+        if reload_config:
+            load_config_from_file(self._config_file_path)
+        for gpio in self._input_pins:
+            pin = gpio.pop(PIN)
+            if pin in used_pins:
+                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
+                continue
+            used_pins.add(
+                configure_input(
+                    gpio=gpio,
+                    pin=pin,
+                    press_callback=self.press_callback,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                )
+            )
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Future:
         """Add task to run with asyncio loop."""
@@ -321,20 +342,22 @@ class Manager:
             )
 
     def _configure_modbus(self, modbus: dict) -> None:
-        if modbus and modbus.get(UART) in UARTS:
+        uart = modbus.get(UART)
+        if uart and uart in UARTS:
             try:
-                self._modbus = Modbus(UARTS[modbus.get(UART)])
+                self._modbus = Modbus(UARTS[uart])
             except ModbusUartException:
                 _LOGGER.error(
                     "This UART %s can't be used for modbus communication.",
-                    modbus.get(UART),
+                    uart,
                 )
                 self._modbus = None
 
     def _configure_temp_sensors(self, sensors: dict) -> None:
         for sensor_type in (LM75, MCP_TEMP_9808):
-            if sensors.get(sensor_type):
-                for temp_def in sensors.get(sensor_type):
+            sensor = sensors.get(sensor_type)
+            if sensor:
+                for temp_def in sensor:
                     temp_sensor = create_temp_sensor(
                         manager=self,
                         topic_prefix=self._config_helper.topic_prefix,
@@ -393,10 +416,19 @@ class Manager:
     def prepare_ha_buttons(self) -> None:
         """Prepare HA buttons for reload."""
         self.send_ha_autodiscovery(
-            id="Logger",
+            id="logger",
             name="Logger reload",
             ha_type=BUTTON,
             availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
+        )
+        self.send_ha_autodiscovery(
+            id="restart",
+            name="Restart boneIO",
+            ha_type=BUTTON,
+            payload_press="restart",
+            availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
         )
 
     @property
@@ -404,13 +436,18 @@ class Manager:
         """Get MCP by it's id."""
         return self._mcp
 
+    @property
+    def pca(self):
+        """Get PCA by it's id."""
+        return self._pca
+
     def press_callback(
         self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
-        self.send_message(topic=topic, payload=x)
+        self.send_message(topic=topic, payload=x, retain=False)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] == OUTPUT:
@@ -418,13 +455,18 @@ class Manager:
                 if not device:
                     continue
                 relay = self._output.get(device.replace(" ", ""))
-                if relay:
-                    getattr(relay, action_definition["action_output"])()
+                action = relay_actions.get(action_definition["action_output"])
+                if relay and action:
+                    getattr(relay, action)()
+                else:
+                    _LOGGER.warn("PIN %s for action not found", device)
             elif action_definition[ACTION] == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
                 if action_topic and action_payload:
-                    self.send_message(topic=action_topic, payload=action_payload)
+                    self.send_message(
+                        topic=action_topic, payload=action_payload, retain=False
+                    )
             elif action_definition[ACTION] == COVER:
                 device = action_definition.get(PIN)
                 if not device:
@@ -454,12 +496,13 @@ class Manager:
         payload = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
-        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload)
+        self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self) -> None:
         for msg in self._config_helper.autodiscovery_msgs:
             self.send_message(**msg, retain=True)
+
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
@@ -485,7 +528,6 @@ class Manager:
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
-
         if msg_type == RELAY and command == "set":
             target_device = self._output.get(device_id)
 
@@ -495,6 +537,16 @@ class Manager:
                     getattr(target_device, action_from_msg)()
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
+        elif msg_type == RELAY and command == SET_BRIGHTNESS:
+            target_device = self._output.get(device_id)
+            if (
+                target_device
+                and target_device.output_type != NONE
+                and message is not ""
+            ):
+                target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == COVER:
@@ -523,6 +575,9 @@ class Manager:
             if device_id == "logger" and message == "reload":
                 _LOGGER.info("Reloading logger configuration.")
                 self._logger_reload()
+            elif device_id == "restart" and message == "restart":
+                _LOGGER.info("Exiting process. Systemd should restart it soon.")
+                await self.stop_client()
 
     @property
     def output(self) -> dict:

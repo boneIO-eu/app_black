@@ -23,6 +23,8 @@ schema:
     default_setter: toggle_cover
     dependencies:
       action: ['cover']
+    coerce:
+      - actions_output
     meta:
       label: If cover action chosen then what action to perform.
   action_output:
@@ -32,7 +34,6 @@ schema:
     dependencies:
       action: ['output']
     coerce:
-      - lower
       - actions_output
     meta:
       label: If output action chosen then what action to perform.

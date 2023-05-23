@@ -1,7 +1,9 @@
 """Runner code for boneIO. Based on HA runner."""
+from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import Any
 
 from boneio.const import (
     ADC,
@@ -14,6 +16,7 @@ from boneio.const import (
     INPUT,
     LM75,
     MCP23017,
+    PCA9685,
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
@@ -33,13 +36,24 @@ from boneio.mqtt_client import MQTTClient
 
 _LOGGER = logging.getLogger(__name__)
 
+config_modules = [
+    {"name": MCP23017, "default": []},
+    {"name": PCA9685, "default": []},
+    {"name": DS2482, "default": []},
+    {"name": ADC, "default": []},
+    {"name": COVER, "default": []},
+    {"name": MODBUS, "default": {}},
+    {"name": OLED, "default": {}},
+    {"name": DALLAS, "default": None},
+]
+
 
 async def async_run(
     config: dict,
     config_file: str,
     mqttusername: str = "",
     mqttpassword: str = "",
-):
+) -> list[Any]:
     """Run BoneIO."""
 
     _config_helper = ConfigHelper(
@@ -55,9 +69,14 @@ async def async_run(
         port=config[MQTT].get(PORT, 1883),
         config_helper=_config_helper,
     )
+    manager_kwargs = {
+        item["name"]: config.get(item["name"], item["default"])
+        for item in config_modules
+    }
 
     manager = Manager(
         send_message=client.send_message,
+        stop_client=client.stop_client,
         relay_pins=config.get(OUTPUT, []),
         input_pins=config.get(INPUT, []),
         config_file_path=config_file,
@@ -71,13 +90,7 @@ async def async_run(
             MODBUS: config.get("modbus_sensors"),
             ONEWIRE: config.get(SENSOR, []),
         },
-        mcp23017=config.get(MCP23017, []),
-        ds2482=config.get(DS2482, []),
-        dallas=config.get(DALLAS),
-        modbus=config.get(MODBUS),
-        oled=config.get(OLED),
-        adc_list=config.get(ADC, []),
-        covers=config.get(COVER, []),
+        **manager_kwargs,
     )
     tasks = set()
     tasks.update(manager.get_tasks())

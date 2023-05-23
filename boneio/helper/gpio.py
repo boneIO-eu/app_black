@@ -67,7 +67,7 @@ def write_output(pin: str, value: str) -> None:
     GPIO.output(pin, value)
 
 
-def read_input(pin: str, on_state: Gpio_States = LOW) -> None:
+def read_input(pin: str, on_state: Gpio_States = LOW) -> bool:
     """Read a value from a GPIO."""
     return GPIO.input(pin) is on_state
 
@@ -97,6 +97,6 @@ class GpioBaseClass:
         setup_input(pin=self._pin, pull_mode=gpio_mode)
 
     @property
-    def is_pressed(self):
+    def is_pressed(self) -> bool:
         """Is button pressed."""
         return read_input(self._pin)

@@ -6,6 +6,7 @@ from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
+from adafruit_pca9685 import PCA9685
 
 from boneio.const import (
     ACTIONS,
@@ -15,6 +16,7 @@ from boneio.const import (
     DEVICE_CLASS,
     FILTERS,
     GPIO,
+    PCA,
     ID,
     INIT_SLEEP,
     INPUT,
@@ -23,6 +25,7 @@ from boneio.const import (
     LM75,
     MCP,
     MCP_ID,
+    PCA_ID,
     MCP_TEMP_9808,
     MODEL,
     NONE,
@@ -38,6 +41,7 @@ from boneio.const import (
 from boneio.cover import Cover
 from boneio.helper import (
     GPIOInputException,
+    GPIOOutputException,
     I2CError,
     StateManager,
     ha_adc_sensor_availabilty_message,
@@ -64,7 +68,7 @@ if TYPE_CHECKING:
 
 from busio import I2C
 
-from boneio.relay import GpioRelay, MCPRelay
+from boneio.relay import GpioRelay, MCPRelay, PWMPCA
 from boneio.sensor import GpioADCSensor, initialize_adc
 from boneio.sensor.gpio import GpioInputSensor
 
@@ -167,6 +171,30 @@ def create_mcp23017(
     return grouped_outputs
 
 
+def create_pca9685(
+    manager: Manager,
+    pca9685: list,
+    i2cbusio: I2C,
+) -> dict:
+    """Create MCP23017."""
+    grouped_outputs = {}
+    for pca in pca9685:
+        id = pca[ID] or pca[ADDRESS]
+        try:
+            manager._pca[id] = PCA9685(i2c_bus=i2cbusio, address=pca[ADDRESS])
+            manager._pca[id].frequency = 500
+            sleep_time = pca.get(INIT_SLEEP, TimePeriod(seconds=0))
+            _LOGGER.debug(
+                f"Sleeping for {sleep_time.total_seconds}s while PCA {id} is initializing."
+            )
+            time.sleep(sleep_time.total_seconds)
+            grouped_outputs[id] = {}
+        except TimeoutError as err:
+            _LOGGER.error("Can't connect to PCA %s. %s", id, err)
+            pass
+    return grouped_outputs
+
+
 def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
     """Create Modbus sensor for each device."""
     from boneio.sensor.modbus import ModbusSensor
@@ -197,12 +225,18 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
 OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind output_id")
 
 
-def output_chooser(output_kind: str, mcp_id: str | None):
+def output_chooser(output_kind: str, config):
     """Get named tuple based on input."""
     if output_kind == MCP:
-        return OutputEntry(MCPRelay, MCP, mcp_id)
-    else:
+        output_id = config.pop(MCP_ID, None)
+        return OutputEntry(MCPRelay, MCP, output_id)
+    elif output_kind == GPIO:
         return OutputEntry(GpioRelay, GPIO, GPIO)
+    elif output_kind == PCA:
+        output_id = config.pop(PCA_ID, None)
+        return OutputEntry(PWMPCA, PCA, output_id)
+    else:
+        raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
 
 
 def configure_relay(
@@ -225,9 +259,7 @@ def configure_relay(
         state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
         restored_state = False
 
-    output = output_chooser(
-        output_kind=config.pop(KIND), mcp_id=config.pop(MCP_ID, None)
-    )
+    output = output_chooser(output_kind=config.pop(KIND), config=config)
 
     if getattr(output, "output_kind") == MCP:
         mcp = manager.mcp.get(getattr(output, "output_id"))
@@ -240,6 +272,17 @@ def configure_relay(
             "mcp_id": getattr(output, "output_id"),
             "output_type": output_type,
         }
+    elif getattr(output, "output_kind") == PCA:
+        pca = manager.pca.get(getattr(output, "output_id"))
+        if not pca:
+            _LOGGER.error("No such PCA configured!")
+            return None
+        kwargs = {
+            "pin": int(config.pop(PIN)),
+            "pca": pca,
+            "pca_id": getattr(output, "output_id"),
+            "output_type": output_type,
+        }
     elif getattr(output, "output_kind") == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
@@ -247,7 +290,11 @@ def configure_relay(
             "pin": config.pop(PIN),
         }
     else:
+        _LOGGER.error(
+            "Output kind: %s is not configured", getattr(output, "output_kind")
+        )
         return
+
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
@@ -307,6 +354,7 @@ def configure_input(
                 id=pin,
                 name=gpio.get(ID, pin),
                 ha_type=getattr(input, "ha_type"),
+                device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=getattr(input, "availability_msg_f"),
             )
         return pin

@@ -44,9 +44,13 @@ class TempSensor(BasicMqtt, AsyncUpdater, Filter):
 
     def update(self, time: datetime) -> None:
         """Fetch temperature periodically and send to MQTT."""
-        _temp = self._pct.temperature
-        _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
-        _temp = self._apply_filters(value=self._pct.temperature)
+        try:
+            _temp = self._pct.temperature
+            _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
+            _temp = self._apply_filters(value=self._pct.temperature)
+        except RuntimeError as err:
+            _temp = None
+            _LOGGER.error("Sensor error: %s %s", err, self.id)
         if _temp is None:
             return
         self._state = _temp

@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 
 from adafruit_ds18x20 import DS18X20
-from w1thermsensor import SensorNotReadyError
+from w1thermsensor import SensorNotReadyError, NoSensorFoundError
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
@@ -74,3 +74,5 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
             )
         except SensorNotReadyError as err:
             _LOGGER.error("Sensor not ready, can't update %s", err)
+        except NoSensorFoundError as err:
+            _LOGGER.error("Sensor not found, can't update %s", err)

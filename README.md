@@ -4,7 +4,7 @@ boneio run -dd -c config.yaml
 # Installation instructions
 
 ```
-sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv
+sudo apt-get install libopenjp2-7-dev libatlas-base-dev python3-venv libjpeg-dev zlib1g-dev
 mkdir ~/boneio
 python3 -m venv ~/boneio/venv
 source ~/boneio/venv/bin/activate

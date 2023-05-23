@@ -45,18 +45,34 @@ def ha_availabilty_message(
 def ha_light_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     """Create LIGHT availability topic for HA."""
     msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/relay/{id}/set"
+    msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["state_value_template"] = "{{ value_json.state }}"
     return msg
 
 
-def ha_button_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+def ha_led_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+    """Create LED availability topic for HA."""
+    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
+    msg["brightness_state_topic"] = f"{topic}/{RELAY}/{id}"
+    msg["brightness_command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set_brightness"
+    msg["brightness_scale"] = 65535
+    msg["payload_off"] = OFF
+    msg["payload_on"] = ON
+    msg["state_value_template"] = "{{ value_json.state }}"
+    msg["brightness_value_template"] = "{{ value_json.brightness }}"
+    return msg
+
+
+def ha_button_availabilty_message(
+    id: str, topic: str = "boneIO", payload_press: str = "reload", **kwargs
+):
     """Create BUTTON availability topic for HA."""
     msg = ha_availabilty_message(device_type="button", topic=topic, id=id, **kwargs)
     msg["command_topic"] = f"{topic}/cmd/button/{id}/set"
-    msg["payload_press"] = "reload"
+    msg["payload_press"] = payload_press
     return msg
 
 
@@ -90,9 +106,11 @@ def ha_sensor_availabilty_message(unit_of_measurement: str = None, **kwargs):
         return msg
 
 
-def ha_binary_sensor_availabilty_message(id: str, name: str, topic: str = "boneIO"):
+def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, topic: str = "boneIO"):
     """Create availability topic for HA."""
+    kwargs = {"device_class": device_class} if device_class else {}
     return {
+        **kwargs,
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "device": {
             "identifiers": [topic],
