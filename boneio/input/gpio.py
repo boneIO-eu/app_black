@@ -2,7 +2,6 @@
 from __future__ import annotations
 import logging
 import asyncio
-from datetime import timedelta
 from functools import partial
 from boneio.const import DOUBLE, LONG, SINGLE, ClickTypes
 from boneio.helper import GpioBaseClass, ClickTimer
@@ -10,9 +9,8 @@ from boneio.helper import GpioBaseClass, ClickTimer
 
 # TIMINGS FOR BUTTONS
 
-DEBOUNCE_DURATION = timedelta(microseconds=150000)
 DOUBLE_CLICK_DURATION_MS = 350
-LONG_PRESS_DURATION_MS = 700
+LONG_PRESS_DURATION_MS = 600
 
 _LOGGER = logging.getLogger(__name__)
 
