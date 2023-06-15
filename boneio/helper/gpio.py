@@ -80,6 +80,24 @@ def edge_detect(
         GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
     except RuntimeError as err:
         raise GPIOInputException(err)
+    
+def add_event_detect(
+    pin: str, edge: Gpio_Edges = FALLING
+) -> None:
+    """Add detection for RISING and FALLING events."""
+    try:
+        GPIO.add_event_detect(gpio=pin, edge=edge)
+    except RuntimeError as err:
+        raise GPIOInputException(err)
+    
+def add_event_callback(
+    pin: str, callback: Callable
+) -> None:
+    """Add detection for RISING and FALLING events."""
+    try:
+        GPIO.add_event_callback(gpio=pin,callback=callback)
+    except RuntimeError as err:
+        raise GPIOInputException(err)
 
 
 class GpioBaseClass:
@@ -91,7 +109,7 @@ class GpioBaseClass:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        self._bounce_time = kwargs.get("bounce_time", TimePeriod(milliseconds=120))
+        self._bounce_time = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
         setup_input(pin=self._pin, pull_mode=gpio_mode)
