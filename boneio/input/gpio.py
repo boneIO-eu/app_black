@@ -12,7 +12,6 @@ from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 
-PERIOD_TO_WAIT_FOR_SECOND_PRESS_MS = 30
 DOUBLE_CLICK_DURATION_MS = 250
 LONG_PRESS_DURATION_MS = 500
 
@@ -25,15 +24,16 @@ class GpioInputButton(GpioBaseClass):
         self._state = self.is_pressed
         self.button_pressed_time = 0.0
         self._debounce_time: float = self._bounce_time.total_in_seconds
+        self._period_to_wait_for_2nd_click: float = self._debounce_time
 
         self._timer_single = ClickTimer(
-            delay=TimePeriod(milliseconds=PERIOD_TO_WAIT_FOR_SECOND_PRESS_MS),
+            delay=TimePeriod(milliseconds=self._period_to_wait_for_2nd_click),
             action=lambda x: self.press_callback(click_type=SINGLE),
         )
 
         self._timer_double = ClickTimer(
             delay=TimePeriod(milliseconds=DOUBLE_CLICK_DURATION_MS),
-            action=lambda x: self.double_click_press_callback(),
+            action=lambda x: None,
         )
         self._timer_long = ClickTimer(
             delay=TimePeriod(milliseconds=LONG_PRESS_DURATION_MS),
@@ -47,10 +47,6 @@ class GpioInputButton(GpioBaseClass):
         add_event_callback(pin=self._pin, callback=self.check_state)
         _LOGGER.debug("Configured listening for input pin %s", self._pin)
 
-    def double_click_press_callback(self):
-        self._is_waiting_for_second_click = False
-        if not self._state and not self._timer_long.is_waiting():
-            self.press_callback(click_type=SINGLE)
 
     def check_state(self, channel) -> None:
         self._state = self.is_pressed
@@ -63,7 +59,6 @@ class GpioInputButton(GpioBaseClass):
                 if self._timer_double.is_waiting():
                     self._double_click_ran = True
                     self.press_callback(click_type=DOUBLE)
-                    self._is_waiting_for_second_click = False
                     return
                 else:
                     self._timer_double.start_timer()
@@ -79,6 +74,7 @@ class GpioInputButton(GpioBaseClass):
             self._double_click_ran = False
 
     def reset_all_timers(self) -> None:
+        self._is_waiting_for_second_click = False
         self._timer_single.reset()
         self._timer_double.reset()
         self._timer_long.reset()
