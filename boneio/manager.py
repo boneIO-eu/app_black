@@ -456,10 +456,14 @@ class Manager:
                     continue
                 relay = self._output.get(device.replace(" ", ""))
                 action = relay_actions.get(action_definition["action_output"])
+                print("reya", relay, action)
                 if relay and action:
                     getattr(relay, action)()
                 else:
-                    _LOGGER.warn("PIN %s for action not found", device)
+                    if not action:
+                        _LOGGER.warn("Action doesn't exists %s. Check spelling", action)
+                    if not relay:
+                        _LOGGER.warn("PIN %s for action not found", device)
             elif action_definition[ACTION] == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
