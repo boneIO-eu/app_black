@@ -80,7 +80,8 @@ class GpioInputButton(GpioBaseClass):
         self._timer_long.reset()
 
     def press_callback(self, click_type: ClickTypes):
+        _LOGGER.debug("Detected press %s", click_type)
         self.reset_all_timers()
-        self._loop.call_soon(
+        self._loop.call_soon_threadsafe(
             partial(self._press_callback, click_type, self._pin)
         )
