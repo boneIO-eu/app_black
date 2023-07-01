@@ -26,11 +26,12 @@ def initialize_adc():
 class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
     """Represent Gpio ADC sensor."""
 
-    def __init__(self, pin: str, **kwargs) -> None:
+    def __init__(self, pin: str, filters: list, **kwargs) -> None:
         """Setup GPIO ADC Sensor"""
         super().__init__(topic_type=SENSOR, **kwargs)
         self._pin = pin
         self._state = None
+        self._filters = filters
         AsyncUpdater.__init__(self, **kwargs)
         _LOGGER.debug("Configured sensor pin %s", self._pin)
 
