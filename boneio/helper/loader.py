@@ -94,6 +94,7 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
                 update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
                 manager.send_ha_autodiscovery(
