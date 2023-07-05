@@ -417,6 +417,7 @@ adc:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
+      filters: !include filters_adc.yaml
 cover:
   type: list
   required: False
