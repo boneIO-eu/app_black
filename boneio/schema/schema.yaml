@@ -354,7 +354,7 @@ input:
           - str
           - positive_time_period
         required: True
-        default: "50ms"
+        default: "120ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:

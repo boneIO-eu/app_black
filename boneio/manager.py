@@ -456,7 +456,6 @@ class Manager:
                     continue
                 relay = self._output.get(device.replace(" ", ""))
                 action = relay_actions.get(action_definition["action_output"])
-                print("reya", relay, action)
                 if relay and action:
                     getattr(relay, action)()
                 else:
