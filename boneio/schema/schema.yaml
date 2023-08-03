@@ -402,6 +402,13 @@ event_sensor:
         allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
+      detection_type:
+        type: string
+        required: True
+        default: "stable"
+        allowed: ["stable", "beta"]
+        meta:
+          label: There are 2 detector algorithms. Stable consumes more CPU. Beta is more optimized, but needed extra time for testing.
       bounce_time:
         type:
           - string

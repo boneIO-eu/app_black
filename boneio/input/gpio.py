@@ -1,4 +1,4 @@
-"""GPIOInputButton to receive signals."""
+"""GpioEventButton to receive signals."""
 from __future__ import annotations
 import logging
 import asyncio
@@ -15,14 +15,14 @@ LONG_PRESS_DURATION_MS = 600
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputButton(GpioBaseClass):
+class GpioEventButton(GpioBaseClass):
     """Represent Gpio input switch."""
 
     def __init__(self, **kwargs) -> None:
         """Setup GPIO Input Button"""
         super().__init__(**kwargs)
         self._state = self.is_pressed
-        _LOGGER.debug("Configured listening for input pin %s", self._pin)
+        _LOGGER.debug("Configured stable listening for input pin %s", self._pin)
         self._timer_double = ClickTimer(
             delay=TimePeriod(milliseconds=DOUBLE_CLICK_DURATION_MS),
             action=lambda x: self.double_click_press_callback(),

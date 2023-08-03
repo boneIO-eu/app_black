@@ -59,7 +59,7 @@ from boneio.helper.onewire import (
 )
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
-from boneio.input.gpio import GpioEventButton
+from boneio.input import GpioEventButton, GpioEventButtonBeta
 from boneio.sensor import DallasSensorDS2482
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -340,7 +340,8 @@ def configure_event_sensor(
 ) -> str:
     """Configure input sensor or button."""
     try:
-        GpioEventButton(
+        GpioEventButtonClass = GpioEventButton if gpio.get("detection_type", "stable") == "stable" else GpioEventButtonBeta
+        GpioEventButtonClass(
             pin=pin,
             press_callback=lambda x, i: press_callback(
                 x=x,
