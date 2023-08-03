@@ -11,8 +11,7 @@ from contextlib import AsyncExitStack
 from typing import Any, Callable, Optional, Set, Union, Awaitable
 
 import paho.mqtt.client as mqtt
-from asyncio_mqtt import Client as AsyncioClient
-from asyncio_mqtt import MqttError, Will
+from aiomqtt import Client as AsyncioClient, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
