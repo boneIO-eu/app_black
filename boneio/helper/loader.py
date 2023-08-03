@@ -37,6 +37,7 @@ from boneio.const import (
     SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
+    EVENT_ENTITY
 )
 from boneio.cover import Cover
 from boneio.helper import (
@@ -46,7 +47,7 @@ from boneio.helper import (
     StateManager,
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
-    ha_input_availabilty_message,
+    ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.onewire import (
@@ -58,7 +59,7 @@ from boneio.helper.onewire import (
 )
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
-from boneio.input.gpio import GpioInputButton
+from boneio.input.gpio import GpioEventButton
 from boneio.sensor import DallasSensorDS2482
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -70,7 +71,7 @@ from busio import I2C
 
 from boneio.relay import GpioRelay, MCPRelay, PWMPCA
 from boneio.sensor import GpioADCSensor, initialize_adc
-from boneio.sensor.gpio import GpioInputSensor
+from boneio.sensor.gpio import GpioInputBinarySensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -322,16 +323,16 @@ def input_chooser(input_type: str):
     """Get named tuple based on input."""
     if input_type == SENSOR:
         return InputEntry(
-            GpioInputSensor,
+            GpioInputBinarySensor,
             INPUT_SENSOR,
             BINARY_SENSOR,
             ha_binary_sensor_availabilty_message,
         )
     else:
-        return InputEntry(GpioInputButton, INPUT, SENSOR, ha_input_availabilty_message)
+        return InputEntry(GpioEventButton, INPUT, EVENT_ENTITY, ha_event_availabilty_message)
 
 
-def configure_input(
+def configure_event_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
@@ -339,14 +340,13 @@ def configure_input(
 ) -> str:
     """Configure input sensor or button."""
     try:
-        input = input_chooser(input_type=gpio.get(KIND))
-        getattr(input, "InputClass")(
+        GpioEventButton(
             pin=pin,
             press_callback=lambda x, i: press_callback(
                 x=x,
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
-                input_type=getattr(input, "input_type"),
+                input_type=INPUT,
             ),
             **gpio,
         )
@@ -354,15 +354,45 @@ def configure_input(
             send_ha_autodiscovery(
                 id=pin,
                 name=gpio.get(ID, pin),
-                ha_type=getattr(input, "ha_type"),
+                ha_type=EVENT_ENTITY,
                 device_class=gpio.get(DEVICE_CLASS, None),
-                availability_msg_func=getattr(input, "availability_msg_f"),
+                availability_msg_func=ha_event_availabilty_message,
             )
         return pin
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
 
+def configure_binary_sensor(
+    gpio: dict,
+    pin: str,
+    press_callback: Callable,
+    send_ha_autodiscovery: Callable,
+) -> str:
+    """Configure input sensor or button."""
+    try:
+        GpioInputBinarySensor(
+            pin=pin,
+            press_callback=lambda x, i: press_callback(
+                x=x,
+                inpin=i,
+                actions=gpio.get(ACTIONS, {}).get(x, []),
+                input_type=INPUT_SENSOR,
+            ),
+            **gpio,
+        )
+        if gpio.get(SHOW_HA, True):
+            send_ha_autodiscovery(
+                id=pin,
+                name=gpio.get(ID, pin),
+                ha_type=BINARY_SENSOR,
+                device_class=gpio.get(DEVICE_CLASS, None),
+                availability_msg_func=ha_binary_sensor_availabilty_message,
+            )
+        return pin
+    except GPIOInputException as err:
+        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
+        pass
 
 def configure_cover(
     manager: Manager,

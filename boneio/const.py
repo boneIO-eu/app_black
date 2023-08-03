@@ -112,6 +112,7 @@ INIT_SLEEP = "init_sleep"
 
 # SENSOR CONST
 TEMPERATURE = "temperature"
+EVENT_ENTITY = "event"
 SENSOR = "sensor"
 BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"

@@ -4,7 +4,7 @@ Module to provide basic config options.
 from __future__ import annotations
 from _collections_abc import dict_values
 from typing import Union
-from boneio.const import BONEIO, HOMEASSISTANT, LIGHT, SENSOR, COVER, BUTTON, SWITCH, BINARY_SENSOR
+from boneio.const import BONEIO, HOMEASSISTANT, LIGHT, SENSOR, COVER, BUTTON, SWITCH, BINARY_SENSOR, EVENT_ENTITY
 
 
 class ConfigHelper:
@@ -24,7 +24,8 @@ class ConfigHelper:
             BINARY_SENSOR: {},
             SENSOR: {},
             COVER: {},
-            BUTTON: {}
+            BUTTON: {},
+            EVENT_ENTITY: {}
         }
         self.manager_ready: bool = False
 

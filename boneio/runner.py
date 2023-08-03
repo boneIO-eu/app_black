@@ -78,7 +78,8 @@ async def async_run(
         send_message=client.send_message,
         stop_client=client.stop_client,
         relay_pins=config.get(OUTPUT, []),
-        input_pins=config.get(INPUT, []),
+        event_pins=config.get("event_sensor", []),
+        binary_pins=config.get("binary_sensor", []),
         config_file_path=config_file,
         state_manager=StateManager(
             state_file=f"{os.path.split(config_file)[0]}state.json"

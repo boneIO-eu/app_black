@@ -1,5 +1,5 @@
 """Input classes."""
 
-from boneio.input.gpio import GpioInputButton
+from boneio.input.gpio import GpioEventButton
 
-__all__ = ["GpioInputButton"]
+__all__ = ["GpioEventButton"]

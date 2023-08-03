@@ -53,7 +53,8 @@ from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.loader import (
     configure_cover,
-    configure_input,
+    configure_event_sensor,
+    configure_binary_sensor,
     configure_relay,
     create_dallas_sensor,
     create_mcp23017,
@@ -85,7 +86,8 @@ class Manager:
         config_helper: ConfigHelper,
         config_file_path: str,
         relay_pins: List = [],
-        input_pins: List = [],
+        event_pins: List = [],
+        binary_pins: List = [],
         sensors: dict = {},
         modbus: dict = {},
         pca9685: list = [],
@@ -109,7 +111,8 @@ class Manager:
 
         self.send_message = send_message
         self.stop_client = stop_client
-        self._input_pins = input_pins
+        self._event_pins = event_pins
+        self._binary_pins = binary_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
         self._pca = {}
@@ -234,13 +237,26 @@ class Manager:
         used_pins = set()
         if reload_config:
             load_config_from_file(self._config_file_path)
-        for gpio in self._input_pins:
+        for gpio in self._event_pins:
             pin = gpio.pop(PIN)
             if pin in used_pins:
                 _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
                 continue
             used_pins.add(
-                configure_input(
+                configure_event_sensor(
+                    gpio=gpio,
+                    pin=pin,
+                    press_callback=self.press_callback,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                )
+            )
+        for gpio in self._binary_pins:
+            pin = gpio.pop(PIN)
+            if pin in used_pins:
+                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
+                continue
+            used_pins.add(
+                configure_binary_sensor(
                     gpio=gpio,
                     pin=pin,
                     press_callback=self.press_callback,
@@ -498,7 +514,7 @@ class Manager:
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
         payload = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
-        _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
+        _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
         self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)
 

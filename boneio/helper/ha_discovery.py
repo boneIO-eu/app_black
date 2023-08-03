@@ -13,6 +13,9 @@ from boneio.const import (
     SENSOR,
     STATE,
     STOP,
+    SINGLE,
+    DOUBLE,
+    LONG
 )
 from boneio.version import __version__
 
@@ -86,9 +89,10 @@ def ha_switch_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
     return msg
 
 
-def ha_input_availabilty_message(**kwargs):
+def ha_event_availabilty_message(**kwargs):
     msg = ha_availabilty_message(device_type=INPUT, **kwargs)
     msg["icon"] = "mdi:gesture-double-tap"
+    msg["event_types"] = [SINGLE, DOUBLE, LONG]
     return msg
 
 

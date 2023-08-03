@@ -1,14 +1,14 @@
-"""GPIOInputButton to receive signals."""
+"""GpioInputBinarySensor to receive signals."""
 import logging
 from functools import partial
 import asyncio
-from boneio.const import BOTH, PRESSED, RELEASED
-from boneio.helper import GpioBaseClass, edge_detect
+from boneio.const import PRESSED, RELEASED
+from boneio.helper import GpioBaseClass
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputSensor(GpioBaseClass):
+class GpioInputBinarySensor(GpioBaseClass):
     """Represent Gpio sensor on input boards."""
 
     def __init__(self, **kwargs) -> None:
