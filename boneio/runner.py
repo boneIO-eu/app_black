@@ -7,13 +7,14 @@ from typing import Any
 
 from boneio.const import (
     ADC,
+    BINARY_SENSOR,
     COVER,
     DALLAS,
     DS2482,
     ENABLED,
     HA_DISCOVERY,
     HOST,
-    INPUT,
+    EVENT_ENTITY,
     LM75,
     MCP23017,
     PCA9685,
@@ -78,8 +79,8 @@ async def async_run(
         send_message=client.send_message,
         stop_client=client.stop_client,
         relay_pins=config.get(OUTPUT, []),
-        event_pins=config.get("event_sensor", []),
-        binary_pins=config.get("binary_sensor", []),
+        event_pins=config.get(EVENT_ENTITY, []),
+        binary_pins=config.get(BINARY_SENSOR, []),
         config_file_path=config_file,
         state_manager=StateManager(
             state_file=f"{os.path.split(config_file)[0]}state.json"
