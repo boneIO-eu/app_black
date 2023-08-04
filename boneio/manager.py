@@ -458,7 +458,7 @@ class Manager:
         return self._pca
 
     def press_callback(
-        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
+        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT, empty_message_after: bool = False
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
@@ -495,9 +495,10 @@ class Manager:
                     getattr(cover, action_definition["action_cover"])()
 
         # This is similar how Z2M is clearing click sensor.
-        self._loop.call_soon_threadsafe(
-            self._loop.call_later, 0.2, self.send_message, topic, ""
-        )
+        if empty_message_after:
+            self._loop.call_soon_threadsafe(
+                self._loop.call_later, 0.2, self.send_message, topic, ""
+            )
 
     def send_ha_autodiscovery(
         self,

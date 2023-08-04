@@ -6,7 +6,6 @@ from functools import partial
 from boneio.const import DOUBLE, LONG, SINGLE, ClickTypes, BOTH
 from boneio.helper import GpioBaseClass, ClickTimer
 from boneio.helper.gpio import add_event_callback, add_event_detect
-from datetime import datetime
 from boneio.helper.timeperiod import TimePeriod
 # TIMINGS FOR BUTTONS
 

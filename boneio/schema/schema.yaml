@@ -346,6 +346,18 @@ binary_sensor:
         allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
+      detection_type:
+        type: string
+        required: True
+        default: "stable"
+        allowed: ["stable", "beta"]
+        meta:
+          label: There are 2 detector algorithms. Stable consumes more CPU. Beta is more optimized, but needed extra time for testing.
+      clear_message:
+        type: boolean
+        default: False
+        meta:
+          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
       bounce_time:
         type:
           - string
@@ -378,7 +390,7 @@ binary_sensor:
           released: !include actions_sensor.yaml
 
 
-event_sensor:
+event:
   type: list
   meta:
     label: GPIO inputs section
@@ -409,6 +421,11 @@ event_sensor:
         allowed: ["stable", "beta"]
         meta:
           label: There are 2 detector algorithms. Stable consumes more CPU. Beta is more optimized, but needed extra time for testing.
+      clear_message:
+        type: boolean
+        default: False
+        meta:
+          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
       bounce_time:
         type:
           - string

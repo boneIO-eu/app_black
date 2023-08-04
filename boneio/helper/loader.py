@@ -60,7 +60,7 @@ from boneio.helper.onewire import (
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.input import GpioEventButton, GpioEventButtonBeta
-from boneio.sensor import DallasSensorDS2482
+from boneio.sensor import DallasSensorDS2482, GpioInputBinarySensor, GpioInputBinarySensorBeta
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 # Typing imports that create a circular dependency
@@ -71,7 +71,6 @@ from busio import I2C
 
 from boneio.relay import GpioRelay, MCPRelay, PWMPCA
 from boneio.sensor import GpioADCSensor, initialize_adc
-from boneio.sensor.gpio import GpioInputBinarySensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -348,6 +347,7 @@ def configure_event_sensor(
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT,
+                empty_message_after=gpio.get("clear_message", False)
             ),
             **gpio,
         )
@@ -372,6 +372,7 @@ def configure_binary_sensor(
 ) -> str:
     """Configure input sensor or button."""
     try:
+        GpioInputBinarySensorClass = GpioInputBinarySensor if gpio.get("detection_type", "stable") == "stable" else GpioInputBinarySensorBeta
         GpioInputBinarySensor(
             pin=pin,
             press_callback=lambda x, i: press_callback(
@@ -379,6 +380,7 @@ def configure_binary_sensor(
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT_SENSOR,
+                empty_message_after=gpio.get("clear_message", False)
             ),
             **gpio,
         )
