@@ -15,7 +15,7 @@ from aiomqtt import Client as AsyncioClient, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.const import ONLINE, PAHO, STATE
+from boneio.const import ONLINE, OFFLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
@@ -161,12 +161,19 @@ class MQTTClient:
                 self._connection_established = False
                 await asyncio.sleep(self.reconnect_interval)
                 self.create_client()  # reset connect/reconnect futures
+            except asyncio.CancelledError:
+                _LOGGER.info("MQTT client task canceled.")
 
     async def stop_client(self) -> None:
         await self.unsubscribe(
             topics=self._topics
         )
         raise RestartRequestException("Restart requested.")
+    
+    async def last_will_mqtt(self) -> None:
+        _LOGGER.info("Sending offline state.")
+        topic = f"{self._config_helper.topic_prefix}/{STATE}"
+        self.send_message(topic=topic, payload=OFFLINE, retain=True)
 
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""

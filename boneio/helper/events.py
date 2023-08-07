@@ -77,9 +77,11 @@ class ListenerJob:
 class EventBus:
     """Simple event bus which ticks every second."""
 
-    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self, last_will_mqtt = Callable) -> None:
         """Initialize handler"""
-        self._loop = loop or asyncio.get_event_loop()
+        self._loop = asyncio.get_event_loop()
+        self._last_will = last_will_mqtt
+
         self._listeners = {}
         self._sigterm_listeners = []
         self._haonline_listeners = []
@@ -87,7 +89,7 @@ class EventBus:
         for signame in {"SIGINT", "SIGTERM"}:
             self._loop.add_signal_handler(
                 getattr(signal, signame),
-                self.ask_exit,
+                lambda: asyncio.create_task(self.ask_exit()),
             )
 
     def _run_second_event(self, time):
@@ -98,13 +100,15 @@ class EventBus:
                     self._loop.call_soon(listener.target, time)
                 )
 
-    def ask_exit(self):
+    async def ask_exit(self):
         """Function to call on exit. Should invoke all sigterm listeners."""
         _LOGGER.debug("Exiting process started.")
         self._listeners = {}
         for target in self._sigterm_listeners:
             target()
         self._timer_handle()
+
+        await self._last_will()
         _LOGGER.info("Shutdown gracefully.")
         raise GracefulExit(code=0)
 

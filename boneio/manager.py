@@ -84,6 +84,7 @@ class Manager:
         stop_client: Callable[[], Awaitable[None]],
         state_manager: StateManager,
         config_helper: ConfigHelper,
+        event_bus: EventBus,
         config_file_path: str,
         relay_pins: List = [],
         event_pins: List = [],
@@ -107,7 +108,7 @@ class Manager:
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
-        self._event_bus = EventBus(self._loop)
+        self._event_bus = event_bus
 
         self.send_message = send_message
         self.stop_client = stop_client

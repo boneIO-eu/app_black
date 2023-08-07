@@ -34,6 +34,7 @@ from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
+from boneio.helper.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ async def async_run(
     mqttpassword: str = "",
 ) -> list[Any]:
     """Run BoneIO."""
+    _loop = asyncio.get_event_loop()
 
     _config_helper = ConfigHelper(
         topic_prefix=config[MQTT].pop(TOPIC_PREFIX),
@@ -70,6 +72,7 @@ async def async_run(
         port=config[MQTT].get(PORT, 1883),
         config_helper=_config_helper,
     )
+    event_bus =  EventBus(last_will_mqtt=client.last_will_mqtt)
     manager_kwargs = {
         item["name"]: config.get(item["name"], item["default"])
         for item in config_modules
@@ -78,6 +81,7 @@ async def async_run(
     manager = Manager(
         send_message=client.send_message,
         stop_client=client.stop_client,
+        event_bus=event_bus,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),
