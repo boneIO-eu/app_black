@@ -160,7 +160,7 @@ expander_class = {
 }
 
 def create_expander(
-        expander_list: list,
+        expander_dict: dict,
         expander_config: list,
         exp_type: ExpanderTypes,
         i2cbusio: I2C
@@ -169,7 +169,7 @@ def create_expander(
     for expander in expander_config:
         id = expander[ID] or expander[ADDRESS]
         try:
-            expander_list[id] = expander_class[exp_type](i2c=i2cbusio, address=expander[ADDRESS], reset=False)
+            expander_dict[id] = expander_class[exp_type](i2c=i2cbusio, address=expander[ADDRESS], reset=False)
             sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
             if sleep_time.total_seconds > 0:
                 _LOGGER.debug(

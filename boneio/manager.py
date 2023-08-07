@@ -60,10 +60,7 @@ from boneio.helper.loader import (
     configure_binary_sensor,
     configure_relay,
     create_dallas_sensor,
-    create_mcp23017,
     create_expander,
-    create_pcf8575,
-    create_pca9685,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
@@ -141,14 +138,14 @@ class Manager:
         )
 
         self.grouped_outputs = create_expander(
-            expander_list=self._mcp,
+            expander_dict=self._mcp,
             expander_config=mcp23017,
             exp_type=MCP,
             i2cbusio=self._i2cbusio
         )
         self.grouped_outputs.update(
             create_expander(
-            expander_list=self._pcf,
+            expander_dict=self._pcf,
             expander_config=pcf8575,
             exp_type=PCF,
             i2cbusio=self._i2cbusio
@@ -156,7 +153,7 @@ class Manager:
         )
         self.grouped_outputs.update(
             create_expander(
-            expander_list=self._pca,
+            expander_dict=self._pca,
             expander_config=pca9685,
             exp_type=PCA,
             i2cbusio=self._i2cbusio

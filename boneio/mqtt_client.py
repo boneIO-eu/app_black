@@ -128,7 +128,7 @@ class MQTTClient:
         await self.asyncio_client.unsubscribe(topic=topics, **params)
 
     def send_message(
-        self, topic: str, payload: Union[str, dict, None], retain: bool = False
+        self, topic: str, payload: Union[str, int, dict, None], retain: bool = False
     ) -> None:
         """Send a message from the manager options."""
         to_publish = (
