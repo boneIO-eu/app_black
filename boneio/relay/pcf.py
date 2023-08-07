@@ -1,24 +1,24 @@
-"""MCP23017 Relay module."""
+"""PCF8575 Relay module."""
 
 import logging
 
-from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
+from adafruit_pcf8575 import PCF8575, DigitalInOut
 
-from boneio.const import NONE, SWITCH, MCP
+from boneio.const import NONE, SWITCH, PCF
 from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class MCPRelay(BasicRelay):
-    """Represents MCP Relay output"""
+class PCFRelay(BasicRelay):
+    """Represents PCF Relay output"""
 
     def __init__(
         self,
         pin: int,
-        mcp: MCP23017,
-        mcp_id: str,
+        mcp: PCF8575,
+        expander_id: str,
         output_type: str = SWITCH,
         restored_state: bool = False,
         **kwargs
@@ -33,13 +33,13 @@ class MCPRelay(BasicRelay):
             **kwargs, output_type=output_type, restored_state=restored_state
         )
         self._pin_id = pin
-        self._mcp_id = mcp_id
-        _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
+        self._expander_id = expander_id
+        _LOGGER.debug("Setup PCF with pin %s", self._pin_id)
 
     @property
     def expander_type(self) -> str:
         """Check expander type."""
-        return MCP
+        return PCF
 
     @property
     def pin_id(self) -> str:
@@ -47,7 +47,7 @@ class MCPRelay(BasicRelay):
         return self._pin_id
 
     @property
-    def mcp_id(self) -> str:
+    def expander_id(self) -> str:
         """Retrieve parent MCP ID."""
         return self._mcp_id
 

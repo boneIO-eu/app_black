@@ -9,7 +9,7 @@ from adafruit_pca9685 import PCA9685, PCAChannels
 from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.helper.util import callback
 
-from boneio.const import LED, NONE, OFF, ON, STATE, SWITCH, BRIGHTNESS, RELAY
+from boneio.const import LED, NONE, OFF, ON, STATE, SWITCH, BRIGHTNESS, RELAY, PCA
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,9 +58,9 @@ class PWMPCA(BasicMqtt):
         _LOGGER.debug("Setup PCA with pin %s", self._pin_id)
 
     @property
-    def is_pca_type(self) -> bool:
-        """Check if relay is pca type."""
-        return True
+    def expander_type(self) -> str:
+        """Check expander type."""
+        return PCA
 
     @property
     def output_type(self) -> str:

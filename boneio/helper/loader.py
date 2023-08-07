@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
+from adafruit_pcf8575 import PCF8575
 
 from boneio.const import (
     ACTIONS,
@@ -37,7 +38,11 @@ from boneio.const import (
     SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
-    EVENT_ENTITY
+    EVENT_ENTITY,
+    ExpanderTypes,
+    PCF,
+    PCA,
+    PCF_ID
 )
 from boneio.cover import Cover
 from boneio.helper import (
@@ -148,52 +153,39 @@ def create_temp_sensor(
         _LOGGER.error("Can't configure Temp sensor. %s", err)
         pass
 
+expander_class = {
+    MCP: MCP23017,
+    PCA: PCA9685,
+    PCF: PCF8575
+}
 
-def create_mcp23017(
-    manager: Manager,
-    mcp23017: list,
-    i2cbusio: I2C,
+def create_expander(
+        expander_list: list,
+        expander_config: list,
+        exp_type: ExpanderTypes,
+        i2cbusio: I2C
 ) -> dict:
-    """Create MCP23017."""
     grouped_outputs = {}
-    for mcp in mcp23017:
-        id = mcp[ID] or mcp[ADDRESS]
+    for expander in expander_config:
+        id = expander[ID] or expander[ADDRESS]
         try:
-            manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS], reset=False)
-            sleep_time = mcp.get(INIT_SLEEP, TimePeriod(seconds=0))
-            _LOGGER.debug(
-                f"Sleeping for {sleep_time.total_seconds}s while MCP {id} is initializing."
-            )
-            time.sleep(sleep_time.total_seconds)
+            expander_list[id] = expander_class[exp_type](i2c=i2cbusio, address=expander[ADDRESS], reset=False)
+            sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
+            if sleep_time.total_seconds > 0:
+                _LOGGER.debug(
+                    f"Sleeping for {sleep_time.total_seconds}s while {exp_type} {id} is initializing."
+                )
+                time.sleep(sleep_time.total_seconds)
+            else:
+                _LOGGER.debug(
+                    f"{exp_type} {id} is initializing."
+                )
             grouped_outputs[id] = {}
         except TimeoutError as err:
-            _LOGGER.error("Can't connect to MCP %s. %s", id, err)
+            _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
             pass
     return grouped_outputs
 
-
-def create_pca9685(
-    manager: Manager,
-    pca9685: list,
-    i2cbusio: I2C,
-) -> dict:
-    """Create MCP23017."""
-    grouped_outputs = {}
-    for pca in pca9685:
-        id = pca[ID] or pca[ADDRESS]
-        try:
-            manager._pca[id] = PCA9685(i2c_bus=i2cbusio, address=pca[ADDRESS])
-            manager._pca[id].frequency = 500
-            sleep_time = pca.get(INIT_SLEEP, TimePeriod(seconds=0))
-            _LOGGER.debug(
-                f"Sleeping for {sleep_time.total_seconds}s while PCA {id} is initializing."
-            )
-            time.sleep(sleep_time.total_seconds)
-            grouped_outputs[id] = {}
-        except TimeoutError as err:
-            _LOGGER.error("Can't connect to PCA %s. %s", id, err)
-            pass
-    return grouped_outputs
 
 
 def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
@@ -236,6 +228,9 @@ def output_chooser(output_kind: str, config):
     elif output_kind == PCA:
         output_id = config.pop(PCA_ID, None)
         return OutputEntry(PWMPCA, PCA, output_id)
+    elif output_kind == PCF:
+        output_id = config.pop(PCF_ID, None)
+        return OutputEntry(PWMPCA, PCF, output_id)
     else:
         raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
 
@@ -373,7 +368,7 @@ def configure_binary_sensor(
     """Configure input sensor or button."""
     try:
         GpioInputBinarySensorClass = GpioInputBinarySensor if gpio.get("detection_type", "stable") == "stable" else GpioInputBinarySensorBeta
-        GpioInputBinarySensor(
+        GpioInputBinarySensorClass(
             pin=pin,
             press_callback=lambda x, i: press_callback(
                 x=x,

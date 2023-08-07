@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from typing import Callable
-
+from boneio.helper.util import callback
 from boneio.const import LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 
@@ -81,6 +81,11 @@ class BasicRelay(BasicMqtt):
             self.turn_off()
         else:
             self.turn_on()
+
+    @callback
+    def _momentary_callback(self, time, action):
+        _LOGGER.info("Momentary callback at %s", time)
+        action()
 
     @property
     def is_active(self) -> bool:

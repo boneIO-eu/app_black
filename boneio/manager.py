@@ -37,6 +37,9 @@ from boneio.const import (
     LIGHT,
     LED,
     SET_BRIGHTNESS,
+    MCP,
+    PCA,
+    PCF
 )
 from boneio.helper import (
     GPIOInputException,
@@ -58,6 +61,8 @@ from boneio.helper.loader import (
     configure_relay,
     create_dallas_sensor,
     create_mcp23017,
+    create_expander,
+    create_pcf8575,
     create_pca9685,
     create_temp_sensor,
 )
@@ -93,6 +98,7 @@ class Manager:
         modbus: dict = {},
         pca9685: list = [],
         mcp23017: list = [],
+        pcf8575: list = [],
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
         oled: dict = {},
@@ -116,6 +122,7 @@ class Manager:
         self._binary_pins = binary_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
+        self._pcf = {}
         self._pca = {}
         self._output = {}
         self._oled = None
@@ -133,11 +140,27 @@ class Manager:
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
 
-        self.grouped_outputs = create_mcp23017(
-            manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
+        self.grouped_outputs = create_expander(
+            expander_list=self._mcp,
+            expander_config=mcp23017,
+            exp_type=MCP,
+            i2cbusio=self._i2cbusio
         )
         self.grouped_outputs.update(
-            create_pca9685(manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio)
+            create_expander(
+            expander_list=self._pcf,
+            expander_config=pcf8575,
+            exp_type=PCF,
+            i2cbusio=self._i2cbusio
+        )
+        )
+        self.grouped_outputs.update(
+            create_expander(
+            expander_list=self._pca,
+            expander_config=pca9685,
+            exp_type=PCA,
+            i2cbusio=self._i2cbusio
+        )
         )
 
         self._configure_adc(adc_list=adc)
@@ -457,6 +480,11 @@ class Manager:
     def pca(self):
         """Get PCA by it's id."""
         return self._pca
+    
+    @property
+    def pcf(self):
+        """Get PCF by it's id."""
+        return self._pcf
 
     def press_callback(
         self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT, empty_message_after: bool = False

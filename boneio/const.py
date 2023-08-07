@@ -104,10 +104,13 @@ TOPIC_PREFIX = "topic_prefix"
 # I2C, PCA and MCP CONST
 ADDRESS = "address"
 MCP23017 = "mcp23017"
+PCF8575 = "pcf8575"
 PCA9685 = "pca9685"
 MCP = "mcp"
+PCF = "pcf"
 MCP_ID = "mcp_id"
 PCA_ID = "pca_id"
+PCF_ID = "pcf_id"
 INIT_SLEEP = "init_sleep"
 
 # SENSOR CONST
@@ -141,6 +144,7 @@ OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 Gpio_States = Literal[HIGH, LOW]
 Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
+ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
 DallasBusTypes = Literal[DS2482, DALLAS]
 FILTERS = "filters"

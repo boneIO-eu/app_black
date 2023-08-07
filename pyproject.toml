@@ -26,6 +26,7 @@ dependencies = [
     "adafruit-circuitpython-onewire>=2.0.5",
     "w1thermsensor[async]>=2.0.0",
     "adafruit-circuitpython-pca9685>=3.4.10",
+    "adafruit-circuitpython-pcf8575>=1.0.2",
 ]
 requires-python = ">=3.7"
 license = {text = "GNU General Public License v3.0"}
@@ -39,7 +40,6 @@ Changelog = "https://github.com/boneIO-eu/app_bbb/releases"
 [project.scripts]
 boneio = "boneio.bonecli:main"
 
-[project.optional-dependencies]
 [tool.pdm]
 version = {from = "boneio/version.py"}
 [tool.pdm.dev-dependencies]

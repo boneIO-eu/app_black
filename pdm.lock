@@ -6,7 +6,7 @@ groups = ["default", "dev"]
 cross_platform = true
 static_urls = false
 lock_version = "4.3"
-content_hash = "sha256:0b0869dfaf7577edf69e9ee4f1cdfd0dd6faf9a19cbe857d07abe682d738547c"
+content_hash = "sha256:c64d2f1a06484a42d740fffd9b4b8ce827e2caa61ac4cc6d34b579fec212214e"
 
 [[package]]
 name = "adafruit-bbio"
@@ -116,6 +116,19 @@ files = [
 ]
 
 [[package]]
+name = "adafruit-circuitpython-pcf8575"
+version = "1.0.2"
+summary = "CircuitPython library for Adafruit PCF8575 GPIO expander"
+dependencies = [
+    "Adafruit-Blinka",
+    "adafruit-circuitpython-busdevice",
+]
+files = [
+    {file = "adafruit-circuitpython-pcf8575-1.0.2.tar.gz", hash = "sha256:9bfc22efc4b0e05f4e01f9591ef4fa201ae44fe5334fbd9ce5ac5c9ef5e98d36"},
+    {file = "adafruit_circuitpython_pcf8575-1.0.2-py3-none-any.whl", hash = "sha256:71b20d6dac0ea9a974bc9ce57c7234fad62508d24b4a07976bff2f07dc6c33d5"},
+]
+
+[[package]]
 name = "adafruit-circuitpython-pct2075"
 version = "1.1.19"
 summary = "CircuitPython library for the NXP PCT2075 Digital Temperature Sensor"
@@ -201,16 +214,17 @@ files = [
 ]
 
 [[package]]
-name = "asyncio-mqtt"
-version = "0.16.2"
-requires_python = ">=3.7"
-summary = "Idiomatic asyncio wrapper around paho-mqtt"
+name = "aiomqtt"
+version = "1.1.0"
+requires_python = ">=3.7,<4.0"
+summary = "The idiomatic asyncio MQTT client, wrapped around paho-mqtt"
 dependencies = [
-    "paho-mqtt>=1.6.0",
-    "typing-extensions>=4.4.0; python_version < \"3.10\"",
+    "paho-mqtt<2.0.0,>=1.6.0",
+    "typing-extensions<5.0.0,>=4.4.0; python_version < \"3.10\"",
 ]
 files = [
-    {file = "asyncio_mqtt-0.16.2-py3-none-any.whl", hash = "sha256:fe70ea2c648b248779a7ff3d9218262cdd739083743dfaa7c0d52ba458a8ad71"},
+    {file = "aiomqtt-1.1.0-py3-none-any.whl", hash = "sha256:7413e323a08b8a9f14d115bb9851fc4db2218326e73037061d7ba9ee740f8dd5"},
+    {file = "aiomqtt-1.1.0.tar.gz", hash = "sha256:8a41cbda3f5dcbedb8ad8568237693afbfda5b65b63b92ca85d7fa4f143f9b0a"},
 ]
 
 [[package]]

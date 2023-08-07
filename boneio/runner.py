@@ -17,6 +17,7 @@ from boneio.const import (
     EVENT_ENTITY,
     LM75,
     MCP23017,
+    PCF8575,
     PCA9685,
     MCP_TEMP_9808,
     MODBUS,
@@ -40,6 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 
 config_modules = [
     {"name": MCP23017, "default": []},
+    {"name": PCF8575, "default": []},
     {"name": PCA9685, "default": []},
     {"name": DS2482, "default": []},
     {"name": ADC, "default": []},
