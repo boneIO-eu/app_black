@@ -33,7 +33,7 @@ class MCPRelay(BasicRelay):
             **kwargs, output_type=output_type, restored_state=restored_state
         )
         self._pin_id = pin
-        self._mcp_id = mcp_id
+        self._expander_id = mcp_id
         _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
 
     @property
@@ -42,14 +42,14 @@ class MCPRelay(BasicRelay):
         return MCP
 
     @property
-    def pin_id(self) -> str:
+    def pin_id(self) -> int:
         """Return PIN id."""
         return self._pin_id
 
     @property
-    def mcp_id(self) -> str:
+    def expander_id(self) -> str:
         """Retrieve parent MCP ID."""
-        return self._mcp_id
+        return self._expander_id
 
     @property
     def is_active(self) -> bool:

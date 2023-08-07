@@ -42,14 +42,14 @@ class PCFRelay(BasicRelay):
         return PCF
 
     @property
-    def pin_id(self) -> str:
+    def pin_id(self) -> int:
         """Return PIN id."""
         return self._pin_id
 
     @property
     def expander_id(self) -> str:
         """Retrieve parent MCP ID."""
-        return self._mcp_id
+        return self._expander_id
 
     @property
     def is_active(self) -> bool:
