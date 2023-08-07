@@ -21,7 +21,7 @@ class PCFRelay(BasicRelay):
         expander_id: str,
         output_type: str = SWITCH,
         restored_state: bool = False,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = mcp.get_pin(pin)
