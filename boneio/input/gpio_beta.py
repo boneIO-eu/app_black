@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 DOUBLE_CLICK_DURATION_MS = 300
 LONG_PRESS_DURATION_MS = 600
 
+
 class GpioEventButtonBeta(GpioBaseClass):
     """Represent Gpio input switch."""
 
@@ -75,7 +76,6 @@ class GpioEventButtonBeta(GpioBaseClass):
                     self.press_callback(click_type=SINGLE)
             self._timer_long.reset()
             self._double_click_ran = False
-
 
     def press_callback(self, click_type: ClickTypes):
         self.click_count = 0

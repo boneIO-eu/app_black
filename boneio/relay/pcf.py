@@ -2,10 +2,11 @@
 
 import logging
 
-from adafruit_pcf8575 import PCF8575, DigitalInOut
+from adafruit_pcf8575 import DigitalInOut
 
 from boneio.const import NONE, SWITCH, PCF
 from boneio.helper.events import async_track_point_in_time, utcnow
+from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,14 +18,14 @@ class PCFRelay(BasicRelay):
     def __init__(
         self,
         pin: int,
-        mcp: PCF8575,
+        expander: PCF8575,
         expander_id: str,
         output_type: str = SWITCH,
         restored_state: bool = False,
         **kwargs,
     ) -> None:
         """Initialize MCP relay."""
-        self._pin: DigitalInOut = mcp.get_pin(pin)
+        self._pin: DigitalInOut = expander.get_pin(pin)
         if output_type == NONE:
             """Just in case to not restore state of covers etc."""
             restored_state = False
@@ -34,6 +35,7 @@ class PCFRelay(BasicRelay):
         )
         self._pin_id = pin
         self._expander_id = expander_id
+        self._active_state = False
         _LOGGER.debug("Setup PCF with pin %s", self._pin_id)
 
     @property
@@ -54,7 +56,7 @@ class PCFRelay(BasicRelay):
     @property
     def is_active(self) -> bool:
         """Is relay active."""
-        return self.pin.value
+        return self.pin.value == self._active_state
 
     @property
     def pin(self) -> str:
@@ -63,7 +65,7 @@ class PCFRelay(BasicRelay):
 
     def turn_on(self) -> None:
         """Call turn on action."""
-        self.pin.value = True
+        self.pin.value = self._active_state
         if self._momentary_turn_on:
             async_track_point_in_time(
                 loop=self._loop,
@@ -74,7 +76,7 @@ class PCFRelay(BasicRelay):
 
     def turn_off(self) -> None:
         """Call turn off action."""
-        self.pin.value = False
+        self.pin.value = not self._active_state
         if self._momentary_turn_off:
             async_track_point_in_time(
                 loop=self._loop,

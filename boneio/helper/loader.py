@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Union
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
-from adafruit_pcf8575 import PCF8575
 
 from boneio.const import (
     ACTIONS,
@@ -64,6 +63,7 @@ from boneio.helper.onewire import (
 )
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
+from boneio.helper.pcf8575 import PCF8575
 from boneio.input import GpioEventButton, GpioEventButtonBeta
 from boneio.sensor import DallasSensorDS2482, GpioInputBinarySensor, GpioInputBinarySensorBeta
 from boneio.sensor.temp.dallas import DallasSensorW1
@@ -74,7 +74,7 @@ if TYPE_CHECKING:
 
 from busio import I2C
 
-from boneio.relay import GpioRelay, MCPRelay, PWMPCA
+from boneio.relay import GpioRelay, MCPRelay, PWMPCA, PCFRelay
 from boneio.sensor import GpioADCSensor, initialize_adc
 
 _LOGGER = logging.getLogger(__name__)
@@ -153,11 +153,13 @@ def create_temp_sensor(
         _LOGGER.error("Can't configure Temp sensor. %s", err)
         pass
 
+
 expander_class = {
     MCP: MCP23017,
     PCA: PCA9685,
     PCF: PCF8575
 }
+
 
 def create_expander(
         expander_dict: dict,
@@ -185,7 +187,6 @@ def create_expander(
             _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
             pass
     return grouped_outputs
-
 
 
 def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
@@ -230,7 +231,7 @@ def output_chooser(output_kind: str, config):
         return OutputEntry(PWMPCA, PCA, output_id)
     elif output_kind == PCF:
         output_id = config.pop(PCF_ID, None)
-        return OutputEntry(PWMPCA, PCF, output_id)
+        return OutputEntry(PCFRelay, PCF, output_id)
     else:
         raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
 
@@ -277,6 +278,17 @@ def configure_relay(
             "pin": int(config.pop(PIN)),
             "pca": pca,
             "pca_id": getattr(output, "output_id"),
+            "output_type": output_type,
+        }
+    elif getattr(output, "output_kind") == PCF:
+        expander = manager.pcf.get(getattr(output, "output_id"))
+        if not expander:
+            _LOGGER.error("No such PCF configured!")
+            return None
+        kwargs = {
+            "pin": int(config.pop(PIN)),
+            "expander": expander,
+            "expander_id": getattr(output, "output_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == GPIO:

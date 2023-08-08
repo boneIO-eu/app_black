@@ -218,6 +218,33 @@ mcp23017:
         meta:
           label: How long to sleep for MCP to initialize.
 
+
+pcf8575:
+  type: list
+  required: False
+  meta:
+    label: pcf8575 Pin config
+  schema:
+    type: dict
+    schema:
+      id: !include id.yaml
+      address:
+        type: integer
+        required: True
+        meta:
+          label: GPIO of I2C SDA
+      init_sleep:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: 0s
+        meta:
+          label: How long to sleep for PCF to initialize.
+
 pca9685:
   type: list
   required: False
@@ -260,7 +287,7 @@ output:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ["gpio", "mcp", "pca"]
+        allowed: ["gpio", "mcp", "pca", "pcf"]
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -273,6 +300,11 @@ output:
         required: False
         meta:
           label: PCA ID to connect
+      pcf_id:
+        type: string
+        required: False
+        meta:
+          label: PCF ID to connect
       pin:
         type:
           - string
