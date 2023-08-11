@@ -39,7 +39,7 @@ class GpioEventButtonBeta(GpioBaseClass):
         )
         self._timer_long = ClickTimer(
             delay=TimePeriod(milliseconds=LONG_PRESS_DURATION_MS),
-            action=lambda x: self.press_callback(click_type=LONG),
+            action=lambda x: self.press_callback(click_type=LONG, duration=x),
         )
         self._double_click_ran = False
         self._is_waiting_for_second_click = False
@@ -52,7 +52,7 @@ class GpioEventButtonBeta(GpioBaseClass):
     def double_click_press_callback(self):
         self._is_waiting_for_second_click = False
         if not self._state and not self._timer_long.is_waiting():
-            self.press_callback(click_type=SINGLE)
+            self.press_callback(click_type=SINGLE, duration=None)
 
     def check_state(self, channel) -> None:
         time_now = time.time()
@@ -65,7 +65,7 @@ class GpioEventButtonBeta(GpioBaseClass):
                 if self._timer_double.is_waiting():
                     self._timer_double.reset()
                     self._double_click_ran = True
-                    self.press_callback(click_type=DOUBLE)
+                    self.press_callback(click_type=DOUBLE, duration=None)
                     return
                 self._timer_double.start_timer()
                 self._is_waiting_for_second_click = True
@@ -73,12 +73,12 @@ class GpioEventButtonBeta(GpioBaseClass):
         else:
             if not self._is_waiting_for_second_click and not self._double_click_ran:
                 if self._timer_long.is_waiting():
-                    self.press_callback(click_type=SINGLE)
+                    self.press_callback(click_type=SINGLE, duration=None)
             self._timer_long.reset()
             self._double_click_ran = False
 
-    def press_callback(self, click_type: ClickTypes):
+    def press_callback(self, click_type: ClickTypes, duration: float | None = None):
         self.click_count = 0
         self._loop.call_soon_threadsafe(
-            partial(self._press_callback, click_type, self._pin)
+            partial(self._press_callback, click_type, self._pin, duration)
         )

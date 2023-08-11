@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
@@ -86,7 +87,6 @@ class Manager:
         stop_client: Callable[[], Awaitable[None]],
         state_manager: StateManager,
         config_helper: ConfigHelper,
-        event_bus: EventBus,
         config_file_path: str,
         relay_pins: List = [],
         event_pins: List = [],
@@ -111,7 +111,7 @@ class Manager:
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
-        self._event_bus = event_bus
+        self._event_bus = EventBus(loop=self._loop)
 
         self.send_message = send_message
         self.stop_client = stop_client
@@ -480,13 +480,20 @@ class Manager:
         return self._pcf
 
     def press_callback(
-        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT, empty_message_after: bool = False
+        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT, empty_message_after: bool = False, duration: float | None = None
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
-        payload = {"event_type": x} if input_type == INPUT else x
-        self.send_message(topic=topic, payload=payload, retain=False)
+
+        def generate_payload():
+            if input_type == INPUT:
+                if duration:
+                    return {"event_type": x, "duration": duration}
+                return {"event_type": x}
+            return x
+            
+        self.send_message(topic=topic, payload=generate_payload(), retain=False)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] == OUTPUT:

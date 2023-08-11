@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import logging
 
@@ -104,7 +105,7 @@ class GpioBaseClass:
     """Base class for initialize GPIO"""
 
     def __init__(
-        self, pin: str, press_callback: Callable[[ClickTypes, str], None], **kwargs
+        self, pin: str, press_callback: Callable[[ClickTypes, str, bool | None], None], **kwargs
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin

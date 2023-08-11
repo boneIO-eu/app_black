@@ -349,12 +349,13 @@ def configure_event_sensor(
         GpioEventButtonClass = GpioEventButton if gpio.get("detection_type", "stable") == "stable" else GpioEventButtonBeta
         GpioEventButtonClass(
             pin=pin,
-            press_callback=lambda x, i: press_callback(
+            press_callback=lambda x, i, z: press_callback(
                 x=x,
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT,
-                empty_message_after=gpio.get("clear_message", False)
+                empty_message_after=gpio.get("clear_message", False),
+                duration=z
             ),
             **gpio,
         )

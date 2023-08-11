@@ -15,9 +15,10 @@ from aiomqtt import Client as AsyncioClient, MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
-from boneio.const import ONLINE, OFFLINE, PAHO, STATE
+from boneio.const import OFFLINE, PAHO, STATE
 from boneio.helper import UniqueQueue
 from boneio.helper.config import ConfigHelper
+from boneio.helper.events import GracefulExit
 from boneio.manager import Manager
 from boneio.helper.exceptions import RestartRequestException
 
@@ -58,7 +59,7 @@ class MQTTClient:
             self.port,
             will=Will(
                 topic=f"{self._config_helper.topic_prefix}/{STATE}",
-                payload=ONLINE,
+                payload=OFFLINE,
                 qos=0,
                 retain=False,
             ),
@@ -148,21 +149,23 @@ class MQTTClient:
     async def start_client(self, manager: Manager) -> None:
         """Start the client with the manager."""
         # Reconnect automatically until the client is stopped.
-        while True:
-            try:
-                await self._subscribe_manager(manager)
-            except MqttError as err:
-                self.reconnect_interval = min(self.reconnect_interval * 2, 900)
-                _LOGGER.error(
-                    "MQTT error: %s. Reconnecting in %s seconds",
-                    err,
-                    self.reconnect_interval,
-                )
-                self._connection_established = False
-                await asyncio.sleep(self.reconnect_interval)
-                self.create_client()  # reset connect/reconnect futures
-            except asyncio.CancelledError:
-                _LOGGER.info("MQTT client task canceled.")
+        try:
+            while True:
+                try:
+                    await self._subscribe_manager(manager)
+                except MqttError as err:
+                    self.reconnect_interval = min(self.reconnect_interval * 2, 900)
+                    _LOGGER.error(
+                        "MQTT error: %s. Reconnecting in %s seconds",
+                        err,
+                        self.reconnect_interval,
+                    )
+                    self._connection_established = False
+                    await asyncio.sleep(self.reconnect_interval)
+                    self.create_client()  # reset connect/reconnect futures
+        except (asyncio.CancelledError, GracefulExit):
+            _LOGGER.info("MQTT client task canceled.")
+            pass
 
     async def stop_client(self) -> None:
         await self.unsubscribe(
@@ -170,11 +173,6 @@ class MQTTClient:
         )
         raise RestartRequestException("Restart requested.")
     
-    async def last_will_mqtt(self) -> None:
-        _LOGGER.info("Sending offline state.")
-        topic = f"{self._config_helper.topic_prefix}/{STATE}"
-        self.send_message(topic=topic, payload=OFFLINE, retain=True)
-
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
