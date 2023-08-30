@@ -335,7 +335,7 @@ output:
       restore_state:
         type: boolean
         required: True
-        default: False
+        default: True
         meta:
           label: Restore saved state of boneio. Not used for "none" and output_type!
       percentage_default_brightness:
