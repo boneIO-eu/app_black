@@ -41,7 +41,7 @@ from boneio.const import (
     ExpanderTypes,
     PCF,
     PCA,
-    PCF_ID
+    PCF_ID,
 )
 from boneio.cover import Cover
 from boneio.helper import (
@@ -65,7 +65,11 @@ from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.pcf8575 import PCF8575
 from boneio.input import GpioEventButton, GpioEventButtonBeta
-from boneio.sensor import DallasSensorDS2482, GpioInputBinarySensor, GpioInputBinarySensorBeta
+from boneio.sensor import (
+    DallasSensorDS2482,
+    GpioInputBinarySensor,
+    GpioInputBinarySensorBeta,
+)
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 # Typing imports that create a circular dependency
@@ -154,24 +158,19 @@ def create_temp_sensor(
         pass
 
 
-expander_class = {
-    MCP: MCP23017,
-    PCA: PCA9685,
-    PCF: PCF8575
-}
+expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
 
 def create_expander(
-        expander_dict: dict,
-        expander_config: list,
-        exp_type: ExpanderTypes,
-        i2cbusio: I2C
+    expander_dict: dict, expander_config: list, exp_type: ExpanderTypes, i2cbusio: I2C
 ) -> dict:
     grouped_outputs = {}
     for expander in expander_config:
         id = expander[ID] or expander[ADDRESS]
         try:
-            expander_dict[id] = expander_class[exp_type](i2c=i2cbusio, address=expander[ADDRESS], reset=False)
+            expander_dict[id] = expander_class[exp_type](
+                i2c=i2cbusio, address=expander[ADDRESS], reset=False
+            )
             sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
             if sleep_time.total_seconds > 0:
                 _LOGGER.debug(
@@ -179,9 +178,7 @@ def create_expander(
                 )
                 time.sleep(sleep_time.total_seconds)
             else:
-                _LOGGER.debug(
-                    f"{exp_type} {id} is initializing."
-                )
+                _LOGGER.debug(f"{exp_type} {id} is initializing.")
             grouped_outputs[id] = {}
         except TimeoutError as err:
             _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
@@ -335,7 +332,9 @@ def input_chooser(input_type: str):
             ha_binary_sensor_availabilty_message,
         )
     else:
-        return InputEntry(GpioEventButton, INPUT, EVENT_ENTITY, ha_event_availabilty_message)
+        return InputEntry(
+            GpioEventButton, INPUT, EVENT_ENTITY, ha_event_availabilty_message
+        )
 
 
 def configure_event_sensor(
@@ -343,10 +342,14 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-) -> str:
+) -> str | None:
     """Configure input sensor or button."""
     try:
-        GpioEventButtonClass = GpioEventButton if gpio.get("detection_type", "stable") == "stable" else GpioEventButtonBeta
+        GpioEventButtonClass = (
+            GpioEventButton
+            if gpio.get("detection_type", "stable") == "stable"
+            else GpioEventButtonBeta
+        )
         GpioEventButtonClass(
             pin=pin,
             press_callback=lambda x, i, z: press_callback(
@@ -355,7 +358,7 @@ def configure_event_sensor(
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT,
                 empty_message_after=gpio.get("clear_message", False),
-                duration=z
+                duration=z,
             ),
             **gpio,
         )
@@ -372,15 +375,20 @@ def configure_event_sensor(
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
 
+
 def configure_binary_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-) -> str:
+) -> str | None:
     """Configure input sensor or button."""
     try:
-        GpioInputBinarySensorClass = GpioInputBinarySensor if gpio.get("detection_type", "stable") == "stable" else GpioInputBinarySensorBeta
+        GpioInputBinarySensorClass = (
+            GpioInputBinarySensor
+            if gpio.get("detection_type", "stable") == "stable"
+            else GpioInputBinarySensorBeta
+        )
         GpioInputBinarySensorClass(
             pin=pin,
             press_callback=lambda x, i: press_callback(
@@ -388,7 +396,7 @@ def configure_binary_sensor(
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT_SENSOR,
-                empty_message_after=gpio.get("clear_message", False)
+                empty_message_after=gpio.get("clear_message", False),
             ),
             **gpio,
         )
@@ -404,6 +412,7 @@ def configure_binary_sensor(
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
+
 
 def configure_cover(
     manager: Manager,

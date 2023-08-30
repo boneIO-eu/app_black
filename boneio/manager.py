@@ -463,6 +463,14 @@ class Manager:
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
+        self.send_ha_autodiscovery(
+            id="inputs_reload",
+            name="Reload events and sensor",
+            ha_type=BUTTON,
+            payload_press="inputs_reload",
+            availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
+        )
 
     @property
     def mcp(self):
@@ -628,6 +636,9 @@ class Manager:
             elif device_id == "restart" and message == "restart":
                 _LOGGER.info("Exiting process. Systemd should restart it soon.")
                 await self.stop_client()
+            elif device_id == "inputs_reload" and message == "input_reload":
+                _LOGGER.info("Reloading events and binary sensors")
+                self.configure_inputs(reload_config=True)
 
     @property
     def output(self) -> dict:
