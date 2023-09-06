@@ -8,10 +8,10 @@ _LOGGER = logging.getLogger(__name__)
 FILTERS = {
     "offset": lambda x, y: x + y,
     "multiply": lambda x, y: x * y,
+    "round": lambda x, y: round(x, y),
     "filter_out": lambda x, y: None if x == y else x,
     "filter_out_greater": lambda x, y: None if x > y else x,
     "filter_out_lower": lambda x, y: None if x < y else x,
-    "round": lambda x, y: round(x, y),
 }
 
 
@@ -21,7 +21,6 @@ class Filter:
     def _apply_filters(self, value: float) -> float | None:
         for filter in self._filters:
             for k, v in filter.items():
-                _LOGGER.debug("filter k:%s v:%s", k, v)
                 if k not in FILTERS:
                     _LOGGER.warn("Filter %s doesn't exists. Fix it in config.", k)
                     continue
