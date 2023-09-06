@@ -417,7 +417,6 @@ class Manager:
         """Function to invoke when connection to MQTT is (re-)established."""
         _LOGGER.info("Sending online state.")
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
-        _LOGGER.debug("topic %s: ", topic)
         self.send_message(topic=topic, payload=ONLINE, retain=True)
 
     def _relay_callback(
