@@ -22,6 +22,7 @@ class Filter:
         for filter in self._filters:
             for k, v in filter.items():
                 if k not in FILTERS:
+                    _LOGGER.debug("filter k:%s v:%s", k, v)
                     _LOGGER.warn("Filter %s doesn't exists. Fix it in config.", k)
                     continue
                 value = FILTERS[k](value, v)
