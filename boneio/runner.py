@@ -35,7 +35,6 @@ from boneio.helper import StateManager
 from boneio.helper.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.mqtt_client import MQTTClient
-from boneio.helper.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 

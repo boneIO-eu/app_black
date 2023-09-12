@@ -211,7 +211,7 @@ class MQTTClient:
             await asyncio.gather(*tasks)
 
     async def handle_messages(self, messages: Any, callback: Callable[[str, str], Awaitable[None]]):
-        """Handle messages with callback or remove osbolete HA discovery messages."""
+        """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:
             payload = message.payload.decode()
             callback_start = True

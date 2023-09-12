@@ -115,7 +115,15 @@ class GpioBaseClass:
         self._press_callback = press_callback
         setup_input(pin=self._pin, pull_mode=gpio_mode)
 
+    def set_press_callback(self, press_callback: Callable[[ClickTypes, str, bool | None], None]) -> None:
+        self._press_callback = press_callback
+
     @property
     def is_pressed(self) -> bool:
         """Is button pressed."""
         return read_input(self._pin)
+    
+    @property
+    def pin(self) -> str:
+        """Return configured pin."""
+        return self._pin

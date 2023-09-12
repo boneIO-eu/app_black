@@ -9,10 +9,12 @@ from busio import I2C
 from boneio.const import (
     ACTION,
     ADDRESS,
+    BINARY_SENSOR,
     BUTTON,
     CLOSE,
     COVER,
     DALLAS,
+    EVENT_ENTITY,
     ID,
     INPUT,
     LM75,
@@ -116,6 +118,7 @@ class Manager:
         self.send_message = send_message
         self.stop_client = stop_client
         self._event_pins = event_pins
+        self._inputs = {}
         self._binary_pins = binary_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
@@ -251,35 +254,40 @@ class Manager:
         _LOGGER.info("BoneIO manager is ready.")
 
     def configure_inputs(self, reload_config: bool = False):
-        used_pins = set()
+        """Configure inputs. Either events or binary sensors."""
+        def check_if_pin_configured(pin: str) -> bool:
+            if pin in self._inputs:
+                if not reload_config:
+                    _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
+                    return True
+            return False
+        
+        def configure_single_input(configure_sensor_func, gpio):
+            pin = gpio.pop(PIN)
+            if check_if_pin_configured(pin=pin):
+                return False
+            input = configure_sensor_func(
+                gpio=gpio,
+                pin=pin,
+                press_callback=self.press_callback,
+                send_ha_autodiscovery=self.send_ha_autodiscovery,
+                input=self._inputs.get(pin, None)
+            )
+            if input:
+                self._inputs[input.pin] = input
+            return True
+        
         if reload_config:
-            load_config_from_file(self._config_file_path)
+            config = load_config_from_file(self._config_file_path)
+            if config:
+                self._event_pins = config.get(EVENT_ENTITY, [])
+                self._binary_pins = config.get(BINARY_SENSOR, [])
+                self._config_helper.clear_autodiscovery_type(ha_type=EVENT_ENTITY)
+                self._config_helper.clear_autodiscovery_type(ha_type=BINARY_SENSOR)
         for gpio in self._event_pins:
-            pin = gpio.pop(PIN)
-            if pin in used_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
-                continue
-            used_pins.add(
-                configure_event_sensor(
-                    gpio=gpio,
-                    pin=pin,
-                    press_callback=self.press_callback,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                )
-            )
+            configure_single_input(configure_sensor_func=configure_event_sensor, gpio=gpio)
         for gpio in self._binary_pins:
-            pin = gpio.pop(PIN)
-            if pin in used_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
-                continue
-            used_pins.add(
-                configure_binary_sensor(
-                    gpio=gpio,
-                    pin=pin,
-                    press_callback=self.press_callback,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
-                )
-            )
+            configure_single_input(configure_sensor_func=configure_binary_sensor, gpio=gpio)
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Future:
         """Add task to run with asyncio loop."""
@@ -465,7 +473,7 @@ class Manager:
         )
         self.send_ha_autodiscovery(
             id="inputs_reload",
-            name="Reload events and sensor",
+            name="Reload actions",
             ha_type=BUTTON,
             payload_press="inputs_reload",
             availability_msg_func=ha_button_availabilty_message,
@@ -636,7 +644,7 @@ class Manager:
             elif device_id == "restart" and message == "restart":
                 _LOGGER.info("Exiting process. Systemd should restart it soon.")
                 await self.stop_client()
-            elif device_id == "inputs_reload" and message == "input_reload":
+            elif device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors")
                 self.configure_inputs(reload_config=True)
 

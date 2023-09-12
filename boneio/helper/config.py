@@ -64,6 +64,9 @@ class ConfigHelper:
             if topic in self._autodiscovery_messages[ha_type]:
                 return True
         return False
+    
+    def clear_autodiscovery_type(self, ha_type: str):
+        self._autodiscovery_messages[ha_type] = {}
 
 
 

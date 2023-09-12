@@ -342,7 +342,8 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-) -> str | None:
+    input: GpioEventButton | GpioEventButtonBeta | None = None
+) -> GpioEventButton | GpioEventButtonBeta | None:
     """Configure input sensor or button."""
     try:
         GpioEventButtonClass = (
@@ -350,18 +351,31 @@ def configure_event_sensor(
             if gpio.get("detection_type", "stable") == "stable"
             else GpioEventButtonBeta
         )
-        GpioEventButtonClass(
-            pin=pin,
-            press_callback=lambda x, i, z: press_callback(
+        if input:
+            if not isinstance(input, GpioEventButtonClass):
+                _LOGGER.warn("You preconfigured type of input. It's forbidden. Please restart boneIO.")
+                return input
+            input.set_press_callback(press_callback=lambda x, i, z: press_callback(
                 x=x,
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
                 input_type=INPUT,
                 empty_message_after=gpio.get("clear_message", False),
                 duration=z,
-            ),
-            **gpio,
-        )
+            ))
+        else:
+            input = GpioEventButtonClass(
+                pin=pin,
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                ),
+                **gpio,
+            )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
@@ -370,7 +384,7 @@ def configure_event_sensor(
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_event_availabilty_message,
             )
-        return pin
+        return input
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
@@ -381,7 +395,8 @@ def configure_binary_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-) -> str | None:
+    input: GpioInputBinarySensor | GpioInputBinarySensorBeta | None = None
+) -> GpioInputBinarySensor | GpioInputBinarySensorBeta | None:
     """Configure input sensor or button."""
     try:
         GpioInputBinarySensorClass = (
@@ -389,17 +404,30 @@ def configure_binary_sensor(
             if gpio.get("detection_type", "stable") == "stable"
             else GpioInputBinarySensorBeta
         )
-        GpioInputBinarySensorClass(
-            pin=pin,
-            press_callback=lambda x, i: press_callback(
+        if input:
+            if not isinstance(input, GpioInputBinarySensorClass):
+                _LOGGER.warn("You preconfigured type of input. It's forbidden. Please restart boneIO.")
+                return input
+            input.set_press_callback(press_callback=lambda x, i, z: press_callback(
                 x=x,
                 inpin=i,
                 actions=gpio.get(ACTIONS, {}).get(x, []),
-                input_type=INPUT_SENSOR,
+                input_type=INPUT,
                 empty_message_after=gpio.get("clear_message", False),
-            ),
-            **gpio,
-        )
+                duration=z,
+            ))
+        else:
+            input = GpioInputBinarySensorClass(
+                pin=pin,
+                press_callback=lambda x, i: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT_SENSOR,
+                    empty_message_after=gpio.get("clear_message", False),
+                ),
+                **gpio,
+            )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
@@ -408,7 +436,7 @@ def configure_binary_sensor(
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_binary_sensor_availabilty_message,
             )
-        return pin
+        return input
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
