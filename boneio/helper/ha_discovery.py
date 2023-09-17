@@ -45,10 +45,10 @@ def ha_availabilty_message(
     }
 
 
-def ha_light_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+def ha_light_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
     """Create LIGHT availability topic for HA."""
-    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
+    msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["state_value_template"] = "{{ value_json.state }}"
@@ -79,10 +79,10 @@ def ha_button_availabilty_message(
     return msg
 
 
-def ha_switch_availabilty_message(id: str, topic: str = "boneIO", **kwargs):
+def ha_switch_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
     """Create SWITCH availability topic for HA."""
-    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/relay/{id}/set"
+    msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
+    msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["value_template"] = "{{ value_json.state }}"

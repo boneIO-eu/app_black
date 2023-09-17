@@ -1,5 +1,6 @@
 """Runner code for boneIO. Based on HA runner."""
 from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -12,20 +13,21 @@ from boneio.const import (
     DALLAS,
     DS2482,
     ENABLED,
+    EVENT_ENTITY,
     HA_DISCOVERY,
     HOST,
-    EVENT_ENTITY,
     LM75,
     MCP23017,
-    PCF8575,
-    PCA9685,
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
     OLED,
     ONEWIRE,
     OUTPUT,
+    OUTPUT_GROUP,
     PASSWORD,
+    PCA9685,
+    PCF8575,
     PORT,
     SENSOR,
     TOPIC_PREFIX,
@@ -48,6 +50,7 @@ config_modules = [
     {"name": MODBUS, "default": {}},
     {"name": OLED, "default": {}},
     {"name": DALLAS, "default": None},
+    {"name": OUTPUT_GROUP, "default": []},
 ]
 
 

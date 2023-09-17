@@ -354,6 +354,35 @@ output:
           label: If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
 
 
+output_group:
+  type: list
+  meta:
+    label: List of groupes outputs
+  check_with: output_id_uniqueness
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
+      outputs:
+        type: list
+        required: True
+        meta:
+          label: List of outputs.
+      output_type:
+        type: string
+        required: True
+        allowed: ["switch", "light"]
+        default: "switch"
+        coerce: lower
+        meta:
+          label: If HA discovery is used device if relay is light or switch.
+
+
 binary_sensor:
   type: list
   meta:

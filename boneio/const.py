@@ -112,6 +112,7 @@ MCP_ID = "mcp_id"
 PCA_ID = "pca_id"
 PCF_ID = "pcf_id"
 INIT_SLEEP = "init_sleep"
+OUTPUT_GROUP = "output_group"
 
 # SENSOR CONST
 TEMPERATURE = "temperature"

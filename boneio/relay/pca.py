@@ -143,12 +143,5 @@ class PWMPCA(BasicMqtt):
         _LOGGER.info("Momentary callback at %s", time)
         action()
 
-    def send_state(self) -> None:
-        """Send state to Mqtt on action."""
-        state = ON if self.is_active else OFF
-        if self.output_type != NONE:
-            self._send_message(
-                topic=self._send_topic,
-                payload={BRIGHTNESS: self.brightness, STATE: state},
-            )
-        self._loop.call_soon_threadsafe(self._callback)
+    def payload(self) -> dict:
+        return {BRIGHTNESS: self.brightness, STATE: self.state}

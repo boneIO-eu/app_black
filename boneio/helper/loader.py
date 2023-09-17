@@ -44,6 +44,7 @@ from boneio.const import (
     PCF_ID,
 )
 from boneio.cover import Cover
+from boneio.group import OutputGroup
 from boneio.helper import (
     GPIOInputException,
     GPIOOutputException,
@@ -213,24 +214,52 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
             pass
 
 
-OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind output_id")
+OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")
 
 
 def output_chooser(output_kind: str, config):
     """Get named tuple based on input."""
     if output_kind == MCP:
-        output_id = config.pop(MCP_ID, None)
-        return OutputEntry(MCPRelay, MCP, output_id)
+        expander_id = config.pop(MCP_ID, None)
+        return OutputEntry(MCPRelay, MCP, expander_id)
     elif output_kind == GPIO:
         return OutputEntry(GpioRelay, GPIO, GPIO)
     elif output_kind == PCA:
-        output_id = config.pop(PCA_ID, None)
-        return OutputEntry(PWMPCA, PCA, output_id)
+        expander_id = config.pop(PCA_ID, None)
+        return OutputEntry(PWMPCA, PCA, expander_id)
     elif output_kind == PCF:
-        output_id = config.pop(PCF_ID, None)
-        return OutputEntry(PCFRelay, PCF, output_id)
+        expander_id = config.pop(PCF_ID, None)
+        return OutputEntry(PCFRelay, PCF, expander_id)
     else:
         raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
+
+
+def configure_output_group(
+    manager: Manager,
+    state_manager: StateManager,
+    topic_prefix: str,
+    relay_id: str,
+    config: dict,
+    **kwargs
+) -> Any:
+    """Configure kind of relay. Most common MCP."""
+    restore_state = config.pop(RESTORE_STATE, False)
+    _id = config.pop(ID)
+    restored_state = (
+        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
+        if restore_state
+        else False
+    )
+
+    output = OutputGroup(
+        send_message=manager.send_message,
+        topic_prefix=topic_prefix,
+        id=_id,
+        restored_state=restored_state,
+        callback=lambda: None,
+        **config,
+        **kwargs)
+    return output
 
 
 def configure_relay(
@@ -240,6 +269,7 @@ def configure_relay(
     relay_id: str,
     relay_callback: Callable,
     config: dict,
+    **kwargs
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
     restore_state = config.pop(RESTORE_STATE, False)
@@ -256,42 +286,42 @@ def configure_relay(
     output = output_chooser(output_kind=config.pop(KIND), config=config)
 
     if getattr(output, "output_kind") == MCP:
-        mcp = manager.mcp.get(getattr(output, "output_id"))
+        mcp = manager.mcp.get(getattr(output, "expander_id"))
         if not mcp:
             _LOGGER.error("No such MCP configured!")
             return None
-        kwargs = {
+        extra_args = {
             "pin": int(config.pop(PIN)),
             "mcp": mcp,
-            "mcp_id": getattr(output, "output_id"),
+            "mcp_id": getattr(output, "expander_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == PCA:
-        pca = manager.pca.get(getattr(output, "output_id"))
+        pca = manager.pca.get(getattr(output, "expander_id"))
         if not pca:
             _LOGGER.error("No such PCA configured!")
             return None
-        kwargs = {
+        extra_args = {
             "pin": int(config.pop(PIN)),
             "pca": pca,
-            "pca_id": getattr(output, "output_id"),
+            "pca_id": getattr(output, "expander_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == PCF:
-        expander = manager.pcf.get(getattr(output, "output_id"))
+        expander = manager.pcf.get(getattr(output, "expander_id"))
         if not expander:
             _LOGGER.error("No such PCF configured!")
             return None
-        kwargs = {
+        extra_args = {
             "pin": int(config.pop(PIN)),
             "expander": expander,
-            "expander_id": getattr(output, "output_id"),
+            "expander_id": getattr(output, "expander_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
-        kwargs = {
+        extra_args = {
             "pin": config.pop(PIN),
         }
     else:
@@ -307,13 +337,14 @@ def configure_relay(
         restored_state=restored_state,
         **config,
         **kwargs,
+        **extra_args,
         callback=lambda: relay_callback(
-            relay_type=getattr(output, "output_id"),
+            expander_id=getattr(output, "expander_id"),
             relay_id=relay_id,
             restore_state=False if output_type == NONE else restore_state,
         ),
     )
-    manager.grouped_outputs[getattr(output, "output_id")][relay_id] = relay
+    manager.grouped_outputs[getattr(output, "expander_id")][relay_id] = relay
     return relay
 
 
@@ -477,6 +508,7 @@ def configure_cover(
             device_class=config.get(DEVICE_CLASS),
             availability_msg_func=ha_cover_availabilty_message,
         )
+    _LOGGER.debug("Configured cover %s", cover_id)
     return cover
 
 
