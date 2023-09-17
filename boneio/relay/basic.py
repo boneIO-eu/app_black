@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Callable
 from boneio.helper.util import callback
-from boneio.const import LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
+from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class BasicRelay(BasicMqtt):
     def __init__(
         self,
         callback: Callable,
-        id: str = None,
+        id: str,
         output_type=SWITCH,
         restored_state: bool = False,
         **kwargs,
@@ -26,7 +26,7 @@ class BasicRelay(BasicMqtt):
         self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
         super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
         self._output_type = output_type
-        if output_type == NONE:
+        if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
         self._state = restored_state

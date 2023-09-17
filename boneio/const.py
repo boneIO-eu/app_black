@@ -148,3 +148,12 @@ ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
 DallasBusTypes = Literal[DS2482, DALLAS]
 FILTERS = "filters"
+
+cover_actions = {
+    "OPEN": "open",
+    "CLOSE": "close",
+    "TOGGLE": "toggle",
+    "STOP": "stop",
+    "TOGGLE_OPEN": "toggle_open",
+    "TOGGLE_CLOSE": "toggle_close",
+}

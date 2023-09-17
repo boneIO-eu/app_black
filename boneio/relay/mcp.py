@@ -4,7 +4,7 @@ import logging
 
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
 
-from boneio.const import NONE, SWITCH, MCP
+from boneio.const import SWITCH, MCP, COVER
 from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.relay.basic import BasicRelay
 
@@ -25,7 +25,7 @@ class MCPRelay(BasicRelay):
     ) -> None:
         """Initialize MCP relay."""
         self._pin: DigitalInOut = mcp.get_pin(pin)
-        if output_type == NONE:
+        if output_type == COVER:
             """Just in case to not restore state of covers etc."""
             restored_state = False
         self._pin.switch_to_output(value=restored_state)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-from typing import Callable
+from typing import Callable, Union
 
 from boneio.const import CLOSE, CLOSED, CLOSING, COVER, IDLE, OPEN, OPENING, STOP
 from boneio.helper.events import EventBus
@@ -109,7 +109,7 @@ class Cover(BasicMqtt):
         self._stop_cover(on_exit=True)
 
     @property
-    def cover_state(self) -> CLOSED | OPEN:
+    def cover_state(self) -> str:
         """Current state of cover."""
         return CLOSED if self._closed else OPEN
 
