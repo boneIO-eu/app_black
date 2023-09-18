@@ -410,10 +410,10 @@ binary_sensor:
       detection_type:
         type: string
         required: True
-        default: "stable"
-        allowed: ["stable", "beta"]
+        default: "new"
+        allowed: ["new", "old"]
         meta:
-          label: There are 2 detector algorithms. Stable consumes more CPU. Beta is more optimized, but needed extra time for testing.
+          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
         type: boolean
         default: False
@@ -484,10 +484,10 @@ event:
       detection_type:
         type: string
         required: True
-        default: "stable"
-        allowed: ["stable", "beta"]
+        default: "new"
+        allowed: ["new", "old"]
         meta:
-          label: There are 2 detector algorithms. Stable consumes more CPU. Beta is more optimized, but needed extra time for testing.
+          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
         type: boolean
         default: False

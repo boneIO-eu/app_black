@@ -1,4 +1,4 @@
-"""GpioEventButtonBeta to receive signals."""
+"""GpioEventButtonNew to receive signals."""
 from __future__ import annotations
 import time
 import logging
@@ -20,7 +20,7 @@ DOUBLE_CLICK_DURATION_MS = 300
 LONG_PRESS_DURATION_MS = 600
 
 
-class GpioEventButtonBeta(GpioBaseClass):
+class GpioEventButtonNew(GpioBaseClass):
     """Represent Gpio input switch."""
 
     def __init__(self, **kwargs) -> None:
@@ -47,7 +47,7 @@ class GpioEventButtonBeta(GpioBaseClass):
 
         add_event_detect(pin=self._pin, edge=BOTH)
         add_event_callback(pin=self._pin, callback=self.check_state)
-        _LOGGER.debug("Configured BETA listening for input pin %s", self._pin)
+        _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def double_click_press_callback(self):
         self._is_waiting_for_second_click = False

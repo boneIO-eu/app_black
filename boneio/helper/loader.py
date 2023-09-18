@@ -65,11 +65,11 @@ from boneio.helper.onewire import (
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
 from boneio.helper.pcf8575 import PCF8575
-from boneio.input import GpioEventButton, GpioEventButtonBeta
+from boneio.input import GpioEventButtonOld, GpioEventButtonNew
 from boneio.sensor import (
     DallasSensorDS2482,
-    GpioInputBinarySensor,
-    GpioInputBinarySensorBeta,
+    GpioInputBinarySensorOld,
+    GpioInputBinarySensorNew,
 )
 from boneio.sensor.temp.dallas import DallasSensorW1
 
@@ -240,7 +240,7 @@ def configure_output_group(
     topic_prefix: str,
     relay_id: str,
     config: dict,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
     restore_state = config.pop(RESTORE_STATE, False)
@@ -258,7 +258,8 @@ def configure_output_group(
         restored_state=restored_state,
         callback=lambda: None,
         **config,
-        **kwargs)
+        **kwargs,
+    )
     return output
 
 
@@ -269,7 +270,7 @@ def configure_relay(
     relay_id: str,
     relay_callback: Callable,
     config: dict,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
     restore_state = config.pop(RESTORE_STATE, False)
@@ -348,52 +349,36 @@ def configure_relay(
     return relay
 
 
-InputEntry = namedtuple(
-    "InputEntry", "InputClass input_type ha_type availability_msg_f"
-)
-
-
-def input_chooser(input_type: str):
-    """Get named tuple based on input."""
-    if input_type == SENSOR:
-        return InputEntry(
-            GpioInputBinarySensor,
-            INPUT_SENSOR,
-            BINARY_SENSOR,
-            ha_binary_sensor_availabilty_message,
-        )
-    else:
-        return InputEntry(
-            GpioEventButton, INPUT, EVENT_ENTITY, ha_event_availabilty_message
-        )
-
-
 def configure_event_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButton | GpioEventButtonBeta | None = None
-) -> GpioEventButton | GpioEventButtonBeta | None:
+    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
+) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
         GpioEventButtonClass = (
-            GpioEventButton
-            if gpio.get("detection_type", "stable") == "stable"
-            else GpioEventButtonBeta
+            GpioEventButtonNew
+            if gpio.get("detection_type", "new") == "new"
+            else GpioEventButtonOld
         )
         if input:
             if not isinstance(input, GpioEventButtonClass):
-                _LOGGER.warn("You preconfigured type of input. It's forbidden. Please restart boneIO.")
+                _LOGGER.warn(
+                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                )
                 return input
-            input.set_press_callback(press_callback=lambda x, i, z: press_callback(
-                x=x,
-                inpin=i,
-                actions=gpio.get(ACTIONS, {}).get(x, []),
-                input_type=INPUT,
-                empty_message_after=gpio.get("clear_message", False),
-                duration=z,
-            ))
+            input.set_press_callback(
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                )
+            )
         else:
             input = GpioEventButtonClass(
                 pin=pin,
@@ -426,27 +411,31 @@ def configure_binary_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioInputBinarySensor | GpioInputBinarySensorBeta | None = None
-) -> GpioInputBinarySensor | GpioInputBinarySensorBeta | None:
+    input: GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
     """Configure input sensor or button."""
     try:
         GpioInputBinarySensorClass = (
-            GpioInputBinarySensor
-            if gpio.get("detection_type", "stable") == "stable"
-            else GpioInputBinarySensorBeta
+            GpioInputBinarySensorNew
+            if gpio.get("detection_type", "new") == "new"
+            else GpioInputBinarySensorOld
         )
         if input:
             if not isinstance(input, GpioInputBinarySensorClass):
-                _LOGGER.warn("You preconfigured type of input. It's forbidden. Please restart boneIO.")
+                _LOGGER.warn(
+                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                )
                 return input
-            input.set_press_callback(press_callback=lambda x, i, z: press_callback(
-                x=x,
-                inpin=i,
-                actions=gpio.get(ACTIONS, {}).get(x, []),
-                input_type=INPUT,
-                empty_message_after=gpio.get("clear_message", False),
-                duration=z,
-            ))
+            input.set_press_callback(
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                )
+            )
         else:
             input = GpioInputBinarySensorClass(
                 pin=pin,

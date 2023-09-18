@@ -1,4 +1,4 @@
-"""GpioInputBinarySensor to receive signals."""
+"""GpioInputBinarySensorNew to receive signals."""
 import logging
 from functools import partial
 from boneio.const import PRESSED, RELEASED, BOTH
@@ -8,7 +8,7 @@ from boneio.helper.gpio import add_event_callback, add_event_detect
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputBinarySensorBeta(GpioBaseClass):
+class GpioInputBinarySensorNew(GpioBaseClass):
     """Represent Gpio sensor on input boards."""
 
     def __init__(self, **kwargs) -> None:
