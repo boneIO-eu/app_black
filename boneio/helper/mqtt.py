@@ -10,7 +10,7 @@ class BasicMqtt:
         id: str,
         topic_prefix: str,
         name: str,
-        send_message: Callable[[str, Union[str, dict]], None],
+        send_message: Callable[[str, Union[str, dict], bool], None],
         topic_type: str,
         **kwargs,
     ):

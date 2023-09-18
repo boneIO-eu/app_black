@@ -1,31 +1,32 @@
-"""MCP23017 Relay module."""
+"""PCF8575 Relay module."""
 
 import logging
 
-from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
+from adafruit_pcf8575 import DigitalInOut
 
-from boneio.const import SWITCH, MCP, COVER
+from boneio.const import NONE, SWITCH, PCF
 from boneio.helper.events import async_track_point_in_time, utcnow
+from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class MCPRelay(BasicRelay):
-    """Represents MCP Relay output"""
+class PCFRelay(BasicRelay):
+    """Represents PCF Relay output"""
 
     def __init__(
         self,
         pin: int,
-        mcp: MCP23017,
-        mcp_id: str,
+        expander: PCF8575,
+        expander_id: str,
         output_type: str = SWITCH,
         restored_state: bool = False,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Initialize MCP relay."""
-        self._pin: DigitalInOut = mcp.get_pin(pin)
-        if output_type == COVER:
+        self._pin: DigitalInOut = expander.get_pin(pin)
+        if output_type == NONE:
             """Just in case to not restore state of covers etc."""
             restored_state = False
         self._pin.switch_to_output(value=restored_state)
@@ -33,13 +34,14 @@ class MCPRelay(BasicRelay):
             **kwargs, output_type=output_type, restored_state=restored_state
         )
         self._pin_id = pin
-        self._expander_id = mcp_id
-        _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
+        self._expander_id = expander_id
+        self._active_state = False
+        _LOGGER.debug("Setup PCF with pin %s", self._pin_id)
 
     @property
     def expander_type(self) -> str:
         """Check expander type."""
-        return MCP
+        return PCF
 
     @property
     def pin_id(self) -> int:
@@ -54,7 +56,7 @@ class MCPRelay(BasicRelay):
     @property
     def is_active(self) -> bool:
         """Is relay active."""
-        return self.pin.value
+        return self.pin.value == self._active_state
 
     @property
     def pin(self) -> str:
@@ -63,7 +65,7 @@ class MCPRelay(BasicRelay):
 
     def turn_on(self) -> None:
         """Call turn on action."""
-        self.pin.value = True
+        self.pin.value = self._active_state
         if self._momentary_turn_on:
             async_track_point_in_time(
                 loop=self._loop,
@@ -74,7 +76,7 @@ class MCPRelay(BasicRelay):
 
     def turn_off(self) -> None:
         """Call turn off action."""
-        self.pin.value = False
+        self.pin.value = not self._active_state
         if self._momentary_turn_off:
             async_track_point_in_time(
                 loop=self._loop,

@@ -1,5 +1,6 @@
 """Runner code for boneIO. Based on HA runner."""
 from __future__ import annotations
+
 import asyncio
 import logging
 import os
@@ -7,23 +8,26 @@ from typing import Any
 
 from boneio.const import (
     ADC,
+    BINARY_SENSOR,
     COVER,
     DALLAS,
     DS2482,
     ENABLED,
+    EVENT_ENTITY,
     HA_DISCOVERY,
     HOST,
-    INPUT,
     LM75,
     MCP23017,
-    PCA9685,
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
     OLED,
     ONEWIRE,
     OUTPUT,
+    OUTPUT_GROUP,
     PASSWORD,
+    PCA9685,
+    PCF8575,
     PORT,
     SENSOR,
     TOPIC_PREFIX,
@@ -38,6 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 config_modules = [
     {"name": MCP23017, "default": []},
+    {"name": PCF8575, "default": []},
     {"name": PCA9685, "default": []},
     {"name": DS2482, "default": []},
     {"name": ADC, "default": []},
@@ -45,6 +50,7 @@ config_modules = [
     {"name": MODBUS, "default": {}},
     {"name": OLED, "default": {}},
     {"name": DALLAS, "default": None},
+    {"name": OUTPUT_GROUP, "default": []},
 ]
 
 
@@ -55,7 +61,6 @@ async def async_run(
     mqttpassword: str = "",
 ) -> list[Any]:
     """Run BoneIO."""
-
     _config_helper = ConfigHelper(
         topic_prefix=config[MQTT].pop(TOPIC_PREFIX),
         ha_discovery=config[MQTT][HA_DISCOVERY].pop(ENABLED),
@@ -78,7 +83,8 @@ async def async_run(
         send_message=client.send_message,
         stop_client=client.stop_client,
         relay_pins=config.get(OUTPUT, []),
-        input_pins=config.get(INPUT, []),
+        event_pins=config.get(EVENT_ENTITY, []),
+        binary_pins=config.get(BINARY_SENSOR, []),
         config_file_path=config_file,
         state_manager=StateManager(
             state_file=f"{os.path.split(config_file)[0]}state.json"
@@ -96,4 +102,4 @@ async def async_run(
     tasks.update(manager.get_tasks())
     _LOGGER.info("Connecting to MQTT.")
     tasks.add(client.start_client(manager))
-    return await asyncio.gather(*tasks)
+    return await asyncio.gather(*tasks, return_exceptions=True)

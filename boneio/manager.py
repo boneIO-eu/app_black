@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
@@ -8,10 +9,12 @@ from busio import I2C
 from boneio.const import (
     ACTION,
     ADDRESS,
+    BINARY_SENSOR,
     BUTTON,
     CLOSE,
     COVER,
     DALLAS,
+    EVENT_ENTITY,
     ID,
     INPUT,
     LM75,
@@ -33,10 +36,14 @@ from boneio.const import (
     ClickTypes,
     InputTypes,
     relay_actions,
+    cover_actions,
     DS2482,
     LIGHT,
     LED,
     SET_BRIGHTNESS,
+    MCP,
+    PCA,
+    PCF,
 )
 from boneio.helper import (
     GPIOInputException,
@@ -53,11 +60,12 @@ from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
 from boneio.helper.loader import (
     configure_cover,
-    configure_input,
+    configure_event_sensor,
+    configure_binary_sensor,
     configure_relay,
+    configure_output_group,
     create_dallas_sensor,
-    create_mcp23017,
-    create_pca9685,
+    create_expander,
     create_temp_sensor,
 )
 from boneio.helper.logger import configure_logger
@@ -85,11 +93,14 @@ class Manager:
         config_helper: ConfigHelper,
         config_file_path: str,
         relay_pins: List = [],
-        input_pins: List = [],
+        event_pins: List = [],
+        binary_pins: List = [],
+        output_group: List = [],
         sensors: dict = {},
         modbus: dict = {},
         pca9685: list = [],
         mcp23017: list = [],
+        pcf8575: list = [],
         ds2482: Optional[List] = [],
         dallas: Optional[dict] = None,
         oled: dict = {},
@@ -105,15 +116,19 @@ class Manager:
         self._host_data = None
         self._config_file_path = config_file_path
         self._state_manager = state_manager
-        self._event_bus = EventBus(self._loop)
+        self._event_bus = EventBus(loop=self._loop)
 
         self.send_message = send_message
         self.stop_client = stop_client
-        self._input_pins = input_pins
+        self._event_pins = event_pins
+        self._inputs = {}
+        self._binary_pins = binary_pins
         self._i2cbusio = I2C(SCL, SDA)
         self._mcp = {}
+        self._pcf = {}
         self._pca = {}
         self._output = {}
+        self._configured_output_groups = {}
         self._oled = None
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
@@ -129,11 +144,27 @@ class Manager:
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
 
-        self.grouped_outputs = create_mcp23017(
-            manager=self, mcp23017=mcp23017, i2cbusio=self._i2cbusio
+        self.grouped_outputs = create_expander(
+            expander_dict=self._mcp,
+            expander_config=mcp23017,
+            exp_type=MCP,
+            i2cbusio=self._i2cbusio,
         )
         self.grouped_outputs.update(
-            create_pca9685(manager=self, pca9685=pca9685, i2cbusio=self._i2cbusio)
+            create_expander(
+                expander_dict=self._pcf,
+                expander_config=pcf8575,
+                exp_type=PCF,
+                i2cbusio=self._i2cbusio,
+            )
+        )
+        self.grouped_outputs.update(
+            create_expander(
+                expander_dict=self._pca,
+                expander_config=pca9685,
+                exp_type=PCA,
+                i2cbusio=self._i2cbusio,
+            )
         )
 
         self._configure_adc(adc_list=adc)
@@ -147,11 +178,12 @@ class Manager:
                 relay_id=_id,
                 relay_callback=self._relay_callback,
                 config=_config,
+                event_bus=self._event_bus,
             )
             if not out:
                 continue
             self._output[_id] = out
-            if out.output_type != NONE:
+            if out.output_type not in (NONE, COVER):
                 self.send_ha_autodiscovery(
                     id=out.id,
                     name=out.name,
@@ -182,7 +214,7 @@ class Manager:
                     _config.get("close_relay"),
                 )
                 continue
-            if open_relay.output_type != NONE or close_relay.output_type != NONE:
+            if open_relay.output_type != COVER or close_relay.output_type != COVER:
                 _LOGGER.error(
                     "Can't configure cover %s. %s",
                     _id,
@@ -202,6 +234,9 @@ class Manager:
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 topic_prefix=self._config_helper.topic_prefix,
             )
+
+        self._output_group = output_group
+        self._configure_output_group()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs(reload_config=False)
@@ -230,22 +265,92 @@ class Manager:
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
 
-    def configure_inputs(self, reload_config: bool = False):
-        used_pins = set()
-        if reload_config:
-            load_config_from_file(self._config_file_path)
-        for gpio in self._input_pins:
-            pin = gpio.pop(PIN)
-            if pin in used_pins:
-                _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
-                continue
-            used_pins.add(
-                configure_input(
-                    gpio=gpio,
-                    pin=pin,
-                    press_callback=self.press_callback,
-                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+    def _configure_output_group(self):
+        def get_outputs(output_list):
+            outputs = []
+            for x in output_list:
+                if x in self._output:
+                    output = self._output[x]
+                    if output.output_type == COVER:
+                        _LOGGER.warn("You can't add cover output to group.")
+                    else:
+                        outputs.append(output)
+            return outputs
+
+        for group in self._output_group:
+            members = get_outputs(group.pop("outputs"))
+            if not members:
+                _LOGGER.warn(
+                    "This group %s doesn't have any valid members. Not adding it.",
+                    group[ID],
                 )
+                continue
+            configured_group = configure_output_group(
+                config=group,
+                manager=self,
+                state_manager=self._state_manager,
+                topic_prefix=self._config_helper.topic_prefix,
+                relay_id=group[ID].replace(" ", ""),
+                event_bus=self._event_bus,
+                members=members,
+            )
+            self._configured_output_groups[configured_group.id] = configured_group
+            if configured_group.output_type != NONE:
+                self.send_ha_autodiscovery(
+                    id=configured_group.id,
+                    name=configured_group.name,
+                    ha_type=configured_group.output_type,
+                    availability_msg_func=AVAILABILITY_FUNCTION_CHOOSER.get(
+                        configured_group.output_type, ha_switch_availabilty_message
+                    ),
+                    device_type="group",
+                    icon="mdi:lightbulb-group"
+                    if configured_group.output_type == LIGHT
+                    else "mdi:toggle-switch-variant",
+                )
+            self.append_task(
+                coro=configured_group.event_listener, name=configured_group.id
+            )
+
+    def configure_inputs(self, reload_config: bool = False):
+        """Configure inputs. Either events or binary sensors."""
+
+        def check_if_pin_configured(pin: str) -> bool:
+            if pin in self._inputs:
+                if not reload_config:
+                    _LOGGER.warn("This PIN %s is already configured. Omitting it.", pin)
+                    return True
+            return False
+
+        def configure_single_input(configure_sensor_func, gpio):
+            pin = gpio.pop(PIN)
+            if check_if_pin_configured(pin=pin):
+                return False
+            input = configure_sensor_func(
+                gpio=gpio,
+                pin=pin,
+                press_callback=self.press_callback,
+                send_ha_autodiscovery=self.send_ha_autodiscovery,
+                input=self._inputs.get(pin, None),
+            )
+            if input:
+                self._inputs[input.pin] = input
+            return True
+
+        if reload_config:
+            config = load_config_from_file(self._config_file_path)
+            if config:
+                self._event_pins = config.get(EVENT_ENTITY, [])
+                self._binary_pins = config.get(BINARY_SENSOR, [])
+                self._config_helper.clear_autodiscovery_type(ha_type=EVENT_ENTITY)
+                self._config_helper.clear_autodiscovery_type(ha_type=BINARY_SENSOR)
+        for gpio in self._event_pins:
+            configure_single_input(
+                configure_sensor_func=configure_event_sensor, gpio=gpio
+            )
+        for gpio in self._binary_pins:
+            configure_single_input(
+                configure_sensor_func=configure_binary_sensor, gpio=gpio
             )
 
     def append_task(self, coro: Coroutine, name: str = "Unknown") -> asyncio.Future:
@@ -387,7 +492,11 @@ class Manager:
         self.send_message(topic=topic, payload=ONLINE, retain=True)
 
     def _relay_callback(
-        self, relay_type: str, relay_id: str, restore_state: bool
+        self,
+        relay_id: str,
+        restore_state: bool,
+        save_host_data: bool = True,
+        expander_id: str | None = None,
     ) -> None:
         """Relay callback function."""
         if restore_state:
@@ -396,7 +505,8 @@ class Manager:
                 attribute=relay_id,
                 value=self._output[relay_id].is_active,
             )
-        self._host_data_callback(type=relay_type)
+        if save_host_data and expander_id:
+            self._host_data_callback(type=expander_id)
 
     def _logger_reload(self) -> None:
         """_Logger reload function."""
@@ -430,6 +540,14 @@ class Manager:
             availability_msg_func=ha_button_availabilty_message,
             entity_category="config",
         )
+        self.send_ha_autodiscovery(
+            id="inputs_reload",
+            name="Reload actions",
+            ha_type=BUTTON,
+            payload_press="inputs_reload",
+            availability_msg_func=ha_button_availabilty_message,
+            entity_category="config",
+        )
 
     @property
     def mcp(self):
@@ -441,25 +559,62 @@ class Manager:
         """Get PCA by it's id."""
         return self._pca
 
+    @property
+    def pcf(self):
+        """Get PCF by it's id."""
+        return self._pcf
+
     def press_callback(
-        self, x: ClickTypes, inpin: str, actions: List, input_type: InputTypes = INPUT
+        self,
+        x: ClickTypes,
+        inpin: str,
+        actions: List,
+        input_type: InputTypes = INPUT,
+        empty_message_after: bool = False,
+        duration: float | None = None,
     ) -> None:
         """Press callback to use in input gpio.
         If relay input map is provided also toggle action on relay or cover or mqtt."""
         topic = f"{self._config_helper.topic_prefix}/{input_type}/{inpin}"
-        self.send_message(topic=topic, payload=x, retain=False)
+
+        def generate_payload():
+            if input_type == INPUT:
+                if duration:
+                    return {"event_type": x, "duration": duration}
+                return {"event_type": x}
+            return x
+
+        def get_output_and_action(device_id, action, action_output, action_cover):
+            if action == OUTPUT:
+                return (
+                    self._output.get(
+                        device_id, self._configured_output_groups.get(device_id)
+                    ),
+                    relay_actions.get(action_output),
+                )
+            else:
+                return (self._covers.get(device_id), cover_actions.get(action_cover))
+
+        self.send_message(topic=topic, payload=generate_payload(), retain=False)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
-            if action_definition[ACTION] == OUTPUT:
+            if action_definition[ACTION] in (OUTPUT, COVER):
                 device = action_definition.get(PIN)
                 if not device:
                     continue
-                relay = self._output.get(device.replace(" ", ""))
-                action = relay_actions.get(action_definition["action_output"])
-                if relay and action:
-                    getattr(relay, action)()
+                (output, action) = get_output_and_action(
+                    device_id=device.replace(" ", ""),
+                    action=action_definition[ACTION],
+                    action_output=action_definition.get("action_output"),
+                    action_cover=action_definition.get("action_cover"),
+                )
+                if output and action:
+                    getattr(output, action)()
                 else:
-                    _LOGGER.warn("PIN %s for action not found", device)
+                    if not action:
+                        _LOGGER.warn("Action doesn't exists %s. Check spelling", action)
+                    if not output:
+                        _LOGGER.warn("Device %s for action not found", device)
             elif action_definition[ACTION] == MQTT:
                 action_topic = action_definition.get(TOPIC)
                 action_payload = action_definition.get("action_mqtt_msg")
@@ -467,18 +622,11 @@ class Manager:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
-            elif action_definition[ACTION] == COVER:
-                device = action_definition.get(PIN)
-                if not device:
-                    continue
-                cover = self._covers.get(device.replace(" ", ""))
-                if cover:
-                    getattr(cover, action_definition["action_cover"])()
-
         # This is similar how Z2M is clearing click sensor.
-        self._loop.call_soon_threadsafe(
-            self._loop.call_later, 0.2, self.send_message, topic, ""
-        )
+        if empty_message_after:
+            self._loop.call_soon_threadsafe(
+                self._loop.call_later, 0.2, self.send_message, topic, ""
+            )
 
     def send_ha_autodiscovery(
         self,
@@ -495,14 +643,15 @@ class Manager:
         topic_prefix = topic_prefix or self._config_helper.topic_prefix
         payload = availability_msg_func(topic=topic_prefix, id=id, name=name, **kwargs)
         topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{topic_prefix}/{id}/config"
-        _LOGGER.debug("Sending HA discovery for %s, %s.", ha_type, name)
-        self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
+        _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
+        self._config_helper.add_autodiscovery_msg(
+            topic=topic, ha_type=ha_type, payload=payload
+        )
         self.send_message(topic=topic, payload=payload, retain=True)
 
     def resend_autodiscovery(self) -> None:
         for msg in self._config_helper.autodiscovery_msgs:
             self.send_message(**msg, retain=True)
-
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving action from Mqtt."""
@@ -544,7 +693,7 @@ class Manager:
             if (
                 target_device
                 and target_device.output_type != NONE
-                and message is not ""
+                and message != ""
             ):
                 target_device.set_brightness(int(message))
             else:
@@ -571,6 +720,16 @@ class Manager:
                     _LOGGER.warn(
                         "Positon cannot be set. Not number between 0-100. %s", message
                     )
+        elif msg_type == "group" and command == "set":
+            target_device = self._configured_output_groups.get(device_id)
+            if target_device and target_device.output_type != NONE:
+                action_from_msg = relay_actions.get(message.upper())
+                if action_from_msg:
+                    getattr(target_device, action_from_msg)()
+                else:
+                    _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == BUTTON and command == "set":
             if device_id == "logger" and message == "reload":
                 _LOGGER.info("Reloading logger configuration.")
@@ -578,6 +737,9 @@ class Manager:
             elif device_id == "restart" and message == "restart":
                 _LOGGER.info("Exiting process. Systemd should restart it soon.")
                 await self.stop_client()
+            elif device_id == "inputs_reload" and message == "inputs_reload":
+                _LOGGER.info("Reloading events and binary sensors actions")
+                self.configure_inputs(reload_config=True)
 
     @property
     def output(self) -> dict:

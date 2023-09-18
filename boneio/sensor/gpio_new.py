@@ -1,14 +1,14 @@
-"""GpioInputBinarySensor to receive signals."""
+"""GpioInputBinarySensorNew to receive signals."""
 import logging
 from functools import partial
-import asyncio
-from boneio.const import PRESSED, RELEASED
+from boneio.const import PRESSED, RELEASED, BOTH
 from boneio.helper import GpioBaseClass
+from boneio.helper.gpio import add_event_callback, add_event_detect
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class GpioInputBinarySensor(GpioBaseClass):
+class GpioInputBinarySensorNew(GpioBaseClass):
     """Represent Gpio sensor on input boards."""
 
     def __init__(self, **kwargs) -> None:
@@ -21,14 +21,11 @@ class GpioInputBinarySensor(GpioBaseClass):
             else (PRESSED, RELEASED)
         )
         _LOGGER.debug("Configured sensor pin %s", self._pin)
-        asyncio.create_task(self._run())
+        add_event_detect(pin=self._pin, edge=BOTH)
+        add_event_callback(pin=self._pin, callback=self.check_state)
 
-    async def _run(self) -> None:
-        while True:
-            self.check_state(state=self.is_pressed)
-            await asyncio.sleep(self._bounce_time.total_in_seconds)
-
-    def check_state(self, state: bool) -> None:
+    def check_state(self, channel) -> None:
+        state = self.is_pressed
         if state == self._state:
             return
         self._state = state

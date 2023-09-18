@@ -81,6 +81,7 @@ class EventBus:
         """Initialize handler"""
         self._loop = loop or asyncio.get_event_loop()
         self._listeners = {}
+        self._output_listeners = {}
         self._sigterm_listeners = []
         self._haonline_listeners = []
         self._timer_handle = _async_create_timer(self._loop, self._run_second_event)
@@ -102,9 +103,11 @@ class EventBus:
         """Function to call on exit. Should invoke all sigterm listeners."""
         _LOGGER.debug("Exiting process started.")
         self._listeners = {}
+        self._output_listeners = {}
         for target in self._sigterm_listeners:
             target()
         self._timer_handle()
+
         _LOGGER.info("Shutdown gracefully.")
         raise GracefulExit(code=0)
 
@@ -116,6 +119,19 @@ class EventBus:
     def add_sigterm_listener(self, target):
         """Add sigterm listener."""
         self._sigterm_listeners.append(target)
+
+    def add_output_listener(self, name, target):
+        """Add output listener."""
+        self._output_listeners[name] = ListenerJob(target=target)
+        return self._output_listeners[name]
+    
+    def trigger_output_event(self, event):
+        asyncio.create_task(self.async_trigger_output_event(event=event))
+    
+    async def async_trigger_output_event(self, event):
+        listener = self._output_listeners.get(event)
+        if listener:
+            await listener.target(event)
 
     def add_haonline_listener(self, target):
         """Add HA Online listener."""

@@ -1,7 +1,11 @@
 """State files manager."""
+from __future__ import annotations
 import asyncio
+import logging
 import json
 from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class StateManager:
@@ -13,6 +17,7 @@ class StateManager:
         self._lock = asyncio.Lock()
         self._file = state_file
         self._state = self.load_states()
+        _LOGGER.info("Loaded state file from %s", self._file)
         self._file_uptodate = False
 
     def load_states(self) -> dict:

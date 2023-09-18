@@ -18,7 +18,8 @@ mcp23017:
   - id: mcp2
     address: 0x21
 
-input: !include input.yaml
+event: !include event.yaml
+binary_sensor: !include binary_sensor.yaml
 
 output: !include output32x5A.yaml
 

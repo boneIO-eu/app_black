@@ -37,8 +37,14 @@ from boneio.const import (
     SHOW_HA,
     UPDATE_INTERVAL,
     DallasBusTypes,
+    EVENT_ENTITY,
+    ExpanderTypes,
+    PCF,
+    PCA,
+    PCF_ID,
 )
 from boneio.cover import Cover
+from boneio.group import OutputGroup
 from boneio.helper import (
     GPIOInputException,
     GPIOOutputException,
@@ -46,7 +52,7 @@ from boneio.helper import (
     StateManager,
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
-    ha_input_availabilty_message,
+    ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
 from boneio.helper.onewire import (
@@ -58,8 +64,13 @@ from boneio.helper.onewire import (
 )
 from boneio.helper.ha_discovery import ha_cover_availabilty_message
 from boneio.helper.timeperiod import TimePeriod
-from boneio.input.gpio import GpioInputButton
-from boneio.sensor import DallasSensorDS2482
+from boneio.helper.pcf8575 import PCF8575
+from boneio.input import GpioEventButtonOld, GpioEventButtonNew
+from boneio.sensor import (
+    DallasSensorDS2482,
+    GpioInputBinarySensorOld,
+    GpioInputBinarySensorNew,
+)
 from boneio.sensor.temp.dallas import DallasSensorW1
 
 # Typing imports that create a circular dependency
@@ -68,9 +79,8 @@ if TYPE_CHECKING:
 
 from busio import I2C
 
-from boneio.relay import GpioRelay, MCPRelay, PWMPCA
+from boneio.relay import GpioRelay, MCPRelay, PWMPCA, PCFRelay
 from boneio.sensor import GpioADCSensor, initialize_adc
-from boneio.sensor.gpio import GpioInputSensor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +104,7 @@ def create_adc(manager: Manager, topic_prefix: str, adc_list: list = []):
                 send_message=manager.send_message,
                 topic_prefix=topic_prefix,
                 update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
                 manager.send_ha_autodiscovery(
@@ -148,49 +159,30 @@ def create_temp_sensor(
         pass
 
 
-def create_mcp23017(
-    manager: Manager,
-    mcp23017: list,
-    i2cbusio: I2C,
-) -> dict:
-    """Create MCP23017."""
-    grouped_outputs = {}
-    for mcp in mcp23017:
-        id = mcp[ID] or mcp[ADDRESS]
-        try:
-            manager._mcp[id] = MCP23017(i2c=i2cbusio, address=mcp[ADDRESS], reset=False)
-            sleep_time = mcp.get(INIT_SLEEP, TimePeriod(seconds=0))
-            _LOGGER.debug(
-                f"Sleeping for {sleep_time.total_seconds}s while MCP {id} is initializing."
-            )
-            time.sleep(sleep_time.total_seconds)
-            grouped_outputs[id] = {}
-        except TimeoutError as err:
-            _LOGGER.error("Can't connect to MCP %s. %s", id, err)
-            pass
-    return grouped_outputs
+expander_class = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
 
-def create_pca9685(
-    manager: Manager,
-    pca9685: list,
-    i2cbusio: I2C,
+def create_expander(
+    expander_dict: dict, expander_config: list, exp_type: ExpanderTypes, i2cbusio: I2C
 ) -> dict:
-    """Create MCP23017."""
     grouped_outputs = {}
-    for pca in pca9685:
-        id = pca[ID] or pca[ADDRESS]
+    for expander in expander_config:
+        id = expander[ID] or expander[ADDRESS]
         try:
-            manager._pca[id] = PCA9685(i2c_bus=i2cbusio, address=pca[ADDRESS])
-            manager._pca[id].frequency = 500
-            sleep_time = pca.get(INIT_SLEEP, TimePeriod(seconds=0))
-            _LOGGER.debug(
-                f"Sleeping for {sleep_time.total_seconds}s while PCA {id} is initializing."
+            expander_dict[id] = expander_class[exp_type](
+                i2c=i2cbusio, address=expander[ADDRESS], reset=False
             )
-            time.sleep(sleep_time.total_seconds)
+            sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
+            if sleep_time.total_seconds > 0:
+                _LOGGER.debug(
+                    f"Sleeping for {sleep_time.total_seconds}s while {exp_type} {id} is initializing."
+                )
+                time.sleep(sleep_time.total_seconds)
+            else:
+                _LOGGER.debug(f"{exp_type} {id} is initializing.")
             grouped_outputs[id] = {}
         except TimeoutError as err:
-            _LOGGER.error("Can't connect to PCA %s. %s", id, err)
+            _LOGGER.error("Can't connect to %s %s. %s", exp_type, id, err)
             pass
     return grouped_outputs
 
@@ -222,21 +214,53 @@ def create_modbus_sensors(manager: Manager, sensors, **kwargs) -> None:
             pass
 
 
-OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind output_id")
+OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")
 
 
 def output_chooser(output_kind: str, config):
     """Get named tuple based on input."""
     if output_kind == MCP:
-        output_id = config.pop(MCP_ID, None)
-        return OutputEntry(MCPRelay, MCP, output_id)
+        expander_id = config.pop(MCP_ID, None)
+        return OutputEntry(MCPRelay, MCP, expander_id)
     elif output_kind == GPIO:
         return OutputEntry(GpioRelay, GPIO, GPIO)
     elif output_kind == PCA:
-        output_id = config.pop(PCA_ID, None)
-        return OutputEntry(PWMPCA, PCA, output_id)
+        expander_id = config.pop(PCA_ID, None)
+        return OutputEntry(PWMPCA, PCA, expander_id)
+    elif output_kind == PCF:
+        expander_id = config.pop(PCF_ID, None)
+        return OutputEntry(PCFRelay, PCF, expander_id)
     else:
         raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
+
+
+def configure_output_group(
+    manager: Manager,
+    state_manager: StateManager,
+    topic_prefix: str,
+    relay_id: str,
+    config: dict,
+    **kwargs,
+) -> Any:
+    """Configure kind of relay. Most common MCP."""
+    restore_state = config.pop(RESTORE_STATE, False)
+    _id = config.pop(ID)
+    restored_state = (
+        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
+        if restore_state
+        else False
+    )
+
+    output = OutputGroup(
+        send_message=manager.send_message,
+        topic_prefix=topic_prefix,
+        id=_id,
+        restored_state=restored_state,
+        callback=lambda: None,
+        **config,
+        **kwargs,
+    )
+    return output
 
 
 def configure_relay(
@@ -246,6 +270,7 @@ def configure_relay(
     relay_id: str,
     relay_callback: Callable,
     config: dict,
+    **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
     restore_state = config.pop(RESTORE_STATE, False)
@@ -262,31 +287,42 @@ def configure_relay(
     output = output_chooser(output_kind=config.pop(KIND), config=config)
 
     if getattr(output, "output_kind") == MCP:
-        mcp = manager.mcp.get(getattr(output, "output_id"))
+        mcp = manager.mcp.get(getattr(output, "expander_id"))
         if not mcp:
             _LOGGER.error("No such MCP configured!")
             return None
-        kwargs = {
+        extra_args = {
             "pin": int(config.pop(PIN)),
             "mcp": mcp,
-            "mcp_id": getattr(output, "output_id"),
+            "mcp_id": getattr(output, "expander_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == PCA:
-        pca = manager.pca.get(getattr(output, "output_id"))
+        pca = manager.pca.get(getattr(output, "expander_id"))
         if not pca:
             _LOGGER.error("No such PCA configured!")
             return None
-        kwargs = {
+        extra_args = {
             "pin": int(config.pop(PIN)),
             "pca": pca,
-            "pca_id": getattr(output, "output_id"),
+            "pca_id": getattr(output, "expander_id"),
+            "output_type": output_type,
+        }
+    elif getattr(output, "output_kind") == PCF:
+        expander = manager.pcf.get(getattr(output, "expander_id"))
+        if not expander:
+            _LOGGER.error("No such PCF configured!")
+            return None
+        extra_args = {
+            "pin": int(config.pop(PIN)),
+            "expander": expander,
+            "expander_id": getattr(output, "expander_id"),
             "output_type": output_type,
         }
     elif getattr(output, "output_kind") == GPIO:
         if GPIO not in manager.grouped_outputs:
             manager.grouped_outputs[GPIO] = {}
-        kwargs = {
+        extra_args = {
             "pin": config.pop(PIN),
         }
     else:
@@ -302,62 +338,125 @@ def configure_relay(
         restored_state=restored_state,
         **config,
         **kwargs,
+        **extra_args,
         callback=lambda: relay_callback(
-            relay_type=getattr(output, "output_id"),
+            expander_id=getattr(output, "expander_id"),
             relay_id=relay_id,
             restore_state=False if output_type == NONE else restore_state,
         ),
     )
-    manager.grouped_outputs[getattr(output, "output_id")][relay_id] = relay
+    manager.grouped_outputs[getattr(output, "expander_id")][relay_id] = relay
     return relay
 
 
-InputEntry = namedtuple(
-    "InputEntry", "InputClass input_type ha_type availability_msg_f"
-)
-
-
-def input_chooser(input_type: str):
-    """Get named tuple based on input."""
-    if input_type == SENSOR:
-        return InputEntry(
-            GpioInputSensor,
-            INPUT_SENSOR,
-            BINARY_SENSOR,
-            ha_binary_sensor_availabilty_message,
-        )
-    else:
-        return InputEntry(GpioInputButton, INPUT, SENSOR, ha_input_availabilty_message)
-
-
-def configure_input(
+def configure_event_sensor(
     gpio: dict,
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-) -> str:
+    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
+) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
-        input = input_chooser(input_type=gpio.get(KIND))
-        getattr(input, "InputClass")(
-            pin=pin,
-            press_callback=lambda x, i: press_callback(
-                x=x,
-                inpin=i,
-                actions=gpio.get(ACTIONS, {}).get(x, []),
-                input_type=getattr(input, "input_type"),
-            ),
-            **gpio,
+        GpioEventButtonClass = (
+            GpioEventButtonNew
+            if gpio.get("detection_type", "new") == "new"
+            else GpioEventButtonOld
         )
+        if input:
+            if not isinstance(input, GpioEventButtonClass):
+                _LOGGER.warn(
+                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                )
+                return input
+            input.set_press_callback(
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                )
+            )
+        else:
+            input = GpioEventButtonClass(
+                pin=pin,
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                ),
+                **gpio,
+            )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
                 name=gpio.get(ID, pin),
-                ha_type=getattr(input, "ha_type"),
+                ha_type=EVENT_ENTITY,
                 device_class=gpio.get(DEVICE_CLASS, None),
-                availability_msg_func=getattr(input, "availability_msg_f"),
+                availability_msg_func=ha_event_availabilty_message,
             )
-        return pin
+        return input
+    except GPIOInputException as err:
+        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
+        pass
+
+
+def configure_binary_sensor(
+    gpio: dict,
+    pin: str,
+    press_callback: Callable,
+    send_ha_autodiscovery: Callable,
+    input: GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
+    """Configure input sensor or button."""
+    try:
+        GpioInputBinarySensorClass = (
+            GpioInputBinarySensorNew
+            if gpio.get("detection_type", "new") == "new"
+            else GpioInputBinarySensorOld
+        )
+        if input:
+            if not isinstance(input, GpioInputBinarySensorClass):
+                _LOGGER.warn(
+                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                )
+                return input
+            input.set_press_callback(
+                press_callback=lambda x, i, z: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT,
+                    empty_message_after=gpio.get("clear_message", False),
+                    duration=z,
+                )
+            )
+        else:
+            input = GpioInputBinarySensorClass(
+                pin=pin,
+                press_callback=lambda x, i: press_callback(
+                    x=x,
+                    inpin=i,
+                    actions=gpio.get(ACTIONS, {}).get(x, []),
+                    input_type=INPUT_SENSOR,
+                    empty_message_after=gpio.get("clear_message", False),
+                ),
+                **gpio,
+            )
+        if gpio.get(SHOW_HA, True):
+            send_ha_autodiscovery(
+                id=pin,
+                name=gpio.get(ID, pin),
+                ha_type=BINARY_SENSOR,
+                device_class=gpio.get(DEVICE_CLASS, None),
+                availability_msg_func=ha_binary_sensor_availabilty_message,
+            )
+        return input
     except GPIOInputException as err:
         _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
         pass
@@ -398,6 +497,7 @@ def configure_cover(
             device_class=config.get(DEVICE_CLASS),
             availability_msg_func=ha_cover_availabilty_message,
         )
+    _LOGGER.debug("Configured cover %s", cover_id)
     return cover
 
 

@@ -15,6 +15,7 @@ from yaml import MarkedYAMLError
 from boneio.const import ACTION
 from boneio.helper import load_config_from_file
 from boneio.helper.exceptions import ConfigurationException, RestartRequestException
+from boneio.helper.events import GracefulExit
 from boneio.helper.logger import configure_logger
 from boneio.runner import async_run
 from boneio.version import __version__
@@ -89,8 +90,9 @@ def run(config: str, debug: int, mqttusername: str = "", mqttpassword: str = "")
             ),
         )
         return 0
-    except RestartRequestException as err:
-        _LOGGER.info(err)
+    except (RestartRequestException, GracefulExit) as err:
+        if err is not None:
+            _LOGGER.info(err)
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)

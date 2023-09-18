@@ -1,0 +1,21 @@
+- id: IN_47
+  pin: P8_12
+  kind: sensor
+  detection_type: "old"
+- id: IN_48
+  pin: P8_11
+  kind: sensor
+  detection_type: "new"
+- id: IN_49
+  pin: P8_10
+  kind: sensor
+
+- id: IN_50
+  pin: P8_9
+  kind: sensor
+- id: IN_51
+  pin: P8_8
+  kind: sensor
+- id: IN_52
+  pin: P8_7
+  kind: sensor

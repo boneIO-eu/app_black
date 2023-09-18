@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import logging
 
@@ -80,23 +81,49 @@ def edge_detect(
         GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
     except RuntimeError as err:
         raise GPIOInputException(err)
+    
+def add_event_detect(
+    pin: str, edge: Gpio_Edges = FALLING
+) -> None:
+    """Add detection for RISING and FALLING events."""
+    try:
+        GPIO.add_event_detect(gpio=pin, edge=edge)
+    except RuntimeError as err:
+        raise GPIOInputException(err)
+    
+def add_event_callback(
+    pin: str, callback: Callable
+) -> None:
+    """Add detection for RISING and FALLING events."""
+    try:
+        GPIO.add_event_callback(gpio=pin,callback=callback)
+    except RuntimeError as err:
+        raise GPIOInputException(err)
 
 
 class GpioBaseClass:
     """Base class for initialize GPIO"""
 
     def __init__(
-        self, pin: str, press_callback: Callable[[ClickTypes, str], None], **kwargs
+        self, pin: str, press_callback: Callable[[ClickTypes, str, bool | None], None], **kwargs
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        self._bounce_time = kwargs.get("bounce_time", TimePeriod(milliseconds=10))
+        self._bounce_time = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
         setup_input(pin=self._pin, pull_mode=gpio_mode)
+
+    def set_press_callback(self, press_callback: Callable[[ClickTypes, str, bool | None], None]) -> None:
+        self._press_callback = press_callback
 
     @property
     def is_pressed(self) -> bool:
         """Is button pressed."""
         return read_input(self._pin)
+    
+    @property
+    def pin(self) -> str:
+        """Return configured pin."""
+        return self._pin

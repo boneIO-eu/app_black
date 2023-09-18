@@ -218,6 +218,33 @@ mcp23017:
         meta:
           label: How long to sleep for MCP to initialize.
 
+
+pcf8575:
+  type: list
+  required: False
+  meta:
+    label: pcf8575 Pin config
+  schema:
+    type: dict
+    schema:
+      id: !include id.yaml
+      address:
+        type: integer
+        required: True
+        meta:
+          label: GPIO of I2C SDA
+      init_sleep:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: 0s
+        meta:
+          label: How long to sleep for PCF to initialize.
+
 pca9685:
   type: list
   required: False
@@ -260,7 +287,7 @@ output:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ["gpio", "mcp", "pca"]
+        allowed: ["gpio", "mcp", "pca", "pcf"]
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -273,6 +300,11 @@ output:
         required: False
         meta:
           label: PCA ID to connect
+      pcf_id:
+        type: string
+        required: False
+        meta:
+          label: PCF ID to connect
       pin:
         type:
           - string
@@ -303,7 +335,7 @@ output:
       restore_state:
         type: boolean
         required: True
-        default: False
+        default: True
         meta:
           label: Restore saved state of boneio. Not used for "none" and output_type!
       percentage_default_brightness:
@@ -315,14 +347,43 @@ output:
       output_type:
         type: string
         required: True
-        allowed: ["switch", "light", "none"]
+        allowed: ["switch", "light", "cover", "none"]
         default: "switch"
         coerce: lower
         meta:
-          label: If HA discovery is used device if relay is light or switch. If None is declared then any state is not published to MQTT (used for cover).
+          label: If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
 
 
-input:
+output_group:
+  type: list
+  meta:
+    label: List of groupes outputs
+  check_with: output_id_uniqueness
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
+      outputs:
+        type: list
+        required: True
+        meta:
+          label: List of outputs.
+      output_type:
+        type: string
+        required: True
+        allowed: ["switch", "light"]
+        default: "switch"
+        coerce: lower
+        meta:
+          label: If HA discovery is used device if relay is light or switch.
+
+
+binary_sensor:
   type: list
   meta:
     label: GPIO inputs section
@@ -346,6 +407,18 @@ input:
         allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
         meta:
           label: What mode to use in config PIN.
+      detection_type:
+        type: string
+        required: True
+        default: "new"
+        allowed: ["new", "old"]
+        meta:
+          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
+      clear_message:
+        type: boolean
+        default: False
+        meta:
+          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
       bounce_time:
         type:
           - string
@@ -354,7 +427,7 @@ input:
           - str
           - positive_time_period
         required: True
-        default: "25ms"
+        default: "120ms"
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
@@ -363,13 +436,6 @@ input:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
-      kind:
-        type: string
-        allowed: ["switch", "sensor"]
-        default: "switch"
-        required: True
-        meta:
-          label: Either switch or sensor. If sensor then no clicks are detected, just simple on/off on gpio.
       inverted:
         type: boolean
         default: False
@@ -387,11 +453,84 @@ input:
         type: dict
         coerce: check_actions
         schema:
+          pressed: !include actions_sensor.yaml
+          released: !include actions_sensor.yaml
+
+
+event:
+  type: list
+  meta:
+    label: GPIO inputs section
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: False
+        meta:
+          label: Id to use in HA if needed. Default to pin number.
+      pin:
+        type: string
+        required: True
+        meta:
+          label: PIN to use.
+      gpio_mode:
+        type: string
+        required: True
+        default: "gpio"
+        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
+        meta:
+          label: What mode to use in config PIN.
+      detection_type:
+        type: string
+        required: True
+        default: "new"
+        allowed: ["new", "old"]
+        meta:
+          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
+      clear_message:
+        type: boolean
+        default: False
+        meta:
+          label: Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.
+      bounce_time:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: True
+        default: "120ms"
+        meta:
+          label: Bounce time for GPIO in miliseconds. Only for advanced usage.
+      show_in_ha:
+        type: boolean
+        required: True
+        default: True
+        meta:
+          label: If you want you can disable discovering this input in HA.
+      inverted:
+        type: boolean
+        default: False
+        required: True
+        meta:
+          label: Check if sensor type is inverted. Only aplicable for sensor kind.
+      device_class:
+        type: string
+        required: False
+        default: "button"
+        allowed: ["button", "doorbell", "motion"]
+        meta:
+          label: Device class to use in HA
+      actions:
+        required: False
+        type: dict
+        coerce: check_actions
+        schema:
           single: !include actions_switch.yaml
           double: !include actions_switch.yaml
           long: !include actions_switch.yaml
-          pressed: !include actions_sensor.yaml
-          released: !include actions_sensor.yaml
 adc:
   type: list
   meta:
@@ -417,6 +556,7 @@ adc:
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.
+      filters: !include filters_adc.yaml
 cover:
   type: list
   required: False
