@@ -322,10 +322,14 @@ class Manager:
                     return True
             return False
 
-        def configure_single_input(configure_sensor_func, gpio):
-            pin = gpio.pop(PIN)
+        def configure_single_input(configure_sensor_func, gpio) -> None:
+            try:
+                pin = gpio.pop(PIN)
+            except AttributeError as err:
+                _LOGGER.error("Wrong config. Can't configure %s. Error %s", gpio, err)
+                return
             if check_if_pin_configured(pin=pin):
-                return False
+                return
             input = configure_sensor_func(
                 gpio=gpio,
                 pin=pin,
@@ -335,7 +339,6 @@ class Manager:
             )
             if input:
                 self._inputs[input.pin] = input
-            return True
 
         if reload_config:
             config = load_config_from_file(self._config_file_path)

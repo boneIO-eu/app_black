@@ -1,6 +1,4 @@
 required: False
 type: list
 excludes: ["single", "double", "long"]
-dependencies:
-  kind: ['switch']
 schema: !include actions.yaml
