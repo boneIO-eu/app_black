@@ -89,6 +89,7 @@ class Manager:
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
         stop_client: Callable[[], Awaitable[None]],
+        mqtt_state: Callable[[], bool],
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
@@ -120,6 +121,7 @@ class Manager:
 
         self.send_message = send_message
         self.stop_client = stop_client
+        self._mqtt_state = mqtt_state
         self._event_pins = event_pins
         self._inputs = {}
         self._binary_pins = binary_pins
@@ -264,6 +266,10 @@ class Manager:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
         _LOGGER.info("BoneIO manager is ready.")
+
+    @property
+    def mqtt_state(self) -> bool:
+        return self._mqtt_state()
 
     def _configure_output_group(self):
         def get_outputs(output_list):

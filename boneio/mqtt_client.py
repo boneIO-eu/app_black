@@ -173,6 +173,10 @@ class MQTTClient:
         )
         raise RestartRequestException("Restart requested.")
     
+    def state(self) -> bool:
+        """State of MQTT Client."""
+        return self._connection_established
+    
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:

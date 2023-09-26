@@ -82,6 +82,7 @@ async def async_run(
     manager = Manager(
         send_message=client.send_message,
         stop_client=client.stop_client,
+        mqtt_state=client.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),

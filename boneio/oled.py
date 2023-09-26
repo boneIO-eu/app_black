@@ -22,11 +22,13 @@ from boneio.helper.events import async_track_point_in_time, utcnow
 
 _LOGGER = logging.getLogger(__name__)
 
+fonts = {
+    "big": make_font("DejaVuSans.ttf", 12),
+    "small": make_font("DejaVuSans.ttf", 9),
+    "extraSmall": make_font("DejaVuSans.ttf", 7),
+    "danube": make_font("danube__.ttf", 15, local=True)
 
-fontBig = make_font("DejaVuSans.ttf", 12)
-fontSmall = make_font("DejaVuSans.ttf", 9)
-fontExtraSmall = make_font("DejaVuSans.ttf", 7)
-danube = make_font("danube__.ttf", 15, local=True)
+}
 
 # screen_order = [UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP]
 
@@ -53,7 +55,7 @@ class Oled:
             _ind_screen = screen_order.index("outputs")
             if not output_groups:
                 _LOGGER.debug("No outputs configured. Omitting in screen.")
-                screen_order.pop(_ind_screen)
+            screen_order.pop(_ind_screen)
             screen_order[_ind_screen:_ind_screen] = output_groups
             self._output_groups = output_groups
         except ValueError:
@@ -75,13 +77,13 @@ class Oled:
 
     def _draw_standard(self, data: dict, draw: ImageDraw) -> None:
         """Draw standard information about host screen."""
-        draw.text((1, 1), self._current_screen, font=fontBig, fill=WHITE)
+        draw.text((1, 1), self._current_screen, font=fonts["big"], fill=WHITE)
         i = 0
         for k in data:
             draw.text(
                 (3, STANDARD_ROWS[i]),
                 f"{k} {data[k]}",
-                font=fontSmall,
+                font=fonts["small"],
                 fill=WHITE,
             )
             i += 1
@@ -93,22 +95,22 @@ class Oled:
 
     def _draw_uptime(self, data: dict, draw: ImageDraw) -> None:
         """Draw uptime screen with boneIO logo."""
-        draw.text((3, 3), "bone", font=danube, fill=WHITE)
-        draw.text((53, 3), "iO", font=danube, fill=WHITE)
-        i = 0
+        draw.text((3, 3), "bone", font=fonts["danube"], fill=WHITE)
+        draw.text((53, 3), "iO", font=fonts["danube"], fill=WHITE)
         for k in data:
+            text = data[k]["data"]
+            fontSize = fonts[data[k]["fontSize"]]
             draw.text(
-                (3, UPTIME_ROWS[i]),
-                f"{k}: {data[k]}",
-                font=fontSmall,
+                (data[k]["col"], UPTIME_ROWS[data[k]["row"]]),
+                f"{k}: {text}",
+                font=fontSize,
                 fill=WHITE,
             )
-            i += 1
 
     def _draw_output(self, data: dict, draw: ImageDraw) -> None:
         "Draw outputs of GPIO/MCP relays."
         cols = cycle(OUTPUT_COLS)
-        draw.text((1, 1), f"Relay {self._current_screen}", font=fontSmall, fill=WHITE)
+        draw.text((1, 1), f"Relay {self._current_screen}", font=fonts["small"], fill=WHITE)
         i = 0
         j = next(cols)
         for k in data:
@@ -116,7 +118,7 @@ class Oled:
                 j = next(cols)
                 i = 0
             draw.text(
-                (j, OUTPUT_ROWS[i]), f"{k} {data[k]}", font=fontExtraSmall, fill=WHITE
+                (j, OUTPUT_ROWS[i]), f"{k} {data[k]}", font=fonts["extraSmall"], fill=WHITE
             )
             i += 1
 
