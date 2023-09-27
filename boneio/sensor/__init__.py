@@ -5,6 +5,7 @@ from boneio.sensor.gpio_new import GpioInputBinarySensorNew
 from boneio.sensor.temp.dallas import DallasSensorDS2482
 from boneio.sensor.temp.lm75 import LM75Sensor
 from boneio.sensor.temp.mcp9808 import MCP9808Sensor
+from boneio.sensor.ina219 import INA219
 
 __all__ = [
     "DallasSensorDS2482",
@@ -14,4 +15,5 @@ __all__ = [
     "GpioInputBinarySensorNew",
     "initialize_adc",
     "GpioADCSensor",
+    "INA219"
 ]

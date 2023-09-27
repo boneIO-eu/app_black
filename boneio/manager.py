@@ -16,6 +16,7 @@ from boneio.const import (
     DALLAS,
     EVENT_ENTITY,
     ID,
+    INA219,
     INPUT,
     LM75,
     MCP_TEMP_9808,
@@ -142,6 +143,7 @@ class Manager:
         self._configure_temp_sensors(sensors=sensors)
 
         self._configure_modbus_sensors(sensors=sensors)
+        self._configure_ina219_sensors(sensors=sensors)
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
@@ -481,6 +483,16 @@ class Manager:
                     )
                     if temp_sensor:
                         self._temp_sensors.append(temp_sensor)
+
+    def _configure_ina219_sensors(self, sensors: dict) -> None:
+        if sensors.get(INA219):
+            from boneio.helper.loader import create_ina219_sensor
+            for sensor_config in sensors[INA219]:
+                create_ina219_sensor(
+                    topic_prefix=self._config_helper.topic_prefix,
+                    manager=self,
+                    config=sensor_config,
+                )
 
     def _configure_modbus_sensors(self, sensors: dict) -> None:
         if sensors.get(MODBUS) and self._modbus:

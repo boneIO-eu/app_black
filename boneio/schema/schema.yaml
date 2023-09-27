@@ -55,15 +55,13 @@ logger:
     default:
       type: string
       required: False
-      allowed: ["critical", "error", "warning", "info", "debug"]
+      allowed: ['critical', 'error', 'warning', 'info', 'debug']
       meta:
         label: Module which you want logger to set. Default for app logger.
     logs:
       type: dict
       meta:
         label: List of dict module\:level.
-
-
 
 oled:
   type: dict
@@ -78,7 +76,7 @@ oled:
     screens:
       type: list
       required: True
-      allowed: ["uptime", "network", "cpu", "disk", "memory", "swap", "outputs"]
+      allowed: ['uptime', 'network', 'cpu', 'disk', 'memory', 'swap', 'outputs']
       default:
         - uptime
         - network
@@ -105,7 +103,7 @@ modbus:
     uart:
       type: string
       required: True
-      allowed: ["uart1", "uart2", "uart3", "uart4", "uart5"]
+      allowed: ['uart1', 'uart2', 'uart3', 'uart4', 'uart5']
       meta:
         label: Uart ID to use
 
@@ -132,7 +130,7 @@ modbus_sensors:
       model:
         type: string
         required: True
-        allowed: ["sdm630", "sdm120", "sofar"]
+        allowed: ['sdm630', 'sdm120', 'sofar']
         meta:
           label: Model to load from database.
       update_interval:
@@ -168,6 +166,44 @@ lm75:
       filters: !include filters.yaml
       unit_of_measurement: !include temp_unit.yaml
 
+ina219:
+  type: list
+  required: False
+  meta:
+    label: INA219 Sensor list.
+  schema:
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x40
+        meta:
+          label: Address of I2C
+      sensors:
+        type: list
+        required: True
+        schema:
+          type: dict
+          required: False
+          schema:
+            id: !include id.yaml
+            device_class:
+              type: string
+              allowed: ['current', 'power', 'voltage']
+            filters: !include filters.yaml
+        default:
+          - id: INA219 Current
+            device_class: current
+          - id: INA219 Power
+            device_class: power
+          - id: INA219 Voltage
+            device_class: voltage
+      update_interval: !include update_interval.yaml
 
 mcp9808:
   type: list
@@ -190,7 +226,6 @@ mcp9808:
       update_interval: !include update_interval.yaml
       filters: !include filters.yaml
       unit_of_measurement: !include temp_unit.yaml
-      
 
 mcp23017:
   type: list
@@ -217,7 +252,6 @@ mcp23017:
         default: 0s
         meta:
           label: How long to sleep for MCP to initialize.
-
 
 pcf8575:
   type: list
@@ -287,7 +321,7 @@ output:
           label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
       kind:
         type: string
-        allowed: ["gpio", "mcp", "pca", "pcf"]
+        allowed: ['gpio', 'mcp', 'pca', 'pcf']
         meta:
           label: Either GPIO or i2c.
       mcp_id:
@@ -347,12 +381,11 @@ output:
       output_type:
         type: string
         required: True
-        allowed: ["switch", "light", "cover", "none"]
-        default: "switch"
+        allowed: ['switch', 'light', 'cover', 'none']
+        default: 'switch'
         coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch. Cover if this output will be used for cover. If None is declared then any state is not published to MQTT (used for cover).
-
 
 output_group:
   type: list
@@ -376,12 +409,11 @@ output_group:
       output_type:
         type: string
         required: True
-        allowed: ["switch", "light"]
-        default: "switch"
+        allowed: ['switch', 'light']
+        default: 'switch'
         coerce: lower
         meta:
           label: If HA discovery is used device if relay is light or switch.
-
 
 binary_sensor:
   type: list
@@ -403,15 +435,15 @@ binary_sensor:
       gpio_mode:
         type: string
         required: True
-        default: "gpio"
-        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
+        default: 'gpio'
+        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
           label: What mode to use in config PIN.
       detection_type:
         type: string
         required: True
-        default: "new"
-        allowed: ["new", "old"]
+        default: 'new'
+        allowed: ['new', 'old']
         meta:
           label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
@@ -427,7 +459,7 @@ binary_sensor:
           - str
           - positive_time_period
         required: True
-        default: "120ms"
+        default: '120ms'
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
@@ -445,7 +477,36 @@ binary_sensor:
       device_class:
         type: string
         required: False
-        allowed: ["battery", "battery_charging", "carbon_monoxide", "cold", "connectivity", "door", "garage_door", "gas", "heat", "light", "lock", "moisture", "motion", "moving", "occupancy", "opening", "plug", "power", "presence", "problem", "running", "safety", "smoke", "sound", "tamper", "vibration", "window"]
+        allowed:
+          [
+            'battery',
+            'battery_charging',
+            'carbon_monoxide',
+            'cold',
+            'connectivity',
+            'door',
+            'garage_door',
+            'gas',
+            'heat',
+            'light',
+            'lock',
+            'moisture',
+            'motion',
+            'moving',
+            'occupancy',
+            'opening',
+            'plug',
+            'power',
+            'presence',
+            'problem',
+            'running',
+            'safety',
+            'smoke',
+            'sound',
+            'tamper',
+            'vibration',
+            'window',
+          ]
         meta:
           label: Device class to use in HA
       actions:
@@ -455,7 +516,6 @@ binary_sensor:
         schema:
           pressed: !include actions_sensor.yaml
           released: !include actions_sensor.yaml
-
 
 event:
   type: list
@@ -477,15 +537,15 @@ event:
       gpio_mode:
         type: string
         required: True
-        default: "gpio"
-        allowed: ["gpio", "gpio_pu", "gpio_pd", "gpio_input"]
+        default: 'gpio'
+        allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
           label: What mode to use in config PIN.
       detection_type:
         type: string
         required: True
-        default: "new"
-        allowed: ["new", "old"]
+        default: 'new'
+        allowed: ['new', 'old']
         meta:
           label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
@@ -501,7 +561,7 @@ event:
           - str
           - positive_time_period
         required: True
-        default: "120ms"
+        default: '120ms'
         meta:
           label: Bounce time for GPIO in miliseconds. Only for advanced usage.
       show_in_ha:
@@ -519,8 +579,8 @@ event:
       device_class:
         type: string
         required: False
-        default: "button"
-        allowed: ["button", "doorbell", "motion"]
+        default: 'button'
+        allowed: ['button', 'doorbell', 'motion']
         meta:
           label: Device class to use in HA
       actions:
@@ -546,7 +606,7 @@ adc:
       pin:
         type: string
         required: True
-        allowed: ["P9_33", "P9_35", "P9_36", "P9_37", "P9_38", "P9_39", "P9_40"]
+        allowed: ['P9_33', 'P9_35', 'P9_36', 'P9_37', 'P9_38', 'P9_39', 'P9_40']
         meta:
           label: PIN to use.
       update_interval: !include update_interval.yaml
@@ -609,7 +669,19 @@ cover:
       device_class:
         type: string
         required: False
-        allowed: ["awning", "blind", "curtain", "damper", "door", "garage", "gate", "shade", "shutter", "window"]
+        allowed:
+          [
+            'awning',
+            'blind',
+            'curtain',
+            'damper',
+            'door',
+            'garage',
+            'gate',
+            'shade',
+            'shutter',
+            'window',
+          ]
         meta:
           label: Device class to use in HA
       show_in_ha:
@@ -663,7 +735,7 @@ sensor:
         type: string
         required: True
         default: dallas
-        allowed: ["dallas"]
+        allowed: ['dallas']
         meta:
           label: Platform of sensor to use. Currently only Dallas platform is supported.
       address:

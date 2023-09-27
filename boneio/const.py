@@ -158,3 +158,5 @@ cover_actions = {
     "TOGGLE_OPEN": "toggle_open",
     "TOGGLE_CLOSE": "toggle_close",
 }
+
+INA219 = "ina219"

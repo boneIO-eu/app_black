@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 import time
 from collections import namedtuple
@@ -54,6 +53,7 @@ from boneio.helper import (
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
+    ha_sensor_ina_availabilty_message,
 )
 from boneio.helper.onewire import (
     DS2482,
@@ -557,3 +557,38 @@ def create_dallas_sensor(
             unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
     return sensor
+
+
+def create_ina219_sensor(
+    manager: Manager,
+    topic_prefix: str,
+    config: dict = {},
+):
+    """Create INA219 sensor in manager."""
+    from boneio.sensor import INA219
+
+    address = config[ADDRESS]
+    id = config.get(ID, str(address)).replace(" ", "")
+    try:
+        ina219 = INA219(
+            id=id,
+            address=address,
+            sensors=config.get("sensors", []),
+            manager=manager,
+            send_message=manager.send_message,
+            topic_prefix=topic_prefix,
+            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+        )
+        for sensor in ina219.sensors.values():
+            manager.send_ha_autodiscovery(
+                id=sensor.id,
+                name=sensor.name,
+                ha_type=SENSOR,
+                availability_msg_func=ha_sensor_ina_availabilty_message,
+                unit_of_measurement=sensor.unit_of_measurement,
+                device_class=sensor.device_class,
+            )
+        return ina219
+    except I2CError as err:
+        _LOGGER.error("Can't configure Temp sensor. %s", err)
+        pass

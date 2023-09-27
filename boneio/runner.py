@@ -16,6 +16,7 @@ from boneio.const import (
     EVENT_ENTITY,
     HA_DISCOVERY,
     HOST,
+    INA219,
     LM75,
     MCP23017,
     MCP_TEMP_9808,
@@ -93,6 +94,7 @@ async def async_run(
         config_helper=_config_helper,
         sensors={
             LM75: config.get(LM75, []),
+            INA219: config.get(INA219, []),
             MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             MODBUS: config.get("modbus_sensors"),
             ONEWIRE: config.get(SENSOR, []),
