@@ -1,12 +1,12 @@
 """Basic Relay module."""
-
+from __future__ import annotations
 import asyncio
 import logging
 from typing import Callable
 from boneio.helper.util import callback
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.helper import BasicMqtt
-from boneio.helper.events import EventBus
+from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ class BasicRelay(BasicMqtt):
         callback: Callable,
         id: str,
         event_bus: EventBus,
+        name: str | None = None,
         output_type=SWITCH,
         restored_state: bool = False,
         topic_type: str = RELAY,
@@ -27,7 +28,7 @@ class BasicRelay(BasicMqtt):
         """Initialize Basic relay."""
         self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
         self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
-        super().__init__(id=id, name=id, topic_type=topic_type, **kwargs)
+        super().__init__(id=id, name=name or id, topic_type=topic_type, **kwargs)
         self._output_type = output_type
         self._event_bus = event_bus
         if output_type == COVER:
@@ -35,6 +36,7 @@ class BasicRelay(BasicMqtt):
             self._momentary_turn_off = None
         self._state = ON if restored_state else OFF
         self._callback = callback
+        self._momentary_action = None
         self._loop = asyncio.get_running_loop()
 
     @property
@@ -67,7 +69,7 @@ class BasicRelay(BasicMqtt):
     def state(self) -> str:
         """Is relay active."""
         return self._state
-    
+
     def payload(self) -> dict:
         return {STATE: self.state}
 
@@ -99,7 +101,7 @@ class BasicRelay(BasicMqtt):
     def is_active(self) -> bool:
         """Is active check."""
         raise NotImplementedError
-    
+
     async def async_turn_on(self) -> None:
         self._loop.call_soon(self.turn_on)
 
@@ -109,7 +111,23 @@ class BasicRelay(BasicMqtt):
     def turn_on(self) -> None:
         """Call turn on action."""
         raise NotImplementedError
-
+    
     def turn_off(self) -> None:
         """Call turn off action."""
         raise NotImplementedError
+
+    def _execute_momentary_turn(self, momentary_type: str) -> None:
+        """Execute momentary action."""
+        (action, time) = (
+            (self.turn_on, self._momentary_turn_on)
+            if momentary_type == ON
+            else (self.turn_off, self._momentary_turn_off)
+        )
+        if time:
+            if self._momentary_action:
+                self._momentary_action()
+            self._momentary_action = async_track_point_in_time(
+                loop=self._loop,
+                action=lambda x: self._momentary_callback(time=x, action=action),
+                point_in_time=utcnow() + time.as_timedelta,
+            )
