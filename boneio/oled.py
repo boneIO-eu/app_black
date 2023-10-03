@@ -38,6 +38,12 @@ OUTPUT_ROWS = list(range(14, 60, 6))
 OUTPUT_COLS = range(0, 113, 56)
 
 
+def shorten_name(name: str) -> str:
+    if len(name) > 6:
+        return f"{name[:4]}{name[-2:]}"
+    return name
+
+
 class Oled:
     """Oled display class."""
 
@@ -118,7 +124,7 @@ class Oled:
                 j = next(cols)
                 i = 0
             draw.text(
-                (j, OUTPUT_ROWS[i]), f"{k} {data[k]}", font=fonts["extraSmall"], fill=WHITE
+                (j, OUTPUT_ROWS[i]), f"{shorten_name(k)} {data[k]}", font=fonts["extraSmall"], fill=WHITE
             )
             i += 1
 
