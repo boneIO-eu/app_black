@@ -56,6 +56,7 @@ from boneio.helper import (
     ha_switch_availabilty_message,
     ha_led_availabilty_message,
 )
+from boneio.helper.util import strip_accents
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
@@ -174,11 +175,13 @@ class Manager:
         self._configure_adc(adc_list=adc)
 
         for _config in relay_pins:
-            _id = _config[ID].replace(" ", "")
+            _name = _config.pop(ID)
+            _id = strip_accents(_name)
             out = configure_relay(
                 manager=self,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
+                name=_name,
                 relay_id=_id,
                 relay_callback=self._relay_callback,
                 config=_config,
@@ -203,7 +206,7 @@ class Manager:
             )
 
         for _config in cover:
-            _id = _config[ID].replace(" ", "")
+            _id = strip_accents(_config[ID])
             open_relay = self._output.get(_config.get("open_relay"))
             close_relay = self._output.get(_config.get("close_relay"))
             if not open_relay:
@@ -487,6 +490,7 @@ class Manager:
     def _configure_ina219_sensors(self, sensors: dict) -> None:
         if sensors.get(INA219):
             from boneio.helper.loader import create_ina219_sensor
+
             for sensor_config in sensors[INA219]:
                 create_ina219_sensor(
                     topic_prefix=self._config_helper.topic_prefix,
@@ -609,12 +613,12 @@ class Manager:
             if action == OUTPUT:
                 return (
                     self._output.get(
-                        device_id, self._configured_output_groups.get(device_id)
+                        strip_accents(device_id), self._configured_output_groups.get(device_id)
                     ),
                     relay_actions.get(action_output),
                 )
             else:
-                return (self._covers.get(device_id), cover_actions.get(action_cover))
+                return (self._covers.get(strip_accents(device_id)), cover_actions.get(action_cover))
 
         self.send_message(topic=topic, payload=generate_payload(), retain=False)
         for action_definition in actions:
@@ -711,11 +715,7 @@ class Manager:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self._output.get(device_id)
-            if (
-                target_device
-                and target_device.output_type != NONE
-                and message != ""
-            ):
+            if target_device and target_device.output_type != NONE and message != "":
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)

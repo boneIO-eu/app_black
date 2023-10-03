@@ -1,5 +1,6 @@
 """Class to help initialize classes which uses mqtt send."""
 from typing import Callable, Union
+from boneio.helper.util import strip_accents
 
 
 class BasicMqtt:
@@ -18,7 +19,8 @@ class BasicMqtt:
         self._id = id.replace(" ", "")
         self._name = name
         self._send_message = send_message
-        self._send_topic = f"{topic_prefix}/{topic_type}/{self.id}"
+        topic_id = strip_accents(self.id)
+        self._send_topic = f"{topic_prefix}/{topic_type}/{topic_id}"
 
     @property
     def id(self) -> str:
