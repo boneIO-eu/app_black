@@ -236,26 +236,17 @@ def output_chooser(output_kind: str, config):
 
 def configure_output_group(
     manager: Manager,
-    state_manager: StateManager,
     topic_prefix: str,
-    relay_id: str,
     config: dict,
     **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
-    restore_state = config.pop(RESTORE_STATE, False)
     _id = config.pop(ID)
-    restored_state = (
-        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if restore_state
-        else False
-    )
 
     output = OutputGroup(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
         id=_id,
-        restored_state=restored_state,
         callback=lambda: None,
         **config,
         **kwargs,
@@ -268,6 +259,7 @@ def configure_relay(
     state_manager: StateManager,
     topic_prefix: str,
     relay_id: str,
+    name: str,
     relay_callback: Callable,
     config: dict,
     **kwargs,
@@ -334,8 +326,9 @@ def configure_relay(
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
-        id=config.pop(ID),
+        id=relay_id,
         restored_state=restored_state,
+        name=name,
         **config,
         **kwargs,
         **extra_args,
