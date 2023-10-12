@@ -71,33 +71,10 @@ class Modbus:
             _LOGGER.error(exception_error)
             return False
 
-    async def read_single_register(
-        self, unit: int, address: int, count: int = 2, method: str = "input"
-    ) -> float | None:
-        """Call sync. pymodbus."""
-        async with self._lock:
-            if not self._pymodbus_connect():
-                _LOGGER.error("Can't connect to Modbus address %s.", address)
-                return None
-            kwargs = {"unit": unit, "count": count} if unit else {}
-            try:
-                result: ReadInputRegistersResponse = self._read_methods[method](
-                    address, **kwargs
-                )
-            except ModbusException as exception_error:
-                _LOGGER.error(exception_error)
-                return None
-            if not hasattr(result, REGISTERS):
-                _LOGGER.error(str(result))
-                return None
-            return BinaryPayloadDecoder.fromRegisters(
-                result.registers, byteorder=Endian.Big, wordorder=Endian.Big
-            ).decode_32bit_float()
-
     async def read_multiple_registers(
         self, unit: int, address: int, count: int = 2, method: str = "input"
     ) -> ModbusResponse:
-        """Call sync. pymodbus."""
+        """Read single or multiple register(s)."""
         async with self._lock:
             if not self._pymodbus_connect():
                 _LOGGER.error("Can't connect to Modbus.")
@@ -114,3 +91,14 @@ class Modbus:
                 _LOGGER.error(str(result))
                 return None
             return result
+
+    async def read_single_register(
+        self, unit: int, address: int, count: int = 2, method: str = "input"
+    ) -> float | None:
+        """Call sync. pymodbus."""
+        result = await self.read_multiple_registers(
+            unit=unit, address=address, count=count, method=method
+        )
+        return BinaryPayloadDecoder.fromRegisters(
+            result.registers, byteorder=Endian.Big, wordorder=Endian.Big
+        ).decode_32bit_float()
