@@ -113,7 +113,7 @@ def main() -> int:
             mqttpassword=args.mqttpassword,
             debug=debug,
         )
-
+    _LOGGER.info("Exiting with exit code %s", exit_code)
     return exit_code
 
 

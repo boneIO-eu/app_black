@@ -80,6 +80,7 @@ async def async_run(
         for item in config_modules
     }
 
+
     manager = Manager(
         send_message=client.send_message,
         stop_client=client.stop_client,
@@ -105,4 +106,4 @@ async def async_run(
     tasks.update(manager.get_tasks())
     _LOGGER.info("Connecting to MQTT.")
     tasks.add(client.start_client(manager))
-    return await asyncio.gather(*tasks, return_exceptions=True)
+    return await asyncio.gather(*tasks)
