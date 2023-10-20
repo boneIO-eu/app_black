@@ -137,6 +137,7 @@ class Manager:
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
         self._temp_sensors = []
+        self._ina219_sensors = []
         self._modbus = None
 
         self._configure_modbus(modbus=modbus)
@@ -258,6 +259,7 @@ class Manager:
                 enabled_screens=screens,
                 output=self.grouped_outputs,
                 temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
+                ina219=self._ina219_sensors[0] if self._ina219_sensors else None,
                 callback=self._host_data_callback,
             )
             try:
@@ -280,6 +282,7 @@ class Manager:
         def get_outputs(output_list):
             outputs = []
             for x in output_list:
+                x = strip_accents(x)
                 if x in self._output:
                     output = self._output[x]
                     if output.output_type == COVER:
@@ -296,6 +299,7 @@ class Manager:
                     group[ID],
                 )
                 continue
+            _LOGGER.debug("Configuring output group %s with members: %s", group[ID], members)
             configured_group = configure_output_group(
                 config=group,
                 manager=self,
@@ -492,11 +496,13 @@ class Manager:
             from boneio.helper.loader import create_ina219_sensor
 
             for sensor_config in sensors[INA219]:
-                create_ina219_sensor(
+                ina219 = create_ina219_sensor(
                     topic_prefix=self._config_helper.topic_prefix,
                     manager=self,
                     config=sensor_config,
                 )
+                if ina219:
+                    self._ina219_sensors.append(ina219)
 
     def _configure_modbus_sensors(self, sensors: dict) -> None:
         if sensors.get(MODBUS) and self._modbus:

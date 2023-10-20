@@ -13,6 +13,7 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
+    INA219,
     IP,
     MAC,
     MASK,
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.timeperiod import TimePeriod
-from boneio.sensor import LM75Sensor, MCP9808Sensor
+from boneio.sensor import LM75Sensor, MCP9808Sensor, INA219 as INA219Class
 from boneio.version import __version__
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
@@ -155,6 +156,7 @@ class HostData:
         output: dict,
         callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+        ina219: INA219Class | None,
         manager: Manager,
         enabled_screens: List[str],
     ) -> None:
@@ -179,7 +181,7 @@ class HostData:
                     },
                 }
                 if self._temp_sensor
-                else lambda: {"uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3}},
+                else {"uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3}},
                 "static": {
                     HOST: {"data": self._hostname, "fontSize": "small", "row": 0, "col": 3},
                     "ver": {"data": __version__, "fontSize": "small", "row": 1, "col": 3},
@@ -187,6 +189,13 @@ class HostData:
                 "update_interval": TimePeriod(seconds=30),
             },
         }
+        if ina219 is not None:
+            host_stats[INA219] = {
+                "f": lambda: {
+                    *{sensor.device_class: sensor.state for sensor in ina219.sensors}
+                },
+                "update_interval": TimePeriod(seconds=60)
+            }
         self._data = {}
         for k, _v in host_stats.items():
             if k not in enabled_screens:
