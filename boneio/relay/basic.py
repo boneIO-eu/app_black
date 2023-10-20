@@ -118,14 +118,15 @@ class BasicRelay(BasicMqtt):
 
     def _execute_momentary_turn(self, momentary_type: str) -> None:
         """Execute momentary action."""
+        if self._momentary_action:
+            self._momentary_action()
         (action, time) = (
             (self.turn_on, self._momentary_turn_on)
             if momentary_type == ON
             else (self.turn_off, self._momentary_turn_off)
         )
         if time:
-            if self._momentary_action:
-                self._momentary_action()
+            _LOGGER.debug("Applying momentary action for %s in %s", self.name, time.as_timedelta)
             self._momentary_action = async_track_point_in_time(
                 loop=self._loop,
                 action=lambda x: self._momentary_callback(time=x, action=action),
