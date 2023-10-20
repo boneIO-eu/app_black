@@ -76,10 +76,21 @@ oled:
     screens:
       type: list
       required: True
-      allowed: ['uptime', 'network', 'cpu', 'disk', 'memory', 'swap', 'outputs']
+      allowed:
+        [
+          'uptime',
+          'network',
+          'ina219',
+          'cpu',
+          'disk',
+          'memory',
+          'swap',
+          'outputs',
+        ]
       default:
         - uptime
         - network
+        - ina219
         - cpu
         - disk
         - memory
