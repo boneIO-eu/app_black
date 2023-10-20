@@ -188,9 +188,10 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     )
                     await asyncio.sleep(2)
                     break
-            _LOGGER.error(
-                "Discovery for %s not sent. First register not available.", self._id
-            )
+            if not self._discovery_sent:
+                _LOGGER.error(
+                    "Discovery for %s not sent. First register not available.", self._id
+                )
 
     async def async_update(self, time: datetime) -> None:
         """Fetch state periodically and send to MQTT."""

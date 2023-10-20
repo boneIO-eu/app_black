@@ -99,6 +99,6 @@ class Modbus:
         result = await self.read_multiple_registers(
             unit=unit, address=address, count=count, method=method
         )
-        return BinaryPayloadDecoder.fromRegisters(
+        return None if not result else BinaryPayloadDecoder.fromRegisters(
             result.registers, byteorder=Endian.Big, wordorder=Endian.Big
         ).decode_32bit_float()
