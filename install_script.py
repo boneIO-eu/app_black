@@ -275,8 +275,8 @@ if __name__ == "__main__":
         if "LM75_RB32" in _enabled_sensors or "LM75_RB24" in _enabled_sensors:
             output["lm75"] = [{"id": "temp", "address": "0x72"}]
         if "Input board" in _enabled_inputs:
-            copyfile(f"{exampled_dir}input.yaml", f"{maindir}/input.yaml")
-            output["input"] = "!include input.yaml"
+            copyfile(f"{exampled_dir}input.yaml", f"{maindir}/event.yaml")
+            output["input"] = "!include event.yaml"
         if "ADC" in _enabled_sensors:
             copyfile(f"{exampled_dir}adc.yaml", f"{maindir}/adc.yaml")
             output["adc"] = "!include adc.yaml"
