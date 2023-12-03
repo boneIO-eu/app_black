@@ -206,8 +206,13 @@ if __name__ == "__main__":
             "Inputs",
             items=[
                 (
-                    "Input board",
-                    "(edit them later according to your needs!)",
+                    "Event entities",
+                    "Event entities. 1-47 will be configures as event entities.",
+                    ON,
+                ),
+                (
+                    "Binary sensors",
+                    "Binary sensors. Last 3 inputs will be configured as binary sensors.",
                     ON,
                 ),
             ],
@@ -216,6 +221,7 @@ if __name__ == "__main__":
             "Outputs, choose which output you want to enable.",
             items=[
                 ("RB32", "Relay board 32x5A", OFF),
+                ("RB3210", "Relay board 32x10A", OFF),
                 ("RB24", "Relay board 24x16A", OFF),
             ],
         )
@@ -229,7 +235,7 @@ if __name__ == "__main__":
                 ),
                 (
                     "LM75_RB32",
-                    "LM75 temp sensor on Relay board 32x5A",
+                    "LM75 temp sensor on Relay board 32x5A or 32x10A",
                     OFF,
                 ),
                 (
@@ -237,7 +243,7 @@ if __name__ == "__main__":
                     "MCP9808 temp sensor on Relay board 32x5A",
                     OFF,
                 ),
-                ("ADC", "ADC input sensors", OFF),
+                ("ADC", "ADC input sensors, don't use if nothing is connected to those inputs", OFF),
             ],
         )
         mqtt_part = {
@@ -274,9 +280,18 @@ if __name__ == "__main__":
             output["output"] = "!include output32x5A.yaml"
         if "LM75_RB32" in _enabled_sensors or "LM75_RB24" in _enabled_sensors:
             output["lm75"] = [{"id": "temp", "address": "0x72"}]
-        if "Input board" in _enabled_inputs:
-            copyfile(f"{exampled_dir}input.yaml", f"{maindir}/event.yaml")
-            output["input"] = "!include event.yaml"
+        if "Event entities" and "Binary sensors" in _enabled_inputs:
+            copyfile(f"{exampled_dir}event.yaml", f"{maindir}/event.yaml")
+            copyfile(f"{exampled_dir}binary_sensor.yaml", f"{maindir}/binary_sensor.yaml")
+            output["event"] = "!include event.yaml"
+            output["binary_sensor"] = "!include binary_sensor.yaml"
+        elif "Event entities" in _enabled_inputs:
+            copyfile(f"{exampled_dir}event_all.yaml", f"{maindir}/event.yaml")
+            output["event"] = "!include event.yaml"
+        elif "Binary sensors" in _enabled_inputs:
+            copyfile(f"{exampled_dir}binary_sensor_all.yaml", f"{maindir}/binary_sensor.yaml")
+            output["binary_sensor"] = "!include binary_sensor.yaml"
+
         if "ADC" in _enabled_sensors:
             copyfile(f"{exampled_dir}adc.yaml", f"{maindir}/adc.yaml")
             output["adc"] = "!include adc.yaml"
