@@ -1,6 +1,7 @@
 """Basic Relay module."""
 from __future__ import annotations
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 from typing import Callable
 from boneio.helper.util import callback
@@ -38,6 +39,7 @@ class BasicRelay(BasicMqtt):
         self._callback = callback
         self._momentary_action = None
         self._loop = asyncio.get_running_loop()
+        self.executor = ThreadPoolExecutor()
 
     @property
     def is_mcp_type(self) -> bool:
@@ -73,9 +75,12 @@ class BasicRelay(BasicMqtt):
     def payload(self) -> dict:
         return {STATE: self.state}
 
-    def send_state(self) -> None:
+    def send_state(self, optimized_value: bool | None = None) -> None:
         """Send state to Mqtt on action."""
-        state = ON if self.is_active else OFF
+        if optimized_value:
+            state = optimized_value
+        else:
+            state = ON if self.is_active else OFF
         self._state = state
         if self.output_type not in (NONE, COVER):
             self._send_message(
@@ -83,14 +88,6 @@ class BasicRelay(BasicMqtt):
             )
         self._event_bus.trigger_output_event(self.id)
         self._loop.call_soon_threadsafe(self._callback)
-
-    def toggle(self) -> None:
-        """Toggle relay."""
-        _LOGGER.debug("Toggle relay.")
-        if self.is_active:
-            self.turn_off()
-        else:
-            self.turn_on()
 
     @callback
     def _momentary_callback(self, time, action):
@@ -103,10 +100,18 @@ class BasicRelay(BasicMqtt):
         raise NotImplementedError
 
     async def async_turn_on(self) -> None:
-        self._loop.call_soon(self.turn_on)
+        self.turn_on()
 
     async def async_turn_off(self) -> None:
-        self._loop.call_soon(self.turn_off)
+        self.turn_off()
+
+    async def async_toggle(self) -> None:
+        """Toggle relay."""
+        _LOGGER.debug("Toggle relay %s.", self.name)
+        if self.is_active:
+            await self.async_turn_off()
+        else:
+            await self.async_turn_on()
 
     def turn_on(self) -> None:
         """Call turn on action."""

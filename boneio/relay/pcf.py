@@ -68,6 +68,7 @@ class PCFRelay(BasicRelay):
         self.pin.value = self._active_state
         self.execute_momentary_turn_on()
         self._loop.call_soon_threadsafe(self.send_state)
+        self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
@@ -79,3 +80,4 @@ class PCFRelay(BasicRelay):
                 point_in_time=utcnow() + self._momentary_turn_off.as_timedelta,
             )
         self._loop.call_soon_threadsafe(self.send_state)
+        self._loop.call_soon_threadsafe(self._callback)

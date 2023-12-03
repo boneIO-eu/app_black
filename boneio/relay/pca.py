@@ -74,6 +74,7 @@ class PWMPCA(BasicRelay):
             self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
         self._execute_momentary_turn(momentary_type=ON)
         self._loop.call_soon_threadsafe(self.send_state)
+        self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
@@ -81,6 +82,7 @@ class PWMPCA(BasicRelay):
         self._pin.duty_cycle = 0
         self._execute_momentary_turn(momentary_type=OFF)
         self._loop.call_soon_threadsafe(self.send_state)
+        self._loop.call_soon_threadsafe(self._callback)
 
     def payload(self) -> dict:
         return {BRIGHTNESS: self.brightness, STATE: self.state}
