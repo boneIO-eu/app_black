@@ -1,7 +1,7 @@
 from __future__ import annotations
 import asyncio
 import logging
-
+from datetime import datetime
 try:
     from Adafruit_BBIO import GPIO
 except ModuleNotFoundError:
@@ -17,13 +17,14 @@ except ModuleNotFoundError:
     pass
 
 import subprocess
-from typing import Callable
+from typing import Callable, Awaitable, List
 
 from boneio.const import CONFIG_PIN, FALLING
 from boneio.const import GPIO as GPIO_STR
-from boneio.const import GPIO_MODE, LOW, ClickTypes, Gpio_Edges, Gpio_States
+from boneio.const import GPIO_MODE, LOW, ClickTypes, Gpio_Edges, Gpio_States, InputTypes
 from boneio.helper.exceptions import GPIOInputException
 from boneio.helper.timeperiod import TimePeriod
+from concurrent.futures import ThreadPoolExecutor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,22 +82,20 @@ def edge_detect(
         GPIO.add_event_detect(gpio=pin, edge=edge, callback=callback, bouncetime=bounce)
     except RuntimeError as err:
         raise GPIOInputException(err)
-    
-def add_event_detect(
-    pin: str, edge: Gpio_Edges = FALLING
-) -> None:
+
+
+def add_event_detect(pin: str, edge: Gpio_Edges = FALLING) -> None:
     """Add detection for RISING and FALLING events."""
     try:
         GPIO.add_event_detect(gpio=pin, edge=edge)
     except RuntimeError as err:
         raise GPIOInputException(err)
-    
-def add_event_callback(
-    pin: str, callback: Callable
-) -> None:
+
+
+def add_event_callback(pin: str, callback: Callable) -> None:
     """Add detection for RISING and FALLING events."""
     try:
-        GPIO.add_event_callback(gpio=pin,callback=callback)
+        GPIO.add_event_callback(gpio=pin, callback=callback)
     except RuntimeError as err:
         raise GPIOInputException(err)
 
@@ -105,24 +104,61 @@ class GpioBaseClass:
     """Base class for initialize GPIO"""
 
     def __init__(
-        self, pin: str, press_callback: Callable[[ClickTypes, str, bool | None], None], **kwargs
+        self,
+        pin: str,
+        press_callback: Callable[
+            [ClickTypes, str, List, InputTypes, bool, float | None], Awaitable[None]
+        ],
+        name: str,
+        actions: dict,
+        input_type,
+        empty_message_after: bool,
+        **kwargs,
     ) -> None:
         """Setup GPIO Input Button"""
         self._pin = pin
         gpio_mode = kwargs.get(GPIO_MODE, GPIO_STR)
-        self._bounce_time = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
+        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
+        self._bounce_time = bounce_time.total_in_seconds
         self._loop = asyncio.get_running_loop()
         self._press_callback = press_callback
+        self._name = name
         setup_input(pin=self._pin, pull_mode=gpio_mode)
+        self.executor = ThreadPoolExecutor()
+        self._actions = actions
+        self._input_type = input_type
+        self._empty_message_after = empty_message_after
 
-    def set_press_callback(self, press_callback: Callable[[ClickTypes, str, bool | None], None]) -> None:
-        self._press_callback = press_callback
+    def press_callback(self, click_type: ClickTypes, duration: float | None = None) -> None:
+        actions = self._actions.get(click_type, [])
+        self._loop.create_task(self.async_press_callback(click_type, duration, actions))
+
+    async def async_press_callback(
+        self, click_type: ClickTypes, duration: float | None = None, actions: List = []
+    ) -> None:
+        _LOGGER.warn("press callback %s", datetime.now())
+        await self._press_callback(
+            click_type,
+            self._pin,
+            actions,
+            self._input_type,
+            self._empty_message_after,
+            duration,
+        )
+
+    def set_actions(self, actions: dict) -> None:
+        self._actions = actions
 
     @property
     def is_pressed(self) -> bool:
         """Is button pressed."""
         return read_input(self._pin)
-    
+
+    @property
+    def name(self) -> str:
+        """Name of the GPIO visible in HA/MQTT."""
+        return self._name
+
     @property
     def pin(self) -> str:
         """Return configured pin."""
