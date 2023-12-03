@@ -2,8 +2,7 @@
 from __future__ import annotations
 import logging
 import asyncio
-from functools import partial
-from boneio.const import DOUBLE, LONG, SINGLE, ClickTypes
+from boneio.const import DOUBLE, LONG, SINGLE
 from boneio.helper import GpioBaseClass, ClickTimer, TimePeriod
 
 
@@ -36,11 +35,6 @@ class GpioEventButton(GpioBaseClass):
         self._long_press_ran = False
         asyncio.create_task(self._run())
 
-    def press_callback(self, click_type: ClickTypes, duration: float | None = None):
-        self._loop.call_soon_threadsafe(
-            partial(self._press_callback, click_type, self._pin, duration)
-        )
-
     def double_click_press_callback(self):
         self._is_waiting_for_second_click = False
         if not self._state and not self._timer_long.is_waiting():
@@ -49,7 +43,7 @@ class GpioEventButton(GpioBaseClass):
     async def _run(self) -> None:
         while True:
             self.check_state(state=self.is_pressed)
-            await asyncio.sleep(self._bounce_time.total_in_seconds)
+            await asyncio.sleep(self._bounce_time)
 
     def check_state(self, state: bool) -> None:
         if state == self._state:

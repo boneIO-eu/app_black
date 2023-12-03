@@ -347,7 +347,7 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
+    input: GpioEventButtonOld | GpioEventButtonNew | None = None
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
@@ -356,39 +356,28 @@ def configure_event_sensor(
             if gpio.get("detection_type", "new") == "new"
             else GpioEventButtonOld
         )
+        name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioEventButtonClass):
                 _LOGGER.warn(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_press_callback(
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                )
-            )
+            input.set_actions(actions=gpio.get(ACTIONS, {}))
         else:
             input = GpioEventButtonClass(
                 pin=pin,
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                ),
+                name=name,
+                input_type=INPUT,
+                empty_message_after=gpio.pop("clear_message", False),
+                actions=gpio.pop(ACTIONS, {}),
+                press_callback=press_callback,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
-                name=gpio.get(ID, pin),
+                name=name,
                 ha_type=EVENT_ENTITY,
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_event_availabilty_message,
@@ -413,38 +402,28 @@ def configure_binary_sensor(
             if gpio.get("detection_type", "new") == "new"
             else GpioInputBinarySensorOld
         )
+        name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioInputBinarySensorClass):
                 _LOGGER.warn(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_press_callback(
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                )
-            )
+            input.set_actions(actions=gpio.get(ACTIONS, {}))
         else:
             input = GpioInputBinarySensorClass(
                 pin=pin,
-                press_callback=lambda x, i: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT_SENSOR,
-                    empty_message_after=gpio.get("clear_message", False),
-                ),
+                name=name,
+                actions=gpio.pop(ACTIONS, {}),
+                input_type=INPUT_SENSOR,
+                empty_message_after=gpio.pop("clear_message", False),
+                press_callback=press_callback,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
-                name=gpio.get(ID, pin),
+                name=name,
                 ha_type=BINARY_SENSOR,
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_binary_sensor_availabilty_message,
