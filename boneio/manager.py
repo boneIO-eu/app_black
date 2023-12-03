@@ -2,9 +2,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
+import datetime
 from typing import Callable, Coroutine, List, Optional, Set, Union, Awaitable
 from board import SCL, SDA
 from busio import I2C
+from concurrent.futures import ThreadPoolExecutor
+
 
 from boneio.const import (
     ACTION,
@@ -245,6 +248,7 @@ class Manager:
 
         self._output_group = output_group
         self._configure_output_group()
+        self.executor = ThreadPoolExecutor()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs(reload_config=False)
@@ -272,6 +276,7 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
+
         _LOGGER.info("BoneIO manager is ready.")
 
     @property
@@ -299,7 +304,7 @@ class Manager:
                     group[ID],
                 )
                 continue
-            _LOGGER.debug("Configuring output group %s with members: %s", group[ID], members)
+            _LOGGER.debug("Configuring output group %s with members: %s", group[ID], [x.name for x in members])
             configured_group = configure_output_group(
                 config=group,
                 manager=self,
@@ -595,7 +600,7 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    def press_callback(
+    async def press_callback(
         self,
         x: ClickTypes,
         inpin: str,
@@ -625,8 +630,6 @@ class Manager:
                 )
             else:
                 return (self._covers.get(strip_accents(device_id)), cover_actions.get(action_cover))
-
-        self.send_message(topic=topic, payload=generate_payload(), retain=False)
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] in (OUTPUT, COVER):
@@ -640,7 +643,8 @@ class Manager:
                     action_cover=action_definition.get("action_cover"),
                 )
                 if output and action:
-                    getattr(output, action)()
+                    _f = getattr(output, action)
+                    asyncio.create_task(_f())
                 else:
                     if not action:
                         _LOGGER.warn("Action doesn't exists %s. Check spelling", action)
@@ -653,6 +657,7 @@ class Manager:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
+        self._loop.run_in_executor(self.executor, lambda: self.send_message(topic=topic, payload=generate_payload(), retain=False))
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             self._loop.call_soon_threadsafe(
@@ -714,7 +719,8 @@ class Manager:
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
-                    getattr(target_device, action_from_msg)()
+                    _f = getattr(target_device, action_from_msg)
+                    asyncio.create_task(_f())
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
@@ -752,7 +758,7 @@ class Manager:
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
-                    getattr(target_device, action_from_msg)()
+                    asyncio.create_task(getattr(target_device, action_from_msg)())
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
