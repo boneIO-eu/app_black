@@ -4,7 +4,8 @@ import logging
 import signal
 import time
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Any, Coroutine, List, Optional, Callable, Optional
+
 
 from boneio.helper.util import callback
 
@@ -261,3 +262,22 @@ def async_call_later_miliseconds(
     return async_track_point_in_timestamp(
         loop=loop, action=action, timestamp=expected_fire_timestamp
     )
+
+
+def create_unawaited_task_threadsafe(
+    loop: asyncio.AbstractEventLoop,
+    transient_tasks: List["asyncio.Task[Any]"],
+    coro: Coroutine[Any, Any, None],
+    task_future: Optional["asyncio.Future[asyncio.Task[Any]]"] = None,
+) -> None:
+    """
+    Schedule a coroutine on the loop and add the Task to transient_tasks.
+    """
+
+    def callback() -> None:
+        task = loop.create_task(coro)
+        transient_tasks.append(task)
+        if task_future is not None:
+            task_future.set_result(task)
+
+    loop.call_soon_threadsafe(callback)
