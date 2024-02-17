@@ -23,4 +23,4 @@ binary_sensor: !include binary_sensor.yaml
 
 output: !include output32x5A.yaml
 
-adc: !include adc.yaml
+# adc: !include adc.yaml Uncomment only if needed.

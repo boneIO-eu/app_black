@@ -1,6 +1,6 @@
 from __future__ import annotations
 import asyncio
-
+import time
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
 
@@ -19,11 +19,11 @@ class AsyncUpdater:
         while True:
             if hasattr(self, "async_update"):
                 update_interval = (
-                    await self.async_update(time=None)
+                    await self.async_update(time=time.time())
                     or self._update_interval.total_in_seconds
                 )
             else:
                 update_interval = (
-                    self.update(time=None) or self._update_interval.total_in_seconds
+                    self.update(time=time.time()) or self._update_interval.total_in_seconds
                 )
             await asyncio.sleep(update_interval)

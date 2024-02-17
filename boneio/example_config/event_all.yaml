@@ -1,0 +1,186 @@
+- id: IN_01
+  pin: P8_37
+  detection_type: "old"
+  actions:
+    single:
+      - action: output
+        pin: light 1
+    double:
+      - action: output
+        pin: switch 1
+- id: IN_02
+  pin: P8_38
+  detection_type: "new"
+  actions:
+    single:
+      - action: output
+        pin: light 2
+    double:
+      - action: output
+        pin: switch 2
+- id: IN_03
+  pin: P8_39
+  actions:
+    single:
+      - action: output
+        pin: light 3
+    double:
+      - action: output
+        pin: switch 3
+- id: IN_04
+  pin: P8_40
+  actions:
+    single:
+      - action: output
+        pin: light 4
+    double:
+      - action: output
+        pin: switch 4
+- id: IN_05
+  pin: P8_41
+  actions:
+    single:
+      - action: output
+        pin: light 5
+    double:
+      - action: output
+        pin: switch 5
+- id: IN_06
+  pin: P8_42
+  actions:
+    single:
+      - action: output
+        pin: light 6
+    double:
+      - action: output
+        pin: switch 6
+- id: IN_07
+  pin: P8_43
+  actions:
+    single:
+      - action: output
+        pin: light 7
+
+- id: IN_08
+  pin: P8_44
+  actions:
+    single:
+      - action: output
+        pin: light 8
+- id: IN_09
+  pin: P8_45
+  actions:
+    single:
+      - action: output
+        pin: light 9
+- id: IN_10
+  pin: P8_46
+  actions:
+    single:
+      - action: output
+        pin: light 10
+- id: IN_11
+  pin: P9_42
+  actions:
+    single:
+      - action: output
+        pin: light 11
+- id: IN_12
+  pin: P9_31
+  actions:
+    single:
+      - action: output
+        pin: light 12
+- id: IN_13
+  pin: P9_30
+  actions:
+    single:
+      - action: output
+        pin: light 13
+- id: IN_14
+  pin: P9_29
+  actions:
+    single:
+      - action: output
+        pin: light 14
+
+- id: IN_15
+  pin: P9_28
+  actions:
+    single:
+      - action: output
+        pin: light 15
+- id: IN_16
+  pin: P9_27
+  actions:
+    single:
+      - action: output
+        pin: light 16
+- id: IN_17
+  pin: P9_25
+  actions:
+    single:
+      - action: output
+        pin: light 4
+- id: IN_18
+  pin: P9_23
+- id: IN_19
+  pin: P9_22
+- id: IN_20
+  pin: P9_21
+- id: IN_21
+  pin: P9_18
+
+- id: IN_22
+  pin: P9_17
+- id: IN_23
+  pin: P9_16
+- id: IN_24
+  pin: P9_15
+- id: IN_25
+  pin: P9_14
+- id: IN_26
+  pin: P9_13
+- id: IN_27
+  pin: P9_12
+- id: IN_28
+  pin: P9_11
+
+- id: IN_29
+  pin: P8_36
+- id: IN_30
+  pin: P8_35
+- id: IN_31
+  pin: P8_34
+- id: IN_32
+  pin: P8_33
+
+- id: IN_33
+  pin: P8_32
+- id: IN_34
+  pin: P8_31
+- id: IN_35
+  pin: P8_30
+- id: IN_36
+  pin: P8_29
+- id: IN_37
+  pin: P8_28
+- id: IN_38
+  pin: P8_27
+- id: IN_39
+  pin: P8_26
+
+- id: IN_40
+  pin: P8_19
+- id: IN_41
+  pin: P8_18
+- id: IN_42
+  pin: P8_17
+- id: IN_43
+  pin: P8_16
+- id: IN_44
+  pin: P8_15
+- id: IN_45
+  pin: P8_14
+- id: IN_46
+  pin: P8_13

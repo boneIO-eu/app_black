@@ -16,6 +16,7 @@ from boneio.const import (
     EVENT_ENTITY,
     HA_DISCOVERY,
     HOST,
+    INA219,
     LM75,
     MCP23017,
     MCP_TEMP_9808,
@@ -79,9 +80,11 @@ async def async_run(
         for item in config_modules
     }
 
+
     manager = Manager(
         send_message=client.send_message,
         stop_client=client.stop_client,
+        mqtt_state=client.state,
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),
@@ -92,6 +95,7 @@ async def async_run(
         config_helper=_config_helper,
         sensors={
             LM75: config.get(LM75, []),
+            INA219: config.get(INA219, []),
             MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             MODBUS: config.get("modbus_sensors"),
             ONEWIRE: config.get(SENSOR, []),
@@ -102,4 +106,4 @@ async def async_run(
     tasks.update(manager.get_tasks())
     _LOGGER.info("Connecting to MQTT.")
     tasks.add(client.start_client(manager))
-    return await asyncio.gather(*tasks, return_exceptions=True)
+    return await asyncio.gather(*tasks)

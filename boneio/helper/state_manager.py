@@ -4,6 +4,7 @@ import asyncio
 import logging
 import json
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class StateManager:
         self._state = self.load_states()
         _LOGGER.info("Loaded state file from %s", self._file)
         self._file_uptodate = False
+        self._save_attributes_callback = None
+        self.executor = ThreadPoolExecutor()
 
     def load_states(self) -> dict:
         """Load state file."""
@@ -40,7 +43,11 @@ class StateManager:
         if attr_type not in self._state:
             self._state[attr_type] = {}
         self._state[attr_type][attribute] = value
-        asyncio.run_coroutine_threadsafe(self.save_state(), self._loop)
+        if self._save_attributes_callback is not None:
+            print(self._save_attributes_callback)
+            self._save_attributes_callback.cancel()
+            self._save_attributes_callback = None
+        self._save_attributes_callback = self._loop.call_later(1, lambda: self._loop.create_task(self.save_state()))
 
     def get(self, attr_type: str, attr: str, default_value: Any = None) -> Any:
         """Retrieve attribute from json."""
@@ -53,6 +60,10 @@ class StateManager:
     def state(self) -> dict:
         """Retrieve all states."""
         return self._state
+    
+    def _save_state(self) -> None:
+        with open(self._file, "w+", encoding="utf-8") as f:
+            json.dump(self._state, f, indent=2)
 
     async def save_state(self) -> None:
         """Async save state."""
@@ -60,5 +71,4 @@ class StateManager:
             # Let's not save state if something happens same time.
             return
         async with self._lock:
-            with open(self._file, "w+", encoding="utf-8") as f:
-                json.dump(self._state, f, indent=2)
+            self._loop.run_in_executor(None, self._save_state)

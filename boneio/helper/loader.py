@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import logging
 import time
 from collections import namedtuple
@@ -54,6 +53,7 @@ from boneio.helper import (
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
     ha_sensor_temp_availabilty_message,
+    ha_sensor_ina_availabilty_message,
 )
 from boneio.helper.onewire import (
     DS2482,
@@ -236,26 +236,17 @@ def output_chooser(output_kind: str, config):
 
 def configure_output_group(
     manager: Manager,
-    state_manager: StateManager,
     topic_prefix: str,
-    relay_id: str,
     config: dict,
     **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
-    restore_state = config.pop(RESTORE_STATE, False)
     _id = config.pop(ID)
-    restored_state = (
-        state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
-        if restore_state
-        else False
-    )
 
     output = OutputGroup(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
         id=_id,
-        restored_state=restored_state,
         callback=lambda: None,
         **config,
         **kwargs,
@@ -268,6 +259,7 @@ def configure_relay(
     state_manager: StateManager,
     topic_prefix: str,
     relay_id: str,
+    name: str,
     relay_callback: Callable,
     config: dict,
     **kwargs,
@@ -334,8 +326,9 @@ def configure_relay(
     relay = getattr(output, "OutputClass")(
         send_message=manager.send_message,
         topic_prefix=topic_prefix,
-        id=config.pop(ID),
+        id=relay_id,
         restored_state=restored_state,
+        name=name,
         **config,
         **kwargs,
         **extra_args,
@@ -354,7 +347,7 @@ def configure_event_sensor(
     pin: str,
     press_callback: Callable,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | None = None,
+    input: GpioEventButtonOld | GpioEventButtonNew | None = None
 ) -> GpioEventButtonOld | GpioEventButtonNew | None:
     """Configure input sensor or button."""
     try:
@@ -363,39 +356,28 @@ def configure_event_sensor(
             if gpio.get("detection_type", "new") == "new"
             else GpioEventButtonOld
         )
+        name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioEventButtonClass):
                 _LOGGER.warn(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_press_callback(
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                )
-            )
+            input.set_actions(actions=gpio.get(ACTIONS, {}))
         else:
             input = GpioEventButtonClass(
                 pin=pin,
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                ),
+                name=name,
+                input_type=INPUT,
+                empty_message_after=gpio.pop("clear_message", False),
+                actions=gpio.pop(ACTIONS, {}),
+                press_callback=press_callback,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
-                name=gpio.get(ID, pin),
+                name=name,
                 ha_type=EVENT_ENTITY,
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_event_availabilty_message,
@@ -420,38 +402,28 @@ def configure_binary_sensor(
             if gpio.get("detection_type", "new") == "new"
             else GpioInputBinarySensorOld
         )
+        name = gpio.pop(ID, pin)
         if input:
             if not isinstance(input, GpioInputBinarySensorClass):
                 _LOGGER.warn(
                     "You preconfigured type of input. It's forbidden. Please restart boneIO."
                 )
                 return input
-            input.set_press_callback(
-                press_callback=lambda x, i, z: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT,
-                    empty_message_after=gpio.get("clear_message", False),
-                    duration=z,
-                )
-            )
+            input.set_actions(actions=gpio.get(ACTIONS, {}))
         else:
             input = GpioInputBinarySensorClass(
                 pin=pin,
-                press_callback=lambda x, i: press_callback(
-                    x=x,
-                    inpin=i,
-                    actions=gpio.get(ACTIONS, {}).get(x, []),
-                    input_type=INPUT_SENSOR,
-                    empty_message_after=gpio.get("clear_message", False),
-                ),
+                name=name,
+                actions=gpio.pop(ACTIONS, {}),
+                input_type=INPUT_SENSOR,
+                empty_message_after=gpio.pop("clear_message", False),
+                press_callback=press_callback,
                 **gpio,
             )
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
-                name=gpio.get(ID, pin),
+                name=name,
                 ha_type=BINARY_SENSOR,
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_binary_sensor_availabilty_message,
@@ -557,3 +529,38 @@ def create_dallas_sensor(
             unit_of_measurement=config.get("unit_of_measurement", "°C"),
         )
     return sensor
+
+
+def create_ina219_sensor(
+    manager: Manager,
+    topic_prefix: str,
+    config: dict = {},
+):
+    """Create INA219 sensor in manager."""
+    from boneio.sensor import INA219
+
+    address = config[ADDRESS]
+    id = config.get(ID, str(address)).replace(" ", "")
+    try:
+        ina219 = INA219(
+            id=id,
+            address=address,
+            sensors=config.get("sensors", []),
+            manager=manager,
+            send_message=manager.send_message,
+            topic_prefix=topic_prefix,
+            update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+        )
+        for sensor in ina219.sensors.values():
+            manager.send_ha_autodiscovery(
+                id=sensor.id,
+                name=sensor.name,
+                ha_type=SENSOR,
+                availability_msg_func=ha_sensor_ina_availabilty_message,
+                unit_of_measurement=sensor.unit_of_measurement,
+                device_class=sensor.device_class,
+            )
+        return ina219
+    except I2CError as err:
+        _LOGGER.error("Can't configure Temp sensor. %s", err)
+        pass

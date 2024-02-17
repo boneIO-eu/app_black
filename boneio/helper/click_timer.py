@@ -1,7 +1,11 @@
 from __future__ import annotations
+import logging
 import asyncio
 from boneio.helper.timeperiod import TimePeriod
 import time
+
+_LOGGER = logging.getLogger(__name__)
+
 
 class ClickTimer:
     """Represent async call later function with variable to check if timing is ON."""
@@ -16,6 +20,10 @@ class ClickTimer:
     def is_waiting(self) -> bool:
         """If variable is set then timer is ON, if None is Off."""
         return self._remove_listener is not None
+    
+    @property
+    def delay(self) -> float:
+        return self._delay
 
     def reset(self) -> None:
         """Uninitialize variable remove_listener."""

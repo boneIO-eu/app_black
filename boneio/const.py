@@ -56,7 +56,7 @@ UARTS = {
     "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
-relay_actions = {ON: "turn_on", OFF: "turn_off", TOGGLE: "toggle"}
+relay_actions = {ON: "async_turn_on", OFF: "async_turn_off", TOGGLE: "async_toggle"}
 
 # HA CONSTS
 HOMEASSISTANT = "homeassistant"
@@ -158,3 +158,5 @@ cover_actions = {
     "TOGGLE_OPEN": "toggle_open",
     "TOGGLE_CLOSE": "toggle_close",
 }
+
+INA219 = "ina219"
