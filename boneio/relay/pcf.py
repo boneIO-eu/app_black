@@ -4,7 +4,7 @@ import logging
 
 from adafruit_pcf8575 import DigitalInOut
 
-from boneio.const import NONE, SWITCH, PCF
+from boneio.const import NONE, SWITCH, PCF, ON, OFF
 from boneio.helper.events import async_track_point_in_time, utcnow
 from boneio.helper.pcf8575 import PCF8575
 from boneio.relay.basic import BasicRelay
@@ -66,18 +66,13 @@ class PCFRelay(BasicRelay):
     def turn_on(self) -> None:
         """Call turn on action."""
         self.pin.value = self._active_state
-        self.execute_momentary_turn_on()
+        self._execute_momentary_turn(momentary_type=ON)
         self._loop.call_soon_threadsafe(self.send_state)
         self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
         self.pin.value = not self._active_state
-        if self._momentary_turn_off:
-            async_track_point_in_time(
-                loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=self.turn_on),
-                point_in_time=utcnow() + self._momentary_turn_off.as_timedelta,
-            )
+        self._execute_momentary_turn(momentary_type=OFF)
         self._loop.call_soon_threadsafe(self.send_state)
         self._loop.call_soon_threadsafe(self._callback)
