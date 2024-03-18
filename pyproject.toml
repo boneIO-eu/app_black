@@ -21,12 +21,13 @@ dependencies = [
     "pymodbus>=2.5.3",
     "pyserial-asyncio>=0.6",
     "PyYAML>=6.0.1",
-    "Adafruit-BBIO>=1.2.0",
     "psutil>=5.9.5",
     "adafruit-circuitpython-onewire>=2.0.5",
     "w1thermsensor[async]>=2.0.0",
     "adafruit-circuitpython-pca9685>=3.4.10",
     "adafruit-circuitpython-pcf8575>=1.0.2",
+    "adafruit-circuitpython-typing==1.9.5",
+    "Adafruit-BBIO>=1.2.0",
 ]
 requires-python = ">=3.7"
 license = {text = "GNU General Public License v3.0"}
