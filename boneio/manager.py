@@ -2,9 +2,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
+import datetime
 from typing import Callable, Coroutine, List, Optional, Set, Union, Awaitable
 from board import SCL, SDA
 from busio import I2C
+from concurrent.futures import ThreadPoolExecutor
+
 
 from boneio.const import (
     ACTION,
@@ -16,6 +19,7 @@ from boneio.const import (
     DALLAS,
     EVENT_ENTITY,
     ID,
+    INA219,
     INPUT,
     LM75,
     MCP_TEMP_9808,
@@ -55,6 +59,7 @@ from boneio.helper import (
     ha_switch_availabilty_message,
     ha_led_availabilty_message,
 )
+from boneio.helper.util import strip_accents
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import ModbusUartException
@@ -89,6 +94,7 @@ class Manager:
         self,
         send_message: Callable[[str, Union[str, dict], bool], None],
         stop_client: Callable[[], Awaitable[None]],
+        mqtt_state: Callable[[], bool],
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
@@ -120,6 +126,7 @@ class Manager:
 
         self.send_message = send_message
         self.stop_client = stop_client
+        self._mqtt_state = mqtt_state
         self._event_pins = event_pins
         self._inputs = {}
         self._binary_pins = binary_pins
@@ -133,6 +140,7 @@ class Manager:
         self._tasks: List[asyncio.Task] = []
         self._covers = {}
         self._temp_sensors = []
+        self._ina219_sensors = []
         self._modbus = None
 
         self._configure_modbus(modbus=modbus)
@@ -140,6 +148,7 @@ class Manager:
         self._configure_temp_sensors(sensors=sensors)
 
         self._configure_modbus_sensors(sensors=sensors)
+        self._configure_ina219_sensors(sensors=sensors)
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
@@ -170,11 +179,13 @@ class Manager:
         self._configure_adc(adc_list=adc)
 
         for _config in relay_pins:
-            _id = _config[ID].replace(" ", "")
+            _name = _config.pop(ID)
+            _id = strip_accents(_name)
             out = configure_relay(
                 manager=self,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
+                name=_name,
                 relay_id=_id,
                 relay_callback=self._relay_callback,
                 config=_config,
@@ -199,7 +210,7 @@ class Manager:
             )
 
         for _config in cover:
-            _id = _config[ID].replace(" ", "")
+            _id = strip_accents(_config[ID])
             open_relay = self._output.get(_config.get("open_relay"))
             close_relay = self._output.get(_config.get("close_relay"))
             if not open_relay:
@@ -237,6 +248,7 @@ class Manager:
 
         self._output_group = output_group
         self._configure_output_group()
+        self.executor = ThreadPoolExecutor()
 
         _LOGGER.info("Initializing inputs. This will take a while.")
         self.configure_inputs(reload_config=False)
@@ -251,6 +263,7 @@ class Manager:
                 enabled_screens=screens,
                 output=self.grouped_outputs,
                 temp_sensor=self._temp_sensors[0] if self._temp_sensors else None,
+                ina219=self._ina219_sensors[0] if self._ina219_sensors else None,
                 callback=self._host_data_callback,
             )
             try:
@@ -263,12 +276,18 @@ class Manager:
             except (GPIOInputException, I2CError) as err:
                 _LOGGER.error("Can't configure OLED display. %s", err)
         self.prepare_ha_buttons()
+
         _LOGGER.info("BoneIO manager is ready.")
+
+    @property
+    def mqtt_state(self) -> bool:
+        return self._mqtt_state()
 
     def _configure_output_group(self):
         def get_outputs(output_list):
             outputs = []
             for x in output_list:
+                x = strip_accents(x)
                 if x in self._output:
                     output = self._output[x]
                     if output.output_type == COVER:
@@ -285,6 +304,7 @@ class Manager:
                     group[ID],
                 )
                 continue
+            _LOGGER.debug("Configuring output group %s with members: %s", group[ID], [x.name for x in members])
             configured_group = configure_output_group(
                 config=group,
                 manager=self,
@@ -476,6 +496,19 @@ class Manager:
                     if temp_sensor:
                         self._temp_sensors.append(temp_sensor)
 
+    def _configure_ina219_sensors(self, sensors: dict) -> None:
+        if sensors.get(INA219):
+            from boneio.helper.loader import create_ina219_sensor
+
+            for sensor_config in sensors[INA219]:
+                ina219 = create_ina219_sensor(
+                    topic_prefix=self._config_helper.topic_prefix,
+                    manager=self,
+                    config=sensor_config,
+                )
+                if ina219:
+                    self._ina219_sensors.append(ina219)
+
     def _configure_modbus_sensors(self, sensors: dict) -> None:
         if sensors.get(MODBUS) and self._modbus:
             from boneio.helper.loader import create_modbus_sensors
@@ -567,7 +600,7 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    def press_callback(
+    async def press_callback(
         self,
         x: ClickTypes,
         inpin: str,
@@ -591,14 +624,12 @@ class Manager:
             if action == OUTPUT:
                 return (
                     self._output.get(
-                        device_id, self._configured_output_groups.get(device_id)
+                        strip_accents(device_id), self._configured_output_groups.get(device_id)
                     ),
                     relay_actions.get(action_output),
                 )
             else:
-                return (self._covers.get(device_id), cover_actions.get(action_cover))
-
-        self.send_message(topic=topic, payload=generate_payload(), retain=False)
+                return (self._covers.get(strip_accents(device_id)), cover_actions.get(action_cover))
         for action_definition in actions:
             _LOGGER.debug("Executing action %s", action_definition)
             if action_definition[ACTION] in (OUTPUT, COVER):
@@ -612,7 +643,8 @@ class Manager:
                     action_cover=action_definition.get("action_cover"),
                 )
                 if output and action:
-                    getattr(output, action)()
+                    _f = getattr(output, action)
+                    asyncio.create_task(_f())
                 else:
                     if not action:
                         _LOGGER.warn("Action doesn't exists %s. Check spelling", action)
@@ -625,6 +657,7 @@ class Manager:
                     self.send_message(
                         topic=action_topic, payload=action_payload, retain=False
                     )
+        self._loop.run_in_executor(self.executor, lambda: self.send_message(topic=topic, payload=generate_payload(), retain=False))
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
             self._loop.call_soon_threadsafe(
@@ -686,18 +719,15 @@ class Manager:
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
-                    getattr(target_device, action_from_msg)()
+                    _f = getattr(target_device, action_from_msg)
+                    asyncio.create_task(_f())
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
         elif msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self._output.get(device_id)
-            if (
-                target_device
-                and target_device.output_type != NONE
-                and message != ""
-            ):
+            if target_device and target_device.output_type != NONE and message != "":
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
@@ -728,7 +758,7 @@ class Manager:
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
-                    getattr(target_device, action_from_msg)()
+                    asyncio.create_task(getattr(target_device, action_from_msg)())
                 else:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:

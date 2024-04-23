@@ -3,9 +3,7 @@
 import logging
 
 from adafruit_mcp230xx.mcp23017 import MCP23017, DigitalInOut
-
-from boneio.const import SWITCH, MCP, COVER
-from boneio.helper.events import async_track_point_in_time, utcnow
+from boneio.const import SWITCH, MCP, COVER, ON, OFF
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +32,7 @@ class MCPRelay(BasicRelay):
         )
         self._pin_id = pin
         self._expander_id = mcp_id
+
         _LOGGER.debug("Setup MCP with pin %s", self._pin_id)
 
     @property
@@ -57,28 +56,18 @@ class MCPRelay(BasicRelay):
         return self.pin.value
 
     @property
-    def pin(self) -> str:
+    def pin(self) -> DigitalInOut:
         """PIN of the relay"""
         return self._pin
 
     def turn_on(self) -> None:
         """Call turn on action."""
         self.pin.value = True
-        if self._momentary_turn_on:
-            async_track_point_in_time(
-                loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=self.turn_off),
-                point_in_time=utcnow() + self._momentary_turn_on.as_timedelta,
-            )
-        self._loop.call_soon_threadsafe(self.send_state)
+        self._execute_momentary_turn(momentary_type=ON)
+        self._loop.call_soon_threadsafe(self.send_state, ON)
 
     def turn_off(self) -> None:
         """Call turn off action."""
         self.pin.value = False
-        if self._momentary_turn_off:
-            async_track_point_in_time(
-                loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=self.turn_on),
-                point_in_time=utcnow() + self._momentary_turn_off.as_timedelta,
-            )
-        self._loop.call_soon_threadsafe(self.send_state)
+        self._execute_momentary_turn(momentary_type=OFF)
+        self._loop.call_soon_threadsafe(self.send_state, OFF)

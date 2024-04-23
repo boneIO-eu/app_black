@@ -285,6 +285,7 @@ class CustomValidator(Validator):
             "secs": "seconds",
             "seconds": "seconds",
             "min": "minutes",
+            "mins": "minutes",
             "minutes": "minutes",
             "h": "hours",
             "hours": "hours",
@@ -296,7 +297,6 @@ class CustomValidator(Validator):
         if match is None:
             raise ConfigurationException(f"Expected time period with unit, got {value}")
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
-
         return TimePeriod(**{kwarg: float(match.group(1))})
 
     def _normalize_coerce_check_action_def(self, value):

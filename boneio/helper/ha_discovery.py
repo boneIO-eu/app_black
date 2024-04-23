@@ -131,6 +131,28 @@ def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, 
     }
 
 
+def ha_sensor_ina_availabilty_message(
+    id: str, name: str, topic: str = "boneIO", **kwargs
+):
+    """Create availability topic for HA."""
+    return {
+        "availability": [{"topic": f"{topic}/{STATE}"}],
+        "device": {
+            "identifiers": [topic],
+            "manufacturer": "boneIO",
+            "model": "boneIO Relay Board",
+            "name": f"boneIO {topic}",
+            "sw_version": __version__,
+        },
+        "name": name,
+        "state_topic": f"{topic}/{SENSOR}/{id}",
+        "unique_id": f"{topic}{SENSOR}{id}",
+        "state_class": "measurement",
+        "value_template": "{{ value_json.state }}",
+        **kwargs,
+    }
+
+
 def ha_sensor_temp_availabilty_message(
     id: str, name: str, topic: str = "boneIO", **kwargs
 ):

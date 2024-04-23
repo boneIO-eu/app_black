@@ -1,6 +1,5 @@
 """GpioInputBinarySensorNew to receive signals."""
 import logging
-from functools import partial
 from boneio.const import PRESSED, RELEASED, BOTH
 from boneio.helper import GpioBaseClass
 from boneio.helper.gpio import add_event_callback, add_event_detect
@@ -24,13 +23,11 @@ class GpioInputBinarySensorNew(GpioBaseClass):
         add_event_detect(pin=self._pin, edge=BOTH)
         add_event_callback(pin=self._pin, callback=self.check_state)
 
-    def check_state(self, channel) -> None:
+    def check_state(self, _) -> None:
         state = self.is_pressed
         if state == self._state:
             return
         self._state = state
         click_type = self._click_type[0] if state else self._click_type[1]
-        _LOGGER.debug("%s event on pin %s", click_type, self._pin)
-        self._loop.call_soon_threadsafe(
-            partial(self._press_callback, click_type, self._pin)
-        )
+        _LOGGER.debug("%s event on pin %s - %s", click_type, self._pin, self.name)
+        self.press_callback(click_type=click_type, duration=None)

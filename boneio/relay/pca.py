@@ -1,21 +1,16 @@
 """PCA9685 PWM module."""
 
 from __future__ import annotations
-import asyncio
 import logging
-from typing import Callable
 from adafruit_pca9685 import PCA9685, PCAChannels
 
-from boneio.helper.events import async_track_point_in_time, utcnow
-from boneio.helper.util import callback
-
-from boneio.const import LED, NONE, OFF, ON, STATE, SWITCH, BRIGHTNESS, RELAY, PCA
-from boneio.helper import BasicMqtt
+from boneio.const import LED, OFF, ON, STATE, SWITCH, BRIGHTNESS, PCA
+from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class PWMPCA(BasicMqtt):
+class PWMPCA(BasicRelay):
     """Initialize PWMPCA."""
 
     def __init__(
@@ -23,8 +18,6 @@ class PWMPCA(BasicMqtt):
         pin: int,
         pca: PCA9685,
         percentage_default_brightness: int,
-        callback: Callable,
-        id: str | None = None,
         output_type=SWITCH,
         restored_state: bool = False,
         restored_brightness: int = 0,
@@ -32,28 +25,11 @@ class PWMPCA(BasicMqtt):
     ) -> None:
         """Initialize PWMPCA."""
         self._pin: PCAChannels = pca.channels[pin]
-
-        self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
-        self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
-        super().__init__(id=id, name=id, topic_type=RELAY, **kwargs)
-
-        self._output_type = output_type
+        super().__init__(
+            **kwargs, output_type=output_type, restored_state=restored_state
+        )
         self._percentage_default_brightness = percentage_default_brightness
-
-        if output_type == NONE:
-            self._momentary_turn_on = None
-            self._momentary_turn_off = None
-
-        if restored_state:
-            self._state = ON
-            self._brightness = restored_brightness
-        else:
-            self._state = OFF
-            self._brightness = 0
-
-        self._callback = callback
-        self._loop = asyncio.get_running_loop()
-
+        self._brightness = restored_brightness if restored_state else 0
         self._pin_id = pin
         _LOGGER.debug("Setup PCA with pin %s", self._pin_id)
 
@@ -63,30 +39,9 @@ class PWMPCA(BasicMqtt):
         return PCA
 
     @property
-    def output_type(self) -> str:
-        """HA type."""
-        return self._output_type
-
-    @property
     def is_led(self) -> bool:
         """Check if HA type is light"""
         return self._output_type == LED
-
-    @property
-    def id(self) -> str:
-        """Id of the relay.
-        Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self._id
-
-    @property
-    def name(self) -> str:
-        """Not trimmed name."""
-        return self._name
-
-    @property
-    def state(self) -> str:
-        """Is relay active."""
-        return self._state
 
     @property
     def brightness(self) -> int:
@@ -117,31 +72,17 @@ class PWMPCA(BasicMqtt):
         _LOGGER.debug("Turn on relay.")
         if self.brightness == 0:
             self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
-
-        if self._momentary_turn_on:
-            async_track_point_in_time(
-                loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=self.turn_off),
-                point_in_time=utcnow() + self._momentary_turn_on.as_timedelta,
-            )
+        self._execute_momentary_turn(momentary_type=ON)
         self._loop.call_soon_threadsafe(self.send_state)
+        self._loop.call_soon_threadsafe(self._callback)
 
     def turn_off(self) -> None:
         """Call turn off action."""
         _LOGGER.debug("Turn off relay.")
         self._pin.duty_cycle = 0
-        if self._momentary_turn_off:
-            async_track_point_in_time(
-                loop=self._loop,
-                action=lambda x: self._momentary_callback(time=x, action=self.turn_on),
-                point_in_time=utcnow() + self._momentary_turn_off.as_timedelta,
-            )
+        self._execute_momentary_turn(momentary_type=OFF)
         self._loop.call_soon_threadsafe(self.send_state)
-
-    @callback
-    def _momentary_callback(self, time, action):
-        _LOGGER.info("Momentary callback at %s", time)
-        action()
+        self._loop.call_soon_threadsafe(self._callback)
 
     def payload(self) -> dict:
         return {BRIGHTNESS: self.brightness, STATE: self.state}

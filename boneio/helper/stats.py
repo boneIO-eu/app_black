@@ -13,6 +13,7 @@ from boneio.const import (
     CPU,
     DISK,
     GIGABYTE,
+    INA219,
     IP,
     MAC,
     MASK,
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.timeperiod import TimePeriod
-from boneio.sensor import LM75Sensor, MCP9808Sensor
+from boneio.sensor import LM75Sensor, MCP9808Sensor, INA219 as INA219Class
 from boneio.version import __version__
 
 intervals = (("d", 86400), ("h", 3600), ("m", 60))
@@ -122,7 +123,7 @@ class HostSensor(AsyncUpdater):
         self,
         update_function: Callable,
         manager_callback: Callable,
-        static_data: dict,
+        static_data: dict | None,
         id: str,
         type: str,
         **kwargs,
@@ -150,13 +151,12 @@ class HostSensor(AsyncUpdater):
 class HostData:
     """Helper class to store host data."""
 
-    data = {UPTIME: {}, NETWORK: {}, CPU: {}, DISK: {}, MEMORY: {}, SWAP: {}}
-
     def __init__(
         self,
         output: dict,
         callback: Callable,
         temp_sensor: Callable[[LM75Sensor, MCP9808Sensor], None],
+        ina219: INA219Class | None,
         manager: Manager,
         enabled_screens: List[str],
     ) -> None:
@@ -171,17 +171,36 @@ class HostData:
             SWAP: {"f": get_swap_info, "update_interval": TimePeriod(seconds=60)},
             UPTIME: {
                 "f": lambda: {
-                    "uptime": get_uptime(),
-                    "temp": f"{self._temp_sensor.state} C"
-                } if self._temp_sensor else {"uptime": get_uptime() },
-                "static": {HOST: self._hostname, "version": __version__},
+                    "uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3},
+                    "MQTT": {"data": "CONN" if manager.mqtt_state else "DOWN", "fontSize": "small", "row": 3, "col": 60},
+                    "T": {
+                        "data": f"{self._temp_sensor.state} C",
+                        "fontSize": "small",
+                        "row": 3,
+                        "col": 3
+                    },
+                }
+                if self._temp_sensor
+                else {"uptime": {"data": get_uptime(), "fontSize": "small", "row": 2, "col": 3}},
+                "static": {
+                    HOST: {"data": self._hostname, "fontSize": "small", "row": 0, "col": 3},
+                    "ver": {"data": __version__, "fontSize": "small", "row": 1, "col": 3},
+                },
                 "update_interval": TimePeriod(seconds=30),
             },
         }
+        if ina219 is not None:
+            host_stats[INA219] = {
+                "f": lambda: {
+                    *{sensor.device_class: sensor.state for sensor in ina219.sensors}
+                },
+                "update_interval": TimePeriod(seconds=60)
+            }
+        self._data = {}
         for k, _v in host_stats.items():
             if k not in enabled_screens:
                 continue
-            self.data[k] = HostSensor(
+            self._data[k] = HostSensor(
                 update_function=_v["f"],
                 static_data=_v.get("static"),
                 manager=manager,
@@ -198,7 +217,7 @@ class HostData:
         """Get saved stats."""
         if type in self._output:
             return self._get_output(type)
-        return self.data[type].state
+        return self._data[type].state
 
     def _get_output(self, type: str) -> dict:
         """Get stats for output."""
