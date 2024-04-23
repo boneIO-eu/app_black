@@ -1,0 +1,92 @@
+{
+  "model": "Socomec E23/E24",
+  "registers_base": [
+    {
+      "base": 50520,
+      "length": 26,
+      "registers": [
+        {
+          "name": "Voltage_Phase1",
+          "address": 50520,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "return_type": "multiply0_01"
+        },
+        {
+          "name": "Frequency",
+          "address": 50526,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "return_type": "multiply0_001"
+        },
+        {
+          "name": "Current",
+          "address": 50528,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "return_type": "multiply0_001"
+        },
+        {
+          "name": "Sum_Active_Power",
+          "address": 50536,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "return_type": "multiply0_10"
+        },
+        {
+          "name": "Sum_Reactive_Power",
+          "address": 50538,
+          "unit_of_measurement": "var",
+          "state_class": "measurement",
+          "return_type": "multiply0_10"
+        },
+        {
+          "name": "Sum_Apparent_Power",
+          "address": 50540,
+          "unit_of_measurement": "VA",
+          "state_class": "measurement",
+          "return_type": "multiply0_10"
+        },
+        {
+          "name": "Sum_Power_Factor",
+          "address": 50542,
+          "unit_of_measurement": "",
+          "state_class": "measurement",
+          "return_type": "multiply0_10"
+        },
+        {
+          "name": "Active_Power_Phase",
+          "address": 50544,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "return_type": "multiply10"
+        }
+      ]
+    },
+    {
+      "base": 50946,
+      "length": 8,
+      "registers": [
+        {
+          "name": "Total_Positive_Active_Energy",
+          "address": 50946,
+          "unit_of_measurement": "Wh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "return_type": "multiply0_01"
+        },
+        {
+          "name": "Total_Negative_Active_Energy",
+          "address": 50952,
+          "unit_of_measurement": "Wh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "return_type": "multiply0_01"
+        }
+      ]
+    }
+  ]
+}

@@ -55,9 +55,24 @@ def multiply0_01(result, base, addr):
     return round(low * 0.01, 4)
 
 
+def multiply0_001(result, base, addr):
+    low = result.getRegister(addr - base)
+    return round(low * 0.001, 4)
+
+
 def multiply10(result, base, addr):
     low = result.getRegister(addr - base)
     return round(low * 10, 4)
+
+
+def multiply100(result, base, addr):
+    low = result.getRegister(addr - base)
+    return round(low * 100, 4)
+
+
+def multiply1000(result, base, addr):
+    low = result.getRegister(addr - base)
+    return round(low * 1000, 4)
 
 
 def regular_result(result, base, addr):
@@ -68,8 +83,11 @@ CONVERT_METHODS = {
     "float32": float32,
     "multiply0_1": multiply0_1,
     "multiply0_01": multiply0_01,
+    "multiply0_001": multiply0_001,
     "floatsofar": floatsofar,
     "multiply10": multiply10,
+    "multiply100": multiply100,
+    "multiply1000": multiply1000,
     "regular": regular_result,
 }
 REGISTERS_BASE = "registers_base"
@@ -138,7 +156,9 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
             sensor_id=sensor_id,
             **kwargs,
         )
-        self._config_helper.add_autodiscovery_msg(topic=topic, payload=payload, ha_type=SENSOR)
+        self._config_helper.add_autodiscovery_msg(
+            topic=topic, payload=payload, ha_type=SENSOR
+        )
         self._send_message(topic=topic, payload=payload)
 
     def _send_discovery_for_all_registers(self, register: int = 0) -> datetime:
@@ -183,8 +203,8 @@ class ModbusSensor(BasicMqtt, AsyncUpdater):
                     method=register_method,
                 )
                 if register is not None:
-                    self._discovery_sent = self._send_discovery_for_all_registers(
-                        register
+                    self._discovery_sent = (
+                        self._send_discovery_for_all_registers(register)
                     )
                     await asyncio.sleep(2)
                     break
