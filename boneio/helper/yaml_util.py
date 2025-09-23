@@ -430,10 +430,7 @@ class CustomValidator(Validator):
 
     def _normalize_coerce_version_to_str(self, value):
         """Convert value to string."""
-        print(value)
         _v = str(value)
-        print(type(_v))
-        print(_v)
         return _v
 
     def _normalize_coerce_actions_output(self, value):
