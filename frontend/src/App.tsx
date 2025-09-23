@@ -167,6 +167,8 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
+        {/* ConfigEditor2 (UISettings) - Temporarily disabled due to JSON Schema issues */}
+        {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
         <Route path="/settings" element={
           <ProtectedRoute>
             <Layout>

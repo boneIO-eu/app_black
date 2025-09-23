@@ -142,7 +142,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             
             {/* @rjsf Form - only renders in modal, doesn't trigger parent onChange until save */}
             <Form
-              schema={schema.items || {}}
+              schema={(schema as any)?.items || {}}
               uiSchema={uiSchema}
               formData={editingItem}
               validator={validator}

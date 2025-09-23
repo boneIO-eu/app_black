@@ -14,6 +14,10 @@ import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperi
  * This component provides a modern form-based interface for editing YAML configuration files.
  * Each configuration section (mqtt, web, logger, etc.) is presented as a separate tab with
  * a JSON Schema-driven form. Users can edit one section at a time and save changes individually.
+ * 
+ * CURRENTLY DISABLED: This component is temporarily disabled due to JSON Schema validation
+ * issues and RJSFSchema compatibility problems. The routes still exist but the navigation
+ * menu item is commented out. Can be re-enabled when schema issues are resolved.
  */
 
 interface ConfigSection {
@@ -76,7 +80,7 @@ export default function UISettings() {
   /**
    * Convert data to match schema types (for form display)
    */
-  const convertDataToSchemaTypes = (data: Record<string, any>, schema: RJSFSchema): Record<string, any> => {
+  const convertDataToSchemaTypes = (data: Record<string, any>, schema: any): Record<string, any> => {
     console.log("convertDataToSchemaTypes called with:", { data, schema });
     
     if (!data || !schema || typeof data !== 'object' || typeof schema !== 'object') {
@@ -89,28 +93,28 @@ export default function UISettings() {
     if (schema.properties) {
       Object.keys(schema.properties).forEach(key => {
         if (key in converted && converted[key] !== null && converted[key] !== undefined) {
-          const propSchema = schema.properties[key];
+          const propSchema = schema.properties[key] as any;
           const currentValue = converted[key];
           
           console.log(`Processing key: ${key}, currentValue:`, currentValue, `propSchema:`, propSchema);
           
           // Handle array with items schema
-          if (propSchema.items && Array.isArray(currentValue)) {
+          if (propSchema?.items && Array.isArray(currentValue)) {
             converted[key] = currentValue.map((item: any) => {
-              if (typeof item === 'object' && propSchema.items.properties) {
+              if (typeof item === 'object' && propSchema.items?.properties) {
                 return convertDataToSchemaTypes(item, propSchema.items);
               }
               return item;
             });
           }
           // Convert timeperiod object to milliseconds for form display
-          else if (propSchema['x-timeperiod'] === true) {
+          else if (propSchema?.['x-timeperiod'] === true) {
             const milliseconds = convertTimeperiodToMilliseconds(currentValue);
             converted[key] = milliseconds;
             console.log(`✓ Converted timeperiod ${key}:`, currentValue, '→', milliseconds, 'ms');
           }
           // Convert number to string if schema expects string with enum
-          else if (propSchema.type === 'string' && propSchema.enum && typeof currentValue === 'number') {
+          else if (propSchema?.type === 'string' && propSchema?.enum && typeof currentValue === 'number') {
             const stringValue = String(currentValue);
             console.log(`Converting ${key}: ${currentValue} (${typeof currentValue}) → ${stringValue} (${typeof stringValue})`);
             // Check if the string version exists in enum
@@ -122,7 +126,7 @@ export default function UISettings() {
             }
           }
           // Handle nested objects recursively
-          else if (propSchema.type === 'object' && typeof currentValue === 'object') {
+          else if (propSchema?.type === 'object' && typeof currentValue === 'object') {
             converted[key] = convertDataToSchemaTypes(currentValue, propSchema);
           }
         }

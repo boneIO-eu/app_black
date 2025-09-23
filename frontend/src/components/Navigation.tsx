@@ -87,17 +87,25 @@ export default function Navigation() {
   );
 }
 
+interface MenuItem {
+  path: string;
+  default?: boolean;
+  icon: any;
+  label: string;
+  experimental?: boolean;
+}
+
 function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const navigate = useNavigate();
 
   const location = useLocation();
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { path: '/', default: true, icon: FaLightbulb, label: 'Outputs' },
     { path: '/inputs', icon: FaInbox, label: 'Inputs' },
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
     { path: '/config', icon: FaCode, label: 'Config' },
-    { path: '/settings', icon: FaCode, label: 'Settings', experimental: true },
+    // { path: '/settings', icon: FaCode, label: 'Settings', experimental: true }, // Temporarily disabled due to JSON Schema issues
     { path: '/logs', icon: FaList, label: 'Logs' },
     { path: '/help', icon: FaQuestionCircle, label: 'Help' },
   ];
