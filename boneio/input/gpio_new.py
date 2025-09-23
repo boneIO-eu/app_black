@@ -7,7 +7,7 @@ import time
 
 from boneio.const import BOTH, DOUBLE, LONG, SINGLE
 from boneio.helper import ClickTimer, GpioBaseClass
-from boneio.helper.gpio import edge_detect
+from boneio.helper.gpio import add_event_callback, add_event_detect
 from boneio.helper.timeperiod import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,20 +40,19 @@ class GpioEventButtonNew(GpioBaseClass):
         # State tracking
         self._double_click_possible = False  # True after first click until window expires
         
-        edge_detect(
-            pin=self._pin, callback=self.check_state, bounce=0, edge=BOTH
-        )
+        add_event_detect(pin=self._pin, edge=BOTH)
+        add_event_callback(pin=self._pin, callback=self.check_state)
         _LOGGER.debug("Configured NEW listening for input pin %s", self._pin)
 
     def single_click_callback(self):
         """Called when double click window expires without second click."""
         if not self._state:  # Only trigger if button is released
-            self.press_callback(click_type=SINGLE, duration=None)
+            self.press_callback(click_type=SINGLE, duration=None, start_time=self.button_pressed_time)
         self._double_click_possible = False
 
     def double_click_callback(self):
         """Handle double click."""
-        self.press_callback(click_type=DOUBLE, duration=None)
+        self.press_callback(click_type=DOUBLE, duration=None, start_time=self.button_pressed_time)
         self._double_click_possible = False
         self._timer_double.reset()  # Cancel pending single click
 
@@ -61,9 +60,15 @@ class GpioEventButtonNew(GpioBaseClass):
         """Handle long press."""
         self._double_click_possible = False  # Cancel any pending clicks
         self._timer_double.reset()
-        self.press_callback(click_type=LONG, duration=duration)
+        self.press_callback(click_type=LONG, duration=duration, start_time=self.button_pressed_time)
 
     def check_state(self, _) -> None:
+        """Check state - called from GPIO interrupt (different thread)."""
+        # Schedule the actual state handling in the main event loop
+        self._loop.call_soon_threadsafe(self._handle_state_change)
+
+    def _handle_state_change(self) -> None:
+        """Handle state change in the main event loop thread."""
         time_now = time.time()
         self._state = self.is_pressed
 
