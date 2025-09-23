@@ -1,4 +1,4 @@
-# config to Relay board 32x10 v0.4
+# config to Relay board 24x16 v0.4
 - id: OUT_01
   boneio_output: OUT_01
   output_type: switch
