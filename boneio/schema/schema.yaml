@@ -1009,7 +1009,7 @@ boneio:
       coerce:
         - version_to_str
       required: False
-      allowed: ["0.7", "0.8"]
+      allowed: ["0.7", "0.8", 0.7, 0.8]
       meta:
         label: BoneIO Black Hardware version
     device_type:
