@@ -1,0 +1,391 @@
+{
+  "model": "Wanas 415",
+  "registers_base": [
+    {
+      "base": 4001,
+      "length": 24,
+      "register_type": "input",
+      "registers": [
+        {
+          "name": "Wydatek nawiewu",
+          "address": 4001,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m³/h",
+          "device_class": "volume_flow_rate",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Wydatek wywiewu",
+          "address": 4002,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m³/h",
+          "device_class": "volume_flow_rate",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Bieg nawiewu",
+          "address": 4003,
+          "entity_type": "text_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Bieg wywiewu",
+          "address": 4004,
+          "entity_type": "text_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Temperatura zewnętrzna",
+          "address": 4005,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura pomieszczenia",
+          "address": 4006,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura nawiewu",
+          "address": 4007,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura wywrzutowa",
+          "address": 4008,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Dzień tygodnia",
+          "address": 4009,
+          "write_address": 4009,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "niedziela",
+            "1": "poniedziałek",
+            "2": "wtorek",
+            "3": "środa",
+            "4": "czwartek",
+            "5": "piątek",
+            "6": "sobota"
+          }
+        },
+        {
+          "name": "Koniec strefy 1",
+          "address": 4011,
+          "write_address": 4011,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "min"
+        },
+        {
+          "name": "Koniec strefy 2",
+          "address": 4012,
+          "write_address": 4012,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "min"
+        },
+        {
+          "name": "Koniec strefy 3",
+          "address": 4013,
+          "write_address": 4013,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "min"
+        },
+        {
+          "name": "Koniec strefy 4",
+          "address": 4014,
+          "write_address": 4014,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "min"
+        },
+        {
+          "name": "Błąd strefy 1",
+          "address": 4015,
+          "write_address": 4015,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Błąd strefy 2",
+          "address": 4016,
+          "write_address": 4016,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Błąd strefy 3",
+          "address": 4017,
+          "write_address": 4017,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Błąd strefy 4",
+          "address": 4018,
+          "write_address": 4018,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Błąd strefy 5",
+          "address": 4019,
+          "write_address": 4019,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "postój",
+            "1": "pusty dom",
+            "2": "praca",
+            "3": "wietrzenie"
+          }
+        },
+        {
+          "name": "Temperatura strefy 1",
+          "address": 4020,
+          "write_address": 4020,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura strefy 2",
+          "address": 4021,
+          "write_address": 4021,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura strefy 3",
+          "address": 4022,
+          "write_address": 4022,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura strefy 4",
+          "address": 4023,
+          "write_address": 4023,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura strefy 5",
+          "address": 4024,
+          "write_address": 4024,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "additional_sensors": [
+    {
+      "name": "Dzień tygodnia",
+      "source": "dzien_tygodnia",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "niedziela",
+        "1": "poniedziałek",
+        "2": "wtorek",
+        "3": "środa",
+        "4": "czwartek",
+        "5": "piątek",
+        "6": "sobota"
+      }
+    },
+    {
+      "name": "Błąd strefy 1 switch",
+      "source": "blad_strefy_1",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "postój",
+        "1": "pusty dom",
+        "2": "praca",
+        "3": "wietrzenie"
+      }
+    },
+    {
+      "name": "Błąd strefy 2 switch",
+      "source": "blad_strefy_2",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "postój",
+        "1": "pusty dom",
+        "2": "praca",
+        "3": "wietrzenie"
+      }
+    },
+    {
+      "name": "Błąd strefy 3 switch",
+      "source": "blad_strefy_3",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "postój",
+        "1": "pusty dom",
+        "2": "praca",
+        "3": "wietrzenie"
+      }
+    },
+    {
+      "name": "Błąd strefy 4 switch",
+      "source": "blad_strefy_4",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "postój",
+        "1": "pusty dom",
+        "2": "praca",
+        "3": "wietrzenie"
+      }
+    },
+    {
+      "name": "Błąd strefy 5 switch",
+      "source": "blad_strefy_5",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "postój",
+        "1": "pusty dom",
+        "2": "praca",
+        "3": "wietrzenie"
+      }
+    }
+  ]
+}
