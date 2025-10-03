@@ -9,9 +9,9 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
-from collections.abc import Awaitable, Callable
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -166,7 +166,7 @@ class MQTTClient(MessageBus):
         """Send a message from the manager options."""
         to_publish = (
             topic,
-            json.dumps(payload) if type(payload) is dict else payload,
+            json.dumps(payload) if isinstance(payload, dict) else payload,
             retain,
         )
         self.publish_queue.put_nowait(to_publish)

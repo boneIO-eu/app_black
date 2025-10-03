@@ -35,9 +35,6 @@ TASK_CANCELATION_TIMEOUT = 1
 _LOGGER = logging.getLogger(__name__)
 
 
-
-
-
 def get_arguments() -> argparse.Namespace:
     """Get parsed passed in arguments."""
 
@@ -233,8 +230,7 @@ def run(
     except KeyboardInterrupt:
         return 0
     except GracefulExit as err:
-        if err is not None:
-            _LOGGER.info("Message: %s", err)
+        _LOGGER.info("Message: %s", err)
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
@@ -295,8 +291,7 @@ def run_modbus_command(
             )
         return ret
     except (RestartRequestException, GracefulExit) as err:
-        if err is not None:
-            _LOGGER.info(err)
+        _LOGGER.info(err)
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)

@@ -77,9 +77,9 @@ async def async_run(
     """Run BoneIO."""
     web_server = None
     tasks: set[asyncio.Task] = set()
-    event_bus = EventBus(loop=asyncio.get_event_loop())
+    loop = asyncio.get_running_loop()
+    event_bus = EventBus(loop=loop)
     shutdown_event = asyncio.Event()
-    loop = asyncio.get_event_loop()
     if debug >= 2:
         loop.set_debug(True)
     network_state = get_network_info()
@@ -235,7 +235,7 @@ async def async_run(
             # Web server task will be cancelled here if it hasn't finished after trigger_shutdown
             for task in remaining_tasks:
                 if not task.done():
-                    _LOGGER.debug(f"Cancelling task: {task.get_name() if hasattr(task, 'get_name') else task}")
+                    _LOGGER.debug(f"Cancelling task: {task.get_name()}")
                     task.cancel()
             
             # Wait for all tasks to complete

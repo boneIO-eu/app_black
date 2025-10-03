@@ -89,7 +89,9 @@ class EventBus:
         Initialize the event bus.
         :param loop: asyncio event loop
         """
-        self._loop = loop or asyncio.get_event_loop()
+        if loop is None:
+            raise ValueError("EventBus requires an event loop to be passed explicitly")
+        self._loop = loop
         self._event_queue = asyncio.Queue()
         self._event_listeners = {
             "input": {},

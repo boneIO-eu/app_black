@@ -107,6 +107,17 @@ AVAILABILITY_FUNCTION_CHOOSER = {
 class Manager:
     """Manager to communicate MQTT with GPIO inputs and outputs."""
 
+    @property
+    def loop(self):
+        """Get event loop lazily."""
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # Fallback for non-async context (should not happen in normal operation)
+                self._loop = asyncio.get_event_loop()
+        return self._loop
+
     def __init__(
         self,
         message_bus: MessageBus,
@@ -135,8 +146,7 @@ class Manager:
         """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
 
-        self._loop = asyncio.get_event_loop()
-
+        self._loop = None  # Will be set lazily when needed
         self._config_helper: ConfigHelper = config_helper
         self._host_data = None
         self._config_file_path = config_file_path
@@ -240,7 +250,7 @@ class Manager:
                         out.output_type, ha_switch_availabilty_message
                     ),
                 )
-            self._loop.create_task(self._delayed_send_state(out))
+            self.loop.create_task(self._delayed_send_state(out))
 
         if self._outputs:
             self._configure_covers()
@@ -884,8 +894,8 @@ class Manager:
         self.send_message(topic=topic, payload=payload, retain=False)
         # This is similar how Z2M is clearing click sensor.
         if empty_message_after:
-            self._loop.call_soon_threadsafe(
-                self._loop.call_later, 0.2, self.send_message, topic, ""
+            self.loop.call_soon_threadsafe(
+                self.loop.call_later, 0.2, self.send_message, topic, ""
             )
 
     async def toggle_output(self, output_id: str) -> str:

@@ -65,3 +65,14 @@ class LocalMessageBus(MessageBus):
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
         pass
+
+    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], None]) -> None:
+        """Subscribe to a topic and listen for messages."""
+        await self.subscribe(topic, callback)
+
+    async def unsubscribe_and_stop_listen(self, topic: str) -> None:
+        """Unsubscribe from a topic and stop listening."""
+        if topic in self._subscribers:
+            del self._subscribers[topic]
+        if topic in self._retain_values:
+            del self._retain_values[topic]
