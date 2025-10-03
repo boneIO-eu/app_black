@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Callable, Dict, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
+from collections.abc import Callable
 
 from adafruit_mcp230xx.mcp23017 import MCP23017
 from adafruit_pca9685 import PCA9685
@@ -634,10 +635,10 @@ def configure_dallas() -> AsyncBoneIOW1ThermSensor:
 
 
 def find_onewire_devices(
-    ow_bus: Union[OneWireBus, AsyncBoneIOW1ThermSensor],
+    ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
     bus_id: str,
     bus_type: DallasBusTypes,
-) -> Dict[OneWireAddress]:
+) -> dict[OneWireAddress]:
     out = {}
     try:
         devices = ow_bus.scan()
@@ -658,7 +659,7 @@ def create_dallas_sensor(
     address: OneWireAddress,
     config: dict,
     **kwargs,
-) -> Union[DallasSensorDS2482, DallasSensorW1]:
+) -> DallasSensorDS2482 | DallasSensorW1:
     name = config.get(ID) or hex(address)
     id = name.replace(" ", "")
     bus: OneWireBus = kwargs.get("bus")

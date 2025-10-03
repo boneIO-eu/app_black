@@ -7,10 +7,10 @@ class FileItem(BaseModel):
     name: str
     type: str
     path: str
-    children: Optional[List['FileItem']] = None
+    children: list['FileItem'] | None = None
 
 class DirectoryListing(BaseModel):
-    items: List[FileItem]
+    items: list[FileItem]
 
 class FileContent(BaseModel):
     content: str

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from boneio.const import (
     CLOSE,

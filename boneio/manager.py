@@ -5,7 +5,8 @@ import json
 import logging
 import time
 from collections import deque
-from typing import Callable, Coroutine, List, Optional, Set
+from typing import List, Optional, Set
+from collections.abc import Callable, Coroutine
 
 from board import SCL, SDA
 from busio import I2C
@@ -114,20 +115,20 @@ class Manager:
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
-        relay_pins: List = [],
-        event_pins: List = [],
-        binary_pins: List = [],
-        output_group: List = [],
+        relay_pins: list = [],
+        event_pins: list = [],
+        binary_pins: list = [],
+        output_group: list = [],
         sensors: dict = {},
         modbus: dict = {},
         modbus_devices: dict = {},
         pca9685: list = [],
         mcp23017: list = [],
         pcf8575: list = [],
-        ds2482: Optional[List] = [],
-        dallas: Optional[dict] = None,
+        ds2482: list | None = [],
+        dallas: dict | None = None,
         oled: dict = {},
-        adc: Optional[List] = None,
+        adc: list | None = None,
         cover: list = [],
         web_active: bool = False,
         web_port: int = 8090,
@@ -161,10 +162,10 @@ class Manager:
         self._interlock_manager = SoftwareInterlockManager()
 
         self._oled = None
-        self._tasks: List[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
         self._config_covers = cover
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
-        self._temp_sensors: List[TempSensor] = []
+        self._temp_sensors: list[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_coordinators = {}
         self._modbus = None
@@ -569,14 +570,14 @@ class Manager:
         return task
 
     @property
-    def inputs(self) -> List[GpioBaseClass]:
+    def inputs(self) -> list[GpioBaseClass]:
         return list(self._inputs.values())
 
     def _configure_sensors(
         self,
-        dallas: Optional[dict],
-        ds2482: Optional[List],
-        sensors: Optional[List],
+        dallas: dict | None,
+        ds2482: list | None,
+        sensors: list | None,
     ):
         """
         Configure Dallas sensors via GPIO PIN bus or DS2482 bus.
@@ -652,7 +653,7 @@ class Manager:
                 )
             )
 
-    def _configure_adc(self, adc_list: Optional[List]) -> None:
+    def _configure_adc(self, adc_list: list | None) -> None:
         if adc_list:
             from boneio.helper.loader import create_adc
 
@@ -753,7 +754,7 @@ class Manager:
             return
         configure_logger(log_config=_config.get("logger"), debug=-1)
 
-    def get_tasks(self) -> Set[asyncio.Task]:
+    def get_tasks(self) -> set[asyncio.Task]:
         """Retrieve asyncio tasks to run."""
         return self._tasks
 

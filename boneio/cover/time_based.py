@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Callable, Optional
+from typing import Optional
+from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.cover.cover import BaseCover
@@ -40,7 +41,7 @@ class TimeBasedCover(BaseCover):
         )
 
 
-    def _move_cover(self, direction: str, duration: float, target_position: Optional[int] = None):
+    def _move_cover(self, direction: str, duration: float, target_position: int | None = None):
         """Metoda uruchamiana w oddzielnym wątku do fizycznego ruchu rolety."""
         if direction == OPEN:
             relay = self._open_relay
@@ -88,7 +89,7 @@ class TimeBasedCover(BaseCover):
         self._loop.call_soon_threadsafe(self.send_state_and_save(self.json_position))
         self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
-    async def run_cover(self, current_operation: str, target_position: Optional[int] = None) -> None:
+    async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:
         if self._movement_thread and self._movement_thread.is_alive() or current_operation == STOP:
             _LOGGER.warning("Ruch rolety już trwa. Najpierw zatrzymaj.")
             await self.stop()

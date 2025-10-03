@@ -7,7 +7,8 @@ import time
 from math import floor
 
 # Typing imports that create a circular dependency
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, List
+from collections.abc import Callable
 
 import psutil
 
@@ -174,8 +175,8 @@ class HostData:
         ina219: INA219Class | None,
         manager: Manager,
         event_bus: EventBus,
-        enabled_screens: List[str],
-        extra_sensors: List[dict],
+        enabled_screens: list[str],
+        extra_sensors: list[dict],
     ) -> None:
         """Initialize HostData."""
         self._manager = manager

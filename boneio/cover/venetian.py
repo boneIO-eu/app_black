@@ -55,8 +55,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         direction: str,
         duration: float,
         tilt_duration: float,
-        target_position: Optional[int] = None,
-        target_tilt_position: Optional[int] = None,
+        target_position: int | None = None,
+        target_tilt_position: int | None = None,
     ):
         """Moving cover in separate thread."""
         tilt_delta = abs(self._initial_tilt_position - target_tilt_position) if target_tilt_position is not None else 0
@@ -227,8 +227,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
     async def run_cover(
         self,
         current_operation: str,
-        target_position: Optional[int] = None,
-        target_tilt_position: Optional[int] = None,
+        target_position: int | None = None,
+        target_tilt_position: int | None = None,
     ) -> None:
         if self._movement_thread and self._movement_thread.is_alive():
             _LOGGER.warning("Cover movement is already in progress. Stopping first.")

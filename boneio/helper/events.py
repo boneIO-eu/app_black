@@ -3,7 +3,8 @@ import datetime as dt
 import logging
 import time
 from datetime import datetime
-from typing import Any, Callable, Coroutine, List, Optional
+from typing import Any, List, Optional
+from collections.abc import Callable, Coroutine
 
 from boneio.helper.util import callback
 
@@ -51,7 +52,7 @@ class GracefulExit(SystemExit):
     """Graceful exit."""
 
     def __init__(self, msg=None, code=None):
-        super(GracefulExit, self).__init__(msg)
+        super().__init__(msg)
         self.code = code
 
 
@@ -355,7 +356,7 @@ def async_track_point_in_time(
 
     # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
-    cancel_callback: Optional[asyncio.TimerHandle] = None
+    cancel_callback: asyncio.TimerHandle | None = None
 
     @callback
     def run_action(job) -> None:
@@ -400,7 +401,7 @@ def async_track_point_in_timestamp(
     """Add a listener that fires once after a specific point in UTC time."""
     # Since this is called once, we accept a so we can avoid
     # having to figure out how to call the action every time its called.
-    cancel_callback: Optional[asyncio.TimerHandle] = None
+    cancel_callback: asyncio.TimerHandle | None = None
 
     @callback
     def run_action(job) -> None:
@@ -452,7 +453,7 @@ def async_call_later_miliseconds(
 
 def create_unawaited_task_threadsafe(
     loop: asyncio.AbstractEventLoop,
-    transient_tasks: List["asyncio.Task[Any]"],
+    transient_tasks: list["asyncio.Task[Any]"],
     coro: Coroutine[Any, Any, None],
     task_future: Optional["asyncio.Future[asyncio.Task[Any]]"] = None,
 ) -> None:

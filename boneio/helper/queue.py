@@ -13,7 +13,7 @@ class UniqueQueue(asyncio.Queue):
     def __init__(self, maxsize: int = 0):
         """Initialize the queue."""
         super().__init__(maxsize=maxsize)
-        self._unique_items: Dict[str, Tuple[Any, ...]] = {}
+        self._unique_items: dict[str, tuple[Any, ...]] = {}
         self._is_connected = False
 
     def set_connected(self, state: bool) -> None:
@@ -25,7 +25,7 @@ class UniqueQueue(asyncio.Queue):
         super()._init(maxsize=maxsize)
         self._unique_items = {}
 
-    def _put(self, item: Tuple[str, Any, bool]) -> None:
+    def _put(self, item: tuple[str, Any, bool]) -> None:
         """Put an item into the queue.
         
         If MQTT is not connected:
@@ -50,7 +50,7 @@ class UniqueQueue(asyncio.Queue):
             super()._put(item)
             self._unique_items[topic] = item
 
-    def _get(self) -> Tuple[str, Any, bool]:
+    def _get(self) -> tuple[str, Any, bool]:
         """Get an item from the queue and remove it from unique items tracking."""
         item = super()._get()
         if item[0] in self._unique_items:

@@ -41,7 +41,7 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         self._hex_id = f"{hex(_crc)}{self.id}{self._ds18b20_str_id}".lower()
 
     @classmethod
-    def scan(cls) -> List["OneWireAddress"]:
+    def scan(cls) -> list["OneWireAddress"]:
         """Return only DS18B20 sensors. Add more sensors in the future."""
 
         def is_sensor(dir_name):

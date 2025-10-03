@@ -26,7 +26,7 @@ class StateManager:
     def load_states(self) -> dict:
         """Load state file."""
         try:
-            with open(self._file, "r") as state_file:
+            with open(self._file) as state_file:
                 datastore = json.load(state_file)
                 return datastore
         except FileNotFoundError:

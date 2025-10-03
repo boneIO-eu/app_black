@@ -15,7 +15,7 @@ class OutputGroup(BasicRelay):
 
     def __init__(
         self,
-        members: List[BasicRelay],
+        members: list[BasicRelay],
         output_type: str = SWITCH,
         restored_state: bool = False,
         all_on_behaviour: bool = False,

@@ -26,13 +26,13 @@ class BoneIOLoader(SafeLoader):
 
         self._root = os.path.split(stream.name)[0]
 
-        super(BoneIOLoader, self).__init__(stream)
+        super().__init__(stream)
 
     def include(self, node):
 
         filename = os.path.join(self._root, self.construct_scalar(node))
 
-        with open(filename, "r") as f:
+        with open(filename) as f:
             return load(f, BoneIOLoader)
 
     def _rel_path(self, *args):
@@ -148,7 +148,7 @@ def _find_files(directory, pattern):
 
 
 def load_yaml_file(filename: str) -> Any:
-    with open(filename, "r") as stream:
+    with open(filename) as stream:
         try:
             return load(stream, Loader=BoneIOLoader) or OrderedDict()
         except YAMLError as exception:
@@ -509,7 +509,7 @@ class CustomValidator(Validator):
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
-    def _lookup_field(self, path: str) -> Tuple:
+    def _lookup_field(self, path: str) -> tuple:
         """
         Implement relative paths with dot (.) notation, following Python
         guidelines: https://www.python.org/dev/peps/pep-0328/#guido-s-decision
@@ -737,7 +737,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
     
     try:
         # Read current config.yaml with custom loader
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, encoding='utf-8') as f:
             config_content = load(f, Loader=IncludeLoader)
         
         if config_content is None:
@@ -769,7 +769,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                 
                 # Save updated config.yaml (need to handle !include when saving)
                 # Read original file as text to preserve !include syntax
-                with open(config_file, 'r', encoding='utf-8') as f:
+                with open(config_file, encoding='utf-8') as f:
                     original_lines = f.readlines()
                 
                 # Find and replace the section in the original text

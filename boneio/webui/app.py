@@ -254,7 +254,7 @@ def create_token(data: dict):
 def is_running_as_service():
     """Check if running as a systemd service."""
     try:
-        with open("/proc/1/comm", "r") as f:
+        with open("/proc/1/comm") as f:
             return "systemd" in f.read()
     except Exception:
         return False
@@ -318,7 +318,7 @@ def strip_ansi_codes(text: str) -> str:
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
 
-async def get_systemd_logs(since: str = "-15m") -> List[LogEntry]:
+async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
     """Get logs from journalctl."""
     cmd = [
         "journalctl",
@@ -353,7 +353,7 @@ async def get_systemd_logs(since: str = "-15m") -> List[LogEntry]:
                 message = message_bytes.decode('utf-8', errors='ignore')
                 message = strip_ansi_codes(message)
             except Exception as e:
-                message = "Error decoding message: {}".format(e)
+                message = f"Error decoding message: {e}"
         else:
             message = log.get('MESSAGE', '')
         log_entries.append(
@@ -367,7 +367,7 @@ async def get_systemd_logs(since: str = "-15m") -> List[LogEntry]:
     return log_entries
 
 
-def get_standalone_logs(since: str, limit: int) -> List[LogEntry]:
+def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
     """Get logs from log file when running standalone."""
     # log_file = Path(app.state.yaml_config_file).parent / "boneio.log"
     log_file = Path("/tmp/boneio.log")
@@ -391,7 +391,7 @@ def get_standalone_logs(since: str, limit: int) -> List[LogEntry]:
 
     log_entries = []
     try:
-        with open(log_file, "r") as f:
+        with open(log_file) as f:
             # Read from the end of file
             lines = f.readlines()[-limit:]
             for line in lines:
@@ -764,7 +764,7 @@ async def get_file_content(file_path: str):
         raise HTTPException(status_code=400, detail="Invalid file type")
     
     try:
-        with open(full_path, 'r') as f:
+        with open(full_path) as f:
             content = f.read()
         return {"content": content}
     except Exception as e:

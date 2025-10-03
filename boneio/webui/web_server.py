@@ -85,7 +85,7 @@ class WebServer:
         try:
             if jwt_secret_file.exists():
                 # Read existing secret
-                with open(jwt_secret_file, "r") as f:
+                with open(jwt_secret_file) as f:
                     jwt_secret = f.read().strip()
                     if jwt_secret:  # Verify it's not empty
                         return jwt_secret

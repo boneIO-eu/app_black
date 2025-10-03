@@ -20,10 +20,10 @@ class WebSocketDisconnectWithMessage(WebSocketDisconnect):
 
 class WebSocketManager:
     def __init__(self, jwt_secret: str = None, auth_required: bool = False):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
         self._closing = False
-        self._cleanup_tasks: List[asyncio.Task] = []
+        self._cleanup_tasks: list[asyncio.Task] = []
         self._jwt_secret = jwt_secret
         self._auth_required = auth_required
 

@@ -26,7 +26,7 @@ class ModbusNumericSensor(ModbusBaseSensor):
         filters: list,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
-        user_filters: Optional[list] = [],
+        user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
         """

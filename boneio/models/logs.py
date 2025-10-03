@@ -9,4 +9,4 @@ class LogEntry(BaseModel):
     level: str
 
 class LogsResponse(BaseModel):
-    logs: List[LogEntry]
+    logs: list[LogEntry]

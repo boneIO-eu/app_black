@@ -69,7 +69,7 @@ class OneWireBus(adafruit_onewire.bus.OneWireBus):
         self._writebit = self._ow.write_bit
         self._maximum_devices = adafruit_onewire.bus._MAX_DEV
 
-    def scan(self) -> List[OneWireAddress]:
+    def scan(self) -> list[OneWireAddress]:
         """Scan for devices on the bus and return a list of addresses."""
         devices = []
         diff = 65

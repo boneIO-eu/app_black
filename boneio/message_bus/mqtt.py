@@ -10,7 +10,8 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Optional, Set, Union
+from collections.abc import Awaitable, Callable
 
 import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
@@ -67,7 +68,7 @@ class MQTTClient(MessageBus):
             "homeassistant/status",
         ]
         self._running = True
-        self._cancel_future: Optional[asyncio.Future] = None
+        self._cancel_future: asyncio.Future | None = None
 
     def create_client(self) -> None:
         """Create the asyncio client."""
@@ -87,10 +88,10 @@ class MQTTClient(MessageBus):
     async def publish(  # pylint:disable=too-many-arguments
         self,
         topic: str,
-        payload: Optional[str] = None,
+        payload: str | None = None,
         retain: bool = False,
         qos: int = 0,
-        properties: Optional[Properties] = None,
+        properties: Properties | None = None,
         timeout: float = 10,
     ) -> None:
         """Publish to topic.
@@ -110,8 +111,8 @@ class MQTTClient(MessageBus):
         self,
         topics: list[str],
         qos: int = 0,
-        options: Optional[SubscribeOptions] = None,
-        properties: Optional[Properties] = None,
+        options: SubscribeOptions | None = None,
+        properties: Properties | None = None,
         timeout: float = 10.0,
     ) -> None:
         """Subscribe to topic.
@@ -143,7 +144,7 @@ class MQTTClient(MessageBus):
     async def unsubscribe(
         self,
         topics: list[str],
-        properties: Optional[Properties] = None,
+        properties: Properties | None = None,
         timeout: float = 10.0,
     ) -> None:
         """Unsubscribe from topic.
@@ -159,7 +160,7 @@ class MQTTClient(MessageBus):
     def send_message(
         self,
         topic: str,
-        payload: Union[str, int, dict, None],
+        payload: str | int | dict | None,
         retain: bool = False,
     ) -> None:
         """Send a message from the manager options."""
@@ -226,7 +227,7 @@ class MQTTClient(MessageBus):
                 # When future completes, raise CancelledError to stop other tasks
                 raise asyncio.CancelledError("Stop requested")
             
-            tasks: Set[asyncio.Task] = set()
+            tasks: set[asyncio.Task] = set()
 
             publish_task = asyncio.create_task(self._handle_publish())
             tasks.add(publish_task)

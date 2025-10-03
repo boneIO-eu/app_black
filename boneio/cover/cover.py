@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Callable
+from collections.abc import Callable
 
 from boneio.const import (
     CLOSED,

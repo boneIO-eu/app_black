@@ -76,7 +76,7 @@ async def async_run(
 ) -> list[Any]:
     """Run BoneIO."""
     web_server = None
-    tasks: Set[asyncio.Task] = set()
+    tasks: set[asyncio.Task] = set()
     event_bus = EventBus(loop=asyncio.get_event_loop())
     shutdown_event = asyncio.Event()
     loop = asyncio.get_event_loop()

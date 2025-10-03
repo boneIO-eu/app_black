@@ -32,7 +32,7 @@ class ModbusTextSensor(BaseSensor):
         message_bus: MessageBus,
         config_helper: ConfigHelper,
         value_mapping: dict = {},
-        user_filters: Optional[list] = [],
+        user_filters: list | None = [],
         ha_filter: str = "",
     ) -> None:
         """

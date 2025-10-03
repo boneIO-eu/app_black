@@ -54,9 +54,9 @@ class Oled:
     def __init__(
         self,
         host_data: HostData,
-        grouped_outputs_by_expander: List[str],
+        grouped_outputs_by_expander: list[str],
         sleep_timeout: TimePeriod,
-        screen_order: List[str],
+        screen_order: list[str],
         event_bus: EventBus
     ) -> None:
         """Initialize OLED screen."""

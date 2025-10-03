@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional, Union
 
 from pydantic import BaseModel
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 
 class InputState(BaseModel):
@@ -17,7 +17,7 @@ class InputState(BaseModel):
 
 class InputsResponse(BaseModel):
     """Inputs response model."""
-    inputs: List[InputState]
+    inputs: list[InputState]
 
 class OutputState(BaseModel):
     """Output state model."""
@@ -25,9 +25,9 @@ class OutputState(BaseModel):
     name: str
     state: str
     type: str
-    expander_id: Union[str, None]
+    expander_id: str | None
     pin: int
-    timestamp: Union[float, None] = None
+    timestamp: float | None = None
 
 class CoverState(BaseModel):
     """Cover state model."""
@@ -36,7 +36,7 @@ class CoverState(BaseModel):
     state: str
     position: int
     current_operation: str
-    timestamp: Union[float, None] = None
+    timestamp: float | None = None
     tilt: int = 0  # Tilt position (0-100)
     kind: str
     
@@ -45,29 +45,29 @@ class SensorState(BaseModel):
     """Sensor state model."""
     id: str
     name: str
-    state: Union[float, str, None]
-    unit: Union[str, None]
-    timestamp: Union[float, None]
+    state: float | str | None
+    unit: str | None
+    timestamp: float | None
 
 class HostSensorState(BaseModel):
     """Host Sensor state model."""
     id: str
     name: str
     state: str
-    timestamp: Optional[float] = None
+    timestamp: float | None = None
 
 class OutputsResponse(BaseModel):
     """Outputs response model."""
-    outputs: List[OutputState]
+    outputs: list[OutputState]
 
 class CoverResponse(BaseModel):
     """Cover response model."""
-    covers: List[CoverState]
+    covers: list[CoverState]
 
 class StateUpdate(BaseModel):
     """State update model for WebSocket messages."""
     type: str  # 'input' or 'output' or 'cover'
-    data: Union[InputState, OutputState, SensorState, CoverState]
+    data: InputState | OutputState | SensorState | CoverState
 
 class PositionDict(TypedDict, total=False):
     position: int

@@ -24,7 +24,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
         config_helper: ConfigHelper,
         source_sensor_base_address: str,
         source_sensor_decoded_name: str,
-        user_filters: Optional[list] = [],
+        user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
         BaseSensor.__init__(

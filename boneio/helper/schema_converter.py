@@ -19,13 +19,13 @@ class BoneIOLoader(SafeLoader):
     def include(self, node):
         """Include file referenced at node."""
         filename = os.path.join(self._root, self.construct_scalar(node))
-        with open(filename, 'r') as f:
+        with open(filename) as f:
             return load(f, BoneIOLoader)
 
 # Register the !include constructor
 BoneIOLoader.add_constructor('!include', BoneIOLoader.include)
 
-def convert_type(cerberus_type: Union[str, List[str]]) -> Union[str, List[str]]:
+def convert_type(cerberus_type: str | list[str]) -> str | list[str]:
     """Convert Cerberus type to JSON Schema type."""
     
         
@@ -42,7 +42,7 @@ def convert_type(cerberus_type: Union[str, List[str]]) -> Union[str, List[str]]:
         return [type_map.get(type, 'string') for type in cerberus_type]
     return type_map.get(cerberus_type, 'string')
 
-def create_boolean_schema() -> Dict[str, Any]:
+def create_boolean_schema() -> dict[str, Any]:
     """Create a schema that accepts both boolean and boolean-like string values."""
     return {
         "oneOf": [
@@ -55,7 +55,7 @@ def create_boolean_schema() -> Dict[str, Any]:
         ]
     }
 
-def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str, Any]:
+def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str, Any]:
     """Convert a Cerberus schema to JSON Schema format."""
     json_schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -76,7 +76,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                 field_schema.update(create_boolean_schema())
             else:
                 base_type = convert_type(schema["type"])
-                types = set(["string"])  # Always allow string for !include
+                types = {"string"}  # Always allow string for !include
                 if isinstance(base_type, list):
                     types.update(base_type)
                 else:
@@ -104,7 +104,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
         # Handle nested dictionaries and arrays
         if "schema" in schema and isinstance(schema["schema"], dict):
             if schema.get("type") == "dict":
-                types = set(["string", "object"])  # Allow both string for !include and object
+                types = {"string", "object"}  # Allow both string for !include and object
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
@@ -136,7 +136,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
                     field_schema["required"] = nested_required
                     
             elif schema.get("type") == "list":
-                types = set(["string", "array"])  # Allow both string for !include and array
+                types = {"string", "array"}  # Allow both string for !include and array
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
@@ -201,7 +201,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: Dict[str, Any]) -> Dict[str
 
     return json_schema
 
-def generate_section_schema(section_name: str, section_schema: Dict[str, Any]) -> Dict[str, Any]:
+def generate_section_schema(section_name: str, section_schema: dict[str, Any]) -> dict[str, Any]:
     """Generate a schema for a specific section."""
     if section_schema.get("type") == "array":
         # For array types, use the items schema directly
@@ -229,7 +229,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     # Load the schema
-    with open(schema_file, "r") as f:
+    with open(schema_file) as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
     
     # Convert and save the main schema

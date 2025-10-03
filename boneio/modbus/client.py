@@ -7,17 +7,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from pymodbus.client.common import (
-    ReadCoilsResponse,
-    ReadHoldingRegistersResponse,
-    WriteSingleRegisterResponse,
-)
-from pymodbus.client.sync import BaseModbusClient, ModbusSerialClient
-from pymodbus.constants import Endian
+from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
+from pymodbus.framer import Endian
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.pdu import ModbusResponse
-from pymodbus.register_read_message import ReadInputRegistersResponse
 
 from boneio.const import ID, REGISTERS, RX, TX, UART
 from boneio.helper import configure_pin
@@ -114,7 +108,7 @@ class Modbus:
         self._uart = uart
 
         # generic configuration
-        self._client: BaseModbusClient | None = None
+        self._client: ModbusSerialClient | None = None
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
@@ -208,7 +202,7 @@ class Modbus:
             )
 
             # Run the read operation in the executor
-            result: ReadInputRegistersResponse | ReadHoldingRegistersResponse | ReadCoilsResponse = read_method(address, **kwargs)
+            result = read_method(address, **kwargs)
 
             if not hasattr(result, REGISTERS):
                 _LOGGER.error("No result from read: %s", str(result))
@@ -220,7 +214,7 @@ class Modbus:
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error("Error reading registers: %s", exception_error)
             pass
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Timeout reading registers from device %s", unit)
             pass
         except asyncio.CancelledError as err:
@@ -257,7 +251,7 @@ class Modbus:
             )
 
             # Run the read operation in the executor
-            result: WriteSingleRegisterResponse = self._client.write_register(address=address, value=value, unit=unit)
+            result = self._client.write_register(address=address, value=value, unit=unit)
 
             if result.isError():
                 _LOGGER.error("Operation failed.")
@@ -269,7 +263,7 @@ class Modbus:
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error("ModbusException: Error writing registers: %s", exception_error)
             pass
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("Timeout writing registers to device %s", unit)
             pass
         except asyncio.CancelledError as err:

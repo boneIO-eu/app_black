@@ -16,7 +16,7 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):
 
     _ha_type_ = BINARY_SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: Optional[int] = None, payload_off: str = "OFF", payload_on: str = "ON", write_filters: Optional[list] = [], **kwargs):
+    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, payload_off: str = "OFF", payload_on: str = "ON", write_filters: list | None = [], **kwargs):
         ModbusBaseSensor.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address

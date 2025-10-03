@@ -22,7 +22,7 @@ except ModuleNotFoundError:
     pass
 
 import subprocess
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from boneio.const import (
     CONFIG_PIN,

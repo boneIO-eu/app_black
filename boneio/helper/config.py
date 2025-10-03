@@ -98,7 +98,7 @@ class ConfigHelper:
     def subscribe_topic(self) -> str:
         return f"{self.cmd_topic_prefix}+/+/#"
 
-    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: Union[str, dict, None]):
+    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: str | dict | None):
         """Add autodiscovery message."""
         self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
 

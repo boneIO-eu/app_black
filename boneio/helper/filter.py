@@ -23,7 +23,7 @@ class Filter:
     _filters = []
 
     def _apply_filters(
-        self, value: float | None, filters: Optional[list] = None
+        self, value: float | None, filters: list | None = None
     ) -> float | None:
         filters = filters if filters is not None else self._filters
         for filter in filters:

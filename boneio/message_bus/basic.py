@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Awaitable, Callable, Union
+from typing import TYPE_CHECKING, Union
+from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -14,7 +15,7 @@ class MessageBus(ABC):
     """Base class for message handling."""
     
     @abstractmethod
-    async def send_message(self, topic: str, payload: Union[str, dict], retain: bool = False) -> None:
+    async def send_message(self, topic: str, payload: str | dict, retain: bool = False) -> None:
         """Send a message."""
         pass
 

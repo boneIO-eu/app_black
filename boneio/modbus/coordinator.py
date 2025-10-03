@@ -87,27 +87,27 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._discovery_sent = False
         self._payload_online = OFFLINE
         self._sensors_filters = {k.lower(): v for k, v in sensors_filters.items()}
-        self._modbus_entities: List[
-            Dict[
+        self._modbus_entities: list[
+            dict[
                 str,
                 ModbusNumericSensor
                 | ModbusNumericWriteableEntity
                 | ModbusNumericWriteableEntityDiscrete,
             ]
         ] = []
-        self._modbus_entities_by_name: Dict[
+        self._modbus_entities_by_name: dict[
             str,
             ModbusNumericSensor
             | ModbusNumericWriteableEntity
             | ModbusNumericWriteableEntityDiscrete,
         ] = {}
-        self._additional_sensors: List[
-            Dict[str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
+        self._additional_sensors: list[
+            dict[str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
         ] = []
-        self._additional_sensors_by_source_name: Dict[
-            str, List[ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
+        self._additional_sensors_by_source_name: dict[
+            str, list[ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
         ] = {}
-        self._additional_sensors_by_name: Dict[
+        self._additional_sensors_by_name: dict[
             str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor
         ] = {}
         self._additional_data = additional_data
@@ -375,11 +375,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     def get_entity_by_name(
         self, name: str
-    ) -> Optional[
+    ) -> None | (
         ModbusNumericSensor
         | ModbusNumericWriteableEntity
         | ModbusNumericWriteableEntityDiscrete
-    ]:
+    ):
         """Return sensor by name."""
         for sensors in self._modbus_entities:
             if name in sensors:
@@ -388,8 +388,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     def get_all_entities(
         self,
-    ) -> List[
-        Dict[
+    ) -> list[
+        dict[
             str,
             ModbusNumericSensor
             | ModbusNumericWriteableEntity
@@ -507,7 +507,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     self._id,
                 )
 
-    async def async_update(self, timestamp: float) -> Optional[float]:
+    async def async_update(self, timestamp: float) -> float | None:
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()

@@ -8,7 +8,7 @@ except ModuleNotFoundError:
     FALLING = "falling"
     RISING = "rising"
     pass
-from typing_extensions import Literal
+from typing import Literal
 
 BONEIO = "boneio"
 NONE = "none"
