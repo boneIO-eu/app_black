@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from itertools import cycle
-from typing import List
 
 import qrcode
 from luma.core.error import DeviceNotFoundError

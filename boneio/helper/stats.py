@@ -7,7 +7,7 @@ import time
 from math import floor
 
 # Typing imports that create a circular dependency
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 import psutil

@@ -3,7 +3,7 @@ import datetime as dt
 import logging
 import time
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 from collections.abc import Callable, Coroutine
 
 from boneio.helper.util import callback

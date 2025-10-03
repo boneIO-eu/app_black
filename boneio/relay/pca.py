@@ -1,10 +1,12 @@
 """PCA9685 PWM module."""
 
 from __future__ import annotations
+
 import logging
+
 from adafruit_pca9685 import PCA9685, PCAChannels
 
-from boneio.const import LED, OFF, ON, STATE, SWITCH, BRIGHTNESS, PCA
+from boneio.const import BRIGHTNESS, LED, OFF, ON, PCA, STATE, SWITCH
 from boneio.relay.basic import BasicRelay
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,8 +52,8 @@ class PWMPCA(BasicRelay):
             if self._pin.duty_cycle > 65535:
                 return 0
             return self._pin.duty_cycle
-        except:
-            _LOGGER.error("Cant read value form driver on pin %s", self._pin_id)
+        except Exception as err:
+            _LOGGER.error("Cant read value form driver on pin %s with error %s", self._pin_id, err)
             return 0
 
     def set_brightness(self, value: int):
@@ -59,8 +61,8 @@ class PWMPCA(BasicRelay):
             """Set brightness in 0-65535 vale"""
             _LOGGER.debug("Set brightness relay %s.", value)
             self._pin.duty_cycle = value
-        except:
-            _LOGGER.error("Cant set value form driver on pin %s", self._pin_id)
+        except Exception as err:
+            _LOGGER.error("Cant set value form driver on pin %s with error %s", self._pin_id, err)
 
     @property
     def is_active(self) -> bool:

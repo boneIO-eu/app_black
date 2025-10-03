@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Optional
 from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP

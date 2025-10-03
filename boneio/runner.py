@@ -7,7 +7,7 @@ import logging
 import os
 import signal
 import warnings
-from typing import Any, Set
+from typing import Any
 
 from boneio.const import (
     ADC,

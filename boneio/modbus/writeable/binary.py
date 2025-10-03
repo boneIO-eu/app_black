@@ -9,7 +9,6 @@ from boneio.modbus.sensor.base import ModbusBaseSensor
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
-from typing import Optional
 
 
 class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):

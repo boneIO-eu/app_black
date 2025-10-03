@@ -8,7 +8,6 @@ from boneio.helper.ha_discovery import modbus_numeric_availabilty_message
 
 if TYPE_CHECKING:
     from ..coordinator import ModbusCoordinator
-from typing import Optional
 
 from boneio.modbus.sensor.numeric import ModbusNumericSensor
 

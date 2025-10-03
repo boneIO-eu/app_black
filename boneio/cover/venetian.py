@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Optional
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC

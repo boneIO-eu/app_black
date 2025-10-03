@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging
 from _collections_abc import dict_values
-from typing import Union
 
 from boneio.const import (
     BINARY_SENSOR,

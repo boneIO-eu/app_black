@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, Set, Union
+from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 if TYPE_CHECKING:

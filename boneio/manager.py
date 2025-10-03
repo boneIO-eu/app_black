@@ -5,7 +5,6 @@ import json
 import logging
 import time
 from collections import deque
-from typing import List, Optional, Set
 from collections.abc import Callable, Coroutine
 
 from board import SCL, SDA

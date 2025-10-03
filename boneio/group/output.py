@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import List
 
 from boneio.const import COVER, OFF, ON, SWITCH
 from boneio.models import OutputState

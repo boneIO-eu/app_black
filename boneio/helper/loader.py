@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
 from adafruit_mcp230xx.mcp23017 import MCP23017

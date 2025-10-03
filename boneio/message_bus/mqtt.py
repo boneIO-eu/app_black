@@ -10,7 +10,7 @@ import json
 import logging
 import uuid
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any, Optional, Set, Union
+from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
 import paho.mqtt.client as mqtt

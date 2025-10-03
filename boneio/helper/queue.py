@@ -4,7 +4,7 @@ If MQTT is down then regular queue can append multiple ON/OFF for same topic.
 After re-connection it would send all messages. It's not necessary, last payload of same topic is enough.
 """
 import asyncio
-from typing import Any, Dict, Tuple
+from typing import Any
 
 
 class UniqueQueue(asyncio.Queue):

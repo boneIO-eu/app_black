@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.helper.config import ConfigHelper

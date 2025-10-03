@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any, List
+from typing import Any
 
 from jose import jwt
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState

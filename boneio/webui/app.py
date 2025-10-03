@@ -10,7 +10,6 @@ import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List
 
 from fastapi import (
     BackgroundTasks,

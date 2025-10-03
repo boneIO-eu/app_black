@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from boneio.helper.config import ConfigHelper
 from boneio.message_bus.basic import MessageBus

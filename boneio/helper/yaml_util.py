@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from collections import OrderedDict
-from typing import Any, Tuple
+from typing import Any
 
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load

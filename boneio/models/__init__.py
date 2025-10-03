@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import TypedDict
 
 from pydantic import BaseModel
-from typing import TypedDict
 
 
 class InputState(BaseModel):

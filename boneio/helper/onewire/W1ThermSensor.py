@@ -1,7 +1,7 @@
 """Custom W1ThermSensor class to support hex addressing of W1 sensors.
 """
-from typing import List
 from w1thermsensor import AsyncW1ThermSensor, Sensor
+
 from boneio.helper.onewire import OneWireAddress, reverse_dallas_id
 
 
@@ -30,7 +30,7 @@ class AsyncBoneIOW1ThermSensor(AsyncW1ThermSensor):
         self._ds18b20_str_id = hex(Sensor.DS18B20)[2:]
         try:
             sensor_id = kwargs.pop("sensor_id")
-            if type(sensor_id) == OneWireAddress:
+            if isinstance(sensor_id, OneWireAddress):
                 sensor_id = sensor_id.hw_id
             super().__init__(*args, **kwargs, sensor_id=sensor_id)
         except KeyError:
