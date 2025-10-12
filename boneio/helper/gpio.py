@@ -211,9 +211,11 @@ class GpioBaseClass:
 
 
     def set_actions(self, actions: dict) -> None:
+        print("SETTING ACTIONS", actions)
         self._actions = actions
 
     def get_actions_of_click(self, click_type: ClickTypes) -> dict:
+        print("actiong of click", self._actions)
         return self._actions.get(click_type, [])
 
     @property

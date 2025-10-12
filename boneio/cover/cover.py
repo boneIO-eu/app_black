@@ -194,14 +194,14 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             if not on_exit:
                 self.send_state(self.state, self.json_position)
 
-    async def open(self) -> None:
+    async def open(self, **kwargs) -> None:
         if self._position >= 100:
             return
         _LOGGER.info("Opening cover %s.", self._id)
         await self.run_cover(current_operation=OPENING)
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
 
-    async def close(self) -> None:
+    async def close(self, **kwargs) -> None:
         if self._position <= 0:
             return
         _LOGGER.info("Closing cover %s.", self._id)
@@ -220,21 +220,21 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         elif position < self._position:
             await self.run_cover(current_operation=CLOSING, target_position=position)
 
-    async def toggle(self) -> None:
+    async def toggle(self, **kwargs) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self._id)
         if self._position > 50:
             await self.close()
         else:
             await self.open()
 
-    async def toggle_open(self) -> None:
+    async def toggle_open(self, **kwargs) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
-    async def toggle_close(self) -> None:
+    async def toggle_close(self, **kwargs) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
             await self.stop()

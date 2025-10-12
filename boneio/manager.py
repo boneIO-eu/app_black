@@ -470,6 +470,7 @@ class Manager:
                             parsed_actions[click_type].append({
                                 "action": action,
                                 "action_to_execute": action_to_execute,
+                                "pin": stripped_entity_id,
                                 "extra_data": extra_data,
                             })
                             continue
