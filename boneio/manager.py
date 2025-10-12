@@ -52,7 +52,6 @@ from boneio.const import (
     UART,
     UARTS,
     VALVE,
-    ClickTypes,
     cover_actions,
     relay_actions,
 )
@@ -70,7 +69,6 @@ from boneio.helper import (
 from boneio.helper.config import ConfigHelper
 from boneio.helper.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
-from boneio.helper.gpio import GpioBaseClass
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
 from boneio.helper.loader import (
@@ -87,6 +85,7 @@ from boneio.helper.loader import (
 from boneio.helper.logger import configure_logger
 from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
+from boneio.input.gpio import GpioBaseClass
 from boneio.message_bus import MessageBus
 from boneio.modbus.client import Modbus
 from boneio.modbus.coordinator import ModbusCoordinator
@@ -189,6 +188,9 @@ class Manager:
         self._configure_sensors(
             dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
         )
+        
+        # Subscribe to input events from EventBus
+        self._event_bus.subscribe("input", self.handle_input_event)
 
         self.grouped_outputs_by_expander = create_expander(
             expander_dict=self._mcp,
@@ -473,6 +475,7 @@ class Manager:
                     action_cover = action_definition.get("action_cover")
                     extra_data = action_definition.get("data", {})
                     cover = self._covers.get(stripped_entity_id)
+                    print
                     action_to_execute = cover_actions.get(action_cover)
                     if cover and action_to_execute:
                         _f = getattr(cover, action_to_execute)
@@ -544,7 +547,6 @@ class Manager:
             input = configure_sensor_func(
                 gpio=gpio,
                 pin=pin,
-                manager_press_callback=self.press_callback,
                 event_bus=self._event_bus,
                 send_ha_autodiscovery=self.send_ha_autodiscovery,
                 input=self._inputs.get(pin, None),  # for reload actions.
@@ -605,7 +607,7 @@ class Manager:
             from boneio.helper.loader import (
                 configure_ds2482,
             )
-            from boneio.sensor import DallasSensorDS2482
+            from boneio.sensor.temp.dallas import DallasSensor
 
             _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
                 i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
@@ -619,17 +621,17 @@ class Manager:
             )
         if dallas:
             _LOGGER.debug("Preparing Dallas bus.")
-            from boneio.helper.loader import configure_dallas
+            from boneio.helper.loader import get_w1_sensor_class
 
             try:
                 from w1thermsensor.kernel import load_kernel_modules
 
                 load_kernel_modules()
-                from boneio.sensor.temp.dallas import DallasSensorW1
+
 
                 _one_wire_devices.update(
                     find_onewire_devices(
-                        ow_bus=configure_dallas(),
+                        ow_bus=get_w1_sensor_class()(),
                         bus_id=dallas[ID],
                         bus_type=DALLAS,
                     )
@@ -642,14 +644,8 @@ class Manager:
             address = _one_wire_devices.get(sensor[ADDRESS])
             if not address:
                 continue
-            ds2482_bus_id = sensor.get("bus_id")
-            if ds2482_bus_id and ds2482_bus_id in _ds_onewire_bus:
-                kwargs = {
-                    "bus": _ds_onewire_bus[ds2482_bus_id],
-                    "cls": DallasSensorDS2482,
-                }
-            else:
-                kwargs = {"cls": DallasSensorW1}
+            # Używamy jednolitej klasy DallasSensor dla wszystkich czujników
+            kwargs = {"cls": DallasSensor}
             _LOGGER.debug("Configuring sensor %s for boneIO", address)
             self._temp_sensors.append(
                 create_dallas_sensor(
@@ -817,27 +813,35 @@ class Manager:
         """Get PCF by it's id."""
         return self._pcf
 
-    async def press_callback(
-        self,
-        x: ClickTypes,
-        gpio: GpioBaseClass,
-        empty_message_after: bool = False,
-        duration: float | None = None,
-        start_time: float | None = None,
-    ) -> None:
-        """Press callback to use in input gpio.
-        If relay input map is provided also toggle action on relay or cover or mqtt.
+    async def handle_input_event(self, event_data: dict) -> None:
+        """Handle input event from EventBus.
+        
+        Called when an input (event or binary_sensor) triggers.
+        Executes configured actions and publishes MQTT messages.
+        
+        Args:
+            event_data: Event data containing:
+                - event_type: "input"
+                - entity_id: Input ID
+                - click_type: Type of click (SINGLE, DOUBLE, LONG, PRESSED, RELEASED)
+                - duration: Optional duration for LONG press
+                - actions: List of actions to execute
+                - event_state: InputState object
+                - input_instance: Reference to GPIO input instance
         """
-        actions = gpio.get_actions_of_click(click_type=x)
+        click_type = event_data.get("click_type")
+        gpio = event_data.get("input_instance")
+        duration = event_data.get("duration")
+        actions = event_data.get("actions", [])
+        start_time = time.time()
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
-
 
         def generate_payload():
             if gpio.input_type == INPUT:
                 if duration:
-                    return {"event_type": x, "duration": duration}
-                return {"event_type": x}
-            return x
+                    return {"event_type": click_type, "duration": duration}
+                return {"event_type": click_type}
+            return click_type
 
         for action_definition in actions:
             entity_id = action_definition.get("pin")
@@ -863,7 +867,9 @@ class Manager:
                 _f = getattr(output, action_to_execute)
                 await _f()
             elif action == COVER:
+                print("COVER action")
                 cover = self._covers.get(entity_id)
+                print(cover)
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
                 _LOGGER.debug(
@@ -892,8 +898,9 @@ class Manager:
         payload = generate_payload()
         _LOGGER.debug("Sending message %s for input %s", payload, topic)
         self.send_message(topic=topic, payload=payload, retain=False)
+        
         # This is similar how Z2M is clearing click sensor.
-        if empty_message_after:
+        if hasattr(gpio, '_empty_message_after') and gpio._empty_message_after:
             self.loop.call_soon_threadsafe(
                 self.loop.call_later, 0.2, self.send_message, topic, ""
             )

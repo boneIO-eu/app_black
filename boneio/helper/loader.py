@@ -66,22 +66,16 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.onewire import (
     DS2482,
     DS2482_ADDRESS,
-    AsyncBoneIOW1ThermSensor,
-    OneWireAddress,
     OneWireBus,
 )
 from boneio.helper.pcf8575 import PCF8575
 from boneio.helper.timeperiod import TimePeriod
-from boneio.input import GpioEventButtonNew, GpioEventButtonOld
+from boneio.input import GpioEventButton, GpioInputBinarySensor
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.sensor import (
-    DallasSensorDS2482,
-    GpioInputBinarySensorNew,
-    GpioInputBinarySensorOld,
-)
+from boneio.sensor.temp.dallas import DallasSensor
 from boneio.sensor.serial_number import SerialNumberSensor
-from boneio.sensor.temp.dallas import DallasSensorW1
+from w1thermsensor import W1ThermSensor
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
@@ -448,38 +442,47 @@ def configure_relay(
 def configure_event_sensor(
     gpio: dict,
     pin: str,
-    manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    input: GpioEventButton | None = None,
     actions: dict = {},
-) -> GpioEventButtonOld | GpioEventButtonNew | None:
-    """Configure input sensor or button."""
+) -> GpioEventButton | None:
+    """Configure event input sensor with multiclick detection.
+    
+    Args:
+        gpio: GPIO configuration dictionary
+        pin: Pin name (e.g., "P8_30")
+        event_bus: EventBus instance for publishing events
+        send_ha_autodiscovery: Callback for HA autodiscovery
+        input: Existing input instance (for reload)
+        actions: Dictionary of actions for different click types
+        
+    Returns:
+        Configured GpioEventButton instance or None on error
+    """
     try:
-        gpioEventButtonClass = (
-            GpioEventButtonNew
-            if gpio.get("detection_type", "new") == "new"
-            else GpioEventButtonOld
-        )
         name = gpio.pop(ID, pin)
+        
+        # Reload: update existing input's actions
         if input:
-            if not isinstance(input, gpioEventButtonClass):
+            if not isinstance(input, GpioEventButton):
                 _LOGGER.warning(
-                    "You reconfigured type of input. It's forbidden. Please restart boneIO."
+                    "Cannot reconfigure input type for %s. Restart required.", pin
                 )
                 return input
             input.set_actions(actions=actions)
         else:
-            input = gpioEventButtonClass(
+            # Create new event input
+            input = GpioEventButton(
                 pin=pin,
                 name=name,
                 input_type=INPUT,
-                empty_message_after=gpio.pop("clear_message", False),
                 actions=actions,
-                manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 **gpio,
             )
+        
+        # Register with Home Assistant
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
@@ -488,47 +491,58 @@ def configure_event_sensor(
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_event_availabilty_message,
             )
+        
         return input
+        
     except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
-        pass
+        _LOGGER.error("Failed to configure event input on pin %s: %s", pin, err)
+        return None
 
 
 def configure_binary_sensor(
     gpio: dict,
     pin: str,
-    manager_press_callback: Callable,
     event_bus: EventBus,
     send_ha_autodiscovery: Callable,
-    input: GpioEventButtonOld | GpioEventButtonNew | GpioInputBinarySensorOld | GpioInputBinarySensorNew | None = None,
+    input: GpioInputBinarySensor | None = None,
     actions: dict = {},
-) -> GpioInputBinarySensorOld | GpioInputBinarySensorNew | None:
-    """Configure input sensor or button."""
+) -> GpioInputBinarySensor | None:
+    """Configure binary sensor input with state detection.
+    
+    Args:
+        gpio: GPIO configuration dictionary
+        pin: Pin name (e.g., "P8_30")
+        event_bus: EventBus instance for publishing events
+        send_ha_autodiscovery: Callback for HA autodiscovery
+        input: Existing input instance (for reload)
+        actions: Dictionary of actions for different states
+        
+    Returns:
+        Configured GpioInputBinarySensor instance or None on error
+    """
     try:
-        GpioInputBinarySensorClass = (
-            GpioInputBinarySensorNew
-            if gpio.get("detection_type", "new") == "new"
-            else GpioInputBinarySensorOld
-        )
         name = gpio.pop(ID, pin)
+        
+        # Reload: update existing input's actions
         if input:
-            if not isinstance(input, GpioInputBinarySensorClass):
+            if not isinstance(input, GpioInputBinarySensor):
                 _LOGGER.warning(
-                    "You preconfigured type of input. It's forbidden. Please restart boneIO."
+                    "Cannot reconfigure input type for %s. Restart required.", pin
                 )
                 return input
             input.set_actions(actions=actions)
         else:
-            input = GpioInputBinarySensorClass(
+            # Create new binary sensor input
+            input = GpioInputBinarySensor(
                 pin=pin,
                 name=name,
                 actions=actions,
                 input_type=INPUT_SENSOR,
-                empty_message_after=gpio.pop("clear_message", False),
-                manager_press_callback=manager_press_callback,
                 event_bus=event_bus,
                 **gpio,
             )
+        
+        # Register with Home Assistant
         if gpio.get(SHOW_HA, True):
             send_ha_autodiscovery(
                 id=pin,
@@ -537,10 +551,12 @@ def configure_binary_sensor(
                 device_class=gpio.get(DEVICE_CLASS, None),
                 availability_msg_func=ha_binary_sensor_availabilty_message,
             )
+        
         return input
+        
     except GPIOInputException as err:
-        _LOGGER.error("This PIN %s can't be configured. %s", pin, err)
-        pass
+        _LOGGER.error("Failed to configure binary sensor on pin %s: %s", pin, err)
+        return None
 
 
 def configure_cover(
@@ -630,24 +646,25 @@ def configure_ds2482(
     return ow_bus
 
 
-def configure_dallas() -> AsyncBoneIOW1ThermSensor:
-    return AsyncBoneIOW1ThermSensor
+def get_w1_sensor_class():
+    """Return the W1ThermSensor class for direct kernel access to 1-Wire sensors."""
+    return W1ThermSensor
 
 
 def find_onewire_devices(
-    ow_bus: OneWireBus | AsyncBoneIOW1ThermSensor,
+    ow_bus: OneWireBus | W1ThermSensor,
     bus_id: str,
     bus_type: DallasBusTypes,
-) -> dict[OneWireAddress]:
+) -> dict[str, str]:
     out = {}
     try:
         devices = ow_bus.scan()
         for device in devices:
-            _addr: int = device.int_address
+            _addr = device.id if hasattr(device, 'id') else device
             _LOGGER.debug(
-                "Found device on bus %s with address %s", bus_id, hex(_addr)
+                "Found device on bus %s with address %s", bus_id, _addr
             )
-            out[_addr] = device
+            out[_addr] = _addr
     except RuntimeError as err:
         _LOGGER.error("Problem with scanning %s bus. %s", bus_type, err)
     return out
@@ -656,14 +673,13 @@ def find_onewire_devices(
 def create_dallas_sensor(
     manager: Manager,
     message_bus: MessageBus,
-    address: OneWireAddress,
+    address: str,
     config: dict,
     **kwargs,
-) -> DallasSensorDS2482 | DallasSensorW1:
-    name = config.get(ID) or hex(address)
+) -> DallasSensor:
+    name = config.get(ID) or address
     id = name.replace(" ", "")
-    bus: OneWireBus = kwargs.get("bus")
-    cls = DallasSensorDS2482 if bus else DallasSensorW1
+    cls = DallasSensor
     sensor = cls(
         manager=manager,
         message_bus=message_bus,

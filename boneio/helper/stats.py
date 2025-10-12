@@ -4,11 +4,11 @@ import asyncio
 import logging
 import socket
 import time
+from collections.abc import Callable
 from math import floor
 
 # Typing imports that create a circular dependency
 from typing import TYPE_CHECKING
-from collections.abc import Callable
 
 import psutil
 
@@ -29,7 +29,7 @@ from boneio.const import (
     UPTIME,
 )
 from boneio.helper.events import EventBus
-from boneio.helper.gpio import GpioBaseClass
+from boneio.input.gpio import GpioBaseClass
 from boneio.models import HostSensorState
 
 if TYPE_CHECKING:

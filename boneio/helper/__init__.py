@@ -8,15 +8,6 @@ from boneio.helper.exceptions import (
     GPIOOutputException,
     I2CError,
 )
-from boneio.helper.gpio import (
-    GpioBaseClass,
-    configure_pin,
-    edge_detect,
-    read_input,
-    setup_input,
-    setup_output,
-    write_output,
-)
 from boneio.helper.ha_discovery import (
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,

@@ -3,75 +3,66 @@
 import asyncio
 import logging
 
-from adafruit_ds18x20 import DS18X20
 from w1thermsensor import (
     NoSensorFoundError,
     SensorNotReadyError,
     W1ThermSensorError,
+    W1ThermSensor
 )
 
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import OneWireError
-from boneio.helper.onewire import (
-    AsyncBoneIOW1ThermSensor,
-    OneWireAddress,
-    OneWireBus,
-)
 
 from . import TempSensor
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class DallasSensorDS2482(TempSensor, AsyncUpdater):
+class DallasSensor(TempSensor, AsyncUpdater):
+    """Unified Dallas temperature sensor class using w1thermsensor."""
     DefaultName = TEMPERATURE
-    SensorClass = DS18X20
+    SensorClass = W1ThermSensor
 
     def __init__(
         self,
-        bus: OneWireBus,
-        address: OneWireAddress,
-        id: str = DefaultName,
-        **kwargs,
-    ):
-        """Initialize Temp class."""
-        self._loop = asyncio.get_event_loop()
-        BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
-        try:
-            self._pct = DS18X20(bus=bus, address=address)
-            self._state = None
-        except ValueError as err:
-            raise OneWireError(err)
-        AsyncUpdater.__init__(self, **kwargs)
-
-
-class DallasSensorW1(TempSensor, AsyncUpdater):
-    DefaultName = TEMPERATURE
-    SensorClass = AsyncBoneIOW1ThermSensor
-
-    def __init__(
-        self,
-        address: OneWireAddress,
+        address: str,  # Sensor ID as string
         id: str = DefaultName,
         filters: list = ["round(x, 2)"],
         **kwargs,
     ):
-        """Initialize Temp class."""
+        """Initialize Dallas temperature sensor.
+        
+        Args:
+            address: Sensor ID (e.g. '28-0000098c7df0')
+            id: Sensor identifier for MQTT
+            filters: List of filters to apply to readings
+            **kwargs: Additional arguments passed to parent classes
+        """
         self._loop = asyncio.get_event_loop()
         BasicMqtt.__init__(self, id=id, topic_type=SENSOR, **kwargs)
         self._filters = filters
         self._state = None
         try:
-            self._pct = AsyncBoneIOW1ThermSensor(sensor_id=address)
-        except ValueError as err:
-            raise OneWireError(err)
+            self._pct = self.SensorClass(sensor_id=address)
+            # Perform a first read to check if sensor is available
+            self._pct.get_temperature()
+        except (ValueError, W1ThermSensorError) as err:
+            raise OneWireError(f"Error initializing sensor {address}: {err}")
         AsyncUpdater.__init__(self, **kwargs)
 
+
+
     async def async_update(self, timestamp: float) -> None:
+        """Update sensor reading asynchronously.
+        
+        Args:
+            timestamp: Current timestamp for the reading
+        """
         try:
-            _temp = await self._pct.get_temperature()
-            _LOGGER.debug("Fetched temperature %s. Applying filters.", _temp)
+            # Run blocking get_temperature in executor to avoid blocking the event loop
+            _temp = await self._loop.run_in_executor(None, self._pct.get_temperature)
+            _LOGGER.debug("Fetched temperature %s for sensor %s. Applying filters.", _temp, self.id)
             _temp = self._apply_filters(value=_temp)
             if _temp is None:
                 return
@@ -81,9 +72,5 @@ class DallasSensorW1(TempSensor, AsyncUpdater):
                 topic=self._send_topic,
                 payload={STATE: self._state},
             )
-        except SensorNotReadyError as err:
-            _LOGGER.error("Sensor not ready, can't update %s", err)
-        except NoSensorFoundError as err:
-            _LOGGER.error("Sensor not found, can't update %s", err)
-        except W1ThermSensorError as err:
-            _LOGGER.error("Sensor not working, can't update %s", err)
+        except (SensorNotReadyError, NoSensorFoundError, W1ThermSensorError) as err:
+            _LOGGER.error("Failed to read sensor %s: %s", self.id, err)

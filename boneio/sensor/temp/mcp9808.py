@@ -1,6 +1,6 @@
 """MCP9808 temp sensor."""
 
-from adafruit_mcp9808 import MCP9808
+from boneio.helper.i2c import MCP9808
 
 from boneio.const import MCP_TEMP_9808
 
