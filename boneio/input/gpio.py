@@ -12,8 +12,8 @@ from boneio.const import (
     RELEASED,
     ClickTypes,
 )
-from boneio.helper.events import EventBus
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.events import EventBus
+from boneio.core.utils import TimePeriod
 from boneio.input.gpio_manager import get_gpio_manager
 from boneio.models import InputState
 

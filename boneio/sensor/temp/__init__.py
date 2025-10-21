@@ -8,7 +8,7 @@ import logging
 from boneio.const import SENSOR, STATE, TEMPERATURE
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.exceptions import I2CError
-from boneio.helper.filter import Filter
+from boneio.core.utils import Filter
 from boneio.models import SensorState
 
 _LOGGER = logging.getLogger(__name__)

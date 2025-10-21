@@ -32,10 +32,10 @@ from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
 from boneio.const import COVER, NONE
-from boneio.helper.config import ConfigHelper
+from boneio.core.config import ConfigHelper
 from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import ConfigurationException
-from boneio.helper.yaml_util import (
+from boneio.core.config.yaml_util import (
     load_config_from_file,
     update_config_section,
 )

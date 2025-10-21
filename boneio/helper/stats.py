@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from boneio.manager import Manager
 
 from boneio.helper.async_updater import AsyncUpdater
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 from boneio.sensor import INA219 as INA219Class
 from boneio.sensor import LM75Sensor, MCP9808Sensor
 from boneio.version import __version__

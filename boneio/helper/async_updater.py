@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..manager import Manager
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 
 
 class AsyncUpdater:

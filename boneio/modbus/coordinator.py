@@ -25,10 +25,10 @@ from boneio.const import (
     TEXT_SENSOR,
 )
 from boneio.helper import AsyncUpdater, BasicMqtt
-from boneio.helper.config import ConfigHelper
-from boneio.helper.events import EventBus
-from boneio.helper.filter import Filter
-from boneio.helper.util import open_json
+from boneio.core.config import ConfigHelper
+from boneio.core.events import EventBus
+from boneio.core.utils import Filter
+from boneio.core.utils.util import open_json
 from boneio.modbus.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,

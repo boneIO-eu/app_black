@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 import asyncio
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 import time
 
 _LOGGER = logging.getLogger(__name__)

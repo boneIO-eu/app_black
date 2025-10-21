@@ -64,12 +64,12 @@ from boneio.helper import (
     ha_light_availabilty_message,
     ha_switch_availabilty_message,
 )
-from boneio.helper.config import ConfigHelper
-from boneio.helper.events import EventBus
+from boneio.core.config import ConfigHelper
+from boneio.core.events import EventBus
 from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
 from boneio.helper.ha_discovery import ha_valve_availabilty_message
 from boneio.helper.interlock import SoftwareInterlockManager
-from boneio.helper.loader import (
+from boneio.core.config.loader import (
     configure_binary_sensor,
     configure_cover,
     configure_event_sensor,
@@ -80,11 +80,11 @@ from boneio.helper.loader import (
     create_serial_number_sensor,
     create_temp_sensor,
 )
-from boneio.helper.logger import configure_logger
-from boneio.helper.util import strip_accents
-from boneio.helper.yaml_util import load_config_from_file
+from boneio.core.utils import configure_logger
+from boneio.core.utils import strip_accents
+from boneio.core.config import load_config_from_file
 from boneio.input.gpio import GpioBaseClass
-from boneio.message_bus import MessageBus
+from boneio.core.messaging import MessageBus
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
@@ -765,7 +765,7 @@ class Manager:
         """
         if not ds2482 and not dallas:
             return
-        from boneio.helper.loader import (
+        from boneio.core.config.loader import (
             find_onewire_devices,
         )
 
@@ -774,7 +774,7 @@ class Manager:
 
         for _single_ds in ds2482:
             _LOGGER.debug("Preparing DS2482 bus at address %s.", _single_ds[ADDRESS])
-            from boneio.helper.loader import (
+            from boneio.core.config.loader import (
                 configure_ds2482,
             )
             from boneio.sensor.temp.dallas import DallasSensor
@@ -791,7 +791,7 @@ class Manager:
             )
         if dallas:
             _LOGGER.debug("Preparing Dallas bus.")
-            from boneio.helper.loader import get_w1_sensor_class
+            from boneio.core.config.loader import get_w1_sensor_class
 
             try:
                 from w1thermsensor.kernel import load_kernel_modules
@@ -830,7 +830,7 @@ class Manager:
 
     def _configure_adc(self, adc_list: list | None) -> None:
         if adc_list:
-            from boneio.helper.loader import create_adc
+            from boneio.core.config.loader import create_adc
 
             create_adc(
                 manager=self,
@@ -857,7 +857,7 @@ class Manager:
 
     def _configure_ina219_sensors(self, sensors: dict) -> None:
         if sensors.get(INA219):
-            from boneio.helper.loader import create_ina219_sensor
+            from boneio.core.config.loader import create_ina219_sensor
 
             for sensor_config in sensors[INA219]:
                 ina219 = create_ina219_sensor(
@@ -871,7 +871,7 @@ class Manager:
 
     def _configure_modbus_coordinators(self, devices: dict) -> dict:
         if devices and self._modbus:
-            from boneio.helper.loader import create_modbus_coordinators
+            from boneio.core.config.loader import create_modbus_coordinators
 
             return create_modbus_coordinators(
                 manager=self,

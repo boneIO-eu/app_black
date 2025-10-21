@@ -4,7 +4,7 @@ import logging
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.helper.stats import get_network_info
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 

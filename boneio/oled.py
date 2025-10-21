@@ -18,7 +18,7 @@ from boneio.helper import (
     make_font,
     setup_input,
 )
-from boneio.helper.events import EventBus, async_track_point_in_time, utcnow
+from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.models import InputState, OutputState, SensorState
 
 _LOGGER = logging.getLogger(__name__)

@@ -17,9 +17,9 @@ from boneio.const import (
     OPENING,
     STOP,
 )
-from boneio.helper.events import EventBus
+from boneio.core.events import EventBus, async_track_point_in_time
 from boneio.helper.mqtt import BasicMqtt
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 from boneio.models import CoverState
 from boneio.relay import MCPRelay
 

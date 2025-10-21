@@ -6,7 +6,7 @@ import time
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
 from boneio.cover.cover import BaseCover, BaseVenetianCoverABC
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.utils import TimePeriod
 from boneio.models import PositionDict
 
 _LOGGER = logging.getLogger(__name__)

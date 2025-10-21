@@ -9,7 +9,7 @@ from datetime import datetime
 
 from boneio.const import SENSOR, STATE
 from boneio.helper import AsyncUpdater, BasicMqtt
-from boneio.helper.filter import Filter
+from boneio.core.utils import Filter
 from boneio.helper.sensor.ina_219_smbus import INA219_I2C
 from boneio.models import SensorState
 

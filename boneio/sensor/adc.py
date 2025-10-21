@@ -3,7 +3,7 @@ import logging
 
 from boneio.const import SENSOR
 from boneio.helper import AsyncUpdater, BasicMqtt
-from boneio.helper.filter import Filter
+from boneio.core.utils import Filter
 
 try:
     import Adafruit_BBIO.ADC as ADC

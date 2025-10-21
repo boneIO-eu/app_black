@@ -9,7 +9,7 @@ from pathlib import Path
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
-from boneio.helper.config import ConfigHelper
+from boneio.core.config import ConfigHelper
 from boneio.manager import Manager
 from boneio.webui.app import BoneIOApp, init_app
 

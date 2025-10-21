@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from boneio.helper.config import ConfigHelper
+from boneio.core.config import ConfigHelper
 from boneio.message_bus.basic import MessageBus
 
 from .base import ModbusBaseSensor

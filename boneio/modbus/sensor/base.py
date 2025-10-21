@@ -4,8 +4,8 @@ import logging
 import time
 
 from boneio.const import ID, MODEL, NAME, SENSOR
-from boneio.helper.config import ConfigHelper
-from boneio.helper.filter import Filter
+from boneio.core.config import ConfigHelper
+from boneio.core.utils import Filter
 from boneio.helper.ha_discovery import modbus_sensor_availabilty_message
 from boneio.message_bus.basic import MessageBus
 

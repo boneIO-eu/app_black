@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from boneio.const import ID, MODEL, NAME, SELECT, SENSOR
-from boneio.helper.config import ConfigHelper
+from boneio.core.config import ConfigHelper
 from boneio.helper.ha_discovery import (
     modbus_select_availabilty_message,
 )
-from boneio.helper.util import find_key_by_value
+from boneio.core.utils.util import find_key_by_value
 from boneio.message_bus.basic import MessageBus
 from boneio.modbus.sensor.base import BaseSensor
 

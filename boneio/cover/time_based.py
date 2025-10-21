@@ -7,8 +7,8 @@ from collections.abc import Callable
 
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.cover.cover import BaseCover
-from boneio.helper.events import EventBus
-from boneio.helper.timeperiod import TimePeriod
+from boneio.core.events import EventBus
+from boneio.core.utils import TimePeriod
 from boneio.relay import MCPRelay
 
 _LOGGER = logging.getLogger(__name__)

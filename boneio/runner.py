@@ -39,13 +39,14 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
-from boneio.helper import StateManager
-from boneio.helper.config import ConfigHelper
-from boneio.helper.events import EventBus, GracefulExit
+from boneio.core.state import StateManager
+from boneio.core.config import ConfigHelper
+from boneio.core.events import EventBus
+from boneio.helper.events import GracefulExit
 from boneio.helper.exceptions import RestartRequestException
 from boneio.helper.stats import get_network_info
 from boneio.manager import Manager
-from boneio.message_bus import MQTTClient
+from boneio.core.messaging import MQTTClient
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
@@ -126,7 +127,7 @@ async def async_run(
             config_helper=_config_helper,
         )
     else:
-        from boneio.message_bus import LocalMessageBus
+        from boneio.core.messaging import LocalMessageBus
         message_bus = LocalMessageBus()
 
     manager_kwargs = {

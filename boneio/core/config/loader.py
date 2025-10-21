@@ -49,14 +49,14 @@ from boneio.helper import (
     GPIOInputException,
     GPIOOutputException,
     I2CError,
-    StateManager,
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_event_availabilty_message,
     ha_sensor_ina_availabilty_message,
     ha_sensor_temp_availabilty_message,
 )
-from boneio.helper.events import EventBus
+from boneio.core.state import StateManager
+from boneio.core.events import EventBus
 from boneio.helper.ha_discovery import (
     ha_cover_availabilty_message,
     ha_cover_with_tilt_availabilty_message,
@@ -71,7 +71,7 @@ from boneio.helper.onewire import (
 from boneio.helper.pcf8575 import PCF8575
 from boneio.core.utils import TimePeriod
 from boneio.input import GpioEventButton, GpioInputBinarySensor
-from boneio.message_bus.basic import MessageBus
+from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.sensor.temp.dallas import DallasSensor
 from boneio.sensor.serial_number import SerialNumberSensor

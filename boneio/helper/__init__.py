@@ -1,4 +1,8 @@
-"""Helper dir for BoneIO."""
+"""Helper dir for BoneIO.
+
+DEPRECATED: This module provides backward compatibility.
+New code should import from boneio.core.* instead.
+"""
 
 from boneio.helper.async_updater import AsyncUpdater
 from boneio.helper.click_timer import ClickTimer
@@ -23,10 +27,12 @@ from boneio.helper.ha_discovery import (
 from boneio.helper.mqtt import BasicMqtt
 from boneio.helper.oled import make_font
 from boneio.helper.queue import UniqueQueue
-from boneio.helper.state_manager import StateManager
 from boneio.helper.stats import HostData
-from boneio.helper.timeperiod import TimePeriod
-from boneio.helper.yaml_util import (
+
+# Re-export from new locations for backward compatibility
+from boneio.core.state import StateManager
+from boneio.core.utils import TimePeriod, callback
+from boneio.core.config.yaml_util import (
     CustomValidator,
     load_config_from_file,
     load_config_from_string,
