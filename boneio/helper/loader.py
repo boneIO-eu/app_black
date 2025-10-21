@@ -81,7 +81,8 @@ from w1thermsensor import W1ThermSensor
 if TYPE_CHECKING:
     from ..manager import Manager
 
-from busio import I2C
+# Use smbus2 wrapper for Python 3.13+ on Debian 13
+from boneio.helper.i2c_wrapper import SMBus2I2CWrapper as I2C
 
 from boneio.relay import PWMPCA, GpioRelay, MCPRelay, PCFRelay
 from boneio.sensor import GpioADCSensor, initialize_adc

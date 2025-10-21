@@ -9,71 +9,79 @@ from typing import Any
 
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
-from pymodbus.framer import Endian
-from pymodbus.payload import BinaryPayloadDecoder
-from pymodbus.pdu import ModbusResponse
+from pymodbus.framer import FramerType
 
-from boneio.const import ID, REGISTERS, RX, TX, UART
-from boneio.helper import configure_pin
+from boneio.const import ID, REGISTERS, RX, TX
 from boneio.helper.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)
 
 VALUE_TYPES = {
     "U_WORD": {
-        "f": "decode_16bit_uint",
-        "byteorder": Endian.Big,
+        "format": "H",  # unsigned short
+        "byteorder": ">",  # Big endian
         "count": 1,
+        "size": 2,
     },
     "S_WORD": {
-        "f": "decode_16bit_int",
-        "byteorder": Endian.Big,
+        "format": "h",  # signed short
+        "byteorder": ">",  # Big endian
         "count": 1,
+        "size": 2,
     },
     "U_DWORD": {
-        "f": "decode_32bit_uint",
-        "byteorder": Endian.Big,
+        "format": "I",  # unsigned int
+        "byteorder": ">",  # Big endian
         "count": 2,
+        "size": 4,
     },
     "S_DWORD": {
-        "f": "decode_32bit_int",
-        "byteorder": Endian.Big,
+        "format": "i",  # signed int
+        "byteorder": ">",  # Big endian
         "count": 2,
+        "size": 4,
     },
     "U_DWORD_R": {
-        "f": "decode_32bit_uint",
-        "byteorder": Endian.Little,
+        "format": "I",  # unsigned int
+        "byteorder": "<",  # Little endian
         "count": 2,
+        "size": 4,
     },
     "S_DWORD_R": {
-        "f": "decode_32bit_int",
-        "byteorder": Endian.Little,
+        "format": "i",  # signed int
+        "byteorder": "<",  # Little endian
         "count": 2,
+        "size": 4,
     },
     "U_QWORD": {
-        "f": "decode_64bit_uint",
-        "byteorder": Endian.Big,
+        "format": "Q",  # unsigned long long
+        "byteorder": ">",  # Big endian
         "count": 4,
+        "size": 8,
     },
     "S_QWORD": {
-        "f": "decode_64bit_int",
-        "byteorder": Endian.Big,
+        "format": "q",  # signed long long
+        "byteorder": ">",  # Big endian
         "count": 4,
+        "size": 8,
     },
     "U_QWORD_R": {
-        "f": "decode_64bit_uint",
-        "byteorder": Endian.Little,
+        "format": "Q",  # unsigned long long
+        "byteorder": "<",  # Little endian
         "count": 4,
+        "size": 8,
     },
     "FP32": {
-        "f": "decode_32bit_float",
-        "byteorder": Endian.Big,
+        "format": "f",  # float
+        "byteorder": ">",  # Big endian
         "count": 2,
+        "size": 4,
     },
     "FP32_R": {
-        "f": "decode_32bit_float",
-        "byteorder": Endian.Little,
+        "format": "f",  # float
+        "byteorder": "<",  # Little endian
         "count": 2,
+        "size": 4,
     },
 }
 
@@ -103,8 +111,8 @@ class Modbus:
         _LOGGER.debug(
             f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
         )
-        configure_pin(pin=rx, mode=UART)
-        configure_pin(pin=tx, mode=UART)
+        # configure_pin(pin=rx, mode=UART)
+        # configure_pin(pin=tx, mode=UART)
         self._uart = uart
 
         # generic configuration
@@ -116,18 +124,14 @@ class Modbus:
         try:
             self._client = ModbusSerialClient(
                 port=self._uart[ID],
-                method="rtu",
+                framer=FramerType.RTU,
                 baudrate=baudrate,
                 stopbits=stopbits,
                 bytesize=bytesize,
                 parity=parity,
                 timeout=timeout,
+                retries=3,
             )
-            self._read_methods = {
-                "input": self._client.read_input_registers,
-                "holding": self._client.read_holding_registers,
-                "coil": self._client.read_coils,
-            }
         except ModbusException as exception_error:
             _LOGGER.error(exception_error)
 
@@ -156,7 +160,11 @@ class Modbus:
     def _pymodbus_connect(self) -> bool:
         """Connect client."""
         try:
-            return self._client.connect()  # type: ignore[union-attr]
+            # In pymodbus 3.x, connect() is called automatically on first request
+            # But we can still call it explicitly to check connection
+            if self._client and not self._client.connected:
+                return self._client.connect()  # type: ignore[union-attr]
+            return True
         except ModbusException as exception_error:
             _LOGGER.error(f"No connection to Modbus: {exception_error}")
             return False
@@ -173,21 +181,22 @@ class Modbus:
         result = await self.read_registers(
             unit=unit, address=address, count=count, method=method
         )
-        if not result or result.isError():
+        if not result or result.isError() if hasattr(result, 'isError') else False:
+            return None
+        if not hasattr(result, 'registers'):
             return None
         decoded_value = self.decode_value(
             payload=result.registers, value_type=payload_type
         )
         return decoded_value
 
-    def read_registers_blocking(self, unit: int | str, address: int, count: int = 2, method: str = "input") -> ModbusResponse:
+    def read_registers_blocking(self, unit: int | str, address: int, count: int = 2, method: str = "input"):
+        """Read registers blocking (synchronous)."""
         start_time = time.perf_counter()
         result = None
-        kwargs = {"unit": unit, "count": count} if unit else {}
-        read_method = self._read_methods[method]
         
         try:
-            # Run connection in the executor
+            # In pymodbus 3.x, connection is automatic
             connected = self._pymodbus_connect()
             if not connected:
                 _LOGGER.error("Can't connect to Modbus.")
@@ -201,8 +210,18 @@ class Modbus:
                 unit,
             )
 
-            # Run the read operation in the executor
-            result = read_method(address, **kwargs)
+            # Use direct client methods (pymodbus 3.x uses device_id or slave)
+            kwargs = {"address": address, "count": count, "slave": int(unit)}
+            
+            if method == "input":
+                result = self._client.read_input_registers(**kwargs)
+            elif method == "holding":
+                result = self._client.read_holding_registers(**kwargs)
+            elif method == "coil":
+                result = self._client.read_coils(**kwargs)
+            else:
+                _LOGGER.error(f"Unknown method: {method}")
+                return None
 
             if not hasattr(result, REGISTERS):
                 _LOGGER.error("No result from read: %s", str(result))
@@ -232,12 +251,12 @@ class Modbus:
             )
             return result
 
-    def write_register_blocking(self, unit: int | str, address: int, value: int | float) -> ModbusResponse:
-        """Call async pymodbus."""
+    def write_register_blocking(self, unit: int | str, address: int, value: int | float):
+        """Write register blocking (synchronous)."""
         start_time = time.perf_counter()
         result = None
         try:
-            # Run connection in the executor
+            # In pymodbus 3.x, connection is automatic
             connected = self._pymodbus_connect()
             if not connected:
                 _LOGGER.error("Can't connect to Modbus.")
@@ -250,10 +269,10 @@ class Modbus:
                 unit,
             )
 
-            # Run the read operation in the executor
-            result = self._client.write_register(address=address, value=value, unit=unit)
+            # Use slave parameter (pymodbus 3.x)
+            result = self._client.write_register(address=address, value=int(value), slave=int(unit))
 
-            if result.isError():
+            if result.isError() if hasattr(result, 'isError') else False:
                 _LOGGER.error("Operation failed.")
                 result = None
 
@@ -286,21 +305,36 @@ class Modbus:
         address: int,  # modbus register address
         count: int = 2,  # number of registers to read
         method: str = "input",  # type of register: input, holding
-    ) -> ModbusResponse:
+    ):
         """Call async pymodbus."""
         async with self._lock:
             return await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
             
 
     def decode_value(self, payload, value_type):
+        """Decode modbus registers to value using struct.
+        
+        Similar to Home Assistant's approach but with type conversion.
+        HA reads raw registers and leaves decoding to sensors.
+        We decode here for convenience.
+        """
         _payload_type = VALUE_TYPES[value_type]
-        decoder = BinaryPayloadDecoder.fromRegisters(
-            registers=payload, byteorder=_payload_type["byteorder"]
-        )
-        value = getattr(decoder, _payload_type["f"])()
+        
+        # Convert registers (16-bit values) to bytes
+        byte_list = []
+        for register in payload:
+            byte_list.append((register >> 8) & 0xFF)  # High byte
+            byte_list.append(register & 0xFF)  # Low byte
+        
+        byte_string = bytes(byte_list)
+        
+        # Unpack using struct with appropriate format and byte order
+        format_string = _payload_type["byteorder"] + _payload_type["format"]
+        value = struct.unpack(format_string, byte_string[:_payload_type["size"]])[0]
+        
         return value
 
-    async def write_register(self, unit: int | str, address: int, value: int | float) -> ModbusResponse:
-        """Call async pymodbus."""
+    async def write_register(self, unit: int | str, address: int, value: int | float):
+        """Write register async."""
         async with self._lock:
             return await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)

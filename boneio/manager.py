@@ -7,8 +7,6 @@ import time
 from collections import deque
 from collections.abc import Callable, Coroutine
 
-from board import SCL, SDA
-from busio import I2C
 from w1thermsensor.errors import KernelModuleLoadError
 
 from boneio.const import (
@@ -87,11 +85,14 @@ from boneio.helper.util import strip_accents
 from boneio.helper.yaml_util import load_config_from_file
 from boneio.input.gpio import GpioBaseClass
 from boneio.message_bus import MessageBus
-from boneio.modbus.client import Modbus
-from boneio.modbus.coordinator import ModbusCoordinator
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 from boneio.sensor.temp import TempSensor
+
+# Lazy imports for optional modules (imported when needed):
+# - boneio.modbus.client.Modbus (when enable_modbus=True)
+# - boneio.modbus.coordinator.ModbusCoordinator (when enable_modbus=True)
+# - boneio.oled.Oled (when OLED is enabled in config)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -124,27 +125,109 @@ class Manager:
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
-        relay_pins: list = [],
-        event_pins: list = [],
-        binary_pins: list = [],
-        output_group: list = [],
-        sensors: dict = {},
-        modbus: dict = {},
-        modbus_devices: dict = {},
-        pca9685: list = [],
-        mcp23017: list = [],
-        pcf8575: list = [],
-        ds2482: list | None = [],
-        dallas: dict | None = None,
-        oled: dict = {},
-        adc: list | None = None,
-        cover: list = [],
+        relay_pins: list[dict] = [],
+        event_pins: list[dict] = [],
+        binary_pins: list[dict] = [],
+        output_group: list[dict] = [],
+        sensors: dict[str, list] = {},
+        modbus: dict[str, any] = {},
+        modbus_devices: dict[str, any] = {},
+        pca9685: list[dict] = [],
+        mcp23017: list[dict] = [],
+        pcf8575: list[dict] = [],
+        ds2482: list[dict] | None = [],
+        dallas: dict[str, any] | None = None,
+        oled: dict[str, any] = {},
+        adc: list[dict] | None = None,
+        cover: list[dict] = [],
         web_active: bool = False,
         web_port: int = 8090,
+        enable_modbus: bool = True,  # New parameter to control modbus initialization
     ) -> None:
-        """Initialize the manager."""
+        """Initialize the manager.
+        
+        Args:
+            enable_modbus: If False, skip modbus initialization (useful for testing)
+        """
         _LOGGER.info("Initializing manager module.")
 
+        # Initialize core dependencies
+        self._initialize_core_components(
+            message_bus=message_bus,
+            event_bus=event_bus,
+            state_manager=state_manager,
+            config_helper=config_helper,
+            config_file_path=config_file_path,
+            web_active=web_active,
+            web_port=web_port,
+            event_pins=event_pins,
+            binary_pins=binary_pins,
+            cover=cover,
+        )
+
+        # Initialize hardware components
+        self._initialize_hardware_expanders(
+            mcp23017=mcp23017,
+            pcf8575=pcf8575,
+            pca9685=pca9685,
+        )
+
+        # Initialize sensors
+        self._initialize_sensors(
+            sensors=sensors,
+            dallas=dallas,
+            ds2482=ds2482,
+            adc=adc,
+        )
+
+        # Initialize Modbus (optional)
+        if enable_modbus:
+            self._initialize_modbus(
+                modbus=modbus,
+                modbus_devices=modbus_devices,
+            )
+        else:
+            _LOGGER.info("Modbus initialization skipped (enable_modbus=False)")
+
+        # Initialize outputs (relays, covers, groups)
+        self._initialize_outputs(
+            relay_pins=relay_pins,
+            output_group=output_group,
+        )
+
+        # Initialize inputs (events and binary sensors)
+        _LOGGER.info("Initializing inputs. This will take a while.")
+        self.configure_inputs(reload_config=False)
+
+        # Initialize serial number sensor
+        self._serial_number_sensor = create_serial_number_sensor(
+            manager=self,
+            message_bus=self._message_bus,
+            topic_prefix=self._config_helper.topic_prefix,
+        )
+
+        # Initialize OLED display (optional)
+        self._initialize_oled(oled=oled)
+
+        # Prepare Home Assistant buttons
+        self.prepare_ha_buttons()
+        
+        _LOGGER.info("BoneIO manager is ready.")
+
+    def _initialize_core_components(
+        self,
+        message_bus: MessageBus,
+        event_bus: EventBus,
+        state_manager: StateManager,
+        config_helper: ConfigHelper,
+        config_file_path: str,
+        web_active: bool,
+        web_port: int,
+        event_pins: list[dict],
+        binary_pins: list[dict],
+        cover: list[dict],
+    ) -> None:
+        """Initialize core manager components."""
         self._loop = None  # Will be set lazily when needed
         self._config_helper: ConfigHelper = config_helper
         self._host_data = None
@@ -155,16 +238,23 @@ class Manager:
         self._web_bind_port = web_port
 
         self._message_bus: MessageBus = message_bus
-
         self.send_message = message_bus.send_message
         self._mqtt_state = message_bus.state
+        
         self._event_pins = event_pins
-        self._inputs = {}
         self._binary_pins = binary_pins
-        self._i2cbusio = I2C(SCL, SDA)
+        self._inputs = {}
+        
+        # Initialize I2C bus using smbus2 (Python 3.13+ on Debian 13)
+        _LOGGER.debug("Initializing I2C bus with smbus2")
+        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        # BeagleBone Black I2C-2 bus (default for most shields)
+        self._i2cbusio = SMBus2I2CWrapper(bus_number=2)
+        
         self._mcp = {}
         self._pcf = {}
         self._pca = {}
+        
         self._outputs: dict[str, BasicRelay] = {}
         self._configured_output_groups = {}
         self._interlock_manager = SoftwareInterlockManager()
@@ -173,25 +263,25 @@ class Manager:
         self._tasks: list[asyncio.Task] = []
         self._config_covers = cover
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
+        
         self._temp_sensors: list[TempSensor] = []
         self._ina219_sensors = []
         self._modbus_coordinators = {}
         self._modbus = None
         self._screens = []
-
-        self._configure_modbus(modbus=modbus)
-
-        self._configure_temp_sensors(sensors=sensors)
-
-        self._modbus_coordinators = {}
-        self._configure_ina219_sensors(sensors=sensors)
-        self._configure_sensors(
-            dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE)
-        )
         
         # Subscribe to input events from EventBus
         self._event_bus.subscribe("input", self.handle_input_event)
 
+    def _initialize_hardware_expanders(
+        self,
+        mcp23017: list[dict],
+        pcf8575: list[dict],
+        pca9685: list[dict],
+    ) -> None:
+        """Initialize I2C hardware expanders (MCP23017, PCF8575, PCA9685)."""
+        _LOGGER.debug("Initializing hardware expanders.")
+        
         self.grouped_outputs_by_expander = create_expander(
             expander_dict=self._mcp,
             expander_config=mcp23017,
@@ -215,16 +305,85 @@ class Manager:
             )
         )
 
+    def _initialize_sensors(
+        self,
+        sensors: dict[str, list],
+        dallas: dict[str, any] | None,
+        ds2482: list[dict] | None,
+        adc: list[dict] | None,
+    ) -> None:
+        """Initialize all sensors (temperature, INA219, Dallas, ADC)."""
+        _LOGGER.debug("Initializing sensors.")
+        
+        self._configure_temp_sensors(sensors=sensors)
+        self._configure_ina219_sensors(sensors=sensors)
+        self._configure_sensors(
+            dallas=dallas,
+            ds2482=ds2482,
+            sensors=sensors.get(ONEWIRE)
+        )
         self._configure_adc(adc_list=adc)
 
+    def _initialize_modbus(
+        self,
+        modbus: dict[str, any],
+        modbus_devices: dict[str, any],
+    ) -> None:
+        """Initialize Modbus communication and coordinators.
+        
+        Uses lazy import to avoid loading Modbus dependencies when not needed.
+        """
+        _LOGGER.debug("Initializing Modbus.")
+        
+        # Lazy import - only load when actually needed
+        try:
+            from boneio.modbus.client import Modbus
+        except ImportError as err:
+            _LOGGER.error("Failed to import Modbus modules: %s", err)
+            return
+        
+        # Configure Modbus client
+        uart = modbus.get(UART)
+        if uart and uart in UARTS:
+            try:
+                self._modbus = Modbus(
+                    uart=UARTS[uart],
+                    baudrate=modbus.get("baudrate", 9600),
+                    stopbits=modbus.get("stopbits", 1),
+                    bytesize=modbus.get("bytesize", 8),
+                    parity=modbus.get("parity", "N"),
+                )
+                _LOGGER.debug("Modbus client configured on UART %s", uart)
+            except ModbusUartException:
+                _LOGGER.error(
+                    "This UART %s can't be used for modbus communication.",
+                    uart,
+                )
+                self._modbus = None
+        
+        # Configure Modbus coordinators
+        self._modbus_coordinators = self._configure_modbus_coordinators(
+            devices=modbus_devices
+        )
+
+    def _initialize_outputs(
+        self,
+        relay_pins: list[dict],
+        output_group: list[dict],
+    ) -> None:
+        """Initialize outputs (relays, covers, groups)."""
+        _LOGGER.debug("Initializing outputs.")
+        
+        # Configure relays
         for _config in relay_pins:
             _name = _config.pop(ID)
             restore_state = _config.pop(RESTORE_STATE, False)
             _id = strip_accents(_name)
             _LOGGER.debug("Configuring relay: %s", _id)
-            out = configure_relay(  # grouped_output updated here.
+            
+            out = configure_relay(
                 manager=self,
-                message_bus=message_bus,
+                message_bus=self._message_bus,
                 state_manager=self._state_manager,
                 topic_prefix=self._config_helper.topic_prefix,
                 name=_name,
@@ -233,8 +392,10 @@ class Manager:
                 config=_config,
                 event_bus=self._event_bus,
             )
+            
             if not out:
                 continue
+                
             if restore_state:
                 self._event_bus.add_event_listener(
                     event_type="output",
@@ -242,7 +403,9 @@ class Manager:
                     listener_id="manager",
                     target=self._relay_callback,
                 )
+                
             self._outputs[_id] = out
+            
             if out.output_type not in (NONE, COVER):
                 self.send_ha_autodiscovery(
                     id=out.id,
@@ -252,55 +415,57 @@ class Manager:
                         out.output_type, ha_switch_availabilty_message
                     ),
                 )
+                
             self.loop.create_task(self._delayed_send_state(out))
 
+        # Configure covers if outputs exist
         if self._outputs:
             self._configure_covers()
 
+        # Configure output groups
         self._outputs_group = output_group
         self._configure_output_group()
 
-        _LOGGER.info("Initializing inputs. This will take a while.")
-        self.configure_inputs(reload_config=False)
+    def _initialize_oled(self, oled: dict[str, any]) -> None:
+        """Initialize OLED display if enabled.
+        
+        Uses lazy import to avoid loading OLED dependencies when not needed.
+        """
+        if not oled.get("enabled", False):
+            return
+            
+        _LOGGER.debug("Initializing OLED display.")
+        
+        # Lazy import - OLED is optional
+        from boneio.oled import Oled
 
-        self._serial_number_sensor = create_serial_number_sensor(
+        self._screens = oled.get("screens", [])
+        extra_sensors = oled.get("extra_screen_sensors", [])
+
+        self._host_data = HostData(
             manager=self,
-            message_bus=self._message_bus,
-            topic_prefix=self._config_helper.topic_prefix,
+            event_bus=self._event_bus,
+            enabled_screens=self._screens,
+            output=self.grouped_outputs_by_expander,
+            inputs=self._inputs,
+            temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
+            ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
+            extra_sensors=extra_sensors,
         )
-        self._modbus_coordinators = self._configure_modbus_coordinators(devices=modbus_devices)
-
-        if oled.get("enabled", False):
-            from boneio.oled import Oled
-
-            self._screens = oled.get("screens", [])
-            extra_sensors = oled.get("extra_screen_sensors", [])
-
-            self._host_data = HostData(
-                manager=self,
+        
+        try:
+            self._oled = Oled(
+                host_data=self._host_data,
+                screen_order=self._screens,
+                grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
+                sleep_timeout=oled.get("screensaver_timeout", 60),
                 event_bus=self._event_bus,
-                enabled_screens=self._screens,
-                output=self.grouped_outputs_by_expander,
-                inputs=self._inputs,
-                temp_sensor=(self._temp_sensors[0] if self._temp_sensors else None),
-                ina219=(self._ina219_sensors[0] if self._ina219_sensors else None),
-                extra_sensors=extra_sensors,
             )
-            try:
-                self._oled = Oled(
-                    host_data=self._host_data,
-                    screen_order=self._screens,
-                    grouped_outputs_by_expander=list(self.grouped_outputs_by_expander),
-                    sleep_timeout=oled.get("screensaver_timeout", 60),
-                    event_bus=self._event_bus,
-                )
-            except (GPIOInputException, I2CError) as err:
-                _LOGGER.error("Can't configure OLED display. %s", err)
-            finally:
-                if self._oled:
-                    self._oled.render_display()
-        self.prepare_ha_buttons()
-        _LOGGER.info("BoneIO manager is ready.")
+        except (GPIOInputException, I2CError) as err:
+            _LOGGER.error("Can't configure OLED display. %s", err)
+        finally:
+            if self._oled:
+                self._oled.render_display()
 
     def set_web_server_status(self, status: bool, bind: int):
         self._is_web_on = status
@@ -323,7 +488,12 @@ class Manager:
         return self._ina219_sensors
 
     @property
-    def modbus_coordinators(self) -> dict[str, ModbusCoordinator]:
+    def modbus_coordinators(self) -> dict[str, any]:
+        """Get modbus coordinators.
+        
+        Returns dict of ModbusCoordinator instances (type hint kept generic
+        to avoid import at module level).
+        """
         return self._modbus_coordinators
 
     @property
@@ -669,25 +839,7 @@ class Manager:
                 adc_list=adc_list,
             )
 
-    def _configure_modbus(self, modbus: dict) -> None:
-        uart = modbus.get(UART)
-        if uart and uart in UARTS:
-            try:
-                self._modbus = Modbus(
-                    uart=UARTS[uart],
-                    baudrate=modbus.get("baudrate", 9600),
-                    stopbits=modbus.get("stopbits", 1),
-                    bytesize=modbus.get("bytesize", 8),
-                    parity=modbus.get("parity", "N"),
-                )
-            except ModbusUartException:
-                _LOGGER.error(
-                    "This UART %s can't be used for modbus communication.",
-                    uart,
-                )
-                self._modbus = None
-
-    def _configure_temp_sensors(self, sensors: dict) -> None:
+    def _configure_temp_sensors(self, sensors: dict[str, list]) -> None:
         for sensor_type in (LM75, MCP_TEMP_9808):
             sensor = sensors.get(sensor_type)
             if sensor:
