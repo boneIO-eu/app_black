@@ -23,15 +23,29 @@ class LocalMessageBus(MessageBus):
         self._manager: Manager = None
         self._running = True
     
-    async def send_message(self, topic: str, payload: str | dict, retain: bool = False) -> None:
-        """Route message locally."""
-        if retain:
+    def send_message(
+        self,
+        topic: str,
+        payload: str | int | dict | None,
+        retain: bool = False,
+        qos: int = 0,
+    ) -> None:
+        """Route message locally.
+        
+        Args:
+            topic: Message topic
+            payload: Message payload
+            retain: Whether to retain the message (for future subscribers)
+            qos: Quality of Service (ignored for local bus)
+        """
+        if retain and payload is not None:
             self._retain_values[topic] = payload
             
         if topic in self._subscribers:
             for callback in self._subscribers[topic]:
                 try:
-                    await callback(topic, payload)
+                    # Schedule callback asynchronously
+                    asyncio.create_task(callback(topic, payload))
                 except Exception as e:
                     _LOGGER.error("Error in local message callback: %s", e)
     

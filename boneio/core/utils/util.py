@@ -55,11 +55,39 @@ def sanitize_mqtt_topic(name: str) -> str:
 
 
 def open_json(path: str, model: str) -> dict:
-    """Open json file."""
-    file = f"{os.path.join(path)}/{model}.json"
-    with open(file) as db_file:
-        datastore = json.load(db_file)
-        return datastore
+    """Open json file.
+    
+    Searches for {model}.json in the given path and its subdirectories.
+    
+    Args:
+        path: Base directory path to search in
+        model: Model name (filename without .json extension)
+        
+    Returns:
+        Loaded JSON data as dictionary
+        
+    Raises:
+        FileNotFoundError: If JSON file is not found
+    """
+    filename = f"{model}.json"
+    
+    # First try direct path (backward compatibility)
+    direct_path = os.path.join(path, filename)
+    if os.path.exists(direct_path):
+        with open(direct_path) as db_file:
+            return json.load(db_file)
+    
+    # Search in subdirectories (for new devices/ structure)
+    for root, dirs, files in os.walk(path):
+        if filename in files:
+            file_path = os.path.join(root, filename)
+            with open(file_path) as db_file:
+                return json.load(db_file)
+    
+    # File not found
+    raise FileNotFoundError(
+        f"JSON file '{filename}' not found in '{path}' or its subdirectories"
+    )
 
 def find_key_by_value(d, value):
     for k, v in d.items():

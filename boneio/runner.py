@@ -39,14 +39,13 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
-from boneio.core.state import StateManager
 from boneio.core.config import ConfigHelper
-from boneio.core.events import EventBus
-from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import RestartRequestException
-from boneio.helper.stats import get_network_info
-from boneio.manager import Manager
+from boneio.core.events import EventBus, GracefulExit
 from boneio.core.messaging import MQTTClient
+from boneio.core.state import StateManager
+from boneio.core.system import get_network_info
+from boneio.exceptions import RestartRequestException
+from boneio.manager import Manager
 from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
@@ -160,6 +159,19 @@ async def async_run(
     # Convert coroutines to Tasks
     message_bus.set_manager(manager=manager)
     tasks.update(manager.get_tasks())
+    
+    # Start GPIO manager if inputs are configured
+    from boneio.hardware.gpio.input import get_gpio_manager
+    gpio_manager = get_gpio_manager()
+    if gpio_manager and gpio_manager._inputs:  # Only start if there are inputs
+        _LOGGER.info("Starting GPIO manager")
+        try:
+            await gpio_manager.start()
+        except Exception as e:
+            _LOGGER.error(f"Failed to start GPIO manager: {e}")
+            _LOGGER.error("If lines are busy, run: sudo pkill -9 -f boneio")
+            # Don't fail the entire application, continue without GPIO
+            pass
 
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
     _LOGGER.info("Starting message bus %s.", message_bus_type)
@@ -226,6 +238,15 @@ async def async_run(
             except Exception as e:
                 _LOGGER.error(f"Error triggering web server shutdown: {e}")
 
+        # Stop GPIO manager
+        try:
+            gpio_manager = get_gpio_manager()
+            if gpio_manager:
+                _LOGGER.info("Stopping GPIO manager...")
+                await gpio_manager.stop()
+        except Exception as e:
+            _LOGGER.error(f"Error stopping GPIO manager: {e}")
+        
         # Stop the event bus
         event_bus.request_stop()
         

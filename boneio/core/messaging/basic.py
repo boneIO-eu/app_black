@@ -15,8 +15,21 @@ class MessageBus(ABC):
     """Base class for message handling."""
     
     @abstractmethod
-    async def send_message(self, topic: str, payload: str | dict, retain: bool = False) -> None:
-        """Send a message."""
+    def send_message(
+        self,
+        topic: str,
+        payload: str | int | dict | None,
+        retain: bool = False,
+        qos: int = 0,
+    ) -> None:
+        """Send a message.
+        
+        Args:
+            topic: MQTT topic
+            payload: Message payload
+            retain: Whether to retain the message
+            qos: Quality of Service level (0, 1, or 2)
+        """
         pass
 
     @property

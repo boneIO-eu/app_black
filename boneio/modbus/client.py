@@ -12,7 +12,7 @@ from pymodbus.exceptions import ModbusException
 from pymodbus.framer import FramerType
 
 from boneio.const import ID, REGISTERS, RX, TX
-from boneio.helper.exceptions import ModbusUartException
+from boneio.exceptions import ModbusUartException
 
 _LOGGER = logging.getLogger(__name__)
 

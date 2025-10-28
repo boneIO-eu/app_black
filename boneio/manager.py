@@ -6,9 +6,11 @@ import logging
 import time
 from collections import deque
 from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 
 from w1thermsensor.errors import KernelModuleLoadError
 
+from boneio.components.output.basic import BasicOutput
 from boneio.const import (
     ACTIONS,
     ADDRESS,
@@ -53,22 +55,7 @@ from boneio.const import (
     cover_actions,
     relay_actions,
 )
-from boneio.cover import PreviousCover, TimeBasedCover
-from boneio.helper import (
-    GPIOInputException,
-    HostData,
-    I2CError,
-    StateManager,
-    ha_button_availabilty_message,
-    ha_led_availabilty_message,
-    ha_light_availabilty_message,
-    ha_switch_availabilty_message,
-)
-from boneio.core.config import ConfigHelper
-from boneio.core.events import EventBus
-from boneio.helper.exceptions import CoverConfigurationException, ModbusUartException
-from boneio.helper.ha_discovery import ha_valve_availabilty_message
-from boneio.helper.interlock import SoftwareInterlockManager
+from boneio.core.config import ConfigHelper, load_config_from_file
 from boneio.core.config.loader import (
     configure_binary_sensor,
     configure_cover,
@@ -80,14 +67,33 @@ from boneio.core.config.loader import (
     create_serial_number_sensor,
     create_temp_sensor,
 )
-from boneio.core.utils import configure_logger
-from boneio.core.utils import strip_accents
-from boneio.core.config import load_config_from_file
-from boneio.input.gpio import GpioBaseClass
+from boneio.core.events import EventBus
 from boneio.core.messaging import MessageBus
+from boneio.core.state import StateManager
+from boneio.core.utils import configure_logger, strip_accents
+
+# Import only for type checking to avoid circular imports
+if TYPE_CHECKING:
+    from boneio.components.cover import PreviousCover, TimeBasedCover
+    from boneio.hardware.i2c import MCP9808, PCT2075
+
+from boneio.core.system import HostData
+from boneio.exceptions import (
+    CoverConfigurationException,
+    GPIOInputException,
+    I2CError,
+    ModbusUartException,
+)
+from boneio.hardware.gpio.input import GpioBaseClass
+from boneio.integration.homeassistant import (
+    ha_button_availabilty_message,
+    ha_led_availabilty_message,
+    ha_light_availabilty_message,
+    ha_switch_availabilty_message,
+    ha_valve_availabilty_message,
+)
+from boneio.integration.interlock import SoftwareInterlockManager
 from boneio.models import OutputState
-from boneio.relay.basic import BasicRelay
-from boneio.sensor.temp import TempSensor
 
 # Lazy imports for optional modules (imported when needed):
 # - boneio.modbus.client.Modbus (when enable_modbus=True)
@@ -130,25 +136,20 @@ class Manager:
         binary_pins: list[dict] = [],
         output_group: list[dict] = [],
         sensors: dict[str, list] = {},
-        modbus: dict[str, any] = {},
-        modbus_devices: dict[str, any] = {},
+        modbus: dict[str, Any] = {},
+        modbus_devices: dict[str, Any] = {},
         pca9685: list[dict] = [],
         mcp23017: list[dict] = [],
         pcf8575: list[dict] = [],
         ds2482: list[dict] | None = [],
-        dallas: dict[str, any] | None = None,
-        oled: dict[str, any] = {},
+        dallas: dict[str, Any] | None = None,
+        oled: dict[str, Any] = {},
         adc: list[dict] | None = None,
         cover: list[dict] = [],
         web_active: bool = False,
         web_port: int = 8090,
-        enable_modbus: bool = True,  # New parameter to control modbus initialization
     ) -> None:
-        """Initialize the manager.
-        
-        Args:
-            enable_modbus: If False, skip modbus initialization (useful for testing)
-        """
+        """Initialize the manager."""
         _LOGGER.info("Initializing manager module.")
 
         # Initialize core dependencies
@@ -181,7 +182,7 @@ class Manager:
         )
 
         # Initialize Modbus (optional)
-        if enable_modbus:
+        if modbus and modbus_devices:
             self._initialize_modbus(
                 modbus=modbus,
                 modbus_devices=modbus_devices,
@@ -247,15 +248,15 @@ class Manager:
         
         # Initialize I2C bus using smbus2 (Python 3.13+ on Debian 13)
         _LOGGER.debug("Initializing I2C bus with smbus2")
-        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        from boneio.hardware.i2c.bus import SMBus2I2C
         # BeagleBone Black I2C-2 bus (default for most shields)
-        self._i2cbusio = SMBus2I2CWrapper(bus_number=2)
+        self._i2cbusio = SMBus2I2C(bus_number=2)
         
         self._mcp = {}
         self._pcf = {}
         self._pca = {}
         
-        self._outputs: dict[str, BasicRelay] = {}
+        self._outputs: dict[str, BasicOutput] = {}
         self._configured_output_groups = {}
         self._interlock_manager = SoftwareInterlockManager()
 
@@ -264,14 +265,19 @@ class Manager:
         self._config_covers = cover
         self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
         
-        self._temp_sensors: list[TempSensor] = []
+        self._temp_sensors: list[PCT2075 | MCP9808] = []
         self._ina219_sensors = []
         self._modbus_coordinators = {}
         self._modbus = None
         self._screens = []
         
         # Subscribe to input events from EventBus
-        self._event_bus.subscribe("input", self.handle_input_event)
+        self._event_bus.add_event_listener(
+            event_type="input",
+            entity_id="",
+            listener_id="manager",
+            target=self.handle_input_event,
+        )
 
     def _initialize_hardware_expanders(
         self,
@@ -308,7 +314,7 @@ class Manager:
     def _initialize_sensors(
         self,
         sensors: dict[str, list],
-        dallas: dict[str, any] | None,
+        dallas: dict[str, Any] | None,
         ds2482: list[dict] | None,
         adc: list[dict] | None,
     ) -> None:
@@ -326,8 +332,8 @@ class Manager:
 
     def _initialize_modbus(
         self,
-        modbus: dict[str, any],
-        modbus_devices: dict[str, any],
+        modbus: dict[str, Any],
+        modbus_devices: dict[str, Any],
     ) -> None:
         """Initialize Modbus communication and coordinators.
         
@@ -426,7 +432,7 @@ class Manager:
         self._outputs_group = output_group
         self._configure_output_group()
 
-    def _initialize_oled(self, oled: dict[str, any]) -> None:
+    def _initialize_oled(self, oled: dict[str, Any]) -> None:
         """Initialize OLED display if enabled.
         
         Uses lazy import to avoid loading OLED dependencies when not needed.
@@ -437,7 +443,8 @@ class Manager:
         _LOGGER.debug("Initializing OLED display.")
         
         # Lazy import - OLED is optional
-        from boneio.oled import Oled
+        from boneio.const import OLED_PIN
+        from boneio.hardware.display import Oled
 
         self._screens = oled.get("screens", [])
         extra_sensors = oled.get("extra_screen_sensors", [])
@@ -461,6 +468,23 @@ class Manager:
                 sleep_timeout=oled.get("screensaver_timeout", 60),
                 event_bus=self._event_bus,
             )
+            
+            # Configure OLED button as event input
+            if OLED_PIN not in self._inputs:
+                from boneio.const import ID
+                from boneio.core.config.loader import configure_event_sensor
+                
+                oled_button = configure_event_sensor(
+                    gpio={ID: "oled_button"},
+                    pin=OLED_PIN,
+                    event_bus=self._event_bus,
+                    send_ha_autodiscovery=self.send_ha_autodiscovery,
+                    actions={},  # No actions - OLED handles button internally
+                )
+                
+                if oled_button:
+                    self._inputs[OLED_PIN] = oled_button
+                    _LOGGER.info("OLED button configured on pin %s", OLED_PIN)
         except (GPIOInputException, I2CError) as err:
             _LOGGER.error("Can't configure OLED display. %s", err)
         finally:
@@ -481,14 +505,14 @@ class Manager:
 
     @property
     def mqtt_state(self) -> bool:
-        return self._mqtt_state()
+        return self._mqtt_state
 
     @property
     def ina219_sensors(self) -> list:
         return self._ina219_sensors
 
     @property
-    def modbus_coordinators(self) -> dict[str, any]:
+    def modbus_coordinators(self) -> dict[str, Any]:
         """Get modbus coordinators.
         
         Returns dict of ModbusCoordinator instances (type hint kept generic
@@ -497,7 +521,7 @@ class Manager:
         return self._modbus_coordinators
 
     @property
-    def temp_sensors(self) -> list[TempSensor]:
+    def temp_sensors(self) -> list[PCT2075 | MCP9808]:
         return self._temp_sensors
 
     @property
@@ -645,7 +669,6 @@ class Manager:
                     action_cover = action_definition.get("action_cover")
                     extra_data = action_definition.get("data", {})
                     cover = self._covers.get(stripped_entity_id)
-                    print
                     action_to_execute = cover_actions.get(action_cover)
                     if cover and action_to_execute:
                         _f = getattr(cover, action_to_execute)
@@ -742,9 +765,15 @@ class Manager:
             )
 
     def append_task(
-        self, coro: Coroutine, name: str = "Unknown", **kwargs
+        self, coro: Callable[..., Coroutine], name: str = "Unknown", **kwargs
     ) -> asyncio.Task:
-        """Add task to run with asyncio loop."""
+        """Add task to run with asyncio loop.
+        
+        Args:
+            coro: Callable that returns a coroutine
+            name: Task name for debugging
+            **kwargs: Arguments passed to coro
+        """
         _LOGGER.debug("Appending update task for %s", name)
         task: asyncio.Task = asyncio.create_task(coro(**kwargs))
         self._tasks.append(task)
@@ -777,7 +806,7 @@ class Manager:
             from boneio.core.config.loader import (
                 configure_ds2482,
             )
-            from boneio.sensor.temp.dallas import DallasSensor
+            from boneio.hardware.onewire import DallasSensor
 
             _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
                 i2cbusio=self._i2cbusio, address=_single_ds[ADDRESS]
@@ -985,6 +1014,11 @@ class Manager:
         gpio = event_data.get("input_instance")
         duration = event_data.get("duration")
         actions = event_data.get("actions", [])
+        
+        if not gpio:
+            _LOGGER.error("Received input event without input_instance")
+            return
+            
         start_time = time.time()
         topic = f"{self._config_helper.topic_prefix}/{gpio.input_type}/{gpio.pin}"
 
@@ -1009,6 +1043,9 @@ class Manager:
                 continue
             elif action == OUTPUT:
                 output = self._outputs.get(entity_id, self._configured_output_groups.get(entity_id))
+                if not output:
+                    _LOGGER.warning("Output %s not found for action", entity_id)
+                    continue
                 action_to_execute = action_definition.get("action_to_execute")
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
@@ -1019,9 +1056,10 @@ class Manager:
                 _f = getattr(output, action_to_execute)
                 await _f()
             elif action == COVER:
-                print("COVER action")
                 cover = self._covers.get(entity_id)
-                print(cover)
+                if not cover:
+                    _LOGGER.warning("Cover %s not found for action", entity_id)
+                    continue
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
                 _LOGGER.debug(

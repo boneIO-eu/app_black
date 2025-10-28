@@ -1,13 +1,4 @@
-# from typing import Literal
-try:
-    from Adafruit_BBIO.GPIO import BOTH, FALLING, HIGH, LOW, RISING
-except ModuleNotFoundError:
-    HIGH = "high"
-    LOW = "low"
-    BOTH = "both"
-    FALLING = "falling"
-    RISING = "rising"
-    pass
+
 from typing import Literal
 
 BONEIO = "boneio"
@@ -75,7 +66,6 @@ SHOW_HA = "show_in_ha"
 
 # OLED CONST
 OLED = "oled"
-FONTS = "fonts"
 OLED_PIN = "P9_41"
 GIGABYTE = 1073741824
 MEGABYTE = 1048576
@@ -153,10 +143,8 @@ CLOSE = "close"
 STOP = "stop"
 
 # TYPING
-ClickTypes = Literal[SINGLE, DOUBLE, LONG, PRESSED, RELEASED]
+ClickTypes = Literal["single", "double", "long", "pressed", "released"]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
-Gpio_States = Literal[HIGH, LOW]
-Gpio_Edges = Literal[BOTH, FALLING]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
@@ -177,52 +165,56 @@ cover_actions = {
 
 INA219 = "ina219"
 PINS = {
-    "P9_22": {"chip": 0, "line": 2},
-    "P9_21": {"chip": 0, "line": 3},
-    "P9_18": {"chip": 0, "line": 4},
-    "P9_17": {"chip": 0, "line": 5},
-    "P8_35": {"chip": 0, "line": 8},
-    "P8_33": {"chip": 0, "line": 9},
-    "P8_31": {"chip": 0, "line": 10},
-    "P8_32": {"chip": 0, "line": 11},
-    "P8_19": {"chip": 0, "line": 22},
-    "P8_13": {"chip": 0, "line": 23},
-    "P8_14": {"chip": 0, "line": 26},
-    "P8_17": {"chip": 0, "line": 27},
-    "P8_12": {"chip": 1, "line": 12},
-    "P8_11": {"chip": 1, "line": 13},
-    "P8_16": {"chip": 1, "line": 14},
-    "P8_15": {"chip": 1, "line": 15},
-    "P9_23": {"chip": 1, "line": 17},
-    "P9_14": {"chip": 1, "line": 18},
-    "P9_16": {"chip": 1, "line": 19},
-    "P8_26": {"chip": 1, "line": 29},
-    "P8_18": {"chip": 2, "line": 1},
-    "P8_7": {"chip": 2, "line": 2},
-    "P8_8": {"chip": 2, "line": 3},
-    "P8_10": {"chip": 2, "line": 4},
-    "P8_9": {"chip": 2, "line": 5},
-    "P8_45": {"chip": 2, "line": 6},
-    "P8_46": {"chip": 2, "line": 7},
-    "P8_43": {"chip": 2, "line": 8},
-    "P8_44": {"chip": 2, "line": 9},
-    "P8_41": {"chip": 2, "line": 10},
-    "P8_42": {"chip": 2, "line": 11},
-    "P8_39": {"chip": 2, "line": 12},
-    "P8_40": {"chip": 2, "line": 13},
-    "P8_37": {"chip": 2, "line": 14},
-    "P8_38": {"chip": 2, "line": 15},
-    "P8_36": {"chip": 2, "line": 16},
-    "P8_34": {"chip": 2, "line": 17},
-    "P8_27": {"chip": 2, "line": 22},
-    "P8_29": {"chip": 2, "line": 23},
-    "P8_28": {"chip": 2, "line": 24},
-    "P8_30": {"chip": 2, "line": 25},
-    "P9_31": {"chip": 3, "line": 14},
-    "P9_29": {"chip": 3, "line": 15},
-    "P9_30": {"chip": 3, "line": 16},
-    "P9_28": {"chip": 3, "line": 17},
-    "P9_27": {"chip": 3, "line": 19},
-    "P9_25": {"chip": 3, "line": 21},
+    # Based on boneio/boards/0.8/input.yaml
+    "P8_37": {"chip": 1, "line": 14},
+    "P8_38": {"chip": 1, "line": 15},
+    "P8_39": {"chip": 1, "line": 12},
+    "P8_40": {"chip": 1, "line": 13},
+    "P8_41": {"chip": 1, "line": 10},
+    "P8_42": {"chip": 1, "line": 11},
+    "P8_43": {"chip": 1, "line": 8},
+    "P8_44": {"chip": 1, "line": 9},
+    "P8_45": {"chip": 1, "line": 6},
+    "P8_46": {"chip": 1, "line": 7},
+    "P9_42": {"chip": 3, "line": 7},
+    "P9_31": {"chip": 2, "line": 14},
+    "P9_30": {"chip": 2, "line": 16},
+    "P9_29": {"chip": 2, "line": 15},
+    "P9_28": {"chip": 2, "line": 17},
+    "P9_27": {"chip": 2, "line": 19},
+    "P9_25": {"chip": 2, "line": 21},
+    "P9_23": {"chip": 0, "line": 17},
+    "P9_22": {"chip": 3, "line": 2},
+    "P9_21": {"chip": 3, "line": 3},
+    "P9_18": {"chip": 3, "line": 4},
+    "P9_17": {"chip": 3, "line": 5},
+    "P9_16": {"chip": 0, "line": 19},
+    "P9_15": {"chip": 0, "line": 16},
+    "P9_14": {"chip": 0, "line": 18},
+    "P8_7": {"chip": 1, "line": 2},
+    "P8_8": {"chip": 1, "line": 3},
+    "P8_9": {"chip": 1, "line": 5},
+    "P8_36": {"chip": 1, "line": 16},
+    "P8_35": {"chip": 3, "line": 8},
+    "P8_34": {"chip": 1, "line": 17},
+    "P8_33": {"chip": 3, "line": 9},
+    "P8_32": {"chip": 3, "line": 11},
+    "P8_31": {"chip": 3, "line": 10},
+    "P8_30": {"chip": 1, "line": 25},
+    "P8_29": {"chip": 1, "line": 23},
+    "P8_28": {"chip": 1, "line": 24},
+    "P8_27": {"chip": 1, "line": 22},
+    "P8_26": {"chip": 0, "line": 29},
+    "P8_19": {"chip": 3, "line": 22},
+    "P8_18": {"chip": 1, "line": 1},
+    "P8_17": {"chip": 3, "line": 27},
+    "P8_16": {"chip": 0, "line": 14},
+    "P8_15": {"chip": 0, "line": 15},
+    "P8_14": {"chip": 3, "line": 26},
+    "P8_13": {"chip": 3, "line": 23},
+    "P8_12": {"chip": 0, "line": 12},
+    "P8_11": {"chip": 0, "line": 13},
+    "P8_10": {"chip": 1, "line": 4},
+    "P9_41": {"chip": 3, "line": 20},
 }
 NAME = "name"

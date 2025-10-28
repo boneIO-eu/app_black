@@ -3,11 +3,8 @@ from __future__ import annotations
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
-
-from adafruit_mcp230xx.mcp23017 import MCP23017
-from adafruit_pca9685 import PCA9685
+from typing import TYPE_CHECKING, Any
 
 from boneio.const import (
     ADDRESS,
@@ -42,50 +39,53 @@ from boneio.const import (
     DallasBusTypes,
     ExpanderTypes,
 )
-from boneio.cover import PreviousCover, TimeBasedCover, VenetianCover
-from boneio.group import OutputGroup
-from boneio.helper import (
+from boneio.hardware.gpio.expanders import MCP23017, PCA9685
+
+# Import only for type checking to avoid circular imports
+if TYPE_CHECKING:
+    from boneio.components.cover import PreviousCover, TimeBasedCover
+# W1ThermSensor import moved to function to avoid kernel module loading at import time
+
+from boneio.components.sensor import SerialNumberSensor
+from boneio.core.events import EventBus
+from boneio.core.messaging.basic import MessageBus
+from boneio.core.state import StateManager
+from boneio.core.utils import TimePeriod
+from boneio.exceptions import (
     CoverConfigurationException,
     GPIOInputException,
     GPIOOutputException,
     I2CError,
-    ha_adc_sensor_availabilty_message,
-    ha_binary_sensor_availabilty_message,
-    ha_event_availabilty_message,
-    ha_sensor_ina_availabilty_message,
-    ha_sensor_temp_availabilty_message,
 )
-from boneio.core.state import StateManager
-from boneio.core.events import EventBus
-from boneio.helper.ha_discovery import (
-    ha_cover_availabilty_message,
-    ha_cover_with_tilt_availabilty_message,
-    ha_sensor_availabilty_message,
-    ha_virtual_energy_sensor_discovery_message,
-)
-from boneio.helper.onewire import (
+from boneio.hardware.gpio.expanders import PCF8575
+from boneio.hardware.onewire import (
     DS2482,
     DS2482_ADDRESS,
     OneWireBus,
 )
-from boneio.helper.pcf8575 import PCF8575
-from boneio.core.utils import TimePeriod
-from boneio.input import GpioEventButton, GpioInputBinarySensor
-from boneio.core.messaging.basic import MessageBus
+from boneio.hardware.onewire import DallasSensor
+from boneio.components.input import GpioEventButton, GpioInputBinarySensor
+from boneio.integration.homeassistant import (
+    ha_adc_sensor_availabilty_message,
+    ha_binary_sensor_availabilty_message,
+    ha_cover_availabilty_message,
+    ha_cover_with_tilt_availabilty_message,
+    ha_event_availabilty_message,
+    ha_sensor_availabilty_message,
+    ha_sensor_ina_availabilty_message,
+    ha_sensor_temp_availabilty_message,
+    ha_virtual_energy_sensor_discovery_message,
+)
 from boneio.modbus.coordinator import ModbusCoordinator
-from boneio.sensor.temp.dallas import DallasSensor
-from boneio.sensor.serial_number import SerialNumberSensor
-from w1thermsensor import W1ThermSensor
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
-    from ..manager import Manager
+    from boneio.manager import Manager
 
 # Use smbus2 wrapper for Python 3.13+ on Debian 13
-from boneio.helper.i2c_wrapper import SMBus2I2CWrapper as I2C
-
-from boneio.relay import PWMPCA, GpioRelay, MCPRelay, PCFRelay
-from boneio.sensor import GpioADCSensor, initialize_adc
+from boneio.components.output import MCPOutput, PCFOutput, PWMOutput
+from boneio.hardware.i2c.bus import SMBus2I2C as I2C
+from boneio.hardware.analog import GpioADCSensor, initialize_adc
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -135,9 +135,9 @@ def create_temp_sensor(
 ):
     """Create LM sensor in manager."""
     if sensor_type == LM75:
-        from boneio.sensor import LM75Sensor as TempSensor
+        from boneio.hardware.sensor.temperature.pct2075 import PCT2075 as TempSensor
     elif sensor_type == MCP_TEMP_9808:
-        from boneio.sensor import MCP9808Sensor as TempSensor
+        from boneio.hardware.sensor.temperature.mcp9808 import MCP9808 as TempSensor
     else:
         return
     name = config.get(ID)
@@ -263,15 +263,13 @@ def output_chooser(output_kind: str, config):
     """Get named tuple based on input."""
     if output_kind == MCP:
         expander_id = config.pop(MCP_ID, None)
-        return OutputEntry(MCPRelay, MCP, expander_id)
-    elif output_kind == GPIO:
-        return OutputEntry(GpioRelay, GPIO, GPIO)
+        return OutputEntry(MCPOutput, MCP, expander_id)
     elif output_kind == PCA:
         expander_id = config.pop(PCA_ID, None)
-        return OutputEntry(PWMPCA, PCA, expander_id)
+        return OutputEntry(PWMOutput, PCA, expander_id)
     elif output_kind == PCF:
         expander_id = config.pop(PCF_ID, None)
-        return OutputEntry(PCFRelay, PCF, expander_id)
+        return OutputEntry(PCFOutput, PCF, expander_id)
     else:
         raise GPIOOutputException(f"""Output type {output_kind} dont exists""")
 
@@ -283,6 +281,8 @@ def configure_output_group(
     **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
+    from boneio.components.group import OutputGroup
+    
     _id = config.pop(ID)
 
     output = OutputGroup(
@@ -568,7 +568,9 @@ def configure_cover(
     config: dict,
     tilt_duration: TimePeriod | None,
     **kwargs,
-) -> PreviousCover | TimeBasedCover:
+) -> "PreviousCover | TimeBasedCover":
+    """Configure cover - lazy import to avoid circular dependency."""
+    from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
     
     platform = config.get("platform", "previous")
     def state_save(value: dict[str, int]):
@@ -649,11 +651,12 @@ def configure_ds2482(
 
 def get_w1_sensor_class():
     """Return the W1ThermSensor class for direct kernel access to 1-Wire sensors."""
+    from w1thermsensor import W1ThermSensor
     return W1ThermSensor
 
 
 def find_onewire_devices(
-    ow_bus: OneWireBus | W1ThermSensor,
+    ow_bus: OneWireBus | "W1ThermSensor",
     bus_id: str,
     bus_type: DallasBusTypes,
 ) -> dict[str, str]:
@@ -709,7 +712,7 @@ def create_ina219_sensor(
     config: dict = {},
 ):
     """Create INA219 sensor in manager."""
-    from boneio.sensor import INA219
+    from boneio.hardware.i2c import INA219
 
     address = config[ADDRESS]
     id = config.get(ID, str(address)).replace(" ", "")

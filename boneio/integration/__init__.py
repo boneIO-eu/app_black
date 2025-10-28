@@ -1,0 +1,47 @@
+"""Integration modules for external systems (Home Assistant, etc.)."""
+
+from boneio.integration.homeassistant import (
+    ha_availabilty_message,
+    ha_adc_sensor_availabilty_message,
+    ha_binary_sensor_availabilty_message,
+    ha_button_availabilty_message,
+    ha_cover_availabilty_message,
+    ha_cover_with_tilt_availabilty_message,
+    ha_event_availabilty_message,
+    ha_led_availabilty_message,
+    ha_light_availabilty_message,
+    ha_sensor_availabilty_message,
+    ha_sensor_ina_availabilty_message,
+    ha_sensor_temp_availabilty_message,
+    ha_switch_availabilty_message,
+    ha_valve_availabilty_message,
+    ha_virtual_energy_sensor_discovery_message,
+    modbus_availabilty_message,
+    modbus_numeric_availabilty_message,
+    modbus_select_availabilty_message,
+    modbus_sensor_availabilty_message,
+)
+from boneio.integration.interlock import SoftwareInterlockManager
+
+__all__ = [
+    "ha_availabilty_message",
+    "ha_adc_sensor_availabilty_message",
+    "ha_binary_sensor_availabilty_message",
+    "ha_button_availabilty_message",
+    "ha_cover_availabilty_message",
+    "ha_cover_with_tilt_availabilty_message",
+    "ha_event_availabilty_message",
+    "ha_led_availabilty_message",
+    "ha_light_availabilty_message",
+    "ha_sensor_availabilty_message",
+    "ha_sensor_ina_availabilty_message",
+    "ha_sensor_temp_availabilty_message",
+    "ha_switch_availabilty_message",
+    "ha_valve_availabilty_message",
+    "ha_virtual_energy_sensor_discovery_message",
+    "modbus_availabilty_message",
+    "modbus_numeric_availabilty_message",
+    "modbus_select_availabilty_message",
+    "modbus_sensor_availabilty_message",
+    "SoftwareInterlockManager",
+]

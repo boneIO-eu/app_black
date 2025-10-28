@@ -24,24 +24,24 @@ from boneio.const import (
     SWITCH,
     TEXT_SENSOR,
 )
-from boneio.helper import AsyncUpdater, BasicMqtt
 from boneio.core.config import ConfigHelper
 from boneio.core.events import EventBus
-from boneio.core.utils import Filter
+from boneio.core.messaging import BasicMqtt
+from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.util import open_json
-from boneio.modbus.derived import (
+from boneio.modbus.entities.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
     ModbusDerivedSwitch,
     ModbusDerivedTextSensor,
 )
-from boneio.modbus.sensor import (
+from boneio.modbus.entities.sensor import (
     ModbusBinarySensor,
     ModbusNumericSensor,
 )
-from boneio.modbus.sensor.text import ModbusTextSensor
-from boneio.modbus.writeable.binary import ModbusBinaryWriteableEntityDiscrete
-from boneio.modbus.writeable.numeric import (
+from boneio.modbus.entities.sensor.text import ModbusTextSensor
+from boneio.modbus.entities.writeable.binary import ModbusBinaryWriteableEntityDiscrete
+from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
@@ -86,29 +86,28 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._discovery_sent = False
         self._payload_online = OFFLINE
         self._sensors_filters = {k.lower(): v for k, v in sensors_filters.items()}
-        self._modbus_entities: list[
-            dict[
-                str,
-                ModbusNumericSensor
-                | ModbusNumericWriteableEntity
-                | ModbusNumericWriteableEntityDiscrete,
-            ]
-        ] = []
-        self._modbus_entities_by_name: dict[
-            str,
-            ModbusNumericSensor
-            | ModbusNumericWriteableEntity
-            | ModbusNumericWriteableEntityDiscrete,
-        ] = {}
-        self._additional_sensors: list[
-            dict[str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
-        ] = []
-        self._additional_sensors_by_source_name: dict[
-            str, list[ModbusDerivedNumericSensor | ModbusDerivedTextSensor]
-        ] = {}
-        self._additional_sensors_by_name: dict[
-            str, ModbusDerivedNumericSensor | ModbusDerivedTextSensor
-        ] = {}
+        # Type aliases for cleaner code
+        from typing import Union
+        ModbusEntity = Union[
+            ModbusNumericSensor,
+            ModbusNumericWriteableEntity,
+            ModbusNumericWriteableEntityDiscrete,
+            ModbusBinarySensor,
+            ModbusBinaryWriteableEntityDiscrete,
+            ModbusTextSensor,
+        ]
+        DerivedEntity = Union[
+            ModbusDerivedNumericSensor,
+            ModbusDerivedTextSensor,
+            ModbusDerivedSelect,
+            ModbusDerivedSwitch,
+        ]
+        
+        self._modbus_entities: list[dict[str, ModbusEntity]] = []  # type: ignore[valid-type]
+        self._modbus_entities_by_name: dict[str, ModbusEntity] = {}  # type: ignore[valid-type]
+        self._additional_sensors: list[dict[str, DerivedEntity]] = []  # type: ignore[valid-type]
+        self._additional_sensors_by_source_name: dict[str, list[DerivedEntity]] = {}  # type: ignore[valid-type]
+        self._additional_sensors_by_name: dict[str, DerivedEntity] = {}  # type: ignore[valid-type]
         self._additional_data = additional_data
 
         self.__init_modbus_entities__()
@@ -410,18 +409,32 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 sensor.send_ha_discovery()
         return datetime.now()
 
-    async def write_register(self, value: str | float | int, entity: str) -> None:
-        _LOGGER.debug("Writing register %s for %s", value, entity)
+    async def write_register(
+        self, 
+        value: str | float | int, 
+        entity: ModbusNumericSensor | ModbusNumericWriteableEntity | ModbusNumericWriteableEntityDiscrete
+    ) -> None:
+        """Write value to modbus register.
+        
+        Args:
+            value: Value to write
+            entity: Entity object (not name) to write to
+        """
+        _LOGGER.debug("Writing register %s for %s", value, entity.name if hasattr(entity, 'name') else entity)
         output = {}
         timestamp = time.time()
-        derived_sensor = self._additional_sensors_by_name.get(entity)
+        
+        # Check if it's a derived sensor (by entity's decoded_name)
+        entity_name = entity.decoded_name if hasattr(entity, 'decoded_name') else str(entity)
+        derived_sensor = self._additional_sensors_by_name.get(entity_name)
+        
         if derived_sensor:
             source_sensor = self.get_entity_by_name(
                 derived_sensor.source_sensor_decoded_name
             )
-            if not source_sensor.write_address:
+            if not source_sensor or not source_sensor.write_address:
                 _LOGGER.error(
-                    "Source sensor %s has no write address", source_sensor.name
+                    "Source sensor %s has no write address", source_sensor.name if source_sensor else "Unknown"
                 )
                 return
             encoded_value = derived_sensor.encode_value(value)
@@ -440,9 +453,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 payload=output,
             )
             return
-        modbus_sensor = self.get_entity_by_name(entity)
-        if not modbus_sensor.write_address:
-            _LOGGER.error("Modbus sensor %s has no write address", modbus_sensor.name)
+        
+        # Direct modbus sensor write
+        modbus_sensor = entity  # entity is already the sensor object
+        if not hasattr(modbus_sensor, 'write_address') or not modbus_sensor.write_address:
+            _LOGGER.error("Modbus sensor %s has no write address", modbus_sensor.name if hasattr(modbus_sensor, 'name') else 'Unknown')
             return
         encoded_value = modbus_sensor.encode_value(value)
         status = await self._modbus.write_register(

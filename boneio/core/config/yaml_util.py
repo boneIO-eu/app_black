@@ -9,10 +9,10 @@ from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
 from boneio.const import ID, OUTPUT
-from boneio.helper.exceptions import ConfigurationException
 from boneio.core.utils import TimePeriod
+from boneio.exceptions import ConfigurationException
 
-schema_file = os.path.join(os.path.dirname(__file__), "../schema/schema.yaml")
+schema_file = os.path.join(os.path.dirname(__file__), "../../schema/schema.yaml")
 _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
@@ -165,7 +165,7 @@ def load_yaml_file(filename: str) -> Any:
 
 def get_board_config_path(board_name: str, version: str) -> str:
     """Get the appropriate board configuration file path based on version."""
-    base_dir = os.path.join(os.path.dirname(__file__), "../boards")
+    base_dir = os.path.join(os.path.dirname(__file__), "../../boards")
     version_dir = os.path.join(base_dir, version)
     version_specific_file = os.path.join(version_dir, f"{board_name}.yaml")
     

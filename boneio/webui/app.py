@@ -33,12 +33,12 @@ from starlette.websockets import WebSocketState
 
 from boneio.const import COVER, NONE
 from boneio.core.config import ConfigHelper
-from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import ConfigurationException
 from boneio.core.config.yaml_util import (
     load_config_from_file,
     update_config_section,
 )
+from boneio.exceptions import ConfigurationException
+from boneio.core.events import GracefulExit
 from boneio.manager import Manager
 from boneio.models import (
     CoverState,

@@ -17,10 +17,10 @@ def test_i2c_wrapper():
     _LOGGER.info("Testing SMBus2I2CWrapper...")
     
     try:
-        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        from boneio.hardware.i2c.bus import SMBus2I2C
         
         # Initialize I2C bus
-        i2c = SMBus2I2CWrapper(bus_number=2)
+        i2c = SMBus2I2C(bus_number=2)
         _LOGGER.info("✅ I2C wrapper initialized successfully")
         
         # Scan for devices
@@ -47,9 +47,9 @@ def test_mcp23017():
     
     try:
         from adafruit_mcp230xx.mcp23017 import MCP23017
-        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        from boneio.hardware.i2c.bus import SMBus2I2C
         
-        i2c = SMBus2I2CWrapper(bus_number=2)
+        i2c = SMBus2I2C(bus_number=2)
         
         # Try common MCP23017 addresses
         addresses = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]
@@ -85,9 +85,9 @@ def test_pca9685():
     
     try:
         from adafruit_pca9685 import PCA9685
-        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        from boneio.hardware.i2c.bus import SMBus2I2C
         
-        i2c = SMBus2I2CWrapper(bus_number=2)
+        i2c = SMBus2I2C(bus_number=2)
         
         # Try common PCA9685 addresses
         addresses = [0x40, 0x41, 0x42, 0x43]
@@ -122,10 +122,10 @@ def test_pcf8575():
     _LOGGER.info("\nTesting PCF8575...")
     
     try:
-        from boneio.helper.pcf8575 import PCF8575
-        from boneio.helper.i2c_wrapper import SMBus2I2CWrapper
+        from boneio.hardware.gpio.expanders.pcf8575 import PCF8575
+        from boneio.hardware.i2c.bus import SMBus2I2C
         
-        i2c = SMBus2I2CWrapper(bus_number=2)
+        i2c = SMBus2I2C(bus_number=2)
         
         # Try common PCF8575 addresses
         addresses = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]

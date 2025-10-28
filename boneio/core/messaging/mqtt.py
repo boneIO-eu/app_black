@@ -13,16 +13,15 @@ from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
 
-import paho.mqtt.client as mqtt
 from aiomqtt import Client as AsyncioClient
-from aiomqtt import Message, MqttError, Will
+from aiomqtt import MqttError, Will
 from paho.mqtt.properties import Properties
 from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from boneio.const import OFFLINE, PAHO, STATE
 from boneio.core.config import ConfigHelper
-from boneio.helper.events import GracefulExit
-from boneio.helper.queue import UniqueQueue
+from boneio.core.messaging.queue import UniqueQueue
+from boneio.models.mqtt import MQTTMessageSend
 
 if TYPE_CHECKING:
     from boneio.manager import Manager
@@ -41,16 +40,15 @@ class MQTTClient(MessageBus):
         **client_options: Any,
     ) -> None:
         """Set up client."""
-        self._manager: Manager = None
+        self._manager: Manager | None = None
         self.host = host
         self.port = port
         self._config_helper = config_helper
-        client_options["client_id"] = mqtt.base62(uuid.uuid4().int, padding=22)
+        client_options["identifier"] = str(uuid.uuid4())
         client_options["logger"] = logging.getLogger(PAHO)
         client_options["clean_session"] = True
         self.client_options = client_options
-        self.asyncio_client: AsyncioClient = None
-        self.create_client()
+        self.asyncio_client = self.create_client()
         self.reconnect_interval = 1
         self._connection_established = False
         self.publish_queue: UniqueQueue = UniqueQueue()
@@ -70,10 +68,10 @@ class MQTTClient(MessageBus):
         self._running = True
         self._cancel_future: asyncio.Future | None = None
 
-    def create_client(self) -> None:
+    def create_client(self) -> AsyncioClient:
         """Create the asyncio client."""
         _LOGGER.debug("Creating client %s:%s", self.host, self.port)
-        self.asyncio_client = AsyncioClient(
+        return AsyncioClient(
             self.host,
             self.port,
             will=Will(
@@ -131,7 +129,7 @@ class MQTTClient(MessageBus):
         # e.g. subscribe([("my/topic", SubscribeOptions(qos=0), ("another/topic", SubscribeOptions(qos=2)])
         _LOGGER.debug("Subscribing to %s", args)
         await self.asyncio_client.subscribe(
-            topic=args, **params, timeout=timeout
+            args, timeout=timeout, **params
         )
 
     async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
@@ -155,27 +153,41 @@ class MQTTClient(MessageBus):
         if properties:
             params["properties"] = properties
 
-        await self.asyncio_client.unsubscribe(topic=topics, **params)
+        await self.asyncio_client.unsubscribe(topics, **params)
 
     def send_message(
         self,
         topic: str,
         payload: str | int | dict | None,
         retain: bool = False,
+        qos: int = 0,
     ) -> None:
-        """Send a message from the manager options."""
-        to_publish = (
-            topic,
-            json.dumps(payload) if isinstance(payload, dict) else payload,
-            retain,
+        """Send a message from the manager options.
+        
+        Args:
+            topic: MQTT topic
+            payload: Message payload (will be JSON-encoded if dict)
+            retain: Whether to retain the message
+            qos: Quality of Service level (0, 1, or 2)
+        """
+        message = MQTTMessageSend(
+            topic=topic,
+            payload=json.dumps(payload) if isinstance(payload, dict) else payload,
+            retain=retain,
+            qos=qos,
         )
-        self.publish_queue.put_nowait(to_publish)
+        self.publish_queue.put_nowait(message)
 
     async def _handle_publish(self) -> None:
         """Publish messages as they are put on the queue."""
         while True:
-            to_publish: tuple = await self.publish_queue.get()
-            await self.publish(*to_publish)
+            message: MQTTMessageSend = await self.publish_queue.get()
+            await self.publish(
+                topic=message.topic,
+                payload=message.payload,
+                retain=message.retain,
+                qos=message.qos,
+            )
             self.publish_queue.task_done()
 
     async def announce_offline(self) -> None:
@@ -191,7 +203,8 @@ class MQTTClient(MessageBus):
         try:
             while True:
                 try:
-                    await self._subscribe_manager(self._manager)
+                    if self._manager is not None:
+                        await self._subscribe_manager(self._manager)
                 except MqttError as err:
                     self.reconnect_interval = min(
                         self.reconnect_interval * 2, 60
@@ -204,11 +217,12 @@ class MQTTClient(MessageBus):
                     self._connection_established = False
                     self.publish_queue.set_connected(False)
                     await asyncio.sleep(self.reconnect_interval)
-                    self.create_client()  # reset connect/reconnect futures
+                    self.asyncio_client = self.create_client()  # reset connect/reconnect futures
         except (asyncio.CancelledError, GracefulExit):
             _LOGGER.info("MQTT client shutting down...")
-            await self.asyncio_client.disconnect(timeout=1.0)
-            # raise
+            # Don't call __aexit__ here - AsyncExitStack handles cleanup
+            # The client context is managed by async with in _subscribe_manager
+            pass
 
     def set_manager(self, manager: Manager) -> None:
         """Set manager."""
@@ -223,7 +237,9 @@ class MQTTClient(MessageBus):
             self._cancel_future = asyncio.Future()
             
             async def wait_for_cancel():
-                await self._cancel_future
+                # Wait for future to complete
+                if self._cancel_future is not None:
+                    await self._cancel_future
                 # When future completes, raise CancelledError to stop other tasks
                 raise asyncio.CancelledError("Stop requested")
             
@@ -233,12 +249,8 @@ class MQTTClient(MessageBus):
             tasks.add(publish_task)
 
             # Messages that doesn't match a filter will get logged and handled here.
-            messages = await stack.enter_async_context(
-                self.asyncio_client.messages()
-            )
-
             messages_task = asyncio.create_task(
-                self.handle_messages(messages, manager.receive_message)
+                self.handle_messages(self.asyncio_client.messages, manager.receive_message)
             )
             if not self._connection_established:
                 self._connection_established = True
@@ -263,7 +275,7 @@ class MQTTClient(MessageBus):
         return self._connection_established
 
     async def handle_messages(
-        self, messages: Message, callback: Callable[[str, str], Awaitable[None]]
+        self, messages, callback: Callable[[str, str], Awaitable[None]]
     ):
         """Handle messages with callback or remove obsolete HA discovery messages."""
         async for message in messages:

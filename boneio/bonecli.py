@@ -14,19 +14,19 @@ import sys
 from yaml import MarkedYAMLError
 
 from boneio.const import ACTION
-from boneio.helper import load_config_from_file
-from boneio.helper.events import GracefulExit
-from boneio.helper.exceptions import (
+from boneio.core.config import load_config_from_file
+from boneio.core.events import GracefulExit
+from boneio.core.utils.logger import configure_logger, setup_logging
+from boneio.exceptions import (
     ConfigurationException,
     RestartRequestException,
 )
-from boneio.helper.logger import configure_logger, setup_logging
-from boneio.modbus.client import VALUE_TYPES
-from boneio.modbus.modbuscli import (
+from boneio.modbus.cli import (
     async_run_modbus_get,
     async_run_modbus_search,
     async_run_modbus_set,
 )
+from boneio.modbus.client import VALUE_TYPES
 from boneio.runner import async_run
 from boneio.version import __version__
 
