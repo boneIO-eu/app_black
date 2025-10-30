@@ -76,7 +76,7 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
         )
         return msg
 
-    def encode_value(self, value: float) -> int:
+    def encode_value(self, value: float | int) -> int:
         if self._write_filters:
             value = self._apply_filters(value=int(value), filters=self._write_filters)
         return int(value)

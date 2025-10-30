@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from boneio.core.utils.util import strip_accents
 from boneio.core.messaging.basic import MessageBus
+from boneio.core.utils.util import strip_accents
 
 
 class BasicMqtt:

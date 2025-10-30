@@ -10,8 +10,7 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
 from boneio.core.config import ConfigHelper
-from boneio.manager import Manager
-from boneio.webui.app import BoneIOApp, init_app
+from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,16 +40,7 @@ class WebServer:
 
         # Set up JWT secret
         self.jwt_secret = self._get_jwt_secret_or_generate()
-
-        # Initialize FastAPI app
-        self.app: BoneIOApp = init_app(
-            manager=self.manager,
-            yaml_config_file=self._yaml_config_file,
-            auth_config=auth,
-            jwt_secret=self.jwt_secret,
-            config_helper=self.config_helper,
-            web_server=self,
-        )
+        self._auth_config = auth
 
         # Configure hypercorn with shared logging config
         self._hypercorn_config = Config()
@@ -71,7 +61,10 @@ class WebServer:
         self._hypercorn_config.accesslog = hypercorn_access_logger
         self._hypercorn_config.errorlog = hypercorn_logger
 
-        self._hypercorn_config.graceful_timeout = 5.0
+        # Reduce timeouts for faster shutdown
+        self._hypercorn_config.graceful_timeout = 2.0  # Wait max 2s for connections to close
+        self._hypercorn_config.keep_alive_timeout = 2  # Keep-alive timeout
+        self._hypercorn_config.websocket_ping_interval = 20  # Ping interval (default is None)
         # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
         # Override the server's install_signal_handlers to prevent it from handling signals
         # self._server.install_signal_handlers = lambda: None
@@ -113,15 +106,32 @@ class WebServer:
 
         async def shutdown_trigger() -> None:
             """Shutdown trigger for hypercorn"""
+            _LOGGER.debug("Shutdown trigger waiting for event...")
             await self._shutdown_event.wait()
+            _LOGGER.info("Shutdown trigger activated, Hypercorn will now shutdown gracefully")
+
+        from boneio.webui.app import init_app
+
+        # Initialize FastAPI app
+        self.app = init_app(
+            manager=self.manager,
+            yaml_config_file=self._yaml_config_file,
+            auth_config=self._auth_config,
+            jwt_secret=self.jwt_secret,
+            config_helper=self.config_helper,
+            web_server=self,
+        )
 
         server_task = asyncio.create_task(
-            serve(self.app, self._hypercorn_config, shutdown_trigger=shutdown_trigger)
+            serve(app=self.app, config=self._hypercorn_config, shutdown_trigger=shutdown_trigger)
         )
         self.manager.set_web_server_status(status=True, bind=self._port)
         try:
+            _LOGGER.debug("Waiting for Hypercorn server to complete...")
             await server_task
+            _LOGGER.info("Hypercorn server task completed")
         except asyncio.CancelledError:
+            _LOGGER.info("Hypercorn server task cancelled")
             pass  # Expected due to cancellation
 
     async def trigger_shutdown(self) -> None:

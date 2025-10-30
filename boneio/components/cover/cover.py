@@ -20,6 +20,7 @@ from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import TimePeriod
 from boneio.models import CoverState, PositionDict
 from boneio.components.output import MCPOutput
+from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,6 +95,11 @@ class BaseCoverABC(ABC):
     @property
     @abstractmethod
     def last_timestamp(self) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def kind(self) -> str:
         pass
 
 
@@ -277,11 +283,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             current_operation=self._current_operation,
             **json_position
         )
-        self._event_bus.trigger_event({
-            "event_type": "cover", 
-            "entity_id": self.id, 
-            "event_state": event
-        })
+        self._event_bus.trigger_event(CoverEvent(
+            entity_id=self.id,
+            state=event
+        ))
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
         self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json_position)
 

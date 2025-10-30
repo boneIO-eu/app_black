@@ -1,73 +1,52 @@
+"""BoneIO models package.
+
+This package contains all Pydantic models used throughout BoneIO:
+- state.py: State models for entities (InputState, OutputState, etc.)
+- events.py: Event models for EventBus (InputEvent, OutputEvent, etc.)
+- mqtt.py: MQTT-specific models
+- logs.py: Logging models
+- files.py: File handling models
+"""
+
 from __future__ import annotations
-
-from typing import TypedDict
-
 from pydantic import BaseModel
 
+# Import State models from state.py
+from boneio.models.state import (
+    CoverResponse,
+    CoverState,
+    HostSensorState,
+    InputsResponse,
+    InputState,
+    OutputsResponse,
+    OutputState,
+    PositionDict,
+    SensorState,
+ 
+)
 
-class InputState(BaseModel):
-    """Input state model."""
-    name: str
-    state: str
-    type: str
-    pin: str
-    timestamp: float
-    boneio_input: str
-
-class InputsResponse(BaseModel):
-    """Inputs response model."""
-    inputs: list[InputState]
-
-class OutputState(BaseModel):
-    """Output state model."""
-    id: str
-    name: str
-    state: str
-    type: str
-    expander_id: str | None
-    pin: int
-    timestamp: float | None = None
-
-class CoverState(BaseModel):
-    """Cover state model."""
-    id: str
-    name: str
-    state: str
-    position: int
-    current_operation: str
-    timestamp: float | None = None
-    tilt: int = 0  # Tilt position (0-100)
-    kind: str
-    
-
-class SensorState(BaseModel):
-    """Sensor state model."""
-    id: str
-    name: str
-    state: float | str | None
-    unit: str | None
-    timestamp: float | None
-
-class HostSensorState(BaseModel):
-    """Host Sensor state model."""
-    id: str
-    name: str
-    state: str
-    timestamp: float | None = None
-
-class OutputsResponse(BaseModel):
-    """Outputs response model."""
-    outputs: list[OutputState]
-
-class CoverResponse(BaseModel):
-    """Cover response model."""
-    covers: list[CoverState]
+from boneio.models.events import Event
 
 class StateUpdate(BaseModel):
     """State update model for WebSocket messages."""
-    type: str  # 'input' or 'output' or 'cover'
-    data: InputState | OutputState | SensorState | CoverState
+    type: str  # 'input' or 'output' or 'cover' or 'sensor'
+    data: InputState | OutputState | SensorState | CoverState | Event
 
-class PositionDict(TypedDict, total=False):
-    position: int
-    tilt: int
+# Event models are in events.py - import separately when needed:
+# from boneio.models.events import InputEvent, OutputEvent, etc.
+
+__all__ = [
+    # State models
+    "InputState",
+    "OutputState",
+    "CoverState",
+    "SensorState",
+    "HostSensorState",
+    # Response models
+    "InputsResponse",
+    "OutputsResponse",
+    "CoverResponse",
+    "StateUpdate",
+    # Utility
+    "PositionDict",
+]

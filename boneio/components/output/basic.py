@@ -281,7 +281,7 @@ class BasicOutput(BasicMqtt):
         if optimized_value:
             return
         self._last_timestamp = time.time()
-        event = OutputState(
+        output_state = OutputState(
             id=self.id,
             name=self.name,
             state=state,
@@ -290,11 +290,14 @@ class BasicOutput(BasicMqtt):
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
         )
-        self._event_bus.trigger_event({
-            "event_type": "output", 
-            "entity_id": self.id, 
-            "event_state": event
-        })
+        
+        from boneio.models.events import OutputEvent
+        
+        output_event = OutputEvent(
+            entity_id=self.id,
+            state=output_state,
+        )
+        self._event_bus.trigger_event(output_event)
         
 
     def check_interlock(self) -> bool:
@@ -337,6 +340,10 @@ class BasicOutput(BasicMqtt):
     def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         raise NotImplementedError
+
+    def set_brightness(self, value: int) -> None:
+        """Set brightness (only supported on PWM outputs like PCA9685)."""
+        _LOGGER.warning("set_brightness not supported for %s output type", self.output_type)
 
     def _execute_momentary_turn(self, momentary_type: str) -> None:
         """Execute momentary action."""

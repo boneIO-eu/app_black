@@ -2,11 +2,12 @@ import asyncio
 import datetime as dt
 import logging
 import time
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 from typing import Any, Optional
-from collections.abc import Callable, Coroutine
 
 from boneio.core.utils.util import callback
+from boneio.models.events import Event
 
 _LOGGER = logging.getLogger(__name__)
 UTC = dt.timezone.utc
@@ -141,31 +142,51 @@ class EventBus:
             finally:
                 self._event_queue.task_done()
 
-    async def _handle_event(self, event: dict):
+    async def _handle_event(self, event: Event):
         """
         Dispatch event to registered listeners.
-        :param event: dict or object with at least 'event_type' field
+        
+        Args:
+            event: Event model (InputEvent, OutputEvent, CoverEvent, or SensorEvent)
         """
-        event_type = event.get('event_type')
-        event_state = event.get('event_state')
-        entity_id = event.get('entity_id')
-        if not event_type or event_type not in self._event_listeners:
+        # Get event_type directly from the event model (much cleaner!)
+        event_type = event.event_type
+        entity_id = event.entity_id
+        
+        if event_type not in self._event_listeners:
             _LOGGER.warning(f"Unknown event_type: {event_type}")
             return
-        if not entity_id:
-            _LOGGER.warning(f"Unknown entity_id: {entity_id}")
-            return
-        entity_id_listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
-        for listener in entity_id_listeners.values():
+        
+        # Collect listeners: specific entity_id + global listeners (entity_id="")
+        all_listeners = {}
+        
+        # Add global listeners (entity_id="")
+        global_listeners = self._event_listeners.get(event_type, {}).get("", {})
+        all_listeners.update(global_listeners)
+        
+        # Add specific entity listeners (overrides global if same listener_id)
+        entity_listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
+        all_listeners.update(entity_listeners)
+        
+        # Execute all listeners
+        for listener in all_listeners.values():
             try:
-                await listener.target(event_state)
+                
+                result = listener.target(event)
+                # Handle both sync and async listeners
+                if asyncio.iscoroutine(result):
+                    await result
+                elif result is not None:
+                    _LOGGER.warning(f"Listener returned non-coroutine: {type(result)}")
             except Exception as exc:
                 _LOGGER.error(f"Listener error: {exc}")
 
-    def trigger_event(self, event):
+    def trigger_event(self, event: Event) -> None:
         """
         Put event into the queue for async processing.
-        :param event: dict or object with at least 'event_type' field
+        
+        Args:
+            event: Event model (InputEvent, OutputEvent, CoverEvent, or SensorEvent)
         """
         self._event_queue.put_nowait(event)
 
@@ -277,7 +298,7 @@ class EventBus:
 
         return listener_job
 
-    def remove_event_listener(self, event_type: str = None, entity_id: str = None, listener_id: str = None) -> None:
+    def remove_event_listener(self, event_type: str | None = None, entity_id: str | None = None, listener_id: str | None = None) -> None:
         """Remove event listener. Can remove by event_type, listener_id, or both."""
         if listener_id and listener_id in self._listener_id_index:
             # Remove by listener_id

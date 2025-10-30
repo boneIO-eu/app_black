@@ -18,6 +18,7 @@ from boneio.const import SENSOR, STATE
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.models import SensorState
+from boneio.models.events import SensorEvent
 
 if TYPE_CHECKING:
     from boneio.core.events import EventBus
@@ -76,8 +77,8 @@ class BaseSensor(BasicMqtt, AsyncUpdater, Filter):
         """
         self._loop = asyncio.get_event_loop()
         
-        # Initialize BasicMqtt
-        BasicMqtt.__init__(self, id=id, name=name, topic_type=SENSOR, **kwargs)
+        # Initialize BasicMqtt (ensure name is not None)
+        BasicMqtt.__init__(self, id=id, name=name or id, topic_type=SENSOR, **kwargs)
         
         # Initialize Filter
         Filter.__init__(self)
@@ -143,19 +144,17 @@ class BaseSensor(BasicMqtt, AsyncUpdater, Filter):
             payload={STATE: self.state},
         )
         
-        # Trigger EventBus event (if manager and event_bus are available)
-        if hasattr(self, 'manager') and hasattr(self.manager, 'event_bus'):
-            self.manager.event_bus.trigger_event({
-                "event_type": "sensor",
-                "entity_id": self.id,
-                "event_state": SensorState(
-                    id=self.id,
-                    name=self.name,
-                    state=self.state,
-                    unit=self.unit_of_measurement,
-                    timestamp=self.last_timestamp,
-                ),
-            })
+        
+        self.manager.event_bus.trigger_event(SensorEvent(
+            entity_id=self.id,
+            state=SensorState(
+                id=self.id,
+                name=self.name,
+                state=self.state,   
+                unit=self.unit_of_measurement,
+                timestamp=self.last_timestamp,
+            )
+        ))
         
         _LOGGER.debug(
             "Published state for sensor '%s': %s %s",

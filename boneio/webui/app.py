@@ -9,6 +9,12 @@ import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
+
+from boneio.models.state import ModbusDeviceState
+
+if TYPE_CHECKING:
+    from boneio.webui.web_server import WebServer
 from pathlib import Path
 
 from fastapi import (
@@ -24,7 +30,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
-from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -37,15 +42,23 @@ from boneio.core.config.yaml_util import (
     load_config_from_file,
     update_config_section,
 )
-from boneio.exceptions import ConfigurationException
 from boneio.core.events import GracefulExit
-from boneio.manager import Manager
+from boneio.core.manager import Manager
+from boneio.exceptions import ConfigurationException
 from boneio.models import (
     CoverState,
     InputState,
     OutputState,
     SensorState,
-    StateUpdate,
+)
+from boneio.models.actions import CoverAction, CoverPosition, CoverTilt
+from boneio.models.events import (
+    CoverEvent,
+    Event,
+    InputEvent,
+    ModbusDeviceEvent,
+    OutputEvent,
+    SensorEvent,
 )
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
@@ -53,18 +66,6 @@ from boneio.version import __version__
 from .websocket_manager import JWT_ALGORITHM, WebSocketManager
 
 _LOGGER = logging.getLogger(__name__)
-
-
-class CoverAction(BaseModel):
-    action: str
-
-
-class CoverPosition(BaseModel):
-    position: int
-
-
-class CoverTilt(BaseModel):
-    tilt: int
 
 
 class BoneIOApp(FastAPI):
@@ -76,7 +77,7 @@ class BoneIOApp(FastAPI):
         """Handle application shutdown."""
         _LOGGER.debug("Shutting down All WebSocket connections...")
         if hasattr(self.state, 'websocket_manager'):
-            await asyncio.sleep(1)
+            # Close all WebSocket connections immediately
             await self.state.websocket_manager.close_all()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -474,9 +475,9 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
 @app.post("/api/outputs/{output_id}/toggle")
 async def toggle_output(output_id: str, manager: Manager = Depends(get_manager)):
     """Toggle output state."""
-    if output_id not in manager.outputs:
+    if output_id not in manager.outputs.get_all_outputs():
         raise HTTPException(status_code=404, detail="Output not found")
-    status = await manager.toggle_output(output_id=output_id)
+    status = await manager.outputs.toggle_output(output_id=output_id)
     if status:
         return {"status": status}
     else:
@@ -485,7 +486,7 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
 @app.post("/api/covers/{cover_id}/action")
 async def cover_action(cover_id: str, action_data: CoverAction, manager: Manager = Depends(get_manager)):
     """Control cover with specific action (open, close, stop)."""
-    cover = manager.covers.get(cover_id)
+    cover = manager.covers.get_cover(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
     
@@ -505,7 +506,7 @@ async def cover_action(cover_id: str, action_data: CoverAction, manager: Manager
 @app.post("/api/covers/{cover_id}/set_position")
 async def set_cover_position(cover_id: str, position_data: CoverPosition, manager: Manager = Depends(get_manager)):
     """Control cover with specific action (open, close, stop)."""
-    cover = manager.covers.get(cover_id)
+    cover = manager.covers.get_cover(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
     
@@ -520,7 +521,7 @@ async def set_cover_position(cover_id: str, position_data: CoverPosition, manage
 @app.post("/api/covers/{cover_id}/set_tilt")
 async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager = Depends(get_manager)):
     """Control cover with specific action (open, close, stop)."""
-    cover = manager.covers.get(cover_id)
+    cover = manager.covers.get_cover(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
     if cover.kind != "venetian":
@@ -810,29 +811,11 @@ def on_exit(self) -> None:
     asyncio.create_task(app.state.websocket_manager.close_all())
 
 
-async def input_state_changed(input_: InputState):
-    """Callback when input state changes."""
-    await app.state.websocket_manager.broadcast_state("input", input_)
+async def boneio_state_changed_callback(event: Event):
+    """Callback when BoneIO state changes."""
+    websocket_manager: WebSocketManager = app.state.websocket_manager
+    await websocket_manager.broadcast_state(event)
 
-
-async def output_state_changed(event: OutputState):
-    """Callback when output state changes."""
-    await app.state.websocket_manager.broadcast_state("output", event)
-
-
-async def cover_state_changed(event: CoverState):
-    """Callback when cover state changes."""
-    await app.state.websocket_manager.broadcast_state("cover", event)
-
-
-async def sensor_state_changed(event: SensorState):
-    """Callback when output state changes."""
-    await app.state.websocket_manager.broadcast_state("sensor", event)
-
-
-async def modbus_device_state_changed(event: SensorState):
-    """Callback when output state changes."""
-    await app.state.websocket_manager.broadcast_state("modbus_device", event)
 
 
 def init_app(
@@ -840,8 +823,8 @@ def init_app(
     yaml_config_file: str,
     config_helper: ConfigHelper,
     auth_config: dict = {},
-    jwt_secret: str = None,
-    web_server = None,
+    jwt_secret: str | None = None,
+    web_server: WebServer | None = None,
 ) -> BoneIOApp:
     """Initialize the FastAPI application with manager."""
     global _auth_config, JWT_SECRET
@@ -882,14 +865,14 @@ def init_app(
 
 
 def add_listener_for_all_outputs(boneio_manager: Manager):
-    for output in boneio_manager.outputs.values():
+    for output in boneio_manager.outputs.get_all_outputs().values():
         if output.output_type == COVER or output.output_type == NONE:
             continue
         boneio_manager.event_bus.add_event_listener(
             event_type="output",
             entity_id=output.id,
             listener_id="ws",
-            target=output_state_changed,
+            target=boneio_state_changed_callback,
         )
 
 
@@ -897,36 +880,37 @@ def remove_listener_for_all_outputs(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws")
 
 def add_listener_for_all_covers(boneio_manager: Manager):
-    for cover in boneio_manager.covers.values():
+    for cover in boneio_manager.covers.get_all_covers().values():
         boneio_manager.event_bus.add_event_listener(
             event_type="cover",
             entity_id=cover.id,
             listener_id="ws",
-            target=cover_state_changed,
+            target=boneio_state_changed_callback,
         )
 
 
 def remove_listener_for_all_covers(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(
-        event_type="cover"
+        event_type="cover",
+        listener_id="ws"
     )
 
 def add_listener_for_all_inputs(boneio_manager: Manager):
-    for input in boneio_manager.inputs:
+    for input in boneio_manager.inputs.get_inputs_list():
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
             entity_id=input.pin,
             listener_id="ws",
-            target=input_state_changed,
+            target=boneio_state_changed_callback,
         )
 
 
 def remove_listener_for_all_inputs(boneio_manager: Manager):
-    boneio_manager.event_bus.remove_event_listener("input")
+    boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws")
 
 
 def sensor_listener_for_all_sensors(boneio_manager: Manager):
-    for modbus_coordinator in boneio_manager.modbus_coordinators.values():
+    for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
         if not modbus_coordinator:
             continue
         for entities in modbus_coordinator.get_all_entities():
@@ -935,22 +919,22 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
                     event_type="modbus_device",
                     entity_id=entity.id,
                     listener_id="ws",
-                    target=modbus_device_state_changed,
+                    target=boneio_state_changed_callback,
                 )
-    for single_ina_device in boneio_manager.ina219_sensors:
+    for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
         for ina in single_ina_device.sensors.values():
             boneio_manager.event_bus.add_event_listener(
                 event_type="sensor",
                 entity_id=ina.id,
                 listener_id="ws",
-                target=sensor_state_changed,
+                target=boneio_state_changed_callback,
             )
-    for sensor in boneio_manager.temp_sensors:
+    for sensor in boneio_manager.sensors.get_all_temp_sensors():
         boneio_manager.event_bus.add_event_listener(
             event_type="sensor",
             entity_id=sensor.id,
             listener_id="ws",
-            target=sensor_state_changed,
+            target=boneio_state_changed_callback,
         )
 
 
@@ -966,14 +950,15 @@ async def websocket_endpoint(
     """WebSocket endpoint for all state updates."""
     try:
         # Connect to WebSocket manager
-        if await app.state.websocket_manager.connect(websocket):
+        websocket_manager: WebSocketManager = app.state.websocket_manager
+        if await websocket_manager.connect(websocket):
             _LOGGER.info("New WebSocket connection established")
 
-            async def send_state_update(update: StateUpdate) -> bool:
+            async def send_state_update(update: Event) -> bool:
                 """Send state update and return True if successful."""
                 try:
                     if websocket.application_state == WebSocketState.CONNECTED:
-                        await websocket.send_json(update.dict())
+                        await websocket.send_json(update.model_dump())
                         return True
                 except Exception as e:
                     _LOGGER.error(f"Error sending state update: {type(e).__name__} - {e}")
@@ -982,7 +967,7 @@ async def websocket_endpoint(
             # Send initial states
             try:
                 # Send inputs
-                for input_ in boneio_manager.inputs:
+                for input_ in boneio_manager.inputs.get_inputs_list():
                     try:
                         input_state = InputState(
                             name=input_.name,
@@ -992,7 +977,7 @@ async def websocket_endpoint(
                             timestamp=input_.last_press_timestamp,
                             boneio_input=input_.boneio_input
                         )
-                        update = StateUpdate(type="input", data=input_state)
+                        update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
                         if not await send_state_update(update):
                             return
 
@@ -1000,18 +985,18 @@ async def websocket_endpoint(
                         _LOGGER.error(f"Error preparing input state: {type(e).__name__} - {e}")
 
                 # Send outputs
-                for output in boneio_manager.outputs.values():
+                for output in boneio_manager.outputs.get_all_outputs().values():
                     try:
                         output_state = OutputState(
                             id=output.id,
                             name=output.name,
                             state=output.state,
                             type=output.output_type,
-                            pin=output.pin_id,
+                            pin=getattr(output, 'pin_id', None),
                             expander_id=output.expander_id,
                             timestamp=output.last_timestamp,
                         )
-                        update = StateUpdate(type="output", data=output_state)
+                        update = OutputEvent(entity_id=output.id, state=output_state)
                         if not await send_state_update(update):
                             return
 
@@ -1019,9 +1004,9 @@ async def websocket_endpoint(
                         _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
 
                 # Send covers
-                for cover in boneio_manager.covers.values():
+                for cover in boneio_manager.covers.get_all_covers().values():
                     try:
-                        cover_state_kwargs = dict(
+                        cover_state = CoverState(
                             id=cover.id,
                             name=cover.name,
                             state=cover.state,
@@ -1031,9 +1016,8 @@ async def websocket_endpoint(
                             current_operation=cover.current_operation,
                         )
                         if getattr(cover, 'kind', None) == 'venetian':
-                            cover_state_kwargs['tilt'] = getattr(cover, 'tilt', 0)
-                        cover_state = CoverState(**cover_state_kwargs)
-                        update = StateUpdate(type="cover", data=cover_state)
+                            cover_state.tilt = getattr(cover, 'tilt', 0)
+                        update = CoverEvent(entity_id=cover.id, state=cover_state)
                         if not await send_state_update(update):
                             return
 
@@ -1041,20 +1025,21 @@ async def websocket_endpoint(
                         _LOGGER.error(f"Error preparing cover state: {type(e).__name__} - {e}")
 
                 # Send modbus sensor states
-                for modbus_coordinator in boneio_manager.modbus_coordinators.values():
+                for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
                     if not modbus_coordinator:
                         continue
                     for entities in modbus_coordinator.get_all_entities():
                         for entity in entities.values():
                             try:
-                                sensor_state = SensorState(
+                                sensor_state = ModbusDeviceState(
                                     id=entity.id,
                                     name=entity.name,
                                     state=entity.state,
                                     unit=entity.unit_of_measurement,
                                     timestamp=entity.last_timestamp,
+                                    device_group=modbus_coordinator.name,
                                 )
-                                update = StateUpdate(type="modbus_device", data=sensor_state)
+                                update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                                 if not await send_state_update(update):
                                     return
 
@@ -1062,7 +1047,7 @@ async def websocket_endpoint(
                                 _LOGGER.error(f"Error preparing modbus sensor state: {type(e).__name__} - {e}")
 
                 # Send INA219 sensor states
-                for single_ina_device in boneio_manager.ina219_sensors:
+                for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
                     for ina_sensor in single_ina_device.sensors.values():
                         try:
                             sensor_state = SensorState(
@@ -1072,7 +1057,7 @@ async def websocket_endpoint(
                                 unit=ina_sensor.unit_of_measurement,
                                 timestamp=ina_sensor.last_timestamp,
                             )
-                            update = StateUpdate(type="sensor", data=sensor_state)
+                            update = SensorEvent(entity_id=ina_sensor.id, state=sensor_state)
                             if not await send_state_update(update):
                                 return
 
@@ -1080,7 +1065,7 @@ async def websocket_endpoint(
                             _LOGGER.error(f"Error preparing INA219 sensor state: {type(e).__name__} - {e}")
 
                 # Send temperature sensor states
-                for sensor in boneio_manager.temp_sensors:
+                for sensor in boneio_manager.sensors.get_all_temp_sensors():
                     try:
                         sensor_state = SensorState(
                             id=sensor.id,
@@ -1089,7 +1074,7 @@ async def websocket_endpoint(
                             unit=sensor.unit_of_measurement,
                             timestamp=sensor.last_timestamp,
                         )
-                        update = StateUpdate(type="sensor", data=sensor_state)
+                        update = SensorEvent(entity_id=sensor.id, state=sensor_state)
                         if not await send_state_update(update):
                             return
 
@@ -1110,17 +1095,26 @@ async def websocket_endpoint(
                 add_listener_for_all_inputs(boneio_manager=boneio_manager)
                 sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
 
+                # Keep connection alive with timeout to allow graceful shutdown
                 while True:
-                    data = await websocket.receive_text()
-                    if data == "ping":
-                        await websocket.send_text("pong")
+                    try:
+                        # Use short timeout to allow quick shutdown (max 1s delay)
+                        data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                        if data == "ping":
+                            await websocket.send_text("pong")
+                    except asyncio.TimeoutError:
+                        # Timeout is normal - just check if still connected
+                        if websocket.application_state != WebSocketState.CONNECTED:
+                            _LOGGER.debug("WebSocket no longer connected, exiting loop")
+                            break
+                        continue
     except asyncio.CancelledError:
         _LOGGER.info("WebSocket connection cancelled during setup")
-        await app.state.websocket_manager.disconnect(websocket)
+        await websocket_manager.disconnect(websocket)
         raise
     except WebSocketDisconnect as err:
         _LOGGER.info("WebSocket connection exiting gracefully %s", err)
-        await app.state.websocket_manager.disconnect(websocket)
+        await websocket_manager.disconnect(websocket)
     except KeyboardInterrupt:
         _LOGGER.info("WebSocket connection interrupted by user.")
     except Exception as e:

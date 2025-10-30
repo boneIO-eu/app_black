@@ -2,19 +2,21 @@ import { useState, useContext } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
-import { isIOState, isCoverState } from '../hooks/useWebSocket';
+import { isOutputEvent, isCoverEvent, CoverState } from '../hooks/useWebSocket';
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 
 export default function OutputsView({error}: {error: string | null}) {
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers } = useContext(WebSocketContext);
+  console.log("outputs", outputs, covers);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
 
-  const validOutputs = outputs.filter(isIOState);
+  const validOutputs = outputs.filter(isOutputEvent).map(e => e.state);
+  console.log("validOutputs", validOutputs);
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -72,10 +74,10 @@ export default function OutputsView({error}: {error: string | null}) {
             ? "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             : "flex flex-col gap-4"
           }>
-            {covers.filter(cover => isCoverState(cover)).map((cover) => (
+            {covers.filter(cover => isCoverEvent(cover)).map((cover) => (
               <CoverItem 
-                key={cover.id}
-                cover={cover as { id: string; name: string; state: string; position: number; tilt?: number; current_operation: string; timestamp?: number }}
+                key={cover.entity_id}
+                cover={cover.state as CoverState}
                 action={actionCover}
                 isGrid={isGrid}
                 error={error}

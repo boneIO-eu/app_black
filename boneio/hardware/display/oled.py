@@ -16,9 +16,9 @@ from PIL.ImageDraw import ImageDraw as ImageDrawType
 from boneio.const import OLED_PIN, UPTIME, WHITE
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.core.system import HostData
+from boneio.core.utils.font_util import make_font
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.exceptions import I2CError
-from boneio.core.utils.font_util import make_font
 from boneio.models import InputState, OutputState
 
 if TYPE_CHECKING:
@@ -70,6 +70,7 @@ class Oled:
         grouped_outputs_by_expander: list[str],
         sleep_timeout: TimePeriod,
         screen_order: list[str],
+        input_groups: list[str],
         event_bus: EventBus,
         i2c_bus: "SMBus2I2C | None" = None,
     ):
@@ -77,9 +78,10 @@ class Oled:
         
         Args:
             host_data: Host system data
-            grouped_outputs_by_expander: List of grouped outputs
+            grouped_outputs_by_expander: List of grouped output names
             sleep_timeout: Sleep timeout period
-            screen_order: Order of screens to display
+            screen_order: Configured screen order (placeholders already replaced)
+            input_groups: List of input group names
             event_bus: Event bus for handling events
             i2c_bus: I2C bus instance (optional, will create if not provided)
         """
@@ -87,8 +89,10 @@ class Oled:
         self._grouped_outputs_by_expander = grouped_outputs_by_expander
         self._event_bus = event_bus
         
-        # Configure screen order by replacing placeholders with actual screen names
-        self._configure_screen_order(screen_order, grouped_outputs_by_expander)
+        # Screen order is already configured by DisplayManager
+        self._screen_order = screen_order
+        self._input_groups = input_groups
+        _LOGGER.debug("OLED initialized with screen order: %s", self._screen_order)
         
         self._current_screen = self._screen_order[0] if self._screen_order else UPTIME
         self._screen_cycle = cycle(self._screen_order) if self._screen_order else cycle([UPTIME])
@@ -114,51 +118,6 @@ class Oled:
             listener_id="oled_button_handler",
             target=self._handle_button_press,
         )
-
-    def _configure_screen_order(self, screen_order: list[str], grouped_outputs_by_expander: list[str]) -> None:
-        """Configure screen order by replacing placeholders with actual screens."""
-        # Start with the provided screen order
-        configured_screens = screen_order.copy()
-        
-        # Replace "outputs" placeholder with actual output group names
-        try:
-            outputs_index = configured_screens.index("outputs")
-            if grouped_outputs_by_expander:
-                # Remove placeholder and insert actual output groups
-                configured_screens.pop(outputs_index)
-                configured_screens[outputs_index:outputs_index] = grouped_outputs_by_expander
-                _LOGGER.debug("Configured output screens: %s", grouped_outputs_by_expander)
-            else:
-                # No outputs, remove placeholder
-                configured_screens.pop(outputs_index)
-                _LOGGER.debug("No outputs configured, removing placeholder")
-        except ValueError:
-            # "outputs" not in list, skip
-            pass
-        
-        # Replace "inputs" placeholder with actual input group names
-        try:
-            inputs_index = configured_screens.index("inputs")
-            input_groups = [
-                f"Inputs screen {i + 1}"
-                for i in range(self._host_data.inputs_length)
-            ]
-            if input_groups:
-                # Remove placeholder and insert actual input groups
-                configured_screens.pop(inputs_index)
-                configured_screens[inputs_index:inputs_index] = input_groups
-                self._input_groups = input_groups
-                _LOGGER.debug("Configured input screens: %s", input_groups)
-            else:
-                # No inputs, remove placeholder
-                configured_screens.pop(inputs_index)
-                _LOGGER.debug("No inputs configured, removing placeholder")
-        except ValueError:
-            # "inputs" not in list, skip
-            self._input_groups = []
-        
-        self._screen_order = configured_screens
-        _LOGGER.info("Final screen order: %s", self._screen_order)
     
     async def _output_callback(self, event: OutputState) -> None:
         """Callback for output events."""
@@ -263,11 +222,10 @@ class Oled:
     async def _handle_button_press(self, event: dict) -> None:
         """Handle button press event from input."""
         _LOGGER.debug(f"OLED button pressed event received: {event}")
-        self._sleep = False
         if self._cancel_sleep_handle:
-            self._cancel_sleep_handle()
-            self._cancel_sleep_handle = None
-        self._next_screen()
+            self.wake_up()
+        else:
+            self._next_screen()
 
     def _next_screen(self) -> None:
         """Switch to next screen."""

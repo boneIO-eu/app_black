@@ -46,10 +46,10 @@ RESTORE_STATE = "restore_state"
 MODEL = "model"
 UARTS = {
     "uart1": {ID: "/dev/ttyS1", TX: "P9.24", RX: "P9.26"},
-    "uart2": {ID: "/dev/ttyS2", TX: "P9.21", RX: "P9.22"},
-    "uart3": {ID: "/dev/ttyS3", TX: "P9.42", RX: None},
+    # "uart2": {ID: "/dev/ttyS2", TX: "P9.21", RX: "P9.22"},
+    # "uart3": {ID: "/dev/ttyS3", TX: "P9.42", RX: None},
     "uart4": {ID: "/dev/ttyS4", TX: "P9.13", RX: "P9.11"},
-    "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
+    # "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
 relay_actions = {

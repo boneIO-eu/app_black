@@ -1,0 +1,630 @@
+"""Main Manager class - orchestrates all subsystems.
+
+This is the central coordinator that manages all BoneIO subsystems.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections import deque
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any
+
+from boneio.const import (
+    COVER,
+    COVER_OVER_MQTT,
+    MQTT,
+    ONLINE,
+    OUTPUT,
+    OUTPUT_OVER_MQTT,
+    RELAY,
+    SET_BRIGHTNESS,
+    STATE,
+    cover_actions,
+    relay_actions,
+)
+from boneio.core.config import ConfigHelper
+from boneio.core.config.loader import create_serial_number_sensor
+from boneio.core.events import EventBus
+from boneio.core.manager.covers import CoverManager
+from boneio.core.manager.display import DisplayManager
+from boneio.core.manager.inputs import InputManager
+from boneio.core.manager.modbus import ModbusManager
+from boneio.core.manager.outputs import OutputManager
+from boneio.core.manager.sensors import SensorManager
+from boneio.core.messaging import MessageBus
+from boneio.core.state import StateManager
+from boneio.hardware.i2c.bus import SMBus2I2C
+
+if TYPE_CHECKING:
+    pass
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class Manager:
+    """Main application manager - orchestrates all subsystems.
+    
+    This class coordinates:
+    - Outputs (relay, switch, light, LED, valve)
+    - Inputs (event, binary_sensor)
+    - Covers (time-based, previous-state, venetian)
+    - Sensors (temperature, power, analog)
+    - Modbus (RTU/TCP devices)
+    - Display (OLED)
+    
+    Each subsystem is managed by a dedicated sub-manager for better
+    separation of concerns and maintainability.
+    
+    Args:
+        message_bus: MQTT message bus
+        event_bus: Internal event bus
+        state_manager: State persistence manager
+        config_helper: Configuration helper
+        config_file_path: Path to config file
+        relay_pins: List of relay configurations
+        event_pins: List of event button configurations
+        binary_pins: List of binary sensor configurations
+        output_group: List of output group configurations
+        sensors: Dictionary of sensor configurations
+        modbus: Modbus client configuration
+        modbus_devices: Dictionary of Modbus device configurations
+        pca9685: List of PCA9685 configurations
+        mcp23017: List of MCP23017 configurations
+        pcf8575: List of PCF8575 configurations
+        ds2482: List of DS2482 configurations
+        dallas: Dallas 1-Wire configuration
+        oled: OLED display configuration
+        adc: List of ADC configurations
+        cover: List of cover configurations
+        web_active: Whether web server is active
+        web_port: Web server port
+    """
+
+    def __init__(
+        self,
+        message_bus: MessageBus,
+        event_bus: EventBus,
+        state_manager: StateManager,
+        config_helper: ConfigHelper,
+        config_file_path: str,
+        relay_pins: list[dict] = [],
+        event_pins: list[dict] = [],
+        binary_pins: list[dict] = [],
+        output_group: list[dict] = [],
+        sensors: dict[str, list] = {},
+        modbus: dict[str, Any] = {},
+        modbus_devices: dict[str, Any] = {},
+        pca9685: list[dict] = [],
+        mcp23017: list[dict] = [],
+        pcf8575: list[dict] = [],
+        ds2482: list[dict] | None = [],
+        dallas: dict[str, Any] | None = None,
+        oled: dict[str, Any] = {},
+        adc: list[dict] | None = None,
+        cover: list[dict] = [],
+        web_active: bool = False,
+        web_port: int = 8090,
+    ) -> None:
+        """Initialize the manager and all subsystems."""
+        _LOGGER.info("Initializing Manager with modular architecture")
+        
+        # Core components
+        self._loop = None
+        self._tasks: list[asyncio.Task] = []
+        self._message_bus = message_bus
+        self._event_bus = event_bus
+        self._state_manager = state_manager
+        self._config_helper = config_helper
+        self._config_file_path = config_file_path
+        self._topic_prefix = config_helper.topic_prefix
+        
+        # Web server info
+        self._web_active = web_active
+        self._web_port = web_port
+        
+        # MQTT shortcuts
+        self.send_message = message_bus.send_message
+        
+        # Initialize I2C bus
+        _LOGGER.debug("Initializing I2C bus with smbus2")
+        self._i2cbusio = SMBus2I2C(bus_number=2)
+        
+        # Initialize subsystem managers
+        _LOGGER.info("Initializing subsystem managers")
+        
+        # 1. OutputManager - must be first (covers depend on it)
+        self.outputs = OutputManager(
+            manager=self,
+            relay_pins=relay_pins,
+            pca9685=pca9685,
+            mcp23017=mcp23017,
+            pcf8575=pcf8575,
+            output_group=output_group,
+        )
+        
+        # 2. SensorManager
+        self.sensors = SensorManager(
+            manager=self,
+            sensors=sensors,
+            dallas=dallas,
+            ds2482=ds2482,
+            adc=adc,
+        )
+        
+        # 3. ModbusManager (optional)
+        self.modbus = ModbusManager(
+            manager=self,
+            modbus_config=modbus,
+            modbus_devices=modbus_devices,
+        )
+        
+        # 4. CoverManager (depends on outputs)
+        self.covers = CoverManager(
+            manager=self,
+            cover_config=cover,
+        )
+        
+        # 5. InputManager
+        self.inputs = InputManager(
+            manager=self,
+            event_pins=event_pins,
+            binary_pins=binary_pins,
+        )
+        
+        # 6. DisplayManager (depends on sensors, inputs, outputs)
+        self.display = DisplayManager(
+            manager=self,
+            oled_config=oled,
+        )
+        
+        # Initialize serial number sensor
+        self._serial_number_sensor = create_serial_number_sensor(
+            manager=self,
+            message_bus=self._message_bus,
+            topic_prefix=self._topic_prefix,
+        )
+        
+        # NOTE: Input event listener is registered in InputManager.__init__
+        # (removing duplicate registration here that caused double event handling)
+        
+        _LOGGER.info("Manager initialization complete")
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        """Get event loop lazily."""
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self._loop = asyncio.get_event_loop()
+        return self._loop
+
+    @property
+    def message_bus(self) -> MessageBus:
+        """Get message bus."""
+        return self._message_bus
+
+    @property
+    def event_bus(self) -> EventBus:
+        """Get event bus."""
+        return self._event_bus
+
+    @property
+    def state_manager(self) -> StateManager:
+        """Get state manager."""
+        return self._state_manager
+
+    @property
+    def config_helper(self) -> ConfigHelper:
+        return self._config_helper
+        
+    @property
+    def is_web_on(self) -> bool:
+        """Check if web server is active."""
+        return self._web_active
+
+
+    @property
+    def web_bind_port(self) -> int:
+        """Get web server port."""
+        return self._web_port
+
+    @property
+    def mqtt_state(self) -> bool:
+        """Get MQTT connection state."""
+        return self._message_bus.state
+
+    def set_web_server_status(self, status: bool, bind: int) -> None:
+        """Set web server status and port.
+        
+        Args:
+            status: Web server active status
+            bind: Web server bind port
+        """
+        self._web_active = status
+        self._web_port = bind
+        _LOGGER.info("Web server status set to %s on port %s", status, bind)
+
+    def append_task(
+        self,
+        coro: Callable[..., Coroutine],
+        name: str = "Unknown",
+        **kwargs
+    ) -> asyncio.Task:
+        """Add task to run with asyncio loop.
+        
+        Args:
+            coro: Callable that returns a coroutine
+            name: Task name for debugging
+            **kwargs: Arguments passed to coro
+            
+        Returns:
+            Created asyncio.Task
+        """
+        _LOGGER.debug("Appending task: %s", name)
+        task = asyncio.create_task(coro(**kwargs))
+        self._tasks.append(task)
+        return task
+
+    def get_tasks(self) -> dict[str, asyncio.Task]:
+        """Get all tasks from subsystems.
+        
+        Returns:
+            Dictionary of all tasks
+        """
+        tasks = {}
+        
+        # Collect tasks from all subsystems
+        tasks.update(self.outputs.get_tasks())
+        tasks.update(self.inputs.get_tasks())
+        tasks.update(self.covers.get_tasks())
+        tasks.update(self.sensors.get_tasks())
+        tasks.update(self.modbus.get_tasks())
+        tasks.update(self.display.get_tasks())
+        
+        # Add manager tasks
+        for i, task in enumerate(self._tasks):
+            tasks[f"manager_task_{i}"] = task
+        
+        return tasks
+
+    async def send_all_ha_autodiscovery(self) -> None:
+        """Send Home Assistant autodiscovery for all entities."""
+        _LOGGER.info("Sending HA autodiscovery messages")
+        
+        await self.outputs.send_ha_autodiscovery()
+        await self.inputs.send_ha_autodiscovery()
+        await self.covers.send_ha_autodiscovery()
+        await self.sensors.send_ha_autodiscovery()
+        await self.modbus.send_ha_autodiscovery()
+        await self.display.send_ha_autodiscovery()
+
+    def send_ha_autodiscovery(
+        self,
+        id: str,
+        name: str,
+        ha_type: str,
+        output_type: str = None,
+        **kwargs
+    ) -> None:
+        """Send HA autodiscovery message for a single entity.
+        
+        This is a compatibility method for subsystems that need
+        to send individual discovery messages.
+        
+        Args:
+            id: Entity identifier
+            name: Entity name
+            ha_type: Home Assistant entity type
+            output_type: Output type (optional, used for outputs like LIGHT, LED, SWITCH, VALVE)
+            **kwargs: Additional parameters
+        """
+        from boneio.const import BUTTON, LED, LIGHT, SWITCH, VALVE
+        from boneio.integration.homeassistant import (
+            ha_button_availabilty_message,
+            ha_led_availabilty_message,
+            ha_light_availabilty_message,
+            ha_switch_availabilty_message,
+            ha_valve_availabilty_message,
+        )
+        
+        # Determine availability function based on output_type (for outputs)
+        availability_msg_func = None
+        if output_type:
+            availability_function_chooser = {
+                LIGHT: ha_light_availabilty_message,
+                LED: ha_led_availabilty_message,
+                SWITCH: ha_switch_availabilty_message,
+                VALVE: ha_valve_availabilty_message,
+            }
+            availability_msg_func = availability_function_chooser.get(
+                output_type, ha_switch_availabilty_message
+            )
+        
+        # Override with specific ha_type functions
+        if ha_type == COVER:
+            from boneio.integration.homeassistant import ha_cover_availabilty_message
+            availability_msg_func = ha_cover_availabilty_message
+        elif ha_type == BUTTON:
+            availability_msg_func = ha_button_availabilty_message
+        
+        # Use availability_msg_func from kwargs if provided (for sensors)
+        if 'availability_msg_func' in kwargs:
+            availability_msg_func = kwargs.pop('availability_msg_func')
+        
+        # Call availability function if defined
+        if availability_msg_func:
+            availability_msg_func(
+                id=id,
+                name=name,
+                config_helper=self._config_helper,
+                **kwargs
+            )
+
+    def parse_actions(self, pin: str, actions: dict) -> dict:
+        """Parse actions configuration.
+        
+        Args:
+            pin: Pin identifier
+            actions: Actions dictionary
+            
+        Returns:
+            Parsed actions dictionary
+        """
+        from boneio.const import TOPIC
+        from boneio.core.utils import strip_accents
+        
+        parsed_actions = {}
+        for click_type in actions:
+            if click_type not in parsed_actions:
+                parsed_actions[click_type] = []
+            for action_definition in actions.get(click_type, []):
+                action = action_definition.get("action")
+                
+                if action == OUTPUT:
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
+                    action_output = action_definition.get("action_output")
+                    output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(stripped_entity_id)
+                    action_to_execute = relay_actions.get(action_output)
+                    if output and action_to_execute:
+                        _f = getattr(output, action_to_execute, None)
+                        if _f:
+                            parsed_actions[click_type].append({
+                                "action": action,
+                                "pin": stripped_entity_id,
+                                "action_to_execute": action_to_execute,
+                            })
+                            continue
+                    _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
+                    
+                elif action == COVER:
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
+                    action_cover = action_definition.get("action_cover")
+                    extra_data = action_definition.get("data", {})
+                    cover = self.covers.get_cover(stripped_entity_id)
+                    action_to_execute = cover_actions.get(action_cover)
+                    if cover and action_to_execute:
+                        _f = getattr(cover, action_to_execute, None)
+                        if _f:
+                            parsed_actions[click_type].append({
+                                "action": action,
+                                "pin": stripped_entity_id,
+                                "action_to_execute": action_to_execute,
+                                "extra_data": extra_data,
+                            })
+                            continue
+                    _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
+                    
+                elif action == MQTT:
+                    action_mqtt_msg = action_definition.get("action_mqtt_msg")
+                    action_topic = action_definition.get(TOPIC)
+                    if action_topic and action_mqtt_msg:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "action_mqtt_msg": action_mqtt_msg,
+                            "action_topic": action_topic,
+                        })
+                        continue
+                    _LOGGER.warning("MQTT action missing topic or message for %s", pin)
+                    
+                elif action == OUTPUT_OVER_MQTT:
+                    boneio_id = action_definition.get("boneio_id")
+                    action_output = action_definition.get("action_output")
+                    action_to_execute = relay_actions.get(action_output.upper())
+                    if boneio_id and action_to_execute:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "boneio_id": boneio_id,
+                            "action_output": action_output,
+                        })
+                        continue
+                    _LOGGER.warning("OUTPUT_OVER_MQTT action missing data for %s", pin)
+                    
+                elif action == COVER_OVER_MQTT:
+                    boneio_id = action_definition.get("boneio_id")
+                    action_cover = action_definition.get("action_cover")
+                    action_to_execute = cover_actions.get(action_cover.upper())
+                    if boneio_id and action_to_execute:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "boneio_id": boneio_id,
+                            "action_cover": action_cover,
+                        })
+                        continue
+                    _LOGGER.warning("COVER_OVER_MQTT action missing data for %s", pin)
+                    
+        return parsed_actions
+
+    async def execute_actions(
+        self,
+        actions: list
+    ) -> None:
+        """Execute list of actions.
+        
+        Args:
+            actions: List of actions to execute
+            entity_id: Entity that triggered the actions
+            click_type: Type of click/trigger
+        """
+        # All imports at top of file
+        
+        start_time = time.time()
+        
+        for action_definition in actions:
+            action = action_definition.get("action")
+            pin = action_definition.get("pin")
+            
+            if action == MQTT:
+                action_topic = action_definition.get("action_topic")
+                action_payload = action_definition.get("action_mqtt_msg")
+                if action_topic and action_payload:
+                    self.send_message(
+                        topic=action_topic,
+                        payload=action_payload,
+                        retain=False
+                    )
+                continue
+                
+            elif action == OUTPUT:
+                output = self.outputs.get_output(pin) or self.outputs.get_output_group(pin)
+                if not output:
+                    _LOGGER.warning("Output %s not found for action", pin)
+                    continue
+                action_to_execute = action_definition.get("action_to_execute")
+                _LOGGER.debug(
+                    "Executing action %s for output %s. Duration: %s",
+                    action_to_execute,
+                    output.name if hasattr(output, 'name') else pin,
+                    time.time() - start_time,
+                )
+                _f = getattr(output, action_to_execute)
+                await _f()
+                
+            elif action == COVER:
+                cover = self.covers.get_cover(pin)
+                if not cover:
+                    _LOGGER.warning("Cover %s not found for action", pin)
+                    continue
+                action_to_execute = action_definition.get("action_to_execute")
+                extra_data = action_definition.get("extra_data", {})
+                _LOGGER.debug(
+                    "Executing action %s for cover %s. Duration: %s",
+                    action_to_execute,
+                    cover.name if hasattr(cover, 'name') else pin,
+                    time.time() - start_time,
+                )
+                _f = getattr(cover, action_to_execute)
+                await _f(**extra_data)
+                
+            elif action == OUTPUT_OVER_MQTT:
+                boneio_id = action_definition.get("boneio_id")
+                action_output = action_definition.get("action_output")
+                self.send_message(
+                    topic=f"{boneio_id}/cmd/relay/{pin}/set",
+                    payload=action_output,
+                    retain=False,
+                )
+                
+            elif action == COVER_OVER_MQTT:
+                boneio_id = action_definition.get("boneio_id")
+                action_cover = action_definition.get("action_cover")
+                self.send_message(
+                    topic=f"{boneio_id}/cmd/cover/{pin}/set",
+                    payload=action_cover,
+                    retain=False,
+                )
+
+    def resend_autodiscovery(self) -> None:
+        """Resend all HA autodiscovery messages."""
+        for msg in self._config_helper.autodiscovery_msgs:
+            self.send_message(**msg, retain=True)
+
+    async def reconnect_callback(self) -> None:
+        """Function to invoke when connection to MQTT is (re-)established.
+        
+        Sends online status to MQTT.
+        """
+        _LOGGER.info("Sending online state.")
+        topic = f"{self._config_helper.topic_prefix}/{STATE}"
+        self.send_message(topic=topic, payload=ONLINE, retain=True)
+
+    async def receive_message(self, topic: str, message: str) -> None:
+        """Callback for receiving MQTT messages.
+        
+        Handles:
+        - HA status messages (online/offline)
+        - Relay/output commands (set, brightness)
+        - Cover commands
+        
+        Args:
+            topic: MQTT topic
+            message: MQTT message payload
+        """
+        _LOGGER.debug("Processing topic %s with message %s.", topic, message)
+        
+        # Handle HA status messages
+        if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
+            if message == ONLINE:
+                self.resend_autodiscovery()
+                self._event_bus.signal_ha_online()
+            return
+        
+        # Verify topic starts with command prefix
+        try:
+            assert topic.startswith(self._config_helper.cmd_topic_prefix)
+        except AssertionError as err:
+            _LOGGER.error("Wrong topic %s. Error %s", topic, err)
+            return
+        
+        # Parse topic parts
+        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix):].split("/")
+        topic_parts = deque(topic_parts_raw)
+        
+        try:
+            msg_type = topic_parts.popleft()
+            device_id = topic_parts.popleft()
+            command = topic_parts.pop()
+            _LOGGER.debug(
+                "Divide topic to: msg_type: %s, device_id: %s, command: %s",
+                msg_type, device_id, command
+            )
+        except IndexError:
+            _LOGGER.error("Part of topic is missing. Not invoking command.")
+            return
+        
+        # Handle relay/output commands
+        if msg_type == RELAY and command == "set":
+            target_device = self.outputs.get_output(device_id)
+            if target_device and target_device.output_type != "none":
+                action_from_msg = relay_actions.get(message.upper())
+                if action_from_msg:
+                    _f = getattr(target_device, action_from_msg)
+                    await _f()
+                else:
+                    _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
+        
+        elif msg_type == RELAY and command == SET_BRIGHTNESS:
+            target_device = self.outputs.get_output(device_id)
+            if target_device and target_device.output_type != "none" and message != "":
+                target_device.set_brightness(int(message))
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
+        
+        elif msg_type == COVER:
+            cover = self.covers.get_cover(device_id)
+            if cover:
+                action = relay_actions.get(message.upper())
+                if action:
+                    _f = getattr(cover, action)
+                    await _f()
+                else:
+                    _LOGGER.debug("Cover action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Cover not found %s.", device_id)

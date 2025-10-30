@@ -4,10 +4,11 @@ import axios from "axios";
 import { formatTimestamp } from '../utils/formatters';
 import { FaStop } from 'react-icons/fa';
 import { LuArrowDownNarrowWide, LuArrowUpNarrowWide, LuArrowDownLeft, LuArrowUpRight } from "react-icons/lu";
+import { CoverState } from "@/hooks/useWebSocket";
 
 
 interface CoverItemProps {
-  cover: { id: string; name: string; state: string; position: number; current_operation: string; timestamp?: number; kind?: string; tilt?: number };
+  cover: CoverState;
   action: (id: string, name: string, action: string) => void;
   isGrid: boolean;
   error: string | null;

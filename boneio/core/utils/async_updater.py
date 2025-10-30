@@ -9,7 +9,7 @@ from abc import ABC
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from boneio.manager import Manager
+    from boneio.core.manager import Manager
 
 from boneio.core.utils.timeperiod import TimePeriod
 

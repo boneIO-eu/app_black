@@ -5,6 +5,7 @@ import logging
 import os
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from boneio.const import (
     ADDRESS,
@@ -12,7 +13,6 @@ from boneio.const import (
     BINARY_SENSOR,
     ID,
     LENGTH,
-    MODBUS_DEVICE,
     MODEL,
     NAME,
     OFFLINE,
@@ -24,11 +24,14 @@ from boneio.const import (
     SWITCH,
     TEXT_SENSOR,
 )
-from boneio.core.config import ConfigHelper
-from boneio.core.events import EventBus
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
+from boneio.core.utils.timeperiod import TimePeriod
 from boneio.core.utils.util import open_json
+from boneio.models.state import ModbusDeviceState
+
+if TYPE_CHECKING:
+    from boneio.core.manager import Manager
 from boneio.modbus.entities.derived import (
     ModbusDerivedNumericSensor,
     ModbusDerivedSelect,
@@ -45,7 +48,7 @@ from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
-from boneio.models import SensorState
+from boneio.models.events import ModbusDeviceEvent
 
 from .client import VALUE_TYPES, Modbus
 from .utils import CONVERT_METHODS, REGISTERS_BASE
@@ -64,21 +67,24 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         address: str,
         model: str,
         sensors_filters: dict,
-        config_helper: ConfigHelper,
-        event_bus: EventBus,
+        manager: Manager,
         id: str = DefaultName,
+        name: str = DefaultName,
         additional_data: dict = {},
-        **kwargs,
+        update_interval: TimePeriod = TimePeriod(seconds=60),
     ):
         """Initialize Modbus coordinator class."""
+        # Store manager reference first - needed by other init methods
+        self.manager = manager
+        
         BasicMqtt.__init__(
             self,
             id=id or address,
+            name=name,
             topic_type=SENSOR,
-            topic_prefix=config_helper.topic_prefix,
-            **kwargs,
+            topic_prefix=manager.config_helper.topic_prefix,
+            message_bus=manager._message_bus,
         )
-        self._config_helper = config_helper
         self._modbus = modbus
         self._db = open_json(path=os.path.dirname(__file__), model=model)
         self._model = self._db[MODEL]
@@ -134,12 +140,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     ]
                 ),
             )
-        self._event_bus = event_bus
-        self._event_bus.add_haonline_listener(target=self.set_payload_offline)
         try:
-            AsyncUpdater.__init__(self, **kwargs)
+            AsyncUpdater.__init__(self, manager=manager, update_interval=update_interval)
         except Exception as e:
             _LOGGER.error("Error in AsyncUpdater: %s", e)
+        
+        self._event_bus = manager.event_bus
+        self._event_bus.add_haonline_listener(target=self.set_payload_offline)
 
     def __init_modbus_entities__(self):
         # Standard sensors
@@ -164,7 +171,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "return_type": register.get("return_type", "regular"),
                     "filters": register.get("filters", []),
                     "message_bus": self._message_bus,
-                    "config_helper": self._config_helper,
+                    "config_helper": self.manager.config_helper,
                 }
                 if entity_type == SENSOR:
                     single_sensor = ModbusNumericSensor(
@@ -245,7 +252,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return_type=None,
             filters=[],
             message_bus=self._message_bus,
-            config_helper=self._config_helper,
+            config_helper=self.manager.config_helper,
             ha_filter=additional.get("ha_filter", "round(2)"),
             formula=additional.get("formula", ""),
             context_config={
@@ -276,7 +283,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             parent={NAME: self._name, ID: self._id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
-            config_helper=self._config_helper,
+            config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
             value_mapping=x_mapping,
@@ -303,7 +310,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             parent={NAME: self._name, ID: self._id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
-            config_helper=self._config_helper,
+            config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
             value_mapping=x_mapping,
@@ -330,7 +337,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             parent={NAME: self._name, ID: self._id, MODEL: self._model},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
-            config_helper=self._config_helper,
+            config_helper=self.manager.config_helper,
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
             value_mapping=x_mapping,
@@ -437,7 +444,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "Source sensor %s has no write address", source_sensor.name if source_sensor else "Unknown"
                 )
                 return
-            encoded_value = derived_sensor.encode_value(value)
+            # Convert string to float if needed
+            numeric_value = float(value) if isinstance(value, str) else value
+            encoded_value = derived_sensor.encode_value(numeric_value)
             status = await self._modbus.write_register(
                 unit=self._address,
                 address=source_sensor.write_address,
@@ -459,7 +468,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         if not hasattr(modbus_sensor, 'write_address') or not modbus_sensor.write_address:
             _LOGGER.error("Modbus sensor %s has no write address", modbus_sensor.name if hasattr(modbus_sensor, 'name') else 'Unknown')
             return
-        encoded_value = modbus_sensor.encode_value(value)
+        # Convert string to float if needed
+        numeric_value = float(value) if isinstance(value, str) else value
+        encoded_value = modbus_sensor.encode_value(numeric_value)
         status = await self._modbus.write_register(
             unit=self._address, address=modbus_sensor.write_address, value=encoded_value
         )
@@ -474,17 +485,17 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     )
                     output[additional_sensor.decoded_name] = additional_sensor.state
                 output[modbus_sensor.decoded_name] = modbus_sensor.state
-        self._event_bus.trigger_event({
-            "event_type": MODBUS_DEVICE,
-            "entity_id": modbus_sensor.id,
-            "event": SensorState(
+        self._event_bus.trigger_event(ModbusDeviceEvent(
+            entity_id=modbus_sensor.id,
+            state=ModbusDeviceState(
                 id=modbus_sensor.id,
                 name=modbus_sensor.name,
-                state=modbus_sensor.state,
+                state=modbus_sensor.state or 0.0,
                 unit=modbus_sensor.unit_of_measurement,
                 timestamp=modbus_sensor.last_timestamp,
+                device_group=self.name,
             ),
-        })
+        ))
         self._timestamp = timestamp
         self._message_bus.send_message(
             topic=f"{self._send_topic}/{modbus_sensor.base_address}",
@@ -496,8 +507,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """Get first register and check if it's available."""
         if (
             not self._discovery_sent
-            or (datetime.now() - self._discovery_sent).seconds > 3600
-        ) and self._config_helper.topic_prefix:
+            or (isinstance(self._discovery_sent, datetime) and (datetime.now() - self._discovery_sent).seconds > 3600)
+        ) and self.manager.config_helper.topic_prefix:
             self._discovery_sent = False
             first_register_base = self._db[REGISTERS_BASE][0]
             register_method = first_register_base.get("register_type", "input")
@@ -536,7 +547,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 _LOGGER.info("Sending online payload about device %s.", self._name)
                 self._payload_online = ONLINE
                 self._message_bus.send_message(
-                    topic=f"{self._config_helper.topic_prefix}/{self._id}/{STATE}",
+                    topic=f"{self.manager.config_helper.topic_prefix}/{self._id}/{STATE}",
                     payload=self._payload_online,
                 )
             if not values:
@@ -547,7 +558,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self._message_bus.send_message(
-                        topic=f"{self._config_helper.topic_prefix}/{self._id}/{STATE}",
+                        topic=f"{self.manager.config_helper.topic_prefix}/{self._id}/{STATE}",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False
@@ -602,17 +613,17 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                                 additional_sensor.state
                             )
                 output[sensor.decoded_name] = sensor.state
-                self._event_bus.trigger_event({
-                    "event_type": MODBUS_DEVICE,
-                    "entity_id": sensor.id,
-                    "event_state": SensorState( 
+                self._event_bus.trigger_event(ModbusDeviceEvent(
+                    entity_id=sensor.id,
+                    state=ModbusDeviceState(
                         id=sensor.id,
                         name=sensor.name,
                         state=sensor.state,
                         unit=sensor.unit_of_measurement,
                         timestamp=sensor.last_timestamp,
-                    ),
-                })
+                        device_group=self.name,
+                    )
+                ))
 
             self._timestamp = timestamp
             self._message_bus.send_message(

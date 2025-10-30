@@ -10,6 +10,7 @@ from typing import Any
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 from pymodbus.framer import FramerType
+from pymodbus.pdu import ExceptionResponse
 
 from boneio.const import ID, REGISTERS, RX, TX
 from boneio.exceptions import ModbusUartException
@@ -111,8 +112,6 @@ class Modbus:
         _LOGGER.debug(
             f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
         )
-        # configure_pin(pin=rx, mode=UART)
-        # configure_pin(pin=tx, mode=UART)
         self._uart = uart
 
         # generic configuration
@@ -122,6 +121,7 @@ class Modbus:
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
         try:
+            _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
             self._client = ModbusSerialClient(
                 port=self._uart[ID],
                 framer=FramerType.RTU,
@@ -132,8 +132,11 @@ class Modbus:
                 timeout=timeout,
                 retries=3,
             )
+            _LOGGER.debug("ModbusSerialClient created successfully")
         except ModbusException as exception_error:
-            _LOGGER.error(exception_error)
+            _LOGGER.error(f"Failed to create ModbusSerialClient: {exception_error}")
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error creating ModbusSerialClient: {type(e).__name__}: {e}")
 
     @property
     def client(self) -> ModbusSerialClient | None:
@@ -158,15 +161,44 @@ class Modbus:
                 _LOGGER.warning("modbus communication closed")
 
     def _pymodbus_connect(self) -> bool:
-        """Connect client."""
+        """Connect to Modbus device.
+        
+        This method ensures the client is ready and connected.
+        """
         try:
-            # In pymodbus 3.x, connect() is called automatically on first request
-            # But we can still call it explicitly to check connection
-            if self._client and not self._client.connected:
-                return self._client.connect()  # type: ignore[union-attr]
-            return True
+            if not self._client:
+                _LOGGER.error("Modbus client not initialized")
+                return False
+            
+            _LOGGER.debug(f"Attempting to connect to Modbus port: {self._uart[ID]}")
+            _LOGGER.debug(f"Client state before connect: connected={self._client.connected}")
+            
+            # Check if already connected
+            if self._client.connected:
+                _LOGGER.debug("Modbus client already connected")
+                return True
+            
+            # Try to connect (pymodbus 3.x handles this automatically on first request)
+            # But we can call it explicitly to verify connection
+            result = self._client.connect()
+            
+            _LOGGER.debug(f"Connect result: {result}, client.connected={self._client.connected}")
+            
+            if result:
+                _LOGGER.debug("Modbus client connected successfully")
+                return True
+            else:
+                _LOGGER.error(f"Failed to connect Modbus client to {self._uart[ID]}")
+                _LOGGER.error("Possible causes: port doesn't exist, no permissions, port busy, or hardware issue")
+                return False
+                
         except ModbusException as exception_error:
-            _LOGGER.error(f"No connection to Modbus: {exception_error}")
+            _LOGGER.error(f"ModbusException during connect: {exception_error}")
+            return False
+        except Exception as e:
+            _LOGGER.error(f"Unexpected error during Modbus connect: {type(e).__name__}: {e}")
+            import traceback
+            _LOGGER.debug(f"Traceback: {traceback.format_exc()}")
             return False
 
     async def read_and_decode(
@@ -181,7 +213,7 @@ class Modbus:
         result = await self.read_registers(
             unit=unit, address=address, count=count, method=method
         )
-        if not result or result.isError() if hasattr(result, 'isError') else False:
+        if not result or isinstance(result, ExceptionResponse):
             return None
         if not hasattr(result, 'registers'):
             return None
@@ -210,8 +242,8 @@ class Modbus:
                 unit,
             )
 
-            # Use direct client methods (pymodbus 3.x uses device_id or slave)
-            kwargs = {"address": address, "count": count, "slave": int(unit)}
+            # Use direct client methods (pymodbus 3.10+ uses device_id instead of slave)
+            kwargs = {"address": address, "count": count, "device_id": int(unit)}
             
             if method == "input":
                 result = self._client.read_input_registers(**kwargs)
@@ -269,11 +301,11 @@ class Modbus:
                 unit,
             )
 
-            # Use slave parameter (pymodbus 3.x)
-            result = self._client.write_register(address=address, value=int(value), slave=int(unit))
+            # Use device_id parameter (pymodbus 3.10+)
+            result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
 
-            if result.isError() if hasattr(result, 'isError') else False:
-                _LOGGER.error("Operation failed.")
+            if isinstance(result, ExceptionResponse):
+                _LOGGER.error(f"Operation failed: {result}")
                 result = None
 
         except ValueError as exception_error:

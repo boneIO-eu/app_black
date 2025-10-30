@@ -1,4 +1,4 @@
-export const formatTimestamp = (timestamp?: number) => {
+export const formatTimestamp = (timestamp?: number | null) => {
   if (!timestamp) return 'No timestamp available'; 
   try {
     if (timestamp === 0) return 'No updates yet';

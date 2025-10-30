@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
-    from boneio.manager import Manager
+    from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 

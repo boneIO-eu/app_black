@@ -22,6 +22,7 @@ from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
 from boneio.core.messaging import BasicMqtt
 from boneio.models import CoverState
+from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
@@ -141,12 +142,12 @@ class PreviousCover(BasicMqtt):
             id=self.id,
             name=self.name,
             state=self.state,
-            position=round(self._position, 0),
+            position=int(round(self._position, 0)),
             kind=self.kind,
             timestamp=self.last_timestamp,
             current_operation=self._current_operation,
         )
-        self._event_bus.trigger_event({"event_type": "cover", "entity_id": self.id, "event_state": event})
+        self._event_bus.trigger_event(CoverEvent(entity_id=self.id, state=event))
 
     def send_state(self) -> None:
         """Send state of cover to mqtt."""

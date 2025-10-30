@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from jose import jwt
+from jose.exceptions import JWTError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 
-from boneio.models import CoverState, InputState, OutputState, SensorState, StateUpdate
+from boneio.models.events import Event
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class WebSocketDisconnectWithMessage(WebSocketDisconnect):
         self.message = message
 
 class WebSocketManager:
-    def __init__(self, jwt_secret: str = None, auth_required: bool = False):
+    def __init__(self, jwt_secret: str | None = None, auth_required: bool = False):
         self.active_connections: list[WebSocket] = []
         self._lock = asyncio.Lock()
         self._closing = False
@@ -45,7 +46,7 @@ class WebSocketManager:
 
             # Verify the JWT token
             try:
-                payload = jwt.decode(token, self._jwt_secret, algorithms=[JWT_ALGORITHM])
+                payload = jwt.decode(token, self._jwt_secret or "", algorithms=[JWT_ALGORITHM])
                 # Check if token has expired
                 exp = payload.get("exp")
                 if not exp or datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
@@ -55,11 +56,11 @@ class WebSocketManager:
                 _LOGGER.debug("WebSocket token verified successfully")
                 return True
                 
-            except jwt.JWTError:
-                _LOGGER.debug("Invalid token")
+            except JWTError as e:
+                _LOGGER.debug(f"Invalid token: {e}")
                 return False
         except Exception as e:
-            _LOGGER.error(f"WebSocket authentication error: {e}")
+            _LOGGER.error(f"WebSocket authentication error: {type(e).__name__} - {e}")
             return False
 
     async def connect(self, websocket: WebSocket) -> bool:
@@ -119,7 +120,7 @@ class WebSocketManager:
                 pass
         
 
-    async def broadcast_state(self, state_type: str, data: Any):
+    async def broadcast_state(self, event: Event):
         if self._closing:
             return
 
@@ -127,9 +128,8 @@ class WebSocketManager:
         async with self._lock:
             for connection in self.active_connections[:]:
                 try:
-                    if isinstance(data, (InputState, OutputState, SensorState, CoverState)):
-                        update = StateUpdate(type=state_type, data=data)
-                        await connection.send_json(update.dict())
+                    if isinstance(event, Event):
+                        await connection.send_json(event.model_dump())
                 except WebSocketDisconnect:
                     dead_connections.append(connection)
                 except Exception as e:

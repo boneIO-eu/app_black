@@ -15,6 +15,7 @@ from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
 from boneio.hardware.gpio.input.manager import get_gpio_manager
 from boneio.models import InputState
+from boneio.models.events import InputEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,16 +154,12 @@ class GpioBaseClass:
                 boneio_input=self.boneio_input,
             )
             
-            # Publish to EventBus - Manager will subscribe to this
-            self._event_bus.trigger_event({
-                "event_type": "input",
-                "entity_id": self.id,
-                "click_type": click_type,
-                "duration": duration,
-                "actions": self._actions.get(click_type, []),
-                "event_state": event,
-                "input_instance": self,
-            })
+            self._event_bus.trigger_event(InputEvent(
+                entity_id=self.id,
+                click_type=click_type,
+                duration=duration,
+                state=event,
+            ))
 
     def set_actions(self, actions: dict) -> None:
         """Set actions for this input.
@@ -172,7 +169,7 @@ class GpioBaseClass:
         """
         self._actions = actions
 
-    def get_actions_of_click(self, click_type: ClickTypes) -> dict:
+    def get_actions_of_click(self, click_type: ClickTypes) -> list:
         """Get actions for a specific click type.
         
         Args:

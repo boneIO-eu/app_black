@@ -65,18 +65,18 @@ class BaseSensor(Filter):
         self._timestamp = timestamp
 
     @property
-    def return_type(self) -> str:
+    def return_type(self) -> str | None:
         return self._return_type
 
     def get_value(self):
         return self._value
 
     @property
-    def value_type(self) -> str:
+    def value_type(self) -> str | None:
         return self._value_type
 
     @property
-    def state(self) -> str | float:
+    def state(self) -> str | float | None:
         """Give back state value."""
         return self._value
 
@@ -90,7 +90,7 @@ class BaseSensor(Filter):
         return self._name
 
     @property
-    def unit_of_measurement(self) -> str:
+    def unit_of_measurement(self) -> str | None:
         return self._unit_of_measurement
 
     @property
@@ -128,6 +128,15 @@ class BaseSensor(Filter):
         )
         self._message_bus.send_message(topic=self._topic, payload=payload)
 
+    @property
+    def base_address(self) -> int | None:
+        """Get base address for the sensor (used by Modbus sensors).
+        
+        Returns:
+            Base address or None for non-Modbus sensors
+        """
+        return None
+
     def discovery_message(self):
         value_template = f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}" if self._ha_filter else f"{{{{ value_json.{self.decoded_name} }}}}" 
         
@@ -147,9 +156,6 @@ class BaseSensor(Filter):
             model=self._parent[MODEL],
             **kwargs,
         )
-
-    def encode_value(self, value: int | float) -> int:
-        raise NotImplementedError
 
 
 class ModbusBaseSensor(BaseSensor):
@@ -192,7 +198,7 @@ class ModbusBaseSensor(BaseSensor):
             device_class=device_class,
             value_type=value_type,
             return_type=return_type,
-            filters=filters,
+            filters=filters or [],
             message_bus=message_bus,
             config_helper=config_helper,
             user_filters=user_filters,

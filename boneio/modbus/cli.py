@@ -5,6 +5,7 @@ import os
 
 from boneio.const import REGISTERS, UARTS
 from boneio.core.utils import open_json
+from pymodbus.pdu import ExceptionResponse
 
 from .client import Modbus
 from .utils import REGISTERS_BASE, allowed_operations
@@ -90,9 +91,9 @@ class ModbusHelper:
             result = self._modbus.client.write_register(
                 address=baudrate_model["address"],
                 value=ind,
-                unit=self._device_address,
+                device_id=self._device_address,
             )
-        if result.isError():
+        if isinstance(result, ExceptionResponse):
             _LOGGER.error("Operation failed.")
             return 1
         else:
@@ -107,9 +108,9 @@ class ModbusHelper:
             result = self._modbus.client.write_register(
                 address=self._model[SET_ADDRESS],
                 value=new_address,
-                unit=self._device_address,
+                device_id=self._device_address,
             )
-            if result.isError():
+            if isinstance(result, ExceptionResponse):
                 _LOGGER.error("Operation failed.")
             else:
                 _LOGGER.info(
@@ -122,9 +123,9 @@ class ModbusHelper:
         result = self._modbus.client.write_register(
             address=register_address,
             value=value,
-            unit=self._device_address,
+            device_id=self._device_address,
         )
-        if result.isError():
+        if isinstance(result, ExceptionResponse):
             _LOGGER.error("Operation failed.")
         else:
             _LOGGER.info(

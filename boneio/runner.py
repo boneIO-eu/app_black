@@ -41,12 +41,11 @@ from boneio.const import (
 )
 from boneio.core.config import ConfigHelper
 from boneio.core.events import EventBus, GracefulExit
+from boneio.core.manager import Manager
 from boneio.core.messaging import MQTTClient
 from boneio.core.state import StateManager
 from boneio.core.system import get_network_info
 from boneio.exceptions import RestartRequestException
-from boneio.manager import Manager
-from boneio.webui.web_server import WebServer
 
 # Filter out cryptography deprecation warning
 warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
@@ -158,7 +157,9 @@ async def async_run(
     )
     # Convert coroutines to Tasks
     message_bus.set_manager(manager=manager)
-    tasks.update(manager.get_tasks())
+    # Add manager tasks (get_tasks returns dict, we need values)
+    manager_tasks = manager.get_tasks()
+    tasks.update(manager_tasks.values())
     
     # Start GPIO manager if inputs are configured
     from boneio.hardware.gpio.input import get_gpio_manager
@@ -182,6 +183,9 @@ async def async_run(
     # Start web server if configured
     if web_active:
         _LOGGER.info("Starting Web server.")
+        # Lazy import WebServer only when needed (saves ~4s on startup)
+        from boneio.webui.web_server import WebServer
+        
         web_server = WebServer(
             config_file=config_file,
             config_helper=_config_helper,

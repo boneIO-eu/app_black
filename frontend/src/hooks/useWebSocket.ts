@@ -2,55 +2,109 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { useApiAvailability } from './useApiAvailability';
 
-interface IOState {
+// State models matching Python Pydantic models
+
+export interface InputState {
   name: string;
-  id: string;
   state: string;
   type: string;
-  pin: string | number;
-  timestamp?: number;
-  boneio_input?: string;
+  pin: string;
+  timestamp: number;
+  boneio_input: string;
 }
 
-interface SensorState {
-  name: string;
-  id: string;
-  state: string | number;
-  unit?: string;
-  timestamp?: number;
+export interface InputEvent {
+  event_type: 'input';
+  entity_id: string;
+  click_type: string;
+  duration: number | null;
+  state: InputState;
 }
 
-interface CoverState {
-  name: string;
+export interface OutputState {
   id: string;
+  name: string;
+  state: string;
+  type: string;
+  expander_id: string | null;
+  pin: number;
+  timestamp: number | null;
+}
+
+export interface OutputEvent {
+  event_type: 'output';
+  entity_id: string;
+  state: OutputState;
+}
+
+export interface CoverState {
+  id: string;
+  name: string;
   state: string;
   position: number;
-  tilt: number;
   current_operation: string;
+  timestamp: number | null;
+  tilt: number;  // Tilt position (0-100)
   kind: string;
-  timestamp?: number;
 }
 
-type StateUpdateData = IOState | SensorState | CoverState;
-
-export interface StateUpdate {
-  type: 'input' | 'output' | 'modbus_device' | 'sensor' | 'cover';
-  data: StateUpdateData;
+export interface CoverEvent {
+  event_type: 'cover';
+  entity_id: string;
+  state: CoverState;
 }
 
-// Type guard to check if data is IOState
-export function isIOState(data: StateUpdateData): data is IOState {
-  return 'pin' in data && data.type !== 'cover';
+export interface SensorState {
+  id: string;
+  name: string;
+  state: number | string | null;
+  unit: string | null;
+  timestamp: number | null;
 }
 
-// Type guard to check if data is SensorState
-export function isSensorState(data: StateUpdateData): data is SensorState {
-  return 'unit' in data;
+export interface ModbusDeviceState {
+  id: string;
+  name: string;
+  state: number | string | null;
+  unit: string | null;
+  timestamp: number | null;
+  device_group: string;
 }
 
-// Type guard to check if data is CoverState
-export function isCoverState(data: StateUpdateData): data is CoverState {
-  return 'position' in data && 'current_operation' in data;
+export interface SensorEvent {
+  event_type: 'sensor';
+  entity_id: string;
+  state: SensorState;
+}
+
+export interface ModbusDeviceEvent {
+  event_type: 'modbus_device';
+  entity_id: string;
+  state: ModbusDeviceState;
+}
+
+export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent;
+
+// Type guards
+
+export function isInputEvent(data: StateUpdate): data is InputEvent {
+  return data.event_type === 'input';
+}
+
+export function isOutputEvent(data: StateUpdate): data is OutputEvent {
+  return data.event_type === 'output';
+}
+
+export function isCoverEvent(data: StateUpdate): data is CoverEvent {
+  return data.event_type === 'cover';
+}
+
+export function isSensorEvent(data: StateUpdate): data is SensorEvent {
+  return data.event_type === 'sensor';
+}
+
+export function isModbusDeviceEvent(data: StateUpdate): data is ModbusDeviceEvent {
+  return data.event_type === 'modbus_device';
 }
 
 interface WebSocketHookResult {

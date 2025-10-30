@@ -34,14 +34,15 @@ from boneio.core.system.monitor import (
 )
 from boneio.core.utils import AsyncUpdater, TimePeriod
 from boneio.models import HostSensorState
+from boneio.models.events import HostEvent
 from boneio.version import __version__
 
 if TYPE_CHECKING:
     from boneio.core.events import EventBus
+    from boneio.core.manager import Manager
     from boneio.hardware.gpio.input import GpioBaseClass
     from boneio.hardware.i2c import INA219 as INA219Class
     from boneio.hardware.i2c import MCP9808, PCT2075
-    from boneio.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,11 +95,10 @@ class HostSensor(AsyncUpdater):
             state="new_state",  # Doesn't matter here, as we fetch everything in OLED
             timestamp=timestamp,
         )
-        self._event_bus.trigger_event({
-            "event_type": "host", 
-            "entity_id": self.id, 
-            "event_state": sensor_state
-        })
+        self._event_bus.trigger_event(HostEvent(
+            entity_id=self.id, 
+            state=sensor_state
+        ))
 
     @property
     def state(self) -> dict:
@@ -324,7 +324,7 @@ class HostData:
         Returns:
             Dictionary with data, URL string, or None if not found
         """
-        _LOGGER.debug("HostData.get called with type='%s', outputs=%s", type, list(self._output.keys()) if self._output else "None")
+        # _LOGGER.debug("HostData.get called with type='%s', outputs=%s", type, list(self._output.keys()) if self._output else "None")
         
         if type in self._output:
             return self._get_output(type)

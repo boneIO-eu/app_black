@@ -3,9 +3,10 @@ import { FaLightbulb } from 'react-icons/fa';
 import { RiOutletLine } from "react-icons/ri";
 import { GiValve } from "react-icons/gi";
 import { formatTimestamp } from '../utils/formatters';
+import { OutputState } from "@/hooks/useWebSocket";
 
 interface OutputItemProps {
-  output: { id: string; name: string; state: string; type: string; timestamp?: number };
+  output: OutputState;
   onToggle: (id: string, name: string, type: string) => void;
   isGrid: boolean;
   error: string | null;
@@ -55,7 +56,7 @@ const OutputItem: React.FC<OutputItemProps> = ({
           after:transition-all dark:border-gray-600 peer-checked:bg-blue-600`}></div>
       </label>
       <p className="text-gray-500 text-xs mt-2">
-        {formatTimestamp(output.timestamp)}
+        {formatTimestamp(output.timestamp ?? null)}
       </p>
     </div>
   </div>

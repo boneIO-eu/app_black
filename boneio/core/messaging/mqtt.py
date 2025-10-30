@@ -20,11 +20,12 @@ from paho.mqtt.subscribeoptions import SubscribeOptions
 
 from boneio.const import OFFLINE, PAHO, STATE
 from boneio.core.config import ConfigHelper
+from boneio.core.events.bus import GracefulExit
 from boneio.core.messaging.queue import UniqueQueue
 from boneio.models.mqtt import MQTTMessageSend
 
 if TYPE_CHECKING:
-    from boneio.manager import Manager
+    from boneio.core.manager import Manager
 from boneio.core.messaging.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)

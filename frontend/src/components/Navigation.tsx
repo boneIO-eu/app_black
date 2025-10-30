@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
@@ -104,6 +104,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/', default: true, icon: FaLightbulb, label: 'Outputs' },
     { path: '/inputs', icon: FaInbox, label: 'Inputs' },
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
+    { path: '/modbus', icon: FaNetworkWired, label: 'Modbus' },
     { path: '/config', icon: FaCode, label: 'Config' },
     // { path: '/settings', icon: FaCode, label: 'Settings', experimental: true }, // Temporarily disabled due to JSON Schema issues
     { path: '/logs', icon: FaList, label: 'Logs' },

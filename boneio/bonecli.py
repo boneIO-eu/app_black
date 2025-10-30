@@ -21,12 +21,9 @@ from boneio.exceptions import (
     ConfigurationException,
     RestartRequestException,
 )
-from boneio.modbus.cli import (
-    async_run_modbus_get,
-    async_run_modbus_search,
-    async_run_modbus_set,
-)
-from boneio.modbus.client import VALUE_TYPES
+# Lazy import modbus CLI to save ~0.35s on startup for 'run' command
+# from boneio.modbus.cli import async_run_modbus_get, async_run_modbus_search, async_run_modbus_set
+# from boneio.modbus.client import VALUE_TYPES
 from boneio.runner import async_run
 from boneio.version import __version__
 
@@ -174,6 +171,9 @@ def get_arguments() -> argparse.Namespace:
         help="Register type",
         required=True,
     )
+    # Lazy import VALUE_TYPES only for modbus commands
+    from boneio.modbus.client import VALUE_TYPES
+    
     get_modbus_parser.add_argument(
         "--value-type",
         type=str,
@@ -241,6 +241,13 @@ def run_modbus_command(
     args: argparse.Namespace,
 ) -> int:
     """Run BoneIO."""
+    # Lazy import modbus CLI only when needed
+    from boneio.modbus.cli import (
+        async_run_modbus_get,
+        async_run_modbus_search,
+        async_run_modbus_set,
+    )
+    
     setup_logging(debug_level=args.debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:

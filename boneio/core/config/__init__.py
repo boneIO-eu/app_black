@@ -13,10 +13,11 @@ from boneio.core.config.loader import (
     create_serial_number_sensor,
     create_temp_sensor,
 )
-from boneio.core.config.yaml_util import load_config_from_file
+from boneio.core.config.yaml_util import clear_config_cache, load_config_from_file
 
 __all__ = [
     "ConfigHelper",
+    "clear_config_cache",
     "configure_binary_sensor",
     "configure_cover",
     "configure_event_sensor",

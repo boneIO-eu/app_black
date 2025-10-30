@@ -43,9 +43,12 @@ from boneio.hardware.gpio.expanders import MCP23017, PCA9685
 
 # Import only for type checking to avoid circular imports
 if TYPE_CHECKING:
+    from w1thermsensor import W1ThermSensor
+
     from boneio.components.cover import PreviousCover, TimeBasedCover
 # W1ThermSensor import moved to function to avoid kernel module loading at import time
 
+from boneio.components.input import GpioEventButton, GpioInputBinarySensor
 from boneio.components.sensor import SerialNumberSensor
 from boneio.core.events import EventBus
 from boneio.core.messaging.basic import MessageBus
@@ -61,10 +64,9 @@ from boneio.hardware.gpio.expanders import PCF8575
 from boneio.hardware.onewire import (
     DS2482,
     DS2482_ADDRESS,
+    DallasSensor,
     OneWireBus,
 )
-from boneio.hardware.onewire import DallasSensor
-from boneio.components.input import GpioEventButton, GpioInputBinarySensor
 from boneio.integration.homeassistant import (
     ha_adc_sensor_availabilty_message,
     ha_binary_sensor_availabilty_message,
@@ -80,12 +82,12 @@ from boneio.modbus.coordinator import ModbusCoordinator
 
 # Typing imports that create a circular dependency
 if TYPE_CHECKING:
-    from boneio.manager import Manager
+    from boneio.core.manager import Manager
 
 # Use smbus2 wrapper for Python 3.13+ on Debian 13
 from boneio.components.output import MCPOutput, PCFOutput, PWMOutput
-from boneio.hardware.i2c.bus import SMBus2I2C as I2C
 from boneio.hardware.analog import GpioADCSensor, initialize_adc
+from boneio.hardware.i2c.bus import SMBus2I2C as I2C
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -305,9 +307,23 @@ def configure_relay(
     name: str,
     config: dict,
     restore_state: bool = False,
+    mcp: dict | None = None,
+    pca: dict | None = None,
+    pcf: dict | None = None,
+    grouped_outputs_by_expander: dict | None = None,
+    interlock_manager: Any | None = None,
+    event_bus: Any | None = None,
     **kwargs,
 ) -> Any:
     """Configure kind of relay. Most common MCP."""
+    # Use provided expanders or fall back to manager properties
+    mcp = mcp if mcp is not None else manager.mcp
+    pca = pca if pca is not None else manager.pca
+    pcf = pcf if pcf is not None else manager.pcf
+    grouped_outputs_by_expander = grouped_outputs_by_expander if grouped_outputs_by_expander is not None else manager.grouped_outputs_by_expander
+    interlock_manager = interlock_manager if interlock_manager is not None else manager._interlock_manager
+    event_bus = event_bus if event_bus is not None else manager._event_bus
+    
     output_type = config.pop(OUTPUT_TYPE)
     restored_state = (
         state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
@@ -325,29 +341,29 @@ def configure_relay(
     expander_id = getattr(output, "expander_id")
 
     if output_kind == MCP:
-        mcp = manager.mcp.get(expander_id)
-        if not mcp:
+        mcp_expander = mcp.get(expander_id)
+        if not mcp_expander:
             _LOGGER.error("No such MCP configured!")
             return None
         extra_args = {
             "pin": int(config.pop(PIN)),
-            "mcp": mcp,
+            "mcp": mcp_expander,
             "mcp_id": expander_id,
             "output_type": output_type,
         }
     elif output_kind == PCA:
-        pca = manager.pca.get(expander_id)
-        if not pca:
+        pca_expander = pca.get(expander_id)
+        if not pca_expander:
             _LOGGER.error("No such PCA configured!")
             return None
         extra_args = {
             "pin": int(config.pop(PIN)),
-            "pca": pca,
+            "pca": pca_expander,
             "pca_id": expander_id,
             "output_type": output_type,
         }
     elif output_kind == PCF:
-        expander = manager.pcf.get(expander_id)
+        expander = pcf.get(expander_id)
         if not expander:
             _LOGGER.error("No such PCF configured!")
             return None
@@ -358,8 +374,8 @@ def configure_relay(
             "output_type": output_type,
         }
     elif output_kind == GPIO:
-        if GPIO not in manager.grouped_outputs_by_expander:
-            manager.grouped_outputs_by_expander[GPIO] = {}
+        if GPIO not in grouped_outputs_by_expander:
+            grouped_outputs_by_expander[GPIO] = {}
         extra_args = {
             "pin": config.pop(PIN),
         }
@@ -375,18 +391,19 @@ def configure_relay(
 
     relay = getattr(output, "OutputClass")(
         message_bus=message_bus,
+        event_bus=event_bus,
         topic_prefix=topic_prefix,
         id=relay_id,
         restored_state=restored_state,
-        interlock_manager=manager._interlock_manager,
+        interlock_manager=interlock_manager,
         interlock_groups=interlock_groups,
         name=name,
         **config,
         **kwargs,
         **extra_args,
     )
-    manager._interlock_manager.register(relay, interlock_groups)
-    manager.grouped_outputs_by_expander[expander_id][relay_id] = relay
+    interlock_manager.register(relay, interlock_groups)
+    grouped_outputs_by_expander[expander_id][relay_id] = relay
     if relay.is_virtual_power:
         manager.send_ha_autodiscovery(
             id=f"{relay_id}_virtual_power",

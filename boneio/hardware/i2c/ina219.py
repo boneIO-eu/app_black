@@ -16,6 +16,7 @@ from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.hardware.i2c.ina219_driver import INA219_I2C
 from boneio.models import SensorState
+from boneio.models.events import SensorEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -229,16 +230,15 @@ class INA219(AsyncUpdater):
                     sensor.update(timestamp=timestamp)
                     
                     # Trigger event on EventBus
-                    self.manager.event_bus.trigger_event({
-                        "event_type": "sensor",
-                        "entity_id": sensor.id,
-                        "event_state": SensorState(
+                    self.manager.event_bus.trigger_event(SensorEvent(
+                        entity_id=sensor.id,
+                        state=SensorState(
                             id=sensor.id,
                             name=sensor.name,
                             state=sensor.state,
                             unit=sensor.unit_of_measurement,
                             timestamp=sensor.last_timestamp,
                         ),
-                    })
+                    ))
             except Exception as err:
                 _LOGGER.error("Error reading INA219 %s: %s", k, err)

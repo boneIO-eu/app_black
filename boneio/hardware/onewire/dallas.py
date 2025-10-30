@@ -6,7 +6,6 @@ like DS18B20, DS18S20, DS1822, etc. using the w1thermsensor library.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from boneio.const import TEMPERATURE

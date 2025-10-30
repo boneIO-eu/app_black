@@ -5,24 +5,27 @@ import LogViewer from './components/LogViewer';
 import OutputsView from './components/OutputsView';
 import InputsView from './components/InputsView';
 import SensorView from './components/SensorView';
+import ModbusView from './components/ModbusView';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
-import { useWebSocket, StateUpdate, isCoverState } from './hooks/useWebSocket';
+import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, isOutputEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
 
 export const WebSocketContext = createContext<{
-  outputs: StateUpdate['data'][];
-  inputs: StateUpdate['data'][];
-  sensors: StateUpdate['data'][];
-  covers: StateUpdate['data'][];
+  outputs: OutputEvent[];
+  inputs: InputEvent[];
+  sensors: SensorEvent[];
+  modbus_devices: ModbusDeviceEvent[];
+  covers: CoverEvent[];
 }>({
   outputs: [],
   inputs: [],
   sensors: [],
+  modbus_devices: [],
   covers: [],
 });
 
@@ -43,10 +46,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const [outputs, setOutputs] = useState<StateUpdate['data'][]>([]);
-  const [inputs, setInputs] = useState<StateUpdate['data'][]>([]);
-  const [sensors, setSensors] = useState<StateUpdate['data'][]>([]);
-  const [covers, setCovers] = useState<StateUpdate['data'][]>([]);
+  const [outputs, setOutputs] = useState<OutputEvent[]>([]);
+  const [inputs, setInputs] = useState<InputEvent[]>([]);
+  const [sensors, setSensors] = useState<SensorEvent[]>([]);
+  const [modbus_devices, setModbusDevices] = useState<ModbusDeviceEvent[]>([]);
+  const [covers, setCovers] = useState<CoverEvent[]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
   const { error, addMessageListener } = useWebSocket();
@@ -59,6 +63,7 @@ function AppContent() {
       setOutputs([]);
       setInputs([]);
       setSensors([]);
+      setModbusDevices([]);
       setCovers([]);
       return;
     }
@@ -66,65 +71,81 @@ function AppContent() {
     // Only set up listeners if authenticated or auth not required
     if (isAuthenticated || !isAuthRequired) {
       const unsubscribe = addMessageListener((message: StateUpdate) => {
-        if (message.type === 'output') {
+        if (isOutputEvent(message)) {
           setOutputs(prev => {
-            const index = prev.findIndex(o => o.name === message.data.name);
+            const index = prev.findIndex(o => o.entity_id === message.entity_id);
             if (index >= 0) {
               const prevOutput = prev[index];
-              if (prevOutput.state === message.data.state) {
+              if (prevOutput.state.state === message.state.state) {
                 return prev; // No change needed
               }
               const newOutputs = [...prev];
-              newOutputs[index] = message.data;
+              newOutputs[index] = message;
               return newOutputs;
             }
-            return [...prev, message.data];
+            return [...prev, message];
           });
-        } else if (message.type === 'input') {
+        } else if (message.event_type === 'input') {
           setInputs(prev => {
-            const index = prev.findIndex(i => i.name === message.data.name);
+            const index = prev.findIndex(i => i.state.name === message.state.name);
             if (index >= 0) {
               const prevInput = prev[index];
-              if (prevInput.state === message.data.state) {
+              if (prevInput.state.state === message.state.state) {
                 return prev; // No change needed
               }
               const newInputs = [...prev];
-              newInputs[index] = message.data;
+              newInputs[index] = message;
               return newInputs;
             }
-            return [...prev, message.data];
+            return [...prev, message];
           });
-        } else if (message.type === 'modbus_device' || message.type === 'sensor') {
+        } else if (message.event_type === 'modbus_device') {
+          console.log("Modbus device event:", message)
+          setModbusDevices(prev => {
+            const index = prev.findIndex(s => s.state.name === message.state.name);
+            if (index >= 0) {
+              const prevDevice = prev[index];
+              if (prevDevice.state.state === message.state.state) {
+                return prev; // No change needed
+              }
+              const newDevices = [...prev];
+              newDevices[index] = message; 
+              return newDevices;
+            }
+            return [...prev, message];
+          });
+        } else if (message.event_type === 'sensor') {
+          console.log("Sensor event:", message)
           setSensors(prev => {
-            const index = prev.findIndex(s => s.name === message.data.name);
+            const index = prev.findIndex(s => s.state.name === message.state.name);
             if (index >= 0) {
               const prevSensor = prev[index];
-              if (prevSensor.state === message.data.state) {
+              if (prevSensor.state.state === message.state.state) {
                 return prev; // No change needed
               }
               const newSensors = [...prev];
-              newSensors[index] = message.data; 
+              newSensors[index] = message; 
               return newSensors;
             }
-            return [...prev, message.data];
+            return [...prev, message];
           });
-        } else if (message.type === 'cover') {
+        } else if (message.event_type === 'cover') {
           setCovers(prev => {
-            const index = prev.findIndex(c => c.name === message.data.name);
+            const index = prev.findIndex(c => c.state.name === message.state.name);
             if (index >= 0) {
               const prevCover = prev[index];
-              if (isCoverState(prevCover) && isCoverState(message.data) && 
-                  prevCover.state === message.data.state && 
-                  prevCover.position === message.data.position && 
-                  prevCover.tilt === message.data.tilt &&
-                  prevCover.current_operation === message.data.current_operation) {
+              if (isCoverEvent(prevCover) && isCoverEvent(message) && 
+                  prevCover.state.state === message.state.state && 
+                  prevCover.state.position === message.state.position && 
+                  prevCover.state.tilt === message.state.tilt &&
+                  prevCover.state.current_operation === message.state.current_operation) {
                 return prev; // No change needed
               }
               const newCovers = [...prev];
-              newCovers[index] = message.data;
+              newCovers[index] = message;
               return newCovers;
             }
-            return [...prev, message.data];
+            return [...prev, message];
           });
         }
       });
@@ -144,7 +165,7 @@ function AppContent() {
   }
 
   return (
-    <WebSocketContext.Provider value={{ outputs, inputs, sensors, covers }}>
+    <WebSocketContext.Provider value={{ outputs, inputs, sensors, modbus_devices, covers }}>
       <Routes>
         <Route path="/" element={
           <ProtectedRoute>
@@ -194,6 +215,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <SensorView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/modbus" element={
+          <ProtectedRoute>
+            <Layout>
+              <ModbusView />
             </Layout>
           </ProtectedRoute>
         } />
