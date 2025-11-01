@@ -21,6 +21,7 @@ from boneio.const import (
     ID,
     MCP,
     NONE,
+    OUTPUT,
     PCA,
     PCF,
     RESTORE_STATE,
@@ -91,7 +92,7 @@ class OutputManager:
         )
         
         # Initialize outputs
-        self._initialize_outputs(relay_pins=relay_pins)
+        self._initialize_outputs(relay_pins=relay_pins, reload_config=False)
         
         # Configure output groups
         self._configure_output_groups()
@@ -133,55 +134,6 @@ class OutputManager:
                 i2cbusio=self._manager._i2cbusio,
             )
         )
-
-    def _initialize_outputs(self, relay_pins: list[dict]) -> None:
-        """Initialize outputs (relays, switches, lights, LEDs, valves)."""
-        _LOGGER.debug("Initializing outputs")
-        
-        for _config in relay_pins:
-            _name = _config.pop(ID)
-            restore_state = _config.pop(RESTORE_STATE, False)
-            _id = strip_accents(_name)
-            
-            out = configure_relay(
-                manager=self._manager,
-                message_bus=self._manager._message_bus,
-                state_manager=self._manager._state_manager,
-                topic_prefix=self._manager._topic_prefix,
-                relay_id=_id,
-                name=_name,
-                config=_config,
-                restore_state=restore_state,
-                mcp=self._mcp,
-                pca=self._pca,
-                pcf=self._pcf,
-                grouped_outputs_by_expander=self.grouped_outputs_by_expander,
-                interlock_manager=self._interlock_manager,
-                event_bus=self._manager._event_bus,
-            )
-            
-            # Subscribe to output state changes
-            if out.output_type not in (NONE, COVER):
-                self._manager._event_bus.add_event_listener(
-                    event_type="output",
-                    entity_id=_id,
-                    listener_id=f"manager_output_{_id}",
-                    target=self._relay_callback,
-                )
-            
-            self._outputs[_id] = out
-            
-            # Send HA autodiscovery
-            if out.output_type not in (NONE, COVER):
-                self._manager.send_ha_autodiscovery(
-                    id=_id,
-                    name=_name,
-                    ha_type=out.output_type,
-                    output_type=out.output_type,
-                )
-            
-            # Delayed state send
-            self._manager.loop.create_task(self._delayed_send_state(out))
 
     def _configure_output_groups(self) -> None:
         """Configure output groups."""
@@ -341,6 +293,110 @@ class OutputManager:
         """
         # Outputs don't have background tasks currently
         return {}
+
+    def _initialize_outputs(self, relay_pins: list[dict], reload_config: bool = False) -> None:
+        """Initialize outputs (relays, switches, lights, LEDs, valves).
+        
+        Args:
+            relay_pins: List of relay configurations
+            reload_config: If True, reload configuration from file and clear existing outputs
+        """
+        if reload_config:
+            # Clear existing outputs and event listeners
+            for output_id, output in list(self._outputs.items()):
+                # Remove event listeners
+                if output.output_type not in (NONE, COVER):
+                    try:
+                        self._manager._event_bus.remove_event_listener(
+                            event_type="output",
+                            entity_id=output_id,
+                            listener_id=f"manager_output_{output_id}"
+                        )
+                    except Exception as e:
+                        _LOGGER.debug(f"Could not remove event listener for {output_id}: {e}")
+            self._outputs.clear()
+            # Clear autodiscovery messages for outputs
+            from boneio.const import LIGHT, LED, SWITCH, VALVE
+            for output_type in [LIGHT, LED, SWITCH, VALVE]:
+                self._manager._config_helper.clear_autodiscovery_type(ha_type=output_type)
+        
+        _LOGGER.debug("Initializing outputs")
+        
+        for _config in relay_pins:
+            # Create a copy to avoid modifying the original
+            config_copy = _config.copy()
+            _name = config_copy.pop(ID)
+            restore_state = config_copy.pop(RESTORE_STATE, False)
+            _id = strip_accents(_name)
+            
+            out = configure_relay(
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                state_manager=self._manager._state_manager,
+                topic_prefix=self._manager._topic_prefix,
+                relay_id=_id,
+                name=_name,
+                config=config_copy,
+                restore_state=restore_state,
+                mcp=self._mcp,
+                pca=self._pca,
+                pcf=self._pcf,
+                grouped_outputs_by_expander=self.grouped_outputs_by_expander,
+                interlock_manager=self._interlock_manager,
+                event_bus=self._manager._event_bus,
+            )
+            
+            # Subscribe to output state changes
+            if out.output_type not in (NONE, COVER):
+                self._manager._event_bus.add_event_listener(
+                    event_type="output",
+                    entity_id=_id,
+                    listener_id=f"manager_output_{_id}",
+                    target=self._relay_callback,
+                )
+            
+            self._outputs[_id] = out
+            
+            # Send HA autodiscovery
+            if out.output_type not in (NONE, COVER):
+                self._manager.send_ha_autodiscovery(
+                    id=_id,
+                    name=_name,
+                    ha_type=out.output_type,
+                    output_type=out.output_type,
+                )
+            
+            # Delayed state send
+            self._manager.loop.create_task(self._delayed_send_state(out))
+
+    def reload_outputs(self) -> None:
+        """Reload output configuration from file.
+        
+        This reloads outputs and output groups from the config file.
+        Existing outputs are cleared and recreated based on the current config.
+        """
+        _LOGGER.info("Reloading output configuration")
+        
+        # Get config from ConfigHelper (uses cache, reloads if needed)
+        config = self._manager._config_helper.reload_config()
+        
+        # Get new relay pins and output groups
+        relay_pins = config.get(OUTPUT, [])
+        output_groups = config.get("output_group", [])
+        
+        # Reload outputs
+        self._initialize_outputs(relay_pins=relay_pins, reload_config=True)
+        
+        # Reload output groups
+        self._configured_output_groups.clear()
+        self._outputs_group = output_groups
+        self._configure_output_groups()
+        
+        _LOGGER.info(
+            "Output reload complete: %d outputs, %d groups",
+            len(self._outputs),
+            len(self._configured_output_groups)
+        )
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all outputs."""

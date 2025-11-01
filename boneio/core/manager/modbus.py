@@ -38,7 +38,7 @@ class ModbusManager:
         self,
         manager: Manager,
         modbus_config: dict[str, Any],
-        modbus_devices: dict[str, Any],
+        modbus_devices: list[dict[str, Any]],
     ):
         """Initialize Modbus manager."""
         self._manager = manager
@@ -60,7 +60,7 @@ class ModbusManager:
     def _configure_modbus(
         self,
         modbus_config: dict[str, Any],
-        modbus_devices: dict[str, Any],
+        modbus_devices: list[dict[str, Any]],
     ) -> None:
         """Configure Modbus client and devices.
         
@@ -102,9 +102,9 @@ class ModbusManager:
         except Exception as err:
             _LOGGER.error("Failed to configure Modbus: %s", err)
 
-    def _configure_modbus_coordinators(self, devices: list) -> dict:
+    def _configure_modbus_coordinators(self, devices: list[dict[str, Any]]) -> dict:
         """Configure Modbus device coordinators.
-        
+        devices: List of device configurations
         Args:
             devices: Dictionary of device configurations
             
@@ -208,3 +208,40 @@ class ModbusManager:
                         "Failed to send HA discovery for Modbus coordinator: %s",
                         err
                     )
+
+    def reload_modbus_devices(self) -> None:
+        """Reload Modbus devices configuration from file.
+        
+        This clears existing coordinators and recreates them
+        based on the current config. The Modbus client itself is not recreated.
+        Note: Existing coordinator tasks will continue running until Manager
+        refreshes its task list, but new coordinators will be created.
+        """
+        _LOGGER.info("Reloading Modbus devices configuration")
+        
+        # Get config from ConfigHelper (uses cache, reloads if needed)
+        config = self._manager._config_helper.reload_config()
+        
+        # Get new modbus_devices config
+        modbus_devices = config.get("modbus_devices", [])
+        
+        # Clear existing coordinators
+        # Note: Their tasks will be cleaned up when Manager refreshes task list
+        # Old coordinators will stop working naturally as they're removed from dict
+        self._modbus_coordinators.clear()
+        
+        # Clear autodiscovery messages for Modbus
+        self._manager._config_helper.clear_autodiscovery_type(ha_type="sensor")
+        
+        # Recreate coordinators if Modbus client exists and devices are configured
+        if self._modbus and modbus_devices:
+            self._modbus_coordinators = self._configure_modbus_coordinators(
+                devices=modbus_devices
+            )
+            
+            _LOGGER.info(
+                "Modbus devices reload complete: %d coordinators",
+                len(self._modbus_coordinators)
+            )
+        else:
+            _LOGGER.info("Modbus devices reload complete: no coordinators configured")

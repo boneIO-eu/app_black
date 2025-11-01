@@ -215,7 +215,7 @@ def run(
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
-        configure_logger(log_config=_config.get("logger"), debug=debug)
+        configure_logger(log_config=_config.get("logger") or {}, debug=debug)
         ret = asyncio.run(
             async_run(
                 config=_config,

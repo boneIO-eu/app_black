@@ -807,6 +807,48 @@ async def update_section_content(section: str, data: dict = Body(...)):
         _LOGGER.error(f"Error saving section '{section}': {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
+@app.post("/api/config/reload")
+async def reload_configuration(
+    sections: list[str] | None = Body(None, description="Optional list of sections to reload. Supported: 'output', 'cover', 'input', 'event', 'binary_sensor', 'modbus_devices'")
+):
+    """Reload configuration from file.
+    
+    This endpoint allows hot-reloading of configuration sections that support it.
+    Currently supports: 'output', 'cover', 'input', 'modbus_devices'
+    
+    Args:
+        sections: Optional list of section names to reload.
+                 If not provided, reloads all supported sections.
+                 Supported sections:
+                 - 'output': Reload outputs and output groups
+                 - 'cover': Reload covers
+                 - 'input': Reload all inputs (event buttons and binary sensors)
+                 - 'event': Alias for 'input' (reloads all inputs)
+                 - 'binary_sensor': Alias for 'input' (reloads all inputs)
+                 - 'modbus_devices': Reload Modbus device coordinators (recreates coordinators)
+    
+    Returns:
+        dict: Status of reload operation with details about reloaded and failed sections
+    """
+    manager: Manager = app.state.manager
+    
+    try:
+        result = await manager.reload_config(reload_sections=sections)
+        
+        if result.get("status") == "error":
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("message", "Failed to reload configuration")
+            )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error(f"Error reloading config: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error reloading config: {str(e)}")
+
 def on_exit(self) -> None:
     asyncio.create_task(app.state.websocket_manager.close_all())
 

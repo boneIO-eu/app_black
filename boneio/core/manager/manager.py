@@ -96,7 +96,7 @@ class Manager:
         output_group: list[dict] = [],
         sensors: dict[str, list] = {},
         modbus: dict[str, Any] = {},
-        modbus_devices: dict[str, Any] = {},
+        modbus_devices: list[dict[str, Any]] = [],
         pca9685: list[dict] = [],
         mcp23017: list[dict] = [],
         pcf8575: list[dict] = [],
@@ -307,7 +307,7 @@ class Manager:
         id: str,
         name: str,
         ha_type: str,
-        output_type: str = None,
+        output_type: str | None = None,
         **kwargs
     ) -> None:
         """Send HA autodiscovery message for a single entity.
@@ -538,6 +538,100 @@ class Manager:
                     payload=action_cover,
                     retain=False,
                 )
+
+    async def reload_config(self, reload_sections: list[str] | None = None) -> dict:
+        """Reload configuration from file.
+        
+        This method allows hot-reloading of specific configuration sections
+        without requiring a full application restart.
+        
+        Args:
+            reload_sections: Optional list of section names to reload.
+                           If None, reloads all supported sections (output, cover, input, modbus_devices).
+                           Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 'modbus_devices'
+        
+        Returns:
+            dict: Status of reload operation with details:
+                - status: 'success', 'partial', or 'error'
+                - reloaded_sections: List of successfully reloaded sections
+                - failed_sections: List of sections that failed to reload
+        """
+        from boneio.const import OUTPUT, COVER, EVENT_ENTITY, BINARY_SENSOR
+        
+        _LOGGER.info("Starting config reload")
+        
+        # Reload config cache in ConfigHelper
+        try:
+            self._config_helper.reload_config()
+        except Exception as e:
+            _LOGGER.error(f"Failed to reload config: {e}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "reloaded_sections": [],
+                "failed_sections": []
+            }
+        
+        reloaded_sections = []
+        failed_sections = []
+        
+        # Sections that support hot reload
+        hot_reloadable_sections = {
+            OUTPUT: lambda: self.outputs.reload_outputs(),
+            COVER: lambda: self.covers.reload_covers(),
+            "input": lambda: self.inputs.reload_inputs(),  # Reloads both event and binary_sensor
+            EVENT_ENTITY: lambda: self.inputs.reload_inputs(),  # Alias for "input"
+            BINARY_SENSOR: lambda: self.inputs.reload_inputs(),  # Alias for "input"
+            "modbus_devices": lambda: self.modbus.reload_modbus_devices(),
+        }
+        
+        # If specific sections requested, filter
+        if reload_sections:
+            sections_to_reload = {}
+            for section in reload_sections:
+                if section in hot_reloadable_sections:
+                    sections_to_reload[section] = hot_reloadable_sections[section]
+                else:
+                    _LOGGER.warning(f"Unknown reload section: {section}")
+        else:
+            # By default, reload all supported sections (but only once for inputs)
+            sections_to_reload = {
+                OUTPUT: hot_reloadable_sections[OUTPUT],
+                COVER: hot_reloadable_sections[COVER],
+                "input": hot_reloadable_sections["input"],
+                "modbus_devices": hot_reloadable_sections["modbus_devices"],
+            }
+        
+        # Execute reloads
+        for section, reload_func in sections_to_reload.items():
+            try:
+                reload_func()
+                reloaded_sections.append(section)
+                _LOGGER.info(f"Successfully reloaded section: {section}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to reload section {section}: {e}", exc_info=True)
+                failed_sections.append({"section": section, "error": str(e)})
+        
+        # Determine status
+        if failed_sections:
+            status = "partial" if reloaded_sections else "error"
+        else:
+            status = "success"
+        
+        result = {
+            "status": status,
+            "reloaded_sections": reloaded_sections,
+            "failed_sections": failed_sections,
+        }
+        
+        if status == "success":
+            _LOGGER.info("Config reload completed successfully")
+        elif status == "partial":
+            _LOGGER.warning("Config reload completed with some failures")
+        else:
+            _LOGGER.error("Config reload failed")
+        
+        return result
 
     def resend_autodiscovery(self) -> None:
         """Resend all HA autodiscovery messages."""

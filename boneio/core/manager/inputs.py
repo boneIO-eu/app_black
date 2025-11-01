@@ -13,7 +13,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from boneio.const import ACTIONS, BINARY_SENSOR, EVENT_ENTITY, PIN
-from boneio.core.config import load_config_from_file
 from boneio.core.config.loader import configure_binary_sensor, configure_event_sensor
 from boneio.exceptions import GPIOInputException
 from boneio.models.events import InputEvent
@@ -113,7 +112,8 @@ class InputManager:
 
         # Reload configuration if requested
         if reload_config:
-            config = load_config_from_file(self._manager._config_file_path)
+            # Get config from ConfigHelper (uses cache, reloads if needed)
+            config = self._manager._config_helper.reload_config()
             if config:
                 self._event_pins = config.get(EVENT_ENTITY, [])
                 self._binary_pins = config.get(BINARY_SENSOR, [])

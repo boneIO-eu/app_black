@@ -113,6 +113,7 @@ async def async_run(
         topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
+        config_file_path=config_file,
     )
 
     # Initialize message bus based on config
@@ -150,7 +151,7 @@ async def async_run(
             MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             ONEWIRE: config.get(SENSOR, []),
         },
-        modbus_devices=config.get("modbus_devices"),
+        modbus_devices=config.get("modbus_devices", []),
         web_active=web_active,
         web_port=web_config.get("port", 8090),
         **manager_kwargs,

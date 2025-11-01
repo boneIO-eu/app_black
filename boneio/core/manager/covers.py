@@ -14,7 +14,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import COVER, ID, cover_actions
-from boneio.core.config import load_config_from_file
 from boneio.core.config.loader import configure_cover
 from boneio.core.utils import strip_accents
 from boneio.exceptions import CoverConfigurationException
@@ -68,7 +67,8 @@ class CoverManager:
         """
         # Reload configuration if requested
         if reload_config:
-            config = load_config_from_file(self._manager._config_file_path)
+            # Get config from ConfigHelper (uses cache, reloads if needed)
+            config = self._manager._config_helper.reload_config()
             self._config_covers = config.get(COVER, [])
             self._manager._config_helper.clear_autodiscovery_type(ha_type=COVER)
         
