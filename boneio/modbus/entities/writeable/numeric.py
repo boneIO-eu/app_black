@@ -16,11 +16,12 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
 
     _entity_type = SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = [], **kwargs):
+    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = [], step: float | str | None = None, **kwargs):
         ModbusNumericSensor.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address
         self._write_filters = write_filters
+        self._step = step
 
     async def write_value(self, value: float) -> None:
         await self._coordinator.write_register(
@@ -33,6 +34,10 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
     @property
     def write_address(self) -> int | None:
         return self._write_address
+
+    @property
+    def step(self) -> float | str | None:
+        return self._step or 1.0
 
     def discovery_message(self):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
@@ -62,6 +67,7 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "value_template": value_template,
             "entity_id": self.name,
             "mode": "box",
+            "step": self.step,
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "' + self.decoded_name + '", "value": "{{ value }}"}',
         }
@@ -76,9 +82,9 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
         )
         return msg
 
-    def encode_value(self, value: float | int) -> int:
+    def encode_value(self, value: float | int) -> float:
         if self._write_filters:
-            value = self._apply_filters(value=int(value), filters=self._write_filters)
-        return int(value)
+            value = self._apply_filters(value=value, filters=self._write_filters)
+        return value
 
         

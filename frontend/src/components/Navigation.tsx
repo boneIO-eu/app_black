@@ -118,7 +118,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
           <a
             onClick={() => navigate(item.path)}
             className={clsx({
-              active: location.pathname === item.path || location.pathname === "/" && item?.default,
+              'active bg-primary text-primary-content font-semibold': location.pathname === item.path || location.pathname === "/" && item?.default,
             })}
           >
             <item.icon className={clsx('h-5 w-5', { 'lg:hidden': !sideMenu })} />

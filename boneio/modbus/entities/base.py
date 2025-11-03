@@ -107,7 +107,7 @@ class BaseEntity(Filter):
         """Write address for writeable entities (None for read-only)."""
         return None
     
-    def encode_value(self, value: str | float | int) -> int | float:
+    def encode_value(self, value: str | float | int) -> float:
         """Encode value for writing to modbus (override in writeable entities)."""
         if isinstance(value, str):
             try:

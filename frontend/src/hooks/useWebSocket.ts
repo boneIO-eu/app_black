@@ -74,6 +74,7 @@ export interface ModbusDeviceState {
   x_mapping?: Record<string, string> | null;  // Value mapping for select/switch (e.g., {"1": "Auto", "2": "Cool"})
   payload_on?: string | null;  // For switch entities
   payload_off?: string | null;  // For switch entities
+  step?: number | null;  // Step value for numeric inputs
 }
 
 export interface SensorEvent {

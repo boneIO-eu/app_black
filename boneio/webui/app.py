@@ -557,7 +557,6 @@ async def set_modbus_value(
     
     # Find coordinator by ID
     coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
-    print(manager.modbus.get_all_coordinators())
     if not coordinator:
         raise HTTPException(status_code=404, detail=f"Modbus coordinator '{coordinator_id}' not found")
     
@@ -1172,6 +1171,7 @@ async def websocket_endpoint(
                                     timestamp=entity.last_timestamp,
                                     device_group=modbus_coordinator.name,
                                     coordinator_id=modbus_coordinator._id,
+                                    step=getattr(entity, 'step', None),
                                 )
                                 update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                                 if not await send_state_update(update):
@@ -1189,7 +1189,6 @@ async def websocket_endpoint(
                                 # Get payload_on/off for switch
                                 payload_on = getattr(entity, '_payload_on', None)
                                 payload_off = getattr(entity, '_payload_off', None)
-                                print("entity type!", entity.entity_type)
                                 
                                 sensor_state = ModbusDeviceState(
                                     id=entity.id,
@@ -1203,6 +1202,7 @@ async def websocket_endpoint(
                                     x_mapping=value_mapping,
                                     payload_on=payload_on,
                                     payload_off=payload_off,
+                                    step=getattr(entity, 'step', None),
                                 )
                                 update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                                 if not await send_state_update(update):

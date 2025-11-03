@@ -148,10 +148,31 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
       setInputValue(e.target.value);
     };
 
-    const handleInputKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         handleWriteableSensorChange(inputValue);
       }
+    };
+
+    // Format placeholder to show decimal when step is decimal
+    const formatPlaceholder = (value: string | number | null) => {
+      if (value === null || value === undefined) return 'Enter value';
+      const numValue = typeof value === 'string' ? parseFloat(value) : value;
+      if (isNaN(numValue)) return 'Enter value';
+      
+      // Show decimal if step is less than 1
+      if (device.step && device.step < 1) {
+        return numValue.toFixed(1);
+      }
+      return value.toString();
+    };
+
+    // Check if input value is different from current value
+    const isValueChanged = () => {
+      if (inputValue === '') return false;
+      const inputNum = parseFloat(inputValue);
+      const currentNum = typeof currentValue === 'string' ? parseFloat(currentValue) : currentValue;
+      return !isNaN(inputNum) && !isNaN(currentNum) && inputNum !== currentNum;
     };
 
     return (
@@ -167,12 +188,12 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
             <div className="flex gap-2 items-center">
               <input
                 type="number"
-                step="any"
+                step={device.step || 1}
                 className="input input-bordered input-sm flex-1"
                 value={inputValue}
                 onChange={handleInputChange}
-                onKeyPress={handleInputKeyPress}
-                placeholder={currentValue || 'Enter value'}
+                onKeyDown={handleInputKeyDown}
+                placeholder={formatPlaceholder(currentValue)}
               />
               {device.unit && (
                 <span className="text-sm text-base-content/70 whitespace-nowrap">
@@ -181,6 +202,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
               )}
               <button
                 className="btn btn-sm btn-primary"
+                disabled={!isValueChanged()}
                 onClick={() => handleWriteableSensorChange(inputValue)}
               >
                 Set
@@ -252,7 +274,7 @@ export default function ModbusView() {
 
   // Group Modbus devices by device_group - memoized
   const groupedModbusDevices = useMemo(() => {
-    return validModbusDevices.reduce((groups, device) => {
+    const groups = validModbusDevices.reduce((groups, device) => {
       const group = device.device_group || 'Other';
       if (!groups[group]) {
         groups[group] = [];
@@ -260,7 +282,41 @@ export default function ModbusView() {
       groups[group].push(device);
       return groups;
     }, {} as Record<string, ModbusDeviceState[]>);
+
+    // Sort each group: read-only devices first, writeable devices last
+    Object.keys(groups).forEach(groupName => {
+      groups[groupName].sort((a, b) => {
+        // Check if device is writeable (has writeable in entity_type or is a writeable sensor)
+        const isAWritable = a.entity_type?.includes('select') || a.entity_type === 'switch' || a.entity_type === 'number';
+        const isBWritable = b.entity_type?.includes('select') || b.entity_type === 'switch' || b.entity_type === 'number';
+        
+        // If both are writeable or both are read-only, maintain original order
+        if (isAWritable === isBWritable) return 0;
+        
+        // Writeable devices should come after read-only devices
+        return isAWritable ? 1 : -1;
+      });
+    });
+
+    return groups;
   }, [validModbusDevices]);
+
+  // Separate devices into sensors and writeable entities for each group
+  const getDevicesByType = (devices: ModbusDeviceState[]) => {
+    const sensors: ModbusDeviceState[] = [];
+    const writeable: ModbusDeviceState[] = [];
+    
+    devices.forEach(device => {
+      const isWriteable = device.entity_type?.includes('select') || device.entity_type === 'switch' || device.entity_type === 'number';
+      if (isWriteable) {
+        writeable.push(device);
+      } else {
+        sensors.push(device);
+      }
+    });
+    
+    return { sensors, writeable };
+  };
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -296,24 +352,57 @@ export default function ModbusView() {
           No Modbus devices configured
         </div>
       ) : (
-        Object.entries(groupedModbusDevices).map(([groupName, devices]) => (
-          <div key={groupName} className="mb-8">
-            <h3 className="text-lg font-semibold mb-3 text-base-content/80">{groupName}</h3>
-            <div className={isGrid 
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
-              : "flex flex-col gap-4"
-            }>
-              {devices.map((device) => (
-                <ModbusDeviceItem 
-                  key={device.id} 
-                  device={device} 
-                  isGrid={isGrid}
-                  onValueChange={handleValueChange}
-                />
-              ))}
+        Object.entries(groupedModbusDevices).map(([groupName, devices]) => {
+          const { sensors, writeable } = getDevicesByType(devices);
+          
+          return (
+            <div key={groupName} className="card bg-base-200/80 shadow-lg mb-6">
+              <div className="card-body">
+                <h3 className="card-title text-lg font-semibold text-base-content/80 mb-4">{groupName}</h3>
+                
+                {/* Sensors Section */}
+                {sensors.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-medium text-base-content/70 mb-3">Sensors</h4>
+                    <div className={isGrid 
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+                      : "flex flex-col gap-4"
+                    }>
+                      {sensors.map((device) => (
+                        <ModbusDeviceItem 
+                          key={device.id} 
+                          device={device} 
+                          isGrid={isGrid}
+                          onValueChange={handleValueChange}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Writeable Entities Section */}
+                {writeable.length > 0 && (
+                  <div>
+                    <h4 className="text-md font-medium text-base-content/70 mb-3">Controls</h4>
+                    <div className={isGrid 
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+                      : "flex flex-col gap-4"
+                    }>
+                      {writeable.map((device) => (
+                        <ModbusDeviceItem 
+                          key={device.id} 
+                          device={device} 
+                          isGrid={isGrid}
+                          onValueChange={handleValueChange}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );

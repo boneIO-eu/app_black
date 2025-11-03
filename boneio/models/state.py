@@ -69,6 +69,7 @@ class ModbusDeviceState(BaseModel):
     x_mapping: dict[str, str] | None = None  # Value mapping for select/switch (e.g., {"1": "Auto", "2": "Cool"})
     payload_on: str | None = None  # For switch entities
     payload_off: str | None = None  # For switch entities
+    step: float | str | None = None  # Step value for numeric inputs
 
 class HostSensorState(BaseModel):
     """Host sensor state model."""

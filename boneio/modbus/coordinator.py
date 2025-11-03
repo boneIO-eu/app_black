@@ -194,6 +194,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         coordinator=self,
                         write_filters=register.get("write_filters", []),
                         write_address=register.get("write_address"),
+                        step=register.get("step", 1),
                         ha_filter=register.get("ha_filter", "round(2)"),
                         **kwargs,
                     )
@@ -202,6 +203,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         coordinator=self,
                         write_address=register.get("write_address"),
                         write_filters=register.get("write_filters", []),
+                        step=register.get("step", 1),
                         ha_filter=register.get("ha_filter", "round(2)"),
                         **kwargs,
                     )
@@ -519,6 +521,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             address=entity.write_address, 
             value=encoded_value
         )
+        _LOGGER.debug("Register written address: %s value: %s, encoded: %s", entity.write_address, numeric_value, encoded_value)
         
         # Update state
         entity._value = numeric_value

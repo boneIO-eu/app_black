@@ -30,6 +30,7 @@
           "entity_type": "writeable_sensor",
           "state_class": "measurement",
           "value_type": "U_WORD",
+          "step": 0.5,
           "filters": [
             {
               "multiply": 0.25
