@@ -141,7 +141,7 @@
                 "title": "Length"
               }
             },
-            "description": "Data to pass to additional sensors.",
+            "description": "Data to pass to additional entities.",
             "title": "Extra data"
           }
         },

@@ -7,14 +7,14 @@ from boneio.core.config import ConfigHelper
 from boneio.integration.homeassistant import modbus_sensor_availabilty_message
 from boneio.core.messaging.basic import MessageBus
 
-from .base import BaseSensor
+from boneio.modbus.entities.base import BaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusTextSensor(BaseSensor):
+class ModbusTextSensor(BaseEntity):
 
-    _ha_type_ = SENSOR
+    _entity_type = SENSOR
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class ModbusTextSensor(BaseSensor):
             message_bus=message_bus,
             config_helper=config_helper,
             user_filters=user_filters,
-            ha_filter=None,
+            ha_filter="",
         )
         self._register_address = register_address
         self._base_address = base_address

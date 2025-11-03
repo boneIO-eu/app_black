@@ -64,6 +64,11 @@ class ModbusDeviceState(BaseModel):
     unit: str | None
     timestamp: float | None
     device_group: str
+    coordinator_id: str  # Coordinator ID for API calls
+    entity_type: str
+    x_mapping: dict[str, str] | None = None  # Value mapping for select/switch (e.g., {"1": "Auto", "2": "Cool"})
+    payload_on: str | None = None  # For switch entities
+    payload_off: str | None = None  # For switch entities
 
 class HostSensorState(BaseModel):
     """Host sensor state model."""

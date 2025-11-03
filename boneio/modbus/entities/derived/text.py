@@ -6,11 +6,11 @@ from boneio.integration.homeassistant import (
     modbus_sensor_availabilty_message,
 )
 from boneio.core.messaging.basic import MessageBus
-from boneio.modbus.entities.sensor.base import BaseSensor
+from boneio.modbus.entities.base import ModbusDerivedEntity
 
 
-class ModbusDerivedTextSensor(BaseSensor):
-    _ha_type_ = TEXT_SENSOR
+class ModbusDerivedTextSensor(ModbusDerivedEntity):
+    _entity_type = TEXT_SENSOR
 
     def __init__(
         self,
@@ -19,11 +19,11 @@ class ModbusDerivedTextSensor(BaseSensor):
         message_bus: MessageBus,
         context_config: dict,
         config_helper: ConfigHelper,
-        source_sensor_base_address: str,
+        source_sensor_base_address: int,
         source_sensor_decoded_name: str,
         value_mapping: dict,
     ) -> None:
-        BaseSensor.__init__(
+        ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
@@ -34,10 +34,10 @@ class ModbusDerivedTextSensor(BaseSensor):
             config_helper=config_helper,
             user_filters=[],
             ha_filter="",
+            source_sensor_base_address=source_sensor_base_address,
+            source_sensor_decoded_name=source_sensor_decoded_name,
         )
         self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
         self._value_mapping = value_mapping
 
     @property
@@ -45,14 +45,6 @@ class ModbusDerivedTextSensor(BaseSensor):
         return self._context_config
 
     @property
-    def base_address(self) -> str:
-        return self._source_sensor_base_address
-
-    @property
-    def state(self) -> str:
-        """Give rounded value of temperature."""
-        return self._value or ""
-
     def discovery_message(self):
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
@@ -66,10 +58,6 @@ class ModbusDerivedTextSensor(BaseSensor):
             model=self._parent[MODEL],
             **kwargs,
         )
-
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
 
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float

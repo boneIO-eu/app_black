@@ -534,6 +534,85 @@ async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager =
     
     return {"status": "success"}
 
+@app.post("/api/modbus/{coordinator_id}/{entity_id}/set_value") 
+async def set_modbus_value(
+    coordinator_id: str,
+    entity_id: str,
+    value_data: dict = Body(...),
+    manager: Manager = Depends(get_manager)
+):
+    """Set value for Modbus device entity (regular or additional entity).
+    
+    Args:
+        coordinator_id: Coordinator ID (e.g., "Fuji-PC")
+        entity_id: Entity ID or decoded name (e.g., "operatingmode" or "Fuji-PCoperatingmode")
+        value_data: Dictionary with 'value' key containing the value to set
+        
+    Returns:
+        Status response
+    """
+    value = value_data.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Value is required")
+    
+    # Find coordinator by ID
+    coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
+    print(manager.modbus.get_all_coordinators())
+    if not coordinator:
+        raise HTTPException(status_code=404, detail=f"Modbus coordinator '{coordinator_id}' not found")
+    
+    # Find entity in the coordinator
+    entity = None
+    
+    # Check regular entities first
+    for entities in coordinator.get_all_entities():
+        # Try direct lookup by entity_id (might be decoded_name)
+        if entity_id in entities:
+            entity = entities[entity_id]
+            break
+        # Try to find by full entity.id
+        for entity_key, potential_entity in entities.items():
+            if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
+                entity = potential_entity
+                break
+        if entity:
+            break
+    
+    # Check additional entities if not found in regular entities
+    if not entity:
+        # Try direct lookup by decoded_name
+        additional_entity = coordinator.get_additional_entity_by_name(entity_id)
+        if not additional_entity:
+            # If not found, try to extract decoded_name from full ID
+            # Remove parent ID prefix if it matches
+            coordinator_id_lower = coordinator._id.lower()
+            if entity_id.lower().startswith(coordinator_id_lower):
+                decoded_name = entity_id[len(coordinator_id_lower):]
+                additional_entity = coordinator.get_additional_entity_by_name(decoded_name)
+        
+        # Also check all additional entities by their full ID
+        if not additional_entity:
+            for additional_entities_list in coordinator.get_all_additional_entities():
+                for entity_key, potential_entity in additional_entities_list.items():
+                    if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
+                        additional_entity = potential_entity
+                        break
+                if additional_entity:
+                    break
+        
+        entity = additional_entity
+    
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Modbus entity '{entity_id}' not found in coordinator '{coordinator_id}'")
+    
+    try:
+        # Use coordinator's write_register method which handles both regular and additional entities
+        await coordinator.write_register(value=value, entity=entity)
+        return {"status": "success"}
+    except Exception as e:
+        _LOGGER.error(f"Error writing Modbus value: {type(e).__name__} - {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error writing Modbus value: {str(e)}")
+
 @app.post("/api/restart")
 async def restart_service(background_tasks: BackgroundTasks):
     """Restart the BoneIO service."""
@@ -955,8 +1034,18 @@ def sensor_listener_for_all_sensors(boneio_manager: Manager):
     for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
         if not modbus_coordinator:
             continue
+        # Listen to regular modbus entities
         for entities in modbus_coordinator.get_all_entities():
             for entity in entities.values():
+                boneio_manager.event_bus.add_event_listener(
+                    event_type="modbus_device",
+                    entity_id=entity.id,
+                    listener_id="ws",
+                    target=boneio_state_changed_callback,
+                )
+        # Listen to additional entities (derived entities)
+        for additional_entities in modbus_coordinator.get_all_additional_entities():
+            for entity in additional_entities.values():
                 boneio_manager.event_bus.add_event_listener(
                     event_type="modbus_device",
                     entity_id=entity.id,
@@ -1070,6 +1159,7 @@ async def websocket_endpoint(
                 for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
                     if not modbus_coordinator:
                         continue
+                    # Send regular modbus entities
                     for entities in modbus_coordinator.get_all_entities():
                         for entity in entities.values():
                             try:
@@ -1077,9 +1167,11 @@ async def websocket_endpoint(
                                     id=entity.id,
                                     name=entity.name,
                                     state=entity.state,
+                                    entity_type=entity.entity_type,
                                     unit=entity.unit_of_measurement,
                                     timestamp=entity.last_timestamp,
                                     device_group=modbus_coordinator.name,
+                                    coordinator_id=modbus_coordinator._id,
                                 )
                                 update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                                 if not await send_state_update(update):
@@ -1087,6 +1179,37 @@ async def websocket_endpoint(
 
                             except Exception as e:
                                 _LOGGER.error(f"Error preparing modbus sensor state: {type(e).__name__} - {e}")
+                    
+                    # Send additional entities (derived entities)
+                    for additional_entities in modbus_coordinator.get_all_additional_entities():
+                        for entity in additional_entities.values():
+                            try:
+                                # Get value mapping for select/switch
+                                value_mapping = getattr(entity, '_value_mapping', None)
+                                # Get payload_on/off for switch
+                                payload_on = getattr(entity, '_payload_on', None)
+                                payload_off = getattr(entity, '_payload_off', None)
+                                print("entity type!", entity.entity_type)
+                                
+                                sensor_state = ModbusDeviceState(
+                                    id=entity.id,
+                                    name=entity.name,
+                                    state=entity.state,
+                                    unit=None,  # Additional entities usually don't have units
+                                    timestamp=entity.last_timestamp if hasattr(entity, 'last_timestamp') else None,
+                                    device_group=modbus_coordinator.name,
+                                    coordinator_id=modbus_coordinator._id,
+                                    entity_type=entity.entity_type,
+                                    x_mapping=value_mapping,
+                                    payload_on=payload_on,
+                                    payload_off=payload_off,
+                                )
+                                update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
+                                if not await send_state_update(update):
+                                    return
+
+                            except Exception as e:
+                                _LOGGER.error(f"Error preparing modbus additional entity state: {type(e).__name__} - {e}")
 
                 # Send INA219 sensor states
                 for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
@@ -1182,10 +1305,21 @@ APP_DIR = Path(__file__).parent
 FRONTEND_DIR = APP_DIR / "frontend-dist"
 
 
-if FRONTEND_DIR.exists():
+if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
+    _LOGGER.info(f"Frontend found at {FRONTEND_DIR}, mounting static files")
     app.mount("/assets", StaticFiles(directory=f"{FRONTEND_DIR}/assets"), name="assets")
     app.mount("/schema", StaticFiles(directory=f"{APP_DIR}/schema"), name="schema")
     # Route to serve React index.html (for client-side routing)
     @app.get("/{catchall:path}")
     async def serve_react_app(catchall: str):
         return FileResponse(f"{FRONTEND_DIR}/index.html")
+else:
+    _LOGGER.warning(
+        f"Frontend not found at {FRONTEND_DIR}. "
+        "Frontend will not be served. "
+        "Please build frontend with 'npm run build' in the frontend directory, "
+        "or ensure frontend-dist exists at the expected location."
+    )
+    # Still mount schema for API access
+    if (APP_DIR / "schema").exists():
+        app.mount("/schema", StaticFiles(directory=f"{APP_DIR}/schema"), name="schema")

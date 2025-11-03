@@ -15,6 +15,7 @@ from boneio.exceptions import ModbusUartException
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
+    from boneio.modbus.coordinator import ModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,8 +119,8 @@ class ModbusManager:
             
             for device_config in devices:
                 try:
-                    name = device_config.get("id")
-                    id = name.replace(" ", "")
+                    name = device_config.get("id", "")
+                    id = name.replace(" ", "").lower()
                     additional_data = device_config.get("data", {})
                     
                     _LOGGER.debug("Configuring Modbus coordinator: %s (address: %s, model: %s)", 
@@ -154,7 +155,7 @@ class ModbusManager:
         
         return coordinators
 
-    def get_coordinator(self, id: str) -> Any | None:
+    def get_coordinator(self, id: str) -> ModbusCoordinator | None:
         """Get Modbus coordinator by ID.
         
         Args:
@@ -165,7 +166,7 @@ class ModbusManager:
         """
         return self._modbus_coordinators.get(id)
 
-    def get_all_coordinators(self) -> dict[str, Any]:
+    def get_all_coordinators(self) -> dict[str, ModbusCoordinator]:
         """Get all Modbus coordinators.
         
         Returns:

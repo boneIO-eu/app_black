@@ -5,12 +5,12 @@ import logging
 from boneio.core.config import ConfigHelper
 from boneio.core.messaging.basic import MessageBus
 
-from .base import ModbusBaseSensor
+from boneio.modbus.entities.base import ModbusBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusNumericSensor(ModbusBaseSensor):
+class ModbusNumericSensor(ModbusBaseEntity):
     def __init__(
         self,
         name: str,

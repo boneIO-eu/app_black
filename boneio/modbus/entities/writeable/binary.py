@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING
 
 from boneio.const import BINARY_SENSOR, ID, MODEL, NAME, SENSOR
 from boneio.integration.homeassistant import modbus_numeric_availabilty_message
-from boneio.modbus.entities.sensor.base import ModbusBaseSensor
+from boneio.modbus.entities.base import ModbusBaseEntity
 
 if TYPE_CHECKING:
     from boneio.modbus.coordinator import ModbusCoordinator
 
 
-class ModbusBinaryWriteableEntityDiscrete(ModbusBaseSensor):
+class ModbusBinaryWriteableEntityDiscrete(ModbusBaseEntity):
 
-    _ha_type_ = BINARY_SENSOR
+    _entity_type = BINARY_SENSOR
 
     def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, payload_off: str = "OFF", payload_on: str = "ON", write_filters: list | None = [], **kwargs):
-        ModbusBaseSensor.__init__(self, **kwargs)
+        ModbusBaseEntity.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address
         self._write_filters = write_filters

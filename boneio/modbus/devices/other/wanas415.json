@@ -317,7 +317,7 @@
       ]
     }
   ],
-  "additional_sensors": [
+  "additional_entities": [
     {
       "name": "Dzień tygodnia",
       "source": "dzien_tygodnia",

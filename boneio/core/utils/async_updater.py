@@ -68,6 +68,8 @@ class AsyncUpdater(ABC):
         
         self.manager = manager
         self._update_interval = update_interval or TimePeriod(seconds=60)
+        self._wakeup_event = asyncio.Event()  # Event to wake up from sleep early
+        self._requested_update_interval: float | None = None  # Custom interval for next update
         self.manager.append_task(coro=self._refresh, name=self.id)  # type: ignore[attr-defined]
         self._timestamp = time.time()
         
@@ -117,26 +119,64 @@ class AsyncUpdater(ABC):
                 self.__class__.async_update is not AsyncUpdater.async_update
             )
             
+            # Perform first update immediately on startup
+            
             while True:
                 timestamp = time.time()
-                
                 if use_async:
-                    # Use async_update (preferred)
-                    update_interval = (
-                        await self.async_update(timestamp=timestamp)
-                        or self._update_interval.total_in_seconds
-                    )
+                        # Use async_update (preferred)
+                        update_interval = (
+                            await self.async_update(timestamp=timestamp)
+                            or self._update_interval.total_in_seconds
+                        )
                 else:
                     # Use sync update (fallback)
                     update_interval = (
                         self.update(timestamp=timestamp) 
                         or self._update_interval.total_in_seconds
                     )
+                # Sleep until update_interval expires OR wakeup event is triggered
+                try:
+                    await asyncio.wait_for(
+                        self._wakeup_event.wait(),
+                        timeout=update_interval
+                    )
+                    # Event was triggered - wake up early
+                    self._wakeup_event.clear()
+                    _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Woken up early from sleep")
+                    
+                    # Check if custom delay was requested before update
+                    if self._requested_update_interval is not None:
+                        delay = self._requested_update_interval
+                        self._requested_update_interval = None
+                        _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Waiting {delay}s before update")
+                        await asyncio.sleep(delay)
+                except asyncio.TimeoutError:
+                    # Normal timeout - continue to update
+                    pass
                 
-                await asyncio.sleep(update_interval)
         except asyncio.CancelledError:
             raise
 
+    def request_update(self, seconds: float = 0) -> None:
+        """Request update after specified seconds by waking up from sleep.
+        
+        This method triggers the wakeup event, causing the refresh loop
+        to exit from asyncio.sleep early and perform an update after the
+        specified delay.
+        
+        Args:
+            seconds: Delay in seconds before next update. 
+                    0 = immediate update (default)
+                    > 0 = update after specified seconds
+        """
+        self._requested_update_interval = seconds
+        self._wakeup_event.set()
+        if seconds == 0:
+            _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Immediate update requested")
+        else:
+            _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Update requested in {seconds} seconds")
+    
     @property
     def last_timestamp(self) -> float:
         """Get the timestamp of the last update."""

@@ -272,7 +272,7 @@ modbus_devices:
         type: dict
         required: False
         meta:
-          label: Data to pass to additional sensors.
+          label: Data to pass to additional entities.
         schema:
           width:
             type:

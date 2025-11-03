@@ -7,11 +7,11 @@ from boneio.integration.homeassistant import (
 )
 from boneio.core.utils.util import find_key_by_value
 from boneio.core.messaging.basic import MessageBus
-from boneio.modbus.entities.sensor.base import BaseSensor
+from boneio.modbus.entities.base import ModbusDerivedEntity
 
 
-class ModbusDerivedSelect(BaseSensor):
-    _ha_type_ = SELECT
+class ModbusDerivedSelect(ModbusDerivedEntity):
+    _entity_type = SELECT
 
     def __init__(
         self,
@@ -24,7 +24,7 @@ class ModbusDerivedSelect(BaseSensor):
         source_sensor_decoded_name: str,
         value_mapping: dict,
     ) -> None:
-        BaseSensor.__init__(
+        ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
@@ -35,24 +35,15 @@ class ModbusDerivedSelect(BaseSensor):
             config_helper=config_helper,
             user_filters=[],
             ha_filter="",
+            source_sensor_base_address=source_sensor_base_address,
+            source_sensor_decoded_name=source_sensor_decoded_name,
         )
         self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
         self._value_mapping = value_mapping
 
     @property
     def context(self) -> dict:
         return self._context_config
-
-    @property
-    def base_address(self) -> str:
-        return self._source_sensor_base_address
-
-    @property
-    def state(self) -> str:
-        """Give rounded value of temperature."""
-        return self._value or ""
 
     def discovery_message(self):
         kwargs = {
@@ -75,19 +66,46 @@ class ModbusDerivedSelect(BaseSensor):
         )
         return msg
 
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
-
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float
-    ) -> int | float:
+    ) -> None:
         self._timestamp = timestamp
         self._value = self._value_mapping.get(str(source_sensor_value), "Unknown")
 
     def encode_value(self, value: str | float | int) -> int:
-        if self._value_mapping:
-            value = find_key_by_value(self._value_mapping, value)
-            if value is not None:
-                return int(value)
+        """Encode value to modbus register value.
+        
+        Args:
+            value: Label/value from x_mapping (e.g., "Auto", "Cool") - finds key by value
+                Can also accept a numeric key if needed (for backward compatibility)
+                
+        Returns:
+            Integer value to write to modbus register
+        """
+        if not self._value_mapping:
+            return 0
+        
+        # Convert value to string for comparison
+        value_str = str(value)
+        
+        # First try to find key by value (label) - this is the primary method
+        # Frontend sends labels like "Auto", "Cool" and we need to find the key ("1", "2")
+        key = find_key_by_value(self._value_mapping, value_str)
+        if key is not None:
+            return int(key)
+        
+        # If not found, check if value is already a numeric key (for backward compatibility)
+        try:
+            numeric_value = float(value)
+            int_value = int(numeric_value)
+            # Check if numeric value (as string key) exists in x_mapping
+            if str(int_value) in self._value_mapping:
+                return int_value
+        except (ValueError, TypeError):
+            pass
+        
+        # Also check if value string is already a key in x_mapping
+        if value_str in self._value_mapping:
+            return int(value_str)
+        
         return 0

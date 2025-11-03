@@ -176,7 +176,7 @@
       ]
     }
   ],
-  "additional_sensors": [
+  "additional_entities": [
     {
       "name": "Operating mode",
       "source": "operating_mode_number",

@@ -14,7 +14,7 @@ from boneio.modbus.entities.sensor.numeric import ModbusNumericSensor
 
 class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
 
-    _ha_type_ = SENSOR
+    _entity_type = SENSOR
 
     def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = [], **kwargs):
         ModbusNumericSensor.__init__(self, **kwargs)
@@ -54,7 +54,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
 
 class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
 
-    _ha_type_ = NUMERIC
+    _entity_type = NUMERIC
 
     def discovery_message(self):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"

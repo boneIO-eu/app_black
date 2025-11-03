@@ -34,7 +34,7 @@
       ]
     }
   ],
-  "additional_sensors": [
+  "additional_entities": [
     {
       "name": "Measurement Volume",
       "source": "measurement_value",

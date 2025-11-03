@@ -100,7 +100,6 @@ function AppContent() {
             return [...prev, message];
           });
         } else if (message.event_type === 'modbus_device') {
-          console.log("Modbus device event:", message)
           setModbusDevices(prev => {
             const index = prev.findIndex(s => s.state.name === message.state.name);
             if (index >= 0) {
@@ -115,7 +114,6 @@ function AppContent() {
             return [...prev, message];
           });
         } else if (message.event_type === 'sensor') {
-          console.log("Sensor event:", message)
           setSensors(prev => {
             const index = prev.findIndex(s => s.state.name === message.state.name);
             if (index >= 0) {

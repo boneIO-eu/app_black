@@ -25,3 +25,16 @@
 - Lazy load FastAPI routes (~1s)
 
 **Potencjalna oszczędność:** dodatkowe ~3.5s
+
+
+## DEBIAN 13
+
+Pakiety do zainstalowania:
+
+```bash
+fonts-dejavu
+python3.13-venv
+```
+```bash
+sudo apt install fonts-dejavu python3.13-venv
+```

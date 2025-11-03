@@ -5,13 +5,13 @@ import logging
 from boneio.const import BINARY_SENSOR, ID, MODEL, NAME, SENSOR
 from boneio.integration.homeassistant import modbus_numeric_availabilty_message
 
-from .base import ModbusBaseSensor
+from boneio.modbus.entities.base import ModbusBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusBinarySensor(ModbusBaseSensor):
-    _ha_type_ = BINARY_SENSOR
+class ModbusBinarySensor(ModbusBaseEntity):
+    _entity_type = BINARY_SENSOR
 
     def __init__(
         self, payload_off: str = "OFF", payload_on: str = "ON", **kwargs

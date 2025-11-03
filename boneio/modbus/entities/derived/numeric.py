@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from boneio.core.config import ConfigHelper
 from boneio.core.messaging.basic import MessageBus
-from boneio.modbus.entities.sensor.base import BaseSensor
+from boneio.modbus.entities.base import ModbusDerivedEntity
 
 
-class ModbusDerivedNumericSensor(BaseSensor):
+class ModbusDerivedNumericSensor(ModbusDerivedEntity):
     def __init__(
         self,
         name: str,
@@ -26,7 +26,7 @@ class ModbusDerivedNumericSensor(BaseSensor):
         user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
-        BaseSensor.__init__(
+        ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
@@ -38,13 +38,13 @@ class ModbusDerivedNumericSensor(BaseSensor):
             filters=filters,
             message_bus=message_bus,
             config_helper=config_helper,
+            source_sensor_base_address=source_sensor_base_address,
+            source_sensor_decoded_name=source_sensor_decoded_name,
             user_filters=user_filters,
             ha_filter=ha_filter,
         )
         self._formula = formula
         self._context_config = context_config
-        self._source_sensor_base_address = source_sensor_base_address
-        self._source_sensor_decoded_name = source_sensor_decoded_name
 
     @property
     def formula(self) -> str:
@@ -55,17 +55,9 @@ class ModbusDerivedNumericSensor(BaseSensor):
         return self._context_config
 
     @property
-    def base_address(self) -> int:
-        return self._source_sensor_base_address
-
-    @property
     def state(self) -> float:
         """Give rounded value of temperature."""
         return self._value or 0.0
-
-    @property
-    def source_sensor_decoded_name(self) -> str:
-        return self._source_sensor_decoded_name
 
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float

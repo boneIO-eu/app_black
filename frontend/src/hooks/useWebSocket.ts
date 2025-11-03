@@ -69,6 +69,11 @@ export interface ModbusDeviceState {
   unit: string | null;
   timestamp: number | null;
   device_group: string;
+  coordinator_id: string;  // Coordinator ID for API calls
+  entity_type?: string | null;  // 'select', 'switch', 'sensor', 'writeable_sensor', 'writeable_sensor_discrete', etc.
+  x_mapping?: Record<string, string> | null;  // Value mapping for select/switch (e.g., {"1": "Auto", "2": "Cool"})
+  payload_on?: string | null;  // For switch entities
+  payload_off?: string | null;  // For switch entities
 }
 
 export interface SensorEvent {

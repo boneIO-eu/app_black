@@ -1,5 +1,7 @@
 """Modbus entities - sensors, switches, and other device entities."""
 
+from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity
+# Backwards compatibility aliases
 from boneio.modbus.entities.sensor.base import BaseSensor, ModbusBaseSensor
 from boneio.modbus.entities.sensor.binary import ModbusBinarySensor
 from boneio.modbus.entities.sensor.numeric import ModbusNumericSensor
@@ -29,7 +31,10 @@ SwitchDerived = ModbusDerivedSwitch
 TextDerived = ModbusDerivedTextSensor
 
 __all__ = [
-    # Base classes
+    # Base classes (new names)
+    "BaseEntity",
+    "ModbusBaseEntity",
+    # Base classes (backwards compatibility aliases)
     "BaseSensor",
     "ModbusBaseSensor",
     "ModbusSensor",  # Alias for ModbusBaseSensor
