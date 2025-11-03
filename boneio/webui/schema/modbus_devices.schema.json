@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -83,8 +83,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30s",
@@ -93,8 +93,8 @@
           },
           "sensors_filters": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "temperature": {
@@ -109,8 +109,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -128,8 +128,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -141,14 +141,14 @@
           },
           "data": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "width": {
                 "type": [
-                  "number",
                   "string",
+                  "number",
                   "integer"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
@@ -156,8 +156,8 @@
               },
               "length": {
                 "type": [
-                  "number",
                   "string",
+                  "number",
                   "integer"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",

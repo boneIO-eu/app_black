@@ -425,6 +425,45 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """
         return self._additional_entities_by_name.get(name)
 
+    def find_entity(self, entity_id: str):
+        """Find entity by ID or decoded name in both regular and additional entities.
+        
+        Args:
+            entity_id: Entity ID or decoded name (e.g., "operatingmode" or "Fuji-PCoperatingmode")
+            
+        Returns:
+            Entity object or None if not found
+        """
+        # Check regular entities first
+        for entities in self.get_all_entities():
+            # Try direct lookup by entity_id (might be decoded_name)
+            if entity_id in entities:
+                return entities[entity_id]
+            # Try to find by full entity.id
+            for entity_key, potential_entity in entities.items():
+                if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
+                    return potential_entity
+        
+        # Check additional entities if not found in regular entities
+        # Try direct lookup by decoded_name
+        additional_entity = self.get_additional_entity_by_name(entity_id)
+        if not additional_entity:
+            # If not found, try to extract decoded_name from full ID
+            # Remove parent ID prefix if it matches
+            coordinator_id_lower = self._id.lower()
+            if entity_id.lower().startswith(coordinator_id_lower):
+                decoded_name = entity_id[len(coordinator_id_lower):]
+                additional_entity = self.get_additional_entity_by_name(decoded_name)
+        
+        # Also check all additional entities by their full ID
+        if not additional_entity:
+            for additional_entities_list in self.get_all_additional_entities():
+                for entity_key, potential_entity in additional_entities_list.items():
+                    if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
+                        return potential_entity
+        
+        return additional_entity
+
     def set_payload_offline(self):
         self._payload_online = OFFLINE
 

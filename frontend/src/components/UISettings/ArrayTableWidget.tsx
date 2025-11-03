@@ -82,8 +82,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           <table className="table table-zebra w-full">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>BoneIO Input</th>
+                <th>ID/Name</th>
+                <th>BoneIO INPUT</th>
                 <th>Pin</th>
                 <th>Has Actions</th>
                 <th>Actions</th>
@@ -93,7 +93,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               {value.map((item, index) => (
                 <tr key={index}>
                   <td>{item.id || `Item ${index + 1}`}</td>
-                  <td>{item.boneio_input || '-'}</td>
+                  <td className="uppercase">{item.boneio_input || '-'}</td>
                   <td>{item.pin || '-'}</td>
                   <td>
                     {item.actions ? (

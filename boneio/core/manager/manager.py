@@ -6,6 +6,7 @@ This is the central coordinator that manages all BoneIO subsystems.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections import deque
@@ -13,9 +14,11 @@ from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import (
+    BUTTON,
     COVER,
     COVER_OVER_MQTT,
     MQTT,
+    NONE,
     ONLINE,
     OUTPUT,
     OUTPUT_OVER_MQTT,
@@ -556,7 +559,7 @@ class Manager:
                 - reloaded_sections: List of successfully reloaded sections
                 - failed_sections: List of sections that failed to reload
         """
-        from boneio.const import OUTPUT, COVER, EVENT_ENTITY, BINARY_SENSOR
+        from boneio.const import BINARY_SENSOR, COVER, EVENT_ENTITY, OUTPUT
         
         _LOGGER.info("Starting config reload")
         
@@ -703,15 +706,17 @@ class Manager:
                     _LOGGER.debug("Action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
+            return
         
-        elif msg_type == RELAY and command == SET_BRIGHTNESS:
+        if msg_type == RELAY and command == SET_BRIGHTNESS:
             target_device = self.outputs.get_output(device_id)
             if target_device and target_device.output_type != "none" and message != "":
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
+            return
         
-        elif msg_type == COVER:
+        if msg_type == COVER:
             cover = self.covers.get_cover(device_id)
             if cover:
                 action = relay_actions.get(message.upper())
@@ -722,3 +727,44 @@ class Manager:
                     _LOGGER.debug("Cover action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Cover not found %s.", device_id)
+            return
+        
+        if msg_type == "group" and command == "set":
+            target_device = self._configured_output_groups.get(device_id)
+            if target_device and target_device.output_type != NONE:
+                action_from_msg = relay_actions.get(message.upper())
+                if action_from_msg:
+                    asyncio.create_task(getattr(target_device, action_from_msg)())
+                else:
+                    _LOGGER.debug("Action not exist %s.", message.upper())
+            else:
+                _LOGGER.debug("Target device not found %s.", device_id)
+            return
+
+        if msg_type == BUTTON and command == "set":
+            if device_id == "logger" and message == "reload":
+                _LOGGER.info("Reloading logger configuration.")
+                self._logger_reload()
+            elif device_id == "restart" and message == "restart":
+                await self.restart_request()
+            elif device_id == "inputs_reload" and message == "inputs_reload":
+                _LOGGER.info("Reloading events and binary sensors actions")
+                self.configure_inputs(reload_config=True)
+            elif device_id == "cover_reload" and message == "cover_reload":
+                _LOGGER.info("Reloading covers actions")
+                self._configure_covers(reload_config=True)
+            return
+
+        if msg_type == "modbus" and command == "set":
+            target_device = self.modbus.get_all_coordinators().get(device_id)
+            if target_device:
+                if isinstance(message, str):
+                    message = json.loads(message)
+                    if "device" in message and "value" in message:
+                        entity = target_device.find_entity(message["device"])
+                        if entity:
+                            await target_device.write_register(value=message["value"], entity=entity)
+            return
+
+        _LOGGER.debug("Unknown message type %s.", msg_type)
+            

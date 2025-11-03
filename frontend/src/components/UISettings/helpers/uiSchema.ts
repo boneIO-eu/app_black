@@ -6,8 +6,9 @@ import { UiSchema } from '@rjsf/utils';
 export const getUiSchema = (sectionName: string): UiSchema => {
   const baseUiSchema: UiSchema = {
     'ui:classNames': 'space-y-4',
+    'ui:autocomplete': 'off',
     'ui:options': {
-      classNames: 'space-y-4 bg-white p-4'
+      classNames: 'space-y-4 p-4'
     }
   };
 
@@ -19,8 +20,9 @@ export const getUiSchema = (sectionName: string): UiSchema => {
         password: {
           'ui:widget': 'password',
           'ui:help': 'MQTT broker password',
+          'ui:autocomplete': 'off',
           'ui:options': {
-            classNames: 'w-full'
+            classNames: 'w-full',
           }
         },
         port: {
@@ -63,8 +65,9 @@ export const getUiSchema = (sectionName: string): UiSchema => {
         auth: {
           password: {
             'ui:widget': 'password',
+            'ui:autocomplete': 'off',
             'ui:options': {
-              classNames: 'w-full'
+              classNames: 'w-full',
             }
           }
         }
@@ -106,6 +109,7 @@ export const getUiSchema = (sectionName: string): UiSchema => {
       };
     case 'event':
     case 'binary_sensor':
+    case 'output':
       // Dla tych sekcji używamy custom renderowania w SectionForm
       return {
         "items": {

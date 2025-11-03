@@ -566,13 +566,17 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor') ? (
+                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output') ? (
                       <ArrayTableWidget
                         value={formData[activeSection] || []}
                         uiSchema={activeSection_data.uiSchema.items}
                         onChange={(newData) => handleSectionChange(activeSection, newData)}
                         schema={activeSection_data.normalizedSchema}
-                        title={activeSection === 'binary_sensor' ? 'Binary Sensors' : 'Events'}
+                        title={
+                          activeSection === 'binary_sensor' ? 'Binary Sensors' : 
+                          activeSection === 'event' ? 'Events' : 
+                          'Outputs'
+                        }
                       />
                     ) : (
                       <Form
@@ -603,13 +607,17 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor') ? (
+                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output') ? (
                     <ArrayTableWidget
                       value={formData[activeSection] || []}
                       uiSchema={activeSection_data.uiSchema.items}
                       onChange={(newData) => handleSectionChange(activeSection, newData)}
                       schema={activeSection_data.normalizedSchema}
-                      title={activeSection === 'binary_sensor' ? 'Binary Sensors' : 'Events'}
+                      title={
+                        activeSection === 'binary_sensor' ? 'Binary Sensors' : 
+                        activeSection === 'event' ? 'Events' : 
+                        'Outputs'
+                      }
                     />
                   ) : (
                     <Form

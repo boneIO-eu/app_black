@@ -4,8 +4,8 @@
   "properties": {
     "mqtt": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "host": {
@@ -39,8 +39,8 @@
         },
         "ha_discovery": {
           "type": [
-            "object",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {

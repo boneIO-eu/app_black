@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from boneio.const import PRESSED, RELEASED
 from boneio.components.input.detectors import BinarySensorDetector
+from boneio.const import PRESSED, RELEASED
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
 _LOGGER = logging.getLogger(__name__)

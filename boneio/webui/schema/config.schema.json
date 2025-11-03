@@ -4,8 +4,8 @@
   "properties": {
     "mqtt": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "host": {
@@ -39,8 +39,8 @@
         },
         "ha_discovery": {
           "type": [
-            "object",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {
@@ -85,9 +85,9 @@
     },
     "web": {
       "type": [
+        "string",
         "null",
-        "object",
-        "string"
+        "object"
       ],
       "properties": {
         "port": {
@@ -101,9 +101,9 @@
         },
         "auth": {
           "type": [
+            "string",
             "null",
-            "object",
-            "string"
+            "object"
           ],
           "default": {},
           "properties": {
@@ -127,8 +127,8 @@
     },
     "logger": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "default": {
@@ -178,8 +178,8 @@
     },
     "oled": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "default": {},
       "properties": {
@@ -246,8 +246,8 @@
           ],
           "items": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "sensor_type": {
@@ -279,8 +279,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "x-timeperiod": true,
           "default": "60s",
@@ -293,8 +293,8 @@
     },
     "modbus": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "uart": {
@@ -366,8 +366,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -440,8 +440,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30s",
@@ -450,8 +450,8 @@
           },
           "sensors_filters": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "temperature": {
@@ -466,8 +466,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -485,8 +485,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -498,14 +498,14 @@
           },
           "data": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "width": {
                 "type": [
-                  "number",
                   "string",
+                  "number",
                   "integer"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
@@ -513,8 +513,8 @@
               },
               "length": {
                 "type": [
-                  "number",
                   "string",
+                  "number",
                   "integer"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
@@ -541,8 +541,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -561,8 +561,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -581,8 +581,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -611,8 +611,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -650,8 +650,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ],
               "properties": {
                 "id": {
@@ -682,8 +682,8 @@
                   ],
                   "items": {
                     "type": [
-                      "object",
-                      "string"
+                      "string",
+                      "object"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -694,8 +694,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -714,8 +714,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -734,8 +734,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -754,8 +754,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -784,8 +784,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -803,8 +803,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -826,8 +826,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -845,8 +845,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -868,8 +868,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -887,8 +887,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -910,8 +910,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -963,8 +963,8 @@
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -972,8 +972,8 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
@@ -1066,8 +1066,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1137,8 +1137,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1203,8 +1203,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -1473,8 +1473,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "pressed": {
@@ -1484,8 +1484,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1541,8 +1541,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -1600,8 +1600,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1657,8 +1657,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -1723,8 +1723,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1789,8 +1789,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -2014,8 +2014,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "single": {
@@ -2025,8 +2025,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2082,8 +2082,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -2141,8 +2141,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2198,8 +2198,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -2257,8 +2257,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2314,8 +2314,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -2380,8 +2380,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2408,8 +2408,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -2453,8 +2453,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2475,8 +2475,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2532,8 +2532,8 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
@@ -2541,8 +2541,8 @@
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
@@ -2550,8 +2550,8 @@
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
@@ -2559,8 +2559,8 @@
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
@@ -2627,8 +2627,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2649,8 +2649,8 @@
     },
     "dallas": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "id": {
@@ -2672,8 +2672,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2740,8 +2740,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2749,8 +2749,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -2778,8 +2778,8 @@
     },
     "boneio": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "name": {
@@ -2789,8 +2789,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.7",

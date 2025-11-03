@@ -222,8 +222,8 @@ def generate_section_schema(section_name: str, section_schema: dict[str, Any]) -
 def main():
     """Main function to convert schema."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    schema_file = os.path.join(script_dir, "..", "schema", "schema.yaml")
-    output_dir = os.path.join(script_dir, "..", "webui", "schema")
+    schema_file = os.path.join(script_dir, "..", "..", "schema", "schema.yaml")
+    output_dir = os.path.join(script_dir, "..", "..", "webui", "schema")
     
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)

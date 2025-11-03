@@ -106,7 +106,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
     { path: '/modbus', icon: FaNetworkWired, label: 'Modbus' },
     { path: '/config', icon: FaCode, label: 'Config' },
-    // { path: '/settings', icon: FaCode, label: 'Settings', experimental: true }, // Temporarily disabled due to JSON Schema issues
+    { path: '/settings', icon: FaCode, label: 'Settings', experimental: true }, // Temporarily disabled due to JSON Schema issues
     { path: '/logs', icon: FaList, label: 'Logs' },
     { path: '/help', icon: FaQuestionCircle, label: 'Help' },
   ];

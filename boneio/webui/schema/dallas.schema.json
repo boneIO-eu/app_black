@@ -4,8 +4,8 @@
   "properties": {
     "dallas": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "id": {

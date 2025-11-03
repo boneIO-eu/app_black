@@ -320,6 +320,7 @@ export default function ConfigEditorUI() {
             className="input input-bordered w-full"
             value={field.value || ''}
             onChange={(e) => handleFieldChange(field, e.target.value)}
+            autoComplete="off"
           />
         );
       case 'number':
@@ -331,6 +332,7 @@ export default function ConfigEditorUI() {
             onChange={(e) => handleFieldChange(field, Number(e.target.value))}
             min={field.validation?.min}
             max={field.validation?.max}
+            autoComplete="off"
           />
         );
       case 'boolean':
@@ -340,6 +342,7 @@ export default function ConfigEditorUI() {
             className="toggle toggle-primary"
             checked={field.value || false}
             onChange={(e) => handleFieldChange(field, e.target.checked)}
+            autoComplete="off"
           />
         );
       case 'select':
@@ -348,6 +351,7 @@ export default function ConfigEditorUI() {
             className="select select-bordered w-full"
             value={field.value || ''}
             onChange={(e) => handleFieldChange(field, e.target.value)}
+            autoComplete="off"
           >
             <option value="">Select...</option>
             {field.options?.map(option => (
@@ -464,7 +468,7 @@ export default function ConfigEditorUI() {
         renderConfigForm()
       ) : (
         <div className="bg-base-300 p-4 rounded-lg">
-          <pre className="whitespace-pre-wrap break-words">{yamlView}</pre>
+          <pre className="whitespace-pre-wrap wrap-break-word">{yamlView}</pre>
         </div>
       )}
     </div>

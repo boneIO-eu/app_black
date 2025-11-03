@@ -560,46 +560,8 @@ async def set_modbus_value(
     if not coordinator:
         raise HTTPException(status_code=404, detail=f"Modbus coordinator '{coordinator_id}' not found")
     
-    # Find entity in the coordinator
-    entity = None
-    
-    # Check regular entities first
-    for entities in coordinator.get_all_entities():
-        # Try direct lookup by entity_id (might be decoded_name)
-        if entity_id in entities:
-            entity = entities[entity_id]
-            break
-        # Try to find by full entity.id
-        for entity_key, potential_entity in entities.items():
-            if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
-                entity = potential_entity
-                break
-        if entity:
-            break
-    
-    # Check additional entities if not found in regular entities
-    if not entity:
-        # Try direct lookup by decoded_name
-        additional_entity = coordinator.get_additional_entity_by_name(entity_id)
-        if not additional_entity:
-            # If not found, try to extract decoded_name from full ID
-            # Remove parent ID prefix if it matches
-            coordinator_id_lower = coordinator._id.lower()
-            if entity_id.lower().startswith(coordinator_id_lower):
-                decoded_name = entity_id[len(coordinator_id_lower):]
-                additional_entity = coordinator.get_additional_entity_by_name(decoded_name)
-        
-        # Also check all additional entities by their full ID
-        if not additional_entity:
-            for additional_entities_list in coordinator.get_all_additional_entities():
-                for entity_key, potential_entity in additional_entities_list.items():
-                    if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
-                        additional_entity = potential_entity
-                        break
-                if additional_entity:
-                    break
-        
-        entity = additional_entity
+    # Find entity in the coordinator using unified lookup
+    entity = coordinator.find_entity(entity_id)
     
     if not entity:
         raise HTTPException(status_code=404, detail=f"Modbus entity '{entity_id}' not found in coordinator '{coordinator_id}'")

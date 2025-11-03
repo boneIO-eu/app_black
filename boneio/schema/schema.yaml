@@ -621,13 +621,6 @@ binary_sensor:
         allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
           label: What mode to use in config PIN.
-      detection_type:
-        type: string
-        required: True
-        default: 'new'
-        allowed: ['new', 'old']
-        meta:
-          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
         type: boolean
         default: False
@@ -737,13 +730,6 @@ event:
         allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
           label: What mode to use in config PIN.
-      detection_type:
-        type: string
-        required: True
-        default: 'new'
-        allowed: ['new', 'old']
-        meta:
-          label: There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.
       clear_message:
         type: boolean
         default: False
