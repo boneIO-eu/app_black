@@ -25,8 +25,8 @@
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",

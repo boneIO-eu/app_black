@@ -4,15 +4,15 @@
   "properties": {
     "web": {
       "type": [
-        "string",
         "null",
+        "string",
         "object"
       ],
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -20,8 +20,8 @@
         },
         "auth": {
           "type": [
-            "string",
             "null",
+            "string",
             "object"
           ],
           "default": {},

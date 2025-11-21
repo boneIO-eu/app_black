@@ -28,14 +28,21 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
    * Convert milliseconds back to string format for backend
    */
  const convertMillisecondsToTimeperiod = (milliseconds: number): string => {
-    if (milliseconds < 1000) {
-      return `${milliseconds}ms`;
-    } else if (milliseconds < 60000) {
-      return `${milliseconds / 1000}s`;
-    } else if (milliseconds < 3600000) {
-      return `${milliseconds / 60000}m`;
-    } else {
+    // Check if it's a whole number of hours
+    if (milliseconds >= 3600000 && milliseconds % 3600000 === 0) {
       return `${milliseconds / 3600000}h`;
+    }
+    // Check if it's a whole number of minutes
+    else if (milliseconds >= 60000 && milliseconds % 60000 === 0) {
+      return `${milliseconds / 60000}min`;
+    }
+    // Check if it's a whole number of seconds
+    else if (milliseconds >= 1000 && milliseconds % 1000 === 0) {
+      return `${milliseconds / 1000}s`;
+    }
+    // Otherwise use milliseconds
+    else {
+      return `${milliseconds}ms`;
     }
   };
 
@@ -101,30 +108,31 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
         if (propSchema && typeof propSchema === 'object' && propSchema.items) {
           converted[key] = currentValue.map((item: any, index: number) => {
             // Sprawdzamy czy element jest obiektem i czy mamy odpowiedni schemat
-            if (typeof item === 'object' && item !== null) {
-              // Jeśli mamy oryginalny element, używamy go jako referencji
-              if (Array.isArray(originalValue) && index < originalValue.length && typeof originalValue[index] === 'object') {
-                return convertFormDataToOriginalTypes(item, originalValue[index], 
-                  typeof propSchema.items === 'object' ? propSchema.items as ExtendedJSONSchema : undefined);
-              } 
-              // Dla nowych elementów używamy tylko schematu
-              else if (typeof propSchema.items === 'object') {
-                const itemsSchema = propSchema.items as ExtendedJSONSchema;
-                // Konwertujemy pola timeperiod w nowych elementach
-                if (hasProperties(itemsSchema) && itemsSchema.properties) {
-                  Object.keys(item).forEach(itemKey => {
-                    const itemPropSchema = itemsSchema.properties?.[itemKey];
-                    
-                    if (itemPropSchema && 
-                        typeof itemPropSchema === 'object' && 
-                        itemPropSchema['x-timeperiod'] === true && 
-                        typeof item[itemKey] === 'number') {
-                      item[itemKey] = convertMillisecondsToTimeperiod(item[itemKey]);
-                    }
-                  });
-                }
-                return item;
+            if (typeof item === 'object' && item !== null && typeof propSchema.items === 'object') {
+              const itemsSchema = propSchema.items as ExtendedJSONSchema;
+              const originalItem = Array.isArray(originalValue) && index < originalValue.length ? originalValue[index] : {};
+              
+              // Konwertujemy pola timeperiod ZAWSZE (dla nowych i istniejących elementów)
+              const convertedItem = { ...item };
+              if (hasProperties(itemsSchema) && itemsSchema.properties) {
+                Object.keys(convertedItem).forEach(itemKey => {
+                  const itemPropSchema = itemsSchema.properties?.[itemKey];
+                  
+                  if (itemPropSchema && 
+                      typeof itemPropSchema === 'object' && 
+                      itemPropSchema['x-timeperiod'] === true && 
+                      typeof convertedItem[itemKey] === 'number') {
+                    convertedItem[itemKey] = convertMillisecondsToTimeperiod(convertedItem[itemKey]);
+                  }
+                });
               }
+              
+              // Jeśli mamy oryginalny element, używamy rekurencji dla pozostałych pól
+              if (originalItem && typeof originalItem === 'object') {
+                return convertFormDataToOriginalTypes(convertedItem, originalItem, itemsSchema);
+              }
+              
+              return convertedItem;
             }
             return item;
           });
@@ -213,11 +221,62 @@ export const stripHiddenAndDefaults = (
         continue;
       }
       
+      // Special handling for actions
+      if (key === 'actions' && typeof fieldValue === 'object' && fieldValue !== null) {
+        const cleanedActions: any = {};
+        
+        for (const [actionType, actionList] of Object.entries(fieldValue)) {
+          if (Array.isArray(actionList)) {
+            const cleanedList = actionList.map((actionItem: any) => {
+              if (typeof actionItem !== 'object' || actionItem === null) return actionItem;
+              
+              const cleanedAction: any = {};
+              
+              for (const [actionKey, actionValue] of Object.entries(actionItem)) {
+                // Skip default values for action fields
+                if (actionKey === 'action_cover' && actionValue === 'TOGGLE') continue;
+                if (actionKey === 'action_output' && actionValue === 'TOGGLE') continue;
+                if (actionKey === 'data' && typeof actionValue === 'object' && Object.keys(actionValue as object).length === 0) continue;
+                
+                cleanedAction[actionKey] = actionValue;
+              }
+              
+              return Object.keys(cleanedAction).length > 0 ? cleanedAction : null;
+            }).filter((item: any) => item !== null);
+            
+            if (cleanedList.length > 0) {
+              cleanedActions[actionType] = cleanedList;
+            }
+          }
+        }
+        
+        if (Object.keys(cleanedActions).length > 0) {
+          result[key] = cleanedActions;
+        }
+        continue;
+      }
+      
+      // Skip empty data objects
+      if (key === 'data' && typeof fieldValue === 'object' && fieldValue !== null && Object.keys(fieldValue).length === 0) {
+        continue;
+      }
+      
       // Skip fields with default values
       const defaultValue = fieldSchema?.default;
-      if (defaultValue !== undefined && JSON.stringify(fieldValue) === JSON.stringify(defaultValue)) {
-        console.log(`Skipping default value field: ${key} = ${JSON.stringify(defaultValue)}`);
-        continue;
+      if (defaultValue !== undefined) {
+        // Special handling for timeperiod fields (x-timeperiod: true)
+        if (fieldSchema?.['x-timeperiod'] === true) {
+          // Convert both to milliseconds for comparison
+          const defaultMs = convertTimeperiodToMilliseconds(defaultValue);
+          const fieldMs = convertTimeperiodToMilliseconds(fieldValue);
+          if (defaultMs === fieldMs) {
+            console.log(`Skipping default timeperiod field: ${key} = ${fieldValue} (default: ${defaultValue})`);
+            continue;
+          }
+        } else if (JSON.stringify(fieldValue) === JSON.stringify(defaultValue)) {
+          console.log(`Skipping default value field: ${key} = ${JSON.stringify(defaultValue)}`);
+          continue;
+        }
       }
       
       // Recursively process nested objects and arrays

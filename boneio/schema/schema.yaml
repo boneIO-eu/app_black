@@ -258,21 +258,26 @@ modbus_devices:
           - positive_time_period
         required: True
         default: 30s
+        min: 1s
         meta:
-          label: Update interval.
+          label: Update interval (minimum 1 second).
       sensors_filters:
         type: dict
         required: False
+        dependencies:
+          model: ['cwt']
         meta:
-          label: List of sub sensors to use to filter. Available values are temperature or humidity.
+          label: List of sub sensors to use to filter. Available values are temperature or humidity. Only for CWT model.
         schema:
           temperature: !include filters.yaml
           humidity: !include filters.yaml
       data:
         type: dict
         required: False
+        dependencies:
+          model: ['liquid-sensor']
         meta:
-          label: Data to pass to additional entities.
+          label: Data to pass to additional entities. Only for liquid-sensor model.
         schema:
           width:
             type:

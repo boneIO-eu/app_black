@@ -25,8 +25,8 @@
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -85,15 +85,15 @@
     },
     "web": {
       "type": [
-        "string",
         "null",
+        "string",
         "object"
       ],
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -101,8 +101,8 @@
         },
         "auth": {
           "type": [
-            "string",
             "null",
+            "string",
             "object"
           ],
           "default": {},
@@ -207,8 +207,8 @@
         },
         "screens": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "default": [
             "uptime",
@@ -241,8 +241,8 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "items": {
             "type": [
@@ -314,15 +314,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -335,8 +335,8 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
@@ -361,8 +361,8 @@
     },
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -377,8 +377,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -444,8 +444,9 @@
               "number"
             ],
             "x-timeperiod": true,
+            "minimum": 1000,
             "default": "30s",
-            "description": "Update interval.",
+            "description": "Update interval (minimum 1 second).",
             "title": "Update interval"
           },
           "sensors_filters": {
@@ -456,8 +457,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -475,8 +476,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -493,8 +494,13 @@
                 "title": "Humidity"
               }
             },
-            "description": "List of sub sensors to use to filter. Available values are temperature or humidity.",
-            "title": "Sensors filters"
+            "description": "List of sub sensors to use to filter. Available values are temperature or humidity. Only for CWT model.",
+            "title": "Sensors filters",
+            "x-dependencies": {
+              "model": [
+                "cwt"
+              ]
+            }
           },
           "data": {
             "type": [
@@ -504,25 +510,30 @@
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
               }
             },
-            "description": "Data to pass to additional entities.",
-            "title": "Data"
+            "description": "Data to pass to additional entities. Only for liquid-sensor model.",
+            "title": "Data",
+            "x-dependencies": {
+              "model": [
+                "liquid-sensor"
+              ]
+            }
           }
         },
         "required": [
@@ -536,8 +547,8 @@
     },
     "lm75": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -552,8 +563,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -571,8 +582,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -606,8 +617,8 @@
     },
     "ina219": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -622,8 +633,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -631,8 +642,8 @@
           },
           "sensors": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -672,8 +683,8 @@
                 },
                 "filters": {
                   "type": [
-                    "string",
-                    "array"
+                    "array",
+                    "string"
                   ],
                   "default": [
                     {
@@ -709,8 +720,8 @@
     },
     "mcp9808": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -725,8 +736,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -744,8 +755,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -779,8 +790,8 @@
     },
     "mcp23017": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -795,8 +806,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -821,8 +832,8 @@
     },
     "pcf8575": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -837,8 +848,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -863,8 +874,8 @@
     },
     "pca9685": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -879,8 +890,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -905,8 +916,8 @@
     },
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -955,8 +966,8 @@
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
@@ -1011,16 +1022,16 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1061,8 +1072,8 @@
     },
     "output_group": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1077,8 +1088,8 @@
           },
           "outputs": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "List of outputs.",
             "title": "Outputs"
@@ -1132,8 +1143,8 @@
     },
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1165,19 +1176,6 @@
             ],
             "description": "What mode to use in config PIN.",
             "title": "Gpio mode"
-          },
-          "detection_type": {
-            "type": "string",
-            "default": "new",
-            "enum": [
-              "new",
-              "old"
-            ],
-            "examples": [
-              "new"
-            ],
-            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
-            "title": "Detection type"
           },
           "clear_message": {
             "oneOf": [
@@ -1479,8 +1477,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1548,16 +1546,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1595,8 +1593,8 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1664,16 +1662,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1718,8 +1716,8 @@
     },
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1751,19 +1749,6 @@
             ],
             "description": "What mode to use in config PIN.",
             "title": "Gpio mode"
-          },
-          "detection_type": {
-            "type": "string",
-            "default": "new",
-            "enum": [
-              "new",
-              "old"
-            ],
-            "examples": [
-              "new"
-            ],
-            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
-            "title": "Detection type"
           },
           "clear_message": {
             "oneOf": [
@@ -2020,8 +2005,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2089,16 +2074,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2136,8 +2121,8 @@
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2205,16 +2190,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2252,8 +2237,8 @@
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2321,16 +2306,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2375,8 +2360,8 @@
     },
     "adc": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -2440,8 +2425,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -2470,8 +2455,8 @@
     },
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -2622,8 +2607,8 @@
     },
     "ds2482": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -2667,8 +2652,8 @@
     },
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -2695,8 +2680,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Dallas device",
             "title": "Address"
@@ -2730,8 +2715,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {

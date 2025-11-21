@@ -88,7 +88,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
           </div>
           <div className={`${isGrid ? 'w-full' : 'min-w-[200px]'}`}>
             <select
-              className="select select-bordered w-full select-sm"
+              className="select ed w-full select-sm"
               value={device.state as string || ''}
               onChange={(e) => handleSelectChange(e.target.value)}
             >
@@ -189,7 +189,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
               <input
                 type="number"
                 step={device.step || 1}
-                className="input input-bordered input-sm flex-1"
+                className="input  input-sm flex-1"
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleInputKeyDown}

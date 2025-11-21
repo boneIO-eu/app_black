@@ -93,6 +93,37 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 elif schema["type"] == "timeperiod":
                     field_schema["x-timeperiod"] = True
 
+        # Handle min/max for timeperiod fields (convert to milliseconds)
+        if "min" in schema and field_schema.get("x-timeperiod"):
+            min_value = schema["min"]
+            # Convert timeperiod string to milliseconds
+            if isinstance(min_value, str):
+                if min_value.endswith('ms'):
+                    field_schema["minimum"] = int(min_value[:-2])
+                elif min_value.endswith('s'):
+                    field_schema["minimum"] = int(min_value[:-1]) * 1000
+                elif min_value.endswith('min'):
+                    field_schema["minimum"] = int(min_value[:-3]) * 60000
+                elif min_value.endswith('h'):
+                    field_schema["minimum"] = int(min_value[:-1]) * 3600000
+            elif isinstance(min_value, (int, float)):
+                field_schema["minimum"] = int(min_value)
+        
+        if "max" in schema and field_schema.get("x-timeperiod"):
+            max_value = schema["max"]
+            # Convert timeperiod string to milliseconds
+            if isinstance(max_value, str):
+                if max_value.endswith('ms'):
+                    field_schema["maximum"] = int(max_value[:-2])
+                elif max_value.endswith('s'):
+                    field_schema["maximum"] = int(max_value[:-1]) * 1000
+                elif max_value.endswith('min'):
+                    field_schema["maximum"] = int(max_value[:-3]) * 60000
+                elif max_value.endswith('h'):
+                    field_schema["maximum"] = int(max_value[:-1]) * 3600000
+            elif isinstance(max_value, (int, float)):
+                field_schema["maximum"] = int(max_value)
+
         # Handle required fields - only if required and no default
         if schema.get("required", False) and "default" not in schema:
             json_schema["required"].append(field)
@@ -192,6 +223,10 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 field_schema["description"] = schema["meta"]["label"]
                 # Add title for better IDE support
                 field_schema["title"] = field.replace("_", " ").capitalize()
+
+        # Handle dependencies - convert to x-dependencies for custom handling in UI
+        if "dependencies" in schema:
+            field_schema["x-dependencies"] = schema["dependencies"]
 
         json_schema["properties"][field] = field_schema
 

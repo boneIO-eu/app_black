@@ -4,8 +4,8 @@
   "properties": {
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -20,8 +20,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -87,8 +87,9 @@
               "number"
             ],
             "x-timeperiod": true,
+            "minimum": 1000,
             "default": "30s",
-            "description": "Update interval.",
+            "description": "Update interval (minimum 1 second).",
             "title": "Update interval"
           },
           "sensors_filters": {
@@ -99,8 +100,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -118,8 +119,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -136,8 +137,13 @@
                 "title": "Humidity"
               }
             },
-            "description": "List of sub sensors to use to filter. Available values are temperature or humidity.",
-            "title": "Sensors filters"
+            "description": "List of sub sensors to use to filter. Available values are temperature or humidity. Only for CWT model.",
+            "title": "Sensors filters",
+            "x-dependencies": {
+              "model": [
+                "cwt"
+              ]
+            }
           },
           "data": {
             "type": [
@@ -147,25 +153,30 @@
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
               }
             },
-            "description": "Data to pass to additional entities.",
-            "title": "Data"
+            "description": "Data to pass to additional entities. Only for liquid-sensor model.",
+            "title": "Data",
+            "x-dependencies": {
+              "model": [
+                "liquid-sensor"
+              ]
+            }
           }
         },
         "required": [

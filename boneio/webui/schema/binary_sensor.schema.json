@@ -4,8 +4,8 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -37,19 +37,6 @@
             ],
             "description": "What mode to use in config PIN.",
             "title": "Gpio mode"
-          },
-          "detection_type": {
-            "type": "string",
-            "default": "new",
-            "enum": [
-              "new",
-              "old"
-            ],
-            "examples": [
-              "new"
-            ],
-            "description": "There are 2 detector algorithms. Old consumes more CPU but it is tested by many users. New is more optimized, but needed extra time for testing.",
-            "title": "Detection type"
           },
           "clear_message": {
             "oneOf": [
@@ -351,8 +338,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -420,16 +407,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -467,8 +454,8 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -536,16 +523,16 @@
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"

@@ -48,7 +48,7 @@ export default function LoginView() {
                 name="username"
                 type="text"
                 required
-                className="input input-bordered w-full"
+                className="input  w-full"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -63,7 +63,7 @@ export default function LoginView() {
                 name="password"
                 type="password"
                 required
-                className="input input-bordered w-full"
+                className="input  w-full"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

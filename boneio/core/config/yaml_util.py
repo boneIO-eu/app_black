@@ -317,7 +317,6 @@ def merge_board_config(config: dict) -> dict:
                     )
                 # Merge mapped output with user config, preserving user-specified values
                 output.update({k: v for k, v in mapped_output.items() if k not in output})
-                del output["boneio_output"]
     if "event" or "binary_sensor" in config:
         input_mapping = input_config.get("input_mapping", {})
         for input in config.get("event", []):
@@ -740,6 +739,116 @@ def load_config_from_file(config_file: str):
     return load_config_from_string(config_yaml)
 
 
+def strip_default_values(data: Any, schema: dict = None, section: str = None) -> Any:
+    """
+    Remove fields with default values from data to keep YAML clean.
+    Uses Cerberus schema.yaml for default values.
+    
+    Args:
+        data: The data to clean (dict, list, or primitive)
+        schema: Optional Cerberus schema dict (if not provided, will load from schema.yaml)
+        section: Optional section name to find schema
+        
+    Returns:
+        Cleaned data with default values removed
+    """
+    
+    def get_defaults_from_cerberus_schema(schema_obj: dict) -> dict:
+        """Extract default values from Cerberus schema."""
+        defaults = {}
+        if isinstance(schema_obj, dict):
+            # For list schemas, get the item schema
+            if schema_obj.get('type') == 'list' and 'schema' in schema_obj:
+                item_schema = schema_obj['schema']
+                if isinstance(item_schema, dict) and item_schema.get('type') == 'dict':
+                    # Get defaults from dict schema
+                    dict_schema = item_schema.get('schema', {})
+                    for key, prop in dict_schema.items():
+                        if isinstance(prop, dict) and 'default' in prop:
+                            defaults[key] = prop['default']
+            # For dict schemas
+            elif 'schema' in schema_obj:
+                for key, prop in schema_obj['schema'].items():
+                    if isinstance(prop, dict) and 'default' in prop:
+                        defaults[key] = prop['default']
+        return defaults
+    
+    def clean_dict(obj: dict, defaults: dict) -> dict:
+        """Remove keys with default values from dict."""
+        cleaned = {}
+        for key, value in obj.items():
+            # Special handling for nested structures
+            if key == 'actions' and isinstance(value, dict):
+                # Clean actions recursively
+                cleaned_actions = {}
+                for action_type, action_list in value.items():
+                    if isinstance(action_list, list):
+                        cleaned_list = []
+                        for action_item in action_list:
+                            if isinstance(action_item, dict):
+                                # Get defaults for action items
+                                action_defaults = {
+                                    'action_cover': 'TOGGLE',
+                                    'action_output': 'TOGGLE',
+                                    'data': {}
+                                }
+                                cleaned_action = clean_dict(action_item, action_defaults)
+                                # Only add if action field exists (required)
+                                if 'action' in cleaned_action or cleaned_action:
+                                    cleaned_list.append(cleaned_action)
+                        if cleaned_list:
+                            cleaned_actions[action_type] = cleaned_list
+                if cleaned_actions:
+                    cleaned[key] = cleaned_actions
+            elif key == 'data' and value == {}:
+                # Skip empty data objects
+                continue
+            elif key in defaults and value == defaults[key]:
+                # Skip if value equals default
+                continue
+            elif isinstance(value, dict):
+                # Recursively clean nested dicts
+                cleaned_value = clean_dict(value, {})
+                if cleaned_value:  # Only add if not empty
+                    cleaned[key] = cleaned_value
+            elif isinstance(value, list):
+                # Clean list items
+                cleaned_list = []
+                for item in value:
+                    if isinstance(item, dict):
+                        cleaned_item = clean_dict(item, defaults)
+                        if cleaned_item:
+                            cleaned_list.append(cleaned_item)
+                    else:
+                        cleaned_list.append(item)
+                if cleaned_list:
+                    cleaned[key] = cleaned_list
+            else:
+                # Keep non-default values
+                cleaned[key] = value
+        return cleaned
+    
+    # Get schema for section
+    if section:
+        # Load Cerberus schema if not provided
+        if schema is None:
+            schema = _get_schema()
+        
+        # Get section schema from Cerberus
+        section_schema = schema.get(section, {})
+        defaults = get_defaults_from_cerberus_schema(section_schema)
+    else:
+        defaults = {}
+    
+    # Process data
+    if isinstance(data, list):
+        return [clean_dict(item, defaults) if isinstance(item, dict) else item for item in data]
+    elif isinstance(data, dict):
+        return clean_dict(data, defaults)
+    else:
+        return data
+
+
 def update_config_section(config_file: str, section: str, data: dict) -> dict:
     """
     Update content of a configuration section with intelligent !include handling.
@@ -758,6 +867,10 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
     config_dir = Path(config_file).parent
     
     _LOGGER.info(f"Updating section '{section}' with data: {data}")
+    
+    # Strip default values to keep YAML clean
+    cleaned_data = strip_default_values(data, {}, section)
+    _LOGGER.info(f"Cleaned data (defaults removed): {cleaned_data}")
     
     # Custom YAML loader that preserves !include tags
     class IncludeLoader(SafeLoader):
@@ -792,8 +905,8 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                 
                 _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
                 
-                # Save data to the included file
-                content = dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                # Save cleaned data to the included file
+                content = dump(cleaned_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
                 with open(include_file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
                     
@@ -802,7 +915,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
             else:
                 # It's a regular section - replace in config.yaml
                 _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
-                config_content[section] = data
+                config_content[section] = cleaned_data
                 
                 # Save updated config.yaml (need to handle !include when saving)
                 # Read original file as text to preserve !include syntax
@@ -821,8 +934,8 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                         section_indent = len(line) - len(line.lstrip())
                         # Add the section header
                         updated_lines.append(line)
-                        # Add the new data
-                        section_yaml = dump({section: data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                        # Add the new cleaned data
+                        section_yaml = dump({section: cleaned_data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
                         section_lines = section_yaml.split('\n')[1:]  # Skip the section name line
                         for data_line in section_lines:
                             if data_line.strip():
@@ -848,7 +961,7 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
             _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
             
             # Append new section to the end of the file
-            section_yaml = dump({section: data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            section_yaml = dump({section: cleaned_data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
             with open(config_file, 'a', encoding='utf-8') as f:
                 f.write('\n' + section_yaml)
                 
