@@ -490,11 +490,14 @@ class Manager:
                     boneio_id = action_definition.get("boneio_id")
                     action_output = action_definition.get("action_output")
                     action_to_execute = relay_actions.get(action_output.upper())
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
                     if boneio_id and action_to_execute:
                         parsed_actions[click_type].append({
                             "action": action,
                             "boneio_id": boneio_id,
                             "action_output": action_output,
+                            "pin": stripped_entity_id,
                         })
                         continue
                     _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
@@ -502,11 +505,14 @@ class Manager:
                     boneio_id = action_definition.get("boneio_id")
                     action_cover = action_definition.get("action_cover")
                     action_to_execute = cover_actions.get(action_cover.upper())
+                    entity_id = action_definition.get("pin")
+                    stripped_entity_id = strip_accents(entity_id)
                     if boneio_id and action_to_execute:
                         parsed_actions[click_type].append({
                             "action": action,
                             "boneio_id": boneio_id,
                             "action_cover": action_cover,
+                            "pin": stripped_entity_id,
                         })
                         continue
                     _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
