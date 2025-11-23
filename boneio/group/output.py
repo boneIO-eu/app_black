@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from typing import List
 
 from boneio.const import COVER, OFF, ON, SWITCH
 from boneio.models import OutputState
 from boneio.relay.basic import BasicRelay
 
+_LOGGER = logging.getLogger(__name__)
 
 class OutputGroup(BasicRelay):
     """Cover class of boneIO"""
@@ -62,15 +65,15 @@ class OutputGroup(BasicRelay):
             self._state = state
             self._loop.create_task(self.async_send_state())
 
-    async def async_turn_on(self) -> None:
+    async def async_turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_on())
+            self._loop.create_task(x.async_turn_on(timestamp=timestamp))
 
-    async def async_turn_off(self) -> None:
+    async def async_turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_off())
+            self._loop.create_task(x.async_turn_off(timestamp=timestamp))
 
     @property
     def is_active(self) -> bool:
@@ -82,3 +85,12 @@ class OutputGroup(BasicRelay):
         self._message_bus.send_message(
             topic=self._send_topic, payload=self.payload(), retain=True
         )
+
+    async def async_toggle(self, timestamp=None) -> None:
+        """Toggle group relay."""
+        now = time.time()
+        _LOGGER.debug("Toggle group relay %s, state: %s, at %s.", self.name, self.state, now)
+        if self.state == ON:
+            await self.async_turn_off(timestamp=timestamp)
+        else:
+            await self.async_turn_on(timestamp=timestamp)
