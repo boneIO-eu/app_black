@@ -283,14 +283,14 @@ class PreviousCover(BasicMqtt):
         else:
             await self.open()
 
-    async def toggle_open(self) -> None:
+    async def toggle_open(self, **kwargs) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
         if self._current_operation != IDLE:
             await self.stop()
         else:
             await self.open()
 
-    async def toggle_close(self) -> None:
+    async def toggle_close(self, **kwargs) -> None:
         _LOGGER.debug("Toggle close cover %s from input.", self._id)
         if self._current_operation != IDLE:
             await self.stop()
