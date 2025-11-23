@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
 
 interface OutputFormProps {
   data: any;
@@ -17,9 +16,6 @@ interface OutputFormProps {
 const OutputForm: React.FC<OutputFormProps> = ({ 
   data, 
   onChange, 
-  onSave, 
-  onCancel, 
-  isNew, 
   schema,
   uiSchema,
   deviceType,

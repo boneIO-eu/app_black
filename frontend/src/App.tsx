@@ -12,7 +12,7 @@ import { useWebSocket, StateUpdate, isCoverState } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
-import UISettings from './components/UISettings/UISettings';
+// import UISettings from './components/UISettings/UISettings';
 
 export const WebSocketContext = createContext<{
   outputs: StateUpdate['data'][];
@@ -169,7 +169,7 @@ function AppContent() {
         } />
         {/* ConfigEditor2 (UISettings) - Temporarily disabled due to JSON Schema issues */}
         {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
-        <Route path="/settings" element={
+        {/* <Route path="/settings" element={
           <ProtectedRoute>
             <Layout>
               <UISettings />
@@ -182,7 +182,7 @@ function AppContent() {
               <UISettings />
             </Layout>
           </ProtectedRoute>
-        } />
+        } /> */}
         <Route path="/logs" element={
           <ProtectedRoute>
             <Layout>
