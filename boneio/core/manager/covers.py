@@ -14,7 +14,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import COVER, ID, cover_actions
-from boneio.core.config.loader import configure_cover
 from boneio.core.utils import strip_accents
 from boneio.exceptions import CoverConfigurationException
 
@@ -100,11 +99,8 @@ class CoverManager:
                     _cover.update_config_times(_config)
                     continue
                 
-                self._covers[_id] = configure_cover(
-                    message_bus=self._manager._message_bus,
+                self._covers[_id] = self._configure_cover(
                     cover_id=_id,
-                    state_manager=self._manager._state_manager,
-                    send_ha_autodiscovery=self._manager.send_ha_autodiscovery,
                     config={
                         **_config,
                         "open_relay": open_relay,
@@ -113,16 +109,102 @@ class CoverManager:
                     tilt_duration=_config.get("tilt_duration"),
                 )
                 
-                # Send HA autodiscovery
-                self._manager.send_ha_autodiscovery(
-                    id=_id,
-                    name=_config.get("name", _id),
-                    ha_type=COVER,
-                    output_type=COVER,
-                )
-                
             except CoverConfigurationException as err:
                 _LOGGER.error("Failed to configure cover %s: %s", _id, err)
+
+    def _configure_cover(
+        self,
+        cover_id: str,
+        config: dict,
+        tilt_duration: TimePeriod | None,
+    ) -> "PreviousCover | TimeBasedCover":
+        """Configure a cover instance.
+        
+        Args:
+            cover_id: Cover identifier
+            config: Cover configuration dictionary
+            tilt_duration: Tilt duration for venetian covers
+            
+        Returns:
+            Configured cover instance
+            
+        Raises:
+            CoverConfigurationException: If cover configuration is invalid
+        """
+        from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
+        
+        platform = config.get("platform", "previous")
+        
+        def state_save(value: dict[str, int]):
+            if config[RESTORE_STATE]:
+                self._manager._state_manager.save_attribute(
+                    attr_type=COVER,
+                    attribute=cover_id,
+                    value=value,
+                )
+        
+        if platform == "venetian":
+            if not tilt_duration:
+                raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
+            _LOGGER.debug("Configuring tilt cover %s", cover_id)
+            restored_state: dict = self._manager._state_manager.get(
+                attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt_position": 100}
+            )
+            if isinstance(restored_state, (float, int)):
+                restored_state = {"position": restored_state, "tilt_position": 100}
+            cover = VenetianCover(
+                id=cover_id,
+                state_save=state_save,
+                message_bus=self._manager._message_bus,
+                restored_state=restored_state,
+                tilt_duration=tilt_duration,
+                actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
+                **{k: v for k, v in config.items() if k not in ("platform", "actuator_activation_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS)},
+            )
+            availability_msg_func = ha_cover_with_tilt_availabilty_message
+        elif platform == "time_based":
+            _LOGGER.debug("Configuring time-based cover %s", cover_id)
+            restored_state: dict = self._manager._state_manager.get(
+                attr_type=COVER, attr=cover_id, default_value={"position": 100}
+            )
+            if isinstance(restored_state, (float, int)):
+                restored_state = {"position": restored_state}
+            cover = TimeBasedCover(
+                id=cover_id,
+                state_save=state_save,
+                message_bus=self._manager._message_bus,
+                restored_state=restored_state,
+                **{k: v for k, v in config.items() if k not in ("platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS)},
+            )
+            availability_msg_func = ha_cover_availabilty_message
+        else:
+            _LOGGER.debug("Configuring previous cover %s", cover_id)
+            restored_state: dict = self._manager._state_manager.get(
+                attr_type=COVER, attr=cover_id, default_value={"position": 100}
+            )
+            if isinstance(restored_state, (float, int)):
+                restored_state = {"position": restored_state}
+            cover = PreviousCover(
+                id=cover_id,
+                state_save=state_save,
+                message_bus=self._manager._message_bus,
+                restored_state=restored_state,
+                **{k: v for k, v in config.items() if k not in ("platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS)},
+            )
+            availability_msg_func = ha_cover_availabilty_message
+        
+        # Send HA autodiscovery
+        if config.get(SHOW_HA, True):
+            self._manager.send_ha_autodiscovery(
+                id=cover.id,
+                name=cover.name,
+                ha_type=COVER,
+                device_class=config.get(DEVICE_CLASS),
+                availability_msg_func=availability_msg_func,
+            )
+        
+        _LOGGER.debug("Configured cover %s", cover_id)
+        return cover
 
     def get_cover(self, id: str) -> PreviousCover | TimeBasedCover | None:
         """Get cover by ID.

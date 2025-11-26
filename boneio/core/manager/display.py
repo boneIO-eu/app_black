@@ -174,13 +174,10 @@ class DisplayManager:
             # Configure OLED button as event input
             if OLED_PIN not in self._manager.inputs.get_all_inputs():
                 from boneio.const import ID
-                from boneio.core.config.loader import configure_event_sensor
                 
-                oled_button = configure_event_sensor(
+                oled_button = self._manager.inputs._configure_event_sensor(
                     gpio={ID: "oled_button"},
                     pin=OLED_PIN,
-                    event_bus=self._manager._event_bus,
-                    send_ha_autodiscovery=self._manager.send_ha_autodiscovery,
                     actions={},
                 )
                 

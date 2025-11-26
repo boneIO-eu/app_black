@@ -360,12 +360,18 @@ class Manager:
         
         # Call availability function if defined
         if availability_msg_func:
-            availability_msg_func(
+            payload = availability_msg_func(
                 id=id,
                 name=name,
                 config_helper=self._config_helper,
                 **kwargs
             )
+            topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/{id}/config"
+            _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
+            self._config_helper.add_autodiscovery_msg(
+                topic=topic, ha_type=ha_type, payload=payload
+            )
+            self.send_message(topic=topic, payload=payload, retain=True)
 
     def parse_actions(self, pin: str, actions: dict) -> dict:
         """Parse actions configuration.

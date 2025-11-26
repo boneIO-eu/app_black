@@ -466,12 +466,18 @@ output:
   schema:
     type: dict
     schema:
-      id:
+      name:
         type: string
-        required: True
+        required: False
         coerce: str
         meta:
-          label: Output ID
+          label: Output Name
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Output ID (optional, overrides boneio_output)
       boneio_output:
         type: string
         required: False
@@ -715,14 +721,20 @@ event:
   type: list
   meta:
     label: "https://boneio.eu/docs/black/configuration/event \n GPIO event entity section of boneIO Black. It enables event entities in HA. It detects single, double and long click. It can run action based on states. It always send message to MQTT broker of invoked state."
+  check_with: input_id_exists
   schema:
     type: dict
     schema:
+      name:
+        type: string
+        required: False
+        meta:
+          label: Name to use in HA.
       id:
         type: string
         required: False
         meta:
-          label: Id to use in HA if needed. Default to pin number.
+          label: Id to use for MQTT topic. Default to boneio_input or pin number.
       pin:
         type: string
         required: False

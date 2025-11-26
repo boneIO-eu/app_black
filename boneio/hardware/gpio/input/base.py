@@ -70,6 +70,7 @@ class GpioBaseClass:
         actions: dict,
         input_type: str,
         event_bus: EventBus,
+        id: str | None = None,
         boneio_input: str = "",
         **kwargs,
     ) -> None:
@@ -84,6 +85,7 @@ class GpioBaseClass:
         self._actions = actions
         self._input_type = input_type
         self._boneio_input = boneio_input
+        self._id = id or boneio_input or pin
         self._click_type = (PRESSED, RELEASED)
         self._state = False  # Will be updated by subclass
         self._last_state = "Unknown"

@@ -10,11 +10,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
-from boneio.const import ACTIONS, BINARY_SENSOR, EVENT_ENTITY, PIN
-from boneio.core.config.loader import configure_binary_sensor, configure_event_sensor
+from boneio.components.input import GpioEventButton, GpioInputBinarySensor
+from boneio.const import (
+    ACTIONS,
+    BINARY_SENSOR,
+    DEVICE_CLASS,
+    EVENT_ENTITY,
+    ID,
+    INPUT,
+    INPUT_SENSOR,
+    PIN,
+    SHOW_HA,
+)
 from boneio.exceptions import GPIOInputException
+from boneio.integration.homeassistant import (
+    ha_binary_sensor_availabilty_message,
+    ha_event_availabilty_message,
+)
 from boneio.models.events import InputEvent
 
 if TYPE_CHECKING:
@@ -87,7 +101,7 @@ class InputManager:
                     return True
             return False
 
-        def configure_single_input(configure_sensor_func, gpio) -> None:
+        def configure_single_input(configure_sensor_func: Callable, gpio: dict) -> None:
             """Configure a single input (event or binary sensor)."""
             try:
                 pin = gpio.pop(PIN)
@@ -101,9 +115,7 @@ class InputManager:
             input_device = configure_sensor_func(
                 gpio=gpio,
                 pin=pin,
-                event_bus=self._manager._event_bus,
-                send_ha_autodiscovery=self._manager.send_ha_autodiscovery,
-                input=self._inputs.get(pin, None),  # For reload actions
+                existing_input=self._inputs.get(pin, None),  # For reload actions
                 actions=self._manager.parse_actions(pin, gpio.pop(ACTIONS, {})),
             )
             
@@ -124,7 +136,7 @@ class InputManager:
         for gpio in self._event_pins:
             try:
                 configure_single_input(
-                    configure_sensor_func=configure_event_sensor,
+                    configure_sensor_func=self._configure_event_sensor,
                     gpio=gpio
                 )
             except GPIOInputException as err:
@@ -134,11 +146,159 @@ class InputManager:
         for gpio in self._binary_pins:
             try:
                 configure_single_input(
-                    configure_sensor_func=configure_binary_sensor,
+                    configure_sensor_func=self._configure_binary_sensor,
                     gpio=gpio
                 )
             except GPIOInputException as err:
                 _LOGGER.error("Failed to configure binary sensor: %s", err)
+
+    def _configure_event_sensor(
+        self,
+        gpio: dict,
+        pin: str,
+        existing_input: GpioEventButton | None = None,
+        actions: dict = {},
+    ) -> GpioEventButton | None:
+        """Configure event input sensor with multiclick detection.
+        
+        Args:
+            gpio: GPIO configuration dictionary
+            pin: Pin name (e.g., "P8_30")
+            existing_input: Existing input instance (for reload)
+            actions: Dictionary of actions for different click types
+            
+        Returns:
+            Configured GpioEventButton instance or None on error
+        """
+        try:
+            # Determine display name
+            if "name" in gpio:
+                name = gpio.pop("name")
+            elif ID in gpio:
+                name = gpio.get(ID)
+            elif "boneio_input" in gpio:
+                name = gpio.get("boneio_input")
+            else:
+                name = pin
+
+            # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
+            if ID in gpio:
+                input_id = gpio.pop(ID)
+            elif "boneio_input" in gpio:
+                input_id = gpio.get("boneio_input")
+            else:
+                input_id = pin
+            
+            # Reload: update existing input's actions
+            if existing_input:
+                if not isinstance(existing_input, GpioEventButton):
+                    _LOGGER.warning(
+                        "Cannot reconfigure input type for %s. Restart required.", pin
+                    )
+                    return existing_input
+                existing_input.set_actions(actions=actions)
+                return existing_input
+            
+            # Create new event input
+            input_device = GpioEventButton(
+                pin=pin,
+                name=name,
+                id=input_id,
+                input_type=INPUT,
+                actions=actions,
+                event_bus=self._manager._event_bus,
+                **gpio,
+            )
+            
+            # Register with Home Assistant
+            if gpio.get(SHOW_HA, True):
+                self._manager.send_ha_autodiscovery(
+                    id=pin,
+                    name=name,
+                    ha_type=EVENT_ENTITY,
+                    device_class=gpio.get(DEVICE_CLASS, None),
+                    availability_msg_func=ha_event_availabilty_message,
+                )
+            
+            return input_device
+            
+        except GPIOInputException as err:
+            _LOGGER.error("Failed to configure event input on pin %s: %s", pin, err)
+            return None
+
+    def _configure_binary_sensor(
+        self,
+        gpio: dict,
+        pin: str,
+        existing_input: GpioInputBinarySensor | None = None,
+        actions: dict = {},
+    ) -> GpioInputBinarySensor | None:
+        """Configure binary sensor input with state detection.
+        
+        Args:
+            gpio: GPIO configuration dictionary
+            pin: Pin name (e.g., "P8_30")
+            existing_input: Existing input instance (for reload)
+            actions: Dictionary of actions for different states
+            
+        Returns:
+            Configured GpioInputBinarySensor instance or None on error
+        """
+        try:
+            # Determine display name
+            if "name" in gpio:
+                name = gpio.pop("name")
+            elif ID in gpio:
+                name = gpio.get(ID)
+            elif "boneio_input" in gpio:
+                name = gpio.get("boneio_input")
+            else:
+                name = pin
+
+            # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
+            if ID in gpio:
+                input_id = gpio.pop(ID)
+            elif "boneio_input" in gpio:
+                input_id = gpio.get("boneio_input")
+            else:
+                input_id = pin
+
+            # Reload: update existing input's actions
+            if existing_input:
+                if not isinstance(existing_input, GpioInputBinarySensor):
+                    _LOGGER.warning(
+                        "Cannot reconfigure input type for %s. Restart required.", pin
+                    )
+                    return existing_input
+                existing_input.set_actions(actions=actions)
+                return existing_input
+            
+            # Create new binary sensor input
+            input_device = GpioInputBinarySensor(
+                pin=pin,
+                name=name,
+                id=input_id,
+                actions=actions,
+                input_type=INPUT_SENSOR,
+                event_bus=self._manager._event_bus,
+                **gpio,
+            )
+            
+            # Register with Home Assistant
+            if gpio.get(SHOW_HA, True):
+                self._manager.send_ha_autodiscovery(
+                    id=pin,
+                    name=name,
+                    ha_type=BINARY_SENSOR,
+                    device_class=gpio.get(DEVICE_CLASS, None),
+                    availability_msg_func=ha_binary_sensor_availabilty_message,
+                )
+            
+            return input_device
+            
+        except GPIOInputException as err:
+            _LOGGER.error("Failed to configure binary sensor on pin %s: %s", pin, err)
+            return None
 
     def get_input(self, pin: str) -> GpioBaseClass | None:
         """Get input by pin.

@@ -7,14 +7,10 @@ It extends BaseSensor with temperature-specific functionality.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from boneio.const import TEMPERATURE
 from boneio.core.sensor import BaseSensor
 from boneio.exceptions import I2CError
-
-if TYPE_CHECKING:
-    from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 

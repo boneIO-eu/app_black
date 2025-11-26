@@ -13,33 +13,51 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from collections import namedtuple
 from typing import TYPE_CHECKING, Any
 
+from boneio.components.output import MCPOutput, PCFOutput, PWMOutput
 from boneio.components.output.basic import BasicOutput
 from boneio.const import (
+    ADDRESS,
     COVER,
+    GPIO,
     ID,
+    INIT_SLEEP,
+    KIND,
     MCP,
+    MCP_ID,
     NONE,
     OUTPUT,
+    OUTPUT_TYPE,
     PCA,
+    PCA_ID,
     PCF,
+    PCF_ID,
+    PIN,
+    RELAY,
     RESTORE_STATE,
     SET_BRIGHTNESS,
+    ExpanderTypes,
     relay_actions,
 )
-from boneio.core.config.loader import (
-    configure_output_group,
-    configure_relay,
-    create_expander,
-)
-from boneio.core.utils import strip_accents
+from boneio.core.utils import TimePeriod, strip_accents
+from boneio.exceptions import GPIOOutputException
+from boneio.hardware.gpio.expanders import MCP23017, PCA9685, PCF8575
+from boneio.integration.homeassistant import ha_virtual_energy_sensor_discovery_message
 from boneio.integration.interlock import SoftwareInterlockManager
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
+
+# Expander class mapping
+_EXPANDER_CLASS = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
+
+# Output entry for relay configuration
+OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")
 
 
 class OutputManager:
@@ -112,28 +130,62 @@ class OutputManager:
         """Initialize I2C hardware expanders (MCP23017, PCF8575, PCA9685)."""
         _LOGGER.debug("Initializing hardware expanders")
         
-        self.grouped_outputs_by_expander = create_expander(
+        self.grouped_outputs_by_expander = self._create_expander(
             expander_dict=self._mcp,
             expander_config=mcp23017,
             exp_type=MCP,
-            i2cbusio=self._manager._i2cbusio,
         )
         self.grouped_outputs_by_expander.update(
-            create_expander(
+            self._create_expander(
                 expander_dict=self._pcf,
                 expander_config=pcf8575,
                 exp_type=PCF,
-                i2cbusio=self._manager._i2cbusio,
             )
         )
         self.grouped_outputs_by_expander.update(
-            create_expander(
+            self._create_expander(
                 expander_dict=self._pca,
                 expander_config=pca9685,
                 exp_type=PCA,
-                i2cbusio=self._manager._i2cbusio,
             )
         )
+
+    def _create_expander(
+        self,
+        expander_dict: dict,
+        expander_config: list,
+        exp_type: ExpanderTypes,
+    ) -> dict:
+        """Create and initialize hardware expanders.
+        
+        Args:
+            expander_dict: Dictionary to store expander instances
+            expander_config: List of expander configurations
+            exp_type: Type of expander (MCP, PCF, PCA)
+            
+        Returns:
+            Dictionary of grouped outputs by expander ID
+        """
+        grouped_outputs = {}
+        for expander in expander_config:
+            id = expander[ID] or expander[ADDRESS]
+            try:
+                expander_dict[id] = _EXPANDER_CLASS[exp_type](
+                    i2c=self._manager._i2cbusio, address=expander[ADDRESS], reset=False
+                )
+                sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
+                if sleep_time.total_seconds > 0:
+                    _LOGGER.debug(
+                        "Sleeping for %ss while %s %s is initializing.",
+                        sleep_time.total_seconds, exp_type, id
+                    )
+                    time.sleep(sleep_time.total_seconds)
+                else:
+                    _LOGGER.debug("%s %s is initializing.", exp_type, id)
+                grouped_outputs[id] = {}
+            except TimeoutError as err:
+                _LOGGER.error("Can't connect to %s %s: %s", exp_type, id, err)
+        return grouped_outputs
 
     def _configure_output_groups(self) -> None:
         """Configure output groups."""
@@ -160,11 +212,7 @@ class OutputManager:
             _id = strip_accents(group.pop(ID))
             _name = group.pop("name", _id)
             
-            output_group = configure_output_group(
-                manager=self._manager,
-                message_bus=self._manager._message_bus,
-                event_bus=self._manager._event_bus,
-                config_helper=self._manager._config_helper,
+            output_group = self._create_output_group(
                 id=_id,
                 name=_name,
                 outputs=members,
@@ -181,6 +229,204 @@ class OutputManager:
                 output_type=output_group.output_type,
             )
 
+    def _create_output_group(self, id: str, name: str, outputs: list, **kwargs) -> Any:
+        """Create an output group instance.
+        
+        Args:
+            id: Group identifier
+            name: Group display name
+            outputs: List of output instances
+            **kwargs: Additional configuration
+            
+        Returns:
+            OutputGroup instance
+        """
+        from boneio.components.group import OutputGroup
+        
+        return OutputGroup(
+            message_bus=self._manager._message_bus,
+            topic_prefix=self._manager._topic_prefix,
+            id=id,
+            name=name,
+            outputs=outputs,
+            callback=lambda: None,
+            **kwargs,
+        )
+
+    def _output_chooser(self, output_kind: str, config: dict) -> OutputEntry:
+        """Get output class and expander info based on output kind.
+        
+        Args:
+            output_kind: Type of output (MCP, PCF, PCA, GPIO)
+            config: Configuration dictionary (will be modified to pop expander_id)
+            
+        Returns:
+            OutputEntry namedtuple with OutputClass, output_kind, expander_id
+            
+        Raises:
+            GPIOOutputException: If output_kind is not supported
+        """
+        if output_kind == MCP:
+            expander_id = config.pop(MCP_ID, None)
+            return OutputEntry(MCPOutput, MCP, expander_id)
+        elif output_kind == PCA:
+            expander_id = config.pop(PCA_ID, None)
+            return OutputEntry(PWMOutput, PCA, expander_id)
+        elif output_kind == PCF:
+            expander_id = config.pop(PCF_ID, None)
+            return OutputEntry(PCFOutput, PCF, expander_id)
+        else:
+            raise GPIOOutputException(f"Output type {output_kind} doesn't exist")
+
+    def _configure_relay(
+        self,
+        relay_id: str,
+        name: str,
+        config: dict,
+        restore_state: bool = False,
+    ) -> Any:
+        """Configure a relay output.
+        
+        Args:
+            relay_id: Relay identifier
+            name: Display name
+            config: Configuration dictionary
+            restore_state: Whether to restore previous state
+            
+        Returns:
+            Configured relay instance or None on error
+        """
+        output_type = config.pop(OUTPUT_TYPE)
+        restored_state = (
+            self._manager._state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
+            if restore_state
+            else False
+        )
+        if output_type == NONE and self._manager._state_manager.get(
+            attr_type=RELAY, attr=relay_id
+        ):
+            self._manager._state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
+            restored_state = False
+
+        output = self._output_chooser(output_kind=config.pop(KIND), config=config)
+        output_kind = getattr(output, "output_kind")
+        expander_id = getattr(output, "expander_id")
+
+        if output_kind == MCP:
+            mcp_expander = self._mcp.get(expander_id)
+            if not mcp_expander:
+                _LOGGER.error("No such MCP configured!")
+                return None
+            extra_args = {
+                "pin": int(config.pop(PIN)),
+                "mcp": mcp_expander,
+                "mcp_id": expander_id,
+                "output_type": output_type,
+            }
+        elif output_kind == PCA:
+            pca_expander = self._pca.get(expander_id)
+            if not pca_expander:
+                _LOGGER.error("No such PCA configured!")
+                return None
+            extra_args = {
+                "pin": int(config.pop(PIN)),
+                "pca": pca_expander,
+                "pca_id": expander_id,
+                "output_type": output_type,
+            }
+        elif output_kind == PCF:
+            expander = self._pcf.get(expander_id)
+            if not expander:
+                _LOGGER.error("No such PCF configured!")
+                return None
+            extra_args = {
+                "pin": int(config.pop(PIN)),
+                "expander": expander,
+                "expander_id": expander_id,
+                "output_type": output_type,
+            }
+        elif output_kind == GPIO:
+            if GPIO not in self.grouped_outputs_by_expander:
+                self.grouped_outputs_by_expander[GPIO] = {}
+            extra_args = {
+                "pin": config.pop(PIN),
+            }
+        else:
+            _LOGGER.error("Output kind: %s is not configured", output_kind)
+            return None
+
+        interlock_groups = config.get("interlock_group", [])
+        if isinstance(interlock_groups, str):
+            interlock_groups = [interlock_groups]
+
+        relay = getattr(output, "OutputClass")(
+            message_bus=self._manager._message_bus,
+            event_bus=self._manager._event_bus,
+            topic_prefix=self._manager._topic_prefix,
+            id=relay_id,
+            restored_state=restored_state,
+            interlock_manager=self._interlock_manager,
+            interlock_groups=interlock_groups,
+            name=name,
+            **config,
+            **extra_args,
+        )
+        self._interlock_manager.register(relay, interlock_groups)
+        self.grouped_outputs_by_expander[expander_id][relay_id] = relay
+        
+        # Send HA autodiscovery for virtual power/energy sensors
+        if relay.is_virtual_power:
+            self._manager.send_ha_autodiscovery(
+                id=f"{relay_id}_virtual_power",
+                relay_id=relay_id,
+                name=f"{name} Virtual Power",
+                ha_type="sensor",
+                device_type="energy",
+                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+                unit_of_measurement="W",
+                device_class="power",
+                state_class="measurement",
+                value_template="{{ value_json.power }}"
+            )
+            self._manager.send_ha_autodiscovery(
+                id=f"{relay_id}_virtual_energy",
+                relay_id=relay_id,
+                name=f"{name} Virtual Energy",
+                ha_type="sensor",
+                device_type="energy",
+                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+                unit_of_measurement="Wh",
+                device_class="energy",
+                state_class="total_increasing",
+                value_template="{{ value_json.energy }}"
+            )
+        if relay.is_virtual_volume_flow_rate:
+            self._manager.send_ha_autodiscovery(
+                id=f"{relay_id}_virtual_volume_flow_rate",
+                relay_id=relay_id,
+                name=f"{name} Virtual Volume Flow Rate",
+                ha_type="sensor",
+                device_type="energy",
+                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+                unit_of_measurement="L/h",
+                device_class="volume_flow_rate",
+                state_class="measurement",
+                value_template="{{ value_json.volume_flow_rate }}"
+            )
+            self._manager.send_ha_autodiscovery(
+                id=f"{relay_id}_virtual_consumption",
+                relay_id=relay_id,
+                name=f"{name} Virtual consumption",
+                ha_type="sensor",
+                device_type="energy",
+                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
+                unit_of_measurement="L",
+                device_class="water",
+                state_class="total_increasing",
+                value_template="{{ value_json.water }}"
+            )
+        return relay
+
     async def _delayed_send_state(self, output: BasicOutput) -> None:
         """Send output state after a delay."""
         await asyncio.sleep(0.5)
@@ -194,7 +440,7 @@ class OutputManager:
         Args:
             output_state: OutputState object with id and state
         """
-        from boneio.const import ON, RELAY
+        from boneio.const import ON
         
         # Save state to state manager
         if hasattr(output_state, 'id') and hasattr(output_state, 'state'):
@@ -316,7 +562,7 @@ class OutputManager:
                         _LOGGER.debug(f"Could not remove event listener for {output_id}: {e}")
             self._outputs.clear()
             # Clear autodiscovery messages for outputs
-            from boneio.const import LIGHT, LED, SWITCH, VALVE
+            from boneio.const import LED, LIGHT, SWITCH, VALVE
             for output_type in [LIGHT, LED, SWITCH, VALVE]:
                 self._manager._config_helper.clear_autodiscovery_type(ha_type=output_type)
         
@@ -325,25 +571,37 @@ class OutputManager:
         for _config in relay_pins:
             # Create a copy to avoid modifying the original
             config_copy = _config.copy()
-            _name = config_copy.pop(ID)
-            restore_state = config_copy.pop(RESTORE_STATE, False)
-            _id = strip_accents(_name)
             
-            out = configure_relay(
-                manager=self._manager,
-                message_bus=self._manager._message_bus,
-                state_manager=self._manager._state_manager,
-                topic_prefix=self._manager._topic_prefix,
+            # Handle new schema: name and id are optional
+            # 1. Determine Display Name (_name)
+            if "name" in config_copy:
+                _name = config_copy.pop("name")
+            elif "id" in config_copy:
+                 # Fallback to id if name is missing
+                _name = config_copy.get(ID)
+            elif "boneio_output" in config_copy:
+                 # Fallback to boneio_output if name and id are missing
+                _name = config_copy.get("boneio_output")
+            else:
+                # Last resort fallback
+                _name = "unknown_output"
+
+            # 2. Determine MQTT ID (_id)
+            # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
+            if ID in config_copy:
+                _id = config_copy.pop(ID)
+            elif "boneio_output" in config_copy:
+                _id = config_copy.get("boneio_output")
+            else:
+                _id = strip_accents(_name)
+
+            restore_state = config_copy.pop(RESTORE_STATE, False)
+            
+            out = self._configure_relay(
                 relay_id=_id,
                 name=_name,
                 config=config_copy,
                 restore_state=restore_state,
-                mcp=self._mcp,
-                pca=self._pca,
-                pcf=self._pcf,
-                grouped_outputs_by_expander=self.grouped_outputs_by_expander,
-                interlock_manager=self._interlock_manager,
-                event_bus=self._manager._event_bus,
             )
             
             # Subscribe to output state changes
@@ -398,21 +656,3 @@ class OutputManager:
             len(self._configured_output_groups)
         )
 
-    async def send_ha_autodiscovery(self) -> None:
-        """Send Home Assistant autodiscovery for all outputs."""
-        for output_id, output in self._outputs.items():
-            if output.output_type not in (NONE, COVER):
-                self._manager.send_ha_autodiscovery(
-                    id=output_id,
-                    name=output.name,
-                    ha_type=output.output_type,
-                    output_type=output.output_type,
-                )
-        
-        for group_id, group in self._configured_output_groups.items():
-            self._manager.send_ha_autodiscovery(
-                id=group_id,
-                name=group.name,
-                ha_type=group.output_type,
-                output_type=group.output_type,
-            )

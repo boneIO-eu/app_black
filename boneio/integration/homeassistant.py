@@ -40,10 +40,31 @@ def ha_availabilty_message(
     device_type: str = INPUT,
     model: str = "boneIO Relay Board",
     web_url: str | None = None,
+    config_helper=None,
     **kwargs,
 ):
-    """Create availability topic for HA."""
-    web_url = {
+    """Create availability topic for HA.
+    
+    Args:
+        id: Entity ID
+        name: Entity name
+        topic: MQTT topic prefix
+        device_name: Device name for HA
+        device_type: Type of device (relay, input, sensor, etc.)
+        model: Device model name
+        web_url: Optional configuration URL
+        config_helper: Optional ConfigHelper instance (used to extract topic/name/model)
+        **kwargs: Additional fields to include in the message
+    """
+    # Extract values from config_helper if provided
+    if config_helper is not None:
+        topic = config_helper.topic_prefix
+        device_name = config_helper.name
+        model = config_helper.device_type
+        if config_helper.is_web_active and config_helper.network_info:
+            web_url = f"http://{config_helper.network_info.get('ip', 'localhost')}:9000"
+    
+    web_url_dict = {
         "configuration_url": web_url
     } if web_url else {}
     return {
@@ -55,7 +76,7 @@ def ha_availabilty_message(
             "model": model,
             "name": device_name,
             "sw_version": __version__,
-            **web_url
+            **web_url_dict
         },
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
@@ -160,70 +181,35 @@ def ha_sensor_availabilty_message(device_type: str = SENSOR, **kwargs):
     return msg
 
 
-def ha_binary_sensor_availabilty_message(id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs):
+def ha_binary_sensor_availabilty_message(
+    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+):
     """Create availability topic for HA."""
-    kwargs = {"device_class": device_class, **kwargs} if device_class else {**kwargs}
-    return {
-        **kwargs,
-        "availability": [{"topic": f"{topic}/{STATE}"}],
-        "device": {
-            "identifiers": [topic],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": f"boneIO {topic}",
-            "sw_version": __version__,
-        },
-        "payload_on": "pressed",
-        "payload_off": "released",
-        "name": name,
-        "state_topic": f"{topic}/{INPUT_SENSOR}/{id}",
-        "unique_id": f"{topic}{INPUT_SENSOR}{id}",
-    }
+    msg = ha_availabilty_message(device_type=INPUT_SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg["payload_on"] = "pressed"
+    msg["payload_off"] = "released"
+    return msg
 
 
 def ha_sensor_ina_availabilty_message(
     id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    return {
-        "availability": [{"topic": f"{topic}/{STATE}"}],
-        "device": {
-            "identifiers": [topic],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": f"boneIO {topic}",
-            "sw_version": __version__,
-        },
-        "name": name,
-        "state_topic": f"{topic}/{SENSOR}/{id}",
-        "unique_id": f"{topic}{SENSOR}{id}",
-        "state_class": "measurement",
-        "value_template": "{{ value_json.state }}",
-        **kwargs,
-    }
+    msg = ha_availabilty_message(device_type=SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg["state_class"] = "measurement"
+    msg["value_template"] = "{{ value_json.state }}"
+    return msg
 
 
 def ha_sensor_temp_availabilty_message(
     id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    return {
-        "availability": [{"topic": f"{topic}/{STATE}"}],
-        "device": {
-            "identifiers": [topic],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": f"boneIO {topic}",
-            "sw_version": __version__,
-        },
-        "name": name,
-        "state_topic": f"{topic}/{SENSOR}/{id}",
-        "unique_id": f"{topic}{SENSOR}{id}",
-        "device_class": "temperature",
-        "state_class": "measurement",
-        "value_template": "{{ value_json.state }}",
-        **kwargs,
-    }
+    msg = ha_availabilty_message(device_type=SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg["device_class"] = "temperature"
+    msg["state_class"] = "measurement"
+    msg["value_template"] = "{{ value_json.state }}"
+    return msg
 
 def modbus_availabilty_message(
     id: str,

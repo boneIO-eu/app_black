@@ -8,7 +8,7 @@ from typing import Any
 from cerberus import TypeDefinition, Validator
 from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
 
-from boneio.const import ID, OUTPUT
+from boneio.const import OUTPUT
 from boneio.core.utils import TimePeriod
 from boneio.exceptions import ConfigurationException
 
@@ -576,9 +576,23 @@ class CustomValidator(Validator):
     def _check_with_output_id_uniqueness(self, field, value):
         """Check if outputs ids are unique if they exists."""
         if self.document[OUTPUT] is not None:
-            all_ids = [x[ID] for x in self.document[OUTPUT]]
+            all_ids = [x.get('name') for x in self.document[OUTPUT] if x.get('name')]
             if len(all_ids) != len(set(all_ids)):
-                self._error(field, "Output IDs are not unique.")
+                self._error(field, "Output Names are not unique.")
+
+    def _check_with_output_id_exists(self, field, value):
+        """Check if output id exists or boneio_output is provided."""
+        if value:
+            for i, output in enumerate(value):
+                if "id" not in output and "boneio_output" not in output:
+                    self._error(field, f"Output at index {i} must have either 'id' or 'boneio_output' defined.")
+
+    def _check_with_input_id_exists(self, field, value):
+        """Check if input id exists or boneio_input is provided."""
+        if value:
+            for i, input_item in enumerate(value):
+                if "id" not in input_item and "boneio_input" not in input_item:
+                    self._error(field, f"Input at index {i} must have either 'id' or 'boneio_input' defined.")
 
     def _normalize_coerce_to_bool(self, value):
         return True

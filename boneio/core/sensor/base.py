@@ -12,16 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from boneio.const import SENSOR, STATE
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.models import SensorState
 from boneio.models.events import SensorEvent
-
-if TYPE_CHECKING:
-    from boneio.core.events import EventBus
 
 _LOGGER = logging.getLogger(__name__)
 

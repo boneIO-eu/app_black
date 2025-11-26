@@ -13,16 +13,37 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import ADDRESS, DALLAS, DS2482, ID, INA219, ONEWIRE
-from boneio.core.config.loader import (
-    configure_ds2482,
-    create_adc,
-    create_dallas_sensor,
-    create_ina219_sensor,
-    create_temp_sensor,
-    find_onewire_devices,
+from boneio.const import (
+    ADDRESS,
+    DALLAS,
+    DS2482,
+    FILTERS,
+    ID,
+    INA219,
+    LM75,
+    MCP_TEMP_9808,
+    ONEWIRE,
+    PIN,
+    SENSOR,
+    SHOW_HA,
+    UPDATE_INTERVAL,
+    DallasBusTypes,
 )
+from boneio.core.utils import TimePeriod
 from boneio.exceptions import I2CError
+from boneio.hardware.onewire import (
+    DS2482 as DS2482Bridge,
+)
+from boneio.hardware.onewire import (
+    DS2482_ADDRESS,
+    DallasSensor,
+    OneWireBus,
+)
+from boneio.integration.homeassistant import (
+    ha_adc_sensor_availabilty_message,
+    ha_sensor_ina_availabilty_message,
+    ha_sensor_temp_availabilty_message,
+)
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -63,6 +84,7 @@ class SensorManager:
         self._temp_sensors: list[PCT2075 | MCP9808] = []
         self._ina219_sensors = []
         self._adc_sensors = []
+        self._dallas_sensors = []
         
         # Configure all sensor types
         self._configure_temp_sensors(sensors=sensors)
@@ -75,12 +97,17 @@ class SensorManager:
         self._configure_adc(adc_list=adc)
         
         _LOGGER.info(
-            "SensorManager initialized with %d temp sensors, %d INA219, %d ADC",
+            "SensorManager initialized with %d temp sensors, %d INA219, %d ADC, %d Dallas",
             len(self._temp_sensors),
             len(self._ina219_sensors),
-            len(self._adc_sensors)
+            len(self._adc_sensors),
+            len(self._dallas_sensors)
         )
 
+    # -------------------------------------------------------------------------
+    # Temperature Sensors (I2C)
+    # -------------------------------------------------------------------------
+    
     def _configure_temp_sensors(self, sensors: dict) -> None:
         """Configure I2C temperature sensors (PCT2075/LM75, MCP9808).
         
@@ -88,42 +115,124 @@ class SensorManager:
             sensors: Dictionary of sensor configurations
         """
         for sensor_type, sensor_list in sensors.items():
-            if sensor_type in ("lm75", "mcp9808"):
+            if sensor_type in (LM75, MCP_TEMP_9808):
                 for sensor_config in sensor_list:
-                    try:
-                        temp_sensor = create_temp_sensor(
-                            manager=self._manager,
-                            message_bus=self._manager._message_bus,
-                            topic_prefix=self._manager._topic_prefix,
-                            sensor_type=sensor_type,
-                            i2cbusio=self._manager._i2cbusio,
-                            config=sensor_config,
-                        )
-                        if temp_sensor:
-                            self._temp_sensors.append(temp_sensor)
-                    except I2CError as err:
-                        _LOGGER.error("Failed to configure temp sensor: %s", err)
+                    temp_sensor = self._create_temp_sensor(
+                        sensor_type=sensor_type,
+                        config=sensor_config,
+                    )
+                    if temp_sensor:
+                        self._temp_sensors.append(temp_sensor)
 
+    def _create_temp_sensor(self, sensor_type: str, config: dict) -> "PCT2075 | MCP9808 | None":
+        """Create a temperature sensor instance.
+        
+        Args:
+            sensor_type: Type of sensor (lm75 or mcp9808)
+            config: Sensor configuration dictionary
+            
+        Returns:
+            Temperature sensor instance or None on error
+        """
+        if sensor_type == LM75:
+            from boneio.hardware.sensor.temperature.pct2075 import PCT2075 as TempSensor
+        elif sensor_type == MCP_TEMP_9808:
+            from boneio.hardware.sensor.temperature.mcp9808 import MCP9808 as TempSensor
+        else:
+            return None
+        
+        name = config.get(ID)
+        if not name:
+            return None
+        
+        id = name.replace(" ", "")
+        
+        try:
+            temp_sensor = TempSensor(
+                id=id,
+                name=name,
+                i2c=self._manager._i2cbusio,
+                address=config[ADDRESS],
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                topic_prefix=self._manager._topic_prefix,
+                update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=config.get(FILTERS, []),
+                unit_of_measurement=config.get("unit_of_measurement", "°C"),
+            )
+            self._manager.send_ha_autodiscovery(
+                id=id,
+                name=name,
+                ha_type=SENSOR,
+                availability_msg_func=ha_sensor_temp_availabilty_message,
+                unit_of_measurement=temp_sensor.unit_of_measurement,
+            )
+            return temp_sensor
+        except I2CError as err:
+            _LOGGER.error("Can't configure temp sensor %s: %s", name, err)
+            return None
+
+    # -------------------------------------------------------------------------
+    # INA219 Power Sensors
+    # -------------------------------------------------------------------------
+    
     def _configure_ina219_sensors(self, sensors: dict) -> None:
         """Configure INA219 power monitoring sensors.
         
         Args:
             sensors: Dictionary of sensor configurations
         """
-        if sensors.get(INA219):
-            for sensor_config in sensors[INA219]:
-                try:
-                    ina219 = create_ina219_sensor(
-                        manager=self._manager,
-                        message_bus=self._manager._message_bus,
-                        topic_prefix=self._manager._topic_prefix,
-                        config=sensor_config,
-                    )
-                    if ina219:
-                        self._ina219_sensors.append(ina219)
-                except I2CError as err:
-                    _LOGGER.error("Failed to configure INA219 sensor: %s", err)
+        if not sensors.get(INA219):
+            return
+            
+        for sensor_config in sensors[INA219]:
+            ina219 = self._create_ina219_sensor(config=sensor_config)
+            if ina219:
+                self._ina219_sensors.append(ina219)
 
+    def _create_ina219_sensor(self, config: dict):
+        """Create INA219 sensor instance.
+        
+        Args:
+            config: Sensor configuration dictionary
+            
+        Returns:
+            INA219 sensor instance or None on error
+        """
+        from boneio.hardware.i2c import INA219
+
+        address = config[ADDRESS]
+        id = config.get(ID, str(address)).replace(" ", "")
+        
+        try:
+            ina219 = INA219(
+                id=id,
+                address=address,
+                sensors=config.get("sensors", []),
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                topic_prefix=self._manager._topic_prefix,
+                update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            )
+            # Send HA autodiscovery for each sub-sensor
+            for sensor in ina219.sensors.values():
+                self._manager.send_ha_autodiscovery(
+                    id=sensor.id,
+                    name=sensor.name,
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_sensor_ina_availabilty_message,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                    device_class=sensor.device_class,
+                )
+            return ina219
+        except I2CError as err:
+            _LOGGER.error("Can't configure INA219 sensor: %s", err)
+            return None
+
+    # -------------------------------------------------------------------------
+    # Dallas 1-Wire Sensors
+    # -------------------------------------------------------------------------
+    
     def _configure_dallas_sensors(
         self,
         dallas: dict | None,
@@ -145,19 +254,15 @@ class SensorManager:
         
         # Configure DS2482 I2C-to-1Wire bridges
         if ds2482:
-            from boneio.hardware.onewire import DallasSensor
-            
             for _single_ds in ds2482:
                 _LOGGER.debug("Preparing DS2482 bus at address %s", _single_ds[ADDRESS])
                 
                 try:
-                    _ds_onewire_bus[_single_ds[ID]] = configure_ds2482(
-                        i2cbusio=self._manager._i2cbusio,
-                        address=_single_ds[ADDRESS]
-                    )
+                    ow_bus = self._configure_ds2482(address=_single_ds[ADDRESS])
+                    _ds_onewire_bus[_single_ds[ID]] = ow_bus
                     _one_wire_devices.update(
-                        find_onewire_devices(
-                            ow_bus=_ds_onewire_bus[_single_ds[ID]],
+                        self._find_onewire_devices(
+                            ow_bus=ow_bus,
                             bus_id=_single_ds[ID],
                             bus_type=DS2482,
                         )
@@ -169,43 +274,129 @@ class SensorManager:
         if dallas:
             _LOGGER.debug("Preparing Dallas GPIO bus")
             try:
+                from w1thermsensor import W1ThermSensor
                 from w1thermsensor.errors import KernelModuleLoadError
-
-                from boneio.core.config.loader import get_w1_sensor_class
                 
                 try:
                     _one_wire_devices.update(
-                        find_onewire_devices(
-                            ow_bus=get_w1_sensor_class()(),
+                        self._find_onewire_devices(
+                            ow_bus=W1ThermSensor(),
                             bus_id=dallas[ID],
                             bus_type=DALLAS,
                         )
                     )
                 except KernelModuleLoadError as err:
                     _LOGGER.error("Can't load kernel module for Dallas sensors: %s", err)
+            except ImportError as err:
+                _LOGGER.error("w1thermsensor not installed: %s", err)
             except Exception as err:
                 _LOGGER.error("Failed to configure Dallas GPIO bus: %s", err)
         
         # Create Dallas sensor instances
-        if sensors:
-            from boneio.hardware.onewire import DallasSensor
-            
-            for address, bus_id in _one_wire_devices.items():
+        if sensors and _one_wire_devices:
+            for address in _one_wire_devices.keys():
                 _LOGGER.debug("Configuring Dallas sensor %s for boneIO", address)
-                try:
-                    sensor = create_dallas_sensor(
-                        manager=self._manager,
-                        message_bus=self._manager._message_bus,
-                        address=address,
-                        topic_prefix=self._manager._topic_prefix,
-                        sensors_config=sensors,
-                        cls=DallasSensor,
-                    )
-                    if sensor:
-                        self._temp_sensors.append(sensor)
-                except Exception as err:
-                    _LOGGER.error("Failed to create Dallas sensor %s: %s", address, err)
+                sensor = self._create_dallas_sensor(
+                    address=address,
+                    sensors_config=sensors,
+                )
+                if sensor:
+                    self._dallas_sensors.append(sensor)
+                    self._temp_sensors.append(sensor)
 
+    def _configure_ds2482(self, address: str = DS2482_ADDRESS) -> OneWireBus:
+        """Configure DS2482 I2C-to-1Wire bridge.
+        
+        Args:
+            address: I2C address of DS2482
+            
+        Returns:
+            OneWireBus instance
+        """
+        ds2482 = DS2482Bridge(i2c=self._manager._i2cbusio, address=address)
+        return OneWireBus(ds2482=ds2482)
+
+    def _find_onewire_devices(
+        self,
+        ow_bus: OneWireBus | Any,
+        bus_id: str,
+        bus_type: DallasBusTypes,
+    ) -> dict[str, str]:
+        """Scan for 1-Wire devices on bus.
+        
+        Args:
+            ow_bus: OneWire bus instance
+            bus_id: Bus identifier
+            bus_type: Type of bus (DS2482 or DALLAS)
+            
+        Returns:
+            Dictionary mapping device addresses to bus IDs
+        """
+        out = {}
+        try:
+            devices = ow_bus.scan()
+            for device in devices:
+                _addr = device.id if hasattr(device, 'id') else device
+                _LOGGER.debug(
+                    "Found device on bus %s with address %s", bus_id, _addr
+                )
+                out[_addr] = bus_id
+        except RuntimeError as err:
+            _LOGGER.error("Problem with scanning %s bus: %s", bus_type, err)
+        return out
+
+    def _create_dallas_sensor(
+        self,
+        address: str,
+        sensors_config: list,
+    ) -> DallasSensor | None:
+        """Create Dallas temperature sensor instance.
+        
+        Args:
+            address: Device address
+            sensors_config: List of sensor configurations
+            
+        Returns:
+            DallasSensor instance or None
+        """
+        # Find config for this address
+        config = {}
+        for sensor_cfg in sensors_config:
+            if sensor_cfg.get(ADDRESS) == address or sensor_cfg.get(ID) == address:
+                config = sensor_cfg
+                break
+        
+        name = config.get(ID) or address
+        id = name.replace(" ", "")
+        
+        try:
+            sensor = DallasSensor(
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                topic_prefix=self._manager._topic_prefix,
+                address=address,
+                id=id,
+                name=name,
+                update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=config.get(FILTERS, []),
+            )
+            if config.get(SHOW_HA, True):
+                self._manager.send_ha_autodiscovery(
+                    id=sensor.id,
+                    name=sensor.name,
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_sensor_temp_availabilty_message,
+                    unit_of_measurement=config.get("unit_of_measurement", "°C"),
+                )
+            return sensor
+        except Exception as err:
+            _LOGGER.error("Failed to create Dallas sensor %s: %s", address, err)
+            return None
+
+    # -------------------------------------------------------------------------
+    # ADC Analog Sensors
+    # -------------------------------------------------------------------------
+    
     def _configure_adc(self, adc_list: list[dict] | None) -> None:
         """Configure ADC analog sensors.
         
@@ -215,19 +406,61 @@ class SensorManager:
         if not adc_list:
             return
         
+        from boneio.hardware.analog import initialize_adc
+        
+        initialize_adc()
+        
+        for gpio in adc_list:
+            sensor = self._create_adc_sensor(gpio)
+            if sensor:
+                self._adc_sensors.append(sensor)
+
+    def _create_adc_sensor(self, gpio: dict):
+        """Create ADC sensor instance.
+        
+        Args:
+            gpio: GPIO configuration dictionary
+            
+        Returns:
+            ADC sensor instance or None on error
+        """
+        from boneio.hardware.analog import GpioADCSensor
+        
+        name = gpio.get(ID)
+        if not name:
+            return None
+            
+        id = name.replace(" ", "")
+        pin = gpio[PIN]
+        
         try:
-            adc_sensors = create_adc(
+            sensor = GpioADCSensor(
+                id=id,
+                pin=pin,
+                name=name,
                 manager=self._manager,
                 message_bus=self._manager._message_bus,
                 topic_prefix=self._manager._topic_prefix,
-                adc_list=adc_list,
+                update_interval=gpio.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=gpio.get(FILTERS, []),
             )
-            if adc_sensors:
-                self._adc_sensors.extend(adc_sensors)
-        except Exception as err:
-            _LOGGER.error("Failed to configure ADC sensors: %s", err)
+            if gpio.get(SHOW_HA, True):
+                self._manager.send_ha_autodiscovery(
+                    id=id,
+                    name=name,
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_adc_sensor_availabilty_message,
+                )
+            return sensor
+        except I2CError as err:
+            _LOGGER.error("Can't configure ADC sensor %s: %s", id, err)
+            return None
 
-    def get_temp_sensor(self, id: str) -> PCT2075 | MCP9808 | None:
+    # -------------------------------------------------------------------------
+    # Getters
+    # -------------------------------------------------------------------------
+    
+    def get_temp_sensor(self, id: str) -> "PCT2075 | MCP9808 | None":
         """Get temperature sensor by ID.
         
         Args:
@@ -241,13 +474,21 @@ class SensorManager:
                 return sensor
         return None
 
-    def get_all_temp_sensors(self) -> list[PCT2075 | MCP9808]:
+    def get_all_temp_sensors(self) -> list:
         """Get all temperature sensors.
         
         Returns:
             List of temperature sensors
         """
         return self._temp_sensors
+
+    def get_dallas_sensors(self) -> list:
+        """Get all Dallas sensors.
+        
+        Returns:
+            List of Dallas sensors
+        """
+        return self._dallas_sensors
 
     def get_ina219_sensors(self) -> list:
         """Get all INA219 sensors.
@@ -295,29 +536,3 @@ class SensorManager:
                     tasks[f"adc_{i}_{task_name}"] = task
         
         return tasks
-
-    async def send_ha_autodiscovery(self) -> None:
-        """Send Home Assistant autodiscovery for all sensors."""
-        # Temperature sensors
-        for sensor in self._temp_sensors:
-            if hasattr(sensor, 'send_ha_discovery'):
-                try:
-                    await sensor.send_ha_discovery()
-                except Exception as err:
-                    _LOGGER.error("Failed to send HA discovery for temp sensor: %s", err)
-        
-        # INA219 sensors
-        for sensor in self._ina219_sensors:
-            if hasattr(sensor, 'send_ha_discovery'):
-                try:
-                    await sensor.send_ha_discovery()
-                except Exception as err:
-                    _LOGGER.error("Failed to send HA discovery for INA219: %s", err)
-        
-        # ADC sensors
-        for sensor in self._adc_sensors:
-            if hasattr(sensor, 'send_ha_discovery'):
-                try:
-                    await sensor.send_ha_discovery()
-                except Exception as err:
-                    _LOGGER.error("Failed to send HA discovery for ADC: %s", err)
