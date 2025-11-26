@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
-import Form from '@rjsf/core';
-import validator from '@rjsf/validator-ajv8';
 
 interface Action {
   action: string;
@@ -49,9 +47,6 @@ interface BinarySensorFormProps {
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   data,
   onChange,
-  onSave,
-  onCancel,
-  isNew,
   schema,
   allBinarySensors = [],
   allEvents = [],
@@ -113,151 +108,6 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     onChange({ ...data, [field]: value });
   };
 
-  // Predefined schemas for each action type
-  const actionSchemas = {
-    output: {
-      type: 'object',
-      required: ['action', 'pin'],
-      properties: {
-        action: {
-          type: 'string',
-          enum: actionTypeOptions,
-          title: 'Action Type'
-        },
-        pin: {
-          type: 'string',
-          title: 'Output',
-          enum: allOutputs.map((o: any) => o.id),
-          description: 'Select output for this action'
-        },
-        action_output: {
-          type: 'string',
-          enum: actionOutputOptions,
-          default: 'TOGGLE',
-          title: 'Output Action'
-        }
-      }
-    },
-    cover: {
-      type: 'object',
-      required: ['action', 'pin'],
-      properties: {
-        action: {
-          type: 'string',
-          enum: actionTypeOptions,
-          title: 'Action Type'
-        },
-        pin: {
-          type: 'string',
-          title: 'Cover',
-          enum: allCovers.map((c: any) => c.id),
-          description: 'Select cover for this action'
-        },
-        action_cover: {
-          type: 'string',
-          enum: actionCoverOptions,
-          default: 'TOGGLE',
-          title: 'Cover Action'
-        }
-      }
-    },
-    mqtt: {
-      type: 'object',
-      required: ['action', 'topic'],
-      properties: {
-        action: {
-          type: 'string',
-          enum: actionTypeOptions,
-          title: 'Action Type'
-        },
-        topic: {
-          type: 'string',
-          title: 'MQTT Topic',
-          description: 'MQTT topic to publish to'
-        },
-        action_mqtt_msg: {
-          type: 'string',
-          title: 'Message',
-          description: 'Message to send'
-        }
-      }
-    },
-    output_over_mqtt: {
-      type: 'object',
-      required: ['action', 'pin', 'boneio_id'],
-      properties: {
-        action: {
-          type: 'string',
-          enum: actionTypeOptions,
-          title: 'Action Type'
-        },
-        pin: {
-          type: 'string',
-          title: 'Output',
-          enum: allOutputs.map((o: any) => o.id),
-          description: 'Select output for this action'
-        },
-        boneio_id: {
-          type: 'string',
-          title: 'BoneIO ID',
-          description: 'Remote BoneIO device ID'
-        }
-      }
-    },
-    cover_over_mqtt: {
-      type: 'object',
-      required: ['action', 'pin', 'boneio_id'],
-      properties: {
-        action: {
-          type: 'string',
-          enum: actionTypeOptions,
-          title: 'Action Type'
-        },
-        pin: {
-          type: 'string',
-          title: 'Cover',
-          enum: allCovers.map((c: any) => c.id),
-          description: 'Select cover for this action'
-        },
-        boneio_id: {
-          type: 'string',
-          title: 'BoneIO ID',
-          description: 'Remote BoneIO device ID'
-        }
-      }
-    }
-  };
-
-  // Get schema for action type
-  const getActionSchema = (actionType: string): any => {
-    const actionTypeLower = actionType.toLowerCase();
-    return actionSchemas[actionTypeLower as keyof typeof actionSchemas] || actionSchemas.output;
-  };
-
-  // UI schema for action form
-  const actionUiSchema = {
-    'ui:order': ['action', '*'],
-    action: {
-      'ui:widget': 'select'
-    },
-    pin: {
-      'ui:widget': 'select',
-      'ui:placeholder': 'Select output or cover...'
-    },
-    action_output: {
-      'ui:widget': 'select'
-    },
-    action_cover: {
-      'ui:widget': 'select'
-    },
-    topic: {
-      'ui:placeholder': 'e.g., boneio/input/IN_48'
-    },
-    boneio_id: {
-      'ui:placeholder': 'e.g., boneio_12345'
-    }
-  };
-
   const updateAction = (
     type: 'pressed' | 'released',
     index: number,
@@ -301,34 +151,260 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   };
 
   const renderActionFields = (action: Action, type: 'pressed' | 'released', index: number) => {
+    const actionType = action.action || 'output';
+
     return (
-      <div key={index} className="card bg-base-200 p-4 mb-3">
-        <div className="flex justify-between items-start mb-3">
-          <h4 className="font-semibold">Action {index + 1}</h4>
+      <div key={index} className="border border-base-300 rounded-lg p-4 mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <h4 className="font-medium">Action {index + 1}</h4>
           <button
             onClick={() => removeAction(type, index)}
-            className="btn btn-ghost btn-sm text-error"
+            className="btn btn-ghost btn-xs text-error"
           >
             <FaTrash />
           </button>
         </div>
 
-        {/* Use RJSF for action form */}
-        <Form
-          schema={getActionSchema(action.action || 'output')}
-          uiSchema={actionUiSchema}
-          formData={action}
-          validator={validator}
-          onChange={(e) => {
-            // Update all fields from RJSF form
-            if (e.formData) {
-              Object.keys(e.formData).forEach(field => {
-                updateAction(type, index, field as keyof Action, (e.formData as any)[field]);
-              });
-            }
-          }}
-          className="space-y-4"
-        />
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">Action Type</span>
+          </label>
+          <select
+            className="select select-bordered w-full"
+            value={actionType}
+            onChange={(e) => updateAction(type, index, 'action', e.target.value)}
+          >
+            {actionTypeOptions.map((opt: string) => (
+              <option key={opt} value={opt}>
+                {opt.split('_').map(word =>
+                  word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ')}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {actionType === 'cover' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              >
+                <option value="">Select cover...</option>
+                {allCovers
+                  .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
+                  .map((cover: any) => (
+                    <option key={cover.id} value={cover.id}>
+                      {cover.id}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover Action</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.action_cover || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
+              >
+                {actionCoverOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {actionType === 'output' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Output</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              >
+                <option value="">Select output...</option>
+                {allOutputs
+                  .filter((output: any) => output && typeof output === 'object' && output.id)
+                  .map((output: any) => (
+                    <option key={output.id} value={output.id}>
+                      {output.id}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Output Action</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.action_output || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
+              >
+                {actionOutputOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {actionType === 'mqtt' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">MQTT Topic</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., boneio/input/IN_48"
+                value={action.topic || ''}
+                onChange={(e) => updateAction(type, index, 'topic', e.target.value)}
+              />
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">MQTT Message</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="Message to send"
+                value={action.action_mqtt_msg || ''}
+                onChange={(e) => updateAction(type, index, 'action_mqtt_msg', e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        {actionType === 'output_over_mqtt' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">BoneIO ID</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., boneio_12345"
+                value={action.boneio_id || ''}
+                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">ID of the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Output Number (pin)</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., light_kitchen or OUT_01"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Output ID on the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Output Action</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.action_output || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
+              >
+                {actionOutputOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {actionType === 'cover_over_mqtt' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">BoneIO ID</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., boneio_12345"
+                value={action.boneio_id || ''}
+                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">ID of the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover ID (pin)</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., cover_living_room"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Cover ID on the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover Action</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={action.action_cover || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
+              >
+                {actionCoverOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
       </div>
     );
   };

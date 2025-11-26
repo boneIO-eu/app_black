@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
 interface OutputFormProps {
   data: any;
@@ -17,9 +17,6 @@ interface OutputFormProps {
 const OutputForm: React.FC<OutputFormProps> = ({ 
   data, 
   onChange, 
-  onSave, 
-  onCancel, 
-  isNew, 
   schema,
   uiSchema,
   deviceType,
@@ -72,9 +69,6 @@ const OutputForm: React.FC<OutputFormProps> = ({
     updateField('restore_state', !data.restore_state);
   };
 
-  const updateMomentaryTime = (field: 'momentary_turn_on' | 'momentary_turn_off', value: string) => {
-    updateField(field, value);
-  };
 
   const getFieldDescription = (fieldName: string) => {
     return uiSchema?.[fieldName]?.['ui:description'] || '';
@@ -213,48 +207,22 @@ const OutputForm: React.FC<OutputFormProps> = ({
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Momentary Turn On */}
-            <div className="space-y-4">
-              <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                <legend className="fieldset-legend">{getFieldTitle('momentary_turn_on')}</legend>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Turn Off Duration</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input input-bordered w-full"
-                    placeholder="e.g., 5s, 50ms, 2minutes"
-                    value={data.momentary_turn_on || ''}
-                    onChange={(e) => updateMomentaryTime('momentary_turn_on', e.target.value)}
-                  />
-                  <label className="label">
-                    <span className="label-text-alt">{getFieldDescription('momentary_turn_on')}</span>
-                  </label>
-                </div>
-              </fieldset>
-            </div>
+            <SimpleTimePeriodInput
+              value={data.momentary_turn_on || 0}
+              onChange={(value: number) => updateField('momentary_turn_on', value || undefined)}
+              label={getFieldTitle('momentary_turn_on') || 'Momentary Turn On'}
+              required={false}
+              minimum={0}
+            />
 
             {/* Momentary Turn Off */}
-            <div className="space-y-4">
-              <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                <legend className="fieldset-legend">{getFieldTitle('momentary_turn_off')}</legend>
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">Turn On Duration</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="input input-bordered w-full"
-                    placeholder="e.g., 5s, 50ms, 2minutes"
-                    value={data.momentary_turn_off || ''}
-                    onChange={(e) => updateMomentaryTime('momentary_turn_off', e.target.value)}
-                  />
-                  <label className="label">
-                    <span className="label-text-alt">{getFieldDescription('momentary_turn_off')}</span>
-                  </label>
-                </div>
-              </fieldset>
-            </div>
+            <SimpleTimePeriodInput
+              value={data.momentary_turn_off || 0}
+              onChange={(value: number) => updateField('momentary_turn_off', value || undefined)}
+              label={getFieldTitle('momentary_turn_off') || 'Momentary Turn Off'}
+              required={false}
+              minimum={0}
+            />
           </div>
 
           <div className="alert alert-info">

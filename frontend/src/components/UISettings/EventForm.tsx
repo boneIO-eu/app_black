@@ -19,9 +19,6 @@ interface EventFormProps {
 const EventForm: React.FC<EventFormProps> = ({ 
   data, 
   onChange, 
-  onSave, 
-  onCancel, 
-  isNew, 
   schema,
   allBinarySensors = [],
   allEvents = [],
@@ -60,7 +57,6 @@ const EventForm: React.FC<EventFormProps> = ({
   const boneioInputOptions = currentInput && !availableInputs.includes(currentInput)
     ? [...new Set([currentInput, ...availableInputs])].sort()
     : availableInputs;
-  const gpioModeOptions = schema?.items?.properties?.gpio_mode?.enum || [];
   const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [];
   const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum || [];
   const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum || [];
@@ -304,19 +300,112 @@ const EventForm: React.FC<EventFormProps> = ({
           </>
         )}
 
-        {(actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') && (
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">BoneIO ID</span>
-            </label>
-            <input
-              type="text"
-              className="input  w-full"
-              placeholder="e.g., boneio_12345"
-              value={action.boneio_id || ''}
-              onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
-            />
-          </div>
+        {actionType === 'output_over_mqtt' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">BoneIO ID</span>
+              </label>
+              <input
+                type="text"
+                className="input  w-full"
+                placeholder="e.g., boneio_12345"
+                value={action.boneio_id || ''}
+                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">ID of the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Output Number (pin)</span>
+              </label>
+              <input
+                type="text"
+                className="input  w-full"
+                placeholder="e.g., light_kitchen or OUT_01"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Output ID on the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Action Output</span>
+              </label>
+              <select
+                className="select ed w-full"
+                value={action.action_output || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
+              >
+                {actionOutputOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
+
+        {actionType === 'cover_over_mqtt' && (
+          <>
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">BoneIO ID</span>
+              </label>
+              <input
+                type="text"
+                className="input  w-full"
+                placeholder="e.g., boneio_12345"
+                value={action.boneio_id || ''}
+                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">ID of the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover ID (pin)</span>
+              </label>
+              <input
+                type="text"
+                className="input  w-full"
+                placeholder="e.g., cover_living_room"
+                value={action.pin || ''}
+                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Cover ID on the remote BoneIO device</span>
+              </label>
+            </div>
+
+            <div className="form-control mb-3">
+              <label className="label">
+                <span className="label-text font-medium">Cover Action</span>
+              </label>
+              <select
+                className="select ed w-full"
+                value={action.action_cover || 'TOGGLE'}
+                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
+              >
+                {actionCoverOptions.map((option: string) => (
+                  <option key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
       </div>
     );
@@ -436,27 +525,6 @@ const EventForm: React.FC<EventFormProps> = ({
               )}
             </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">GPIO Mode</span>
-              </label>
-              <select
-                className="select ed w-full"
-                value={data.gpio_mode || 'gpio'}
-                onChange={(e) => updateField('gpio_mode', e.target.value)}
-              >
-                {gpioModeOptions.map((mode: string) => (
-                  <option key={mode} value={mode}>
-                    {mode.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-              <label className="label">
-                <span className="label-text-alt">What mode to use in config PIN</span>
-              </label>
-            </div>
-
-            
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Bounce Time</span>

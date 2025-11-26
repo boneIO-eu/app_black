@@ -442,7 +442,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
       return value.map((item, index) => (
         <tr key={index}>
-          <td>{item.id || `Item ${index + 1}`}</td>
+          <td>{item.name || `Item ${index + 1}`}</td>
           <td className="uppercase">{item.boneio_input || '-'}</td>
           <td>{item.pin || '-'}</td>
           <td>
