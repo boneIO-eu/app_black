@@ -24,14 +24,61 @@ class StateManager:
         self._save_attributes_callback = None
 
     def load_states(self) -> dict:
-        """Load state file."""
+        """Load state file.
+
+        If the file is corrupted or contains invalid JSON, logs an error,
+        resets the file to an empty state, and returns an empty dictionary.
+        All devices will use their default state (typically OFF).
+
+        Returns:
+            dict: The loaded state or empty dict if file is missing/corrupted.
+        """
         try:
             with open(self._file) as state_file:
                 datastore = json.load(state_file)
                 return datastore
         except FileNotFoundError:
-            pass
+            _LOGGER.debug("State file %s not found, starting with empty state", self._file)
+        except json.JSONDecodeError as err:
+            _LOGGER.error(
+                "State file %s is corrupted (JSON error: %s). "
+                "Resetting to empty state. All devices will use default state (OFF).",
+                self._file,
+                err,
+            )
+            self._reset_state_file()
+        except (OSError, IOError) as err:
+            _LOGGER.error(
+                "Failed to read state file %s: %s. Starting with empty state.",
+                self._file,
+                err,
+            )
         return {}
+
+    def _reset_state_file(self) -> None:
+        """Reset state file to empty valid JSON.
+
+        Creates a backup of the corrupted file before resetting.
+        """
+        import shutil
+        from datetime import datetime
+
+        try:
+            # Create backup of corrupted file
+            backup_file = f"{self._file}.corrupted.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            shutil.copy2(self._file, backup_file)
+            _LOGGER.info("Corrupted state file backed up to %s", backup_file)
+
+            # Reset to empty state
+            with open(self._file, "w", encoding="utf-8") as f:
+                json.dump({}, f, indent=2)
+            _LOGGER.info("State file %s reset to empty state", self._file)
+        except (OSError, IOError) as err:
+            _LOGGER.warning(
+                "Failed to reset state file %s: %s. Continuing with empty state in memory.",
+                self._file,
+                err,
+            )
 
     def del_attribute(self, attr_type: str, attribute: str) -> None:
         """Delete attribute"""
