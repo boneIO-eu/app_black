@@ -15,19 +15,25 @@ import CheckboxWidget from './widgets/CheckboxWidget';
 import FieldTemplate from './templates/FieldTemplate';
 import ObjectFieldTemplate from './templates/ObjectFieldTemplate';
 
+interface Area {
+  id: string;
+  name: string;
+}
+
 export interface ArrayTableWidgetProps {
   value: any[];
   onChange: (value: any[]) => void;
   schema: RJSFSchema;
   title?: string;
   uiSchema?: UiSchema;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
   allOutputs?: any[];
   allOutputGroups?: any[];
   allCovers?: any[];
+  allAreas?: Area[];
 }
 
 /**
@@ -35,7 +41,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [] }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [], allAreas = [] }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
 
@@ -239,8 +245,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         <tr>
           <th>ID/Name</th>
           <th>BoneIO INPUT</th>
-          <th>Pin</th>
+          <th>Area</th>
           <th>Has Actions</th>
+          <th>Actions</th>
+        </tr>
+      );
+    } else if (sectionType === 'areas') {
+      return (
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
           <th>Actions</th>
         </tr>
       );
@@ -461,24 +475,56 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         );
       });
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
+      return value.map((item, index) => {
+        // Find area name from allAreas
+        const areaName = item.area 
+          ? allAreas.find(a => a.id === item.area)?.name || item.area 
+          : '-';
+        
+        return (
+          <tr key={index}>
+            <td>{item.name || `Item ${index + 1}`}</td>
+            <td className="uppercase">{item.boneio_input || '-'}</td>
+            <td>{areaName}</td>
+            <td>
+              {item.actions ? (
+                <span className="badge badge-success badge-sm">Yes</span>
+              ) : (
+                <span className="badge badge-ghost badge-sm">No</span>
+              )}
+            </td>
+            <td>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleEdit(index)}
+                  className="btn btn-ghost btn-xs"
+                  title="Edit Item"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(index)}
+                  className="btn btn-ghost btn-xs text-error"
+                  title="Delete"
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      });
+    } else if (sectionType === 'areas') {
       return value.map((item, index) => (
         <tr key={index}>
-          <td>{item.name || `Item ${index + 1}`}</td>
-          <td className="uppercase">{item.boneio_input || '-'}</td>
-          <td>{item.pin || '-'}</td>
-          <td>
-            {item.actions ? (
-              <span className="badge badge-success badge-sm">Yes</span>
-            ) : (
-              <span className="badge badge-ghost badge-sm">No</span>
-            )}
-          </td>
+          <td className="font-mono">{item.id || `area_${index + 1}`}</td>
+          <td>{item.name || '-'}</td>
           <td>
             <div className="flex space-x-1">
               <button
                 onClick={() => handleEdit(index)}
                 className="btn btn-ghost btn-xs"
-                title="Edit Item"
+                title="Edit Area"
               >
                 <FaEdit />
               </button>
@@ -581,6 +627,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allEvents={allEvents}
                     allOutputs={allOutputs}
                     allCovers={allCovers}
+                    allAreas={allAreas}
                     editingIndex={editingIndex}
                   />
                 ) : sectionType === 'event' ? (
@@ -595,6 +642,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allEvents={allEvents}
                     allOutputs={allOutputs}
                     allCovers={allCovers}
+                    allAreas={allAreas}
                     editingIndex={editingIndex}
                   />
                 ) : sectionType === 'output' ? (
@@ -608,6 +656,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     uiSchema={uiSchema}
                     deviceType={deviceType}
                     allOutputs={value}
+                    allAreas={allAreas}
                     editingIndex={editingIndex}
                   />
                 ) : sectionType === 'output_group' ? (

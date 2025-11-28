@@ -613,6 +613,7 @@ class OutputManager:
                 continue
 
             restore_state = _config.pop(RESTORE_STATE, False)
+            area = _config.pop("area", None)
             
             out = self._configure_relay(
                 relay_id=_id,
@@ -620,6 +621,9 @@ class OutputManager:
                 config=_config,
                 restore_state=restore_state,
             )
+            
+            # Store area on output object for later use
+            out.area = area
             
             # Subscribe to output state changes
             if out.output_type not in (NONE, COVER):
@@ -631,9 +635,8 @@ class OutputManager:
                 )
             
             self._outputs[_id] = out
-            print("iDDD", _id)
-            _LOGGER.debug("Registered output: id='%s', name='%s', boneio_output='%s'", 
-                         _id, _name, _config.get("boneio_output", "N/A"))
+            _LOGGER.debug("Registered output: id='%s', name='%s', boneio_output='%s', area='%s'", 
+                         _id, _name, _config.get("boneio_output", "N/A"), area)
             
             # Send HA autodiscovery
             if out.output_type not in (NONE, COVER):
@@ -642,12 +645,13 @@ class OutputManager:
                     name=_name,
                     ha_type=out.output_type,
                     output_type=out.output_type,
+                    area=area,
                 )
             
             # Delayed state send
             self._manager.loop.create_task(self._delayed_send_state(out))
 
-    def reload_outputs(self) -> None:
+    async def reload_outputs(self) -> None:
         """Reload output configuration from file.
         
         This reloads outputs and output groups from the config file.
@@ -658,6 +662,8 @@ class OutputManager:
         cleared first, groups will try to use stale references with closed
         I2C bus connections, causing "Bad file descriptor" errors.
         """
+        import asyncio
+        
         _LOGGER.info("Reloading output configuration")
         
         # Get config from ConfigHelper (uses cache, reloads if needed)
@@ -667,7 +673,35 @@ class OutputManager:
         relay_pins = config.get(OUTPUT, [])
         output_groups = config.get("output_group", [])
         
-        # FIRST: Cleanup existing output groups before clearing outputs
+        # Build map of new areas from config
+        new_output_areas: dict[str, str | None] = {}
+        for cfg in relay_pins:
+            # Determine output ID (same logic as in _initialize_outputs)
+            if "id" in cfg:
+                output_id = cfg["id"]
+            elif "boneio_output" in cfg:
+                output_id = cfg["boneio_output"]
+            else:
+                continue
+            new_output_areas[output_id] = cfg.get("area")
+        
+        # FIRST: Check for area changes and remove old HA Discovery BEFORE clearing cache
+        # This must happen before _initialize_outputs clears the autodiscovery cache
+        area_changed = False
+        for output_id, output in self._outputs.items():
+            old_area = getattr(output, 'area', None)
+            new_area = new_output_areas.get(output_id)
+            
+            if old_area != new_area:
+                area_changed = True
+                _LOGGER.debug(
+                    f"Output {output_id} area changed: {old_area} -> {new_area}, "
+                    "removing old HA Discovery"
+                )
+                # Remove old HA Discovery for this output (pass old_area to find correct device identifier)
+                self._remove_output_ha_discovery(output_id, old_area)
+        
+        # SECOND: Cleanup existing output groups before clearing outputs
         # Groups hold references to outputs, so they must be cleaned up first
         # Also remove old HA Discovery entries (send empty payload to remove from HA)
         for group in self._configured_output_groups.values():
@@ -679,10 +713,15 @@ class OutputManager:
                 _LOGGER.warning(f"Error cleaning up group {group.id}: {e}")
         self._configured_output_groups.clear()
         
-        # SECOND: Reload outputs (this clears old outputs)
+        # Wait for HA to process the removal before sending new discovery
+        if area_changed:
+            _LOGGER.debug("Waiting 1s for HA to process discovery removal...")
+            await asyncio.sleep(1)
+        
+        # THIRD: Reload outputs (this clears old outputs and sends new HA discovery)
         self._initialize_outputs(relay_pins=relay_pins, reload_config=True)
         
-        # THIRD: Reload output groups with new output references
+        # FOURTH: Reload output groups with new output references
         self._outputs_group = output_groups
         self._configure_output_groups()
         
@@ -695,6 +734,36 @@ class OutputManager:
         # Broadcast updated states to WebSocket clients
         self._broadcast_all_states()
     
+    def _remove_output_ha_discovery(self, output_id: str, old_area: str | None = None) -> None:
+        """Remove HA Discovery entries for an output.
+        
+        This sends empty payloads to all discovery topics for the output,
+        which removes the entity from Home Assistant. This is needed when
+        an output's area changes (different area = different device identifier).
+        
+        Args:
+            output_id: ID of the output to remove from HA Discovery
+            old_area: The previous area of the output (used to construct old device identifier)
+        """
+        # Construct the old device identifier based on the old area
+        topic_prefix = self._manager._config_helper.topic_prefix
+        if old_area:
+            old_device_identifier = f"{topic_prefix}_{old_area}"
+        else:
+            old_device_identifier = topic_prefix  # If no area was set, it used the main device identifier
+        
+        # Find all autodiscovery topics for this output ID with the old device identifier
+        matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(
+            output_id, old_device_identifier
+        )
+        
+        for ha_type, topic in matching_topics:
+            _LOGGER.debug(f"Removing HA Discovery for output {output_id} (old area: {old_area}): {topic}")
+            # Send empty/null payload to remove from HA (HA requires zero-length retained message)
+            self._manager.send_message(topic=topic, payload=None, retain=True)
+            # Remove from internal cache
+            self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
+
     def _remove_group_ha_discovery(self, group_id: str) -> None:
         """Remove HA Discovery entries for a group.
         
@@ -710,8 +779,8 @@ class OutputManager:
         
         for ha_type, topic in matching_topics:
             _LOGGER.debug(f"Removing HA Discovery for group {group_id}: {topic}")
-            # Send empty payload to remove from HA
-            self._manager.send_message(topic=topic, payload="", retain=True)
+            # Send empty/null payload to remove from HA (HA requires zero-length retained message)
+            self._manager.send_message(topic=topic, payload=None, retain=True)
             # Remove from internal cache
             self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
 
@@ -744,6 +813,7 @@ class OutputManager:
                     name=output.name if hasattr(output, 'name') else output_id,
                     ha_type=output.output_type,
                     output_type=output.output_type,
+                    area=getattr(output, 'area', None),
                 )
         
         # Send autodiscovery for groups

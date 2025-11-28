@@ -1,3 +1,29 @@
+areas:
+  type: list
+  required: False
+  meta:
+    label: "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device."
+  schema:
+    type: dict
+    schema:
+      id:
+        type: string
+        required: True
+        coerce: str
+        meta:
+          label: Area ID
+          description: |
+            Unique identifier for the area (used in output/input configurations).
+            Example: "living_room", "kitchen", "garage"
+      name:
+        type: string
+        required: True
+        meta:
+          label: Area Name
+          description: |
+            Display name for the area shown in Home Assistant.
+            Example: "Living Room", "Kitchen", "Garaż"
+
 mqtt:
   type: dict
   required: False
@@ -493,6 +519,14 @@ output:
             Reference to predefined output configuration (e.g., OUT_01, OUT_02).
             Available only when 'boneio' section is configured.
             Used as default ID if 'id' field is not specified.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/Room
+          description: |
+            Reference to area ID defined in 'areas' section.
+            Creates a sub-device linked to the main BoneIO device.
       kind:
         type: string
         required: False
@@ -678,6 +712,14 @@ binary_sensor:
           - lower
         meta:
           label: Reference to predefined input configuration
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/Room
+          description: |
+            Reference to area ID defined in 'areas' section.
+            Creates a sub-device linked to the main BoneIO device.
       show_in_ha:
         type: boolean
         required: True
@@ -793,6 +835,14 @@ event:
           - lower
         meta:
           label: Reference to predefined input configuration
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/Room
+          description: |
+            Reference to area ID defined in 'areas' section.
+            Creates a sub-device linked to the main BoneIO device.
       show_in_ha:
         type: boolean
         required: True

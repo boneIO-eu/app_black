@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 
+interface Area {
+  id: string;
+  name: string;
+}
+
 interface EventFormProps {
   data: any;
   onChange: (data: any) => void;
@@ -13,6 +18,7 @@ interface EventFormProps {
   editingIndex?: number | null;
   allOutputs?: any[];
   allCovers?: any[];
+  allAreas?: Area[];
   onValidationChange?: (hasErrors: boolean) => void;
 }
 
@@ -24,6 +30,7 @@ const EventForm: React.FC<EventFormProps> = ({
   allEvents = [],
   allOutputs = [],
   allCovers = [],
+  allAreas = [],
   editingIndex,
   onValidationChange
 }) => {
@@ -533,6 +540,32 @@ const EventForm: React.FC<EventFormProps> = ({
                   </span>
                 </label>
               )}
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Area / Room</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={data.area || ''}
+                onChange={(e) => updateField('area', e.target.value || undefined)}
+              >
+                <option value="">No area (main device)</option>
+                {allAreas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {allAreas.length === 0 
+                    ? 'Define areas in the Areas/Rooms section first'
+                    : 'Creates sub-device linked to main BoneIO device'
+                  }
+                </span>
+              </label>
             </div>
 
             <div className="form-control">

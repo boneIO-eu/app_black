@@ -227,6 +227,11 @@
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
           },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
+          },
           "show_in_ha": {
             "oneOf": [
               {

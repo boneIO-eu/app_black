@@ -66,6 +66,9 @@ class ConfigHelper:
         # Config caching
         self._config_file_path = config_file_path
         self._config_cache: dict[str, Any] | None = None
+        
+        # Areas mapping: id -> name
+        self._areas: dict[str, str] = {}
 
     @property
     def network_info(self) -> dict:
@@ -96,6 +99,38 @@ class ConfigHelper:
         return self._device_type
 
     @property
+    def areas(self) -> dict[str, str]:
+        """Get areas mapping (id -> name)."""
+        return self._areas
+    
+    def set_areas(self, areas_config: list[dict]) -> None:
+        """Set areas from config.
+        
+        Args:
+            areas_config: List of area dicts with 'id' and 'name' keys
+        """
+        self._areas = {}
+        for area in areas_config or []:
+            area_id = area.get("id")
+            area_name = area.get("name")
+            if area_id and area_name:
+                self._areas[area_id] = area_name
+        _LOGGER.debug("Loaded %d areas: %s", len(self._areas), list(self._areas.keys()))
+    
+    def get_area_name(self, area_id: str | None) -> str | None:
+        """Get area display name by ID.
+        
+        Args:
+            area_id: Area ID to look up
+            
+        Returns:
+            Area display name or None if not found
+        """
+        if not area_id:
+            return None
+        return self._areas.get(area_id)
+
+    @property
     def cmd_topic_prefix(self) -> str:
         return f"{self.topic_prefix}/cmd/"
 
@@ -122,21 +157,35 @@ class ConfigHelper:
     def clear_autodiscovery_type(self, ha_type: str):
         self._autodiscovery_messages[ha_type] = {}
 
-    def get_autodiscovery_topics_for_id(self, entity_id: str) -> list[tuple[str, str]]:
+    def get_autodiscovery_topics_for_id(
+        self, entity_id: str, device_identifier: str | None = None
+    ) -> list[tuple[str, str]]:
         """Get all autodiscovery topics that contain a specific entity ID.
         
         Args:
             entity_id: Entity ID to search for
+            device_identifier: Optional device identifier to filter by (e.g., topic_prefix or topic_prefix_area).
+                              When provided, only returns topics where the payload's device.identifiers
+                              contains this value. Used when entity moved between areas/devices.
             
         Returns:
             List of tuples (ha_type, topic) for matching autodiscovery messages
         """
         matching = []
         for ha_type, messages in self._autodiscovery_messages.items():
-            for topic in messages.keys():
+            for topic, payload_data in messages.items():
                 # Topic format: homeassistant/{ha_type}/{topic_prefix}/{entity_id}/config
                 if f"/{entity_id}/config" in topic:
-                    matching.append((ha_type, topic))
+                    # If device_identifier is provided, filter by device identifiers in payload
+                    if device_identifier:
+                        payload = payload_data.get("payload") if isinstance(payload_data, dict) else None
+                        if isinstance(payload, dict) and "device" in payload:
+                            device_identifiers = payload["device"].get("identifiers", [])
+                            if device_identifier in device_identifiers:
+                                matching.append((ha_type, topic))
+                    else:
+                        # No filter, return all matching topics
+                        matching.append((ha_type, topic))
         return matching
 
     def remove_autodiscovery_msg(self, ha_type: str, topic: str):

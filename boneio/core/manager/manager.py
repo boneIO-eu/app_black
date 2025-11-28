@@ -368,7 +368,6 @@ class Manager:
         
         # Call availability function if defined
         if availability_msg_func:
-            print("AVAILABILITY MESSAGE FUNCTION: ", id)
             payload = availability_msg_func(
                 id=id,
                 name=name,
@@ -580,7 +579,9 @@ class Manager:
         
         # Reload config cache in ConfigHelper
         try:
-            self._config_helper.reload_config()
+            config = self._config_helper.reload_config()
+            # Update areas mapping from reloaded config
+            self._config_helper.set_areas(config.get("areas", []))
         except Exception as e:
             _LOGGER.error(f"Failed to reload config: {e}")
             return {
@@ -593,15 +594,18 @@ class Manager:
         reloaded_sections = []
         failed_sections = []
         
-        # Sections that support hot reload
+        import asyncio
+        import inspect
+        
+        # Sections that support hot reload (some are async, some are sync)
         hot_reloadable_sections = {
-            OUTPUT: lambda: self.outputs.reload_outputs(),
-            "output_group": lambda: self.outputs.reload_outputs(),  # Alias for "output" (reloads both outputs and groups)
-            COVER: lambda: self.covers.reload_covers(),
-            "input": lambda: self.inputs.reload_inputs(),  # Reloads both event and binary_sensor
-            EVENT_ENTITY: lambda: self.inputs.reload_inputs(),  # Alias for "input"
-            BINARY_SENSOR: lambda: self.inputs.reload_inputs(),  # Alias for "input"
-            "modbus_devices": lambda: self.modbus.reload_modbus_devices(),
+            OUTPUT: self.outputs.reload_outputs,
+            "output_group": self.outputs.reload_outputs,  # Alias for "output" (reloads both outputs and groups)
+            COVER: self.covers.reload_covers,
+            "input": self.inputs.reload_inputs,  # Reloads both event and binary_sensor (async)
+            EVENT_ENTITY: self.inputs.reload_inputs,  # Alias for "input" (async)
+            BINARY_SENSOR: self.inputs.reload_inputs,  # Alias for "input" (async)
+            "modbus_devices": self.modbus.reload_modbus_devices,
         }
         
         # If specific sections requested, filter
@@ -621,10 +625,13 @@ class Manager:
                 "modbus_devices": hot_reloadable_sections["modbus_devices"],
             }
         
-        # Execute reloads
+        # Execute reloads (handle both sync and async functions)
         for section, reload_func in sections_to_reload.items():
             try:
-                reload_func()
+                if inspect.iscoroutinefunction(reload_func):
+                    await reload_func()
+                else:
+                    reload_func()
                 reloaded_sections.append(section)
                 _LOGGER.info(f"Successfully reloaded section: {section}")
             except Exception as e:
@@ -760,13 +767,13 @@ class Manager:
         if msg_type == BUTTON and command == "set":
             if device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors actions")
-                self.inputs.reload_inputs()
+                asyncio.create_task(self.inputs.reload_inputs())
             elif device_id == "cover_reload" and message == "cover_reload":
                 _LOGGER.info("Reloading covers actions")
                 self.covers.reload_covers()
             elif device_id == "outputs_reload" and message == "outputs_reload":
                 _LOGGER.info("Reloading outputs and groups")
-                self.outputs.reload_outputs()
+                asyncio.create_task(self.outputs.reload_outputs())
             return
 
         if msg_type == "modbus" and command == "set":

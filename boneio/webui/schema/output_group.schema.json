@@ -15,15 +15,20 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Id to send to use in HA and in GPIO Input. Default to `kind_pin`",
+            "description": "Group ID",
             "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
           },
           "outputs": {
             "type": [
               "array",
               "string"
             ],
-            "description": "List of outputs.",
+            "description": "Output IDs",
             "title": "Outputs"
           },
           "all_on_behaviour": {
@@ -67,10 +72,11 @@
           }
         },
         "required": [
+          "id",
           "outputs"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of groupes outputs to define. Output has to be defined first in output section!",
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
       "title": "Output group"
     }
   }

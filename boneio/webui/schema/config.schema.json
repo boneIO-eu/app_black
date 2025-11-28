@@ -2,6 +2,36 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "areas": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Area ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Area Name",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
+      "title": "Areas"
+    },
     "mqtt": {
       "type": [
         "string",
@@ -925,6 +955,11 @@
           "object"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
             "description": "Output ID",
@@ -932,8 +967,13 @@
           },
           "boneio_output": {
             "type": "string",
-            "description": "Reference to predefined output configuration",
+            "description": "BoneIO Output",
             "title": "Boneio output"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "kind": {
             "type": "string",
@@ -1063,7 +1103,6 @@
           }
         },
         "required": [
-          "id",
           "output_type"
         ]
       },
@@ -1083,15 +1122,20 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Id to send to use in HA and in GPIO Input. Default to `kind_pin`",
+            "description": "Group ID",
             "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
           },
           "outputs": {
             "type": [
               "array",
               "string"
             ],
-            "description": "List of outputs.",
+            "description": "Output IDs",
             "title": "Outputs"
           },
           "all_on_behaviour": {
@@ -1135,10 +1179,11 @@
           }
         },
         "required": [
+          "id",
           "outputs"
         ]
       },
-      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of groupes outputs to define. Output has to be defined first in output section!",
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
       "title": "Output group"
     },
     "binary_sensor": {
@@ -1365,6 +1410,11 @@
             ],
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "show_in_ha": {
             "oneOf": [
@@ -1725,9 +1775,14 @@
           "object"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name to use in HA.",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
-            "description": "Id to use in HA if needed. Default to pin number.",
+            "description": "Id to use for MQTT topic. Default to boneio_input or pin number.",
             "title": "Id"
           },
           "pin": {
@@ -1938,6 +1993,11 @@
             ],
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "show_in_ha": {
             "oneOf": [

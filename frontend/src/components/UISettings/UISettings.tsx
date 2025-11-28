@@ -14,6 +14,7 @@ import CheckboxWidget from './widgets/CheckboxWidget';
 import SelectWidget from './widgets/SelectWidget';
 import BoneIOSelectWidget from './widgets/BoneIOSelectWidget';
 import OutputSelectWidget from './widgets/OutputSelectWidget';
+import AreaSelectWidget from './widgets/AreaSelectWidget';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -58,6 +59,7 @@ export default function UISettings() {
   // Main configuration sections
   const configSections = [
     { name: 'boneio', title: 'boneIO', icon: '🔧' },
+    { name: 'areas', title: 'Areas/Rooms', icon: '🏠' },
     { name: 'binary_sensor', title: 'Binary Sensors', icon: '🔘' },
     { name: 'event', title: 'Events', icon: '⚡' },
     { name: 'output', title: 'Outputs', icon: '💡' },
@@ -684,9 +686,9 @@ export default function UISettings() {
   const activeSection_data = sections.find(s => s.name === activeSection);
   return (
     <div className="flex h-full bg-base-100 relative">
-      {/* Global loading overlay */}
+      {/* Global loading overlay - fixed to viewport */}
       {isReloading && (
-        <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-primary"></span>
             <div className="text-center">
@@ -799,24 +801,26 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices') ? (
+                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas') ? (
                       <ArrayTableWidget
                         value={formData[activeSection] || []}
                         uiSchema={activeSection_data.uiSchema.items}
                         onChange={(newData) => handleSectionChange(activeSection, newData)}
                         schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'other'}
+                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other'}
                         deviceType={formData.boneio?.device_type}
                         allBinarySensors={formData.binary_sensor || []}
                         allEvents={formData.event || []}
                         allOutputs={formData.output || []}
                         allOutputGroups={formData.output_group || []}
+                        allAreas={formData.areas || []}
                         title={
                           activeSection === 'binary_sensor' ? 'Binary Sensors' : 
                           activeSection === 'event' ? 'Events' : 
                           activeSection === 'output' ? 'Outputs' :
                           activeSection === 'output_group' ? 'Output Groups' :
                           activeSection === 'cover' ? 'Covers' :
+                          activeSection === 'areas' ? 'Areas/Rooms' :
                           'Modbus Devices'
                         }
                       />
@@ -825,7 +829,7 @@ export default function UISettings() {
                         schema={activeSection_data.normalizedSchema}
                         uiSchema={activeSection_data.uiSchema}
                         formData={formData[activeSection]}
-                        formContext={{ formData }}
+                        formContext={{ formData, areas: formData['areas'] || [] }}
                         validator={validator}
                         onChange={({ formData }) => handleSectionChange(activeSection, formData)}
                         onSubmit={() => saveSection(activeSection)}
@@ -834,7 +838,8 @@ export default function UISettings() {
                           CheckboxWidget: CheckboxWidget,
                           SelectWidget: SelectWidget,
                           BoneIOSelectWidget: BoneIOSelectWidget,
-                          OutputSelectWidget: OutputSelectWidget
+                          OutputSelectWidget: OutputSelectWidget,
+                          AreaSelectWidget: AreaSelectWidget
                         }}
                         templates={{
                           FieldTemplate: FieldTemplate,
@@ -860,24 +865,26 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices') ? (
+                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas') ? (
                     <ArrayTableWidget
                       value={formData[activeSection] || []}
                       uiSchema={activeSection_data.uiSchema.items}
                       onChange={(newData) => handleSectionChange(activeSection, newData)}
                       schema={activeSection_data.normalizedSchema}
-                      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'other'}
+                      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other'}
                       deviceType={formData.boneio?.device_type}
                       allBinarySensors={formData.binary_sensor || []}
                       allEvents={formData.event || []}
                       allOutputs={formData.output || []}
                       allOutputGroups={formData.output_group || []}
+                      allAreas={formData.areas || []}
                       title={
                         activeSection === 'binary_sensor' ? 'Binary Sensors' : 
                         activeSection === 'event' ? 'Events' : 
                         activeSection === 'output' ? 'Outputs' :
                         activeSection === 'output_group' ? 'Output Groups' :
                         activeSection === 'cover' ? 'Covers' :
+                        activeSection === 'areas' ? 'Areas/Rooms' :
                         'Modbus Devices'
                       }
                     />
@@ -886,7 +893,7 @@ export default function UISettings() {
                       schema={activeSection_data.normalizedSchema}
                       uiSchema={activeSection_data.uiSchema}
                       formData={formData[activeSection]}
-                      formContext={{ formData }}
+                      formContext={{ formData, areas: formData['areas'] || [] }}
                       validator={validator}
                       onChange={({ formData }) => handleSectionChange(activeSection, formData)}
                       onSubmit={() => saveSection(activeSection)}
@@ -895,7 +902,8 @@ export default function UISettings() {
                         CheckboxWidget: CheckboxWidget,
                         SelectWidget: SelectWidget,
                         BoneIOSelectWidget: BoneIOSelectWidget,
-                        OutputSelectWidget: OutputSelectWidget
+                        OutputSelectWidget: OutputSelectWidget,
+                        AreaSelectWidget: AreaSelectWidget
                       }}
                       templates={{
                         FieldTemplate: FieldTemplate,

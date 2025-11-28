@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
+interface Area {
+  id: string;
+  name: string;
+}
+
 interface OutputFormProps {
   data: any;
   onChange: (data: any) => void;
@@ -12,6 +17,7 @@ interface OutputFormProps {
   deviceType?: string;
   allOutputs?: any[];
   editingIndex?: number | null;
+  allAreas?: Area[];
 }
 
 const OutputForm: React.FC<OutputFormProps> = ({ 
@@ -21,6 +27,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
   uiSchema,
   deviceType,
   allOutputs = [],
+  allAreas = [],
   editingIndex
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
@@ -199,6 +206,33 @@ const OutputForm: React.FC<OutputFormProps> = ({
               />
               <label className="label">
                 <span className="label-text-alt">Optional. Overrides boneio_output as technical ID in MQTT/groups/actions</span>
+              </label>
+            </div>
+
+            {/* Area / Room */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Area / Room</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={data.area || ''}
+                onChange={(e) => updateField('area', e.target.value || undefined)}
+              >
+                <option value="">No area (main device)</option>
+                {allAreas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {allAreas.length === 0 
+                    ? 'Define areas in the Areas/Rooms section first'
+                    : 'Creates sub-device linked to main BoneIO device'
+                  }
+                </span>
               </label>
             </div>
           </div>

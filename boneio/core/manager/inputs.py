@@ -193,6 +193,9 @@ class InputManager:
             else:
                 input_id = pin
             
+            # Get area for HA assignment
+            area = gpio.pop("area", None)
+            
             # Reload: update existing input's actions and name
             if existing_input:
                 if not isinstance(existing_input, GpioEventButton):
@@ -204,7 +207,9 @@ class InputManager:
                 # Update name if changed
                 if hasattr(existing_input, '_name'):
                     existing_input._name = name
-                # Re-send HA discovery with updated name
+                # Store area on input
+                existing_input.area = area
+                # Re-send HA discovery with updated name and area
                 if gpio.get(SHOW_HA, True):
                     self._manager.send_ha_autodiscovery(
                         id=input_id,
@@ -212,6 +217,7 @@ class InputManager:
                         ha_type=EVENT_ENTITY,
                         device_class=gpio.get(DEVICE_CLASS, None),
                         availability_msg_func=ha_event_availabilty_message,
+                        area=area,
                     )
                 return existing_input
             
@@ -226,6 +232,9 @@ class InputManager:
                 **gpio,
             )
             
+            # Store area on input
+            input_device.area = area
+            
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
                 self._manager.send_ha_autodiscovery(
@@ -234,6 +243,7 @@ class InputManager:
                     ha_type=EVENT_ENTITY,
                     device_class=gpio.get(DEVICE_CLASS, None),
                     availability_msg_func=ha_event_availabilty_message,
+                    area=area,
                 )
             
             return input_device
@@ -276,6 +286,9 @@ class InputManager:
                 input_id: str = str(gpio.pop(ID))
             else:
                 input_id = str(gpio.get("boneio_input", pin))
+            
+            # Get area for HA assignment
+            area = gpio.pop("area", None)
 
             # Reload: update existing input's actions and name
             if existing_input:
@@ -288,7 +301,9 @@ class InputManager:
                 # Update name if changed
                 if hasattr(existing_input, '_name'):
                     existing_input._name = name
-                # Re-send HA discovery with updated name
+                # Store area on input
+                existing_input.area = area
+                # Re-send HA discovery with updated name and area
                 if gpio.get(SHOW_HA, True):
                     self._manager.send_ha_autodiscovery(
                         id=input_id,
@@ -296,6 +311,7 @@ class InputManager:
                         ha_type=BINARY_SENSOR,
                         device_class=gpio.get(DEVICE_CLASS, None),
                         availability_msg_func=ha_binary_sensor_availabilty_message,
+                        area=area,
                     )
                 return existing_input
             
@@ -310,6 +326,9 @@ class InputManager:
                 **gpio,
             )
             
+            # Store area on input
+            input_device.area = area
+            
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
                 self._manager.send_ha_autodiscovery(
@@ -318,6 +337,7 @@ class InputManager:
                     ha_type=BINARY_SENSOR,
                     device_class=gpio.get(DEVICE_CLASS, None),
                     availability_msg_func=ha_binary_sensor_availabilty_message,
+                    area=area,
                 )
             
             return input_device
@@ -353,16 +373,90 @@ class InputManager:
         """
         return list(self._inputs.values())
 
-    def reload_inputs(self) -> None:
+    async def reload_inputs(self) -> None:
         """Reload input configuration from file.
         
         This updates existing inputs' actions from the config file.
         GPIO pins are preserved, only actions are reloaded.
         """
+        import asyncio
+        
         _LOGGER.info("Reloading input configuration")
+        
+        # Get new config to check for area changes
+        config = self._manager._config_helper.reload_config()
+        
+        # Build map of new areas from config
+        new_input_areas: dict[str, str | None] = {}
+        for gpio in config.get(EVENT_ENTITY, []) + config.get(BINARY_SENSOR, []):
+            # Determine input ID (same logic as in _configure_event_sensor/_configure_binary_sensor)
+            if "id" in gpio:
+                input_id = gpio["id"]
+            elif "boneio_input" in gpio:
+                input_id = gpio["boneio_input"]
+            else:
+                continue
+            new_input_areas[input_id] = gpio.get("area")
+        
+        # FIRST: Check for area changes and remove old HA Discovery BEFORE clearing cache
+        area_changed = False
+        _LOGGER.info(f"Checking area changes for {len(self._inputs)} inputs, new_input_areas: {new_input_areas}")
+        for pin, input_device in self._inputs.items():
+            input_id = input_device.id if hasattr(input_device, 'id') else pin
+            old_area = getattr(input_device, 'area', None)
+            new_area = new_input_areas.get(input_id)
+            
+            _LOGGER.info(f"Input {input_id}: old_area={old_area}, new_area={new_area}")
+            
+            if old_area != new_area:
+                area_changed = True
+                _LOGGER.info(
+                    f"Input {input_id} area changed: {old_area} -> {new_area}, "
+                    "removing old HA Discovery"
+                )
+                # Remove old HA Discovery for this input (pass old_area to find correct device identifier)
+                self._remove_input_ha_discovery(input_id, old_area)
+        
+        # Wait for HA to process the removal before sending new discovery
+        if area_changed:
+            _LOGGER.debug("Waiting 1s for HA to process discovery removal...")
+            await asyncio.sleep(1)
+        
         # Don't clear inputs - we want to preserve GPIO state
         # _configure_inputs with reload_config=True will update actions on existing inputs
         self._configure_inputs(reload_config=True)
+    
+    def _remove_input_ha_discovery(self, input_id: str, old_area: str | None = None) -> None:
+        """Remove HA Discovery entries for an input.
+        
+        This sends empty payloads to all discovery topics for the input,
+        which removes the entity from Home Assistant. This is needed when
+        an input's area changes (different area = different device identifier).
+        
+        Args:
+            input_id: ID of the input to remove from HA Discovery
+            old_area: The previous area of the input (used to construct old device identifier)
+        """
+        # Construct the old device identifier based on the old area
+        topic_prefix = self._manager._config_helper.topic_prefix
+        if old_area:
+            old_device_identifier = f"{topic_prefix}_{old_area}"
+        else:
+            old_device_identifier = topic_prefix  # If no area was set, it used the main device identifier
+        
+        # Find all autodiscovery topics for this input ID with the old device identifier
+        _LOGGER.info(f"Looking for autodiscovery topics for input_id={input_id}, old_device_identifier={old_device_identifier}")
+        matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(
+            input_id, old_device_identifier
+        )
+        _LOGGER.info(f"Found {len(matching_topics)} matching topics: {matching_topics}")
+        
+        for ha_type, topic in matching_topics:
+            _LOGGER.info(f"Removing HA Discovery for input {input_id} (old area: {old_area}): {topic}")
+            # Send empty/null payload to remove from HA (HA requires zero-length retained message)
+            self._manager.send_message(topic=topic, payload=None, retain=True)
+            # Remove from internal cache
+            self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
 
     async def handle_input_event(self, event: InputEvent) -> None:
         """Handle input event from EventBus.
@@ -421,6 +515,7 @@ class InputManager:
                 # Use input_device.id (which is boneio_input or explicit id) instead of pin
                 input_id = input_device.id if hasattr(input_device, 'id') else pin
                 input_name = input_device.name if hasattr(input_device, 'name') else input_id
+                input_area = getattr(input_device, 'area', None)
                 
                 # Determine input type and send appropriate autodiscovery
                 if isinstance(input_device, GpioEventButton):
@@ -430,6 +525,7 @@ class InputManager:
                         ha_type=EVENT_ENTITY,
                         device_class=getattr(input_device, '_device_class', None),
                         availability_msg_func=ha_event_availabilty_message,
+                        area=input_area,
                     )
                 elif isinstance(input_device, GpioInputBinarySensor):
                     self._manager.send_ha_autodiscovery(
@@ -438,6 +534,7 @@ class InputManager:
                         ha_type=BINARY_SENSOR,
                         device_class=getattr(input_device, '_device_class', None),
                         availability_msg_func=ha_binary_sensor_availabilty_message,
+                        area=input_area,
                     )
             except Exception as err:
                 _LOGGER.error(

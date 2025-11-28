@@ -13,9 +13,14 @@
           "object"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name to use in HA.",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
-            "description": "Id to use in HA if needed. Default to pin number.",
+            "description": "Id to use for MQTT topic. Default to boneio_input or pin number.",
             "title": "Id"
           },
           "pin": {
@@ -226,6 +231,11 @@
             ],
             "description": "Reference to predefined input configuration",
             "title": "Boneio input"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "show_in_ha": {
             "oneOf": [

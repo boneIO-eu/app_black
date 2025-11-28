@@ -13,6 +13,11 @@
           "object"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
             "description": "Output ID",
@@ -20,8 +25,13 @@
           },
           "boneio_output": {
             "type": "string",
-            "description": "Reference to predefined output configuration",
+            "description": "BoneIO Output",
             "title": "Boneio output"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "kind": {
             "type": "string",
@@ -151,7 +161,6 @@
           }
         },
         "required": [
-          "id",
           "output_type"
         ]
       },

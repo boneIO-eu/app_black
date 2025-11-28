@@ -8,6 +8,10 @@ Formerly located in: boneio.helper.ha_discovery
 
 from __future__ import annotations
 
+import logging
+
+_LOGGER = logging.getLogger(__name__)
+
 from boneio.const import (
     CLOSE,
     CLOSED,
@@ -43,6 +47,7 @@ def ha_availabilty_message(
     device_type: str = INPUT,
     model: str = "boneIO Relay Board",
     web_url: str | None = None,
+    area: str | None = None,
     **kwargs,
 ):
     """Create availability topic for HA.
@@ -56,6 +61,7 @@ def ha_availabilty_message(
         model: Device model name
         web_url: Optional configuration URL
         config_helper: Optional ConfigHelper instance (used to extract topic/name/model)
+        area: Optional area ID (from 'areas' config section) - creates sub-device when set
         **kwargs: Additional fields to include in the message
     """
     # Extract values from config_helper if provided
@@ -68,20 +74,51 @@ def ha_availabilty_message(
     web_url_dict = {
         "configuration_url": web_url
     } if web_url else {}
-    return {
-        "availability": [{"topic": f"{topic}/{STATE}"}],
-        "optimistic": False,
-        "device": {
+    
+    # If area is specified, create a sub-device linked to main device
+    # Translate area ID to area name using config_helper
+    area_name = config_helper.get_area_name(area) if area else None
+    
+    _LOGGER.debug(
+        "HA Discovery for %s: area=%s, area_name=%s, available_areas=%s",
+        id, area, area_name, config_helper.areas
+    )
+    
+    if area and area_name:
+        # Create sub-device named "{device_name} - {area_name}" (e.g., "boneIO Black - Gabinet")
+        # All entities with the same area will be grouped under this sub-device
+        sub_device_name = f"{device_name} - {area_name}"
+        device_info = {
+            "identifiers": [f"{topic}_{area}"],  # Use area ID for consistent grouping
+            "manufacturer": "boneIO",
+            "model": model,
+            "name": sub_device_name,
+            "sw_version": __version__,
+            "via_device": topic,  # Link to main BoneIO device
+            "suggested_area": area,  # Use area ID (lowercase) - HA converts area names to lowercase
+            **web_url_dict
+        }
+    else:
+        device_info = {
             "identifiers": [topic],
             "manufacturer": "boneIO",
             "model": model,
             "name": device_name,
             "sw_version": __version__,
             **web_url_dict
-        },
+        }
+    
+    # Include area in unique_id so HA treats entities in different areas as distinct
+    # This allows moving entities between sub-devices by changing their area
+    unique_id_prefix = f"{topic}_{area}" if area else topic
+    
+    return {
+        "availability": [{"topic": f"{topic}/{STATE}"}],
+        "optimistic": False,
+        "device": device_info,
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
-        "unique_id": f"{topic}{device_type}{id}",
+        "unique_id": f"{unique_id_prefix}{device_type}{id}",
         # "object_id": f"{topic}{device_type}{id}",
         **kwargs,
     }

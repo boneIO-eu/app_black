@@ -92,6 +92,7 @@ class GpioBaseClass:
         self._last_timestamp = 0.0
         self._event_bus = event_bus
         self._event_lock = asyncio.Lock()
+        self.area: str | None = None  # HA area/room assignment
 
     @property
     def boneio_input(self) -> str:
@@ -202,12 +203,14 @@ class GpioBaseClass:
 
     @property
     def id(self) -> str:
-        """Get input ID (same as pin for GPIO inputs).
+        """Get input ID.
+        
+        Returns user-defined ID, boneio_input, or pin as fallback.
         
         Returns:
-            Input identifier
+            Input identifier (e.g., "IN_01" or user-defined ID)
         """
-        return self._pin
+        return self._id
 
     @property
     def last_state(self) -> str:

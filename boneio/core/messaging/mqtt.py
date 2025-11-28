@@ -87,7 +87,7 @@ class MQTTClient(MessageBus):
     async def publish(  # pylint:disable=too-many-arguments
         self,
         topic: str,
-        payload: str | None = None,
+        payload: str | bytes | None = None,
         retain: bool = False,
         qos: int = 0,
         properties: Properties | None = None,
@@ -159,7 +159,7 @@ class MQTTClient(MessageBus):
     def send_message(
         self,
         topic: str,
-        payload: str | int | dict | None,
+        payload: str | int | bytes | dict | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:
@@ -167,13 +167,28 @@ class MQTTClient(MessageBus):
         
         Args:
             topic: MQTT topic
-            payload: Message payload (will be JSON-encoded if dict)
+            payload: Message payload (will be JSON-encoded if dict, None becomes empty bytes)
             retain: Whether to retain the message
             qos: Quality of Service level (0, 1, or 2)
         """
+        # Handle payload encoding:
+        # - dict -> JSON string
+        # - None -> empty bytes (for HA Discovery removal)
+        # - int -> string
+        # - str/bytes -> pass through
+        encoded_payload: str | bytes
+        if isinstance(payload, dict):
+            encoded_payload = json.dumps(payload)
+        elif payload is None:
+            encoded_payload = b""  # Empty payload for HA Discovery removal
+        elif isinstance(payload, int):
+            encoded_payload = str(payload)
+        else:
+            encoded_payload = payload
+        
         message = MQTTMessageSend(
             topic=topic,
-            payload=json.dumps(payload) if isinstance(payload, dict) else payload,
+            payload=encoded_payload,
             retain=retain,
             qos=qos,
         )

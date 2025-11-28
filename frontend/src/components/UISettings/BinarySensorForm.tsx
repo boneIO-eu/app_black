@@ -31,6 +31,11 @@ interface BinarySensorData {
   };
 }
 
+interface Area {
+  id: string;
+  name: string;
+}
+
 interface BinarySensorFormProps {
   data: BinarySensorData;
   onChange: (data: BinarySensorData) => void;
@@ -43,6 +48,7 @@ interface BinarySensorFormProps {
   editingIndex?: number | null;
   allOutputs?: any[];
   allCovers?: any[];
+  allAreas?: Area[];
 }
 
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
@@ -53,6 +59,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allEvents = [],
   allOutputs = [],
   allCovers = [],
+  allAreas = [],
   editingIndex
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
@@ -507,6 +514,32 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   </span>
                 </label>
               )}
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Area / Room</span>
+              </label>
+              <select
+                className="select select-bordered w-full"
+                value={(data as any).area || ''}
+                onChange={(e) => updateField('area', e.target.value || undefined)}
+              >
+                <option value="">No area (main device)</option>
+                {allAreas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {allAreas.length === 0 
+                    ? 'Define areas in the Areas/Rooms section first'
+                    : 'Creates sub-device linked to main BoneIO device'
+                  }
+                </span>
+              </label>
             </div>
 
             <div className="form-control">

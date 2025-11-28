@@ -207,6 +207,9 @@ class BasicOutput(BasicMqtt):
                 virtual_volume_flow_rate=virtual_volume_flow_rate,
             )
             self._virtual_sensors_task = None
+        
+        # HA area/room assignment (set by OutputManager)
+        self.area: str | None = None
 
     def set_interlock(self, interlock_manager: SoftwareInterlockManager, interlock_groups: list[str]):
         self._interlock_manager = interlock_manager

@@ -115,6 +115,9 @@ async def async_run(
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
         config_file_path=config_file,
     )
+    
+    # Load areas configuration
+    _config_helper.set_areas(config.get("areas", []))
 
     # Initialize message bus based on config
     if MQTT in config:
