@@ -79,6 +79,15 @@ class HostSensorState(BaseModel):
     timestamp: float | None = None
 
 
+class GroupState(BaseModel):
+    """Output group state model."""
+    id: str
+    name: str
+    state: str
+    type: str
+    timestamp: float | None = None
+
+
 # Response models for API endpoints
 class InputsResponse(BaseModel):
     """Inputs response model."""
@@ -109,6 +118,7 @@ __all__ = [
     "CoverState",
     "SensorState",
     "HostSensorState",
+    "GroupState",
     # Response models
     "InputsResponse",
     "OutputsResponse",

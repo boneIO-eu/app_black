@@ -42,7 +42,7 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseEntity):
             "payload_on": self._payload_on,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            config_helper=self._config_helper,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

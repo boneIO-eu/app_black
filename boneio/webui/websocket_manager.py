@@ -140,3 +140,28 @@ class WebSocketManager:
             for dead in dead_connections:
                 if dead in self.active_connections:
                     await self.disconnect(dead)
+
+    async def broadcast(self, data: dict[str, Any]):
+        """Broadcast a raw dict message to all connected WebSocket clients.
+        
+        Args:
+            data: Dictionary to send as JSON to all clients
+        """
+        if self._closing:
+            return
+
+        dead_connections = []
+        async with self._lock:
+            for connection in self.active_connections[:]:
+                try:
+                    await connection.send_json(data)
+                except WebSocketDisconnect:
+                    dead_connections.append(connection)
+                except Exception as e:
+                    _LOGGER.error(f"Error broadcasting to WebSocket: {e}")
+                    dead_connections.append(connection)
+
+            # Clean up dead connections
+            for dead in dead_connections:
+                if dead in self.active_connections:
+                    await self.disconnect(dead)

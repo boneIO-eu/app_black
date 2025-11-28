@@ -17,6 +17,7 @@ interface Action {
 
 interface BinarySensorData {
   id?: string;
+  name?: string;
   pin?: string;
   boneio_input?: string;
   bounce_time?: string | number;
@@ -198,11 +199,16 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                 <option value="">Select cover...</option>
                 {allCovers
                   .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                  .map((cover: any) => (
-                    <option key={cover.id} value={cover.id}>
-                      {cover.id}
-                    </option>
-                  ))}
+                  .map((cover: any) => {
+                    const id = cover.id;
+                    const name = cover.name || id;
+                    const label = name !== id ? `${name} - ${id}` : id;
+                    return (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
 
@@ -240,12 +246,17 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               >
                 <option value="">Select output...</option>
                 {allOutputs
-                  .filter((output: any) => output && typeof output === 'object' && output.id)
-                  .map((output: any) => (
-                    <option key={output.id} value={output.id}>
-                      {output.id}
-                    </option>
-                  ))}
+                  .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
+                  .map((output: any) => {
+                    const id = output.id || output.boneio_output;
+                    const name = output.name || id;
+                    const label = name !== id ? `${name} - ${id}` : id;
+                    return (
+                      <option key={id} value={id}>
+                        {label}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
 
@@ -447,19 +458,19 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       {activeTab === 'basic' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-<div className="form-control">
+            <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">ID</span>
+                <span className="label-text font-medium">Name</span>
               </label>
               <input
                 type="text"
-                className="input  w-full"
-                placeholder="e.g., IN_48"
-                value={data.id || ''}
-                onChange={(e) => updateField('id', e.target.value)}
+                className="input w-full"
+                placeholder="e.g., Kitchen Motion Sensor"
+                value={data.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">ID to use in HA. Default to pin number.</span>
+                <span className="label-text-alt">Optional display name for HA</span>
               </label>
             </div>
 

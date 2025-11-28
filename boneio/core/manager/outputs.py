@@ -15,7 +15,7 @@ import asyncio
 import logging
 import time
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from boneio.components.output import MCPOutput, PCFOutput, PWMOutput
 from boneio.components.output.basic import BasicOutput
@@ -43,6 +43,7 @@ from boneio.const import (
     relay_actions,
 )
 from boneio.core.utils import TimePeriod, strip_accents
+from boneio.core.utils.util import sanitize_string
 from boneio.exceptions import GPIOOutputException
 from boneio.hardware.gpio.expanders import MCP23017, PCA9685, PCF8575
 from boneio.integration.homeassistant import ha_virtual_energy_sensor_discovery_message
@@ -154,7 +155,7 @@ class OutputManager:
         self,
         expander_dict: dict,
         expander_config: list,
-        exp_type: ExpanderTypes,
+        exp_type: Literal['mcp', 'pcf', 'pca'],
     ) -> dict:
         """Create and initialize hardware expanders.
         
@@ -189,6 +190,8 @@ class OutputManager:
 
     def _configure_output_groups(self) -> None:
         """Configure output groups."""
+        _LOGGER.info("Configuring output groups. Found %d groups in config.", len(self._outputs_group))
+        
         def get_outputs(output_list):
             outputs = []
             for x in output_list:
@@ -199,6 +202,10 @@ class OutputManager:
                         _LOGGER.warning("You can't add cover output to group.")
                     else:
                         outputs.append(output)
+                        _LOGGER.debug("Found output '%s' -> %s", x, output.id)
+                else:
+                    _LOGGER.warning("Output '%s' not found in _outputs. Available keys: %s", 
+                                   x, list(self._outputs.keys())[:10])
             return outputs
 
         for group in self._outputs_group:
@@ -209,33 +216,38 @@ class OutputManager:
                 )
                 continue
             
-            _id = strip_accents(group.pop(ID))
+            _id = sanitize_string(group.pop(ID))
             _name = group.pop("name", _id)
             
             output_group = self._create_output_group(
                 id=_id,
                 name=_name,
-                outputs=members,
+                members=members,
                 **group,
             )
             
             self._configured_output_groups[_id] = output_group
+            _LOGGER.info("Created output group '%s' with %d members", _id, len(members))
             
-            # Send HA autodiscovery for group
+            # Send HA autodiscovery for group (use is_group=True to use 'group' device_type)
             self._manager.send_ha_autodiscovery(
                 id=_id,
                 name=_name,
                 ha_type=output_group.output_type,
                 output_type=output_group.output_type,
+                is_group=True,
             )
+            
+            # Send initial state to WebSocket
+            self._manager.loop.create_task(self._delayed_send_state(output_group))
 
-    def _create_output_group(self, id: str, name: str, outputs: list, **kwargs) -> Any:
+    def _create_output_group(self, id: str, name: str, members: list, **kwargs) -> Any:
         """Create an output group instance.
         
         Args:
             id: Group identifier
             name: Group display name
-            outputs: List of output instances
+            members: List of BasicOutput instances to group
             **kwargs: Additional configuration
             
         Returns:
@@ -245,10 +257,11 @@ class OutputManager:
         
         return OutputGroup(
             message_bus=self._manager._message_bus,
+            event_bus=self._manager._event_bus,
             topic_prefix=self._manager._topic_prefix,
             id=id,
             name=name,
-            outputs=outputs,
+            members=members,
             callback=lambda: None,
             **kwargs,
         )
@@ -360,6 +373,7 @@ class OutputManager:
             interlock_groups = [interlock_groups]
 
         relay = getattr(output, "OutputClass")(
+            **config,
             message_bus=self._manager._message_bus,
             event_bus=self._manager._event_bus,
             topic_prefix=self._manager._topic_prefix,
@@ -368,7 +382,6 @@ class OutputManager:
             interlock_manager=self._interlock_manager,
             interlock_groups=interlock_groups,
             name=name,
-            **config,
             **extra_args,
         )
         self._interlock_manager.register(relay, interlock_groups)
@@ -570,37 +583,41 @@ class OutputManager:
         
         for _config in relay_pins:
             # Create a copy to avoid modifying the original
-            config_copy = _config.copy()
             
             # Handle new schema: name and id are optional
             # 1. Determine Display Name (_name)
-            if "name" in config_copy:
-                _name = config_copy.pop("name")
-            elif "id" in config_copy:
+            if "name" in _config:
+                _name = _config.pop("name")
+            elif "id" in _config:
                  # Fallback to id if name is missing
-                _name = config_copy.get(ID)
-            elif "boneio_output" in config_copy:
+                _name = _config.get(ID)
+            elif "boneio_output" in _config:
                  # Fallback to boneio_output if name and id are missing
-                _name = config_copy.get("boneio_output")
+                _name = _config.get("boneio_output")
             else:
                 # Last resort fallback
                 _name = "unknown_output"
 
             # 2. Determine MQTT ID (_id)
             # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
-            if ID in config_copy:
-                _id = config_copy.pop(ID)
-            elif "boneio_output" in config_copy:
-                _id = config_copy.get("boneio_output")
+            if ID in _config:
+                _id = _config.pop(ID)
+            elif "boneio_output" in _config:
+                _id = _config.get("boneio_output")
             else:
-                _id = strip_accents(_name)
+                _id = strip_accents(_name) if _name else None
 
-            restore_state = config_copy.pop(RESTORE_STATE, False)
+            # Skip if we couldn't determine valid id or name
+            if not _id or not _name:
+                _LOGGER.warning("Skipping output with missing id or name: %s", _config)
+                continue
+
+            restore_state = _config.pop(RESTORE_STATE, False)
             
             out = self._configure_relay(
                 relay_id=_id,
                 name=_name,
-                config=config_copy,
+                config=_config,
                 restore_state=restore_state,
             )
             
@@ -614,6 +631,9 @@ class OutputManager:
                 )
             
             self._outputs[_id] = out
+            print("iDDD", _id)
+            _LOGGER.debug("Registered output: id='%s', name='%s', boneio_output='%s'", 
+                         _id, _name, _config.get("boneio_output", "N/A"))
             
             # Send HA autodiscovery
             if out.output_type not in (NONE, COVER):
@@ -632,6 +652,11 @@ class OutputManager:
         
         This reloads outputs and output groups from the config file.
         Existing outputs are cleared and recreated based on the current config.
+        
+        IMPORTANT: Groups must be cleaned up BEFORE outputs are cleared,
+        because groups hold references to output objects. If outputs are
+        cleared first, groups will try to use stale references with closed
+        I2C bus connections, causing "Bad file descriptor" errors.
         """
         _LOGGER.info("Reloading output configuration")
         
@@ -642,11 +667,22 @@ class OutputManager:
         relay_pins = config.get(OUTPUT, [])
         output_groups = config.get("output_group", [])
         
-        # Reload outputs
+        # FIRST: Cleanup existing output groups before clearing outputs
+        # Groups hold references to outputs, so they must be cleaned up first
+        # Also remove old HA Discovery entries (send empty payload to remove from HA)
+        for group in self._configured_output_groups.values():
+            try:
+                group.cleanup()
+                # Remove old HA Discovery for this group (handles type changes like switch->light)
+                self._remove_group_ha_discovery(group.id)
+            except Exception as e:
+                _LOGGER.warning(f"Error cleaning up group {group.id}: {e}")
+        self._configured_output_groups.clear()
+        
+        # SECOND: Reload outputs (this clears old outputs)
         self._initialize_outputs(relay_pins=relay_pins, reload_config=True)
         
-        # Reload output groups
-        self._configured_output_groups.clear()
+        # THIRD: Reload output groups with new output references
         self._outputs_group = output_groups
         self._configure_output_groups()
         
@@ -655,4 +691,68 @@ class OutputManager:
             len(self._outputs),
             len(self._configured_output_groups)
         )
+        
+        # Broadcast updated states to WebSocket clients
+        self._broadcast_all_states()
+    
+    def _remove_group_ha_discovery(self, group_id: str) -> None:
+        """Remove HA Discovery entries for a group.
+        
+        This sends empty payloads to all discovery topics for the group,
+        which removes the entity from Home Assistant. This is needed when
+        a group's type changes (e.g., from switch to light).
+        
+        Args:
+            group_id: ID of the group to remove from HA Discovery
+        """
+        # Find all autodiscovery topics for this group ID
+        matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(group_id)
+        
+        for ha_type, topic in matching_topics:
+            _LOGGER.debug(f"Removing HA Discovery for group {group_id}: {topic}")
+            # Send empty payload to remove from HA
+            self._manager.send_message(topic=topic, payload="", retain=True)
+            # Remove from internal cache
+            self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
+
+    def _broadcast_all_states(self) -> None:
+        """Broadcast current state of all outputs and groups via WebSocket."""
+        # Send output states
+        for output in self._outputs.values():
+            if output.output_type not in (NONE, COVER):
+                try:
+                    self._manager.loop.create_task(output.async_send_state())
+                except Exception as e:
+                    _LOGGER.debug(f"Error broadcasting output state {output.id}: {e}")
+        
+        # Send group states
+        for group in self._configured_output_groups.values():
+            try:
+                self._manager.loop.create_task(group.async_send_state())
+            except Exception as e:
+                _LOGGER.debug(f"Error broadcasting group state {group.id}: {e}")
+
+    async def send_ha_autodiscovery(self) -> None:
+        """Send Home Assistant autodiscovery for all outputs and groups."""
+        from boneio.const import COVER, NONE
+        
+        # Send autodiscovery for outputs
+        for output_id, output in self._outputs.items():
+            if output.output_type not in (NONE, COVER):
+                self._manager.send_ha_autodiscovery(
+                    id=output_id,
+                    name=output.name if hasattr(output, 'name') else output_id,
+                    ha_type=output.output_type,
+                    output_type=output.output_type,
+                )
+        
+        # Send autodiscovery for groups
+        for group_id, group in self._configured_output_groups.items():
+            self._manager.send_ha_autodiscovery(
+                id=group_id,
+                name=group.name if hasattr(group, 'name') else group_id,
+                ha_type=group.output_type,
+                output_type=group.output_type,
+                is_group=True,
+            )
 

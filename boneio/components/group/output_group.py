@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
+from boneio.components.output.basic import BasicOutput
 from boneio.const import COVER, OFF, ON, SWITCH
 from boneio.models import OutputState
-from boneio.components.output.basic import BasicOutput
+from boneio.models.events import GroupEvent
+from boneio.models.state import GroupState
 
 
 class OutputGroup(BasicOutput):
@@ -79,15 +82,23 @@ class OutputGroup(BasicOutput):
             self._state = state
             self._loop.create_task(self.async_send_state())
 
-    async def async_turn_on(self) -> None:
-        """Turn on all members in the group."""
+    async def async_turn_on(self, timestamp=None) -> None:
+        """Turn on all members in the group.
+        
+        Args:
+            timestamp: Optional timestamp for the operation
+        """
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_on())
+            self._loop.create_task(x.async_turn_on(timestamp=timestamp))
 
-    async def async_turn_off(self) -> None:
-        """Turn off all members in the group."""
+    async def async_turn_off(self, timestamp=None) -> None:
+        """Turn off all members in the group.
+        
+        Args:
+            timestamp: Optional timestamp for the operation
+        """
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_off())
+            self._loop.create_task(x.async_turn_off(timestamp=timestamp))
 
     @property
     def is_active(self) -> bool:
@@ -95,8 +106,48 @@ class OutputGroup(BasicOutput):
         return self._state == ON
 
     async def async_send_state(self) -> None:
-        """Send state to message bus."""
+        """Send state to message bus and event bus for WebSocket."""
+        # Send to MQTT
         self._message_bus.send_message(
             topic=self._send_topic, payload=self.payload(), retain=True
         )
+        
+        # Send to WebSocket via event bus
+        self._last_timestamp = time.time()
+        group_state = GroupState(
+            id=self.id,
+            name=self.name,
+            state=self._state,
+            type=self._output_type,
+            timestamp=self._last_timestamp,
+        )
+        group_event = GroupEvent(
+            entity_id=self.id,
+            state=group_state,
+        )
+        self._event_bus.trigger_event(group_event)
+
+    def cleanup(self) -> None:
+        """Cleanup resources before removing/reloading group.
+        
+        Removes event listeners from member outputs and clears references.
+        """
+        # Remove event listeners for member state changes
+        for member in self._group_members:
+            try:
+                self._event_bus.remove_event_listener(
+                    event_type="output",
+                    entity_id=member.id,
+                    listener_id=self.id,
+                )
+            except Exception:
+                pass  # Ignore errors if listener already removed
+        
+        # Cancel any pending timer
+        if self._timer_handle:
+            self._timer_handle.cancel()
+            self._timer_handle = None
+        
+        # Clear member references
+        self._group_members.clear()
 

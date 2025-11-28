@@ -35,7 +35,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [] }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [] }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
 
@@ -56,14 +56,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     const item = { ...value[index] };
     setEditingItem(item);
     setEditingIndex(index);
-    document.getElementById('edit_modal')?.showModal();
+    (document.getElementById('edit_modal') as HTMLDialogElement)?.showModal();
   };
 
   const handleAdd = () => {
     console.log('➕ ArrayTableWidget: handleAdd called');
     setEditingIndex(null);
     setEditingItem({});
-    document.getElementById('edit_modal')?.showModal();
+    (document.getElementById('edit_modal') as HTMLDialogElement)?.showModal();
   };
 
   // Check if all outputs/inputs are used
@@ -133,8 +133,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       isValid = !!dataToSave.boneio_output;
       errorMessage = 'BoneIO Output is required';
     } else if (sectionType === 'output_group') {
-      isValid = !!dataToSave.outputs && (Array.isArray(dataToSave.outputs) ? dataToSave.outputs.length > 0 : true);
-      errorMessage = 'Outputs are required';
+      const hasId = !!dataToSave.id;
+      const hasOutputs = !!dataToSave.outputs && (Array.isArray(dataToSave.outputs) ? dataToSave.outputs.length > 0 : true);
+      isValid = hasId && hasOutputs;
+      errorMessage = !hasId ? 'ID is required' : 'At least one output is required';
     } else if (sectionType === 'cover') {
       isValid = !!dataToSave.id && !!dataToSave.open_relay && !!dataToSave.close_relay && !!dataToSave.open_time && !!dataToSave.close_time;
       errorMessage = 'ID, open relay, close relay, open time and close time are required';
@@ -170,6 +172,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       newValue.push(dataToSave);
     }
     // Only call onChange when actually saving, not during editing
+    console.log('🔄 ArrayTableWidget: calling onChange with:', newValue);
     onChange(newValue);
     (document.getElementById('edit_modal') as HTMLDialogElement)?.close();
     setEditingItem(null);
@@ -192,21 +195,21 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if (sectionType === 'output') {
       return (
         <tr>
-          <th>ID/Name</th>
+          <th>Name / ID</th>
           <th>BoneIO Output</th>
-          <th>Output Type</th>
-          <th>Restore State</th>
-          <th>Is Momentary</th>
+          <th>Type</th>
+          <th>Restore</th>
+          <th>Momentary</th>
           <th>Actions</th>
         </tr>
       );
     } else if (sectionType === 'output_group') {
       return (
         <tr>
-          <th>ID/Name</th>
-          <th>Outputs</th>
-          <th>Output Type</th>
-          <th>All On Behaviour</th>
+          <th>Name / ID</th>
+          <th>Member Outputs</th>
+          <th>Type</th>
+          <th>All On</th>
           <th>Actions</th>
         </tr>
       );
@@ -335,9 +338,17 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'output_group') {
       return value.map((item, index) => {
         const outputs = Array.isArray(item.outputs) ? item.outputs : [];
+        const displayName = item.name || item.id || `Group ${index + 1}`;
         return (
           <tr key={index}>
-            <td>{item.id || `Group ${index + 1}`}</td>
+            <td>
+              <div>
+                <div className="font-medium">{displayName}</div>
+                {item.name && item.id && (
+                  <div className="text-xs text-base-content/60">ID: {item.id}</div>
+                )}
+              </div>
+            </td>
             <td>
               <div className="flex flex-wrap gap-1">
                 {outputs.length > 0 ? (
@@ -389,9 +400,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'output') {
       return value.map((item, index) => {
         const isMomentary = item.momentary_turn_on || item.momentary_turn_off;
+        // effective_id: id > boneio_output
+        const effectiveId = item.id || item.boneio_output;
+        const displayName = item.name || effectiveId || `Item ${index + 1}`;
         return (
           <tr key={index}>
-            <td>{item.id || `Item ${index + 1}`}</td>
+            <td>
+              <div>
+                <div className="font-medium">{displayName}</div>
+                {item.name && effectiveId && (
+                  <div className="text-xs text-base-content/60">ID: {effectiveId}</div>
+                )}
+              </div>
+            </td>
             <td className="uppercase">{item.boneio_output || '-'}</td>
             <td>
               {item.output_type ? (

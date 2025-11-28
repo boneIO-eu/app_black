@@ -28,28 +28,31 @@ def strip_accents(s):
     )
 
 
+def sanitize_string(s: str) -> str:
+    import re
+    s = strip_accents(s.replace(' ', '_'))
+    s = re.sub(r'[^a-zA-Z0-9_-]', '', s)
+    return s.lower()
+
 def sanitize_mqtt_topic(name: str) -> str:
     """
     Sanitize a string to be used as an MQTT topic:
     - Replace spaces with underscores
     - Remove Polish diacritics
     - Remove/replace forbidden characters (leave only a-z, A-Z, 0-9, '_', '-')
+    - Convert to lowercase for consistency
     Args:
         name (str): Input string
     Returns:
-        str: Sanitized string
+        str: Sanitized string (lowercase)
     """
-    import re
 
     from .logger import _LOGGER
 
     original = name
     # Zamień spacje na podkreślenia
-    name = name.replace(' ', '_')
+    name = sanitize_string(name)
     # Usuń polskie znaki
-    name = strip_accents(name)
-    # Zostaw tylko dozwolone znaki
-    name = re.sub(r'[^a-zA-Z0-9_-]', '', name)
     _LOGGER.debug(f"Sanitized MQTT topic: '{original}' -> '{name}'")
     return name
 

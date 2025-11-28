@@ -89,7 +89,26 @@ export interface ModbusDeviceEvent {
   state: ModbusDeviceState;
 }
 
-export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent;
+export interface GroupState {
+  id: string;
+  name: string;
+  state: string;
+  type: string;
+  timestamp: number | null;
+}
+
+export interface GroupEvent {
+  event_type: 'group';
+  entity_id: string;
+  state: GroupState;
+}
+
+export interface ConfigReloadEvent {
+  event_type: 'config_reload';
+  sections: string[];
+}
+
+export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ConfigReloadEvent;
 
 // Type guards
 
@@ -111,6 +130,14 @@ export function isSensorEvent(data: StateUpdate): data is SensorEvent {
 
 export function isModbusDeviceEvent(data: StateUpdate): data is ModbusDeviceEvent {
   return data.event_type === 'modbus_device';
+}
+
+export function isGroupEvent(data: StateUpdate): data is GroupEvent {
+  return data.event_type === 'group';
+}
+
+export function isConfigReloadEvent(data: StateUpdate): data is ConfigReloadEvent {
+  return data.event_type === 'config_reload';
 }
 
 interface WebSocketHookResult {

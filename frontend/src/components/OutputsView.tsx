@@ -2,21 +2,22 @@ import { useState, useContext } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
-import { isOutputEvent, isCoverEvent, CoverState } from '../hooks/useWebSocket';
+import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState } from '../hooks/useWebSocket';
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 
 export default function OutputsView({error}: {error: string | null}) {
   const [outputError, setError] = useState<string | null>(null);
-  const { outputs, covers } = useContext(WebSocketContext);
-  console.log("outputs", outputs, covers);
+  const { outputs, covers, groups } = useContext(WebSocketContext);
+  console.log("outputs", outputs, covers, groups);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
 
   const validOutputs = outputs.filter(isOutputEvent).map(e => e.state);
-  console.log("validOutputs", validOutputs);
+  const validGroups = groups.filter(isGroupEvent).map(e => e.state);
+  console.log("validOutputs", validOutputs, "validGroups", groups, validGroups);
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -48,6 +49,21 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   };
 
+  const toggleGroup = async (id: string, name: string, type: string) => {
+    try {
+      const response = await axios.post(`/api/groups/${id}/toggle`);
+      console.log("group toggle", response, type);
+      if (response.data.status === 'interlock') {
+        setError(`${type} ${name} is locked by interlock`);
+        return;
+      }
+      setError(null);
+    } catch (error) {
+      console.error('Error toggling group:', error);
+      setError('Failed to toggle group');
+    }
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="card bg-base-200 shadow-xl">
@@ -56,6 +72,7 @@ export default function OutputsView({error}: {error: string | null}) {
             <h2 className="card-title">Controls</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
+          {/* Individual Outputs */}
           <div className={isGrid 
             ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             : "flex flex-col gap-4"
@@ -70,6 +87,37 @@ export default function OutputsView({error}: {error: string | null}) {
               />
             ))}
           </div>
+
+          {/* Output Groups */}
+          {validGroups.length > 0 && (
+            <>
+              <div className="divider">Groups</div>
+              <div className={isGrid 
+                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+                : "flex flex-col gap-4"
+              }>
+                {validGroups.map((group) => (
+                  <OutputItem 
+                    key={group.id}
+                    output={{
+                      id: group.id,
+                      name: group.name,
+                      state: group.state,
+                      type: group.type,
+                      expander_id: null,
+                      pin: 0,
+                      timestamp: group.timestamp
+                    }}
+                    onToggle={toggleGroup}
+                    isGrid={isGrid}
+                    error={error}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Covers */}
           <div className={isGrid 
             ? "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
             : "flex flex-col gap-4"

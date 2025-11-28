@@ -28,7 +28,7 @@ from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.core.utils.util import open_json
-from boneio.modbus.entities.base import ModbusBaseEntity, ModbusDerivedEntity
+from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity
 from boneio.models.state import ModbusDeviceState
 
 if TYPE_CHECKING:
@@ -425,7 +425,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """
         return self._additional_entities_by_name.get(name)
 
-    def find_entity(self, entity_id: str):
+    def find_entity(self, entity_id: str) -> BaseEntity | None:
         """Find entity by ID or decoded name in both regular and additional entities.
         
         Args:
@@ -646,7 +646,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     async def write_register(
         self, 
         value: str | float | int, 
-        entity: ModbusDerivedEntity | ModbusBaseEntity
+        entity: BaseEntity
     ) -> None:
         """Write value to modbus register.
         

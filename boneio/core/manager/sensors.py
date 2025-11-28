@@ -536,3 +536,13 @@ class SensorManager:
                     tasks[f"adc_{i}_{task_name}"] = task
         
         return tasks
+
+    async def send_ha_autodiscovery(self) -> None:
+        """Send Home Assistant autodiscovery for all sensors.
+        
+        Note: Most sensors send their autodiscovery during initialization.
+        This method can be used to resend all autodiscovery messages.
+        """
+        # Sensors typically send autodiscovery during configuration
+        # This is a placeholder for any sensors that need manual resend
+        pass

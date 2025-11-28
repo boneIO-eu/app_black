@@ -15,10 +15,15 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
-  // Get available outputs from allOutputs
+  // Get available outputs from allOutputs with their names
   const availableOutputs = allOutputs
     .filter(output => output.boneio_output)
-    .map(output => output.boneio_output);
+    .map(output => ({
+      id: output.boneio_output,
+      name: output.name || output.id || output.boneio_output,
+      displayName: `${output.name || output.id || output.boneio_output} : ${output.boneio_output}`
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   // Extract enums from schema
   const outputTypeOptions = schema?.items?.properties?.output_type?.enum || ['switch', 'light'];
@@ -31,11 +36,11 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
     updateField('outputs', selectedOutputs);
   };
 
-  const toggleOutput = (output: string) => {
+  const toggleOutput = (outputId: string) => {
     const currentOutputs = Array.isArray(data.outputs) ? data.outputs : [];
-    const newOutputs = currentOutputs.includes(output)
-      ? currentOutputs.filter((o: string) => o !== output)
-      : [...currentOutputs, output];
+    const newOutputs = currentOutputs.includes(outputId)
+      ? currentOutputs.filter((o: string) => o !== outputId)
+      : [...currentOutputs, outputId];
     handleOutputsChange(newOutputs);
   };
 
@@ -65,18 +70,37 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
           {/* ID */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">ID</span>
+              <span className="label-text font-medium">ID *</span>
             </label>
             <input
               type="text"
-              className="input  w-full"
+              className="input w-full"
               value={data.id || ''}
               onChange={(e) => updateField('id', e.target.value)}
-              placeholder="Optional ID for Home Assistant"
+              placeholder="e.g., lights_living_room"
             />
             <label className="label">
               <span className="label-text-alt text-info">
-                Optional. If not set, will be auto-generated.
+                Technical identifier used in MQTT topics and actions.
+              </span>
+            </label>
+          </div>
+
+          {/* Name */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">Display Name</span>
+            </label>
+            <input
+              type="text"
+              className="input w-full"
+              value={data.name || ''}
+              onChange={(e) => updateField('name', e.target.value)}
+              placeholder="e.g., Living Room Lights"
+            />
+            <label className="label">
+              <span className="label-text-alt text-info">
+                Optional friendly name shown in Home Assistant. If not set, uses ID.
               </span>
             </label>
           </div>
@@ -84,40 +108,53 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
           {/* Outputs Selection */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Outputs *</span>
+              <span className="label-text font-medium">Member Outputs *</span>
             </label>
-            <div className="border border-base-300 rounded-lg p-4 max-h-64 overflow-y-auto">
+            <div className="border border-base-300 rounded-lg p-3">
               {availableOutputs.length === 0 ? (
                 <p className="text-warning">No outputs available. Please configure outputs first.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {availableOutputs.map((output: string) => (
-                    <label key={output} className="label cursor-pointer justify-start gap-2">
+                <div className="flex flex-col gap-1">
+                  {availableOutputs.map((output) => (
+                    <label 
+                      key={output.id} 
+                      className={`label cursor-pointer justify-start gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors ${
+                        selectedOutputs.includes(output.id) ? 'bg-primary/10' : ''
+                      }`}
+                    >
                       <input
                         type="checkbox"
-                        className="checkbox checkbox-sm"
-                        checked={selectedOutputs.includes(output)}
-                        onChange={() => toggleOutput(output)}
+                        className="checkbox checkbox-sm checkbox-primary"
+                        checked={selectedOutputs.includes(output.id)}
+                        onChange={() => toggleOutput(output.id)}
                       />
-                      <span className="label-text uppercase">{output}</span>
+                      <span className="label-text flex-1">
+                        <span className="font-medium">{output.name}</span>
+                        <span className="text-base-content/60 ml-2 uppercase text-xs">({output.id})</span>
+                      </span>
                     </label>
                   ))}
                 </div>
               )}
             </div>
-            <div className="flex justify-between">
-            <label className="label">
-              <span className="label-text-alt text-info">
-                Selected: {selectedOutputs.length > 0 ? selectedOutputs.join(', ') : 'None'}
-              </span>
-            </label>
-            {selectedOutputs.length === 0 && (
-              <label className="label">
-                <span className="label-text-alt text-error">
-                  At least one output is required
+            <div className="flex justify-between mt-2">
+              <label className="label py-0">
+                <span className="label-text-alt text-info">
+                  Selected: {selectedOutputs.length > 0 
+                    ? selectedOutputs.map((id: string) => {
+                        const output = availableOutputs.find(o => o.id === id);
+                        return output ? output.name : id;
+                      }).join(', ') 
+                    : 'None'}
                 </span>
               </label>
-            )}
+              {selectedOutputs.length === 0 && (
+                <label className="label py-0">
+                  <span className="label-text-alt text-error">
+                    At least one output is required
+                  </span>
+                </label>
+              )}
             </div>
           </div>
 

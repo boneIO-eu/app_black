@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from boneio.models.state import (
     CoverResponse,
     CoverState,
+    GroupState,
     HostSensorState,
     InputsResponse,
     InputState,
@@ -22,7 +23,6 @@ from boneio.models.state import (
     OutputState,
     PositionDict,
     SensorState,
- 
 )
 
 from boneio.models.events import Event
@@ -42,6 +42,7 @@ __all__ = [
     "CoverState",
     "SensorState",
     "HostSensorState",
+    "GroupState",
     # Response models
     "InputsResponse",
     "OutputsResponse",

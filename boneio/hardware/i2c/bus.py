@@ -37,25 +37,31 @@ class SMBus2I2C:
         """
         self._bus_number = bus_number
         self._bus: Optional[SMBus] = None
-        self._locked = False
-        self._lock = threading.Lock()  # Thread safety
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
+        self._open_bus()
         _LOGGER.info("Initialized I2C wrapper on bus %d (smbus2)", bus_number)
+
+    def _open_bus(self) -> None:
+        """Open I2C bus if not already open."""
+        if self._bus is None:
+            try:
+                self._bus = SMBus(self._bus_number)
+                _LOGGER.debug("Opened I2C bus %d", self._bus_number)
+            except OSError as e:
+                _LOGGER.error(f"Failed to open I2C bus {self._bus_number}: {e}")
+                raise
 
     def __enter__(self):
         """Context manager entry - acquire bus lock."""
-        with self._lock:
-            if not self._locked:
-                self._bus = SMBus(self._bus_number)
-                self._locked = True
+        self._lock.acquire()
+        # Ensure bus is open
+        if self._bus is None:
+            self._open_bus()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit - release bus lock."""
-        with self._lock:
-            if self._locked and self._bus:
-                self._bus.close()
-                self._bus = None
-                self._locked = False
+        """Context manager exit - release bus lock (but keep bus open)."""
+        self._lock.release()
 
     def try_lock(self) -> bool:
         """Try to acquire the I2C bus lock.
@@ -63,24 +69,24 @@ class SMBus2I2C:
         Returns:
             True if lock was acquired, False otherwise
         """
-        with self._lock:
-            if not self._locked:
+        acquired = self._lock.acquire(blocking=False)
+        if acquired:
+            # Ensure bus is open
+            if self._bus is None:
                 try:
-                    self._bus = SMBus(self._bus_number)
-                    self._locked = True
-                    return True
-                except OSError as e:
-                    _LOGGER.error(f"Failed to open I2C bus {self._bus_number}: {e}")
+                    self._open_bus()
+                except OSError:
+                    self._lock.release()
                     return False
-        return False
+        return acquired
 
     def unlock(self) -> None:
-        """Release the I2C bus lock."""
-        with self._lock:
-            if self._locked and self._bus:
-                self._bus.close()
-                self._bus = None
-                self._locked = False
+        """Release the I2C bus lock (but keep bus open)."""
+        try:
+            self._lock.release()
+        except RuntimeError:
+            # Lock was not held
+            pass
 
     def readfrom_into(self, address: int, buffer: bytearray, *, start: int = 0, end: Optional[int] = None) -> None:
         """Read from I2C device into a buffer.
@@ -240,10 +246,17 @@ class SMBus2I2C:
         """
         _LOGGER.debug("I2C frequency setting not supported with smbus2 (requested: %d Hz)", value)
 
+    def close(self) -> None:
+        """Close the I2C bus."""
+        with self._lock:
+            if self._bus:
+                try:
+                    self._bus.close()
+                    self._bus = None
+                    _LOGGER.debug("Closed I2C bus %d", self._bus_number)
+                except Exception as e:
+                    _LOGGER.warning(f"Error closing I2C bus: {e}")
+
     def __del__(self):
         """Cleanup on deletion."""
-        if self._locked and self._bus:
-            try:
-                self._bus.close()
-            except Exception:
-                pass
+        self.close()

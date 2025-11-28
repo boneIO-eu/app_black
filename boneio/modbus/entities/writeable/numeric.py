@@ -46,7 +46,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
             "entity_id": self.name,
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            config_helper=self._config_helper,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
@@ -72,7 +72,7 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "command_template": '{"device": "' + self.decoded_name + '", "value": "{{ value }}"}',
         }
         msg = modbus_numeric_availabilty_message(
-            topic=self._config_helper.topic_prefix,
+            config_helper=self._config_helper,
             id=self._parent[ID],
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),

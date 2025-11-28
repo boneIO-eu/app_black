@@ -122,6 +122,33 @@ class ConfigHelper:
     def clear_autodiscovery_type(self, ha_type: str):
         self._autodiscovery_messages[ha_type] = {}
 
+    def get_autodiscovery_topics_for_id(self, entity_id: str) -> list[tuple[str, str]]:
+        """Get all autodiscovery topics that contain a specific entity ID.
+        
+        Args:
+            entity_id: Entity ID to search for
+            
+        Returns:
+            List of tuples (ha_type, topic) for matching autodiscovery messages
+        """
+        matching = []
+        for ha_type, messages in self._autodiscovery_messages.items():
+            for topic in messages.keys():
+                # Topic format: homeassistant/{ha_type}/{topic_prefix}/{entity_id}/config
+                if f"/{entity_id}/config" in topic:
+                    matching.append((ha_type, topic))
+        return matching
+
+    def remove_autodiscovery_msg(self, ha_type: str, topic: str):
+        """Remove autodiscovery message from internal cache.
+        
+        Args:
+            ha_type: HA entity type
+            topic: Discovery topic
+        """
+        if ha_type in self._autodiscovery_messages and topic in self._autodiscovery_messages[ha_type]:
+            del self._autodiscovery_messages[ha_type][topic]
+
     def get_config(self, force_reload: bool = False) -> dict[str, Any]:
         """Get cached config or load from file if not cached.
         

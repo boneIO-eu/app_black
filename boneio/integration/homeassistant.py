@@ -30,17 +30,19 @@ from boneio.const import (
     STOP,
 )
 from boneio.version import __version__
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from boneio.core.config.config_helper import ConfigHelper
 
 
 def ha_availabilty_message(
     id: str,
     name: str,
-    topic: str = "boneIO",
+    config_helper: ConfigHelper,
     device_name: str = "boneIO",
     device_type: str = INPUT,
     model: str = "boneIO Relay Board",
     web_url: str | None = None,
-    config_helper=None,
     **kwargs,
 ):
     """Create availability topic for HA.
@@ -57,12 +59,11 @@ def ha_availabilty_message(
         **kwargs: Additional fields to include in the message
     """
     # Extract values from config_helper if provided
-    if config_helper is not None:
-        topic = config_helper.topic_prefix
-        device_name = config_helper.name
-        model = config_helper.device_type
-        if config_helper.is_web_active and config_helper.network_info:
-            web_url = f"http://{config_helper.network_info.get('ip', 'localhost')}:9000"
+    topic = config_helper.topic_prefix
+    device_name = config_helper.name
+    model = config_helper.device_type
+    if config_helper.is_web_active and config_helper.network_info:
+        web_url = f"http://{config_helper.network_info.get('ip', 'localhost')}:9000"
     
     web_url_dict = {
         "configuration_url": web_url
@@ -86,8 +87,8 @@ def ha_availabilty_message(
     }
 
 def ha_virtual_energy_sensor_discovery_message(
-    topic: str,
     relay_id: str,
+    config_helper: ConfigHelper,
     **kwargs
 ) -> dict[str, str]:
     """
@@ -96,31 +97,32 @@ def ha_virtual_energy_sensor_discovery_message(
      - sensor.<id>_power: current power in W
      - sensor.<id>_energy: total energy in Wh
     """
+    topic = config_helper.topic_prefix
     # Power sensor discovery
     msg = ha_availabilty_message(
         state_topic=f"{topic}/energy/{relay_id}",
-        topic=topic,
+        config_helper=config_helper,
         **kwargs,
     )
     return msg
 
 
-def ha_light_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
     """Create LIGHT availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["state_value_template"] = "{{ value_json.state }}"
     return msg
 
 
-def ha_led_availabilty_message(id: str, topic: str = "boneIO",  **kwargs):
+def ha_led_availabilty_message(id: str, config_helper: ConfigHelper, **kwargs):
     """Create LED availability topic for HA."""
-    msg = ha_availabilty_message(device_type=RELAY, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set"
-    msg["brightness_state_topic"] = f"{topic}/{RELAY}/{id}"
-    msg["brightness_command_topic"] = f"{topic}/cmd/{RELAY}/{id}/set_brightness"
+    msg = ha_availabilty_message(device_type=RELAY, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{RELAY}/{id}/set"
+    msg["brightness_state_topic"] = f"{config_helper.topic_prefix}/{RELAY}/{id}"
+    msg["brightness_command_topic"] = f"{config_helper.topic_prefix}/cmd/{RELAY}/{id}/set_brightness"
     msg["brightness_scale"] = 65535
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -130,28 +132,46 @@ def ha_led_availabilty_message(id: str, topic: str = "boneIO",  **kwargs):
 
 
 def ha_button_availabilty_message(
-    id: str, topic: str = "boneIO", payload_press: str = "reload", **kwargs
+    id: str, config_helper: ConfigHelper, payload_press: str = "reload", **kwargs
 ):
     """Create BUTTON availability topic for HA."""
-    msg = ha_availabilty_message(device_type="button", topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/button/{id}/set"
+    msg = ha_availabilty_message(device_type="button", config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/button/{id}/set"
     msg["payload_press"] = payload_press
     return msg
 
 
-def ha_switch_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
     """Create SWITCH availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["value_template"] = "{{ value_json.state }}"
     return msg
 
-def ha_valve_availabilty_message(id: str, topic: str = "boneIO", device_type: str = RELAY, **kwargs):
+
+def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_type: str, **kwargs):
+    """Create GROUP (output group) availability topic for HA.
+    
+    Groups use 'group' as device_type in MQTT topics instead of 'relay'.
+    """
+    from boneio.const import GROUP
+    msg = ha_availabilty_message(device_type=GROUP, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{GROUP}/{id}/set"
+    msg["payload_off"] = OFF
+    msg["payload_on"] = ON
+    if output_type == "light":
+        msg["state_value_template"] = "{{ value_json.state }}"
+    else:
+        msg["value_template"] = "{{ value_json.state }}"
+    return msg
+
+
+def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
     """Create Valve availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, topic=topic, id=id, **kwargs)
-    msg["command_topic"] = f"{topic}/cmd/{device_type}/{id}/set"
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_close"] = OFF
     msg["payload_open"] = ON
     msg["state_open"] = ON
@@ -161,51 +181,51 @@ def ha_valve_availabilty_message(id: str, topic: str = "boneIO", device_type: st
     return msg
 
 
-def ha_event_availabilty_message(**kwargs):
-    msg = ha_availabilty_message(device_type=INPUT, **kwargs)
+def ha_event_availabilty_message(config_helper: ConfigHelper, **kwargs):
+    msg = ha_availabilty_message(device_type=INPUT, config_helper=config_helper, **kwargs)
     msg["icon"] = "mdi:gesture-double-tap"
     msg["event_types"] = [SINGLE, DOUBLE, LONG]
     return msg
 
 
-def ha_adc_sensor_availabilty_message(**kwargs):
-    msg = ha_availabilty_message(device_type=SENSOR, **kwargs)
+def ha_adc_sensor_availabilty_message(config_helper: ConfigHelper, **kwargs):
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, **kwargs)
     msg["unit_of_measurement"] = "V"
     msg["device_class"] = "voltage"
     msg["state_class"] = "measurement"
     return msg
 
 
-def ha_sensor_availabilty_message(device_type: str = SENSOR, **kwargs):
-    msg = ha_availabilty_message(device_type=device_type, **kwargs)
+def ha_sensor_availabilty_message(config_helper: ConfigHelper, device_type: str = SENSOR, **kwargs):
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, **kwargs)
     return msg
 
 
 def ha_binary_sensor_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    msg = ha_availabilty_message(device_type=INPUT_SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=INPUT_SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
     msg["payload_on"] = "pressed"
     msg["payload_off"] = "released"
     return msg
 
 
 def ha_sensor_ina_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    msg = ha_availabilty_message(device_type=SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
     return msg
 
 
 def ha_sensor_temp_availabilty_message(
-    id: str, name: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    msg = ha_availabilty_message(device_type=SENSOR, topic=topic, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
     msg["device_class"] = "temperature"
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
@@ -216,14 +236,14 @@ def modbus_availabilty_message(
     entity_id: str,
     name: str,
     state_topic_base: str,
-    topic: str,
+    config_helper: ConfigHelper,
     model: str,
     device_type: str = SENSOR,
     **kwargs,
 ):
     """Create Modbus availability topic for HA."""
     return {
-        "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
+        "availability": [{"topic": f"{config_helper.topic_prefix}/{id}/{STATE}"}],
         "device": {
             "identifiers": [id],
             "manufacturer": "boneIO",
@@ -232,8 +252,8 @@ def modbus_availabilty_message(
             "sw_version": __version__,
         },
         "name": entity_id,
-        "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        "state_topic": f"{config_helper.topic_prefix}/{device_type}/{id}/{state_topic_base}",
+        "unique_id": f"{config_helper.topic_prefix}{entity_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
 
@@ -242,12 +262,13 @@ def modbus_sensor_availabilty_message(
     sensor_id: str,
     name: str,
     state_topic_base: str,
-    topic: str,
+    config_helper: ConfigHelper,
     model: str,
     device_type: str = SENSOR,
     **kwargs,
 ):
     """Create Modbus Sensor availability topic for HA."""
+    topic = config_helper.topic_prefix
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
         "device": {
@@ -268,12 +289,13 @@ def modbus_select_availabilty_message(
     entity_id: str,
     name: str,
     state_topic_base: str,
-    topic: str,
+    config_helper: ConfigHelper,
     model: str,
     device_type: str = SELECT,
     **kwargs,
 ):
     """Create Modbus Select availability topic for HA."""
+    topic = config_helper.topic_prefix
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
         "device": {
@@ -295,12 +317,13 @@ def modbus_numeric_availabilty_message(
     entity_id: str,
     name: str,
     state_topic_base: str,
-    topic: str,
+    config_helper: ConfigHelper,
     model: str,
     device_type: str = NUMERIC,
     **kwargs,
 ):
     """Create Modbus Numeric availability topic for HA."""
+    topic = config_helper.topic_prefix
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
         "device": {
@@ -318,12 +341,13 @@ def modbus_numeric_availabilty_message(
 
 
 def ha_cover_availabilty_message(
-    id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str, name: str, device_class: str, config_helper: ConfigHelper, **kwargs
 ):
     """Create Cover availability topic for HA."""
+    topic = config_helper.topic_prefix
     kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
     msg = ha_availabilty_message(
-        device_type=COVER, topic=topic, id=id, name=name, model=model, **kwargs
+        device_type=COVER, config_helper=config_helper, id=id, name=name, **kwargs
     )
 
     return {
@@ -344,12 +368,13 @@ def ha_cover_availabilty_message(
 
 
 def ha_cover_with_tilt_availabilty_message(
-    id: str, name: str, device_class: str, topic: str = "boneIO", model: str = "boneIO Relay Board", **kwargs
+    id: str, name: str, device_class: str, config_helper: ConfigHelper, **kwargs
 ):
     """Create Cover with tilt availability topic for HA."""
+    topic = config_helper.topic_prefix
     kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
     msg = ha_availabilty_message(
-        device_type=COVER, topic=topic, id=id, name=name, model=model, **kwargs
+        device_type=COVER, config_helper=config_helper, id=id, name=name, **kwargs
     )
 
     return {

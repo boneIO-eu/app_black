@@ -89,16 +89,18 @@ class InputManager:
         """Configure inputs (events and binary sensors).
         
         Args:
-            reload_config: If True, reload configuration from file
+            reload_config: If True, reload configuration from file and update existing inputs
         """
         def check_if_pin_configured(pin: str) -> bool:
-            """Check if pin is already configured."""
+            """Check if pin is already configured (only blocks new configs, not reloads)."""
             if pin in self._inputs:
                 if not reload_config:
                     _LOGGER.warning(
                         "PIN %s is already configured. Omitting it.", pin
                     )
                     return True
+                # During reload, we want to update existing inputs - don't block
+                return False
             return False
 
         def configure_single_input(configure_sensor_func: Callable, gpio: dict) -> None:
@@ -112,10 +114,12 @@ class InputManager:
             if check_if_pin_configured(pin):
                 return
             
+            existing_input = self._inputs.get(pin, None) if reload_config else None
+            
             input_device = configure_sensor_func(
                 gpio=gpio,
                 pin=pin,
-                existing_input=self._inputs.get(pin, None),  # For reload actions
+                existing_input=existing_input,
                 actions=self._manager.parse_actions(pin, gpio.pop(ACTIONS, {})),
             )
             
@@ -171,25 +175,25 @@ class InputManager:
             Configured GpioEventButton instance or None on error
         """
         try:
-            # Determine display name
+            # Determine display name (ensure it's always a string)
             if "name" in gpio:
-                name = gpio.pop("name")
+                name: str = str(gpio.pop("name"))
             elif ID in gpio:
-                name = gpio.get(ID)
+                name = str(gpio.get(ID, pin))
             elif "boneio_input" in gpio:
-                name = gpio.get("boneio_input")
+                name = str(gpio.get("boneio_input", pin))
             else:
                 name = pin
 
             # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
             if ID in gpio:
-                input_id = gpio.pop(ID)
+                input_id: str = str(gpio.pop(ID))
             elif "boneio_input" in gpio:
-                input_id = gpio.get("boneio_input")
+                input_id = str(gpio.get("boneio_input", pin))
             else:
                 input_id = pin
             
-            # Reload: update existing input's actions
+            # Reload: update existing input's actions and name
             if existing_input:
                 if not isinstance(existing_input, GpioEventButton):
                     _LOGGER.warning(
@@ -197,6 +201,18 @@ class InputManager:
                     )
                     return existing_input
                 existing_input.set_actions(actions=actions)
+                # Update name if changed
+                if hasattr(existing_input, '_name'):
+                    existing_input._name = name
+                # Re-send HA discovery with updated name
+                if gpio.get(SHOW_HA, True):
+                    self._manager.send_ha_autodiscovery(
+                        id=pin,
+                        name=name,
+                        ha_type=EVENT_ENTITY,
+                        device_class=gpio.get(DEVICE_CLASS, None),
+                        availability_msg_func=ha_event_availabilty_message,
+                    )
                 return existing_input
             
             # Create new event input
@@ -245,25 +261,23 @@ class InputManager:
             Configured GpioInputBinarySensor instance or None on error
         """
         try:
-            # Determine display name
+            # Determine display name (ensure it's always a string)
             if "name" in gpio:
-                name = gpio.pop("name")
+                name: str = str(gpio.pop("name"))
             elif ID in gpio:
-                name = gpio.get(ID)
+                name = str(gpio.get(ID, pin))
             elif "boneio_input" in gpio:
-                name = gpio.get("boneio_input")
+                name = str(gpio.get("boneio_input", pin))
             else:
                 name = pin
 
             # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
             if ID in gpio:
-                input_id = gpio.pop(ID)
-            elif "boneio_input" in gpio:
-                input_id = gpio.get("boneio_input")
+                input_id: str = str(gpio.pop(ID))
             else:
-                input_id = pin
+                input_id = str(gpio.get("boneio_input", pin))
 
-            # Reload: update existing input's actions
+            # Reload: update existing input's actions and name
             if existing_input:
                 if not isinstance(existing_input, GpioInputBinarySensor):
                     _LOGGER.warning(
@@ -271,6 +285,18 @@ class InputManager:
                     )
                     return existing_input
                 existing_input.set_actions(actions=actions)
+                # Update name if changed
+                if hasattr(existing_input, '_name'):
+                    existing_input._name = name
+                # Re-send HA discovery with updated name
+                if gpio.get(SHOW_HA, True):
+                    self._manager.send_ha_autodiscovery(
+                        id=input_id,
+                        name=name,
+                        ha_type=BINARY_SENSOR,
+                        device_class=gpio.get(DEVICE_CLASS, None),
+                        availability_msg_func=ha_binary_sensor_availabilty_message,
+                    )
                 return existing_input
             
             # Create new binary sensor input
@@ -330,10 +356,12 @@ class InputManager:
     def reload_inputs(self) -> None:
         """Reload input configuration from file.
         
-        This clears existing inputs and reconfigures them from the config file.
+        This updates existing inputs' actions from the config file.
+        GPIO pins are preserved, only actions are reloaded.
         """
         _LOGGER.info("Reloading input configuration")
-        self._inputs.clear()
+        # Don't clear inputs - we want to preserve GPIO state
+        # _configure_inputs with reload_config=True will update actions on existing inputs
         self._configure_inputs(reload_config=True)
 
     async def handle_input_event(self, event: InputEvent) -> None:
@@ -389,12 +417,27 @@ class InputManager:
         but can be called manually if needed.
         """
         for pin, input_device in self._inputs.items():
-            if hasattr(input_device, 'send_ha_discovery'):
-                try:
-                    await input_device.send_ha_discovery()
-                except Exception as err:
-                    _LOGGER.error(
-                        "Failed to send HA discovery for input %s: %s",
-                        pin,
-                        err
+            try:
+                # Determine input type and send appropriate autodiscovery
+                if isinstance(input_device, GpioEventButton):
+                    self._manager.send_ha_autodiscovery(
+                        id=pin,
+                        name=input_device.name if hasattr(input_device, 'name') else pin,
+                        ha_type=EVENT_ENTITY,
+                        device_class=getattr(input_device, '_device_class', None),
+                        availability_msg_func=ha_event_availabilty_message,
                     )
+                elif isinstance(input_device, GpioInputBinarySensor):
+                    self._manager.send_ha_autodiscovery(
+                        id=pin,
+                        name=input_device.name if hasattr(input_device, 'name') else pin,
+                        ha_type=BINARY_SENSOR,
+                        device_class=getattr(input_device, '_device_class', None),
+                        availability_msg_func=ha_binary_sensor_availabilty_message,
+                    )
+            except Exception as err:
+                _LOGGER.error(
+                    "Failed to send HA discovery for input %s: %s",
+                    pin,
+                    err
+                )

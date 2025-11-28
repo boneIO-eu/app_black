@@ -471,18 +471,28 @@ output:
         required: False
         coerce: str
         meta:
-          label: Output Name
+          label: Display Name
+          description: Optional friendly name shown in Home Assistant. If not set, uses effective_id.
       id:
         type: string
         required: False
         coerce: str
         meta:
-          label: Output ID (optional, overrides boneio_output)
+          label: Output ID
+          description: |
+            Technical identifier used in MQTT topics, output groups, and actions.
+            - If boneio_output is set: id is optional (defaults to boneio_output)
+            - If boneio_output is NOT set: id is REQUIRED
+            - If both are set: id overrides boneio_output as identifier
       boneio_output:
         type: string
         required: False
         meta:
-          label: Reference to predefined output configuration
+          label: BoneIO Output
+          description: |
+            Reference to predefined output configuration (e.g., OUT_01, OUT_02).
+            Available only when 'boneio' section is configured.
+            Used as default ID if 'id' field is not specified.
       kind:
         type: string
         required: False
@@ -577,22 +587,33 @@ output:
 output_group:
   type: list
   meta:
-    label: "https://boneio.eu/docs/black/configuration/output_group \n List of groupes outputs to define. Output has to be defined first in output section!"
+    label: "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!"
   check_with: output_id_uniqueness
   schema:
     type: dict
     schema:
       id:
         type: string
+        required: True
+        coerce: str
+        meta:
+          label: Group ID
+          description: Technical identifier for this group, used in MQTT topics and actions.
+      name:
+        type: string
         required: False
         coerce: str
         meta:
-          label: Id to send to use in HA and in GPIO Input. Default to `kind_pin`
+          label: Display Name
+          description: Optional friendly name shown in Home Assistant. If not set, uses id.
       outputs:
         type: list
         required: True
         meta:
-          label: List of outputs.
+          label: Output IDs
+          description: |
+            List of output identifiers to include in this group.
+            Use the effective_id of each output (boneio_output or custom id).
       all_on_behaviour:
         type: boolean
         required: True

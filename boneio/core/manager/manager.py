@@ -325,18 +325,26 @@ class Manager:
             output_type: Output type (optional, used for outputs like LIGHT, LED, SWITCH, VALVE)
             **kwargs: Additional parameters
         """
-        from boneio.const import BUTTON, LED, LIGHT, SWITCH, VALVE
+        from boneio.const import BUTTON, GROUP, LED, LIGHT, SWITCH, VALVE
         from boneio.integration.homeassistant import (
             ha_button_availabilty_message,
+            ha_group_availabilty_message,
             ha_led_availabilty_message,
             ha_light_availabilty_message,
             ha_switch_availabilty_message,
             ha_valve_availabilty_message,
         )
         
+        # Check if this is a group (passed via kwargs)
+        is_group = kwargs.pop('is_group', False)
+        
         # Determine availability function based on output_type (for outputs)
         availability_msg_func = None
-        if output_type:
+        if is_group:
+            # Groups use special availability function with 'group' device_type
+            availability_msg_func = ha_group_availabilty_message
+            kwargs = {**kwargs, "output_type": output_type}
+        elif output_type:
             availability_function_chooser = {
                 LIGHT: ha_light_availabilty_message,
                 LED: ha_led_availabilty_message,
@@ -360,6 +368,7 @@ class Manager:
         
         # Call availability function if defined
         if availability_msg_func:
+            print("AVAILABILITY MESSAGE FUNCTION: ", id)
             payload = availability_msg_func(
                 id=id,
                 name=name,
@@ -587,6 +596,7 @@ class Manager:
         # Sections that support hot reload
         hot_reloadable_sections = {
             OUTPUT: lambda: self.outputs.reload_outputs(),
+            "output_group": lambda: self.outputs.reload_outputs(),  # Alias for "output" (reloads both outputs and groups)
             COVER: lambda: self.covers.reload_covers(),
             "input": lambda: self.inputs.reload_inputs(),  # Reloads both event and binary_sensor
             EVENT_ENTITY: lambda: self.inputs.reload_inputs(),  # Alias for "input"
@@ -736,7 +746,7 @@ class Manager:
             return
         
         if msg_type == "group" and command == "set":
-            target_device = self._configured_output_groups.get(device_id)
+            target_device = self.outputs.get_output_group(device_id)
             if target_device and target_device.output_type != NONE:
                 action_from_msg = relay_actions.get(message.upper())
                 if action_from_msg:
@@ -748,28 +758,31 @@ class Manager:
             return
 
         if msg_type == BUTTON and command == "set":
-            if device_id == "logger" and message == "reload":
-                _LOGGER.info("Reloading logger configuration.")
-                self._logger_reload()
-            elif device_id == "restart" and message == "restart":
-                await self.restart_request()
-            elif device_id == "inputs_reload" and message == "inputs_reload":
+            if device_id == "inputs_reload" and message == "inputs_reload":
                 _LOGGER.info("Reloading events and binary sensors actions")
-                self.configure_inputs(reload_config=True)
+                self.inputs.reload_inputs()
             elif device_id == "cover_reload" and message == "cover_reload":
                 _LOGGER.info("Reloading covers actions")
-                self._configure_covers(reload_config=True)
+                self.covers.reload_covers()
+            elif device_id == "outputs_reload" and message == "outputs_reload":
+                _LOGGER.info("Reloading outputs and groups")
+                self.outputs.reload_outputs()
             return
 
         if msg_type == "modbus" and command == "set":
             target_device = self.modbus.get_all_coordinators().get(device_id)
             if target_device:
                 if isinstance(message, str):
-                    message = json.loads(message)
-                    if "device" in message and "value" in message:
-                        entity = target_device.find_entity(message["device"])
-                        if entity:
-                            await target_device.write_register(value=message["value"], entity=entity)
+                    try:
+                        parsed_msg: dict = json.loads(message)
+                        device_name = parsed_msg.get("device")
+                        value = parsed_msg.get("value")
+                        if device_name and value is not None:
+                            entity = target_device.find_entity(device_name)
+                            if entity:
+                                await target_device.write_register(value=value, entity=entity)
+                    except json.JSONDecodeError:
+                        _LOGGER.warning("Invalid JSON in modbus message: %s", message)
             return
 
         _LOGGER.debug("Unknown message type %s.", msg_type)

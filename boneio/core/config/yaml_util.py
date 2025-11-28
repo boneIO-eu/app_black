@@ -863,14 +863,14 @@ def strip_default_values(data: Any, schema: dict = None, section: str = None) ->
         return data
 
 
-def update_config_section(config_file: str, section: str, data: dict) -> dict:
+def update_config_section(config_file: str, section: str, data: dict | list) -> dict:
     """
     Update content of a configuration section with intelligent !include handling.
     
     Args:
         config_file: Path to the main config.yaml file
         section: Name of the section to update
-        data: New data for the section
+        data: New data for the section (dict for single-value sections, list for array sections)
         
     Returns:
         dict: Status response with success/error message
@@ -942,23 +942,27 @@ def update_config_section(config_file: str, section: str, data: dict) -> dict:
                 section_indent = 0
                 
                 for line in original_lines:
-                    if line.strip().startswith(f"{section}:"):
+                    stripped = line.strip()
+                    # Check if this line starts the target section
+                    if stripped == f"{section}:" or stripped.startswith(f"{section}: "):
                         # Found the section start
                         in_section = True
                         section_indent = len(line) - len(line.lstrip())
-                        # Add the section header
-                        updated_lines.append(line)
-                        # Add the new cleaned data
+                        # Add the complete new section (header + data)
                         section_yaml = dump({section: cleaned_data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                        section_lines = section_yaml.split('\n')[1:]  # Skip the section name line
-                        for data_line in section_lines:
-                            if data_line.strip():
-                                updated_lines.append(' ' * section_indent + data_line + '\n')
+                        # Add proper indentation if section was indented
+                        if section_indent > 0:
+                            indented_lines = []
+                            for yaml_line in section_yaml.split('\n'):
+                                if yaml_line.strip():
+                                    indented_lines.append(' ' * section_indent + yaml_line)
+                            section_yaml = '\n'.join(indented_lines)
+                        updated_lines.append(section_yaml + '\n')
                     elif in_section:
                         # Check if we're still in the same section
                         line_indent = len(line) - len(line.lstrip())
-                        if line.strip() and line_indent <= section_indent:
-                            # We've moved to a new section
+                        if stripped and line_indent <= section_indent and not stripped.startswith('-'):
+                            # We've moved to a new section (non-empty line at same or lower indent, not a list item)
                             in_section = False
                             updated_lines.append(line)
                         # Skip lines that are part of the old section

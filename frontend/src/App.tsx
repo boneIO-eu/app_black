@@ -9,7 +9,7 @@ import ModbusView from './components/ModbusView';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
-import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, isOutputEvent } from './hooks/useWebSocket';
+import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
@@ -21,12 +21,14 @@ export const WebSocketContext = createContext<{
   sensors: SensorEvent[];
   modbus_devices: ModbusDeviceEvent[];
   covers: CoverEvent[];
+  groups: GroupEvent[];
 }>({
   outputs: [],
   inputs: [],
   sensors: [],
   modbus_devices: [],
   covers: [],
+  groups: [],
 });
 
 // Protected route component
@@ -51,6 +53,7 @@ function AppContent() {
   const [sensors, setSensors] = useState<SensorEvent[]>([]);
   const [modbus_devices, setModbusDevices] = useState<ModbusDeviceEvent[]>([]);
   const [covers, setCovers] = useState<CoverEvent[]>([]);
+  const [groups, setGroups] = useState<GroupEvent[]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
   const { error, addMessageListener } = useWebSocket();
@@ -65,6 +68,7 @@ function AppContent() {
       setSensors([]);
       setModbusDevices([]);
       setCovers([]);
+      setGroups([]);
       return;
     }
 
@@ -76,7 +80,9 @@ function AppContent() {
             const index = prev.findIndex(o => o.entity_id === message.entity_id);
             if (index >= 0) {
               const prevOutput = prev[index];
-              if (prevOutput.state.state === message.state.state) {
+              // Check if state or name changed
+              if (prevOutput.state.state === message.state.state &&
+                  prevOutput.state.name === message.state.name) {
                 return prev; // No change needed
               }
               const newOutputs = [...prev];
@@ -145,6 +151,42 @@ function AppContent() {
             }
             return [...prev, message];
           });
+        } else if (isGroupEvent(message)) {
+          setGroups(prev => {
+            const index = prev.findIndex(g => g.entity_id === message.entity_id);
+            if (index >= 0) {
+              const prevGroup = prev[index];
+              // Check if state or name changed
+              if (prevGroup.state.state === message.state.state &&
+                  prevGroup.state.name === message.state.name) {
+                return prev; // No change needed
+              }
+              const newGroups = [...prev];
+              newGroups[index] = message;
+              return newGroups;
+            }
+            return [...prev, message];
+          });
+        } else if (isConfigReloadEvent(message)) {
+          // Config was reloaded - clear old states
+          // New states will be sent by backend after reload
+          console.log('🔄 Config reload event received, clearing states for sections:', message.sections);
+          const sections = message.sections;
+          
+          if (sections.includes('all') || sections.includes('output') || sections.includes('output_group')) {
+            setOutputs([]);
+            setGroups([]);
+          }
+          if (sections.includes('all') || sections.includes('cover')) {
+            setCovers([]);
+          }
+          if (sections.includes('all') || sections.includes('input') || sections.includes('event') || sections.includes('binary_sensor')) {
+            setInputs([]);
+          }
+          if (sections.includes('all') || sections.includes('modbus_devices')) {
+            setModbusDevices([]);
+            setSensors([]);
+          }
         }
       });
 
@@ -163,7 +205,7 @@ function AppContent() {
   }
 
   return (
-    <WebSocketContext.Provider value={{ outputs, inputs, sensors, modbus_devices, covers }}>
+    <WebSocketContext.Provider value={{ outputs, inputs, sensors, modbus_devices, covers, groups }}>
       <Routes>
         <Route path="/" element={
           <ProtectedRoute>

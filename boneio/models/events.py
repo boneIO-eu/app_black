@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from boneio.const import ClickTypes
 from boneio.models.state import (
     CoverState,
+    GroupState,
     HostSensorState,
     InputState,
     ModbusDeviceState,
@@ -109,10 +110,38 @@ class HostEvent(BaseModel):
     state: HostSensorState
 
 
+class GroupEvent(BaseModel):
+    """Output group event - triggered when group state changes.
+    
+    Attributes:
+        event_type: Type of event (always "group")
+        entity_id: Unique group identifier
+        state: Current state of the group
+    """
+    
+    event_type: Literal["group"] = "group"
+    entity_id: str
+    state: GroupState
+
+
+class ConfigReloadEvent(BaseModel):
+    """Config reload event - triggered when configuration is reloaded.
+    
+    Frontend should clear old states and wait for fresh data.
+    
+    Attributes:
+        event_type: Type of event (always "config_reload")
+        sections: List of reloaded section names
+    """
+    
+    event_type: Literal["config_reload"] = "config_reload"
+    sections: list[str]
+
+
 # Discriminated union for all events
 # The discriminator field "event_type" allows Pydantic to automatically
 # determine which event type to use when parsing
-Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent
+Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent
 
 __all__ = [
     "InputEvent",
@@ -121,6 +150,8 @@ __all__ = [
     "SensorEvent",
     "ModbusDeviceEvent",
     "HostEvent",
+    "GroupEvent",
+    "ConfigReloadEvent",
     "Event",
 ]
 

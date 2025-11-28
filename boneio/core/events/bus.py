@@ -100,7 +100,8 @@ class EventBus:
             "cover": {},
             "modbus_device": {},
             "sensor": {},
-            "host": {}
+            "host": {},
+            "group": {}
         }
         self._listener_id_index = {}
         self._worker_task = None

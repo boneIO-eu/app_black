@@ -47,6 +47,7 @@ from boneio.core.manager import Manager
 from boneio.exceptions import ConfigurationException
 from boneio.models import (
     CoverState,
+    GroupState,
     InputState,
     OutputState,
     SensorState,
@@ -55,6 +56,7 @@ from boneio.models.actions import CoverAction, CoverPosition, CoverTilt
 from boneio.models.events import (
     CoverEvent,
     Event,
+    GroupEvent,
     InputEvent,
     ModbusDeviceEvent,
     OutputEvent,
@@ -483,6 +485,26 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
     else:
         return {"status": "error"}
 
+
+@app.post("/api/groups/{group_id}/toggle")
+async def toggle_group(group_id: str, manager: Manager = Depends(get_manager)):
+    """Toggle output group state.
+    
+    Args:
+        group_id: ID of the output group to toggle
+        manager: Manager instance
+        
+    Returns:
+        Status response with 'ok' or error
+    """
+    group = manager.outputs.get_output_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Output group not found")
+    
+    await group.async_toggle()
+    return {"status": "ok"}
+
+
 @app.post("/api/covers/{cover_id}/action")
 async def cover_action(cover_id: str, action_data: CoverAction, manager: Manager = Depends(get_manager)):
     """Control cover with specific action (open, close, stop)."""
@@ -834,8 +856,14 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/api/config/{section}")
-async def update_section_content(section: str, data: dict = Body(...)):
-    """Update content of a configuration section."""
+async def update_section_content(section: str, data: dict | list = Body(...)):
+    """Update content of a configuration section.
+    
+    Args:
+        section: Name of the config section (e.g., 'mqtt', 'output_group')
+        data: Section data - can be dict (for single-value sections like mqtt) 
+              or list (for array sections like output_group, output, event)
+    """
     
     try:
         result = update_config_section(app.state.yaml_config_file, section, data)
@@ -873,6 +901,13 @@ async def reload_configuration(
     manager: Manager = app.state.manager
     
     try:
+        # Send config reload event to WebSocket clients before reload
+        # This tells frontend to clear old states
+        from boneio.models.events import ConfigReloadEvent
+        reload_event = ConfigReloadEvent(sections=sections or ["all"])
+        websocket_manager: WebSocketManager = app.state.websocket_manager
+        await websocket_manager.broadcast(reload_event.model_dump())
+        
         result = await manager.reload_config(reload_sections=sections)
         
         if result.get("status") == "error":
@@ -960,6 +995,23 @@ def add_listener_for_all_outputs(boneio_manager: Manager):
 
 def remove_listener_for_all_outputs(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws")
+
+
+def add_listener_for_all_groups(boneio_manager: Manager):
+    """Add WebSocket listeners for all output groups."""
+    for group in boneio_manager.outputs.get_all_output_groups().values():
+        boneio_manager.event_bus.add_event_listener(
+            event_type="group",
+            entity_id=group.id,
+            listener_id="ws",
+            target=boneio_state_changed_callback,
+        )
+
+
+def remove_listener_for_all_groups(boneio_manager: Manager):
+    """Remove WebSocket listeners for all output groups."""
+    boneio_manager.event_bus.remove_event_listener(event_type="group", listener_id="ws")
+
 
 def add_listener_for_all_covers(boneio_manager: Manager):
     for cover in boneio_manager.covers.get_all_covers().values():
@@ -1095,6 +1147,23 @@ async def websocket_endpoint(
                     except Exception as e:
                         _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
 
+                # Send output groups
+                for group in boneio_manager.outputs.get_all_output_groups().values():
+                    try:
+                        group_state = GroupState(
+                            id=group.id,
+                            name=group.name,
+                            state=group.state,
+                            type=group.output_type,
+                            timestamp=getattr(group, 'last_timestamp', None),
+                        )
+                        update = GroupEvent(entity_id=group.id, state=group_state)
+                        if not await send_state_update(update):
+                            return
+
+                    except Exception as e:
+                        _LOGGER.error(f"Error preparing group state: {type(e).__name__} - {e}")
+
                 # Send covers
                 for cover in boneio_manager.covers.get_all_covers().values():
                     try:
@@ -1218,6 +1287,7 @@ async def websocket_endpoint(
             if websocket.application_state == WebSocketState.CONNECTED:
                 _LOGGER.debug("Initial states sent, setting up event listeners")
                 add_listener_for_all_outputs(boneio_manager=boneio_manager)
+                add_listener_for_all_groups(boneio_manager=boneio_manager)
                 add_listener_for_all_covers(boneio_manager=boneio_manager)
                 add_listener_for_all_inputs(boneio_manager=boneio_manager)
                 sensor_listener_for_all_sensors(boneio_manager=boneio_manager)

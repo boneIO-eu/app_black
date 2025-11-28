@@ -100,22 +100,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
       {activeTab === 'basic' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{getFieldTitle('id')}</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder="e.g., living_room_light"
-                value={data.id || ''}
-                onChange={(e) => updateField('id', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{getFieldDescription('id')}</span>
-              </label>
-            </div>
-
+            {/* BoneIO Output - Primary field */}
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">{getFieldTitle('boneio_output')}</span>
@@ -162,6 +147,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
               )}
             </div>
 
+            {/* Output Type */}
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">{getFieldTitle('output_type')}</span>
@@ -179,6 +165,40 @@ const OutputForm: React.FC<OutputFormProps> = ({
               </select>
               <label className="label">
                 <span className="label-text-alt">{getFieldDescription('output_type')}</span>
+              </label>
+            </div>
+
+            {/* Display Name */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Display Name</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder="e.g., Living Room Light"
+                value={data.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Optional friendly name shown in Home Assistant</span>
+              </label>
+            </div>
+
+            {/* Custom ID (optional override) */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Custom ID</span>
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder={data.boneio_output || 'Uses boneio_output if empty'}
+                value={data.id || ''}
+                onChange={(e) => updateField('id', e.target.value)}
+              />
+              <label className="label">
+                <span className="label-text-alt">Optional. Overrides boneio_output as technical ID in MQTT/groups/actions</span>
               </label>
             </div>
           </div>

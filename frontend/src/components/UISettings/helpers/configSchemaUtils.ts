@@ -83,6 +83,40 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
     // Konwertujemy schema do ExtendedJSONSchema
     const extendedSchema = asExtendedSchema(schema);
     console.log("convertFormDataToOriginalTypes", formData, originalData, schema)
+    
+    // Handle arrays at top level - don't convert to object!
+    if (Array.isArray(formData)) {
+      const itemsSchema = extendedSchema?.items as ExtendedJSONSchema | undefined;
+      return formData.map((item: any, index: number) => {
+        if (typeof item === 'object' && item !== null) {
+          const originalItem = Array.isArray(originalData) && index < originalData.length ? originalData[index] : {};
+          
+          // Convert timeperiod fields
+          const convertedItem = { ...item };
+          if (hasProperties(itemsSchema) && itemsSchema.properties) {
+            Object.keys(convertedItem).forEach(itemKey => {
+              const itemPropSchema = itemsSchema.properties?.[itemKey];
+              
+              if (itemPropSchema && 
+                  typeof itemPropSchema === 'object' && 
+                  itemPropSchema['x-timeperiod'] === true && 
+                  typeof convertedItem[itemKey] === 'number') {
+                convertedItem[itemKey] = convertMillisecondsToTimeperiod(convertedItem[itemKey]);
+              }
+            });
+          }
+          
+          // Recursively convert nested objects
+          if (originalItem && typeof originalItem === 'object') {
+            return convertFormDataToOriginalTypes(convertedItem, originalItem, itemsSchema);
+          }
+          
+          return convertedItem;
+        }
+        return item;
+      });
+    }
+    
     if (!originalData || typeof originalData !== 'object') return formData;
     if (!formData || typeof formData !== 'object') return formData;
 
