@@ -45,6 +45,7 @@ export default function UISettings() {
   const [showYamlPreview, setShowYamlPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: 'idle' | 'saving' | 'success' | 'error' }>({});
   const [unsavedChanges, setUnsavedChanges] = useState<{ [key: string]: boolean }>({});
+  const [isReloading, setIsReloading] = useState(false);
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
@@ -440,6 +441,7 @@ export default function UISettings() {
         const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor'];
         if (reloadableSections.includes(sectionName)) {
           try {
+            setIsReloading(true);
             console.log(`🔄 Triggering reload for section: ${sectionName}`);
             const reloadResponse = await fetch('/api/config/reload', {
               method: 'POST',
@@ -462,6 +464,8 @@ export default function UISettings() {
           } catch (reloadError) {
             console.warn(`⚠️ Error reloading section ${sectionName}:`, reloadError);
             // Don't throw - save was successful, reload is optional
+          } finally {
+            setIsReloading(false);
           }
         }
         
@@ -679,7 +683,19 @@ export default function UISettings() {
 
   const activeSection_data = sections.find(s => s.name === activeSection);
   return (
-    <div className="flex h-full bg-base-100">
+    <div className="flex h-full bg-base-100 relative">
+      {/* Global loading overlay */}
+      {isReloading && (
+        <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
+            <span className="loading loading-spinner loading-lg text-primary"></span>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-base-content">Reloading configuration...</p>
+              <p className="text-sm text-base-content/70">Please wait while changes are applied</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Sidebar with section tabs */}
       <div className="w-80 bg-base-200 border-r border-base-content/10 overflow-y-auto">
         <div className="p-4">

@@ -207,7 +207,7 @@ class InputManager:
                 # Re-send HA discovery with updated name
                 if gpio.get(SHOW_HA, True):
                     self._manager.send_ha_autodiscovery(
-                        id=pin,
+                        id=input_id,
                         name=name,
                         ha_type=EVENT_ENTITY,
                         device_class=gpio.get(DEVICE_CLASS, None),
@@ -229,7 +229,7 @@ class InputManager:
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
                 self._manager.send_ha_autodiscovery(
-                    id=pin,
+                    id=input_id,
                     name=name,
                     ha_type=EVENT_ENTITY,
                     device_class=gpio.get(DEVICE_CLASS, None),
@@ -313,7 +313,7 @@ class InputManager:
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
                 self._manager.send_ha_autodiscovery(
-                    id=pin,
+                    id=input_id,
                     name=name,
                     ha_type=BINARY_SENSOR,
                     device_class=gpio.get(DEVICE_CLASS, None),
@@ -418,19 +418,23 @@ class InputManager:
         """
         for pin, input_device in self._inputs.items():
             try:
+                # Use input_device.id (which is boneio_input or explicit id) instead of pin
+                input_id = input_device.id if hasattr(input_device, 'id') else pin
+                input_name = input_device.name if hasattr(input_device, 'name') else input_id
+                
                 # Determine input type and send appropriate autodiscovery
                 if isinstance(input_device, GpioEventButton):
                     self._manager.send_ha_autodiscovery(
-                        id=pin,
-                        name=input_device.name if hasattr(input_device, 'name') else pin,
+                        id=input_id,
+                        name=input_name,
                         ha_type=EVENT_ENTITY,
                         device_class=getattr(input_device, '_device_class', None),
                         availability_msg_func=ha_event_availabilty_message,
                     )
                 elif isinstance(input_device, GpioInputBinarySensor):
                     self._manager.send_ha_autodiscovery(
-                        id=pin,
-                        name=input_device.name if hasattr(input_device, 'name') else pin,
+                        id=input_id,
+                        name=input_name,
                         ha_type=BINARY_SENSOR,
                         device_class=getattr(input_device, '_device_class', None),
                         availability_msg_func=ha_binary_sensor_availabilty_message,
