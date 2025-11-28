@@ -69,6 +69,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum || [];
 
   const updateField = (field: string, value: any) => {
+    console.log('updateField', field, value, data);
     onChange({ ...data, [field]: value });
   };
 
@@ -139,6 +140,7 @@ const EventForm: React.FC<EventFormProps> = ({
       newActions[actionType][index] = { ...newActions[actionType][index], [field]: value };
     }
     
+    console.log('newActions', newActions, data);
     onChange({ ...data, actions: newActions });
   };
 
@@ -456,7 +458,7 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'single' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('single')}
         >
-          Single Press
+          Single Click
           {data.actions?.single && data.actions.single.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.single.length}
@@ -467,7 +469,7 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'double' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('double')}
         >
-          Double Press
+          Double Click
           {data.actions?.double && data.actions.double.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.double.length}
@@ -478,7 +480,7 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'long' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('long')}
         >
-          Long Press
+          Long Click
           {data.actions?.long && data.actions.long.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.long.length}

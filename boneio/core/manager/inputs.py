@@ -203,14 +203,26 @@ class InputManager:
                         "Cannot reconfigure input type for %s. Restart required.", pin
                     )
                     return existing_input
+                
+                # Check if HA-relevant fields changed (name, area)
+                old_name = existing_input._name if hasattr(existing_input, '_name') else None
+                old_area = getattr(existing_input, 'area', None)
+                ha_fields_changed = (old_name != name) or (old_area != area)
+                
+                # Update actions (always - this is internal to the controller)
                 existing_input.set_actions(actions=actions)
+                
                 # Update name if changed
                 if hasattr(existing_input, '_name'):
                     existing_input._name = name
+                
                 # Store area on input
                 existing_input.area = area
-                # Re-send HA discovery with updated name and area
-                if gpio.get(SHOW_HA, True):
+                
+                # Re-send HA discovery only if HA-relevant fields changed (name, area)
+                # Actions are internal to the controller and don't need HA update
+                if ha_fields_changed and gpio.get(SHOW_HA, True):
+                    _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
                     self._manager.send_ha_autodiscovery(
                         id=input_id,
                         name=name,
@@ -297,14 +309,26 @@ class InputManager:
                         "Cannot reconfigure input type for %s. Restart required.", pin
                     )
                     return existing_input
+                
+                # Check if HA-relevant fields changed (name, area)
+                old_name = existing_input._name if hasattr(existing_input, '_name') else None
+                old_area = getattr(existing_input, 'area', None)
+                ha_fields_changed = (old_name != name) or (old_area != area)
+                
+                # Update actions (always - this is internal to the controller)
                 existing_input.set_actions(actions=actions)
+                
                 # Update name if changed
                 if hasattr(existing_input, '_name'):
                     existing_input._name = name
+                
                 # Store area on input
                 existing_input.area = area
-                # Re-send HA discovery with updated name and area
-                if gpio.get(SHOW_HA, True):
+                
+                # Re-send HA discovery only if HA-relevant fields changed (name, area)
+                # Actions are internal to the controller and don't need HA update
+                if ha_fields_changed and gpio.get(SHOW_HA, True):
+                    _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
                     self._manager.send_ha_autodiscovery(
                         id=input_id,
                         name=name,
@@ -425,6 +449,36 @@ class InputManager:
         # Don't clear inputs - we want to preserve GPIO state
         # _configure_inputs with reload_config=True will update actions on existing inputs
         self._configure_inputs(reload_config=True)
+        
+        # Broadcast updated states to WebSocket clients
+        self._broadcast_all_states()
+    
+    def _broadcast_all_states(self) -> None:
+        """Broadcast current states of all inputs to WebSocket clients.
+        
+        This is called after reload_inputs to update the frontend with new states.
+        """
+        from boneio.models import InputState
+        
+        for input_device in self._inputs.values():
+            try:
+                input_state = InputState(
+                    name=input_device.name,
+                    state=input_device.last_state,
+                    type=input_device.input_type,
+                    pin=input_device.pin,
+                    timestamp=input_device.last_press_timestamp,
+                    boneio_input=input_device.boneio_input,
+                )
+                event = InputEvent(
+                    entity_id=input_device.id,
+                    state=input_state,
+                    click_type=None,
+                    duration=None,
+                )
+                self._manager._event_bus.trigger_event(event)
+            except Exception as e:
+                _LOGGER.error(f"Error broadcasting input state for {input_device.id}: {e}")
     
     def _remove_input_ha_discovery(self, input_id: str, old_area: str | None = None) -> None:
         """Remove HA Discovery entries for an input.

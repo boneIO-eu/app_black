@@ -163,7 +163,8 @@ export default function UISettings() {
       // Convert data to match schema types for form display
       const configData = configContent?.config || {};
       const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
-      setOriginalData(convertedFormData);
+      // Deep copy for originalData to avoid reference issues when formData is modified
+      setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
       setFormData(convertedFormData);
 
       // Create sections based on available schemas and data
@@ -346,7 +347,7 @@ export default function UISettings() {
     const newDataStr = sortedStringify(newFormData);
     const originalDataStr = sortedStringify(originalData[sectionName]);
     const hasChanges = newDataStr !== originalDataStr;
-    console.log("📝 hasChanges:", hasChanges);
+    console.log("📝 hasChanges:", hasChanges, newFormData, originalData[sectionName]);
     
     if (hasChanges) {
       console.log("✅ Setting unsavedChanges to true for:", sectionName);
@@ -436,8 +437,8 @@ export default function UISettings() {
       if (response.status === 200) {
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
-        // Update original data to reflect the saved state
-        setOriginalData(prev => ({ ...prev, [sectionName]: formData[sectionName] }));
+        // Update original data to reflect the saved state (deep copy to avoid reference issues)
+        setOriginalData(prev => ({ ...prev, [sectionName]: JSON.parse(JSON.stringify(formData[sectionName])) }));
         
         // Trigger reload for sections that support hot-reload
         const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor'];
