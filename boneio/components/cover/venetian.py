@@ -29,7 +29,9 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         self._tilt_duration = (
             tilt_duration.total_milliseconds
         )  # Czas trwania ruchu lameli
-        self._initial_tilt_position = None
+        self._initial_tilt_position = int(
+            restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"])
+        )
 
         position = int(
             restored_state.get("position", DEFAULT_RESTORED_STATE["position"])
@@ -195,15 +197,34 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
     @property
     def json_position(self) -> PositionDict:
-        return {"position": self.position, "tilt": self.tilt}
+        return {"position": round(self.position, 0), "tilt": self.tilt}
 
     @property
     def tilt(self) -> int:
-        return round(self._tilt_position, 0)
+        return int(round(self._tilt_position, 0))
+
+    @property
+    def tilt_position(self) -> int:
+        """Return tilt position (required by BaseVenetianCoverABC)."""
+        return self.tilt
+
+    @property
+    def tilt_current_operation(self) -> str:
+        """Return current tilt operation (required by BaseVenetianCoverABC)."""
+        return self._current_operation
+
+    @property
+    def last_tilt_timestamp(self) -> float:
+        """Return last tilt timestamp (required by BaseVenetianCoverABC)."""
+        return self._last_tilt_update
 
     @property
     def kind(self) -> str:
         return "venetian"
+
+    async def set_cover_tilt_position(self, position: int) -> None:
+        """Set cover tilt position (required by BaseVenetianCoverABC)."""
+        await self.set_tilt(position)
 
     async def tilt_open(self) -> None:
         """Opening only tilt cover."""

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import json
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -273,7 +274,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     def last_timestamp(self) -> float:
         return self._last_timestamp
 
-    def send_state(self, state: str, json_position: PositionDict = None) -> None:
+    def send_state(self, state: str, json_position: PositionDict) -> None:
         event = CoverState(
             id=self.id,
             name=self.name,
@@ -288,7 +289,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             state=event
         ))
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
-        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json_position)
+        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json.dumps(json_position))
 
     def send_state_and_save(self, json_position: PositionDict):
         self.send_state(self.state, json_position)

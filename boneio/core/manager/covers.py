@@ -10,15 +10,18 @@ This module manages all cover devices including:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import COVER, ID, cover_actions
-from boneio.core.utils import strip_accents
+from boneio.const import COVER, DEVICE_CLASS, ID, RESTORE_STATE, SHOW_HA, cover_actions
+from boneio.core.utils import TimePeriod, strip_accents
 from boneio.exceptions import CoverConfigurationException
+from boneio.integration import ha_cover_availabilty_message
+from boneio.integration.homeassistant import ha_cover_with_tilt_availabilty_message
 
 if TYPE_CHECKING:
-    from boneio.components.cover import PreviousCover, TimeBasedCover
+    from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
     from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,7 +49,7 @@ class CoverManager:
     ):
         """Initialize cover manager."""
         self._manager = manager
-        self._covers: dict[str, PreviousCover | TimeBasedCover] = {}
+        self._covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
         self._config_covers = cover_config
         
         # Configure covers if outputs exist
@@ -75,8 +78,8 @@ class CoverManager:
             _id = strip_accents(_config[ID])
             
             # Get relay outputs for cover
-            open_relay = self._manager.outputs.get_output(_config.get("open_relay"))
-            close_relay = self._manager.outputs.get_output(_config.get("close_relay"))
+            open_relay = self._manager.outputs.get_output(str(_config.get("open_relay")))
+            close_relay = self._manager.outputs.get_output(str(_config.get("close_relay")))
             
             if not open_relay:
                 _LOGGER.error(
@@ -117,7 +120,7 @@ class CoverManager:
         cover_id: str,
         config: dict,
         tilt_duration: TimePeriod | None,
-    ) -> "PreviousCover | TimeBasedCover":
+    ) -> PreviousCover | TimeBasedCover | VenetianCover:
         """Configure a cover instance.
         
         Args:
@@ -140,14 +143,14 @@ class CoverManager:
                 self._manager._state_manager.save_attribute(
                     attr_type=COVER,
                     attribute=cover_id,
-                    value=value,
+                    value=json.dumps(value),
                 )
         
         if platform == "venetian":
             if not tilt_duration:
                 raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
             _LOGGER.debug("Configuring tilt cover %s", cover_id)
-            restored_state: dict = self._manager._state_manager.get(
+            restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt_position": 100}
             )
             if isinstance(restored_state, (float, int)):
@@ -164,7 +167,7 @@ class CoverManager:
             availability_msg_func = ha_cover_with_tilt_availabilty_message
         elif platform == "time_based":
             _LOGGER.debug("Configuring time-based cover %s", cover_id)
-            restored_state: dict = self._manager._state_manager.get(
+            restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
             if isinstance(restored_state, (float, int)):
@@ -179,7 +182,7 @@ class CoverManager:
             availability_msg_func = ha_cover_availabilty_message
         else:
             _LOGGER.debug("Configuring previous cover %s", cover_id)
-            restored_state: dict = self._manager._state_manager.get(
+            restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
             if isinstance(restored_state, (float, int)):
@@ -206,7 +209,7 @@ class CoverManager:
         _LOGGER.debug("Configured cover %s", cover_id)
         return cover
 
-    def get_cover(self, id: str) -> PreviousCover | TimeBasedCover | None:
+    def get_cover(self, id: str) -> PreviousCover | TimeBasedCover | VenetianCover | None:
         """Get cover by ID.
         
         Args:
@@ -217,7 +220,7 @@ class CoverManager:
         """
         return self._covers.get(id)
 
-    def get_all_covers(self) -> dict[str, PreviousCover | TimeBasedCover]:
+    def get_all_covers(self) -> dict[str, PreviousCover | TimeBasedCover | VenetianCover]:
         """Get all covers.
         
         Returns:
@@ -291,18 +294,12 @@ class CoverManager:
                 _LOGGER.debug("Unknown cover action %s for device %s", message, device_id)
 
     def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all cover-related tasks.
+        """Get all cover-related tasks. Currently not used.
         
         Returns:
             Dictionary of tasks
         """
-        tasks = {}
-        for cover_id, cover in self._covers.items():
-            if hasattr(cover, 'get_tasks'):
-                cover_tasks = cover.get_tasks()
-                for task_name, task in cover_tasks.items():
-                    tasks[f"cover_{cover_id}_{task_name}"] = task
-        return tasks
+        return {}
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""
