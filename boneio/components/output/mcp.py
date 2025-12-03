@@ -1,7 +1,7 @@
 """MCP23017 Output module (formerly MCPRelay)."""
 
 import logging
-
+from typing import override
 from boneio.hardware.gpio.expanders.mcp23017 import MCP23017
 
 from boneio.const import COVER, MCP, OFF, ON, SWITCH
@@ -53,25 +53,29 @@ class MCPOutput(BasicOutput):
         return MCP
 
     @property
+    @override
     def pin_id(self) -> int:
         """Return PIN id."""
         return self._pin_id
 
     @property
+    @override
     def is_active(self) -> bool:
         """Is relay active."""
         return self._mcp.get_pin_value(self._pin_id)
 
-    def turn_on(self, time=None) -> None:
+    @override
+    def turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
         self._mcp.set_pin_value(self._pin_id, True)
         self._state = ON
-        if not time:
+        if not timestamp:
             self._execute_momentary_turn(momentary_type=ON)
 
-    def turn_off(self, time=None) -> None:
+    @override
+    def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         self._mcp.set_pin_value(self._pin_id, False)
         self._state = OFF
-        if not time:
+        if not timestamp:
             self._execute_momentary_turn(momentary_type=OFF)

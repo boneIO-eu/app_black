@@ -118,6 +118,10 @@ class SMBus2I2C:
     def writeto(self, address: int, buffer: bytes, *, start: int = 0, end: Optional[int] = None) -> None:
         """Write data to I2C device.
         
+        This method writes raw bytes to the device without treating the first byte
+        as a register address. This is compatible with devices like PCF8575 that
+        don't use register-based addressing.
+        
         Args:
             address: I2C device address (7-bit)
             buffer: Data to write
@@ -138,8 +142,12 @@ class SMBus2I2C:
             if len(data) == 1:
                 # Single byte write
                 self._bus.write_byte(address, data[0])
+            elif len(data) == 2:
+                # Two byte write - use write_byte_data for raw 2-byte write
+                # This works for devices like PCF8575 that expect raw bytes
+                self._bus.write_byte_data(address, data[0], data[1])
             else:
-                # Block write - first byte is register, rest is data
+                # Block write - first byte is register/command, rest is data
                 register = data[0]
                 payload = list(data[1:])
                 self._bus.write_i2c_block_data(address, register, payload)
@@ -222,6 +230,87 @@ class SMBus2I2C:
                 except OSError:
                     pass
             return devices
+
+    # ========== Direct SMBus methods for low-level device access ==========
+    # These methods provide direct access to SMBus operations for devices
+    # like DS2482 that need byte-level control.
+
+    def write_byte(self, address: int, value: int) -> None:
+        """Write a single byte to I2C device (no register).
+        
+        Args:
+            address: I2C device address (7-bit)
+            value: Byte value to write
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        self._bus.write_byte(address, value)
+
+    def read_byte(self, address: int) -> int:
+        """Read a single byte from I2C device (no register).
+        
+        Args:
+            address: I2C device address (7-bit)
+            
+        Returns:
+            Byte value read from device
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        return self._bus.read_byte(address)
+
+    def write_byte_data(self, address: int, register: int, value: int) -> None:
+        """Write a byte to a specific register.
+        
+        Args:
+            address: I2C device address (7-bit)
+            register: Register address
+            value: Byte value to write
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        self._bus.write_byte_data(address, register, value)
+
+    def read_byte_data(self, address: int, register: int) -> int:
+        """Read a byte from a specific register.
+        
+        Args:
+            address: I2C device address (7-bit)
+            register: Register address
+            
+        Returns:
+            Byte value read from register
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        return self._bus.read_byte_data(address, register)
+
+    def write_i2c_block_data(self, address: int, register: int, data: list[int]) -> None:
+        """Write a block of bytes to a register.
+        
+        Args:
+            address: I2C device address (7-bit)
+            register: Register address
+            data: List of bytes to write
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        self._bus.write_i2c_block_data(address, register, data)
+
+    def read_i2c_block_data(self, address: int, register: int, length: int) -> list[int]:
+        """Read a block of bytes from a register.
+        
+        Args:
+            address: I2C device address (7-bit)
+            register: Register address
+            length: Number of bytes to read
+            
+        Returns:
+            List of bytes read from device
+        """
+        if not self._bus:
+            raise RuntimeError("I2C bus not open")
+        return self._bus.read_i2c_block_data(address, register, length)
 
     @property
     def frequency(self) -> int:

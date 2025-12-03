@@ -85,13 +85,11 @@ class EventBus:
     Obsługuje wiele typów eventów oraz asynchroniczne kolejkowanie i dispatching.
     """
 
-    def __init__(self, loop: asyncio.AbstractEventLoop = None) -> None:
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         """
         Initialize the event bus.
         :param loop: asyncio event loop
         """
-        if loop is None:
-            raise ValueError("EventBus requires an event loop to be passed explicitly")
         self._loop = loop
         self._event_queue = asyncio.Queue()
         self._event_listeners = {
@@ -101,7 +99,8 @@ class EventBus:
             "modbus_device": {},
             "sensor": {},
             "host": {},
-            "group": {}
+            "group": {},
+            "inputs_reloaded": {},
         }
         self._listener_id_index = {}
         self._worker_task = None
@@ -148,11 +147,12 @@ class EventBus:
         Dispatch event to registered listeners.
         
         Args:
-            event: Event model (InputEvent, OutputEvent, CoverEvent, or SensorEvent)
+            event: Event model (InputEvent, OutputEvent, CoverEvent, SensorEvent, etc.)
         """
         # Get event_type directly from the event model (much cleaner!)
         event_type = event.event_type
-        entity_id = event.entity_id
+        # Some events (like InputsReloadedEvent, ConfigReloadEvent) don't have entity_id
+        entity_id = getattr(event, 'entity_id', "")
         
         if event_type not in self._event_listeners:
             _LOGGER.warning(f"Unknown event_type: {event_type}")
@@ -166,8 +166,9 @@ class EventBus:
         all_listeners.update(global_listeners)
         
         # Add specific entity listeners (overrides global if same listener_id)
-        entity_listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
-        all_listeners.update(entity_listeners)
+        if entity_id:
+            entity_listeners = self._event_listeners.get(event_type, {}).get(entity_id, {})
+            all_listeners.update(entity_listeners)
         
         # Execute all listeners
         for listener in all_listeners.values():
@@ -255,7 +256,7 @@ class EventBus:
         async def cleanup_and_exit():
             try:
                 await asyncio.sleep(2)
-                await self.ask_stop()
+                await self.stop()
             except Exception as e:
                 _LOGGER.error(f"Error during cleanup: {e}")
         
@@ -274,7 +275,7 @@ class EventBus:
 
     def add_event_listener(
         self, event_type: str, entity_id: str, listener_id: str, target
-    ) -> ListenerJob:
+    ) -> ListenerJob | None:
         """Add event listener.
 
         listener_id is typically group_id for group outputs or ws (websocket)
@@ -369,9 +370,9 @@ def as_utc(dattim: dt.datetime) -> dt.datetime:
 @callback
 def async_track_point_in_time(
     loop: asyncio.AbstractEventLoop,
-    job,
+    job: Callable,
     point_in_time: datetime,
-    **kwargs
+    **kwargs: Any,
 ) -> CALLBACK_TYPE:
     """Add a listener that fires once after a specific point in UTC time."""
     # Ensure point_in_time is UTC

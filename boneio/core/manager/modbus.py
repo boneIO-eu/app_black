@@ -105,14 +105,19 @@ class ModbusManager:
 
     def _configure_modbus_coordinators(self, devices: list[dict[str, Any]]) -> dict:
         """Configure Modbus device coordinators.
-        devices: List of device configurations
+        
         Args:
-            devices: Dictionary of device configurations
+            devices: List of device configurations
             
         Returns:
             Dictionary of ModbusCoordinator instances
         """
         coordinators = {}
+        
+        # Type guard - this method should only be called when _modbus is initialized
+        if self._modbus is None:
+            _LOGGER.error("Cannot configure coordinators: Modbus client not initialized")
+            return coordinators
         
         try:
             from boneio.modbus.coordinator import ModbusCoordinator
@@ -181,22 +186,6 @@ class ModbusManager:
             Modbus client or None
         """
         return self._modbus
-
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all Modbus-related tasks.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        tasks = {}
-        
-        for coordinator_id, coordinator in self._modbus_coordinators.items():
-            if hasattr(coordinator, 'get_tasks'):
-                coordinator_tasks = coordinator.get_tasks()
-                for task_name, task in coordinator_tasks.items():
-                    tasks[f"modbus_{coordinator_id}_{task_name}"] = task
-        
-        return tasks
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all Modbus entities."""

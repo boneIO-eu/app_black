@@ -24,12 +24,12 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
         self._step = step
 
     async def write_value(self, value: float) -> None:
-        await self._coordinator.write_register(
-            unit=self._address,
-            address=self.address,
-            value=value,
-            method=self._register_method,
-        )
+        """Write value to the modbus register.
+        
+        Args:
+            value: The numeric value to write.
+        """
+        await self._coordinator.write_register(value=value, entity=self)
 
     @property
     def write_address(self) -> int | None:
@@ -82,7 +82,7 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
         )
         return msg
 
-    def encode_value(self, value: float | int) -> float:
+    def encode_value(self, value: float | int | None) -> float | int | None:
         if self._write_filters:
             value = self._apply_filters(value=value, filters=self._write_filters)
         return value

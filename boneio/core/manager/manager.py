@@ -273,26 +273,14 @@ class Manager:
         return task
 
     def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all tasks from subsystems.
+        """Get all registered tasks.
+        
+        All tasks are registered via append_task() which is called by AsyncUpdater.
         
         Returns:
             Dictionary of all tasks
         """
-        tasks = {}
-        
-        # Collect tasks from all subsystems
-        tasks.update(self.outputs.get_tasks())
-        tasks.update(self.inputs.get_tasks())
-        tasks.update(self.covers.get_tasks())
-        tasks.update(self.sensors.get_tasks())
-        tasks.update(self.modbus.get_tasks())
-        tasks.update(self.display.get_tasks())
-        
-        # Add manager tasks
-        for i, task in enumerate(self._tasks):
-            tasks[f"manager_task_{i}"] = task
-        
-        return tasks
+        return {f"task_{i}": task for i, task in enumerate(self._tasks)}
 
     async def send_all_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all entities."""

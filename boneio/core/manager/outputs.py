@@ -14,11 +14,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Literal
 
-from boneio.components.output import MCPOutput, PCFOutput, PWMOutput
 from boneio.components.output.basic import BasicOutput
+from boneio.components.output.mcp import MCPOutput
+from boneio.components.output.pca import PWMOutput
+from boneio.components.output.pcf import PCFOutput
 from boneio.const import (
     ADDRESS,
     COVER,
@@ -39,12 +40,10 @@ from boneio.const import (
     RELAY,
     RESTORE_STATE,
     SET_BRIGHTNESS,
-    ExpanderTypes,
     relay_actions,
 )
 from boneio.core.utils import TimePeriod, strip_accents
 from boneio.core.utils.util import sanitize_string
-from boneio.exceptions import GPIOOutputException
 from boneio.hardware.gpio.expanders import MCP23017, PCA9685, PCF8575
 from boneio.integration.homeassistant import ha_virtual_energy_sensor_discovery_message
 from boneio.integration.interlock import SoftwareInterlockManager
@@ -56,9 +55,6 @@ _LOGGER = logging.getLogger(__name__)
 
 # Expander class mapping
 _EXPANDER_CLASS = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
-
-# Output entry for relay configuration
-OutputEntry = namedtuple("OutputEntry", "OutputClass output_kind expander_id")
 
 
 class OutputManager:
@@ -266,31 +262,6 @@ class OutputManager:
             **kwargs,
         )
 
-    def _output_chooser(self, output_kind: str, config: dict) -> OutputEntry:
-        """Get output class and expander info based on output kind.
-        
-        Args:
-            output_kind: Type of output (MCP, PCF, PCA, GPIO)
-            config: Configuration dictionary (will be modified to pop expander_id)
-            
-        Returns:
-            OutputEntry namedtuple with OutputClass, output_kind, expander_id
-            
-        Raises:
-            GPIOOutputException: If output_kind is not supported
-        """
-        if output_kind == MCP:
-            expander_id = config.pop(MCP_ID, None)
-            return OutputEntry(MCPOutput, MCP, expander_id)
-        elif output_kind == PCA:
-            expander_id = config.pop(PCA_ID, None)
-            return OutputEntry(PWMOutput, PCA, expander_id)
-        elif output_kind == PCF:
-            expander_id = config.pop(PCF_ID, None)
-            return OutputEntry(PCFOutput, PCF, expander_id)
-        else:
-            raise GPIOOutputException(f"Output type {output_kind} doesn't exist")
-
     def _configure_relay(
         self,
         relay_id: str,
@@ -321,26 +292,29 @@ class OutputManager:
             self._manager._state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
             restored_state = False
 
-        output = self._output_chooser(output_kind=config.pop(KIND), config=config)
-        output_kind = getattr(output, "output_kind")
-        expander_id = getattr(output, "expander_id")
-
+        # Determine output class and expander based on kind
+        output_kind = config.pop(KIND)
+        
         if output_kind == MCP:
+            expander_id = config.pop(MCP_ID, None)
             mcp_expander = self._mcp.get(expander_id)
             if not mcp_expander:
-                _LOGGER.error("No such MCP configured!")
+                _LOGGER.error("No such MCP configured: %s", expander_id)
                 return None
+            OutputClass = MCPOutput
             extra_args = {
-                "pin": int(config.pop(PIN)),
+                "pin": config.pop(PIN),
                 "mcp": mcp_expander,
                 "mcp_id": expander_id,
                 "output_type": output_type,
             }
         elif output_kind == PCA:
+            expander_id = config.pop(PCA_ID, None)
             pca_expander = self._pca.get(expander_id)
             if not pca_expander:
-                _LOGGER.error("No such PCA configured!")
+                _LOGGER.error("No such PCA configured: %s", expander_id)
                 return None
+            OutputClass = PWMOutput
             extra_args = {
                 "pin": int(config.pop(PIN)),
                 "pca": pca_expander,
@@ -348,31 +322,35 @@ class OutputManager:
                 "output_type": output_type,
             }
         elif output_kind == PCF:
-            expander = self._pcf.get(expander_id)
-            if not expander:
-                _LOGGER.error("No such PCF configured!")
+            expander_id = config.pop(PCF_ID, None)
+            pcf_expander = self._pcf.get(expander_id)
+            if not pcf_expander:
+                _LOGGER.error("No such PCF configured: %s", expander_id)
                 return None
+            OutputClass = PCFOutput
             extra_args = {
                 "pin": int(config.pop(PIN)),
-                "expander": expander,
+                "expander": pcf_expander,
                 "expander_id": expander_id,
                 "output_type": output_type,
             }
         elif output_kind == GPIO:
+            expander_id = GPIO
             if GPIO not in self.grouped_outputs_by_expander:
                 self.grouped_outputs_by_expander[GPIO] = {}
+            OutputClass = BasicOutput
             extra_args = {
                 "pin": config.pop(PIN),
             }
         else:
-            _LOGGER.error("Output kind: %s is not configured", output_kind)
+            _LOGGER.error("Unknown output kind: %s", output_kind)
             return None
 
         interlock_groups = config.get("interlock_group", [])
         if isinstance(interlock_groups, str):
             interlock_groups = [interlock_groups]
 
-        relay = getattr(output, "OutputClass")(
+        relay = OutputClass(
             **config,
             message_bus=self._manager._message_bus,
             event_bus=self._manager._event_bus,
@@ -543,15 +521,6 @@ class OutputManager:
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Can't set brightness for %s", device_id)
-
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all output-related tasks.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        # Outputs don't have background tasks currently
-        return {}
 
     def _initialize_outputs(self, relay_pins: list[dict], reload_config: bool = False) -> None:
         """Initialize outputs (relays, switches, lights, LEDs, valves).

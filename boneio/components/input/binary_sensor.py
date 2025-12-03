@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from boneio.components.input.detectors import BinarySensorDetector
-from boneio.const import PRESSED, RELEASED
+from boneio.const import BinaryStateTypes, PRESSED, RELEASED
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class GpioInputBinarySensor(GpioBaseClass):
             start_time=0.0,
         )
 
-    def _on_state_changed(self, state: str, timestamp: float) -> None:
+    def _on_state_changed(self, state: BinaryStateTypes, timestamp: float) -> None:
         """Called by BinarySensorDetector when state changes.
         
         Args:

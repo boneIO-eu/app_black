@@ -17,7 +17,7 @@ from gpiod.line import Bias, Direction, Edge
 from boneio.const import PINS
 
 if TYPE_CHECKING:
-    from boneio.input.detectors import MultiClickDetector, BinarySensorDetector
+    from boneio.components.input.detectors import MultiClickDetector, BinarySensorDetector
 
 _LOGGER = logging.getLogger(__name__)
 

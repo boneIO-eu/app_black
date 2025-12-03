@@ -17,7 +17,7 @@ from boneio.const import SENSOR
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(name=__name__)
 
 # IIO device path for BeagleBone Black ADC
 IIO_DEVICE_PATH = Path("/sys/bus/iio/devices/iio:device0")
@@ -229,7 +229,7 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
             
             self._message_bus.send_message(
                 topic=self._send_topic,
-                payload=self.state,
+                payload=str(self.state),
             )
             
         except Exception as err:

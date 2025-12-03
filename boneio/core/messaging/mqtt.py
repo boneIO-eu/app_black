@@ -11,7 +11,7 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from aiomqtt import Client as AsyncioClient
 from aiomqtt import MqttError, Will
@@ -133,9 +133,11 @@ class MQTTClient(MessageBus):
             args, timeout=timeout, **params
         )
 
+    @override
     async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
         self._mqtt_energy_listeners[topic] = callback
 
+    @override
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
         await self.unsubscribe([topic])
         del self._mqtt_energy_listeners[topic]
@@ -150,16 +152,14 @@ class MQTTClient(MessageBus):
 
         Can raise asyncio_mqtt.MqttError.
         """
-        params: dict = {"timeout": timeout}
-        if properties:
-            params["properties"] = properties
 
-        await self.asyncio_client.unsubscribe(topics, **params)
+        await self.asyncio_client.unsubscribe(topics, timeout=timeout, properties=properties)
 
+    @override
     def send_message(
         self,
         topic: str,
-        payload: str | int | bytes | dict | None,
+        payload: str | int | bytes | dict[str, str | float | int] | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:
@@ -206,6 +206,7 @@ class MQTTClient(MessageBus):
             )
             self.publish_queue.task_done()
 
+    @override
     async def announce_offline(self) -> None:
         """Announce that the device is offline."""
         await self.publish(
@@ -214,6 +215,7 @@ class MQTTClient(MessageBus):
             retain=True,
         )
 
+    @override
     async def start_client(self) -> None:
         """Keep the event loop alive and process any periodic tasks."""
         try:
@@ -240,6 +242,7 @@ class MQTTClient(MessageBus):
             # The client context is managed by async with in _subscribe_manager
             pass
 
+    @override
     def set_manager(self, manager: Manager) -> None:
         """Set manager."""
         self._manager = manager
@@ -247,7 +250,7 @@ class MQTTClient(MessageBus):
     async def _subscribe_manager(self, manager: Manager) -> None:
         """Connect and subscribe to manager topics + host stats."""
         async with AsyncExitStack() as stack:
-            await stack.enter_async_context(self.asyncio_client)
+            _ = await stack.enter_async_context(self.asyncio_client)
             self.publish_queue.set_connected(True)
             # Create a new future for this run
             self._cancel_future = asyncio.Future()
@@ -286,6 +289,8 @@ class MQTTClient(MessageBus):
             # Wait for everything to complete (or fail due to, e.g., network errors).
             await asyncio.gather(*tasks)
 
+    @property
+    @override
     def state(self) -> bool:
         """State of MQTT Client."""
         return self._connection_established

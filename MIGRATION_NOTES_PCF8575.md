@@ -29,18 +29,15 @@ Migrated PCF8575 16-bit I/O expander from Adafruit CircuitPython library to nati
 - Output: Bit=0 (LOW), Bit=1 (HIGH)
 - Input: Bit=1 (enables pull-up), then read
 
-**Key Classes:**
+**Key Class:**
 ```python
 class PCF8575:
     """Main PCF8575 driver"""
     def __init__(self, i2c: SMBus2I2C, address: int, reset: bool = False)
-    def get_pin(self, pin: int) -> PCF8575DigitalInOut
-    
-class PCF8575DigitalInOut:
-    """Digital I/O pin wrapper"""
-    def switch_to_output(self, value: bool = False)
-    def switch_to_input(self)
-    @property value -> bool
+    def configure_pin_as_output(self, pin_number: int, value: bool = False)
+    def configure_pin_as_input(self, pin_number: int)
+    def set_pin_value(self, pin_number: int, value: bool)
+    def get_pin_value(self, pin_number: int) -> bool
 ```
 
 ### 2. Updated Imports
@@ -59,7 +56,6 @@ from adafruit_pcf8575 import DigitalInOut
 **After:**
 ```python
 from boneio.hardware.gpio.expanders import PCF8575
-from boneio.hardware.gpio.expanders.pcf8575 import PCF8575DigitalInOut
 ```
 
 ### 3. Backward Compatibility
@@ -154,17 +150,16 @@ i2c = SMBus2I2C(bus_num=2)
 # Initialize PCF8575
 pcf = PCF8575(i2c=i2c, address=0x20, reset=False)
 
-# Get pin and configure as output
-pin = pcf.get_pin(0)
-pin.switch_to_output(value=True)
+# Configure pin as output
+pcf.configure_pin_as_output(0, value=True)
 
 # Control pin
-pin.value = False  # Turn OFF
-pin.value = True   # Turn ON
+pcf.set_pin_value(0, False)  # Turn OFF
+pcf.set_pin_value(0, True)   # Turn ON
 
 # Configure as input (enables pull-up)
-pin.switch_to_input()
-state = pin.value  # Read input state
+pcf.configure_pin_as_input(0)
+state = pcf.get_pin_value(0)  # Read input state
 ```
 
 ---
@@ -173,12 +168,12 @@ state = pin.value  # Read input state
 
 ### API Compatibility
 
-✅ **100% compatible** with Adafruit API:
+✅ **Unified API** with MCP23017:
 - `PCF8575(i2c, address, reset)`
-- `get_pin(pin_number)`
-- `pin.switch_to_output(value)`
-- `pin.switch_to_input()`
-- `pin.value` (get/set)
+- `configure_pin_as_output(pin_number, value)`
+- `configure_pin_as_input(pin_number)`
+- `set_pin_value(pin_number, value)`
+- `get_pin_value(pin_number)`
 
 ### Behavioral Differences
 

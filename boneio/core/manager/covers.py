@@ -293,14 +293,6 @@ class CoverManager:
             else:
                 _LOGGER.debug("Unknown cover action %s for device %s", message, device_id)
 
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all cover-related tasks. Currently not used.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        return {}
-
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""
         for cover_id, cover in self._covers.items():

@@ -69,22 +69,25 @@ class PWMOutput(BasicOutput):
         """Is relay active."""
         return self.brightness > 1
 
-    def turn_on(self) -> None:
+    def turn_on(self, timestamp=None) -> None:
         """Call turn on action. When brightness is 0, and turn on by switch, default set value to 1%"""
         _LOGGER.debug("Turn on relay.")
         if self.brightness == 0:
             self.set_brightness(int(65535 / 100 * self._percentage_default_brightness))
-        self._execute_momentary_turn(momentary_type=ON)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)
+        if not timestamp:
+            self._execute_momentary_turn(momentary_type=ON)
 
-    def turn_off(self) -> None:
+    def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         _LOGGER.debug("Turn off relay.")
         self._pin.duty_cycle = 0
-        self._execute_momentary_turn(momentary_type=OFF)
-        self._loop.call_soon_threadsafe(self.send_state)
-        self._loop.call_soon_threadsafe(self._callback)
+        if not timestamp:
+            self._execute_momentary_turn(momentary_type=OFF)
 
-    def payload(self) -> dict:
+    def payload(self) -> dict[str, str | float | int | None]:
+        """Return payload for MQTT message.
+        
+        Returns:
+            Dictionary with brightness and state for MQTT publishing.
+        """
         return {BRIGHTNESS: self.brightness, STATE: self.state}

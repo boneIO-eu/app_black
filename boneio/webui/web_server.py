@@ -5,9 +5,14 @@ import logging
 import os
 import secrets
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
+
+if TYPE_CHECKING:
+    from hypercorn.typing import Framework
+    from boneio.webui.app import BoneIOApp
 
 from boneio.core.config import ConfigHelper
 from boneio.core.manager import Manager
@@ -123,7 +128,7 @@ class WebServer:
         )
 
         server_task = asyncio.create_task(
-            serve(app=self.app, config=self._hypercorn_config, shutdown_trigger=shutdown_trigger)
+            serve(app=cast("Framework", self.app), config=self._hypercorn_config, shutdown_trigger=shutdown_trigger)
         )
         self.manager.set_web_server_status(status=True, bind=self._port)
         try:

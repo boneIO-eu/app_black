@@ -72,7 +72,7 @@ async def async_run(
     mqttusername: str = "",
     mqttpassword: str = "",
     debug: int = 0
-) -> list[Any]:
+) -> int:
     """Run BoneIO."""
     web_server = None
     tasks: set[asyncio.Task] = set()

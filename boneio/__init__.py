@@ -6,7 +6,7 @@ name = "boneio"
 version = __version__
 
 __all__ = [
-    "boneio",
+    "name",
     "version",
     "__version__",
 ]

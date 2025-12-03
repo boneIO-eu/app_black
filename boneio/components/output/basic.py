@@ -8,6 +8,7 @@ import time
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
 from boneio.core.messaging import BasicMqtt
+from boneio.models.events import OutputEvent
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.integration.interlock import SoftwareInterlockManager
 from boneio.core.utils import callback
@@ -158,6 +159,10 @@ class BasicOutput(BasicMqtt):
     Formerly known as BasicRelay. This class represents any controllable
     output device in the BoneIO system.
     """
+    
+    # Subclasses (e.g. MCPOutput) will override these
+    _pin_id: int = -1
+    _expander_id: str | None = None
 
     def __init__(
         self,
@@ -182,10 +187,10 @@ class BasicOutput(BasicMqtt):
         virtual_volume_flow_rate = kwargs.pop("virtual_volume_flow_rate", None)
         # No parsing needed, Cerberus coerce handles conversion to watts.
         super().__init__(id=id, name=name or id, topic_type=topic_type, topic_prefix=topic_prefix, **kwargs)
-        self._output_type = output_type
-        self._event_bus = event_bus
-        self._interlock_manager = interlock_manager
-        self._interlock_groups = interlock_groups
+        self._output_type: str = output_type
+        self._event_bus: EventBus = event_bus
+        self._interlock_manager: SoftwareInterlockManager | None = interlock_manager
+        self._interlock_groups: list[str] = interlock_groups
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
@@ -243,12 +248,17 @@ class BasicOutput(BasicMqtt):
     def id(self) -> str:
         """Id of the relay.
         Has to be trimmed out of spaces because of MQTT handling in HA."""
-        return self._id or self._pin_id
+        return self._id or str(self._pin_id) or ""
 
     @property
     def name(self) -> str:
         """Not trimmed id."""
-        return self._name or self._pin_id
+        return self._name or str(self._pin_id) or ""
+    
+    @property
+    def pin_id(self) -> str | None:
+        """Pin ID (set by subclasses like MCPOutput)."""
+        return str(self._pin_id)
 
     @property
     def state(self) -> str:
@@ -260,7 +270,12 @@ class BasicOutput(BasicMqtt):
     def last_timestamp(self) -> float:
         return self._last_timestamp
 
-    def payload(self) -> dict:
+    def payload(self) -> dict[str, str | float | int | None]:
+        """Return payload for MQTT message.
+        
+        Returns:
+            Dictionary with state information for MQTT publishing.
+        """
         return {STATE: self.state}
 
     async def async_send_state(self, optimized_value: str | None = None) -> None:
@@ -294,8 +309,6 @@ class BasicOutput(BasicMqtt):
             expander_id=self.expander_id,
         )
         
-        from boneio.models.events import OutputEvent
-        
         output_event = OutputEvent(
             entity_id=self.id,
             state=output_state,
@@ -304,7 +317,7 @@ class BasicOutput(BasicMqtt):
         
 
     def check_interlock(self) -> bool:
-        if getattr(self, "_interlock_manager", None) and getattr(self, "_interlock_groups", None):
+        if self._interlock_manager is not None and self._interlock_groups:
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
@@ -379,6 +392,6 @@ class BasicOutput(BasicMqtt):
         raise NotImplementedError
 
     @property
-    def expander_id(self) -> str:
-        """Retrieve parent Expander ID."""
+    def expander_id(self) -> str | None:
+        """Retrieve parent Expander ID (set by subclasses like MCPOutput)."""
         return self._expander_id

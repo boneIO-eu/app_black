@@ -227,21 +227,6 @@ class DisplayManager:
         """
         return self._input_groups
 
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all display-related tasks.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        tasks = {}
-        
-        if self._oled and hasattr(self._oled, 'get_tasks'):
-            oled_tasks = self._oled.get_tasks()
-            for task_name, task in oled_tasks.items():
-                tasks[f"oled_{task_name}"] = task
-        
-        return tasks
-
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for OLED entities."""
         # OLED typically doesn't have HA entities

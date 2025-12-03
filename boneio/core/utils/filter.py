@@ -22,8 +22,8 @@ class Filter:
     _filters = []
 
     def _apply_filters(
-        self, value: float | None, filters: list | None = None
-    ) -> float | None:
+        self, value: float | int | None, filters: list | None = None
+    ) -> float | int | None:
         filters = filters if filters is not None else self._filters
         for filter in filters:
             for k, v in filter.items():

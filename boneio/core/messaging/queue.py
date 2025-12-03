@@ -4,6 +4,8 @@ If MQTT is down then regular queue can append multiple ON/OFF for same topic.
 After re-connection it would send all messages. It's not necessary, last payload of same topic is enough.
 """
 import asyncio
+from collections import deque
+from typing import Any
 
 from boneio.models.mqtt import MQTTMessageSend
 
@@ -14,6 +16,8 @@ class UniqueQueue(asyncio.Queue[MQTTMessageSend]):
     This queue deduplicates messages by topic when MQTT is disconnected.
     Only the last message for each topic is kept.
     """
+
+    _queue: deque[Any]  # Declare internal queue attribute for type checker
 
     def __init__(self, maxsize: int = 0):
         """Initialize the queue."""

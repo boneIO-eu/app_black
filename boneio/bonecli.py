@@ -296,7 +296,8 @@ def run_modbus_command(
                     parity=args.parity,
                 ),
             )
-        return ret
+        # Ensure we always return an int
+        return ret if isinstance(ret, int) else 0
     except (RestartRequestException, GracefulExit) as err:
         _LOGGER.info(err)
         return 0

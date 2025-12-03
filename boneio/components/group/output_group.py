@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import override
 
 from boneio.components.output.basic import BasicOutput
 from boneio.const import COVER, OFF, ON, SWITCH
@@ -61,7 +62,7 @@ class OutputGroup(BasicOutput):
                 self._state = ON
                 return
 
-    async def event_listener(self, event: OutputState = None) -> None:
+    async def event_listener(self, event: OutputState | None = None) -> None:
         """Listen for events called by children outputs.
         
         Args:
@@ -105,7 +106,8 @@ class OutputGroup(BasicOutput):
         """Check if group is active (ON state)."""
         return self._state == ON
 
-    async def async_send_state(self) -> None:
+    @override
+    async def async_send_state(self, optimized_value: str | None = None) -> None:
         """Send state to message bus and event bus for WebSocket."""
         # Send to MQTT
         self._message_bus.send_message(

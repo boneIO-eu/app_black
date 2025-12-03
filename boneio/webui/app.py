@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from boneio.components.cover.previous import PreviousCover
+from boneio.components.cover.time_based import TimeBasedCover
+from boneio.components.cover.venetian import VenetianCover
 import json
 import logging
 import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from boneio.models.state import ModbusDeviceState
 
@@ -30,6 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
+from jose.exceptions import JWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -217,7 +221,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Token has expired"}
                 )
 
-        except jwt.JWTError:
+        except JWTError:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid token"}
@@ -543,7 +547,7 @@ async def set_cover_position(cover_id: str, position_data: CoverPosition, manage
 @app.post("/api/covers/{cover_id}/set_tilt")
 async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager = Depends(get_manager)):
     """Control cover with specific action (open, close, stop)."""
-    cover = manager.covers.get_cover(cover_id)
+    cover: PreviousCover | TimeBasedCover | VenetianCover | None = manager.covers.get_cover(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
     if cover.kind != "venetian":
@@ -552,7 +556,10 @@ async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager =
     if tilt < 0 or tilt > 100:
         raise HTTPException(status_code=400, detail="Invalid tilt")
     
-    await cover.set_tilt(tilt)
+    if isinstance(cover, VenetianCover):
+        await cover.set_tilt(tilt)
+    else:
+        raise HTTPException(status_code=400, detail="Cover does not support tilt control")
     
     return {"status": "success"}
 
@@ -769,7 +776,7 @@ async def get_parsed_config():
         raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
 
 @app.get("/api/files")
-async def list_files(path: str = None):
+async def list_files(path: Optional[str] = None):
     """List files in the config directory."""
     config_dir = Path(app.state.yaml_config_file).parent
     base_dir = config_dir / path if path else config_dir
@@ -1033,7 +1040,7 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
     for input in boneio_manager.inputs.get_inputs_list():
         boneio_manager.event_bus.add_event_listener(
             event_type="input",
-            entity_id=input.pin,
+            entity_id=input.id,
             listener_id="ws",
             target=boneio_state_changed_callback,
         )
@@ -1041,6 +1048,47 @@ def add_listener_for_all_inputs(boneio_manager: Manager):
 
 def remove_listener_for_all_inputs(boneio_manager: Manager):
     boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws")
+
+
+async def inputs_reloaded_callback(event):
+    """Callback when inputs are reloaded - re-send all input states to WebSocket clients."""
+    from boneio.models import InputState
+    from boneio.models.events import InputEvent
+    
+    websocket_manager: WebSocketManager = app.state.websocket_manager
+    manager: Manager = app.state.manager
+    
+    _LOGGER.debug("Inputs reloaded, broadcasting all input states to WebSocket clients")
+    
+    for input_ in manager.inputs.get_inputs_list():
+        try:
+            input_state = InputState(
+                name=input_.name,
+                state=input_.last_state,
+                type=input_.input_type,
+                pin=input_.pin,
+                timestamp=input_.last_press_timestamp,
+                boneio_input=input_.boneio_input
+            )
+            update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
+            await websocket_manager.broadcast_state(update)
+        except Exception as e:
+            _LOGGER.error(f"Error broadcasting input state for {input_.id}: {e}")
+
+
+def add_listener_for_inputs_reloaded(boneio_manager: Manager):
+    """Add listener for inputs reloaded event."""
+    boneio_manager.event_bus.add_event_listener(
+        event_type="inputs_reloaded",
+        entity_id="",
+        listener_id="ws_inputs_reload",
+        target=inputs_reloaded_callback,
+    )
+
+
+def remove_listener_for_inputs_reloaded(boneio_manager: Manager):
+    """Remove listener for inputs reloaded event."""
+    boneio_manager.event_bus.remove_event_listener(event_type="inputs_reloaded", listener_id="ws_inputs_reload")
 
 
 def sensor_listener_for_all_sensors(boneio_manager: Manager):
@@ -1290,6 +1338,7 @@ async def websocket_endpoint(
                 add_listener_for_all_groups(boneio_manager=boneio_manager)
                 add_listener_for_all_covers(boneio_manager=boneio_manager)
                 add_listener_for_all_inputs(boneio_manager=boneio_manager)
+                add_listener_for_inputs_reloaded(boneio_manager=boneio_manager)
                 sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
 
                 # Keep connection alive with timeout to allow graceful shutdown
@@ -1322,6 +1371,7 @@ async def websocket_endpoint(
             remove_listener_for_all_outputs(boneio_manager=boneio_manager)
             remove_listener_for_all_covers(boneio_manager=boneio_manager)
             remove_listener_for_all_inputs(boneio_manager=boneio_manager)
+            remove_listener_for_inputs_reloaded(boneio_manager=boneio_manager)
             remove_listener_for_all_sensors(boneio_manager=boneio_manager)
         # if connection_active:
         #     try:

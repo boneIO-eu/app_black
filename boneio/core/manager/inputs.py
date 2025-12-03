@@ -450,35 +450,9 @@ class InputManager:
         # _configure_inputs with reload_config=True will update actions on existing inputs
         self._configure_inputs(reload_config=True)
         
-        # Broadcast updated states to WebSocket clients
-        self._broadcast_all_states()
-    
-    def _broadcast_all_states(self) -> None:
-        """Broadcast current states of all inputs to WebSocket clients.
-        
-        This is called after reload_inputs to update the frontend with new states.
-        """
-        from boneio.models import InputState
-        
-        for input_device in self._inputs.values():
-            try:
-                input_state = InputState(
-                    name=input_device.name,
-                    state=input_device.last_state,
-                    type=input_device.input_type,
-                    pin=input_device.pin,
-                    timestamp=input_device.last_press_timestamp,
-                    boneio_input=input_device.boneio_input,
-                )
-                event = InputEvent(
-                    entity_id=input_device.id,
-                    state=input_state,
-                    click_type=None,
-                    duration=None,
-                )
-                self._manager._event_bus.trigger_event(event)
-            except Exception as e:
-                _LOGGER.error(f"Error broadcasting input state for {input_device.id}: {e}")
+        # Signal WebSocket handlers to re-send all input states to clients
+        from boneio.models.events import InputsReloadedEvent
+        self._manager._event_bus.trigger_event(InputsReloadedEvent())
     
     def _remove_input_ha_discovery(self, input_id: str, old_area: str | None = None) -> None:
         """Remove HA Discovery entries for an input.
@@ -547,16 +521,6 @@ class InputManager:
         # Execute actions for this input event
         if actions:
             await self._manager.execute_actions(actions=actions)
-
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all input-related tasks.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        # Inputs don't have background tasks currently
-        # GPIO manager handles the event loop
-        return {}
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all inputs.

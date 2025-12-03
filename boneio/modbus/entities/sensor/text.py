@@ -7,12 +7,12 @@ from boneio.core.config import ConfigHelper
 from boneio.integration.homeassistant import modbus_sensor_availabilty_message
 from boneio.core.messaging.basic import MessageBus
 
-from boneio.modbus.entities.base import BaseEntity
+from boneio.modbus.entities.base import ModbusBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class ModbusTextSensor(BaseEntity):
+class ModbusTextSensor(ModbusBaseEntity):
 
     _entity_type = SENSOR
 
@@ -36,21 +36,29 @@ class ModbusTextSensor(BaseEntity):
     ) -> None:
         """
         Initialize single sensor.
-        :param name: name of sensor
-        :param register_address: address of register
-        :param base_address: address of base
-        :param unit_of_measurement: unit of measurement
-        :param state_class: state class
-        :param device_class: device class
-        :param value_type: type of value
-        :param return_type: type of return
-        :param user_filters: list of user filters
-        :param filters: list of filters
-        :param send_ha_autodiscovery: function for sending HA autodiscovery
+
+        Args:
+            name: name of sensor
+            parent: parent device info
+            register_address: address of register
+            base_address: address of base
+            unit_of_measurement: unit of measurement
+            state_class: state class
+            device_class: device class
+            value_type: type of value
+            return_type: type of return
+            filters: list of filters
+            message_bus: message bus instance
+            config_helper: config helper instance
+            value_mapping: mapping of raw values to text
+            user_filters: list of user filters
+            ha_filter: HA filter string
         """
         super().__init__(
             name=name,
             parent=parent,
+            register_address=register_address,
+            base_address=base_address,
             unit_of_measurement=unit_of_measurement,
             state_class=state_class,
             device_class=device_class,
@@ -62,17 +70,7 @@ class ModbusTextSensor(BaseEntity):
             user_filters=user_filters,
             ha_filter="",
         )
-        self._register_address = register_address
-        self._base_address = base_address
         self._value_mapping = value_mapping
-
-    @property
-    def address(self) -> int:
-        return self._register_address
-
-    @property
-    def base_address(self) -> int:
-        return self._base_address
 
     @property
     def state(self) -> str:

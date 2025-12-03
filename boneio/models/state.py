@@ -32,7 +32,7 @@ class OutputState(BaseModel):
     state: str
     type: str
     expander_id: str | None
-    pin: int
+    pin: str | None
     timestamp: float | None = None
 
 

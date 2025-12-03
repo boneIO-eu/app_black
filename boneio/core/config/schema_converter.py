@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
-from typing import Any
+from typing import Any, Union, IO
 
 import yaml
 from yaml import SafeLoader, load
@@ -12,8 +12,16 @@ from yaml import SafeLoader, load
 class BoneIOLoader(SafeLoader):
     """Custom YAML loader with !include constructor."""
     
-    def __init__(self, stream):
-        self._root = os.path.split(stream.name)[0]
+    def __init__(self, stream: Union[str, IO]):
+        if isinstance(stream, str):
+            # If stream is a string path, use its directory
+            self._root = os.path.split(stream)[0]
+        elif hasattr(stream, 'name'):
+            # If stream is a file object with name attribute
+            self._root = os.path.split(stream.name)[0]
+        else:
+            # Fallback: use current directory if we can't determine the path
+            self._root = os.getcwd()
         super().__init__(stream)
     
     def include(self, node):

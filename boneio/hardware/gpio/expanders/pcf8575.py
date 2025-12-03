@@ -30,64 +30,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class PCF8575DigitalInOut:
-    """Digital I/O pin for PCF8575.
-    
-    This class provides an API compatible with Adafruit's DigitalInOut
-    for controlling individual pins on the PCF8575.
-    """
-
-    def __init__(self, pin_number: int, pcf: PCF8575) -> None:
-        """Initialize a digital I/O pin.
-        
-        Args:
-            pin_number: Pin number (0-15)
-            pcf: Parent PCF8575 instance
-        """
-        self._pin = pin_number
-        self._pcf = pcf
-        self._output = False
-        self._value = False
-
-    def switch_to_output(self, value: bool = False) -> None:
-        """Switch pin to output mode.
-        
-        Args:
-            value: Initial output value (True=HIGH, False=LOW)
-        """
-        self._output = True
-        self._value = value
-        self._pcf._set_pin_output(self._pin, value)
-
-    def switch_to_input(self) -> None:
-        """Switch pin to input mode (enables pull-up)."""
-        self._output = False
-        self._pcf._set_pin_input(self._pin)
-
-    @property
-    def value(self) -> bool:
-        """Get or set the pin value.
-        
-        Returns:
-            Current pin value (True=HIGH, False=LOW)
-        """
-        if self._output:
-            return self._value
-        return self._pcf._read_pin(self._pin)
-
-    @value.setter
-    def value(self, val: bool) -> None:
-        """Set the pin value (only works in output mode).
-        
-        Args:
-            val: Value to set (True=HIGH, False=LOW)
-        """
-        if not self._output:
-            raise RuntimeError("Pin must be configured as output")
-        self._value = val
-        self._pcf._set_pin_output(self._pin, val)
-
-
 class PCF8575:
     """PCF8575 16-bit I2C GPIO expander.
     
@@ -104,9 +46,8 @@ class PCF8575:
         >>> 
         >>> i2c = SMBus2I2C(bus_num=2)
         >>> pcf = PCF8575(i2c=i2c, address=0x20, reset=False)
-        >>> pin = pcf.get_pin(0)
-        >>> pin.switch_to_output(value=True)
-        >>> pin.value = False
+        >>> pcf.configure_pin_as_output(0, value=True)
+        >>> pcf.set_pin_value(0, False)
     """
 
     def __init__(self, i2c: SMBus2I2C, address: int, reset: bool = False) -> None:
@@ -134,21 +75,60 @@ class PCF8575:
             self._state,
         )
 
-    def get_pin(self, pin: int) -> PCF8575DigitalInOut:
-        """Get a digital I/O pin object.
+    def configure_pin_as_output(self, pin_number: int, value: bool = False) -> None:
+        """Configure a pin as output and set initial value.
         
         Args:
-            pin: Pin number (0-15)
+            pin_number: Pin number (0-15)
+            value: Initial output state (True=HIGH, False=LOW)
+        """
+        if not 0 <= pin_number <= 15:
+            raise ValueError(f"Pin number must be 0-15, got {pin_number}")
+        
+        self._set_pin_output(pin_number, value)
+        _LOGGER.debug(
+            "PCF8575 pin %d configured as output, initial value: %s",
+            pin_number,
+            value,
+        )
+
+    def configure_pin_as_input(self, pin_number: int) -> None:
+        """Configure a pin as input (enables pull-up).
+        
+        Args:
+            pin_number: Pin number (0-15)
+        """
+        if not 0 <= pin_number <= 15:
+            raise ValueError(f"Pin number must be 0-15, got {pin_number}")
+        
+        self._set_pin_input(pin_number)
+        _LOGGER.debug("PCF8575 pin %d configured as input", pin_number)
+
+    def set_pin_value(self, pin_number: int, value: bool) -> None:
+        """Set pin output value.
+        
+        Args:
+            pin_number: Pin number (0-15)
+            value: Output state (True=HIGH, False=LOW)
+        """
+        if not 0 <= pin_number <= 15:
+            raise ValueError(f"Pin number must be 0-15, got {pin_number}")
+        
+        self._set_pin_output(pin_number, value)
+
+    def get_pin_value(self, pin_number: int) -> bool:
+        """Get current pin value.
+        
+        Args:
+            pin_number: Pin number (0-15)
             
         Returns:
-            PCF8575DigitalInOut object for the specified pin
-            
-        Raises:
-            ValueError: If pin number is out of range
+            Current pin state (True=HIGH, False=LOW)
         """
-        if not 0 <= pin <= 15:
-            raise ValueError(f"Pin must be 0-15, got {pin}")
-        return PCF8575DigitalInOut(pin, self)
+        if not 0 <= pin_number <= 15:
+            raise ValueError(f"Pin number must be 0-15, got {pin_number}")
+        
+        return self._read_pin(pin_number)
 
     def _write_state(self) -> None:
         """Write current state to the device (2 bytes)."""
@@ -157,8 +137,15 @@ class PCF8575:
             byte0 = self._state & 0xFF  # Port 0 (pins 0-7)
             byte1 = (self._state >> 8) & 0xFF  # Port 1 (pins 8-15)
             
-            # Write 2 bytes to device
-            self._i2c.write_i2c_block_data(self._address, byte0, [byte1])
+            # Write 2 bytes to device using SMBus2I2C API
+            # PCF8575 expects raw 2-byte write (no register address)
+            if self._i2c.try_lock():
+                try:
+                    self._i2c.writeto(self._address, bytes([byte0, byte1]))
+                finally:
+                    self._i2c.unlock()
+            else:
+                raise RuntimeError("Could not acquire I2C bus lock")
             
             _LOGGER.debug(
                 "PCF8575 0x%02X: Wrote state 0x%04X (P0=0x%02X, P1=0x%02X)",
@@ -182,18 +169,25 @@ class PCF8575:
             16-bit state value
         """
         try:
-            # Read 2 bytes from device
-            data = self._i2c.read_i2c_block_data(self._address, 0, 2)
+            # Read 2 bytes from device using SMBus2I2C API
+            buffer = bytearray(2)
+            if self._i2c.try_lock():
+                try:
+                    self._i2c.readfrom_into(self._address, buffer)
+                finally:
+                    self._i2c.unlock()
+            else:
+                raise RuntimeError("Could not acquire I2C bus lock")
             
             # Combine into 16-bit value
-            state = data[0] | (data[1] << 8)
+            state = buffer[0] | (buffer[1] << 8)
             
             _LOGGER.debug(
                 "PCF8575 0x%02X: Read state 0x%04X (P0=0x%02X, P1=0x%02X)",
                 self._address,
                 state,
-                data[0],
-                data[1],
+                buffer[0],
+                buffer[1],
             )
             
             return state

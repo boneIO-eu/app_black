@@ -49,6 +49,9 @@ if TYPE_CHECKING:
     from boneio.core.manager import Manager
     from boneio.hardware.sensor.temperature import MCP9808, PCT2075
 
+# Type alias for all temperature sensors (I2C + Dallas)
+TempSensorType = "PCT2075 | MCP9808 | DallasSensor"
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -81,7 +84,7 @@ class SensorManager:
     ):
         """Initialize sensor manager."""
         self._manager = manager
-        self._temp_sensors: list[PCT2075 | MCP9808] = []
+        self._temp_sensors: list[PCT2075 | MCP9808 | DallasSensor] = []
         self._ina219_sensors = []
         self._adc_sensors = []
         self._dallas_sensors = []
@@ -274,21 +277,11 @@ class SensorManager:
         if dallas:
             _LOGGER.debug("Preparing Dallas GPIO bus")
             try:
-                from w1thermsensor import W1ThermSensor
-                from w1thermsensor.errors import KernelModuleLoadError
-                
-                try:
-                    _one_wire_devices.update(
-                        self._find_onewire_devices(
-                            ow_bus=W1ThermSensor(),
-                            bus_id=dallas[ID],
-                            bus_type=DALLAS,
-                        )
+                _one_wire_devices.update(
+                    self._find_dallas_gpio_devices(
+                        bus_id=dallas[ID],
                     )
-                except KernelModuleLoadError as err:
-                    _LOGGER.error("Can't load kernel module for Dallas sensors: %s", err)
-            except ImportError as err:
-                _LOGGER.error("w1thermsensor not installed: %s", err)
+                )
             except Exception as err:
                 _LOGGER.error("Failed to configure Dallas GPIO bus: %s", err)
         
@@ -304,7 +297,7 @@ class SensorManager:
                     self._dallas_sensors.append(sensor)
                     self._temp_sensors.append(sensor)
 
-    def _configure_ds2482(self, address: str = DS2482_ADDRESS) -> OneWireBus:
+    def _configure_ds2482(self, address: int = DS2482_ADDRESS) -> OneWireBus:
         """Configure DS2482 I2C-to-1Wire bridge.
         
         Args:
@@ -318,9 +311,9 @@ class SensorManager:
 
     def _find_onewire_devices(
         self,
-        ow_bus: OneWireBus | Any,
+        ow_bus: OneWireBus,
         bus_id: str,
-        bus_type: DallasBusTypes,
+        bus_type: str,
     ) -> dict[str, str]:
         """Scan for 1-Wire devices on bus.
         
@@ -336,13 +329,48 @@ class SensorManager:
         try:
             devices = ow_bus.scan()
             for device in devices:
-                _addr = device.id if hasattr(device, 'id') else device
+                _addr = device.hw_id
                 _LOGGER.debug(
                     "Found device on bus %s with address %s", bus_id, _addr
                 )
                 out[_addr] = bus_id
         except RuntimeError as err:
             _LOGGER.error("Problem with scanning %s bus: %s", bus_type, err)
+        return out
+
+    def _find_dallas_gpio_devices(self, bus_id: str) -> dict[str, str]:
+        """Scan for Dallas sensors using Linux kernel w1 subsystem.
+        
+        Uses w1thermsensor library which interfaces with the kernel's
+        1-Wire driver (w1-gpio, w1-therm modules).
+        
+        Args:
+            bus_id: Bus identifier
+            
+        Returns:
+            Dictionary mapping device addresses to bus IDs
+        """
+        out: dict[str, str] = {}
+        try:
+            from w1thermsensor import W1ThermSensor
+            from w1thermsensor.errors import KernelModuleLoadError
+            
+            try:
+                sensors = W1ThermSensor.get_available_sensors()
+                for sensor in sensors:
+                    # W1ThermSensor uses hw_id format like "0215c2c917ff"
+                    _addr = sensor.id
+                    _LOGGER.debug(
+                        "Found Dallas GPIO device on bus %s with address %s", 
+                        bus_id, _addr
+                    )
+                    out[_addr] = bus_id
+            except KernelModuleLoadError as err:
+                _LOGGER.error("Can't load kernel module for Dallas sensors: %s", err)
+        except ImportError as err:
+            _LOGGER.error("w1thermsensor not installed: %s", err)
+        except Exception as err:
+            _LOGGER.error("Problem scanning Dallas GPIO bus: %s", err)
         return out
 
     def _create_dallas_sensor(
@@ -460,7 +488,7 @@ class SensorManager:
     # Getters
     # -------------------------------------------------------------------------
     
-    def get_temp_sensor(self, id: str) -> "PCT2075 | MCP9808 | None":
+    def get_temp_sensor(self, id: str) -> "PCT2075 | MCP9808 | DallasSensor | None":
         """Get temperature sensor by ID.
         
         Args:
@@ -505,37 +533,6 @@ class SensorManager:
             List of ADC sensors
         """
         return self._adc_sensors
-
-    def get_tasks(self) -> dict[str, asyncio.Task]:
-        """Get all sensor-related tasks.
-        
-        Returns:
-            Dictionary of tasks
-        """
-        tasks = {}
-        
-        # Temperature sensor tasks
-        for i, sensor in enumerate(self._temp_sensors):
-            if hasattr(sensor, 'get_tasks'):
-                sensor_tasks = sensor.get_tasks()
-                for task_name, task in sensor_tasks.items():
-                    tasks[f"temp_sensor_{i}_{task_name}"] = task
-        
-        # INA219 tasks
-        for i, sensor in enumerate(self._ina219_sensors):
-            if hasattr(sensor, 'get_tasks'):
-                sensor_tasks = sensor.get_tasks()
-                for task_name, task in sensor_tasks.items():
-                    tasks[f"ina219_{i}_{task_name}"] = task
-        
-        # ADC tasks
-        for i, sensor in enumerate(self._adc_sensors):
-            if hasattr(sensor, 'get_tasks'):
-                sensor_tasks = sensor.get_tasks()
-                for task_name, task in sensor_tasks.items():
-                    tasks[f"adc_{i}_{task_name}"] = task
-        
-        return tasks
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all sensors.

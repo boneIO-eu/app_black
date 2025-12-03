@@ -18,7 +18,7 @@ class MessageBus(ABC):
     def send_message(
         self,
         topic: str,
-        payload: str | int | dict | None,
+        payload: str | int | dict[str, str | float | int | None] | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:

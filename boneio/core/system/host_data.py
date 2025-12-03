@@ -184,7 +184,7 @@ class HostData:
                             "col": 60,
                         },
                         "T": {
-                            "data": f"{self._temp_sensor.state} C",
+                            "data": f"{getattr(self._temp_sensor, 'state', 'N/A')} C",
                             "fontSize": "small",
                             "row": 3,
                             "col": 3,
@@ -244,8 +244,10 @@ class HostData:
                         modbus_id = sensor.get("modbus_id")
                         if not modbus_id:
                             continue
-                        _modbus_coordinator = manager.modbus_coordinators.get(modbus_id)
+                        _modbus_coordinator = manager.modbus.get_all_coordinators().get(modbus_id)
                         if _modbus_coordinator:
+                            if not sensor_id:
+                                continue
                             entity = _modbus_coordinator.get_entity_by_name(
                                 sensor_id
                             )
@@ -257,11 +259,14 @@ class HostData:
                             short_name = "".join(
                                 [x[:3] for x in entity.name.split()]
                             )
-                            output[short_name] = (
-                                f"{round(entity.state, 2)} {entity.unit_of_measurement}"
-                            )
+                            if entity.state is not None:
+                                output[short_name] = (
+                                    f"{round(float(entity.state), 2)} {entity.unit_of_measurement}"
+                                )
+                            else:
+                                output[short_name] = f"N/A {entity.unit_of_measurement}"
                     elif sensor_type == "dallas":
-                        for single_sensor in manager.temp_sensors:
+                        for single_sensor in manager.sensors.get_dallas_sensors():
                             if sensor_id == single_sensor.id.lower():
                                 output[single_sensor.name] = (
                                     f"{round(single_sensor.state, 2)} C"

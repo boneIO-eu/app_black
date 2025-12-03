@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -19,14 +19,14 @@ class LocalMessageBus(MessageBus):
         """Initialize local message bus."""
         self._state = True
         self._subscribers: dict[str, set[Callable]] = {}
-        self._retain_values: dict[str, str | dict] = {}
-        self._manager: Manager = None
+        self._retain_values: dict[str, str | int | dict[str, str | float | int]] = {}
+        self._manager: Optional[Manager] = None
         self._running = True
     
     def send_message(
         self,
         topic: str,
-        payload: str | int | dict | None,
+        payload: str | int | dict[str, str | float | int] | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:

@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 _MAX_DEVICES = 20
 
 
-def ds_address(rom: bytes) -> int:
+def ds_address(rom: bytes | bytearray) -> int:
     """Convert ROM bytes to integer address.
     
     Args:

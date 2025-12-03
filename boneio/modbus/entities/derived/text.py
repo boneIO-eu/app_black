@@ -61,6 +61,6 @@ class ModbusDerivedTextSensor(ModbusDerivedEntity):
 
     def evaluate_state(
         self, source_sensor_value: int | float, timestamp: float
-    ) -> int | float:
+    ) -> None:
         self._timestamp = timestamp
         self._value = self._value_mapping.get(str(source_sensor_value), "Unknown")

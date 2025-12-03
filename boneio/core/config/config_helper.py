@@ -35,7 +35,7 @@ class ConfigHelper:
         device_type: str = "boneIO Black",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
-        network_info: dict = None,
+        network_info: dict = {},
         is_web_active: bool = False,
         config_file_path: str | None = None,
     ):
@@ -216,7 +216,10 @@ class ConfigHelper:
         if self._config_cache is None or force_reload:
             from boneio.core.config.yaml_util import load_config_from_file
             _LOGGER.debug("Loading config from file: %s", self._config_file_path)
-            self._config_cache = load_config_from_file(self._config_file_path)
+            config = load_config_from_file(self._config_file_path)
+            if config is None:
+                raise ValueError(f"Failed to load config from file: {self._config_file_path}")
+            self._config_cache = config
         
         return self._config_cache
 

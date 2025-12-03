@@ -497,7 +497,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 "Source sensor %s has no write address", 
                 source_sensor.name if source_sensor else "Unknown"
             )
-            return {}
+            return None
             
         timestamp = time.time()
         encoded_value = entity.encode_value(value)
@@ -548,7 +548,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 "Modbus sensor %s has no write address", 
                 entity.name if hasattr(entity, 'name') else 'Unknown'
             )
-            return {}
+            return None
             
         timestamp = time.time()
         numeric_value = float(value) if isinstance(value, str) else value #21
@@ -663,8 +663,15 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         try:
             if isinstance(entity, ModbusDerivedEntity):
                 await self._write_derived_sensor(value, entity)
-            else:
+            elif isinstance(entity, ModbusBaseEntity):
                 await self._write_direct_sensor(value, entity)
+            else:
+                _LOGGER.error(
+                    "Cannot write to entity %s: unsupported entity type %s",
+                    entity.name if hasattr(entity, 'name') else entity,
+                    type(entity).__name__
+                )
+                return
                 
             # Request update after 3 seconds to confirm the value was written correctly
             self.request_update(seconds=3)
@@ -719,14 +726,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             Output dictionary with updated states
         """
         # Decode value
-        if not sensor.value_type:
-            # Go with old method. Remove when switch Sofar to new.
-            decoded_value = CONVERT_METHODS[sensor.return_type](
-                result=values,
-                base=sensor.base_address,
-                addr=sensor.address,
-            )
-        else:
+        decoded_value: float | int | None = None
+        
+        if sensor.value_type:
+            # New method using value_type
             start_index = sensor.address - sensor.base_address
             count = VALUE_TYPES[sensor.value_type]["count"]
             payload = values.registers[start_index : start_index + count]
@@ -742,20 +745,32 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     sensor.base_address,
                     e,
                 )
-                decoded_value = None
+        elif sensor.return_type:
+            # Go with old method. Remove when switch Sofar to new.
+            decoded_value = CONVERT_METHODS[sensor.return_type](
+                result=values,
+                base=sensor.base_address,
+                addr=sensor.address,
+            )
+        else:
+            _LOGGER.warning(
+                "Sensor %s has neither value_type nor return_type defined",
+                sensor.name,
+            )
                 
         # Update sensor state
         sensor.set_value(value=decoded_value, timestamp=timestamp)
         output = {sensor.decoded_name: sensor.state}
         
         # Update additional entities if they exist
-        if self._additional_entities and sensor.get_value() is not None:
+        sensor_value = sensor.get_value()
+        if self._additional_entities and sensor_value is not None:
             if sensor.decoded_name in self._additional_entities_by_source_name:
                 for additional_entity in self._additional_entities_by_source_name[
                     sensor.decoded_name
                 ]:
                     additional_entity.evaluate_state(
-                        sensor.get_value(), timestamp
+                        sensor_value, timestamp
                     )
                     output[additional_entity.decoded_name] = additional_entity.state
                     # Trigger event for derived sensor
@@ -813,7 +828,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             output = {}
             current_modbus_entities = self._modbus_entities[index]
             for sensor in current_modbus_entities.values():
-                sensor_output = self._update_sensor_and_derived(sensor, values, timestamp)
+                sensor_output = self._update_sensor_and_derived(sensor=sensor, values=values, timestamp=timestamp)
                 output.update(sensor_output)
                 
             self._timestamp = timestamp

@@ -51,7 +51,7 @@ class RelayHelper:
     @property
     def steps(self) -> int:
         """Get steps for each time."""
-        return self._steps
+        return int(self._steps)
 
 
 class PreviousCover(BasicMqtt):
@@ -173,7 +173,7 @@ class PreviousCover(BasicMqtt):
     @property
     def current_cover_position(self) -> int:
         """Return the current position of the cover."""
-        return round(self._position, 0)
+        return int(round(self._position, 0))
 
     def listen_cover(self, *args) -> None:
         """Listen for change in cover."""
@@ -304,7 +304,7 @@ class PreviousCover(BasicMqtt):
 
     @property
     def position(self) -> int:
-        return round(self._position, 0)
+        return int(round(self._position, 0))
 
     @property
     def current_operation(self) -> str:

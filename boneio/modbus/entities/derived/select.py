@@ -20,7 +20,7 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
         message_bus: MessageBus,
         context_config: dict,
         config_helper: ConfigHelper,
-        source_sensor_base_address: str,
+        source_sensor_base_address: int,
         source_sensor_decoded_name: str,
         value_mapping: dict,
     ) -> None:

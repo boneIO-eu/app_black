@@ -113,34 +113,26 @@ class Modbus:
             f"Setting UART for modbus communication: {uart} with baudrate {baudrate}, parity {parity}, stopbits {stopbits}, bytesize {bytesize}",
         )
         self._uart = uart
-
-        # generic configuration
-        self._client: ModbusSerialClient | None = None
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
-        try:
-            _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
-            self._client = ModbusSerialClient(
-                port=self._uart[ID],
-                framer=FramerType.RTU,
-                baudrate=baudrate,
-                stopbits=stopbits,
-                bytesize=bytesize,
-                parity=parity,
-                timeout=timeout,
-                retries=3,
-            )
-            _LOGGER.debug("ModbusSerialClient created successfully")
-        except ModbusException as exception_error:
-            _LOGGER.error(f"Failed to create ModbusSerialClient: {exception_error}")
-        except Exception as e:
-            _LOGGER.error(f"Unexpected error creating ModbusSerialClient: {type(e).__name__}: {e}")
+        _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
+        self._client = ModbusSerialClient(
+            port=self._uart[ID],
+            framer=FramerType.RTU,
+            baudrate=baudrate,
+            stopbits=stopbits,
+            bytesize=bytesize,
+            parity=parity,
+            timeout=timeout,
+            retries=3,
+        )
+        _LOGGER.debug("ModbusSerialClient created successfully")
 
     @property
     def client(self) -> ModbusSerialClient | None:
-        """Return client."""
+        """Return client. May be None after async_close()."""
         return self._client
 
     async def async_close(self) -> None:
@@ -164,10 +156,11 @@ class Modbus:
         """Connect to Modbus device.
         
         This method ensures the client is ready and connected.
+        Returns False if client was closed.
         """
         try:
             if not self._client:
-                _LOGGER.error("Modbus client not initialized")
+                _LOGGER.error("Modbus client was closed")
                 return False
             
             _LOGGER.debug(f"Attempting to connect to Modbus port: {self._uart[ID]}")
@@ -243,14 +236,16 @@ class Modbus:
             )
 
             # Use direct client methods (pymodbus 3.10+ uses device_id instead of slave)
+            # _pymodbus_connect() guarantees self._client is not None here
+            assert self._client is not None
             kwargs = {"address": address, "count": count, "device_id": int(unit)}
             
             if method == "input":
-                result = self._client.read_input_registers(**kwargs)
+                result = self._client.read_input_registers(**kwargs, no_response_expected=False)
             elif method == "holding":
-                result = self._client.read_holding_registers(**kwargs)
+                result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
             elif method == "coil":
-                result = self._client.read_coils(**kwargs)
+                result = self._client.read_coils(**kwargs, no_response_expected=False)
             else:
                 _LOGGER.error(f"Unknown method: {method}")
                 return None
@@ -279,7 +274,7 @@ class Modbus:
             _LOGGER.debug(
                 "Read completed in %.3f seconds: %s",
                 end_time - start_time,
-                result.registers if hasattr(result, REGISTERS) else None,
+                result.registers if result and hasattr(result, REGISTERS) else None,
             )
             return result
 
@@ -302,6 +297,8 @@ class Modbus:
             )
 
             # Use device_id parameter (pymodbus 3.10+)
+            # _pymodbus_connect() guarantees self._client is not None here
+            assert self._client is not None
             result = self._client.write_register(address=address, value=int(value), device_id=int(unit))
 
             if isinstance(result, ExceptionResponse):

@@ -24,7 +24,9 @@ dependencies = [
     "websockets==15.0.1",
     "python-jose[cryptography]==3.5.0",
     "qrcode==8.2",
-    "gpiod==2.3.0"
+    "gpiod==2.3.0",
+    "requests>=2.31.0",
+    "packaging>=24.0"
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }
@@ -87,3 +89,27 @@ known_first_party = ["boneio"]
 
 [tool.pdm.scripts]
 lint = "pre-commit run --all-files"
+
+[tool.pyright]
+# BasedPyRight configuration - compatibility mode with PyRight
+include = ["boneio"]
+exclude = ["**/__pycache__", "**/node_modules"]
+# Use PyRight compatibility mode for fewer warnings
+typeCheckingMode = "basic"
+# Disable some strict checks for better compatibility
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
+reportUnknownArgumentType = false
+reportUntypedFunctionDecorator = false
+reportUntypedClassDef = false
+reportUntypedFunctionDef = false
+reportUntypedMethodSignature = false
+reportUntypedProperty = false
+reportUntypedNamedTuple = false
+reportPrivateImportUsage = false
+# Enable Python 3.13 features
+pythonVersion = "3.13"
+pythonPlatform = "Linux"

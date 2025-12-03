@@ -85,47 +85,51 @@ class ModbusHelper:
         return True
 
     def set_connection_speed(self, new_baudrate: int) -> int:
+        """Set new baudrate for the Modbus device."""
         baudrate_model = self._model[SET_BAUDRATE]
         ind = baudrate_model["possible_baudrates"].get(str(new_baudrate))
-        if ind:
-            result = self._modbus.client.write_register(
-                address=baudrate_model["address"],
-                value=ind,
-                device_id=self._device_address,
-            )
-        if isinstance(result, ExceptionResponse):
+        if not ind:
+            _LOGGER.error("Invalid baudrate: %s", new_baudrate)
+            return 1
+        result = self._modbus.write_register_blocking(
+            unit=self._device_address,
+            address=baudrate_model["address"],
+            value=ind,
+        )
+        if result is None or isinstance(result, ExceptionResponse):
             _LOGGER.error("Operation failed.")
             return 1
+        _LOGGER.info(
+            "Operation succeeded. Now restart device by disconnecting it."
+        )
+        return 0
+
+    def set_new_address(self, new_address: int):
+        """Set new Modbus address for the device."""
+        if not 0 < new_address < 253:
+            _LOGGER.error("Invalid new address: %s", new_address)
+            return
+        _LOGGER.debug("New address register is %s", self._model[SET_ADDRESS])
+        result = self._modbus.write_register_blocking(
+            unit=self._device_address,
+            address=self._model[SET_ADDRESS],
+            value=new_address,
+        )
+        if result is None or isinstance(result, ExceptionResponse):
+            _LOGGER.error("Operation failed.")
         else:
             _LOGGER.info(
                 "Operation succeeded. Now restart device by disconnecting it."
             )
-            return 0
-
-    def set_new_address(self, new_address: int):
-        if 0 < new_address < 253:
-            _LOGGER.debug("New address register is %s", self._model[SET_ADDRESS])
-            result = self._modbus.client.write_register(
-                address=self._model[SET_ADDRESS],
-                value=new_address,
-                device_id=self._device_address,
-            )
-            if isinstance(result, ExceptionResponse):
-                _LOGGER.error("Operation failed.")
-            else:
-                _LOGGER.info(
-                    "Operation succeeded. Now restart device by disconnecting it."
-                )
-        else:
-            _LOGGER.error("Invalid new address.")
 
     def set_custom_command(self, register_address: int, value: int | float):
-        result = self._modbus.client.write_register(
+        """Write a custom value to a specific register."""
+        result = self._modbus.write_register_blocking(
+            unit=self._device_address,
             address=register_address,
             value=value,
-            device_id=self._device_address,
         )
-        if isinstance(result, ExceptionResponse):
+        if result is None or isinstance(result, ExceptionResponse):
             _LOGGER.error("Operation failed.")
         else:
             _LOGGER.info(

@@ -145,6 +145,7 @@ STOP = "stop"
 
 # TYPING
 ClickTypes = Literal["single", "double", "long", "pressed", "released"]
+BinaryStateTypes = Literal["pressed", "released"]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]

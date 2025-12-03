@@ -138,10 +138,22 @@ class ConfigReloadEvent(BaseModel):
     sections: list[str]
 
 
+class InputsReloadedEvent(BaseModel):
+    """Inputs reloaded event - triggered after input configuration is reloaded.
+    
+    This event signals WebSocket handlers to re-send all input states to clients.
+    
+    Attributes:
+        event_type: Type of event (always "inputs_reloaded")
+    """
+    
+    event_type: Literal["inputs_reloaded"] = "inputs_reloaded"
+
+
 # Discriminated union for all events
 # The discriminator field "event_type" allows Pydantic to automatically
 # determine which event type to use when parsing
-Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent
+Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent | InputsReloadedEvent
 
 __all__ = [
     "InputEvent",
@@ -152,6 +164,7 @@ __all__ = [
     "HostEvent",
     "GroupEvent",
     "ConfigReloadEvent",
+    "InputsReloadedEvent",
     "Event",
 ]
 

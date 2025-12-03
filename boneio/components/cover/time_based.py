@@ -53,7 +53,7 @@ class TimeBasedCover(BaseCover):
 
         if total_steps == 0 or duration == 0:
             self._current_operation = IDLE
-            self._loop.call_soon_threadsafe(self.send_state(self.state, self.json_position))
+            self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
             return
 
         relay.turn_on()
@@ -71,7 +71,7 @@ class TimeBasedCover(BaseCover):
 
             self._last_timestamp = current_time # Użyj pobranego czasu
             if current_time - self._last_update_time >= 1:
-                self._loop.call_soon_threadsafe(self.send_state(self.state, self.json_position))
+                self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
                 self._last_update_time = current_time
 
             if target_position is not None:
@@ -85,7 +85,7 @@ class TimeBasedCover(BaseCover):
             time.sleep(0.05)  # Małe opóźnienie, aby nie blokować CPU
         relay.turn_off()
         self._current_operation = IDLE
-        self._loop.call_soon_threadsafe(self.send_state_and_save(self.json_position))
+        self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
         self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
     async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:

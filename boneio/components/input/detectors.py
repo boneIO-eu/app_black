@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import gpiod
 
-from boneio.const import ClickTypes, DOUBLE, LONG, PRESSED, RELEASED, SINGLE
+from boneio.const import BinaryStateTypes, ClickTypes, DOUBLE, LONG, PRESSED, RELEASED, SINGLE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class BinarySensorDetector:
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        callback: Callable[[str, float], None],
+        callback: Callable[[BinaryStateTypes, float], None],
         debounce_ms: float = 50.0,
         inverted: bool = False,
         name: str = "unknown",

@@ -60,9 +60,8 @@ class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
 
     def __init__(self, stream):
-
-        self._root = os.path.split(stream.name)[0]
-
+        # Type: ignore[attr-defined] - stream may not have name attribute
+        self._root = os.path.split(stream.name)[0] if hasattr(stream, 'name') else "."  # type: ignore[attr-defined]
         super().__init__(stream)
 
     def include(self, node):
@@ -86,7 +85,8 @@ class BoneIOLoader(SafeLoader):
         return val
 
     def represent_stringify(self, value):
-        return self.represent_scalar(
+        # Type: ignore[attr-defined] - represent_scalar is inherited from SafeLoader
+        return self.represent_scalar(  # type: ignore[attr-defined]
             tag="tag:yaml.org,2002:str", value=str(value)
         )
 
@@ -190,13 +190,16 @@ def load_yaml_file(filename: str) -> Any:
             return load(stream, Loader=BoneIOLoader) or OrderedDict()
         except YAMLError as exception:
             msg = ""
-            if hasattr(exception, "problem_mark"):
-                if exception.context is not None:
-                    msg+= ('  parser says\n' + str(exception.problem_mark) + '\n  ' +
-                        str(exception.problem) + ' ' + str(exception.context) +
-                        '\nPlease correct data and retry.')
-                mark = exception.problem_mark
+            # Type: ignore[attr-defined] - YAMLError attributes are dynamic
+            if hasattr(exception, "problem_mark"):  # type: ignore[attr-defined]
+                mark = exception.problem_mark  # type: ignore[attr-defined]
                 msg = f" at line {mark.line + 1} column {mark.column + 1}"
+                if hasattr(exception, "context") and exception.context is not None:  # type: ignore[attr-defined]
+                    problem = getattr(exception, "problem", "Unknown error")  # type: ignore[attr-defined]
+                    context = getattr(exception, "context", "")  # type: ignore[attr-defined]
+                    msg = ('  parser says\n' + str(exception.problem_mark) + '\n  ' +  # type: ignore[attr-defined]
+                        str(problem) + ' ' + str(context) +
+                        '\nPlease correct data and retry.')
             raise ConfigurationException(f"Error loading yaml{msg}") from exception
 
 
@@ -375,7 +378,8 @@ timeperiod_type = TypeDefinition("timeperiod", (TimePeriod,), ())
 class CustomValidator(Validator):
     """Custom validator of cerberus"""
 
-    types_mapping = Validator.types_mapping.copy()
+    # Type: ignore[attr-defined] - types_mapping is inherited from Validator
+    types_mapping = Validator.types_mapping.copy()  # type: ignore[attr-defined]
     types_mapping["timeperiod"] = timeperiod_type
 
     def __init__(self, *args, **kwargs):
@@ -389,12 +393,12 @@ class CustomValidator(Validator):
         {'type': 'boolean'}
         """
         if not isinstance(value, str):
-            self._error(field, "must be a string")
+            self._error(field, "must be a string")  # type: ignore[attr-defined]
             return
 
-        allowed = self.schema[field].get('allowed')
+        allowed = self.schema[field].get('allowed')  # type: ignore[attr-defined]
         if allowed and value.lower() not in [a.lower() for a in allowed]:
-            self._error(field, f"unallowed value {value}")
+            self._error(field, f"unallowed value {value}")  # type: ignore[attr-defined]
 
     def _validate_required_if(self, required_if, field, value):
         """Validate that a field is required if a condition is met.
@@ -406,15 +410,15 @@ class CustomValidator(Validator):
             return
 
         for key, values in required_if.items():
-            if key not in self.document:
+            if key not in self.document:  # type: ignore[attr-defined]
                 continue
 
-            doc_value = self.document[key]
+            doc_value = self.document[key]  # type: ignore[attr-defined]
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
             if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
-                if field not in self.document:
-                    self._error(field, f"required when {key} is {doc_value}")
+                if field not in self.document:  # type: ignore[attr-defined]
+                    self._error(field, f"required when {key} is {doc_value}")  # type: ignore[attr-defined]
 
     def _validate_forbidden_if(self, forbidden_if, field, value):
         """Validate that a field is forbidden if a condition is met.
@@ -424,23 +428,23 @@ class CustomValidator(Validator):
         """
         if not forbidden_if:
             return
-        default_value = self.schema[field].get("default")
+        default_value = self.schema[field].get("default")  # type: ignore[attr-defined]
         for key, values in forbidden_if.items():
-            if key not in self.document:
+            if key not in self.document:  # type: ignore[attr-defined]
                 continue
 
-            doc_value = self.document[key]
+            doc_value = self.document[key]  # type: ignore[attr-defined]
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
             
             if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
-                if field in self.document and value != default_value:
-                    self._error(field, f"forbidden when {key} is {doc_value}")
+                if field in self.document and value != default_value:  # type: ignore[attr-defined]
+                    self._error(field, f"forbidden when {key} is {doc_value}")  # type: ignore[attr-defined]
 
     def _normalize_coerce_action_field(self, value):
         """Handle conditional defaults for action fields."""
-        action = self.document.get('action', '').lower()
-        field_name = self.schema_path[-1]
+        action = self.document.get('action', '').lower()  # type: ignore[attr-defined]
+        field_name = self.schema_path[-1]  # type: ignore[attr-defined]
         if value is None:
             if (field_name == 'action_cover' and action == 'cover') or \
                (field_name == 'action_output' and action == 'output'):
@@ -472,7 +476,7 @@ class CustomValidator(Validator):
     def _normalize_coerce_actions_output(self, value):
         return str(value).upper()
 
-    def _normalize_coerce_length_to_meters(self, value) -> float:
+    def _normalize_coerce_length_to_meters(self, value) -> float | None:
         """
         Convert a length value to meters.
         Accepts:
@@ -561,9 +565,9 @@ class CustomValidator(Validator):
         if path.startswith(".."):
             parts = path.split(".")
             dot_count = path.count(".")
-            context = self.root_document
+            context = self.root_document  # type: ignore[attr-defined]
 
-            for key in self.document_path[:dot_count]:
+            for key in self.document_path[:dot_count]:  # type: ignore[attr-defined]
                 context = context[key]
 
             context = context.get(parts[-1])
@@ -571,37 +575,34 @@ class CustomValidator(Validator):
             return parts[-1], context
 
         else:
-            return super()._lookup_field(path)
+            return super()._lookup_field(path)  # type: ignore[attr-defined]
 
     def _check_with_output_id_uniqueness(self, field, value):
         """Check if outputs ids are unique if they exists."""
-        if self.document[OUTPUT] is not None:
-            all_ids = [x.get('name') for x in self.document[OUTPUT] if x.get('name')]
+        if self.document[OUTPUT] is not None:  # type: ignore[attr-defined]
+            all_ids = [x.get('name') for x in self.document[OUTPUT] if x.get('name')]  # type: ignore[attr-defined]
             if len(all_ids) != len(set(all_ids)):
-                self._error(field, "Output Names are not unique.")
+                self._error(field, "Output Names are not unique.")  # type: ignore[attr-defined]
 
     def _check_with_output_id_exists(self, field, value):
         """Check if output id exists or boneio_output is provided."""
         if value:
             for i, output in enumerate(value):
                 if "id" not in output and "boneio_output" not in output:
-                    self._error(field, f"Output at index {i} must have either 'id' or 'boneio_output' defined.")
+                    self._error(field, f"Output at index {i} must have either 'id' or 'boneio_output' defined.")  # type: ignore[attr-defined]
 
     def _check_with_input_id_exists(self, field, value):
         """Check if input id exists or boneio_input is provided."""
         if value:
             for i, input_item in enumerate(value):
                 if "id" not in input_item and "boneio_input" not in input_item:
-                    self._error(field, f"Input at index {i} must have either 'id' or 'boneio_input' defined.")
+                    self._error(field, f"Input at index {i} must have either 'id' or 'boneio_input' defined.")  # type: ignore[attr-defined]
 
     def _normalize_coerce_to_bool(self, value):
         return True
 
     def _normalize_coerce_remove_space(self, value):
         return str(value).replace(" ", "")
-
-    def _normalize_coerce_actions_output(self, value):
-        return str(value).upper()
 
     def _normalize_coerce_power_value_to_watts(self, value):
         """
@@ -631,9 +632,8 @@ class CustomValidator(Validator):
         if not match:
             _LOGGER.warning(f"Could not parse power value: {value}")
             raise ValueError(f"Could not parse power value: {value}")
-        num, unit = match.groups()
-        num = float(num)
-        multiplier = 1.0
+        num = float(match.group(1))
+        unit = match.group(2) or "w"
         if unit in ('w', ''):
             multiplier = 1.0
         elif unit == 'kw':
@@ -698,9 +698,8 @@ class CustomValidator(Validator):
         if not match:
             _LOGGER.warning(f"Could not parse volume flow rate value: {value}")
             raise ValueError(f"Could not parse volume flow rate value: {value}")
-        num, unit = match.groups()
-        num = float(num)
-        multiplier = 1.0
+        num = float(match.group(1))
+        unit = match.group(2) or "lph"
         if unit in ('lph', 'l/h', ''):
             multiplier = 1.0
         elif unit in ('lpm', 'l/min'):
@@ -720,21 +719,21 @@ def load_config_from_string(config_str: str) -> dict:
     v = CustomValidator(schema, purge_unknown=True)
 
     # First normalize the document
-    doc = v.normalized(config_str, always_return_document=True)
+    doc = v.normalized(config_str, always_return_document=True)  # type: ignore[attr-defined]
     # Then merge board config
     if "modbus_sensors" in doc:
         _LOGGER.warning("Modbus sensors are renamed to modbus_devices. Please update your config.")
     merged_doc = merge_board_config(doc)
     
     # Finally validate
-    if not v.validate(merged_doc):
+    if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
         error_msg = "Configuration validation failed:\n"
-        for field, errors in v.errors.items():
+        for field, errors in v.errors.items():  # type: ignore[attr-defined]
             error_lines = []
-            if "line" in v.errors[field][0]:
+            if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
                 error_lines = [
-                    f"{v.errors[field][0]['line']+1}: {line}"
-                    for line in config_str.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]
+                    f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
+                    for line in config_str.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
@@ -753,7 +752,7 @@ def load_config_from_file(config_file: str):
     return load_config_from_string(config_yaml)
 
 
-def strip_default_values(data: Any, schema: dict = None, section: str = None) -> Any:
+def strip_default_values(data: Any, schema: dict | None = None, section: str | None = None) -> Any:
     """
     Remove fields with default values from data to keep YAML clean.
     Uses Cerberus schema.yaml for default values.
@@ -843,16 +842,15 @@ def strip_default_values(data: Any, schema: dict = None, section: str = None) ->
         return cleaned
     
     # Get schema for section
+    defaults: dict = {}
     if section:
         # Load Cerberus schema if not provided
-        if schema is None:
-            schema = _get_schema()
+        loaded_schema = schema if schema is not None else _get_schema()
         
         # Get section schema from Cerberus
-        section_schema = schema.get(section, {})
-        defaults = get_defaults_from_cerberus_schema(section_schema)
-    else:
-        defaults = {}
+        if loaded_schema:
+            section_schema = loaded_schema.get(section, {})
+            defaults = get_defaults_from_cerberus_schema(section_schema)
     
     # Process data
     if isinstance(data, list):
