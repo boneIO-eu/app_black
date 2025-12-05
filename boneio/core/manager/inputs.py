@@ -113,14 +113,17 @@ class InputManager:
 
         def configure_single_input(configure_sensor_func: Callable, gpio: dict) -> None:
             """Configure a single input (event or binary sensor)."""
+            # Work on a copy to avoid modifying the cached config
+            gpio_copy = gpio.copy()
+            
             try:
-                pin = gpio.pop(PIN)
+                pin = gpio_copy.pop(PIN)
             except (AttributeError, KeyError) as err:
                 _LOGGER.error("PIN is required for input configuration: %s", err)
                 return
             
             # Get input_id to check if already configured (uses same logic as _configure_*_sensor)
-            input_id = get_input_id_from_gpio(gpio, pin)
+            input_id = get_input_id_from_gpio(gpio_copy, pin)
             
             if check_if_input_configured(input_id):
                 return
@@ -128,10 +131,10 @@ class InputManager:
             existing_input = self._inputs.get(input_id, None) if reload_config else None
             
             input_device = configure_sensor_func(
-                gpio=gpio,
+                gpio=gpio_copy,
                 pin=pin,
                 existing_input=existing_input,
-                actions=self._manager.parse_actions(pin, gpio.pop(ACTIONS, {})),
+                actions=self._manager.parse_actions(pin, gpio_copy.pop(ACTIONS, {})),
             )
             
             if input_device:

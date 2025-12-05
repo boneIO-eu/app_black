@@ -205,22 +205,25 @@ class OutputManager:
             return outputs
 
         for group in self._outputs_group:
-            members = get_outputs(group.pop("outputs"))
+            # Create a copy to avoid modifying the cached config
+            group_copy = group.copy()
+            
+            members = get_outputs(group_copy.pop("outputs"))
             if not members:
                 _LOGGER.warning(
-                    "Output group %s doesn't have any members. Omitting.", group.get(ID)
+                    "Output group %s doesn't have any members. Omitting.", group_copy.get(ID)
                 )
                 continue
             
-            _id = sanitize_string(group.pop(ID))
-            _name = group.pop("name", _id)
-            area = group.pop("area", None)
+            _id = sanitize_string(group_copy.pop(ID))
+            _name = group_copy.pop("name", _id)
+            area = group_copy.pop("area", None)
             
             output_group = self._create_output_group(
                 id=_id,
                 name=_name,
                 members=members,
-                **group,
+                **group_copy,
             )
             
             # Store area on group object for later use
@@ -556,43 +559,44 @@ class OutputManager:
         _LOGGER.debug("Initializing outputs")
         
         for _config in relay_pins:
-            # Create a copy to avoid modifying the original
+            # Create a copy to avoid modifying the cached config
+            config_copy = _config.copy()
             
             # Handle new schema: name and id are optional
             # 1. Determine Display Name (_name)
-            if "name" in _config:
-                _name = _config.pop("name")
-            elif "id" in _config:
+            if "name" in config_copy:
+                _name = config_copy.pop("name")
+            elif "id" in config_copy:
                  # Fallback to id if name is missing
-                _name = _config.get(ID)
-            elif "boneio_output" in _config:
+                _name = config_copy.get(ID)
+            elif "boneio_output" in config_copy:
                  # Fallback to boneio_output if name and id are missing
-                _name = _config.get("boneio_output")
+                _name = config_copy.get("boneio_output")
             else:
                 # Last resort fallback
                 _name = "unknown_output"
 
             # 2. Determine MQTT ID (_id)
             # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
-            if ID in _config:
-                _id = _config.pop(ID)
-            elif "boneio_output" in _config:
-                _id = _config.get("boneio_output")
+            if ID in config_copy:
+                _id = config_copy.pop(ID)
+            elif "boneio_output" in config_copy:
+                _id = config_copy.get("boneio_output")
             else:
                 _id = strip_accents(_name) if _name else None
 
             # Skip if we couldn't determine valid id or name
             if not _id or not _name:
-                _LOGGER.warning("Skipping output with missing id or name: %s", _config)
+                _LOGGER.warning("Skipping output with missing id or name: %s", config_copy)
                 continue
 
-            restore_state = _config.pop(RESTORE_STATE, False)
-            area = _config.pop("area", None)
+            restore_state = config_copy.pop(RESTORE_STATE, False)
+            area = config_copy.pop("area", None)
             
             out = self._configure_relay(
                 relay_id=_id,
                 name=_name,
-                config=_config,
+                config=config_copy,
                 restore_state=restore_state,
             )
             
