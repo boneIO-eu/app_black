@@ -14,6 +14,9 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
     onChange({ ...data, [field]: value });
   };
 
+  // Normalize uart value to lowercase for matching with options
+  const uartValue = data?.uart ? String(data.uart).toLowerCase() : '';
+
   return (
     <div className="space-y-4">
       {/* UART */}
@@ -23,7 +26,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
         </label>
         <select
           className="select select-bordered w-full"
-          value={data?.uart || ''}
+          value={uartValue}
           onChange={(e) => handleChange('uart', e.target.value)}
           required
         >
@@ -31,7 +34,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value="uart1">UART1 (old BoneIO)</option>
           <option value="uart2">UART2</option>
           <option value="uart3">UART3</option>
-          <option value="uart4">UART4 (new BoneIO)</option>
+          <option value="uart4">UART4 (current BoneIO)</option>
           <option value="uart5">UART5</option>
         </select>
         <label className="label">

@@ -85,9 +85,6 @@ class GpioManager:
             detector: Detector instance (MultiClickDetector or BinarySensorDetector)
             gpio_mode: GPIO mode (gpio, gpio_pu, gpio_pd)
         """
-        if self._running:
-            raise RuntimeError("Cannot add inputs while manager is running")
-
         if pin not in PINS:
             _LOGGER.error("Pin %s not found in PINS mapping", pin)
             return
@@ -95,6 +92,28 @@ class GpioManager:
         pin_info = PINS[pin]
         chip = pin_info["chip"]
         line = pin_info["line"]
+        key = (chip, line)
+        
+        # Check if pin is already registered
+        if key in self._detectors:
+            if self._running:
+                # During runtime, just update the detector (for reload scenarios)
+                _LOGGER.info("Pin %s already registered, updating detector", pin)
+                self._detectors[key] = detector
+                self._aliases[key] = f"{name} ({pin})"
+                return
+            else:
+                _LOGGER.warning("Pin %s already registered during init, skipping", pin)
+                return
+
+        # Cannot add new GPIO lines while manager is running (gpiod limitation)
+        if self._running:
+            _LOGGER.error(
+                "Cannot add new GPIO pin %s while manager is running. "
+                "This pin was not configured at startup.",
+                pin
+            )
+            return
 
         # Map gpio_mode to gpiod.Bias
         bias_map = {
@@ -116,7 +135,6 @@ class GpioManager:
         self._inputs.append(input_def)
         
         # Store detector for later use
-        key = (chip, line)
         self._detectors[key] = detector
         self._aliases[key] = f"{name} ({pin})"
         
@@ -339,6 +357,22 @@ class GpioManager:
         request = self._requests[chip]
         values = request.get_values([line])
         return bool(values[line])
+
+    def is_pin_registered(self, pin: str) -> bool:
+        """Check if a pin is registered with the GPIO manager.
+        
+        Args:
+            pin: Pin name to check
+            
+        Returns:
+            True if pin is registered, False otherwise
+        """
+        if pin not in PINS:
+            return False
+            
+        pin_info = PINS[pin]
+        key = (pin_info["chip"], pin_info["line"])
+        return key in self._detectors
 
     async def stop(self) -> None:
         """Stop monitoring GPIO inputs and cleanup resources."""

@@ -43,6 +43,7 @@ export default function UISettings() {
   const [unsavedChanges, setUnsavedChanges] = useState<{ [key: string]: boolean }>({});
   const [isReloading, setIsReloading] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_schemaLoaded, setSchemaLoaded] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -50,6 +51,25 @@ export default function UISettings() {
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
+  
+  /**
+   * Handle application restart
+   */
+  const handleRestart = async () => {
+    if (!confirm('Are you sure you want to restart the application? This will briefly interrupt all connections.')) {
+      return;
+    }
+    
+    setIsRestarting(true);
+    try {
+      await fetch('/api/restart', { method: 'POST' });
+      // The server will restart, so we won't get a response
+      // Show a message and wait for reconnection
+    } catch (error) {
+      // Expected - server is restarting
+      console.log('Server is restarting...');
+    }
+  };
   
   // Function to navigate to a section
   const navigateToSection = (sectionName: string) => {
@@ -743,7 +763,22 @@ export default function UISettings() {
         </div>
       )}
       
-      {/* Restart required toast - persistent, cannot be dismissed */}
+      {/* Unsaved changes toast - show when there are unsaved changes and no restart required */}
+      {Object.values(unsavedChanges).some(Boolean) && !restartRequired && (
+        <div className="toast toast-top toast-center z-50">
+          <div className="alert alert-warning shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h3 className="font-bold">📝 You have unsaved changes</h3>
+              <div className="text-xs">Click Save to apply your changes.</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Restart required toast - persistent, with restart button */}
       {restartRequired && (
         <div className="toast toast-top toast-center z-50">
           <div className="alert alert-error shadow-lg">
@@ -753,6 +788,33 @@ export default function UISettings() {
             <div>
               <h3 className="font-bold">⚠️ App restart required</h3>
               <div className="text-xs">Configuration was changed. Restart the application to apply changes.</div>
+            </div>
+            <button 
+              className="btn btn-sm btn-warning"
+              onClick={handleRestart}
+              disabled={isRestarting}
+            >
+              {isRestarting ? (
+                <>
+                  <span className="loading loading-spinner loading-xs"></span>
+                  Restarting...
+                </>
+              ) : (
+                '🔄 Restart Now'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Restarting overlay */}
+      {isRestarting && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
+            <span className="loading loading-spinner loading-lg text-warning"></span>
+            <div className="text-center">
+              <p className="text-lg font-semibold text-base-content">Restarting application...</p>
+              <p className="text-sm text-base-content/70">Please wait, the page will reload automatically.</p>
             </div>
           </div>
         </div>

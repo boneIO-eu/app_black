@@ -91,12 +91,20 @@ class InputManager:
         Args:
             reload_config: If True, reload configuration from file and update existing inputs
         """
-        def check_if_pin_configured(pin: str) -> bool:
-            """Check if pin is already configured (only blocks new configs, not reloads)."""
-            if pin in self._inputs:
+        def get_input_id_from_gpio(gpio: dict, pin: str) -> str:
+            """Get input ID from gpio config (same logic as in _configure_event_sensor)."""
+            if ID in gpio:
+                return str(gpio.get(ID))
+            elif "boneio_input" in gpio:
+                return str(gpio.get("boneio_input", pin))
+            return pin
+        
+        def check_if_input_configured(input_id: str) -> bool:
+            """Check if input is already configured (only blocks new configs, not reloads)."""
+            if input_id in self._inputs:
                 if not reload_config:
                     _LOGGER.warning(
-                        "PIN %s is already configured. Omitting it.", pin
+                        "Input %s is already configured. Omitting it.", input_id
                     )
                     return True
                 # During reload, we want to update existing inputs - don't block
@@ -111,10 +119,13 @@ class InputManager:
                 _LOGGER.error("PIN is required for input configuration: %s", err)
                 return
             
-            if check_if_pin_configured(pin):
+            # Get input_id to check if already configured (uses same logic as _configure_*_sensor)
+            input_id = get_input_id_from_gpio(gpio, pin)
+            
+            if check_if_input_configured(input_id):
                 return
             
-            existing_input = self._inputs.get(pin, None) if reload_config else None
+            existing_input = self._inputs.get(input_id, None) if reload_config else None
             
             input_device = configure_sensor_func(
                 gpio=gpio,
@@ -400,54 +411,78 @@ class InputManager:
     async def reload_inputs(self) -> None:
         """Reload input configuration from file.
         
-        This updates existing inputs' actions from the config file.
-        GPIO pins are preserved, only actions are reloaded.
+        This handles:
+        - Updating existing inputs (actions, area, name)
+        - Removing deleted inputs (from internal state and HA Discovery)
+        - Adding inputs that use already-registered GPIO pins (e.g., moving from event to binary_sensor)
         """
         import asyncio
         
         _LOGGER.info("Reloading input configuration")
         
-        # Get new config to check for area changes
+        # Get new config
         config = self._manager._config_helper.reload_config()
         
-        # Build map of new areas from config
-        new_input_areas: dict[str, str | None] = {}
+        # Build map of new inputs from config (input_id -> {pin, area})
+        new_input_map: dict[str, dict] = {}
         for gpio in config.get(EVENT_ENTITY, []) + config.get(BINARY_SENSOR, []):
+            pin = gpio.get("pin")
             # Determine input ID (same logic as in _configure_event_sensor/_configure_binary_sensor)
             if "id" in gpio:
                 input_id = gpio["id"]
             elif "boneio_input" in gpio:
                 input_id = gpio["boneio_input"]
+            elif pin:
+                input_id = pin
             else:
                 continue
-            new_input_areas[input_id] = gpio.get("area")
+            new_input_map[input_id] = {"pin": pin, "area": gpio.get("area")}
         
-        # FIRST: Check for area changes and remove old HA Discovery BEFORE clearing cache
-        area_changed = False
-        _LOGGER.info(f"Checking area changes for {len(self._inputs)} inputs, new_input_areas: {new_input_areas}")
-        for pin, input_device in self._inputs.items():
-            input_id = input_device.id if hasattr(input_device, 'id') else pin
+        # Find inputs to remove (in current config but not in new config)
+        current_input_ids = set(self._inputs.keys())
+        new_input_ids = set(new_input_map.keys())
+        
+        inputs_to_remove = current_input_ids - new_input_ids
+        
+        _LOGGER.info(f"Input reload: current={current_input_ids}, new={new_input_ids}, to_remove={inputs_to_remove}")
+        
+        # Remove deleted inputs from internal state (GPIO pin stays registered - minimal overhead)
+        ha_discovery_changed = False
+        
+        for input_id in inputs_to_remove:
+            input_device = self._inputs.get(input_id)
+            if input_device:
+                old_area = getattr(input_device, 'area', None)
+                
+                # Remove HA Discovery
+                self._remove_input_ha_discovery(input_id, old_area)
+                ha_discovery_changed = True
+                
+                # Remove from internal state (GPIO detector will be replaced by new input class)
+                del self._inputs[input_id]
+                _LOGGER.info(f"Removed input {input_id}")
+        
+        # Check for area changes on remaining inputs
+        for input_id, input_device in self._inputs.items():
             old_area = getattr(input_device, 'area', None)
-            new_area = new_input_areas.get(input_id)
-            
-            _LOGGER.info(f"Input {input_id}: old_area={old_area}, new_area={new_area}")
+            new_area = new_input_map.get(input_id, {}).get("area")
             
             if old_area != new_area:
-                area_changed = True
+                ha_discovery_changed = True
                 _LOGGER.info(
                     f"Input {input_id} area changed: {old_area} -> {new_area}, "
                     "removing old HA Discovery"
                 )
-                # Remove old HA Discovery for this input (pass old_area to find correct device identifier)
                 self._remove_input_ha_discovery(input_id, old_area)
         
         # Wait for HA to process the removal before sending new discovery
-        if area_changed:
+        if ha_discovery_changed:
             _LOGGER.debug("Waiting 1s for HA to process discovery removal...")
             await asyncio.sleep(1)
         
-        # Don't clear inputs - we want to preserve GPIO state
-        # _configure_inputs with reload_config=True will update actions on existing inputs
+        # _configure_inputs with reload_config=True will:
+        # - Update existing inputs (actions, area, name)
+        # - Add new inputs if their GPIO pin is already registered
         self._configure_inputs(reload_config=True)
         
         # Signal WebSocket handlers to re-send all input states to clients
