@@ -30,11 +30,17 @@ class WebServer:
         auth: dict = {},
         logger: dict = {},
         debug_level: int = 0,
+        initial_config: dict | None = None,
     ) -> None:
-        """Initialize the web server."""
+        """Initialize the web server.
+        
+        Args:
+            initial_config: Pre-parsed config to populate cache (avoids slow first request)
+        """
         self.config_file = config_file
         self.config_helper = config_helper
         self.manager = manager
+        self.initial_config = initial_config
         self._shutdown_event = asyncio.Event()
         self._port = port
 
@@ -125,6 +131,7 @@ class WebServer:
             jwt_secret=self.jwt_secret,
             config_helper=self.config_helper,
             web_server=self,
+            initial_config=self.initial_config,
         )
 
         server_task = asyncio.create_task(

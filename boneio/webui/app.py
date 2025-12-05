@@ -762,14 +762,58 @@ async def check_configuration():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+# Config cache to avoid re-parsing YAML on every request
+# Uses file mtime to detect external changes (e.g., manual edits in bash)
+_config_cache: dict = {"data": None, "mtime": 0}
+
+def invalidate_config_cache():
+    """Invalidate config cache - call after saving config."""
+    _config_cache["data"] = None
+    _config_cache["mtime"] = 0
+
+def _get_config_mtime(config_file: str) -> float:
+    """Get the latest mtime of config file and all included files."""
+    import os
+    from pathlib import Path
+    
+    config_dir = Path(config_file).parent
+    max_mtime = os.path.getmtime(config_file)
+    
+    # Also check common include files
+    for pattern in ["*.yaml", "*.yml"]:
+        for f in config_dir.glob(pattern):
+            try:
+                mtime = os.path.getmtime(f)
+                if mtime > max_mtime:
+                    max_mtime = mtime
+            except OSError:
+                pass
+    
+    return max_mtime
+
 @app.get("/api/config")
 async def get_parsed_config():
-    """Get parsed configuration data with !include resolved."""
+    """Get parsed configuration data with !include resolved (cached with mtime check)."""
+    import time
     try:
-        # Load config using BoneIOLoader which handles !include
-        config_data = load_config_from_file(app.state.yaml_config_file)
+        config_file = app.state.yaml_config_file
+        current_mtime = _get_config_mtime(config_file)
         
-        _LOGGER.info("Successfully loaded parsed configuration")
+        # Return cached config if available and file hasn't changed
+        if _config_cache["data"] is not None and _config_cache["mtime"] >= current_mtime:
+            _LOGGER.debug("Returning cached configuration (mtime unchanged)")
+            return {"config": _config_cache["data"]}
+        
+        # Load config using BoneIOLoader which handles !include
+        start = time.time()
+        config_data = load_config_from_file(config_file)
+        elapsed = time.time() - start
+        
+        # Cache the result with current mtime
+        _config_cache["data"] = config_data
+        _config_cache["mtime"] = current_mtime
+        
+        _LOGGER.info("Loaded and cached configuration in %.2fs (mtime: %.0f)", elapsed, current_mtime)
         return {"config": config_data}
         
     except Exception as e:
@@ -900,6 +944,9 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
         
+        # Invalidate config cache after successful save
+        invalidate_config_cache()
+        
         # Mark restart required for sections that need it
         if section in RESTART_REQUIRED_SECTIONS:
             manager: Manager = app.state.manager
@@ -980,9 +1027,21 @@ def init_app(
     auth_config: dict = {},
     jwt_secret: str | None = None,
     web_server: WebServer | None = None,
+    initial_config: dict | None = None,
 ) -> BoneIOApp:
-    """Initialize the FastAPI application with manager."""
+    """Initialize the FastAPI application with manager.
+    
+    Args:
+        initial_config: Pre-parsed config to populate cache (avoids slow first request)
+    """
     global _auth_config, JWT_SECRET
+    
+    # Pre-populate config cache if initial_config provided
+    if initial_config is not None:
+        import os
+        _config_cache["data"] = initial_config
+        _config_cache["mtime"] = _get_config_mtime(yaml_config_file)
+        _LOGGER.info("Config cache pre-populated from initial_config")
     
     # Set JWT secret
     if jwt_secret:

@@ -117,7 +117,7 @@ async def async_run(
     )
     
     # Load areas configuration
-    _config_helper.set_areas(config.get("areas", []))
+    _config_helper.set_areas(areas_config=config.get("areas", []))
 
     # Initialize message bus based on config
     if MQTT in config:
@@ -197,7 +197,8 @@ async def async_run(
             port=web_config.get("port", 8090),  
             auth=web_config.get("auth", {}),  
             logger=config.get("logger", {}),
-            debug_level=debug
+            debug_level=debug,
+            initial_config=config,  # Pre-populate cache for fast first request
         )
         web_server_task = asyncio.create_task(web_server.start_webserver())
         tasks.add(web_server_task)
