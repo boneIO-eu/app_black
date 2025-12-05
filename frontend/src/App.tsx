@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
+import { ConfigProvider } from './contexts/ConfigContext';
 
 export const WebSocketContext = createContext<{
   outputs: OutputEvent[];
@@ -281,7 +282,9 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <ConfigProvider>
+          <AppContent />
+        </ConfigProvider>
       </AuthProvider>
     </Router>
   );

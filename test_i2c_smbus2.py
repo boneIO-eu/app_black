@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test script for smbus2 I2C wrapper on BeagleBone Black with Python 3.13.
 
-This script tests the SMBus2I2CWrapper to ensure it works correctly
-with Adafruit CircuitPython libraries.
+This script tests the native BoneIO I2C drivers (smbus2-based).
+No Adafruit libraries required.
 """
 
 import sys
@@ -42,11 +42,11 @@ def test_i2c_wrapper():
 
 
 def test_mcp23017():
-    """Test MCP23017 with smbus2 wrapper."""
+    """Test MCP23017 with native smbus2 driver."""
     _LOGGER.info("\nTesting MCP23017...")
     
     try:
-        from adafruit_mcp230xx.mcp23017 import MCP23017
+        from boneio.hardware.gpio.expanders import MCP23017
         from boneio.hardware.i2c.bus import SMBus2I2C
         
         i2c = SMBus2I2C(bus_number=2)
@@ -59,9 +59,14 @@ def test_mcp23017():
                 mcp = MCP23017(i2c=i2c, address=addr, reset=False)
                 _LOGGER.info(f"✅ MCP23017 found at address 0x{addr:02X}")
                 
-                # Try to get a pin (basic test)
-                pin = mcp.get_pin(0)
-                _LOGGER.info(f"   - Successfully accessed pin 0")
+                # Configure pin 0 as output and test
+                mcp.configure_pin_as_output(0, value=False)
+                _LOGGER.info("   - Successfully configured pin 0 as output")
+                
+                # Test set/get pin value
+                mcp.set_pin_value(0, True)
+                value = mcp.get_pin_value(0)
+                _LOGGER.info(f"   - Pin 0 value: {value}")
                 return True
                 
             except Exception as e:
@@ -80,11 +85,11 @@ def test_mcp23017():
 
 
 def test_pca9685():
-    """Test PCA9685 with smbus2 wrapper."""
+    """Test PCA9685 with native smbus2 driver."""
     _LOGGER.info("\nTesting PCA9685...")
     
     try:
-        from adafruit_pca9685 import PCA9685
+        from boneio.hardware.gpio.expanders import PCA9685
         from boneio.hardware.i2c.bus import SMBus2I2C
         
         i2c = SMBus2I2C(bus_number=2)
@@ -94,12 +99,17 @@ def test_pca9685():
         
         for addr in addresses:
             try:
-                pca = PCA9685(i2c, address=addr)
+                pca = PCA9685(i2c=i2c, address=addr)
                 _LOGGER.info(f"✅ PCA9685 found at address 0x{addr:02X}")
                 
                 # Set frequency (basic test)
                 pca.frequency = 50
-                _LOGGER.info(f"   - Successfully set frequency")
+                _LOGGER.info("   - Successfully set frequency to 50Hz")
+                
+                # Test channel access
+                channel = pca.channels[0]
+                channel.duty_cycle = 0
+                _LOGGER.info("   - Successfully accessed channel 0")
                 return True
                 
             except Exception as e:

@@ -54,12 +54,6 @@ class MCPOutput(BasicOutput):
 
     @property
     @override
-    def pin_id(self) -> int:
-        """Return PIN id."""
-        return self._pin_id
-
-    @property
-    @override
     def is_active(self) -> bool:
         """Is relay active."""
         return self._mcp.get_pin_value(self._pin_id)

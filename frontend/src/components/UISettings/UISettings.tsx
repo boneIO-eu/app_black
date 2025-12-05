@@ -1,20 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Form } from '@rjsf/daisyui';
-import { RJSFSchema, UiSchema } from '@rjsf/utils';
-import validator from '@rjsf/validator-ajv8';
 import * as yaml from 'js-yaml';
 import { FaSave, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle, FaUndo } from 'react-icons/fa';
 import ArrayTableWidget from './ArrayTableWidget';
-import { getUiSchema } from './helpers/uiSchema';
 import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperiodToMilliseconds } from '@/components/UISettings/helpers/configSchemaUtils';
-import FieldTemplate from './templates/FieldTemplate';
-import ObjectFieldTemplate from './templates/ObjectFieldTemplate';
-import CheckboxWidget from './widgets/CheckboxWidget';
-import SelectWidget from './widgets/SelectWidget';
-import BoneIOSelectWidget from './widgets/BoneIOSelectWidget';
-import OutputSelectWidget from './widgets/OutputSelectWidget';
-import AreaSelectWidget from './widgets/AreaSelectWidget';
+// Custom forms for simple sections (replacing RJSF)
+import BoneIOForm from './BoneIOForm';
+import MqttForm from './MqttForm';
+import WebServerForm from './WebServerForm';
+import ModbusForm from './ModbusForm';
+import LoggerForm from './LoggerForm';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -30,9 +25,9 @@ import AreaSelectWidget from './widgets/AreaSelectWidget';
 
 interface ConfigSection {
   name: string;
-  schema: RJSFSchema;
-  normalizedSchema: RJSFSchema;
-  uiSchema: UiSchema;
+  schema: any;
+  normalizedSchema: any;
+  uiSchema: any;
   data: Record<string, any>;
 }
 
@@ -47,6 +42,11 @@ export default function UISettings() {
   const [saveStatus, setSaveStatus] = useState<{ [key: string]: 'idle' | 'saving' | 'success' | 'error' }>({});
   const [unsavedChanges, setUnsavedChanges] = useState<{ [key: string]: boolean }>({});
   const [isReloading, setIsReloading] = useState(false);
+  const [restartRequired, setRestartRequired] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_schemaLoaded, setSchemaLoaded] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_schemaCache, setSchemaCache] = useState<any>(null);
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
@@ -56,9 +56,8 @@ export default function UISettings() {
     navigate(`/settings/${sectionName}`);
   };
 
-  // Main configuration sections
-  const configSections = [
-    { name: 'boneio', title: 'boneIO', icon: '🔧' },
+  // Sections that only require reload (hot reload supported)
+  const reloadSections = [
     { name: 'areas', title: 'Areas/Rooms', icon: '🏠' },
     { name: 'binary_sensor', title: 'Binary Sensors', icon: '🔘' },
     { name: 'event', title: 'Events', icon: '⚡' },
@@ -66,11 +65,16 @@ export default function UISettings() {
     { name: 'output_group', title: 'Output Groups', icon: '🔗' },
     { name: 'cover', title: 'Covers', icon: '🚪' },
     { name: 'modbus_devices', title: 'Modbus Devices', icon: '📱' },
+    { name: 'logger', title: 'Logger', icon: '📝' },
+  ];
+
+  // Sections that require full restart
+  const restartSections = [
+    { name: 'boneio', title: 'boneIO', icon: '🔧' },
     { name: 'mqtt', title: 'MQTT', icon: '📡' },
     { name: 'web', title: 'Web Server', icon: '🌐' },
-    { name: 'logger', title: 'Logger', icon: '📝' },
-    // { name: 'oled', title: 'OLED Display', icon: '📺' },
     { name: 'modbus', title: 'Modbus', icon: '🔌' },
+    // { name: 'oled', title: 'OLED Display', icon: '📺' },
     // { name: 'lm75', title: 'LM75 Sensors', icon: '🌡️' },
     // { name: 'ina219', title: 'INA219 Sensors', icon: '⚡' },
     // { name: 'mcp23017', title: 'MCP23017', icon: '🔗' },
@@ -82,6 +86,9 @@ export default function UISettings() {
     // { name: 'adc', title: 'ADC', icon: '📈' },
     // { name: 'sensor', title: 'Sensors', icon: '📊' },
   ];
+
+  // Combined for lookup
+  const configSections = [...reloadSections, ...restartSections];
 
 
  
@@ -147,61 +154,67 @@ export default function UISettings() {
   };
 
   /**
-   * Load configuration and schemas
+   * Load configuration and schemas (lazy loading - config first, schema in background)
    */
   const loadConfiguration = useCallback(async () => {
     try {
-      // Load parsed config from backend (handles !include automatically)
+      // Check restart status from backend (non-blocking)
+      fetch('/api/status/restart')
+        .then(r => r.ok ? r.json() : null)
+        .then(status => {
+          if (status?.restart_required) setRestartRequired(true);
+        })
+        .catch(() => {});
+      
+      // Load parsed config from backend FIRST (fast, small)
       const configResponse = await fetch('/api/config');
       const configContent = await configResponse.json();
-      
-      // Load main schema
-      const isDevelopment = import.meta.env.DEV;
-      const mainSchemaResponse = await fetch(isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json');
-      const mainSchema = await mainSchemaResponse.json();
-      
-      // Convert data to match schema types for form display
       const configData = configContent?.config || {};
-      const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
-      // Deep copy for originalData to avoid reference issues when formData is modified
-      setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
-      setFormData(convertedFormData);
-
-      // Create sections based on available schemas and data
-      const loadedSections: ConfigSection[] = [];
       
-      for (const sectionConfig of configSections) {
-        try {
-          // Try to load section-specific schema
-          let sectionSchema: RJSFSchema;
-          try {
-            // Extract the section schema from the nested structure
-            sectionSchema = mainSchema.properties?.[sectionConfig.name] || mainSchema;
-            
-            if (isDevelopment) {
-              console.log(`✅ Loaded schema for ${sectionConfig.name} from Vite static files`);
-            }
-          } catch {
-            // Fallback to main schema property
-            sectionSchema = mainSchema.properties?.[sectionConfig.name] || { type: 'object' };
-            console.warn(`⚠️ Using fallback schema for ${sectionConfig.name}`);
-          }
-
-          const normalizedSchema = normalizeSchema(sectionSchema);
+      // Set form data immediately WITHOUT schema conversion (UI shows instantly)
+      setFormData(configData);
+      setOriginalData(JSON.parse(JSON.stringify(configData)));
+      
+      // Create initial sections without schema (for custom forms that don't need it)
+      const initialSections: ConfigSection[] = configSections.map(sectionConfig => ({
+        name: sectionConfig.name,
+        schema: { type: 'object' },
+        normalizedSchema: { type: 'object', properties: {} },
+        uiSchema: {},
+        data: configData[sectionConfig.name] || {},
+      }));
+      setSections(initialSections);
+      
+      // Load schema in background (lazy) - only needed for ArrayTableWidget sections
+      const isDevelopment = import.meta.env.DEV;
+      fetch(isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json')
+        .then(r => r.json())
+        .then(mainSchema => {
+          setSchemaCache(mainSchema);
+          setSchemaLoaded(true);
           
-          loadedSections.push({
-            name: sectionConfig.name,
-            schema: sectionSchema,
-            normalizedSchema: normalizedSchema,
-            uiSchema: getUiSchema(sectionConfig.name),
-            data: configData[sectionConfig.name] || {},
+          // Update sections with proper schemas
+          const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
+            const sectionSchema = mainSchema.properties?.[sectionConfig.name] || { type: 'object' };
+            return {
+              name: sectionConfig.name,
+              schema: sectionSchema,
+              normalizedSchema: normalizeSchema(sectionSchema),
+              uiSchema: {},
+              data: configData[sectionConfig.name] || {},
+            };
           });
-        } catch (error) {
-          console.warn(`Could not load schema for section ${sectionConfig.name}:`, error);
-        }
-      }
-
-      setSections(loadedSections);
+          setSections(loadedSections);
+          
+          // Now convert form data with schema types
+          const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
+          setFormData(convertedFormData);
+          setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
+          
+          console.log('✅ Schema loaded in background');
+        })
+        .catch(err => console.warn('Schema loading failed (non-critical):', err));
+        
     } catch (error) {
       console.error('Error loading configuration:', error);
     }
@@ -331,9 +344,30 @@ export default function UISettings() {
     
     setFormData((prevFormData: Record<string, any>) => ({ ...prevFormData, [sectionName]: newFormData }));
     
+    // Normalize data before comparison - remove empty objects/arrays/nulls
+    const normalizeForComparison = (obj: any): any => {
+      if (obj === null || obj === undefined) return undefined;
+      if (Array.isArray(obj)) {
+        const filtered = obj.map(normalizeForComparison).filter(v => v !== undefined);
+        return filtered.length > 0 ? filtered : undefined;
+      }
+      if (typeof obj === 'object') {
+        const result: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+          const normalized = normalizeForComparison(value);
+          if (normalized !== undefined) {
+            result[key] = normalized;
+          }
+        }
+        return Object.keys(result).length > 0 ? result : undefined;
+      }
+      if (obj === '') return undefined;
+      return obj;
+    };
+    
     // Deep comparison using sorted JSON stringify
     const sortedStringify = (obj: any): string => {
-      if (obj === null || obj === undefined) return JSON.stringify(obj);
+      if (obj === null || obj === undefined) return 'null';
       if (Array.isArray(obj)) {
         return '[' + obj.map(sortedStringify).join(',') + ']';
       }
@@ -344,10 +378,12 @@ export default function UISettings() {
       return JSON.stringify(obj);
     };
     
-    const newDataStr = sortedStringify(newFormData);
-    const originalDataStr = sortedStringify(originalData[sectionName]);
+    const normalizedNew = normalizeForComparison(newFormData);
+    const normalizedOriginal = normalizeForComparison(originalData[sectionName]);
+    const newDataStr = sortedStringify(normalizedNew);
+    const originalDataStr = sortedStringify(normalizedOriginal);
     const hasChanges = newDataStr !== originalDataStr;
-    console.log("📝 hasChanges:", hasChanges, newFormData, originalData[sectionName]);
+    console.log("📝 hasChanges:", hasChanges, "new:", normalizedNew, "original:", normalizedOriginal);
     
     if (hasChanges) {
       console.log("✅ Setting unsavedChanges to true for:", sectionName);
@@ -435,13 +471,20 @@ export default function UISettings() {
       }
       
       if (response.status === 200) {
+        const result = await response.json();
+        
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
         // Update original data to reflect the saved state (deep copy to avoid reference issues)
         setOriginalData(prev => ({ ...prev, [sectionName]: JSON.parse(JSON.stringify(formData[sectionName])) }));
         
+        // Check if backend says restart is required
+        if (result.restart_required) {
+          setRestartRequired(true);
+        }
+        
         // Trigger reload for sections that support hot-reload
-        const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor'];
+        const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor', 'modbus_devices', 'areas'];
         if (reloadableSections.includes(sectionName)) {
           try {
             setIsReloading(true);
@@ -533,7 +576,7 @@ export default function UISettings() {
   /**
    * Normalize schema to fix common issues
    */
-  const normalizeSchema = (schema: RJSFSchema): RJSFSchema => {
+  const normalizeSchema = (schema: any): any => {
     const normalizeProperty = (prop: any): any => {
       if (!prop || typeof prop !== 'object') return prop;
 
@@ -699,49 +742,118 @@ export default function UISettings() {
           </div>
         </div>
       )}
+      
+      {/* Restart required toast - persistent, cannot be dismissed */}
+      {restartRequired && (
+        <div className="toast toast-top toast-center z-50">
+          <div className="alert alert-error shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h3 className="font-bold">⚠️ App restart required</h3>
+              <div className="text-xs">Configuration was changed. Restart the application to apply changes.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar with section tabs */}
       <div className="w-80 bg-base-200 border-r border-base-content/10 overflow-y-auto">
         <div className="p-4">
           <h2 className="text-xl font-bold text-base-content mb-4">Configuration Sections</h2>
-          <div className="space-y-2">
-            {sections.map((section) => {
-              const sectionConfig = configSections.find(s => s.name === section.name);
-              const status = saveStatus[section.name];
-              
-              return (
-                <button
-                  key={section.name}
-                  onClick={() => navigateToSection(section.name)}
-                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
-                    activeSection === section.name
-                      ? 'bg-primary text-primary-content shadow-md'
-                      : 'bg-base-100 hover:bg-base-300 text-base-content'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-                    <div>
-                      <div className="font-medium">{sectionConfig?.title}</div>
-                      <div className="text-xs opacity-70">{section.name}</div>
+          
+          {/* Reload sections - hot reload supported */}
+          <div className="space-y-2 mb-4">
+            {sections
+              .filter(s => reloadSections.some(rs => rs.name === s.name))
+              .map((section) => {
+                const sectionConfig = configSections.find(s => s.name === section.name);
+                const status = saveStatus[section.name];
+                
+                return (
+                  <button
+                    key={section.name}
+                    onClick={() => navigateToSection(section.name)}
+                    className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+                      activeSection === section.name
+                        ? 'bg-primary text-primary-content shadow-md'
+                        : 'bg-base-100 hover:bg-base-300 text-base-content'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+                      <div>
+                        <div className="font-medium">{sectionConfig?.title}</div>
+                        <div className="text-xs opacity-70">{section.name}</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {unsavedChanges[section.name] && (
-                      <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
-                    )}
-                    {status === 'success' && (
-                      <FaCheck className="text-success" title="Saved successfully" />
-                    )}
-                    {status === 'error' && (
-                      <FaExclamationTriangle className="text-error" title="Save failed" />
-                    )}
-                    {status === 'saving' && (
-                      <div className="loading loading-spinner loading-xs"></div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="flex items-center space-x-2">
+                      {unsavedChanges[section.name] && (
+                        <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
+                      )}
+                      {status === 'success' && (
+                        <FaCheck className="text-success" title="Saved successfully" />
+                      )}
+                      {status === 'error' && (
+                        <FaExclamationTriangle className="text-error" title="Save failed" />
+                      )}
+                      {status === 'saving' && (
+                        <div className="loading loading-spinner loading-xs"></div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+
+          {/* Separator */}
+          <div className="divider text-xs text-warning font-medium my-2">
+            ⚠️ Restart required for sections below
+          </div>
+
+          {/* Restart sections */}
+          <div className="space-y-2">
+            {sections
+              .filter(s => restartSections.some(rs => rs.name === s.name))
+              .map((section) => {
+                const sectionConfig = configSections.find(s => s.name === section.name);
+                const status = saveStatus[section.name];
+                
+                return (
+                  <button
+                    key={section.name}
+                    onClick={() => navigateToSection(section.name)}
+                    className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+                      activeSection === section.name
+                        ? 'bg-primary text-primary-content shadow-md'
+                        : 'bg-base-100 hover:bg-base-300 text-base-content'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+                      <div>
+                        <div className="font-medium">{sectionConfig?.title}</div>
+                        <div className="text-xs opacity-70">{section.name}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {unsavedChanges[section.name] && (
+                        <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
+                      )}
+                      {status === 'success' && (
+                        <FaCheck className="text-success" title="Saved successfully" />
+                      )}
+                      {status === 'error' && (
+                        <FaExclamationTriangle className="text-error" title="Save failed" />
+                      )}
+                      {status === 'saving' && (
+                        <div className="loading loading-spinner loading-xs"></div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </div>
       </div>
@@ -826,29 +938,37 @@ export default function UISettings() {
                         }
                       />
                     ) : (
-                      <Form
-                        schema={activeSection_data.normalizedSchema}
-                        uiSchema={activeSection_data.uiSchema}
-                        formData={formData[activeSection]}
-                        formContext={{ formData, areas: formData['areas'] || [] }}
-                        validator={validator}
-                        onChange={({ formData }) => handleSectionChange(activeSection, formData)}
-                        onSubmit={() => saveSection(activeSection)}
-                        className="space-y-4"
-                        widgets={{
-                          CheckboxWidget: CheckboxWidget,
-                          SelectWidget: SelectWidget,
-                          BoneIOSelectWidget: BoneIOSelectWidget,
-                          OutputSelectWidget: OutputSelectWidget,
-                          AreaSelectWidget: AreaSelectWidget
-                        }}
-                        templates={{
-                          FieldTemplate: FieldTemplate,
-                          ObjectFieldTemplate: ObjectFieldTemplate
-                        }}
-                      >
-                        <div></div> {/* Hide default submit button */}
-                      </Form>
+                      // Custom forms for simple dict sections
+                      activeSection === 'boneio' ? (
+                        <BoneIOForm
+                          data={formData[activeSection]}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
+                      ) : activeSection === 'mqtt' ? (
+                        <MqttForm
+                          data={formData[activeSection]}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
+                      ) : activeSection === 'web' ? (
+                        <WebServerForm
+                          data={formData[activeSection]}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
+                      ) : activeSection === 'modbus' ? (
+                        <ModbusForm
+                          data={formData[activeSection]}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
+                      ) : activeSection === 'logger' ? (
+                        <LoggerForm
+                          data={formData[activeSection]}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
+                      ) : (
+                        <div className="alert alert-warning">
+                          <span>No form available for section: {activeSection}</span>
+                        </div>
+                      )
                     )}
                   </div>
                   
@@ -890,29 +1010,37 @@ export default function UISettings() {
                       }
                     />
                   ) : (
-                    <Form
-                      schema={activeSection_data.normalizedSchema}
-                      uiSchema={activeSection_data.uiSchema}
-                      formData={formData[activeSection]}
-                      formContext={{ formData, areas: formData['areas'] || [] }}
-                      validator={validator}
-                      onChange={({ formData }) => handleSectionChange(activeSection, formData)}
-                      onSubmit={() => saveSection(activeSection)}
-                      className="space-y-4"
-                      widgets={{
-                        CheckboxWidget: CheckboxWidget,
-                        SelectWidget: SelectWidget,
-                        BoneIOSelectWidget: BoneIOSelectWidget,
-                        OutputSelectWidget: OutputSelectWidget,
-                        AreaSelectWidget: AreaSelectWidget
-                      }}
-                      templates={{
-                        FieldTemplate: FieldTemplate,
-                        ObjectFieldTemplate: ObjectFieldTemplate
-                      }}
-                    >
-                      <div></div> {/* Hide default submit button */}
-                    </Form>
+                    // Custom forms for simple dict sections
+                    activeSection === 'boneio' ? (
+                      <BoneIOForm
+                        data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : activeSection === 'mqtt' ? (
+                      <MqttForm
+                        data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : activeSection === 'web' ? (
+                      <WebServerForm
+                        data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : activeSection === 'modbus' ? (
+                      <ModbusForm
+                        data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : activeSection === 'logger' ? (
+                      <LoggerForm
+                        data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : (
+                      <div className="alert alert-warning">
+                        <span>No form available for section: {activeSection}</span>
+                      </div>
+                    )
                   )}
                 </div>
               )}

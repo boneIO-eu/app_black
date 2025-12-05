@@ -214,6 +214,7 @@ class OutputManager:
             
             _id = sanitize_string(group.pop(ID))
             _name = group.pop("name", _id)
+            area = group.pop("area", None)
             
             output_group = self._create_output_group(
                 id=_id,
@@ -222,8 +223,11 @@ class OutputManager:
                 **group,
             )
             
+            # Store area on group object for later use
+            output_group.area = area
+            
             self._configured_output_groups[_id] = output_group
-            _LOGGER.info("Created output group '%s' with %d members", _id, len(members))
+            _LOGGER.info("Created output group '%s' with %d members, area='%s'", _id, len(members), area)
             
             # Send HA autodiscovery for group (use is_group=True to use 'group' device_type)
             self._manager.send_ha_autodiscovery(
@@ -232,6 +236,7 @@ class OutputManager:
                 ha_type=output_group.output_type,
                 output_type=output_group.output_type,
                 is_group=True,
+                area=area,
             )
             
             # Send initial state to WebSocket
@@ -642,7 +647,7 @@ class OutputManager:
         relay_pins = config.get(OUTPUT, [])
         output_groups = config.get("output_group", [])
         
-        # Build map of new areas from config
+        # Build map of new areas from config for outputs
         new_output_areas: dict[str, str | None] = {}
         for cfg in relay_pins:
             # Determine output ID (same logic as in _initialize_outputs)
@@ -653,6 +658,13 @@ class OutputManager:
             else:
                 continue
             new_output_areas[output_id] = cfg.get("area")
+        
+        # Build map of new areas from config for groups
+        new_group_areas: dict[str, str | None] = {}
+        for cfg in output_groups:
+            group_id = cfg.get("id")
+            if group_id:
+                new_group_areas[group_id] = cfg.get("area")
         
         # FIRST: Check for area changes and remove old HA Discovery BEFORE clearing cache
         # This must happen before _initialize_outputs clears the autodiscovery cache
@@ -669,6 +681,20 @@ class OutputManager:
                 )
                 # Remove old HA Discovery for this output (pass old_area to find correct device identifier)
                 self._remove_output_ha_discovery(output_id, old_area)
+        
+        # Check for area changes in groups
+        for group_id, group in self._configured_output_groups.items():
+            old_area = getattr(group, 'area', None)
+            new_area = new_group_areas.get(group_id)
+            
+            if old_area != new_area:
+                area_changed = True
+                _LOGGER.debug(
+                    f"Output group {group_id} area changed: {old_area} -> {new_area}, "
+                    "removing old HA Discovery"
+                )
+                # Remove old HA Discovery for this group
+                self._remove_group_ha_discovery(group_id)
         
         # SECOND: Cleanup existing output groups before clearing outputs
         # Groups hold references to outputs, so they must be cleaned up first

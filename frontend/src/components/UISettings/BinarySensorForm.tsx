@@ -25,6 +25,7 @@ interface BinarySensorData {
   inverted?: boolean;
   clear_message?: boolean;
   device_class?: string;
+  area?: string;
   actions?: {
     pressed?: Action[];
     released?: Action[];
@@ -49,6 +50,7 @@ interface BinarySensorFormProps {
   allOutputs?: any[];
   allCovers?: any[];
   allAreas?: Area[];
+  onValidationChange?: (hasErrors: boolean) => void;
 }
 
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
@@ -60,9 +62,59 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allOutputs = [],
   allCovers = [],
   allAreas = [],
-  editingIndex
+  editingIndex,
+  onValidationChange
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+
+  // Validate action - check if required fields are filled
+  const validateAction = (action: Action): string | null => {
+    if (!action.action) return 'Action type is required';
+    
+    const actionType = action.action.toLowerCase();
+    
+    if (actionType === 'output' || actionType === 'output_over_mqtt') {
+      if (!action.pin) return 'Output is required for output actions';
+    }
+    
+    if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
+      if (!action.pin) return 'Cover is required for cover actions';
+    }
+    
+    if (actionType === 'mqtt') {
+      if (!action.topic) return 'Topic is required for MQTT actions';
+    }
+    
+    if (actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') {
+      if (!action.boneio_id) return 'BoneIO ID is required for remote actions';
+    }
+    
+    return null;
+  };
+
+  // Get all validation errors
+  const getValidationErrors = (): string[] => {
+    const errors: string[] = [];
+    
+    ['pressed', 'released'].forEach((type) => {
+      const actions = data.actions?.[type as 'pressed' | 'released'] || [];
+      actions.forEach((action: Action, index: number) => {
+        const error = validateAction(action);
+        if (error) {
+          errors.push(`${type.charAt(0).toUpperCase() + type.slice(1)} action ${index + 1}: ${error}`);
+        }
+      });
+    });
+    
+    return errors;
+  };
+
+  const validationErrors = getValidationErrors();
+  
+  // Notify parent about validation status
+  React.useEffect(() => {
+    onValidationChange?.(validationErrors.length > 0);
+  }, [validationErrors.length, onValidationChange]);
 
   // Extract enum values from schema
   const deviceClassOptions = schema?.items?.properties?.device_class?.enum || [
@@ -522,7 +574,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               </label>
               <select
                 className="select select-bordered w-full"
-                value={(data as any).area || ''}
+                value={data.area || ''}
                 onChange={(e) => updateField('area', e.target.value || undefined)}
               >
                 <option value="">No area (main device)</option>

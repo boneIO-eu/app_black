@@ -182,7 +182,7 @@ class DisplayManager:
                 )
                 
                 if oled_button:
-                    self._manager.inputs._inputs[OLED_PIN] = oled_button
+                    self._manager.inputs._inputs["oled_button"] = oled_button
                     _LOGGER.info("OLED button configured on pin %s", OLED_PIN)
             
             self._oled.render_display()

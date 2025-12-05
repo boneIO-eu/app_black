@@ -5,23 +5,27 @@ interface OutputGroupFormProps {
   onChange: (data: any) => void;
   schema?: any;
   allOutputs?: any[];
+  allAreas?: any[];
 }
 
 const OutputGroupForm: React.FC<OutputGroupFormProps> = ({ 
   data, 
   onChange, 
   schema,
-  allOutputs = []
+  allOutputs = [],
+  allAreas = []
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
   // Get available outputs from allOutputs with their names
+  // Filter out outputs with output_type 'cover' - they cannot be part of groups
   const availableOutputs = allOutputs
-    .filter(output => output.boneio_output)
+    .filter(output => output.boneio_output && output.output_type !== 'cover')
     .map(output => ({
       id: output.boneio_output,
       name: output.name || output.id || output.boneio_output,
-      displayName: `${output.name || output.id || output.boneio_output} : ${output.boneio_output}`
+      displayName: `${output.name || output.id || output.boneio_output} : ${output.boneio_output}`,
+      outputType: output.output_type
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
 
@@ -177,6 +181,30 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
             <label className="label">
               <span className="label-text-alt text-info">
                 Device type in Home Assistant (switch or light)
+              </span>
+            </label>
+          </div>
+
+          {/* Area */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">Area</span>
+            </label>
+            <select
+              className="select ed w-full"
+              value={data.area || ''}
+              onChange={(e) => updateField('area', e.target.value || undefined)}
+            >
+              <option value="">-- No area (main device) --</option>
+              {allAreas.map((area: any) => (
+                <option key={area.id} value={area.id}>
+                  {area.name || area.id}
+                </option>
+              ))}
+            </select>
+            <label className="label">
+              <span className="label-text-alt text-info">
+                Assign this group to a specific area/sub-device in Home Assistant
               </span>
             </label>
           </div>

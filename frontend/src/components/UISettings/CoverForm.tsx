@@ -1,18 +1,25 @@
 import React, { useState, useMemo } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
+interface Area {
+  id: string;
+  name: string;
+}
+
 interface CoverFormProps {
   data: any;
   onChange: (data: any) => void;
   schema?: any;
   allOutputs?: any[];
+  allAreas?: Area[];
 }
 
 const CoverForm: React.FC<CoverFormProps> = ({ 
   data, 
   onChange, 
   schema,
-  allOutputs = []
+  allOutputs = [],
+  allAreas = []
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
@@ -62,21 +69,72 @@ const CoverForm: React.FC<CoverFormProps> = ({
       {/* Basic Tab */}
       {activeTab === 'basic' && (
         <div className="space-y-4">
-          {/* ID */}
+          {/* Display Name */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">ID *</span>
+              <span className="label-text font-medium">Display Name</span>
             </label>
             <input
               type="text"
-              className="input  w-full"
-              value={data.id || ''}
-              onChange={(e) => updateField('id', e.target.value)}
-              placeholder="e.g., cover_living_room"
+              className="input w-full"
+              value={data.name || ''}
+              onChange={(e) => updateField('name', e.target.value)}
+              placeholder="e.g., Living Room Blinds"
             />
             <label className="label">
               <span className="label-text-alt text-info">
-                Unique identifier for Home Assistant
+                Friendly name shown in Home Assistant. If not set, uses ID.
+              </span>
+            </label>
+          </div>
+
+          {/* ID */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">ID</span>
+            </label>
+            <input
+              type="text"
+              className="input w-full"
+              value={data.id || ''}
+              onChange={(e) => updateField('id', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
+              placeholder="Auto-generated from relays if empty"
+            />
+            <label className="label">
+              <span className="label-text-alt text-info">
+                Technical ID for MQTT topics. Only lowercase letters, numbers and underscores.
+                {!data.id && data.open_relay && data.close_relay && (
+                  <span className="block mt-1">
+                    Will be: <code className="bg-base-300 px-1 rounded">cover_{data.open_relay}_{data.close_relay}</code>
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
+
+          {/* Area / Room */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">Area / Room</span>
+            </label>
+            <select
+              className="select select-bordered w-full"
+              value={data.area || ''}
+              onChange={(e) => updateField('area', e.target.value || undefined)}
+            >
+              <option value="">No area (main device)</option>
+              {allAreas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </select>
+            <label className="label">
+              <span className="label-text-alt whitespace-normal break-words">
+                {allAreas.length === 0 
+                  ? 'Define areas in the Areas/Rooms section first'
+                  : 'Creates sub-device linked to main BoneIO device'
+                }
               </span>
             </label>
           </div>
@@ -117,14 +175,18 @@ const CoverForm: React.FC<CoverFormProps> = ({
               </div>
             ) : (
               <select
-                className="select ed w-full"
+                className="select select-bordered w-full"
                 value={data.open_relay || ''}
                 onChange={(e) => updateField('open_relay', e.target.value)}
               >
                 <option value="">Select open relay...</option>
                 {availableCoverOutputs.map((output: string) => (
-                  <option key={output} value={output} className="uppercase">
-                    {output}
+                  <option 
+                    key={output} 
+                    value={output} 
+                    disabled={output === data.close_relay}
+                  >
+                    {output} {output === data.close_relay ? '(used as Close Relay)' : ''}
                   </option>
                 ))}
               </select>
@@ -147,14 +209,18 @@ const CoverForm: React.FC<CoverFormProps> = ({
               </div>
             ) : (
               <select
-                className="select ed w-full"
+                className="select select-bordered w-full"
                 value={data.close_relay || ''}
                 onChange={(e) => updateField('close_relay', e.target.value)}
               >
                 <option value="">Select close relay...</option>
                 {availableCoverOutputs.map((output: string) => (
-                  <option key={output} value={output} className="uppercase">
-                    {output}
+                  <option 
+                    key={output} 
+                    value={output} 
+                    disabled={output === data.open_relay}
+                  >
+                    {output} {output === data.open_relay ? '(used as Open Relay)' : ''}
                   </option>
                 ))}
               </select>
@@ -168,8 +234,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
 
           {/* Open Time */}
           <SimpleTimePeriodInput
-            value={data.open_time || 0}
-            onChange={(value: number) => updateField('open_time', value)}
+            value={data.open_time || ''}
+            onChange={(value: string) => updateField('open_time', value)}
             label="Open Time"
             required={true}
             minimum={1000}
@@ -177,8 +243,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
 
           {/* Close Time */}
           <SimpleTimePeriodInput
-            value={data.close_time || 0}
-            onChange={(value: number) => updateField('close_time', value)}
+            value={data.close_time || ''}
+            onChange={(value: string) => updateField('close_time', value)}
             label="Close Time"
             required={true}
             minimum={1000}
@@ -187,8 +253,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Tilt Duration - only for venetian */}
           {showTiltDuration && (
             <SimpleTimePeriodInput
-              value={data.tilt_duration || 0}
-              onChange={(value: number) => updateField('tilt_duration', value)}
+              value={data.tilt_duration || ''}
+              onChange={(value: string) => updateField('tilt_duration', value)}
               label="Tilt Duration"
               required={false}
               minimum={10}
@@ -198,8 +264,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Actuator Activation Duration - only for previous */}
           {showActuatorDuration && (
             <SimpleTimePeriodInput
-              value={data.actuator_activation_duration || 0}
-              onChange={(value: number) => updateField('actuator_activation_duration', value)}
+              value={data.actuator_activation_duration || ''}
+              onChange={(value: string) => updateField('actuator_activation_duration', value)}
               label="Actuator Activation Duration"
               required={false}
               minimum={0}

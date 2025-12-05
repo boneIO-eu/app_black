@@ -154,9 +154,12 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         close_time: TimePeriod,
         event_bus: EventBus,
         position: int = 100,
+        name: str | None = None,
         **kwargs,
     ) -> None:
-        BasicMqtt.__init__(self, id=id, name=id, topic_type=COVER, **kwargs)
+        # Use provided name or fall back to id
+        display_name = name if name else id
+        BasicMqtt.__init__(self, id=id, name=display_name, topic_type=COVER, **kwargs)
         self._loop = asyncio.get_event_loop()
         self._id = id
         self._open_relay = open_relay
@@ -168,6 +171,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._position = position
         self._initial_position = None
         self._current_operation = IDLE
+        _LOGGER.debug(
+            "BaseCover %s initialized: open_time=%dms, close_time=%dms, initial_position=%d%%",
+            id, self._open_time, self._close_time, position
+        )
 
         self._last_timestamp = time.monotonic()
 
@@ -204,14 +211,22 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     async def open(self) -> None:
         if self._position >= 100:
             return
-        _LOGGER.info("Opening cover %s.", self._id)
+        estimated_time_s = (100 - self._position) / 100 * self._open_time / 1000
+        _LOGGER.info(
+            "Opening cover %s from position %d%%. Estimated time: %.1fs (open_time=%dms)",
+            self._id, self._position, estimated_time_s, self._open_time
+        )
         await self.run_cover(current_operation=OPENING)
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
 
     async def close(self) -> None:
         if self._position <= 0:
             return
-        _LOGGER.info("Closing cover %s.", self._id)
+        estimated_time_s = self._position / 100 * self._close_time / 1000
+        _LOGGER.info(
+            "Closing cover %s from position %d%%. Estimated time: %.1fs (close_time=%dms)",
+            self._id, self._position, estimated_time_s, self._close_time
+        )
         await self.run_cover(current_operation=CLOSING)
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
 
@@ -222,9 +237,20 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         if abs(self._position - position) < 1:
             return
 
+        position_diff = abs(self._position - position)
         if position > self._position:
+            estimated_time_s = position_diff / 100 * self._open_time / 1000
+            _LOGGER.info(
+                "Setting cover %s position from %d%% to %d%% (OPENING). Estimated time: %.1fs (open_time=%dms)",
+                self._id, self._position, position, estimated_time_s, self._open_time
+            )
             await self.run_cover(current_operation=OPENING, target_position=position)
         elif position < self._position:
+            estimated_time_s = position_diff / 100 * self._close_time / 1000
+            _LOGGER.info(
+                "Setting cover %s position from %d%% to %d%% (CLOSING). Estimated time: %.1fs (close_time=%dms)",
+                self._id, self._position, position, estimated_time_s, self._close_time
+            )
             await self.run_cover(current_operation=CLOSING, target_position=position)
 
     async def toggle(self) -> None:

@@ -1,6 +1,5 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
-@source "../node_modules/@rjsf/daisyui";
 
 
 /*
@@ -61,9 +60,9 @@ body {
   --color-neutral: oklch(38.54% 0.024 262.83);
   --color-neutral-content: oklch(100% 0 0);
   --color-info: oklch(66.73% 0.1265 238.79);
-  --color-info-content: oklch(29% 0.066 243.157);
+  --color-info-content: oklch(1 0 none);
   --color-success: oklch(76% 0.177 163.223);
-  --color-success-content: oklch(37% 0.077 168.94);
+  --color-success-content: oklch(0 0 none);
   --color-warning: oklch(82% 0.189 84.429);
   --color-warning-content: oklch(41% 0.112 45.904);
   --color-error: oklch(63.68% 0.2078 25.33);
@@ -119,9 +118,8 @@ body {
   }
 }
 
-/* Custom styles for @rjsf/daisyui forms */
+/* Custom form styles */
 /* Force full width for all form inputs */
-/* .form-control input, */
 .form-control select,
 .form-control textarea {
   width: 100% !important;
@@ -131,79 +129,4 @@ body {
 /* Ensure form-control itself is full width */
 .form-control {
   width: 100% !important;
-}
-
-@layer components {
-  /* Better spacing for form fields */
-  .rjsf .form-control {
-    @apply mb-4 w-full;
-  }
-  
-  /* Input styling - force full width */
-  .rjsf input[type="text"],
-  .rjsf input[type="number"],
-  .rjsf input[type="email"],
-  .rjsf input[type="password"],
-  .rjsf textarea,
-  .rjsf select {
-    @apply input w-full;
-  }
-  
-  /* Select styling */
-  .rjsf select {
-    @apply select  w-full;
-    width: 100% !important;
-  }
-  
-  /* Checkbox styling */
-  .rjsf input[type="checkbox"] {
-    @apply toggle toggle-primary;
-  }
-  
-  /* Label styling */
-  .rjsf label {
-    @apply label;
-  }
-  
-  .rjsf .label-text {
-    @apply font-medium;
-  }
-  
-  /* Error messages */
-  .rjsf .text-error {
-    @apply text-error text-sm mt-1;
-  }
-  
-  /* Help text */
-  .rjsf .label-text-alt {
-    @apply text-base-content/70 text-sm;
-  }
-  
-  /* Field descriptions */
-  .rjsf .field-description {
-    @apply text-base-content/70 text-sm mb-2;
-  }
-  
-  /* Object field titles */
-  .rjsf .object-field-title {
-    @apply text-lg font-semibold mb-4;
-  }
-  
-  /* Array field styling */
-  .rjsf .array-item {
-    @apply border border-base-300 rounded-lg p-4 mb-4;
-  }
-  
-  /* Button styling */
-  .rjsf button[type="submit"] {
-    @apply btn btn-primary;
-  }
-  
-  .rjsf button.array-item-remove {
-    @apply btn btn-error btn-sm;
-  }
-  
-  .rjsf button.array-item-add {
-    @apply btn btn-primary btn-sm;
-  }
 }

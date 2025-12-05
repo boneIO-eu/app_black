@@ -114,7 +114,7 @@ class Oled:
         # Subscribe to OLED button events
         self._event_bus.add_event_listener(
             event_type="input",
-            entity_id=OLED_PIN,
+            entity_id="oled_button",
             listener_id="oled_button_handler",
             target=self._handle_button_press,
         )
@@ -222,9 +222,11 @@ class Oled:
     async def _handle_button_press(self, event: dict) -> None:
         """Handle button press event from input."""
         _LOGGER.debug(f"OLED button pressed event received: {event}")
-        if self._cancel_sleep_handle:
+        if self._sleep:
+            # Display is sleeping - wake it up
             self.wake_up()
         else:
+            # Display is active - go to next screen
             self._next_screen()
 
     def _next_screen(self) -> None:

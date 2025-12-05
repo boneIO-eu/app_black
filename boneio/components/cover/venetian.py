@@ -50,6 +50,10 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             position=position,
             **kwargs,
         )
+        _LOGGER.debug(
+            "VenetianCover %s initialized: open_time=%dms, close_time=%dms, tilt_duration=%dms, position=%d%%, tilt=%d%%",
+            self._id, self._open_time, self._close_time, self._tilt_duration, position, self._tilt_position
+        )
 
     def _move_cover(
         self,
@@ -186,11 +190,22 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         if abs(self._tilt_position - tilt_position) < 1:
             return
 
+        tilt_diff = abs(self._tilt_position - tilt_position)
+        estimated_time_s = tilt_diff / 100 * self._tilt_duration / 1000
+        
         if tilt_position > self._tilt_position:
+            _LOGGER.info(
+                "Setting tilt %s from %d%% to %d%% (OPENING). Estimated time: %.2fs (tilt_duration=%dms)",
+                self._id, self._tilt_position, tilt_position, estimated_time_s, self._tilt_duration
+            )
             await self.run_cover(
                 current_operation=OPENING, target_tilt_position=tilt_position
             )
         elif tilt_position < self._tilt_position:
+            _LOGGER.info(
+                "Setting tilt %s from %d%% to %d%% (CLOSING). Estimated time: %.2fs (tilt_duration=%dms)",
+                self._id, self._tilt_position, tilt_position, estimated_time_s, self._tilt_duration
+            )
             await self.run_cover(
                 current_operation=CLOSING, target_tilt_position=tilt_position
             )
@@ -228,12 +243,20 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
     async def tilt_open(self) -> None:
         """Opening only tilt cover."""
-        _LOGGER.info("Opening tilt cover %s", self._id)
+        estimated_time_s = (100 - self._tilt_position) / 100 * self._tilt_duration / 1000
+        _LOGGER.info(
+            "Opening tilt cover %s from %d%%. Estimated time: %.2fs (tilt_duration=%dms)",
+            self._id, self._tilt_position, estimated_time_s, self._tilt_duration
+        )
         await self.set_tilt(tilt_position=100)
 
     async def tilt_close(self) -> None:
         """Closing only tilt cover."""
-        _LOGGER.info("Closing tilt cover %s", self._id)
+        estimated_time_s = self._tilt_position / 100 * self._tilt_duration / 1000
+        _LOGGER.info(
+            "Closing tilt cover %s from %d%%. Estimated time: %.2fs (tilt_duration=%dms)",
+            self._id, self._tilt_position, estimated_time_s, self._tilt_duration
+        )
         await self.set_tilt(tilt_position=0)
 
     def update_config_times(self, config: dict) -> None:

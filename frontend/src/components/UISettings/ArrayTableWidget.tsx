@@ -1,19 +1,12 @@
 import React, { useState } from "react";
 import { FaEdit, FaTrash, FaPlus } from "react-icons/fa";
-import { Form } from '@rjsf/daisyui';
-import validator from '@rjsf/validator-ajv8';
-import { RJSFSchema, UiSchema } from "@rjsf/utils";
 import BinarySensorForm from './BinarySensorForm';
 import EventForm from './EventForm';
 import OutputForm from './OutputForm';
 import OutputGroupForm from './OutputGroupForm';
 import CoverForm from './CoverForm';
-import { filterSchemaByDependencies } from './helpers/dependenciesHelper';
-import TimePeriodWidget from './widgets/TimePeriodWidget';
-import SelectWidget from './widgets/SelectWidget';
-import CheckboxWidget from './widgets/CheckboxWidget';
-import FieldTemplate from './templates/FieldTemplate';
-import ObjectFieldTemplate from './templates/ObjectFieldTemplate';
+import ModbusDeviceForm from './ModbusDeviceForm';
+import AreasForm from './AreasForm';
 
 interface Area {
   id: string;
@@ -23,9 +16,9 @@ interface Area {
 export interface ArrayTableWidgetProps {
   value: any[];
   onChange: (value: any[]) => void;
-  schema: RJSFSchema;
+  schema: any;
   title?: string;
-  uiSchema?: UiSchema;
+  uiSchema?: any;
   sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
@@ -44,6 +37,7 @@ export interface ArrayTableWidgetProps {
 const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [], allAreas = [] }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [hasValidationErrors, setHasValidationErrors] = useState(false);
 
   // Format milliseconds to human-readable time
   const formatTimeperiod = (ms: number): string => {
@@ -144,11 +138,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       isValid = hasId && hasOutputs;
       errorMessage = !hasId ? 'ID is required' : 'At least one output is required';
     } else if (sectionType === 'cover') {
-      isValid = !!dataToSave.id && !!dataToSave.open_relay && !!dataToSave.close_relay && !!dataToSave.open_time && !!dataToSave.close_time;
-      errorMessage = 'ID, open relay, close relay, open time and close time are required';
+      // ID is now optional (auto-generated from relays)
+      isValid = !!dataToSave.open_relay && !!dataToSave.close_relay && !!dataToSave.open_time && !!dataToSave.close_time;
+      errorMessage = 'Open relay, close relay, open time and close time are required';
     } else if (sectionType === 'modbus_devices') {
-      isValid = !!dataToSave.id && !!dataToSave.address && !!dataToSave.model;
-      errorMessage = 'ID, address and model are required';
+      // ID is now optional (auto-generated from address and model)
+      isValid = !!dataToSave.address && !!dataToSave.model;
+      errorMessage = 'Address and model are required';
       
       // Validate update_interval minimum (1 second = 1000ms)
       if (isValid && dataToSave.update_interval) {
@@ -222,7 +218,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'cover') {
       return (
         <tr>
-          <th>ID</th>
+          <th>Name / ID</th>
           <th>Platform</th>
           <th>Open Relay</th>
           <th>Close Relay</th>
@@ -233,7 +229,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'modbus_devices') {
       return (
         <tr>
-          <th>ID</th>
+          <th>Name / ID</th>
           <th>Model</th>
           <th>Address</th>
           <th>Update Interval</th>
@@ -273,9 +269,18 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const renderTableRows = () => {
     if (sectionType === 'modbus_devices') {
       return value.map((item, index) => {
+        // Generate display ID if not set
+        const displayId = item.id || (item.address && item.model 
+          ? `${item.address}_${item.model}`.toLowerCase() 
+          : `Device ${index + 1}`);
         return (
           <tr key={index}>
-            <td>{item.id || `Device ${index + 1}`}</td>
+            <td>
+              <div>
+                {item.name && <div className="font-medium">{item.name}</div>}
+                <div className={item.name ? "text-xs text-base-content/60" : ""}>{displayId}</div>
+              </div>
+            </td>
             <td>
               {item.model ? (
                 <span className="badge badge-info badge-sm uppercase">{item.model}</span>
@@ -308,9 +313,18 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       });
     } else if (sectionType === 'cover') {
       return value.map((item, index) => {
+        // Generate display ID if not set
+        const displayId = item.id || (item.open_relay && item.close_relay 
+          ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
+          : `Cover ${index + 1}`);
         return (
           <tr key={index}>
-            <td>{item.id || `Cover ${index + 1}`}</td>
+            <td>
+              <div>
+                {item.name && <div className="font-medium">{item.name}</div>}
+                <div className={item.name ? "text-xs text-base-content/60" : ""}>{displayId}</div>
+              </div>
+            </td>
             <td>
               {item.platform ? (
                 <span className="badge badge-info badge-sm">{item.platform}</span>
@@ -629,6 +643,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allCovers={allCovers}
                     allAreas={allAreas}
                     editingIndex={editingIndex}
+                    onValidationChange={setHasValidationErrors}
                   />
                 ) : sectionType === 'event' ? (
                   <EventForm
@@ -644,6 +659,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allCovers={allCovers}
                     allAreas={allAreas}
                     editingIndex={editingIndex}
+                    onValidationChange={setHasValidationErrors}
                   />
                 ) : sectionType === 'output' ? (
                   <OutputForm
@@ -665,6 +681,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     onChange={setEditingItem}
                     schema={schema}
                     allOutputs={allOutputs}
+                    allAreas={allAreas}
                   />
                 ) : sectionType === 'cover' ? (
                   <CoverForm
@@ -672,33 +689,24 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     onChange={setEditingItem}
                     schema={schema}
                     allOutputs={allOutputs}
+                    allAreas={allAreas}
+                  />
+                ) : sectionType === 'modbus_devices' ? (
+                  <ModbusDeviceForm
+                    data={editingItem}
+                    onChange={setEditingItem}
+                    schema={schema}
+                    areas={allAreas}
+                  />
+                ) : sectionType === 'areas' ? (
+                  <AreasForm
+                    data={editingItem}
+                    onChange={setEditingItem}
                   />
                 ) : (
-                  <Form
-                    schema={
-                      sectionType === 'modbus_devices'
-                        ? filterSchemaByDependencies((schema as any)?.items || {}, editingItem)
-                        : (schema as any)?.items || {}
-                    }
-                    uiSchema={uiSchema}
-                    formData={editingItem}
-                    validator={validator}
-                    onChange={(e) => setEditingItem(e.formData)}
-                    onSubmit={handleSave}
-                    className="space-y-4"
-                    widgets={{
-                      TimePeriodWidget: TimePeriodWidget,
-                      SelectWidget: SelectWidget,
-                      CheckboxWidget: CheckboxWidget
-                    }}
-                    templates={{
-                      FieldTemplate: FieldTemplate,
-                      ObjectFieldTemplate: ObjectFieldTemplate
-                    }}
-                  >
-                    {/* Empty fragment to hide default submit button */}
-                    <></>
-                  </Form>
+                  <div className="alert alert-warning">
+                    <span>No form available for section type: {sectionType}</span>
+                  </div>
                 )}
               </>
             )}
@@ -719,6 +727,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               type="button" 
               onClick={handleSave} 
               className="btn btn-primary"
+              disabled={hasValidationErrors}
+              title={hasValidationErrors ? 'Please fix validation errors before saving' : ''}
             >
               {editingIndex !== null ? 'Save Changes' : 'Add Item'}
             </button>

@@ -5,11 +5,10 @@ This module manages Modbus RTU/TCP devices and coordinators.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import ADDRESS, MODEL, UART, UARTS, UPDATE_INTERVAL
+from boneio.const import ADDRESS, ID, MODEL, NAME, UART, UARTS, UPDATE_INTERVAL
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.exceptions import ModbusUartException
 
@@ -124,17 +123,31 @@ class ModbusManager:
             
             for device_config in devices:
                 try:
-                    name = device_config.get("id", "")
-                    id = name.replace(" ", "").lower()
+                    # Get address and model (required)
+                    address = device_config.get(ADDRESS, "")
+                    model = device_config.get(MODEL, "")
+                    
+                    # Generate ID from address and model if not provided
+                    if device_config.get(ID):
+                        device_id = str(device_config[ID]).replace(" ", "").lower()
+                    else:
+                        device_id = f"{address}_{model}".lower().replace(" ", "_")
+                    
+                    # Get display name (falls back to ID)
+                    display_name = device_config.get(NAME) or device_id
+                    
+                    # Get area for HA grouping
+                    area = device_config.get("area")
+                    
                     additional_data = device_config.get("data", {})
                     
                     _LOGGER.debug("Configuring Modbus coordinator: %s (address: %s, model: %s)", 
-                                  name, device_config.get(ADDRESS), device_config.get(MODEL))
+                                  display_name, address, model)
                     
                     coordinator = ModbusCoordinator(
-                        address=device_config[ADDRESS],
-                        id=id,
-                        name=name,
+                        address=address,
+                        id=device_id,
+                        name=display_name,
                         manager=self._manager,
                         model=device_config[MODEL],
                         update_interval=device_config.get(
@@ -143,14 +156,15 @@ class ModbusManager:
                         modbus=self._modbus,
                         sensors_filters=device_config.get("sensors_filters", {}),
                         additional_data=additional_data,
+                        area=area,
                     )
-                    coordinators[id] = coordinator
-                    _LOGGER.info("Configured Modbus coordinator: %s", id)
+                    coordinators[device_id] = coordinator
+                    _LOGGER.info("Configured Modbus coordinator: %s", device_id)
                     
                 except Exception as err:
                     _LOGGER.error(
                         "Failed to configure Modbus coordinator %s: %s",
-                        name,
+                        device_config.get(ID) or device_config.get(NAME) or "unknown",
                         err,
                         exc_info=True  # This will log the full traceback
                     )
@@ -199,39 +213,144 @@ class ModbusManager:
                         err
                     )
 
-    def reload_modbus_devices(self) -> None:
+    def _get_device_id_from_config(self, device_config: dict) -> str:
+        """Generate device ID from config (same logic as in _configure_modbus_coordinators).
+        
+        Args:
+            device_config: Device configuration dictionary
+            
+        Returns:
+            Generated device ID
+        """
+        if device_config.get(ID):
+            return str(device_config[ID]).replace(" ", "").lower()
+        else:
+            address = device_config.get(ADDRESS, "")
+            model = device_config.get(MODEL, "")
+            return f"{address}_{model}".lower().replace(" ", "_")
+
+    def _remove_modbus_ha_discovery_for_id(self, device_id: str) -> None:
+        """Remove HA autodiscovery for a specific Modbus device.
+        
+        Sends empty payloads to MQTT to remove entities from Home Assistant.
+        Modbus devices can have multiple entity types: sensor, binary_sensor, 
+        number, select, switch, text_sensor.
+        
+        Args:
+            device_id: Device ID to remove
+        """
+        # Modbus uses multiple entity types
+        ha_types = ["sensor", "binary_sensor", "number", "select", "switch", "text_sensor"]
+        
+        for ha_type in ha_types:
+            # Get autodiscovery messages for this type
+            type_messages = self._manager._config_helper._autodiscovery_messages.get(ha_type, {})
+            
+            # Find topics that contain this device_id
+            topics_to_remove = []
+            for topic in type_messages.keys():
+                # Topic format: homeassistant/{type}/{topic_prefix}{device_id}/{entity_id}/config
+                # We need to match device_id in the topic
+                if f"/{device_id}" in topic or f"{device_id}_" in topic or f"{device_id}/" in topic:
+                    topics_to_remove.append(topic)
+            
+            for topic in topics_to_remove:
+                # Send empty/null payload to remove from HA (HA requires zero-length retained message)
+                self._manager.send_message(topic=topic, payload=None, retain=True)
+                self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
+                _LOGGER.debug("Removed HA autodiscovery for Modbus %s: %s", ha_type, topic)
+
+    async def reload_modbus_devices(self) -> None:
         """Reload Modbus devices configuration from file.
         
-        This clears existing coordinators and recreates them
-        based on the current config. The Modbus client itself is not recreated.
-        Note: Existing coordinator tasks will continue running until Manager
-        refreshes its task list, but new coordinators will be created.
+        This compares old and new configurations to:
+        - Remove only deleted devices from HA
+        - Keep existing devices (preserving HA entity history)
+        - Add new devices
+        
+        The Modbus client itself is not recreated.
         """
+        import asyncio
+        
         _LOGGER.info("Reloading Modbus devices configuration")
         
         # Get config from ConfigHelper (uses cache, reloads if needed)
         config = self._manager._config_helper.reload_config()
         
         # Get new modbus_devices config
-        modbus_devices = config.get("modbus_devices", [])
+        new_devices = config.get("modbus_devices", [])
         
-        # Clear existing coordinators
-        # Note: Their tasks will be cleaned up when Manager refreshes task list
-        # Old coordinators will stop working naturally as they're removed from dict
-        self._modbus_coordinators.clear()
+        # Build set of old device IDs
+        old_device_ids = set(self._modbus_coordinators.keys())
         
-        # Clear autodiscovery messages for Modbus
-        self._manager._config_helper.clear_autodiscovery_type(ha_type="sensor")
+        # Build set of new device IDs and map config by ID
+        new_device_ids = set()
+        new_device_configs = {}
+        for device_config in new_devices:
+            device_id = self._get_device_id_from_config(device_config)
+            new_device_ids.add(device_id)
+            new_device_configs[device_id] = device_config
         
-        # Recreate coordinators if Modbus client exists and devices are configured
-        if self._modbus and modbus_devices:
-            self._modbus_coordinators = self._configure_modbus_coordinators(
-                devices=modbus_devices
-            )
-            
-            _LOGGER.info(
-                "Modbus devices reload complete: %d coordinators",
-                len(self._modbus_coordinators)
-            )
-        else:
-            _LOGGER.info("Modbus devices reload complete: no coordinators configured")
+        # Find devices to remove (in old but not in new)
+        devices_to_remove = old_device_ids - new_device_ids
+        
+        # Find devices to add (in new but not in old)
+        devices_to_add = new_device_ids - old_device_ids
+        
+        # Find devices to update (in both - check if config changed)
+        devices_to_update = old_device_ids & new_device_ids
+        
+        _LOGGER.debug(
+            "Modbus reload: remove=%s, add=%s, check_update=%s",
+            devices_to_remove, devices_to_add, devices_to_update
+        )
+        
+        # Remove deleted devices from HA and coordinators dict
+        for device_id in devices_to_remove:
+            _LOGGER.info("Removing Modbus device: %s", device_id)
+            self._remove_modbus_ha_discovery_for_id(device_id)
+            del self._modbus_coordinators[device_id]
+        
+        # Check for area changes in existing devices and recreate if needed
+        devices_to_recreate = set()
+        for device_id in devices_to_update:
+            coordinator = self._modbus_coordinators.get(device_id)
+            if coordinator:
+                old_area = getattr(coordinator, 'area', None)
+                new_area = new_device_configs[device_id].get("area")
+                
+                if old_area != new_area:
+                    _LOGGER.info(
+                        "Modbus device %s area changed: %s -> %s, recreating",
+                        device_id, old_area, new_area
+                    )
+                    # Remove old HA Discovery
+                    self._remove_modbus_ha_discovery_for_id(device_id)
+                    devices_to_recreate.add(device_id)
+        
+        # Remove coordinators that need recreation
+        for device_id in devices_to_recreate:
+            del self._modbus_coordinators[device_id]
+        
+        # Wait for HA to process the removal before sending new discovery
+        if devices_to_recreate:
+            _LOGGER.debug("Waiting 1.5s for HA to process discovery removal...")
+            await asyncio.sleep(1.5)
+        
+        # Add new devices and recreated devices
+        devices_to_create = devices_to_add | devices_to_recreate
+        if self._modbus and devices_to_create:
+            configs_to_add = [
+                new_device_configs[device_id] for device_id in devices_to_create
+            ]
+            new_coordinators = self._configure_modbus_coordinators(devices=configs_to_add)
+            self._modbus_coordinators.update(new_coordinators)
+            _LOGGER.info("Added/recreated %d Modbus devices", len(new_coordinators))
+        
+        _LOGGER.info(
+            "Modbus devices reload complete: %d coordinators (removed=%d, added=%d, recreated=%d)",
+            len(self._modbus_coordinators),
+            len(devices_to_remove),
+            len(devices_to_add),
+            len(devices_to_recreate)
+        )

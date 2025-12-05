@@ -125,7 +125,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 ))}
               </select>
               <label className="label">
-                <span className="label-text-alt">{getFieldDescription('boneio_output')}</span>
+                <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('boneio_output')}</span>
               </label>
               {usedOutputs.length > 0 && boneioOutputOptions.length === 1 && (
                 <label className="label max-w-full">
@@ -171,7 +171,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 ))}
               </select>
               <label className="label">
-                <span className="label-text-alt">{getFieldDescription('output_type')}</span>
+                <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('output_type')}</span>
               </label>
             </div>
 
@@ -188,7 +188,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Optional friendly name shown in Home Assistant</span>
+                <span className="label-text-alt whitespace-normal break-words">Optional friendly name shown in Home Assistant</span>
               </label>
             </div>
 
@@ -205,7 +205,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onChange={(e) => updateField('id', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Optional. Overrides boneio_output as technical ID in MQTT/groups/actions</span>
+                <span className="label-text-alt whitespace-normal break-words">Optional. Overrides boneio_output as technical ID in MQTT/groups/actions</span>
               </label>
             </div>
 
@@ -227,7 +227,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 ))}
               </select>
               <label className="label">
-                <span className="label-text-alt">
+                <span className="label-text-alt whitespace-normal break-words">
                   {allAreas.length === 0 
                     ? 'Define areas in the Areas/Rooms section first'
                     : 'Creates sub-device linked to main BoneIO device'
@@ -262,8 +262,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Momentary Turn On */}
             <SimpleTimePeriodInput
-              value={data.momentary_turn_on || 0}
-              onChange={(value: number) => updateField('momentary_turn_on', value || undefined)}
+              value={data.momentary_turn_on || ''}
+              onChange={(value: string) => updateField('momentary_turn_on', value || undefined)}
               label={getFieldTitle('momentary_turn_on') || 'Momentary Turn On'}
               required={false}
               minimum={0}
@@ -271,8 +271,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
 
             {/* Momentary Turn Off */}
             <SimpleTimePeriodInput
-              value={data.momentary_turn_off || 0}
-              onChange={(value: number) => updateField('momentary_turn_off', value || undefined)}
+              value={data.momentary_turn_off || ''}
+              onChange={(value: string) => updateField('momentary_turn_off', value || undefined)}
               label={getFieldTitle('momentary_turn_off') || 'Momentary Turn Off'}
               required={false}
               minimum={0}

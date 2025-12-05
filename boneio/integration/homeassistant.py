@@ -110,7 +110,8 @@ def ha_availabilty_message(
     
     # Include area in unique_id so HA treats entities in different areas as distinct
     # This allows moving entities between sub-devices by changing their area
-    unique_id_prefix = f"{topic}_{area}" if area else topic
+    # Let's test topic only, don't add area into entity_id.
+    unique_id_prefix = topic if area else topic
     
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -199,6 +200,7 @@ def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_ty
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     if output_type == "light":
+        msg["icon"] = "mdi:lightbulb-multiple"
         msg["state_value_template"] = "{{ value_json.state }}"
     else:
         msg["value_template"] = "{{ value_json.state }}"
@@ -302,19 +304,24 @@ def modbus_sensor_availabilty_message(
     config_helper: ConfigHelper,
     model: str,
     device_type: str = SENSOR,
+    area: str | None = None,
     **kwargs,
 ):
     """Create Modbus Sensor availability topic for HA."""
     topic = config_helper.topic_prefix
+    device = {
+        "identifiers": [id],
+        "manufacturer": "boneIO",
+        "model": model,
+        "name": name,
+        "sw_version": __version__,
+        "via_device": topic,  # Link to main BoneIO device
+    }
+    if area:
+        device["suggested_area"] = area
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
-        "device": {
-            "identifiers": [id],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": name,
-            "sw_version": __version__,
-        },
+        "device": device,
         "name": sensor_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
@@ -329,19 +336,24 @@ def modbus_select_availabilty_message(
     config_helper: ConfigHelper,
     model: str,
     device_type: str = SELECT,
+    area: str | None = None,
     **kwargs,
 ):
     """Create Modbus Select availability topic for HA."""
     topic = config_helper.topic_prefix
+    device = {
+        "identifiers": [id],
+        "manufacturer": "boneIO",
+        "model": model,
+        "name": name,
+        "sw_version": __version__,
+        "via_device": topic,  # Link to main BoneIO device
+    }
+    if area:
+        device["suggested_area"] = area
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
-        "device": {
-            "identifiers": [id],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": name,
-            "sw_version": __version__,
-        },
+        "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
@@ -357,19 +369,24 @@ def modbus_numeric_availabilty_message(
     config_helper: ConfigHelper,
     model: str,
     device_type: str = NUMERIC,
+    area: str | None = None,
     **kwargs,
 ):
     """Create Modbus Numeric availability topic for HA."""
     topic = config_helper.topic_prefix
+    device = {
+        "identifiers": [id],
+        "manufacturer": "boneIO",
+        "model": model,
+        "name": name,
+        "sw_version": __version__,
+        "via_device": topic,  # Link to main BoneIO device
+    }
+    if area:
+        device["suggested_area"] = area
     return {
         "availability": [{"topic": f"{topic}/{id}/{STATE}"}],
-        "device": {
-            "identifiers": [id],
-            "manufacturer": "boneIO",
-            "model": model,
-            "name": name,
-            "sw_version": __version__,
-        },
+        "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
         "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",

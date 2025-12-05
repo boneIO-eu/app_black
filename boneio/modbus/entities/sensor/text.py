@@ -92,5 +92,6 @@ class ModbusTextSensor(ModbusBaseEntity):
             name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
+            area=self._parent.get("area"),
             **kwargs,
         )

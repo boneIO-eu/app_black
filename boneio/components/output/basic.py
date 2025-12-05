@@ -257,8 +257,8 @@ class BasicOutput(BasicMqtt):
     
     @property
     def pin_id(self) -> str | None:
-        """Pin ID (set by subclasses like MCPOutput)."""
-        return str(self._pin_id)
+        """Pin ID as string for OutputState model."""
+        return str(self._pin_id) if self._pin_id is not None else None
 
     @property
     def state(self) -> str:

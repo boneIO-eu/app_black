@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useDeviceName } from '../hooks/useDeviceName';
+import { useConfig } from '../contexts/ConfigContext';
 import Logo from "./Logo"
 
 export default function Navigation() {
@@ -97,8 +98,8 @@ interface MenuItem {
 
 function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const navigate = useNavigate();
-
   const location = useLocation();
+  const { hasBoneioSection } = useConfig();
 
   const menuItems: MenuItem[] = [
     { path: '/', default: true, icon: FaLightbulb, label: 'Outputs' },
@@ -106,7 +107,8 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: 'Sensors' },
     { path: '/modbus', icon: FaNetworkWired, label: 'Modbus' },
     { path: '/config', icon: FaCode, label: 'Config' },
-    { path: '/settings', icon: FaCode, label: 'Settings', experimental: true }, // Temporarily disabled due to JSON Schema issues
+    // Settings (experimental) - only show if boneio section exists in config
+    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: 'Settings', experimental: true }] : []),
     { path: '/logs', icon: FaList, label: 'Logs' },
     { path: '/help', icon: FaQuestionCircle, label: 'Help' },
   ];

@@ -89,10 +89,12 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         name: str = DefaultName,
         additional_data: dict = {},
         update_interval: TimePeriod = TimePeriod(seconds=60),
+        area: str | None = None,
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
         self.manager = manager
+        self._area = area
         
         BasicMqtt.__init__(
             self,
@@ -165,6 +167,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                         NAME: self._name,
                         ID: self._id,
                         MODEL: self._model,
+                        "area": self._area,
                     },
                     "unit_of_measurement": register.get("unit_of_measurement"),
                     "state_class": register.get("state_class"),
@@ -246,7 +249,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedNumericSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
             source_sensor_base_address=source_sensor.base_address,
             source_sensor_decoded_name=source_sensor.decoded_name,
             unit_of_measurement=additional.get("unit_of_measurement", "m3"),
@@ -284,7 +287,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedTextSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -311,7 +314,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedSelect(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -338,7 +341,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             return None
         single_sensor = ModbusDerivedSwitch(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model},
+            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,

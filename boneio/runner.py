@@ -220,6 +220,21 @@ async def async_run(
         if shutdown_event.is_set():
             _LOGGER.info("Starting graceful shutdown...")
             await message_bus.announce_offline()
+            
+            # Cancel all manager tasks (including those added later by AsyncUpdater)
+            all_manager_tasks = list(manager.get_tasks().values())
+            _LOGGER.debug("Cancelling %d manager tasks...", len(all_manager_tasks))
+            for task in all_manager_tasks:
+                if not task.done():
+                    task.cancel()
+            
+            # Wait for manager tasks to finish
+            if all_manager_tasks:
+                try:
+                    await asyncio.gather(*all_manager_tasks, return_exceptions=True)
+                except Exception as e:
+                    _LOGGER.debug("Manager tasks cancelled: %s", e)
+            
             main_gather.cancel()
             try:
                 await main_gather

@@ -237,11 +237,29 @@ modbus_devices:
   schema:
     type: dict
     schema:
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display Name
+          description: Optional friendly name shown in Home Assistant. If not set, uses id.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area
+          description: Area/room where the device is located. Used for grouping in Home Assistant.
       id:
         type: string
-        required: True
+        required: False
+        regex: '^[a-z0-9_]+$'
+        coerce: str
         meta:
-          label: Id of Modbus sensor
+          label: Device ID
+          description: |
+            Technical identifier used in MQTT topics.
+            Must contain only lowercase letters, numbers and underscores (no spaces).
+            If not set, auto-generated from address and model (e.g., 1_sdm120).
       address:
         type:
           - string
@@ -903,11 +921,31 @@ cover:
   schema:
     type: dict
     schema:
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display Name
+          description: Optional friendly name shown in Home Assistant. If not set, uses id.
       id:
         type: string
-        required: True
+        required: False
+        regex: '^[a-z0-9_]+$'
+        coerce: str
         meta:
-          label: Id to use in HA if needed.
+          label: Cover ID
+          description: |
+            Technical identifier used in MQTT topics and actions.
+            Must contain only lowercase letters, numbers and underscores (no spaces).
+            If not set, auto-generated from open_relay and close_relay (e.g., cover_out_31_out_32).
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/Room
+          description: |
+            Reference to area ID defined in 'areas' section.
+            Creates a sub-device linked to the main BoneIO device.
       restore_state:
         type: boolean
         required: True

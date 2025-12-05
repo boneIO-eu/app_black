@@ -77,6 +77,13 @@ class PreviousCover(BasicMqtt):
         self._state_save = state_save
         self._open = RelayHelper(relay=open_relay, time=open_time)
         self._close = RelayHelper(relay=close_relay, time=close_time)
+        self._open_time = open_time
+        self._close_time = close_time
+        _LOGGER.debug(
+            "Cover %s initialized: open_time=%s (%dms), close_time=%s (%dms), open_steps=%d/s, close_steps=%d/s",
+            id, open_time, open_time.total_milliseconds, close_time, close_time.total_milliseconds,
+            self._open.steps, self._close.steps
+        )
         self._set_position = None
         self._current_operation = IDLE
         self._position = float(restored_state.get("position", DEFAULT_RESTORED_STATE["position"]))
@@ -222,7 +229,11 @@ class PreviousCover(BasicMqtt):
         if self._position is None:
             self._closed = True
             return
-        _LOGGER.info("Closing cover %s.", self._id)
+        estimated_time_s = self._position / self._close.steps
+        _LOGGER.info(
+            "Closing cover %s from position %d%%. Estimated time: %.1fs (close_time=%dms, steps=%d/s)",
+            self._id, self._position, estimated_time_s, self._close_time.total_milliseconds, self._close.steps
+        )
 
         self._requested_closing = True
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
@@ -237,7 +248,11 @@ class PreviousCover(BasicMqtt):
         if self._position is None:
             self._closed = False
             return
-        _LOGGER.info("Opening cover %s.", self._id)
+        estimated_time_s = (100 - self._position) / self._open.steps
+        _LOGGER.info(
+            "Opening cover %s from position %d%%. Estimated time: %.1fs (open_time=%dms, steps=%d/s)",
+            self._id, self._position, estimated_time_s, self._open_time.total_milliseconds, self._open.steps
+        )
 
         self._requested_closing = False
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
@@ -252,15 +267,25 @@ class PreviousCover(BasicMqtt):
             return
         if self._set_position:
             self._stop_cover(on_exit=True)
-        _LOGGER.info("Setting cover at position %s.", set_position)
         self._set_position = set_position
 
         self._requested_closing = set_position < self._position
         current_operation = CLOSING if self._requested_closing else OPENING
-        _LOGGER.debug(
-            "Requested set position %s. Operation %s",
-            set_position,
-            current_operation,
+        
+        # Calculate estimated time
+        position_diff = abs(self._position - set_position)
+        if self._requested_closing:
+            steps = self._close.steps
+            time_config = self._close_time
+        else:
+            steps = self._open.steps
+            time_config = self._open_time
+        estimated_time_s = position_diff / steps if steps > 0 else 0
+        
+        _LOGGER.info(
+            "Setting cover %s position from %d%% to %d%% (%s). Estimated time: %.1fs (time_config=%dms, steps=%d/s)",
+            self._id, self._position, set_position, current_operation, 
+            estimated_time_s, time_config.total_milliseconds, steps
         )
         self._message_bus.send_message(
             topic=f"{self._send_topic}/state", payload=current_operation

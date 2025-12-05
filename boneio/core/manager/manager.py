@@ -730,12 +730,21 @@ class Manager:
         if msg_type == COVER:
             cover = self.covers.get_cover(device_id)
             if cover:
-                action = relay_actions.get(message.upper())
-                if action:
-                    _f = getattr(cover, action)
-                    await _f()
+                if command == "pos":
+                    # Set cover position
+                    try:
+                        position = int(message)
+                        await cover.set_cover_position(position)
+                    except ValueError:
+                        _LOGGER.warning("Invalid cover position value: %s", message)
                 else:
-                    _LOGGER.debug("Cover action not exist %s.", message.upper())
+                    # Handle open/close/stop/toggle actions
+                    action = cover_actions.get(message.upper())
+                    if action:
+                        _f = getattr(cover, action)
+                        await _f()
+                    else:
+                        _LOGGER.debug("Cover action not exist %s.", message.upper())
             else:
                 _LOGGER.debug("Cover not found %s.", device_id)
             return

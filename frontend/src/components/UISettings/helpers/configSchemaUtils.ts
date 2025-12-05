@@ -1,9 +1,7 @@
 // Utility functions for config schema processing
 
-import { RJSFSchema } from "@rjsf/utils";
-
 // Rozszerzamy interfejs JSONSchema7 o właściwości specyficzne dla naszej aplikacji
-interface ExtendedJSONSchema extends RJSFSchema {
+interface ExtendedJSONSchema {
   'x-timeperiod'?: boolean;
   properties?: { [key: string]: ExtendedJSONSchema };
   items?: ExtendedJSONSchema | ExtendedJSONSchema[];
@@ -79,7 +77,7 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
   /**
    * Convert form data back to original types based on original data and schema
    */
-  export const convertFormDataToOriginalTypes = (formData: any, originalData: any, schema?: RJSFSchema | ExtendedJSONSchema): any => {
+  export const convertFormDataToOriginalTypes = (formData: any, originalData: any, schema?: any): any => {
     // Konwertujemy schema do ExtendedJSONSchema
     const extendedSchema = asExtendedSchema(schema);
     console.log("convertFormDataToOriginalTypes", formData, originalData, schema)
@@ -172,17 +170,28 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
           });
         }
       }
-      // Convert milliseconds back to timeperiod string for backend
+      // Handle timeperiod fields - keep string values with units as-is
       else if (propSchema && 
                typeof propSchema === 'object' && 
-               propSchema['x-timeperiod'] === true && 
-               typeof currentValue === 'number') {
-        console.log(`Converting timeperiod ${key}: ${currentValue}ms`, propSchema);
-        const timeperiodString = convertMillisecondsToTimeperiod(currentValue);
-        converted[key] = timeperiodString;
-        console.log(`✓ Converted timeperiod ${key}: ${currentValue}ms → ${timeperiodString}`);
+               propSchema['x-timeperiod'] === true) {
+        // If value is already a string with unit (e.g., "30s"), keep it
+        if (typeof currentValue === 'string' && /^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(currentValue)) {
+          converted[key] = currentValue;
+          console.log(`✓ Timeperiod ${key} already has unit: ${currentValue}`);
+        }
+        // If value is a number (milliseconds), convert to string with unit
+        else if (typeof currentValue === 'number') {
+          console.log(`Converting timeperiod ${key}: ${currentValue}ms`, propSchema);
+          const timeperiodString = convertMillisecondsToTimeperiod(currentValue);
+          converted[key] = timeperiodString;
+          console.log(`✓ Converted timeperiod ${key}: ${currentValue}ms → ${timeperiodString}`);
+        }
+        // Otherwise keep as-is
+        else {
+          converted[key] = currentValue;
+        }
       }
-      // Convert string back to number if original was number
+      // Convert string back to number if original was number (but NOT for timeperiod fields)
       else if (originalType === 'number' && typeof currentValue === 'string') {
         const numValue = parseFloat(currentValue);
         if (!isNaN(numValue)) {

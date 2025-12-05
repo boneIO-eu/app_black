@@ -522,6 +522,12 @@ class CustomValidator(Validator):
             raise ConfigurationException(
                 "Expected string for time period with unit."
             )
+        
+        # Handle empty string
+        if not value or not value.strip():
+            raise ConfigurationException(
+                "Time period cannot be empty. Expected value with unit like '30s' or '1000ms'."
+            )
 
         unit_to_kwarg = {
             "us": "microseconds",

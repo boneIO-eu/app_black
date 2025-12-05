@@ -30,6 +30,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
@@ -862,6 +863,25 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/status/restart")
+async def get_restart_status():
+    """Get restart required status.
+    
+    Returns information about whether the application needs to be restarted
+    due to configuration changes in sections that don't support hot-reload.
+    
+    Returns:
+        dict: {
+            "restart_required": bool,
+            "sections": list of section names that were modified
+        }
+    """
+    manager: Manager = app.state.manager
+    return {
+        "restart_required": manager.config_helper.restart_required,
+        "sections": manager.config_helper.restart_required_sections
+    }
+
 @app.put("/api/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section.
@@ -872,10 +892,21 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
               or list (for array sections like output_group, output, event)
     """
     
+    # Sections that require full application restart
+    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus'}
+    
     try:
         result = update_config_section(app.state.yaml_config_file, section, data)
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
+        
+        # Mark restart required for sections that need it
+        if section in RESTART_REQUIRED_SECTIONS:
+            manager: Manager = app.state.manager
+            manager.config_helper.set_restart_required(section)
+            result["restart_required"] = True
+            result["restart_required_sections"] = manager.config_helper.restart_required_sections
+        
         return result
         
     except Exception as e:
@@ -985,6 +1016,11 @@ def init_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    
+    # Add GZip compression for responses > 500 bytes
+    # This significantly reduces transfer size for JSON schemas (~83KB -> ~8KB)
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+    
     return app
 
 

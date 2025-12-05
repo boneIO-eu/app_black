@@ -124,7 +124,7 @@ class InputManager:
             )
             
             if input_device:
-                self._inputs[input_device.pin] = input_device
+                self._inputs[input_device.id] = input_device
 
         # Reload configuration if requested
         if reload_config:
@@ -506,6 +506,7 @@ class InputManager:
         # Get the input instance and retrieve actions for this click type
         input_instance = self._inputs.get(event.entity_id)
         if not input_instance:
+            print(self._inputs)
             _LOGGER.warning("Input %s not found for event handling", event.entity_id)
             return
         

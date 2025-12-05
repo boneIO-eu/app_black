@@ -15,7 +15,11 @@ export default function OutputsView({error}: {error: string | null}) {
     return saved ? saved === 'grid' : true;
   });
 
-  const validOutputs = outputs.filter(isOutputEvent).map(e => e.state);
+  // Filter out outputs that are used by covers (output_type === 'cover')
+  const validOutputs = outputs
+    .filter(isOutputEvent)
+    .map(e => e.state)
+    .filter(output => output.type?.toLowerCase() !== 'cover');
   const validGroups = groups.filter(isGroupEvent).map(e => e.state);
   console.log("validOutputs", validOutputs, "validGroups", groups, validGroups);
 

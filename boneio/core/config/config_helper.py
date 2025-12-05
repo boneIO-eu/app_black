@@ -69,6 +69,35 @@ class ConfigHelper:
         
         # Areas mapping: id -> name
         self._areas: dict[str, str] = {}
+        
+        # Restart required flag - set when config sections requiring restart are modified
+        self._restart_required: bool = False
+        self._restart_required_sections: set[str] = set()
+
+    @property
+    def restart_required(self) -> bool:
+        """Check if application restart is required."""
+        return self._restart_required
+
+    @property
+    def restart_required_sections(self) -> list[str]:
+        """Get list of sections that were modified and require restart."""
+        return list(self._restart_required_sections)
+
+    def set_restart_required(self, section: str) -> None:
+        """Mark that a restart is required due to changes in given section."""
+        self._restart_required = True
+        self._restart_required_sections.add(section)
+        _LOGGER.warning(
+            "Restart required: section '%s' was modified. Total sections requiring restart: %s",
+            section,
+            list(self._restart_required_sections)
+        )
+
+    def clear_restart_required(self) -> None:
+        """Clear restart required flag (called after restart)."""
+        self._restart_required = False
+        self._restart_required_sections.clear()
 
     @property
     def network_info(self) -> dict:
