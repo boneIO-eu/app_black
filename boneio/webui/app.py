@@ -820,6 +820,24 @@ async def get_parsed_config():
         _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
 
+@app.get("/api/interlock-groups")
+async def get_interlock_groups():
+    """Get list of all registered interlock group names.
+    
+    Returns:
+        List of unique interlock group names currently in use
+    """
+    manager = app.state.manager
+    if not manager or not hasattr(manager, '_output_manager'):
+        return {"groups": []}
+    
+    output_manager = manager._output_manager
+    if not output_manager or not hasattr(output_manager, '_interlock_manager'):
+        return {"groups": []}
+    
+    groups = output_manager._interlock_manager.get_all_groups()
+    return {"groups": groups}
+
 @app.get("/api/files")
 async def list_files(path: Optional[str] = None):
     """List files in the config directory."""

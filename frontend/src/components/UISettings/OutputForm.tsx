@@ -18,6 +18,7 @@ interface OutputFormProps {
   allOutputs?: any[];
   editingIndex?: number | null;
   allAreas?: Area[];
+  interlockGroups?: string[];
 }
 
 const OutputForm: React.FC<OutputFormProps> = ({ 
@@ -28,9 +29,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
   deviceType,
   allOutputs = [],
   allAreas = [],
-  editingIndex
+  editingIndex,
+  interlockGroups = []
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+  const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
   // Extract enums from schema for dropdowns
   const getOutputCount = (deviceType: string) => {
@@ -287,6 +290,159 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 <p>When enabled, the output will automatically turn off after the specified duration.</p>
                 <p>Useful for buttons, triggers, or pulse-controlled devices.</p>
                 <p>Supported time formats: 5s (seconds), 50ms (milliseconds), 2minutes, 1h (hours)</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Virtual Metering - show based on output_type */}
+          {(data.output_type === 'switch' || data.output_type === 'light' || data.output_type === 'valve') && (
+            <>
+              <div className="divider">Virtual Metering</div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {/* Virtual Power Usage - for Switch and Light */}
+                {(data.output_type === 'switch' || data.output_type === 'light') && (
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">Virtual Power Usage</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      placeholder="e.g., 60W, 1.5kW, 100"
+                      value={data.virtual_power_usage || ''}
+                      onChange={(e) => updateField('virtual_power_usage', e.target.value || undefined)}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt whitespace-normal break-words">
+                        Power consumption in Watts. Used for virtual energy meter. Formats: 60, 60W, 1.5kW
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Virtual Volume Flow Rate - for Valve only */}
+                {data.output_type === 'valve' && (
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">Virtual Volume Flow Rate</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      placeholder="e.g., 10L/min, 600L/h, 100"
+                      value={data.virtual_volume_flow_rate || ''}
+                      onChange={(e) => updateField('virtual_volume_flow_rate', e.target.value || undefined)}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt whitespace-normal break-words">
+                        Flow rate in liters per hour. Used for virtual flow meter. Formats: 100, 10L/min, 600L/h
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="alert alert-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div>
+                  <h3 className="font-bold">Virtual Metering</h3>
+                  <div className="text-sm">
+                    {(data.output_type === 'switch' || data.output_type === 'light') && (
+                      <p>Estimate energy consumption based on output ON time. Creates a virtual energy sensor (kWh) in Home Assistant.</p>
+                    )}
+                    {data.output_type === 'valve' && (
+                      <p>Estimate water consumption based on valve open time. Creates a virtual water meter (liters) in Home Assistant.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="divider">Interlock Groups</div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {/* Current Interlock Group */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Interlock Group</span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="select select-bordered flex-1"
+                  value={data.interlock_group || ''}
+                  onChange={(e) => updateField('interlock_group', e.target.value || undefined)}
+                >
+                  <option value="">No interlock group</option>
+                  {interlockGroups.map((group) => (
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
+                  ))}
+                  {/* Show current value if it's not in the list (new group) */}
+                  {data.interlock_group && !interlockGroups.includes(data.interlock_group) && (
+                    <option value={data.interlock_group}>
+                      {data.interlock_group} (new)
+                    </option>
+                  )}
+                </select>
+              </div>
+              <label className="label">
+                <span className="label-text-alt whitespace-normal break-words">
+                  Outputs in the same interlock group cannot be active simultaneously
+                </span>
+              </label>
+            </div>
+
+            {/* Add New Interlock Group */}
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Create New Group</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="input input-bordered flex-1"
+                  placeholder="Enter new group name..."
+                  value={newInterlockGroup}
+                  onChange={(e) => setNewInterlockGroup(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newInterlockGroup.trim()) {
+                      updateField('interlock_group', newInterlockGroup.trim());
+                      setNewInterlockGroup('');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!newInterlockGroup.trim()}
+                  onClick={() => {
+                    if (newInterlockGroup.trim()) {
+                      updateField('interlock_group', newInterlockGroup.trim());
+                      setNewInterlockGroup('');
+                    }
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              <label className="label">
+                <span className="label-text-alt whitespace-normal break-words">
+                  Type a name and press Enter or click Add to create and assign a new group
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div className="alert alert-info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div>
+              <h3 className="font-bold">Software Interlock</h3>
+              <div className="text-sm">
+                <p>Prevents multiple outputs in the same group from being ON at the same time.</p>
+                <p>Useful for motor direction control, mutually exclusive devices, etc.</p>
               </div>
             </div>
           </div>

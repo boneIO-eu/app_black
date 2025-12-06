@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEdit, FaTrash, FaPlus } from "react-icons/fa";
 import BinarySensorForm from './BinarySensorForm';
 import EventForm from './EventForm';
@@ -38,6 +38,21 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
+  const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
+
+  // Fetch interlock groups for output section
+  useEffect(() => {
+    if (sectionType === 'output') {
+      fetch('/api/interlock-groups')
+        .then(res => res.json())
+        .then(data => {
+          setInterlockGroups(data.groups || []);
+        })
+        .catch(err => {
+          console.error('Failed to fetch interlock groups:', err);
+        });
+    }
+  }, [sectionType]);
 
   // Format milliseconds to human-readable time
   const formatTimeperiod = (ms: number): string => {
@@ -674,6 +689,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allOutputs={value}
                     allAreas={allAreas}
                     editingIndex={editingIndex}
+                    interlockGroups={interlockGroups}
                   />
                 ) : sectionType === 'output_group' ? (
                   <OutputGroupForm
