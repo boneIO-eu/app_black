@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive } from 'react-icons/fa';
+import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck } from 'react-icons/fa';
+import SelfTest from './SelfTest';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -39,6 +40,7 @@ const SystemUpdate: React.FC = () => {
   const [showBackups, setShowBackups] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showSelfTest, setShowSelfTest] = useState(false);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -48,8 +50,13 @@ const SystemUpdate: React.FC = () => {
       const response = await fetch('/api/check_update');
       const data = await response.json();
       setUpdateInfo(data);
+      
+      // Check if backend returned an error
+      if (data.status === 'error') {
+        setError(data.message || 'Failed to check for updates');
+      }
     } catch (err) {
-      setError('Failed to check for updates');
+      setError('Failed to check for updates - network error');
       console.error('Error checking for updates:', err);
     } finally {
       setIsChecking(false);
@@ -215,261 +222,301 @@ const SystemUpdate: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">System Update</h2>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={checkForUpdates}
-          disabled={isChecking || isUpdating}
-        >
-          {isChecking ? <FaSpinner className="animate-spin" /> : 'Check for Updates'}
-        </button>
-      </div>
-
-      {/* Error Alert */}
-      {error && (
-        <div className="alert alert-error">
-          <FaExclamationTriangle />
-          <span>{error}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setError(null)}>×</button>
-        </div>
-      )}
-
-      {/* Current Version Card */}
-      <div className="card bg-base-200">
+    <div className="container mx-auto p-4">
+      <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
-          <h3 className="card-title">Current Version</h3>
-          <div className="flex items-center gap-4">
-            <span className="text-3xl font-mono font-bold text-primary">
-              {updateInfo?.current_version || '...'}
-            </span>
-            {updateInfo?.update_available && (
-              <span className="badge badge-success badge-lg">Update Available!</span>
-            )}
-            {updateInfo?.status === 'success' && !updateInfo?.update_available && (
-              <span className="badge badge-info">Up to date</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Update Available Card */}
-      {updateInfo?.update_available && (
-        <div className="card bg-success/10 border border-success">
-          <div className="card-body">
-            <h3 className="card-title text-success">
-              <FaDownload /> New Version Available
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm opacity-70">Latest Version</p>
-                <p className="text-2xl font-mono font-bold">{updateInfo.latest_version}</p>
-              </div>
-              <div>
-                <p className="text-sm opacity-70">Released</p>
-                <p className="text-lg">{updateInfo.published_at ? formatDate(updateInfo.published_at) : 'Unknown'}</p>
-              </div>
-            </div>
-            {updateInfo.is_prerelease && (
-              <div className="badge badge-warning">Pre-release</div>
-            )}
-            <div className="card-actions justify-end mt-4">
-              <a
-                href={updateInfo.release_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-ghost"
-              >
-                View Release Notes
-              </a>
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">System Update</h2>
               <button
-                className="btn btn-success"
-                onClick={startUpdate}
-                disabled={isUpdating}
+                className="btn btn-ghost btn-sm"
+                onClick={checkForUpdates}
+                disabled={isChecking || isUpdating}
               >
-                {isUpdating ? (
-                  <>
-                    <FaSpinner className="animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <FaDownload />
-                    Update Now
-                  </>
-                )}
+                {isChecking ? <FaSpinner className="animate-spin" /> : 'Check for Updates'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Update Progress */}
-      {isUpdating && updateStatus && (
-        <div className="card bg-base-200">
-          <div className="card-body">
-            <h3 className="card-title">
-              <FaSpinner className="animate-spin" />
-              Update in Progress
-            </h3>
-            
-            {/* Progress Bar */}
-            <div className="w-full">
-              <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium">{updateStatus.step}</span>
-                <span className="text-sm font-medium">{updateStatus.progress}%</span>
-              </div>
-              <progress 
-                className="progress progress-primary w-full" 
-                value={updateStatus.progress} 
-                max="100"
-              />
-            </div>
-
-            {/* Log */}
-            {updateStatus.log.length > 0 && (
-              <div className="mt-4">
-                <p className="text-sm font-medium mb-2">Log:</p>
-                <div className="bg-base-300 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs">
-                  {updateStatus.log.map((msg, i) => (
-                    <div key={i} className="py-0.5">
-                      {msg}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {updateStatus.status === 'success' && (
-              <div className="alert alert-success mt-4">
-                <FaCheck />
-                <span>
-                  Update complete! Updated from {updateStatus.old_version} to {updateStatus.new_version}.
-                  Restarting...
-                </span>
-              </div>
-            )}
-
-            {updateStatus.status === 'error' && (
-              <div className="alert alert-error mt-4">
+            {/* Error Alert */}
+            {error && (
+              <div className="alert alert-error">
                 <FaExclamationTriangle />
-                <span>{updateStatus.error}</span>
+                <span>{error}</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => setError(null)}>×</button>
               </div>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Configuration Backup Section */}
-      <div className="card bg-base-200">
-        <div className="card-body">
-          <h3 className="card-title">
-            <FaFileArchive />
-            Configuration Backup
-          </h3>
-          <p className="text-sm opacity-70 mb-4">
-            Download your current configuration files as a compressed archive.
-          </p>
-          <div className="card-actions">
-            <button
-              className="btn btn-primary"
-              onClick={downloadConfig}
-              disabled={isDownloading || isUpdating}
-            >
-              {isDownloading ? (
-                <>
-                  <FaSpinner className="animate-spin" />
-                  Preparing...
-                </>
-              ) : (
-                <>
-                  <FaFileArchive />
-                  Download Config (.tar.gz)
-                </>
-              )}
-            </button>
-          </div>
-          <div className="alert alert-info mt-4">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div className="text-sm">
-              <p>The archive contains all YAML configuration files from your device.</p>
-              <p>Use this to backup your configuration before making major changes.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Backups Section */}
-      <div className="card bg-base-200">
-        <div className="card-body">
-          <div className="flex items-center justify-between">
-            <h3 className="card-title">
-              <FaHistory />
-              Backups & Rollback
-            </h3>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setShowBackups(!showBackups)}
-            >
-              {showBackups ? 'Hide' : 'Show'} Backups ({backups.length})
-            </button>
-          </div>
-
-          {showBackups && (
-            <div className="mt-4">
-              {backups.length === 0 ? (
-                <p className="text-sm opacity-70">No backups available yet.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Version</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {backups.map((backup, index) => (
-                        <tr key={backup.path}>
-                          <td className="font-mono">{backup.version}</td>
-                          <td>{backup.timestamp.replace('_', ' ')}</td>
-                          <td>
-                            {index === 0 && (
-                              <button
-                                className="btn btn-warning btn-xs"
-                                onClick={performRollback}
-                                disabled={isUpdating}
-                              >
-                                <FaUndo />
-                                Rollback
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* Current Version Card */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">Current Version</h3>
+                <div className="flex items-center gap-4">
+                  <span className="text-3xl font-mono font-bold text-primary">
+                    {updateInfo?.current_version || '...'}
+                  </span>
+                  {updateInfo?.update_available && (
+                    <span className="badge badge-success badge-lg">Update Available!</span>
+                  )}
+                  {updateInfo?.status === 'success' && !updateInfo?.update_available && (
+                    <span className="badge badge-info">Up to date</span>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          )}
 
-          <div className="alert alert-info mt-4">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div className="text-sm">
-              <p>Backups are created automatically before each update.</p>
-              <p>The last 5 backups are kept. Use rollback if an update causes issues.</p>
+            {/* Update Available Card */}
+            {updateInfo?.update_available && (
+              <div className="card bg-success/10 border border-success">
+                <div className="card-body">
+                  <h3 className="card-title text-success">
+                    <FaDownload /> New Version Available
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm opacity-70">Latest Version</p>
+                      <p className="text-2xl font-mono font-bold">{updateInfo.latest_version}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm opacity-70">Released</p>
+                      <p className="text-lg">{updateInfo.published_at ? formatDate(updateInfo.published_at) : 'Unknown'}</p>
+                    </div>
+                  </div>
+                  {updateInfo.is_prerelease && (
+                    <div className="badge badge-warning">Pre-release</div>
+                  )}
+                  <div className="card-actions justify-end mt-4">
+                    <a
+                      href={updateInfo.release_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-ghost"
+                    >
+                      View Release Notes
+                    </a>
+                    <button
+                      className="btn btn-success"
+                      onClick={startUpdate}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? (
+                        <>
+                          <FaSpinner className="animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <FaDownload />
+                          Update Now
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Update Progress */}
+            {isUpdating && updateStatus && (
+              <div className="card bg-base-200">
+                <div className="card-body">
+                  <h3 className="card-title">
+                    <FaSpinner className="animate-spin" />
+                    Update in Progress
+                  </h3>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm font-medium">{updateStatus.step}</span>
+                      <span className="text-sm font-medium">{updateStatus.progress}%</span>
+                    </div>
+                    <progress 
+                      className="progress progress-primary w-full" 
+                      value={updateStatus.progress} 
+                      max="100"
+                    />
+                  </div>
+
+                  {/* Log */}
+                  {updateStatus.log.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium mb-2">Log:</p>
+                      <div className="bg-base-300 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs">
+                        {updateStatus.log.map((msg, i) => (
+                          <div key={i} className="py-0.5">
+                            {msg}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {updateStatus.status === 'success' && (
+                    <div className="alert alert-success mt-4">
+                      <FaCheck />
+                      <span>
+                        Update complete! Updated from {updateStatus.old_version} to {updateStatus.new_version}.
+                        Restarting...
+                      </span>
+                    </div>
+                  )}
+
+                  {updateStatus.status === 'error' && (
+                    <div className="alert alert-error mt-4">
+                      <FaExclamationTriangle />
+                      <span>{updateStatus.error}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Self Test Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaClipboardCheck />
+                  Hardware Self Test
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  Test all outputs and inputs on your device to verify they are working correctly.
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowSelfTest(true)}
+                    disabled={isUpdating}
+                  >
+                    <FaClipboardCheck />
+                    Start Self Test
+                  </button>
+                </div>
+                <div className="alert alert-info mt-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <div className="text-sm">
+                    <p>The test will toggle each output and wait for input events.</p>
+                    <p>You can skip or fail individual tests as needed.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Configuration Backup Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaFileArchive />
+                  Configuration Backup
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  Download your current configuration files as a compressed archive.
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-primary"
+                    onClick={downloadConfig}
+                    disabled={isDownloading || isUpdating}
+                  >
+                    {isDownloading ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        Preparing...
+                      </>
+                    ) : (
+                      <>
+                        <FaFileArchive />
+                        Download Config (.tar.gz)
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="alert alert-info mt-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <div className="text-sm">
+                    <p>The archive contains all YAML configuration files from your device.</p>
+                    <p>Use this to backup your configuration before making major changes.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Backups Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <div className="flex items-center justify-between">
+                  <h3 className="card-title">
+                    <FaHistory />
+                    Auto update Backups
+                  </h3>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowBackups(!showBackups)}
+                  >
+                    {showBackups ? 'Hide' : 'Show'} Backups ({backups.length})
+                  </button>
+                </div>
+
+                {showBackups && (
+                  <div className="mt-4">
+                    {backups.length === 0 ? (
+                      <p className="text-sm opacity-70">No backups available yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="table table-sm">
+                          <thead>
+                            <tr>
+                              <th>Version</th>
+                              <th>Date</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {backups.map((backup, index) => (
+                              <tr key={backup.path}>
+                                <td className="font-mono">{backup.version}</td>
+                                <td>{backup.timestamp.replace('_', ' ')}</td>
+                                <td>
+                                  {index === 0 && (
+                                    <button
+                                      className="btn btn-warning btn-xs"
+                                      onClick={performRollback}
+                                      disabled={isUpdating}
+                                    >
+                                      <FaUndo />
+                                      Rollback
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="alert alert-info mt-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <div className="text-sm">
+                    <p>Backups are created automatically before each update.</p>
+                    <p>The last 5 backups are kept. Use rollback if an update causes issues.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      {/* Self Test Modal */}
+      <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />
     </div>
   );
 };

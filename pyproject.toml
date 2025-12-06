@@ -25,8 +25,8 @@ dependencies = [
     "python-jose[cryptography]==3.5.0",
     "qrcode==8.2",
     "gpiod==2.3.0",
-    "requests>=2.31.0",
-    "packaging>=24.0"
+    "requests==2.32.5",
+    "packaging==25.0"
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }

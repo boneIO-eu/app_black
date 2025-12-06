@@ -491,6 +491,26 @@ async def toggle_output(output_id: str, manager: Manager = Depends(get_manager))
         return {"status": "error"}
 
 
+@app.post("/api/outputs/{output_id}/turn_on")
+async def turn_on_output(output_id: str, manager: Manager = Depends(get_manager)):
+    """Turn on output."""
+    output = manager.outputs.get_output(output_id)
+    if not output:
+        raise HTTPException(status_code=404, detail="Output not found")
+    await output.async_turn_on()
+    return {"status": "ok"}
+
+
+@app.post("/api/outputs/{output_id}/turn_off")
+async def turn_off_output(output_id: str, manager: Manager = Depends(get_manager)):
+    """Turn off output."""
+    output = manager.outputs.get_output(output_id)
+    if not output:
+        raise HTTPException(status_code=404, detail="Output not found")
+    await output.async_turn_off()
+    return {"status": "ok"}
+
+
 @app.post("/api/groups/{group_id}/toggle")
 async def toggle_group(group_id: str, manager: Manager = Depends(get_manager)):
     """Toggle output group state.
@@ -623,18 +643,35 @@ async def restart_service(background_tasks: BackgroundTasks):
 @app.get("/api/check_update")
 async def check_update():
     """Check if there is a newer version of BoneIO available from GitHub releases."""
-    import requests
-    from packaging import version
-
     from boneio.version import __version__ as current_version
     
     try:
+        import requests
+    except ImportError:
+        _LOGGER.error("Package 'requests' is not installed")
+        return {
+            "status": "error",
+            "message": "Package 'requests' is not installed. Run: pip install requests",
+            "current_version": current_version
+        }
+    
+    try:
+        from packaging import version
+    except ImportError:
+        _LOGGER.error("Package 'packaging' is not installed")
+        return {
+            "status": "error",
+            "message": "Package 'packaging' is not installed. Run: pip install packaging",
+            "current_version": current_version
+        }
+    
+    try:
         # GitHub repository information
-        repo = "boneIO-eu/app_bbb"
+        repo = "boneIO-eu/app_black"
         
-        # Get releases from GitHub API
+        # Get releases from GitHub API with timeout
         api_url = f'https://api.github.com/repos/{repo}/releases'
-        response = requests.get(api_url)
+        response = requests.get(api_url, timeout=10)
         
         if response.status_code != 200:
             return {
@@ -688,7 +725,22 @@ async def check_update():
             "published_at": latest_release['published_at'],
             "is_prerelease": latest_release.get('prerelease', False)
         }
+    except requests.exceptions.Timeout:
+        _LOGGER.error("Timeout while checking for updates")
+        return {
+            "status": "error",
+            "message": "Timeout while connecting to GitHub. Check your internet connection.",
+            "current_version": current_version
+        }
+    except requests.exceptions.ConnectionError:
+        _LOGGER.error("Connection error while checking for updates")
+        return {
+            "status": "error",
+            "message": "Cannot connect to GitHub. Check your internet connection.",
+            "current_version": current_version
+        }
     except Exception as e:
+        _LOGGER.exception("Error checking for updates: %s", str(e))
         return {
             "status": "error",
             "message": f"Error checking for updates: {str(e)}",
