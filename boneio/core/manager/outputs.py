@@ -530,12 +530,18 @@ class OutputManager:
             else:
                 _LOGGER.debug("Can't set brightness for %s", device_id)
 
-    def _initialize_outputs(self, relay_pins: list[dict], reload_config: bool = False) -> None:
+    def _initialize_outputs(
+        self, 
+        relay_pins: list[dict], 
+        reload_config: bool = False,
+        preserved_states: dict[str, bool] | None = None
+    ) -> None:
         """Initialize outputs (relays, switches, lights, LEDs, valves).
         
         Args:
             relay_pins: List of relay configurations
             reload_config: If True, reload configuration from file and clear existing outputs
+            preserved_states: Optional dict of output_id -> is_active state to preserve during reload
         """
         if reload_config:
             # Clear existing outputs and event listeners
@@ -551,6 +557,8 @@ class OutputManager:
                     except Exception as e:
                         _LOGGER.debug(f"Could not remove event listener for {output_id}: {e}")
             self._outputs.clear()
+            # Clear interlock manager to remove stale output references
+            self._interlock_manager.clear()
             # Clear autodiscovery messages for outputs
             from boneio.const import LED, LIGHT, SWITCH, VALVE
             for output_type in [LIGHT, LED, SWITCH, VALVE]:
@@ -593,11 +601,19 @@ class OutputManager:
             restore_state = config_copy.pop(RESTORE_STATE, False)
             area = config_copy.pop("area", None)
             
+            # During reload, use preserved state instead of restore_state from config
+            # This prevents outputs from switching during reload
+            if preserved_states is not None and _id in preserved_states:
+                effective_restore_state = preserved_states[_id]
+                _LOGGER.debug(f"Using preserved state for {_id}: {effective_restore_state}")
+            else:
+                effective_restore_state = restore_state
+            
             out = self._configure_relay(
                 relay_id=_id,
                 name=_name,
                 config=config_copy,
-                restore_state=restore_state,
+                restore_state=effective_restore_state,
             )
             
             # Store area on output object for later use
@@ -639,10 +655,20 @@ class OutputManager:
         because groups hold references to output objects. If outputs are
         cleared first, groups will try to use stale references with closed
         I2C bus connections, causing "Bad file descriptor" errors.
+        
+        NOTE: Current output states are preserved during reload to avoid
+        unwanted switching. The actual hardware state is maintained.
         """
         import asyncio
         
         _LOGGER.info("Reloading output configuration")
+        
+        # PRESERVE current output states before reload
+        # This prevents outputs from switching off during reload
+        current_states: dict[str, bool] = {}
+        for output_id, output in self._outputs.items():
+            current_states[output_id] = output.is_active
+            _LOGGER.debug(f"Preserving state for {output_id}: {output.is_active}")
         
         # Get config from ConfigHelper (uses cache, reloads if needed)
         config = self._manager._config_helper.reload_config()
@@ -718,7 +744,12 @@ class OutputManager:
             await asyncio.sleep(1)
         
         # THIRD: Reload outputs (this clears old outputs and sends new HA discovery)
-        self._initialize_outputs(relay_pins=relay_pins, reload_config=True)
+        # Pass preserved states to maintain current output states during reload
+        self._initialize_outputs(
+            relay_pins=relay_pins, 
+            reload_config=True,
+            preserved_states=current_states
+        )
         
         # FOURTH: Reload output groups with new output references
         self._outputs_group = output_groups

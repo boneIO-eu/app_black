@@ -11,6 +11,7 @@ export interface InputState {
   pin: string;
   timestamp: number;
   boneio_input: string;
+  area: string | null;
 }
 
 export interface InputEvent {
@@ -29,6 +30,8 @@ export interface OutputState {
   expander_id: string | null;
   pin: number;
   timestamp: number | null;
+  area: string | null;
+  interlock_groups: string[];
 }
 
 export interface OutputEvent {

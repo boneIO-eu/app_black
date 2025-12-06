@@ -1529,7 +1529,8 @@ async def inputs_reloaded_callback(event):
                 type=input_.input_type,
                 pin=input_.pin,
                 timestamp=input_.last_press_timestamp,
-                boneio_input=input_.boneio_input
+                boneio_input=input_.boneio_input,
+                area=input_.area
             )
             update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
             await websocket_manager.broadcast_state(update)
@@ -1628,7 +1629,8 @@ async def websocket_endpoint(
                             type=input_.input_type,
                             pin=input_.pin,
                             timestamp=input_.last_press_timestamp,
-                            boneio_input=input_.boneio_input
+                            boneio_input=input_.boneio_input,
+                            area=input_.area
                         )
                         update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
                         if not await send_state_update(update):
@@ -1648,6 +1650,8 @@ async def websocket_endpoint(
                             pin=getattr(output, 'pin_id', None),
                             expander_id=output.expander_id,
                             timestamp=output.last_timestamp,
+                            area=getattr(output, 'area', None),
+                            interlock_groups=getattr(output, '_interlock_groups', []),
                         )
                         update = OutputEvent(entity_id=output.id, state=output_state)
                         if not await send_state_update(update):

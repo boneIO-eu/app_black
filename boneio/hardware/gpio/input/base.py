@@ -155,6 +155,7 @@ class GpioBaseClass:
                 type=self.input_type,
                 timestamp=self.last_press_timestamp,
                 boneio_input=self.boneio_input,
+                area=self.area,
             )
             
             self._event_bus.trigger_event(InputEvent(

@@ -23,6 +23,7 @@ class InputState(BaseModel):
     pin: str
     timestamp: float
     boneio_input: str
+    area: str | None = None
 
 
 class OutputState(BaseModel):
@@ -34,6 +35,8 @@ class OutputState(BaseModel):
     expander_id: str | None
     pin: str | None
     timestamp: float | None = None
+    area: str | None = None
+    interlock_groups: list[str] = []
 
 
 class CoverState(BaseModel):

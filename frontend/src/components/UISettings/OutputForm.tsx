@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { sanitizeId } from './helpers/idValidation';
 
 interface Area {
   id: string;
@@ -205,10 +206,10 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 className="input input-bordered w-full"
                 placeholder={data.boneio_output || 'Uses boneio_output if empty'}
                 value={data.id || ''}
-                onChange={(e) => updateField('id', e.target.value)}
+                onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               />
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">Optional. Overrides boneio_output as technical ID in MQTT/groups/actions</span>
+                <span className="label-text-alt whitespace-normal break-words">Optional. Only lowercase letters, numbers, underscores. Auto-sanitized.</span>
               </label>
             </div>
 

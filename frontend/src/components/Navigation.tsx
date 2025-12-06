@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaDownload } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
@@ -110,7 +110,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     // Settings (experimental) - only show if boneio section exists in config
     ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: 'Settings', experimental: true }] : []),
     { path: '/logs', icon: FaList, label: 'Logs' },
-    { path: '/system-update', icon: FaDownload, label: 'Update' },
+    { path: '/system-update', icon: FaCog, label: 'System' },
     { path: '/help', icon: FaQuestionCircle, label: 'Help' },
   ];
 

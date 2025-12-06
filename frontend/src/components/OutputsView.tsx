@@ -1,27 +1,85 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
-import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState } from '../hooks/useWebSocket';
+import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } from '../hooks/useWebSocket';
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
+
+// Output type categories
+type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
+
+/**
+ * Categorize output by its type
+ */
+function categorizeOutput(type: string | undefined): OutputCategory {
+  const t = (type || '').toLowerCase();
+  
+  if (t === 'light') return 'light';
+  if (t === 'valve') return 'valve';
+  if (t === 'cover' || t === 'none') return 'state_only';
+  // Default to switch for relay, switch, or unknown types
+  return 'switch';
+}
+
+/**
+ * Category display configuration
+ */
+const categoryConfig: Record<OutputCategory, { label: string; order: number }> = {
+  light: { label: 'Lights', order: 1 },
+  switch: { label: 'Switches', order: 2 },
+  valve: { label: 'Valves', order: 3 },
+  cover: { label: 'Covers', order: 4 },
+  group: { label: 'Groups', order: 5 },
+  state_only: { label: 'State Only', order: 6 },
+};
 
 export default function OutputsView({error}: {error: string | null}) {
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers, groups } = useContext(WebSocketContext);
-  console.log("outputs", outputs, covers, groups);
+  
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
 
-  // Filter out outputs that are used by covers (output_type === 'cover')
-  const validOutputs = outputs
-    .filter(isOutputEvent)
-    .map(e => e.state)
-    .filter(output => output.type?.toLowerCase() !== 'cover');
-  const validGroups = groups.filter(isGroupEvent).map(e => e.state);
-  console.log("validOutputs", validOutputs, "validGroups", groups, validGroups);
+  // Filter and categorize outputs
+  const { categorizedOutputs, stateOnlyOutputs } = useMemo(() => {
+    const allOutputs = outputs
+      .filter(isOutputEvent)
+      .map(e => e.state);
+    
+    const categorized: Record<OutputCategory, OutputState[]> = {
+      light: [],
+      switch: [],
+      valve: [],
+      cover: [],
+      group: [],
+      state_only: [],
+    };
+    
+    allOutputs.forEach(output => {
+      const category = categorizeOutput(output.type);
+      categorized[category].push(output);
+    });
+    
+    return {
+      categorizedOutputs: categorized,
+      stateOnlyOutputs: categorized.state_only,
+    };
+  }, [outputs]);
+
+  // Get valid groups
+  const validGroups = useMemo(() => 
+    groups.filter(isGroupEvent).map(e => e.state),
+    [groups]
+  );
+
+  // Get valid covers
+  const validCovers = useMemo(() => 
+    covers.filter(isCoverEvent).map(c => c.state as CoverState),
+    [covers]
+  );
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -31,7 +89,6 @@ export default function OutputsView({error}: {error: string | null}) {
   const toggleOutput = async (id: string, name: string, type: string) => {
     try {
       const response = await axios.post(`/api/outputs/${id}/toggle`);
-      console.log("re", response, type)
       if (response.data.status === 'interlock') {
         setError(`${type} ${name} is locked by interlock`);
         return;
@@ -56,7 +113,6 @@ export default function OutputsView({error}: {error: string | null}) {
   const toggleGroup = async (id: string, name: string, type: string) => {
     try {
       const response = await axios.post(`/api/groups/${id}/toggle`);
-      console.log("group toggle", response, type);
       if (response.data.status === 'interlock') {
         setError(`${type} ${name} is locked by interlock`);
         return;
@@ -68,6 +124,39 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   };
 
+  const gridClass = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
+  const listClass = "flex flex-col gap-4";
+
+  /**
+   * Render a section with outputs
+   */
+  const renderOutputSection = (
+    category: OutputCategory,
+    items: OutputState[],
+    onToggle: (id: string, name: string, type: string) => void,
+    isStateOnly: boolean = false
+  ) => {
+    if (items.length === 0) return null;
+    
+    return (
+      <div key={category}>
+        <div className="divider">{categoryConfig[category].label}</div>
+        <div className={isGrid ? gridClass : listClass}>
+          {items.map((output) => (
+            <OutputItem 
+              key={output.id}
+              output={output}
+              onToggle={isStateOnly ? undefined : onToggle}
+              isGrid={isGrid}
+              error={error}
+              stateOnly={isStateOnly}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto p-4">
       <div className="card bg-base-200 shadow-xl">
@@ -76,30 +165,39 @@ export default function OutputsView({error}: {error: string | null}) {
             <h2 className="card-title">Controls</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
-          {/* Individual Outputs */}
-          <div className={isGrid 
-            ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-            : "flex flex-col gap-4"
-          }>
-            {validOutputs.map((output) => (
-              <OutputItem 
-                key={output.id}
-                output={output}
-                onToggle={toggleOutput}
-                isGrid={isGrid}
-                error={error}
-              />
-            ))}
-          </div>
 
-          {/* Output Groups */}
+          {/* Lights */}
+          {renderOutputSection('light', categorizedOutputs.light, toggleOutput)}
+
+          {/* Switches */}
+          {renderOutputSection('switch', categorizedOutputs.switch, toggleOutput)}
+
+          {/* Valves */}
+          {renderOutputSection('valve', categorizedOutputs.valve, toggleOutput)}
+
+          {/* Covers */}
+          {validCovers.length > 0 && (
+            <>
+              <div className="divider">Covers</div>
+              <div className={isGrid ? gridClass : listClass}>
+                {validCovers.map((cover) => (
+                  <CoverItem 
+                    key={cover.id}
+                    cover={cover}
+                    action={actionCover}
+                    isGrid={isGrid}
+                    error={error}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Groups */}
           {validGroups.length > 0 && (
             <>
               <div className="divider">Groups</div>
-              <div className={isGrid 
-                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-                : "flex flex-col gap-4"
-              }>
+              <div className={isGrid ? gridClass : listClass}>
                 {validGroups.map((group) => (
                   <OutputItem 
                     key={group.id}
@@ -110,32 +208,23 @@ export default function OutputsView({error}: {error: string | null}) {
                       type: group.type,
                       expander_id: null,
                       pin: 0,
-                      timestamp: group.timestamp
+                      timestamp: group.timestamp,
+                      area: null,
+                      interlock_groups: []
                     }}
                     onToggle={toggleGroup}
                     isGrid={isGrid}
                     error={error}
+                    isGroup={true}
                   />
                 ))}
               </div>
             </>
           )}
 
-          {/* Covers */}
-          <div className={isGrid 
-            ? "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-            : "flex flex-col gap-4"
-          }>
-            {covers.filter(cover => isCoverEvent(cover)).map((cover) => (
-              <CoverItem 
-                key={cover.entity_id}
-                cover={cover.state as CoverState}
-                action={actionCover}
-                isGrid={isGrid}
-                error={error}
-              />
-            ))}
-          </div>
+          {/* State Only (cover or none type outputs - no controls) */}
+          {renderOutputSection('state_only', stateOnlyOutputs, toggleOutput, true)}
+
         </div>
       </div>
       {outputError && <div className='toast'><div className="alert alert-error">{outputError}</div></div>}

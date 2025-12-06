@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck, FaPowerOff } from 'react-icons/fa';
 import SelfTest from './SelfTest';
+import { WebSocketContext } from '../../App';
+import { OutputEvent } from '../../hooks/useWebSocket';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -32,6 +34,7 @@ interface Backup {
 }
 
 const SystemUpdate: React.FC = () => {
+  const { outputs } = useContext(WebSocketContext);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
@@ -41,6 +44,9 @@ const SystemUpdate: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showSelfTest, setShowSelfTest] = useState(false);
+  const [isTurningOffAll, setIsTurningOffAll] = useState(false);
+  const [turnOffResult, setTurnOffResult] = useState<{ count: number; errors: string[] } | null>(null);
+  const [turnOffProgress, setTurnOffProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -198,6 +204,55 @@ const SystemUpdate: React.FC = () => {
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // Turn off all outputs (frontend implementation - calls turn_off for each output)
+  const turnOffAllOutputs = async () => {
+    if (!confirm('Are you sure you want to turn off ALL outputs?\n\nThis action cannot be undone.')) {
+      return;
+    }
+    
+    // Filter outputs - skip cover types
+    const outputsToTurnOff = outputs.filter((o: OutputEvent) => 
+      o.state?.type !== 'cover' && o.state?.type !== 'none'
+    );
+    
+    if (outputsToTurnOff.length === 0) {
+      setError('No outputs to turn off');
+      return;
+    }
+    
+    setIsTurningOffAll(true);
+    setTurnOffResult(null);
+    setTurnOffProgress({ current: 0, total: outputsToTurnOff.length });
+    setError(null);
+    
+    let count = 0;
+    const errors: string[] = [];
+    
+    for (let i = 0; i < outputsToTurnOff.length; i++) {
+      const output = outputsToTurnOff[i];
+      setTurnOffProgress({ current: i + 1, total: outputsToTurnOff.length });
+      
+      try {
+        const response = await fetch(`/api/outputs/${output.entity_id}/turn_off`, { method: 'POST' });
+        if (response.ok) {
+          count++;
+        } else {
+          errors.push(output.entity_id);
+        }
+      } catch (err) {
+        console.error(`Error turning off output ${output.entity_id}:`, err);
+        errors.push(output.entity_id);
+      }
+      
+      // Small delay between requests to avoid overwhelming the device
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    setTurnOffResult({ count, errors });
+    setTurnOffProgress(null);
+    setIsTurningOffAll(false);
   };
 
   // Initial load
@@ -399,6 +454,70 @@ const SystemUpdate: React.FC = () => {
                   <div className="text-sm">
                     <p>The test will toggle each output and wait for input events.</p>
                     <p>You can skip or fail individual tests as needed.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Turn Off All Outputs Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaPowerOff />
+                  Turn Off All Outputs
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  Turn off all outputs and clear saved relay states. Useful after testing or before shipping.
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-error"
+                    onClick={turnOffAllOutputs}
+                    disabled={isUpdating || isTurningOffAll || outputs.length === 0}
+                  >
+                    {isTurningOffAll ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        Turning off...
+                      </>
+                    ) : (
+                      <>
+                        <FaPowerOff />
+                        Turn Off All Outputs ({outputs.filter((o: OutputEvent) => o.state?.type !== 'cover' && o.state?.type !== 'none').length})
+                      </>
+                    )}
+                  </button>
+                </div>
+                {/* Progress bar during turn off */}
+                {turnOffProgress && (
+                  <div className="mt-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Turning off outputs...</span>
+                      <span className="text-sm">{turnOffProgress.current} / {turnOffProgress.total}</span>
+                    </div>
+                    <progress 
+                      className="progress progress-error w-full" 
+                      value={turnOffProgress.current} 
+                      max={turnOffProgress.total}
+                    />
+                  </div>
+                )}
+                {turnOffResult && (
+                  <div className={`alert ${turnOffResult.errors.length > 0 ? 'alert-warning' : 'alert-success'} mt-4`}>
+                    <FaCheck />
+                    <div className="text-sm">
+                      <p>Turned off {turnOffResult.count} outputs.</p>
+                      {turnOffResult.errors.length > 0 && (
+                        <p>Errors: {turnOffResult.errors.join(', ')}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="alert alert-warning mt-4">
+                  <FaExclamationTriangle />
+                  <div className="text-sm">
+                    <p>This will turn off ALL outputs immediately.</p>
+                    <p>Saved relay states will be cleared - outputs will not restore on restart.</p>
                   </div>
                 </div>
               </div>

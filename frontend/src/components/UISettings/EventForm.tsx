@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
+import { sanitizeId } from './helpers/idValidation';
 
 interface Area {
   id: string;
@@ -330,16 +331,16 @@ const EventForm: React.FC<EventFormProps> = ({
                 className="input  w-full"
                 placeholder="e.g., boneio_12345"
                 value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
               />
               <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device</span>
+                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
               </label>
             </div>
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Output Number (pin)</span>
+                <span className="label-text font-medium">Output ID</span>
               </label>
               <input
                 type="text"
@@ -383,10 +384,10 @@ const EventForm: React.FC<EventFormProps> = ({
                 className="input  w-full"
                 placeholder="e.g., boneio_12345"
                 value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', e.target.value)}
+                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
               />
               <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device</span>
+                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
               </label>
             </div>
 
@@ -432,12 +433,12 @@ const EventForm: React.FC<EventFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Validation Errors */}
+      {/* Validation Errors - sticky at top */}
       {validationErrors.length > 0 && (
-        <div className="alert alert-error">
+        <div className="alert alert-error sticky top-0 z-10 shadow-lg">
           <div>
-            <h3 className="font-bold">Validation Errors:</h3>
-            <ul className="list-disc list-inside">
+            <h3 className="font-bold">Validation Errors ({validationErrors.length}):</h3>
+            <ul className="list-disc list-inside max-h-24 overflow-y-auto">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
               ))}

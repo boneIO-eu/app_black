@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { sanitizeId } from './helpers/idValidation';
 
 interface OutputGroupFormProps {
   data: any;
@@ -80,7 +81,7 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
               type="text"
               className="input w-full"
               value={data.id || ''}
-              onChange={(e) => updateField('id', e.target.value)}
+              onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               placeholder="e.g., lights_living_room"
             />
             <label className="label">

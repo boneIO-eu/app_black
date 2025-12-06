@@ -131,6 +131,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleSave = (e?: any) => {
     console.log('💾 ArrayTableWidget: handleSave called, calling onChange');
+    
+    // Block save if there are validation errors from child form
+    if (hasValidationErrors) {
+      console.log('❌ ArrayTableWidget: Save blocked due to validation errors');
+      alert('Please fix validation errors before saving');
+      return;
+    }
+    
     // If called from @rjsf onSubmit, e.formData contains the data
     const dataToSave = e?.formData || editingItem;
     
@@ -215,6 +223,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           <th>Name / ID</th>
           <th>BoneIO Output</th>
           <th>Type</th>
+          <th>Interlock</th>
           <th>Restore</th>
           <th>Momentary</th>
           <th>Actions</th>
@@ -462,6 +471,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <span className="badge badge-info badge-sm">{item.output_type}</span>
               ) : (
                 '-'
+              )}
+            </td>
+            <td>
+              {item.interlock_group ? (
+                <span className="badge badge-error badge-sm" title={`Interlock: ${item.interlock_group}`}>
+                  {item.interlock_group}
+                </span>
+              ) : (
+                <span className="text-base-content/40">-</span>
               )}
             </td>
             <td>
@@ -730,15 +748,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           
           {/* Modal actions at bottom */}
           <div className="modal-action border-t border-base-300 pt-4">
-            <form method="dialog">
-              <button 
-                type="submit" 
-                className="btn btn-ghost"
-                onClick={handleCancel}
-              >
-                Cancel
-              </button>
-            </form>
+            <button 
+              type="button" 
+              className="btn btn-ghost"
+              onClick={handleCancel}
+            >
+              Cancel
+            </button>
             <button 
               type="button" 
               onClick={handleSave} 

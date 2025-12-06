@@ -16,8 +16,9 @@ const InputItem = memo(({ inputEvent, isGrid }: {
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
       <div>
         <h3 className="font-semibold text-lg">{inputEvent.state.name}</h3>
+        <p className="text-xs text-gray-500">{inputEvent.entity_id}</p>
         <p className="text-sm">Type: {inputEvent.state.type === "input" ? "Event entity" : "Binary sensor"}</p>
-        <p className="text-sm">Pin: {inputEvent.state.pin}</p>
+        <p className="text-xs text-gray-400">Area: {inputEvent.state.area || 'No area'}</p>
       </div>
       <div className={`${isGrid ? 'text-right' : ''}`}>
         <span

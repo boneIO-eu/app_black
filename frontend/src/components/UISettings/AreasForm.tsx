@@ -1,4 +1,5 @@
 import React from 'react';
+import { sanitizeId } from './helpers/idValidation';
 
 interface AreasFormProps {
   data: any;
@@ -25,12 +26,12 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
           type="text"
           className="input input-bordered w-full"
           value={data?.id || ''}
-          onChange={(e) => handleChange('id', e.target.value)}
+          onChange={(e) => handleChange('id', sanitizeId(e.target.value))}
           placeholder="living_room"
           required
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Unique identifier for the area (used in configurations)</span>
+          <span className="label-text-alt text-base-content/60">Only lowercase letters, numbers, underscores. Auto-sanitized.</span>
         </label>
       </div>
 

@@ -51,3 +51,10 @@ class SoftwareInterlockManager:
             Sorted list of unique group names
         """
         return sorted(self.groups.keys())
+
+    def clear(self) -> None:
+        """Clear all registered relays from all groups.
+        
+        Used during configuration reload to remove stale references.
+        """
+        self.groups.clear()

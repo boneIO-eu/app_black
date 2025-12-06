@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { sanitizeId } from './helpers/idValidation';
 
 interface Area {
   id: string;
@@ -97,7 +98,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
               type="text"
               className="input w-full"
               value={data.id || ''}
-              onChange={(e) => updateField('id', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
+              onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               placeholder="Auto-generated from relays if empty"
             />
             <label className="label">

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { sanitizeId } from './helpers/idValidation';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -299,7 +300,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               type="text"
               className="input input-bordered w-full"
               value={data.id || ''}
-              onChange={(e) => updateField('id', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
+              onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               placeholder="Auto-generated if empty"
             />
             <label className="label py-0.5">

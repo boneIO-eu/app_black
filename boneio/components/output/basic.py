@@ -307,6 +307,8 @@ class BasicOutput(BasicMqtt):
             pin=self.pin_id,
             timestamp=self.last_timestamp,
             expander_id=self.expander_id,
+            area=self.area,
+            interlock_groups=self._interlock_groups,
         )
         
         output_event = OutputEvent(
