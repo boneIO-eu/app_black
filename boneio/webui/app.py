@@ -696,49 +696,291 @@ async def check_update():
         }
 
 
+# Update status tracking
+_update_status: dict = {
+    "status": "idle",  # idle, running, success, error
+    "progress": 0,     # 0-100
+    "step": "",        # Current step description
+    "log": [],         # Log messages
+    "error": None,     # Error message if failed
+    "backup_path": None,  # Path to backup if created
+    "old_version": None,
+    "new_version": None,
+}
+
+def _reset_update_status():
+    """Reset update status to idle state."""
+    global _update_status
+    _update_status = {
+        "status": "idle",
+        "progress": 0,
+        "step": "",
+        "log": [],
+        "error": None,
+        "backup_path": None,
+        "old_version": None,
+        "new_version": None,
+    }
+
+def _update_progress(progress: int, step: str, log_msg: str | None = None):
+    """Update progress status."""
+    global _update_status
+    _update_status["progress"] = progress
+    _update_status["step"] = step
+    if log_msg:
+        _update_status["log"].append(log_msg)
+        _LOGGER.info(f"Update: {log_msg}")
+
+@app.get("/api/update/status")
+async def get_update_status():
+    """Get current update status and progress."""
+    return _update_status
+
 @app.post("/api/update")
 async def update_boneio(background_tasks: BackgroundTasks):
-    """Update the BoneIO package and restart the service."""
+    """Update the BoneIO package with backup and restart the service."""
+    global _update_status
+    
     if not is_running_as_service():
-        return {"status": "not available", "message": "Update is only available when running as a service"}
+        return {"status": "error", "message": "Update is only available when running as a service"}
+    
+    if _update_status["status"] == "running":
+        return {"status": "error", "message": "Update already in progress"}
 
     async def update_and_restart():
+        global _update_status
+        import subprocess
+        import shutil
+        import glob
+        from datetime import datetime
+        from boneio.version import __version__ as current_version
+        
+        _reset_update_status()
+        _update_status["status"] = "running"
+        _update_status["old_version"] = current_version
+        
         try:
             # Allow time for the response to be sent
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.3)
             
-            # Get the virtual environment path
-            venv_path = os.path.expanduser("~/boneio/venv")
-            pip_path = os.path.join(venv_path, "bin", "pip")
+            # Step 1: Find virtual environment
+            _update_progress(5, "Finding virtual environment...")
             
-            # Check if the virtual environment exists
-            if not os.path.exists(pip_path):
-                _LOGGER.error(f"Virtual environment not found at {venv_path}")
+            # Try common venv locations
+            possible_venv_paths = [
+                os.path.expanduser("~/boneio/venv"),
+                os.path.expanduser("~/venv"),
+                "/opt/boneio/venv",
+            ]
+            
+            venv_path = None
+            pip_path = None
+            for path in possible_venv_paths:
+                pip_candidate = os.path.join(path, "bin", "pip")
+                if os.path.exists(pip_candidate):
+                    venv_path = path
+                    pip_path = pip_candidate
+                    break
+            
+            if not pip_path:
+                _update_status["status"] = "error"
+                _update_status["error"] = "Virtual environment not found"
+                _update_progress(0, "Failed", "Could not find virtual environment")
                 return
             
-            # Run pip install --upgrade boneio
-            _LOGGER.info("Starting BoneIO update process...")
-            import subprocess
+            _update_progress(10, "Virtual environment found", f"Using venv at {venv_path}")
+            
+            # Step 2: Create backup
+            _update_progress(15, "Creating backup...")
+            
+            backup_dir = os.path.expanduser("~/boneio_backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = os.path.join(backup_dir, f"boneio_{current_version}_{timestamp}")
+            
+            # Find boneio package in site-packages
+            boneio_dirs = glob.glob(f"{venv_path}/lib/python*/site-packages/boneio")
+            
+            if boneio_dirs:
+                try:
+                    shutil.copytree(boneio_dirs[0], backup_path)
+                    _update_status["backup_path"] = backup_path
+                    _update_progress(25, "Backup created", f"Backup saved to {backup_path}")
+                except Exception as e:
+                    _update_progress(25, "Backup warning", f"Could not create backup: {e}")
+            else:
+                _update_progress(25, "Backup skipped", "No existing boneio package found")
+            
+            # Step 3: Upgrade pip (optional but recommended)
+            _update_progress(30, "Upgrading pip...")
+            
+            pip_upgrade = subprocess.run(
+                [pip_path, "install", "--upgrade", "pip"],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            
+            if pip_upgrade.returncode == 0:
+                _update_progress(40, "Pip upgraded", "pip upgraded successfully")
+            else:
+                _update_progress(40, "Pip upgrade skipped", "pip upgrade failed, continuing...")
+            
+            # Step 4: Install boneio update
+            _update_progress(45, "Downloading and installing BoneIO update...")
+            
             result = subprocess.run(
                 [pip_path, "install", "--upgrade", "boneio"],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+            
+            if result.returncode != 0:
+                _update_status["status"] = "error"
+                _update_status["error"] = f"pip install failed: {result.stderr}"
+                _update_progress(45, "Update failed", result.stderr)
+                return
+            
+            _update_progress(80, "BoneIO updated", "Package installed successfully")
+            
+            # Step 5: Get new version
+            _update_progress(85, "Verifying installation...")
+            
+            version_result = subprocess.run(
+                [pip_path, "show", "boneio"],
                 capture_output=True,
                 text=True
             )
             
-            if result.returncode != 0:
-                _LOGGER.error(f"Update failed: {result.stderr}")
-                return
+            new_version = current_version
+            if version_result.returncode == 0:
+                for line in version_result.stdout.split('\n'):
+                    if line.startswith('Version:'):
+                        new_version = line.split(':')[1].strip()
+                        break
             
-            _LOGGER.info(f"Update successful: {result.stdout}")
+            _update_status["new_version"] = new_version
+            _update_progress(90, "Installation verified", f"Updated from {current_version} to {new_version}")
+            
+            # Step 6: Cleanup old backups (keep last 5)
+            _update_progress(92, "Cleaning up old backups...")
+            
+            try:
+                backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")))
+                if len(backups) > 5:
+                    for old_backup in backups[:-5]:
+                        shutil.rmtree(old_backup, ignore_errors=True)
+                    _update_progress(95, "Cleanup done", f"Removed {len(backups) - 5} old backups")
+            except Exception as e:
+                _update_progress(95, "Cleanup skipped", f"Could not cleanup: {e}")
+            
+            # Step 7: Prepare for restart
+            _update_status["status"] = "success"
+            _update_progress(100, "Update complete!", f"Restarting service in 2 seconds...")
+            
+            # Wait a bit so frontend can see 100% progress
+            await asyncio.sleep(2)
             
             # Terminate the process to trigger systemd restart
-            _LOGGER.info("Restarting BoneIO service...")
+            _LOGGER.info("Restarting BoneIO service after update...")
             os._exit(0)
+            
+        except subprocess.TimeoutExpired:
+            _update_status["status"] = "error"
+            _update_status["error"] = "Update timed out"
+            _update_progress(0, "Timeout", "Update process timed out")
         except Exception as e:
-            _LOGGER.error(f"Error during update process: {e}")
+            _update_status["status"] = "error"
+            _update_status["error"] = str(e)
+            _update_progress(0, "Error", f"Unexpected error: {e}")
+            _LOGGER.error(f"Error during update process: {e}", exc_info=True)
     
     background_tasks.add_task(update_and_restart)
-    return {"status": "success", "message": "Update process started"}
+    return {"status": "started", "message": "Update process started"}
+
+@app.post("/api/update/rollback")
+async def rollback_update():
+    """Rollback to the previous version from backup."""
+    import subprocess
+    import shutil
+    import glob
+    
+    if not is_running_as_service():
+        return {"status": "error", "message": "Rollback is only available when running as a service"}
+    
+    backup_dir = os.path.expanduser("~/boneio_backups")
+    backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")))
+    
+    if not backups:
+        return {"status": "error", "message": "No backups found"}
+    
+    latest_backup = backups[-1]
+    
+    # Find venv
+    possible_venv_paths = [
+        os.path.expanduser("~/boneio/venv"),
+        os.path.expanduser("~/venv"),
+        "/opt/boneio/venv",
+    ]
+    
+    venv_path = None
+    for path in possible_venv_paths:
+        if os.path.exists(os.path.join(path, "bin", "pip")):
+            venv_path = path
+            break
+    
+    if not venv_path:
+        return {"status": "error", "message": "Virtual environment not found"}
+    
+    # Find current boneio installation
+    boneio_dirs = glob.glob(f"{venv_path}/lib/python*/site-packages/boneio")
+    
+    if not boneio_dirs:
+        return {"status": "error", "message": "Current boneio installation not found"}
+    
+    try:
+        # Remove current installation
+        shutil.rmtree(boneio_dirs[0])
+        
+        # Restore from backup
+        shutil.copytree(latest_backup, boneio_dirs[0])
+        
+        _LOGGER.info(f"Rolled back to backup: {latest_backup}")
+        
+        return {
+            "status": "success", 
+            "message": f"Rolled back to {os.path.basename(latest_backup)}. Restart required.",
+            "backup_used": latest_backup
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Rollback failed: {e}"}
+
+@app.get("/api/update/backups")
+async def list_backups():
+    """List available backups."""
+    import glob
+    
+    backup_dir = os.path.expanduser("~/boneio_backups")
+    backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")), reverse=True)
+    
+    backup_list = []
+    for backup in backups:
+        name = os.path.basename(backup)
+        # Parse version and timestamp from name: boneio_1.2.3_20231206_131500
+        parts = name.split('_')
+        version = parts[1] if len(parts) > 1 else "unknown"
+        timestamp = f"{parts[2]}_{parts[3]}" if len(parts) > 3 else "unknown"
+        
+        backup_list.append({
+            "path": backup,
+            "name": name,
+            "version": version,
+            "timestamp": timestamp,
+        })
+    
+    return {"backups": backup_list}
 
 
 @app.get("/api/version")

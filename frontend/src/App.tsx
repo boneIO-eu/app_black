@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
+import SystemUpdate from './components/UISettings/SystemUpdate';
 import { ConfigProvider } from './contexts/ConfigContext';
 
 export const WebSocketContext = createContext<{
@@ -270,6 +271,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <HelpView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/system-update" element={
+          <ProtectedRoute>
+            <Layout>
+              <SystemUpdate />
             </Layout>
           </ProtectedRoute>
         } />
