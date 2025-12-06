@@ -983,6 +983,60 @@ async def list_backups():
     return {"backups": backup_list}
 
 
+@app.get("/api/config/download")
+async def download_config():
+    """Download current configuration as a tar.gz archive.
+    
+    Creates a compressed archive containing all YAML configuration files
+    from the config directory.
+    """
+    import tarfile
+    import io
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+    
+    config_file = app.state.yaml_config_file
+    config_dir = Path(config_file).parent
+    
+    # Create tar.gz in memory
+    buffer = io.BytesIO()
+    
+    with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+        # Add all yaml files from config directory
+        for pattern in ["*.yaml", "*.yml"]:
+            for yaml_file in config_dir.glob(pattern):
+                if yaml_file.is_file():
+                    # Add file with relative path
+                    arcname = yaml_file.name
+                    tar.add(str(yaml_file), arcname=arcname)
+                    _LOGGER.debug(f"Added {arcname} to config archive")
+        
+        # Also check for subdirectories with yaml files (e.g., includes)
+        for subdir in config_dir.iterdir():
+            if subdir.is_dir() and not subdir.name.startswith('.'):
+                for pattern in ["*.yaml", "*.yml"]:
+                    for yaml_file in subdir.glob(pattern):
+                        if yaml_file.is_file():
+                            arcname = f"{subdir.name}/{yaml_file.name}"
+                            tar.add(str(yaml_file), arcname=arcname)
+                            _LOGGER.debug(f"Added {arcname} to config archive")
+    
+    buffer.seek(0)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"boneio_config_{timestamp}.tar.gz"
+    
+    _LOGGER.info(f"Downloading config archive: {filename}")
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/gzip",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
 @app.get("/api/version")
 async def get_version():
     """Get application version."""

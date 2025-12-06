@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory } from 'react-icons/fa';
+import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive } from 'react-icons/fa';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -38,6 +38,7 @@ const SystemUpdate: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showBackups, setShowBackups] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -148,6 +149,47 @@ const SystemUpdate: React.FC = () => {
       }
     } catch (err) {
       setError('Rollback failed');
+    }
+  };
+
+  // Download config as tar.gz
+  const downloadConfig = async () => {
+    setIsDownloading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/config/download');
+      
+      if (!response.ok) {
+        throw new Error('Failed to download configuration');
+      }
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'boneio_config.tar.gz';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename=(.+)/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+      
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+    } catch (err) {
+      setError('Failed to download configuration');
+      console.error('Error downloading config:', err);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -319,6 +361,47 @@ const SystemUpdate: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Configuration Backup Section */}
+      <div className="card bg-base-200">
+        <div className="card-body">
+          <h3 className="card-title">
+            <FaFileArchive />
+            Configuration Backup
+          </h3>
+          <p className="text-sm opacity-70 mb-4">
+            Download your current configuration files as a compressed archive.
+          </p>
+          <div className="card-actions">
+            <button
+              className="btn btn-primary"
+              onClick={downloadConfig}
+              disabled={isDownloading || isUpdating}
+            >
+              {isDownloading ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  Preparing...
+                </>
+              ) : (
+                <>
+                  <FaFileArchive />
+                  Download Config (.tar.gz)
+                </>
+              )}
+            </button>
+          </div>
+          <div className="alert alert-info mt-4">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div className="text-sm">
+              <p>The archive contains all YAML configuration files from your device.</p>
+              <p>Use this to backup your configuration before making major changes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Backups Section */}
       <div className="card bg-base-200">
