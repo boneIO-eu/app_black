@@ -270,6 +270,49 @@ def ha_sensor_temp_availabilty_message(
     msg["value_template"] = "{{ value_json.state }}"
     return msg
 
+
+def ha_sensor_system_availabilty_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    model: str = "boneIO Relay Board",
+    device_class: str | None = None,
+    icon: str | None = None,
+    **kwargs
+):
+    """Create availability topic for system sensors (disk, memory, CPU).
+    
+    Args:
+        id: Sensor ID
+        name: Sensor name
+        config_helper: ConfigHelper instance
+        model: Device model
+        device_class: HA device class (optional)
+        icon: MDI icon (optional)
+        **kwargs: Additional fields
+        
+    Returns:
+        HA discovery message dict
+    """
+    msg = ha_availabilty_message(
+        device_type=SENSOR,
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        model=model,
+        **kwargs
+    )
+    msg["state_class"] = "measurement"
+    msg["value_template"] = "{{ value_json.state }}"
+    
+    if device_class:
+        msg["device_class"] = device_class
+    if icon:
+        msg["icon"] = icon
+        
+    return msg
+
+
 def modbus_availabilty_message(
     id: str,
     entity_id: str,

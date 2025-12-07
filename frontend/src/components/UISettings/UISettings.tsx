@@ -88,6 +88,7 @@ export default function UISettings() {
     { name: 'output_group', title: t('sections.output_group'), icon: '🔗' },
     { name: 'cover', title: t('sections.cover'), icon: '🚪' },
     { name: 'modbus_devices', title: t('sections.modbus_devices'), icon: '📱' },
+    { name: 'sensor', title: t('sections.sensor'), icon: '🌡️' },
     { name: 'logger', title: t('sections.logger'), icon: '📝' },
   ];
 
@@ -1091,13 +1092,13 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas') ? (
+                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
                       <ArrayTableWidget
                         value={formData[activeSection] || []}
                         uiSchema={activeSection_data.uiSchema.items}
                         onChange={(newData) => handleSectionChange(activeSection, newData)}
                         schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other'}
+                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
                         deviceType={formData.boneio?.device_type}
                         allBinarySensors={formData.binary_sensor || []}
                         allEvents={formData.event || []}
@@ -1111,6 +1112,7 @@ export default function UISettings() {
                           activeSection === 'output_group' ? t('sections.output_group') :
                           activeSection === 'cover' ? t('sections.cover') :
                           activeSection === 'areas' ? t('sections.areas') :
+                          activeSection === 'sensor' ? t('sections.sensor') :
                           t('sections.modbus_devices')
                         }
                       />
@@ -1163,13 +1165,13 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas') ? (
+                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
                     <ArrayTableWidget
                       value={formData[activeSection] || []}
                       uiSchema={activeSection_data.uiSchema.items}
                       onChange={(newData) => handleSectionChange(activeSection, newData)}
                       schema={activeSection_data.normalizedSchema}
-                      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other'}
+                      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
                       deviceType={formData.boneio?.device_type}
                       allBinarySensors={formData.binary_sensor || []}
                       allEvents={formData.event || []}

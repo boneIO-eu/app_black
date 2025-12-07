@@ -1051,18 +1051,6 @@ ds2482:
         meta:
           label: GPIO of I2C SDA
 
-dallas:
-  type: dict
-  required: False
-  meta:
-    label: "https://boneio.eu/docs/black/configuration/dallas \n Dallas section of boneIO Black. It enables Dallas bus in boneIO Black Kernel."
-  schema:
-    id:
-      type: string
-      required: True
-      meta:
-        label: Id of bus to use in sensor config.
-
 sensor:
   type: list
   required: False
@@ -1076,26 +1064,36 @@ sensor:
         required: False
         meta:
           label: Id to use in HA if needed. Default to address.
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name for the sensor in Home Assistant.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/room where the sensor is located. Used for HA device grouping.
       platform:
         type: string
-        required: True
-        default: dallas
-        allowed: ['dallas']
+        required: False
+        default: gpio_onewire
+        allowed: ['gpio_onewire', 'ds2482']
         meta:
-          label: Platform of sensor to use. Currently only Dallas platform is supported.
+          label: Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.
       address:
-        type: integer
+        type: string
         required: True
         meta:
-          label: Address of Dallas device
+          label: Address of Dallas device (e.g. 28-0000098c7df0)
       bus_id:
         type: string
         required: False
         meta:
-          label: Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.
+          label: DS2482 bus ID (only for ds2482 platform). References ds2482 section id.
       show_in_ha:
         type: boolean
-        required: True
+        required: False
         default: True
         meta:
           label: If you want you can disable discovering this input in HA.

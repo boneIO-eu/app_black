@@ -8,6 +8,7 @@ import OutputGroupForm from './OutputGroupForm';
 import CoverForm from './CoverForm';
 import ModbusDeviceForm from './ModbusDeviceForm';
 import AreasForm from './AreasForm';
+import SensorForm from './SensorForm';
 
 interface Area {
   id: string;
@@ -20,7 +21,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -41,6 +42,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [editingItem, setEditingItem] = useState<any>(null);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
+  const [availableDallasSensors, setAvailableDallasSensors] = useState<{address: string, type: string}[]>([]);
 
   // Fetch interlock groups for output section
   useEffect(() => {
@@ -52,6 +54,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         })
         .catch(err => {
           console.error('Failed to fetch interlock groups:', err);
+        });
+    }
+  }, [sectionType]);
+
+  // Fetch available Dallas sensors for sensor section
+  useEffect(() => {
+    if (sectionType === 'sensor') {
+      fetch('/api/dallas/available')
+        .then(res => res.json())
+        .then(data => {
+          setAvailableDallasSensors(data.sensors || []);
+        })
+        .catch(err => {
+          console.error('Failed to fetch Dallas sensors:', err);
         });
     }
   }, [sectionType]);
@@ -225,6 +241,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           <th>{t('outputs.name')} / {t('outputs.id')}</th>
           <th>{t('outputs.boneio_output')}</th>
           <th>{t('outputs.type')}</th>
+          <th>{t('outputs.area')}</th>
           <th>{t('outputs.interlock')}</th>
           <th>{t('outputs.restore')}</th>
           <th>{t('outputs.momentary')}</th>
@@ -277,6 +294,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         <tr>
           <th>{t('areas.id')}</th>
           <th>{t('areas.name')}</th>
+          <th>{t('outputs.actions')}</th>
+        </tr>
+      );
+    } else if (sectionType === 'sensor') {
+      return (
+        <tr>
+          <th>{t('sensors.name')} / {t('sensors.id')}</th>
+          <th>{t('sensors.address')}</th>
+          <th>{t('sensors.area')}</th>
+          <th>{t('sensors.platform')}</th>
           <th>{t('outputs.actions')}</th>
         </tr>
       );
@@ -457,6 +484,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         // effective_id: id > boneio_output
         const effectiveId = item.id || item.boneio_output;
         const displayName = item.name || effectiveId || `Item ${index + 1}`;
+        // Find area name from allAreas
+        const areaName = item.area 
+          ? allAreas.find(a => a.id === item.area)?.name || item.area 
+          : '-';
         return (
           <tr key={index}>
             <td>
@@ -475,6 +506,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 '-'
               )}
             </td>
+            <td>{areaName}</td>
             <td>
               {item.interlock_group ? (
                 <span className="badge badge-error badge-sm" title={`Interlock: ${item.interlock_group}`}>
@@ -588,6 +620,51 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           </td>
         </tr>
       ));
+    } else if (sectionType === 'sensor') {
+      return value.map((item, index) => {
+        // Find area name from allAreas
+        const areaName = item.area 
+          ? allAreas.find(a => a.id === item.area)?.name || item.area 
+          : '-';
+        const effectiveId = item.id || item.address;
+        const displayName = item.name || effectiveId || `Sensor ${index + 1}`;
+        
+        return (
+          <tr key={index}>
+            <td>
+              <div>
+                <div className="font-medium">{displayName}</div>
+                {item.name && effectiveId && (
+                  <div className="text-xs text-base-content/60">ID: {effectiveId}</div>
+                )}
+              </div>
+            </td>
+            <td className="font-mono text-sm">{item.address || '-'}</td>
+            <td>{areaName}</td>
+            <td>
+              <span className="badge badge-info badge-sm">{item.platform || 'gpio_onewire'}</span>
+            </td>
+            <td>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleEdit(index)}
+                  className="btn btn-ghost btn-xs"
+                  title={t('outputs.edit')}
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(index)}
+                  className="btn btn-ghost btn-xs text-error"
+                  title={t('outputs.delete')}
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      });
     } else {
       return value.map((item, index) => (
         <tr key={index}>
@@ -738,6 +815,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                   <AreasForm
                     data={editingItem}
                     onChange={setEditingItem}
+                  />
+                ) : sectionType === 'sensor' ? (
+                  <SensorForm
+                    data={editingItem}
+                    onChange={setEditingItem}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    isNew={editingIndex === null}
+                    schema={schema}
+                    allAreas={allAreas}
+                    availableSensors={availableDallasSensors}
+                    existingSensors={value}
+                    editingIndex={editingIndex}
+                    onValidationChange={setHasValidationErrors}
                   />
                 ) : (
                   <div className="alert alert-warning">

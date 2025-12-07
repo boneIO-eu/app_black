@@ -86,6 +86,9 @@ class DallasSensor(TempSensor):
             # We need to handle Dallas specially since it uses different API
             pass
         
+        # Store address for later reference
+        self._address = address
+        
         # Initialize Dallas sensor manually
         try:
             self._pct = W1ThermSensor(sensor_id=address)
@@ -94,6 +97,15 @@ class DallasSensor(TempSensor):
             _LOGGER.info("Dallas sensor %s initialized successfully", address)
         except (ValueError, W1ThermSensorError) as err:
             raise OneWireError(f"Error initializing sensor {address}: {err}")
+
+    @property
+    def address(self) -> str:
+        """Get sensor address.
+        
+        Returns:
+            Sensor address string (e.g., '28-0000098c7df0')
+        """
+        return self._address
 
     @property
     def temperature(self) -> float | None:

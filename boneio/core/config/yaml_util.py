@@ -584,11 +584,11 @@ class CustomValidator(Validator):
             return super()._lookup_field(path)  # type: ignore[attr-defined]
 
     def _check_with_output_id_uniqueness(self, field, value):
-        """Check if outputs ids are unique if they exists."""
+        """Check if outputs ids are unique if they exist."""
         if self.document[OUTPUT] is not None:  # type: ignore[attr-defined]
-            all_ids = [x.get('name') for x in self.document[OUTPUT] if x.get('name')]  # type: ignore[attr-defined]
+            all_ids = [x.get('id') for x in self.document[OUTPUT] if x.get('id')]  # type: ignore[attr-defined]
             if len(all_ids) != len(set(all_ids)):
-                self._error(field, "Output Names are not unique.")  # type: ignore[attr-defined]
+                self._error(field, "Output IDs are not unique.")  # type: ignore[attr-defined]
 
     def _check_with_output_id_exists(self, field, value):
         """Check if output id exists or boneio_output is provided."""

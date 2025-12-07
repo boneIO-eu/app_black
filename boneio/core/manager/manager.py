@@ -594,6 +594,7 @@ class Manager:
             EVENT_ENTITY: self.inputs.reload_inputs,  # Alias for "input" (async)
             BINARY_SENSOR: self.inputs.reload_inputs,  # Alias for "input" (async)
             "modbus_devices": self.modbus.reload_modbus_devices,
+            "sensor": self.sensors.reload_dallas_sensors,  # Dallas temperature sensors
         }
         
         # If specific sections requested, filter
@@ -611,6 +612,7 @@ class Manager:
                 COVER: hot_reloadable_sections[COVER],
                 "input": hot_reloadable_sections["input"],
                 "modbus_devices": hot_reloadable_sections["modbus_devices"],
+                "sensor": hot_reloadable_sections["sensor"],
             }
         
         # Execute reloads (handle both sync and async functions)

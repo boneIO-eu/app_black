@@ -88,6 +88,7 @@ class SensorManager:
         self._ina219_sensors = []
         self._adc_sensors = []
         self._dallas_sensors = []
+        self._system_sensors = []
         
         # Configure all sensor types
         self._configure_temp_sensors(sensors=sensors)
@@ -98,13 +99,15 @@ class SensorManager:
             sensors=sensors.get(ONEWIRE)
         )
         self._configure_adc(adc_list=adc)
+        self._configure_system_sensors()
         
         _LOGGER.info(
-            "SensorManager initialized with %d temp sensors, %d INA219, %d ADC, %d Dallas",
+            "SensorManager initialized with %d temp sensors, %d INA219, %d ADC, %d Dallas, %d system",
             len(self._temp_sensors),
             len(self._ina219_sensors),
             len(self._adc_sensors),
-            len(self._dallas_sensors)
+            len(self._dallas_sensors),
+            len(self._system_sensors)
         )
 
     # -------------------------------------------------------------------------
@@ -245,57 +248,54 @@ class SensorManager:
         """Configure Dallas 1-Wire sensors via GPIO or DS2482 bridge.
         
         Args:
-            dallas: Dallas GPIO configuration
+            dallas: Dallas GPIO configuration (deprecated, kept for backward compat)
             ds2482: List of DS2482 bridge configurations
             sensors: List of sensor configurations
         """
-        if not ds2482 and not dallas:
+        if not sensors:
             return
         
-        _one_wire_devices = {}
-        _ds_onewire_bus = {}
+        _ds2482_buses: dict[str, OneWireBus] = {}
         
-        # Configure DS2482 I2C-to-1Wire bridges
+        # Configure DS2482 I2C-to-1Wire bridges if defined
         if ds2482:
             for _single_ds in ds2482:
                 _LOGGER.debug("Preparing DS2482 bus at address %s", _single_ds[ADDRESS])
-                
                 try:
                     ow_bus = self._configure_ds2482(address=_single_ds[ADDRESS])
-                    _ds_onewire_bus[_single_ds[ID]] = ow_bus
-                    _one_wire_devices.update(
-                        self._find_onewire_devices(
-                            ow_bus=ow_bus,
-                            bus_id=_single_ds[ID],
-                            bus_type=DS2482,
-                        )
-                    )
+                    _ds2482_buses[_single_ds[ID]] = ow_bus
                 except Exception as err:
                     _LOGGER.error("Failed to configure DS2482 at %s: %s", _single_ds[ADDRESS], err)
         
-        # Configure Dallas GPIO bus
-        if dallas:
-            _LOGGER.debug("Preparing Dallas GPIO bus")
-            try:
-                _one_wire_devices.update(
-                    self._find_dallas_gpio_devices(
-                        bus_id=dallas[ID],
+        # Create sensor instances based on platform
+        for sensor_config in sensors:
+            platform = sensor_config.get("platform", "gpio_onewire")
+            address = sensor_config.get("address")
+            
+            if not address:
+                _LOGGER.warning("Sensor config missing address, skipping")
+                continue
+            
+            _LOGGER.debug("Configuring %s sensor at address %s", platform, address)
+            
+            if platform == "ds2482":
+                # DS2482 platform - need bus_id
+                bus_id = sensor_config.get("bus_id")
+                if not bus_id or bus_id not in _ds2482_buses:
+                    _LOGGER.error(
+                        "DS2482 sensor %s requires valid bus_id. Available: %s",
+                        address, list(_ds2482_buses.keys())
                     )
-                )
-            except Exception as err:
-                _LOGGER.error("Failed to configure Dallas GPIO bus: %s", err)
-        
-        # Create Dallas sensor instances
-        if sensors and _one_wire_devices:
-            for address in _one_wire_devices.keys():
-                _LOGGER.debug("Configuring Dallas sensor %s for boneIO", address)
-                sensor = self._create_dallas_sensor(
-                    address=address,
-                    sensors_config=sensors,
-                )
-                if sensor:
-                    self._dallas_sensors.append(sensor)
-                    self._temp_sensors.append(sensor)
+                    continue
+            
+            # Create sensor instance
+            sensor = self._create_dallas_sensor(
+                address=address,
+                sensor_config=sensor_config,
+            )
+            if sensor:
+                self._dallas_sensors.append(sensor)
+                self._temp_sensors.append(sensor)
 
     def _configure_ds2482(self, address: int = DS2482_ADDRESS) -> OneWireBus:
         """Configure DS2482 I2C-to-1Wire bridge.
@@ -376,26 +376,21 @@ class SensorManager:
     def _create_dallas_sensor(
         self,
         address: str,
-        sensors_config: list,
+        sensor_config: dict,
     ) -> DallasSensor | None:
         """Create Dallas temperature sensor instance.
         
         Args:
             address: Device address
-            sensors_config: List of sensor configurations
+            sensor_config: Sensor configuration dict
             
         Returns:
             DallasSensor instance or None
         """
-        # Find config for this address
-        config = {}
-        for sensor_cfg in sensors_config:
-            if sensor_cfg.get(ADDRESS) == address or sensor_cfg.get(ID) == address:
-                config = sensor_cfg
-                break
-        
-        name = config.get(ID) or address
-        id = name.replace(" ", "")
+        # Use name from config, fallback to id, then address
+        display_name = sensor_config.get("name") or sensor_config.get(ID) or address
+        sensor_id = sensor_config.get(ID) or address
+        sensor_id = sensor_id.replace(" ", "_").replace("-", "_")
         
         try:
             sensor = DallasSensor(
@@ -403,18 +398,19 @@ class SensorManager:
                 message_bus=self._manager._message_bus,
                 topic_prefix=self._manager._topic_prefix,
                 address=address,
-                id=id,
-                name=name,
-                update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
-                filters=config.get(FILTERS, []),
+                id=sensor_id,
+                name=display_name,
+                update_interval=sensor_config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+                filters=sensor_config.get(FILTERS, []),
             )
-            if config.get(SHOW_HA, True):
+            if sensor_config.get(SHOW_HA, True):
                 self._manager.send_ha_autodiscovery(
                     id=sensor.id,
                     name=sensor.name,
                     ha_type=SENSOR,
                     availability_msg_func=ha_sensor_temp_availabilty_message,
-                    unit_of_measurement=config.get("unit_of_measurement", "°C"),
+                    unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
+                    area=sensor_config.get("area"),
                 )
             return sensor
         except Exception as err:
@@ -518,6 +514,90 @@ class SensorManager:
         """
         return self._dallas_sensors
 
+    async def reload_dallas_sensors(self) -> None:
+        """Reload Dallas sensor configuration from file.
+        
+        This handles:
+        - Adding new sensors
+        - Removing deleted sensors
+        - Updating existing sensor configurations
+        """
+        from boneio.const import SENSOR as SENSOR_SECTION
+        
+        _LOGGER.info("Reloading Dallas sensors configuration")
+        
+        # Get fresh config
+        config = self._manager._config_helper.reload_config()
+        new_sensors_config = config.get(SENSOR_SECTION, [])
+        ds2482_config = config.get(DS2482, [])
+        
+        # Get current sensor addresses
+        current_addresses = {s._address for s in self._dallas_sensors}
+        new_addresses = {s.get("address") for s in new_sensors_config if s.get("address")}
+        
+        # Find sensors to add and remove
+        to_add = new_addresses - current_addresses
+        to_remove = current_addresses - new_addresses
+        
+        _LOGGER.debug("Dallas sensors - current: %s, new: %s", current_addresses, new_addresses)
+        _LOGGER.debug("Dallas sensors - to_add: %s, to_remove: %s", to_add, to_remove)
+        
+        # Remove deleted sensors
+        for address in to_remove:
+            for sensor in self._dallas_sensors[:]:
+                if sensor._address == address:
+                    _LOGGER.info("Removing Dallas sensor: %s", address)
+                    # Remove HA autodiscovery
+                    self._manager._config_helper.remove_autodiscovery_msg(SENSOR, sensor.id)
+                    # Remove from lists
+                    self._dallas_sensors.remove(sensor)
+                    if sensor in self._temp_sensors:
+                        self._temp_sensors.remove(sensor)
+        
+        # Add new sensors
+        for sensor_config in new_sensors_config:
+            address = sensor_config.get("address")
+            if address and address in to_add:
+                _LOGGER.info("Adding new Dallas sensor: %s", address)
+                sensor = self._create_dallas_sensor(
+                    address=address,
+                    sensor_config=sensor_config,
+                )
+                if sensor:
+                    self._dallas_sensors.append(sensor)
+                    self._temp_sensors.append(sensor)
+        
+        # Update existing sensors (name, area, update_interval)
+        for sensor_config in new_sensors_config:
+            address = sensor_config.get("address")
+            if address and address not in to_add and address not in to_remove:
+                for sensor in self._dallas_sensors:
+                    if sensor._address == address:
+                        # Update sensor properties
+                        new_name = sensor_config.get("name") or sensor_config.get(ID) or address
+                        if sensor.name != new_name:
+                            _LOGGER.debug("Updating Dallas sensor %s name: %s -> %s", address, sensor.name, new_name)
+                            sensor._name = new_name
+                        
+                        # Update interval
+                        new_interval = sensor_config.get(UPDATE_INTERVAL)
+                        if new_interval:
+                            sensor._update_interval = new_interval
+                        
+                        # Resend HA autodiscovery with updated info
+                        if sensor_config.get(SHOW_HA, True):
+                            self._manager.send_ha_autodiscovery(
+                                id=sensor.id,
+                                name=sensor.name,
+                                ha_type=SENSOR,
+                                availability_msg_func=ha_sensor_temp_availabilty_message,
+                                unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
+                                area=sensor_config.get("area"),
+                            )
+                        break
+        
+        _LOGGER.info("Dallas sensors reload complete. Total: %d", len(self._dallas_sensors))
+
     def get_ina219_sensors(self) -> list:
         """Get all INA219 sensors.
         
@@ -533,6 +613,85 @@ class SensorManager:
             List of ADC sensors
         """
         return self._adc_sensors
+
+    def get_system_sensors(self) -> list:
+        """Get all system sensors (disk, memory, CPU).
+        
+        Returns:
+            List of system sensors
+        """
+        return self._system_sensors
+
+    # -------------------------------------------------------------------------
+    # System Sensors (Disk, Memory, CPU)
+    # -------------------------------------------------------------------------
+    
+    def _configure_system_sensors(self) -> None:
+        """Configure system monitoring sensors (disk, memory, CPU).
+        
+        Creates sensors for monitoring system resources and sends
+        HA autodiscovery messages for each.
+        """
+        from boneio.core.sensor.system import (
+            CpuUsageSensor,
+            DiskUsageSensor,
+            MemoryUsageSensor,
+        )
+        from boneio.integration.homeassistant import ha_sensor_system_availabilty_message
+        
+        # Disk Usage Sensor
+        disk_sensor = DiskUsageSensor(
+            manager=self._manager,
+            message_bus=self._manager._message_bus,
+            topic_prefix=self._manager._topic_prefix,
+        )
+        self._system_sensors.append(disk_sensor)
+        self._manager.send_ha_autodiscovery(
+            id=disk_sensor.id,
+            name=disk_sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_system_availabilty_message,
+            unit_of_measurement="%",
+            icon="mdi:harddisk",
+        )
+        
+        # Memory Usage Sensor
+        memory_sensor = MemoryUsageSensor(
+            manager=self._manager,
+            message_bus=self._manager._message_bus,
+            topic_prefix=self._manager._topic_prefix,
+        )
+        self._system_sensors.append(memory_sensor)
+        self._manager.send_ha_autodiscovery(
+            id=memory_sensor.id,
+            name=memory_sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_system_availabilty_message,
+            unit_of_measurement="%",
+            icon="mdi:memory",
+        )
+        
+        # CPU Usage Sensor
+        cpu_sensor = CpuUsageSensor(
+            manager=self._manager,
+            message_bus=self._manager._message_bus,
+            topic_prefix=self._manager._topic_prefix,
+        )
+        self._system_sensors.append(cpu_sensor)
+        self._manager.send_ha_autodiscovery(
+            id=cpu_sensor.id,
+            name=cpu_sensor.name,
+            ha_type=SENSOR,
+            availability_msg_func=ha_sensor_system_availabilty_message,
+            unit_of_measurement="%",
+            icon="mdi:cpu-64-bit",
+        )
+        
+        _LOGGER.info(
+            "Configured %d system sensors: %s",
+            len(self._system_sensors),
+            [s.id for s in self._system_sensors]
+        )
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all sensors.
