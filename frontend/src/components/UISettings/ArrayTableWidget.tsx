@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { FaEdit, FaTrash, FaPlus } from "react-icons/fa";
+import React, { useState, useEffect } from 'react';
+import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { useTranslation } from '../../hooks/useTranslation';
 import BinarySensorForm from './BinarySensorForm';
 import EventForm from './EventForm';
 import OutputForm from './OutputForm';
@@ -35,6 +36,7 @@ export interface ArrayTableWidgetProps {
  * This prevents automatic onChange calls during editing.
  */
 const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [], allAreas = [] }) => {
+  const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
@@ -220,70 +222,70 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if (sectionType === 'output') {
       return (
         <tr>
-          <th>Name / ID</th>
-          <th>BoneIO Output</th>
-          <th>Type</th>
-          <th>Interlock</th>
-          <th>Restore</th>
-          <th>Momentary</th>
-          <th>Actions</th>
+          <th>{t('outputs.name')} / {t('outputs.id')}</th>
+          <th>{t('outputs.boneio_output')}</th>
+          <th>{t('outputs.type')}</th>
+          <th>{t('outputs.interlock')}</th>
+          <th>{t('outputs.restore')}</th>
+          <th>{t('outputs.momentary')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else if (sectionType === 'output_group') {
       return (
         <tr>
-          <th>Name / ID</th>
-          <th>Member Outputs</th>
-          <th>Type</th>
-          <th>All On</th>
-          <th>Actions</th>
+          <th>{t('outputs.name')} / {t('outputs.id')}</th>
+          <th>{t('groups.member_outputs')}</th>
+          <th>{t('outputs.type')}</th>
+          <th>{t('groups.all_on')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else if (sectionType === 'cover') {
       return (
         <tr>
-          <th>Name / ID</th>
-          <th>Platform</th>
-          <th>Open Relay</th>
-          <th>Close Relay</th>
-          <th>Times</th>
-          <th>Actions</th>
+          <th>{t('outputs.name')} / {t('outputs.id')}</th>
+          <th>{t('covers.platform')}</th>
+          <th>{t('covers.open_relay')}</th>
+          <th>{t('covers.close_relay')}</th>
+          <th>{t('covers.times')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else if (sectionType === 'modbus_devices') {
       return (
         <tr>
-          <th>Name / ID</th>
-          <th>Model</th>
-          <th>Address</th>
-          <th>Update Interval</th>
-          <th>Actions</th>
+          <th>{t('modbus.name_id')}</th>
+          <th>{t('modbus.model')}</th>
+          <th>{t('modbus.address')}</th>
+          <th>{t('modbus.update_interval')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
       return (
         <tr>
-          <th>ID/Name</th>
-          <th>BoneIO INPUT</th>
-          <th>Area</th>
-          <th>Has Actions</th>
-          <th>Actions</th>
+          <th>{t('inputs.id')}/{t('inputs.name')}</th>
+          <th>{t('inputs.boneio_input')}</th>
+          <th>{t('inputs.area')}</th>
+          <th>{t('inputs.has_actions')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else if (sectionType === 'areas') {
       return (
         <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Actions</th>
+          <th>{t('areas.id')}</th>
+          <th>{t('areas.name')}</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     } else {
       return (
         <tr>
-          <th>ID/Name</th>
+          <th>{t('outputs.id')}/{t('outputs.name')}</th>
           <th>Details</th>
-          <th>Actions</th>
+          <th>{t('outputs.actions')}</th>
         </tr>
       );
     }
@@ -505,14 +507,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <button
                   onClick={() => handleEdit(index)}
                   className="btn btn-ghost btn-xs"
-                  title="Edit Item"
+                  title={t('outputs.edit')}
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => handleDelete(index)}
                   className="btn btn-ghost btn-xs text-error"
-                  title="Delete"
+                  title={t('outputs.delete')}
                 >
                   <FaTrash />
                 </button>
@@ -626,7 +628,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             disabled={areAllItemsUsed()}
           >
             <FaPlus className="mr-2" />
-            Add New
+            {t('settings.add_new')}
           </button>
         </div>
       </div>
@@ -644,20 +646,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </div>
       ) : (
         <div className="text-center py-8 text-base-content/60">
-          <p>No items configured</p>
-          <p className="text-sm">Click "Add New" to create your first item</p>
+          <p>{t('settings.no_items')}</p>
+          <p className="text-sm">{t('settings.click_add_new')}</p>
         </div>
       )}
 
       {/* Edit Modal */}
       <dialog id="edit_modal" className="modal">
-        <div className="modal-box max-w-4xl h-[60vh] flex flex-col">
+        <div className="modal-box max-w-3xl w-11/12 md:w-full h-[60vh] flex flex-col">
           <h3 className="font-bold text-lg mb-4">
-            {editingIndex !== null ? 'Edit Item' : 'Add New Item'}
+            {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
           </h3>
           
           {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden break-words [&_.label-text]:whitespace-normal [&_.label-text]:break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:break-words [&_.form-control]:min-w-0">
             {/* Only render form when editingItem is not null */}
             {editingItem && (
               <>

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -123,6 +124,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   schema,
   areas = []
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'filters' | 'data'>('basic');
 
   // Extract model options from schema
@@ -305,10 +307,10 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             />
             <label className="label py-0.5">
               <span className="label-text-alt text-base-content/60">
-                Technical ID for MQTT topics. Only lowercase letters, numbers and underscores.
+                {t('modbus.technical_id')}
                 {!data.id && data.address && data.model && (
                   <span className="block mt-1">
-                    Will be: <code className="bg-base-300 px-1 rounded">{data.address}_{data.model}</code>
+                    {t('modbus.will_be')}: <code className="bg-base-300 px-1 rounded">{data.address}_{data.model}</code>
                   </span>
                 )}
               </span>

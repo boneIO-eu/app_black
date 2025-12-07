@@ -726,6 +726,7 @@ def load_config_from_string(config_str: str) -> dict:
 
     # First normalize the document
     doc = v.normalized(config_str, always_return_document=True)  # type: ignore[attr-defined]
+    
     # Then merge board config
     if "modbus_sensors" in doc:
         _LOGGER.warning("Modbus sensors are renamed to modbus_devices. Please update your config.")

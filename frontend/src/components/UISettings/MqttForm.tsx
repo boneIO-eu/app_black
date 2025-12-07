@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface MqttFormProps {
   data: any;
@@ -10,6 +11,7 @@ interface MqttFormProps {
  * Fields: host, username, password, port, topic_prefix, ha_discovery
  */
 const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
@@ -27,7 +29,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
       {/* Host */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Host <span className="text-error">*</span></span>
+          <span className="label-text font-medium">{t('mqtt_config.host')} <span className="text-error">*</span></span>
         </label>
         <input
           type="text"
@@ -38,14 +40,14 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           required
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">MQTT broker hostname or IP address</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.host_help')}</span>
         </label>
       </div>
 
       {/* Port */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Port</span>
+          <span className="label-text font-medium">{t('mqtt_config.port')}</span>
         </label>
         <input
           type="number"
@@ -55,14 +57,14 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="1883"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Port to connect to MQTT broker (default: 1883)</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.port_help')}</span>
         </label>
       </div>
 
       {/* Username */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Username</span>
+          <span className="label-text font-medium">{t('mqtt_config.username')}</span>
         </label>
         <input
           type="text"
@@ -72,14 +74,14 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="mqtt_user"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Username to connect to MQTT broker (optional)</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.username_help')}</span>
         </label>
       </div>
 
       {/* Password */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Password</span>
+          <span className="label-text font-medium">{t('mqtt_config.password')}</span>
         </label>
         <input
           type="password"
@@ -89,14 +91,14 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="••••••••"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Password to MQTT broker (optional)</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.password_help')}</span>
         </label>
       </div>
 
       {/* Topic Prefix */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Topic Prefix</span>
+          <span className="label-text font-medium">{t('mqtt_config.topic_prefix')}</span>
         </label>
         <input
           type="text"
@@ -106,12 +108,12 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="boneio"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Prefix topic for boneIO. If not set, uses device name.</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.topic_prefix_help')}</span>
         </label>
       </div>
 
       {/* HA Discovery Section */}
-      <div className="divider">Home Assistant Discovery</div>
+      <div className="divider">{t('mqtt_config.ha_discovery')}</div>
 
       {/* HA Discovery Enabled */}
       <div className="form-control">
@@ -122,17 +124,17 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
             checked={data?.ha_discovery?.enabled ?? true}
             onChange={(e) => handleHaDiscoveryChange('enabled', e.target.checked)}
           />
-          <span className="label-text font-medium">Enable HA Discovery</span>
-        </label>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">Automatically register devices in Home Assistant</span>
+          <div className="flex flex-col">
+            <span className="label-text font-medium">{t('mqtt_config.enable_ha_discovery')}</span>
+            <span className="label-text-alt text-base-content/60">{t('mqtt_config.enable_ha_discovery_help')}</span>
+          </div>
         </label>
       </div>
 
       {/* HA Discovery Topic Prefix */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">HA Discovery Topic Prefix</span>
+          <span className="label-text font-medium">{t('mqtt_config.ha_discovery_prefix')}</span>
         </label>
         <input
           type="text"
@@ -142,7 +144,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="homeassistant"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Prefix topic of HA discovery (default: homeassistant)</span>
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.ha_discovery_prefix_help')}</span>
         </label>
       </div>
     </div>

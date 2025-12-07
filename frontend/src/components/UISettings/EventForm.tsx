@@ -600,7 +600,7 @@ const EventForm: React.FC<EventFormProps> = ({
                   checked={data.clear_message === true}
                   onChange={(e) => updateField('clear_message', e.target.checked)}
                 />
-                <span className="label-text">Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.</span>
+                <span className="label-text break-words">Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.</span>
               </label>
             </fieldset>
           </div>

@@ -4,11 +4,13 @@ import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Separate component for individual input
-const InputItem = memo(({ inputEvent, isGrid }: {
+const InputItem = memo(({ inputEvent, isGrid, t }: {
   inputEvent: InputEvent;
   isGrid: boolean;
+  t: (key: string) => string;
 }) => (
   <div
     className={`bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
@@ -17,8 +19,8 @@ const InputItem = memo(({ inputEvent, isGrid }: {
       <div>
         <h3 className="font-semibold text-lg">{inputEvent.state.name}</h3>
         <p className="text-xs text-gray-500">{inputEvent.entity_id}</p>
-        <p className="text-sm">Type: {inputEvent.state.type === "input" ? "Event entity" : "Binary sensor"}</p>
-        <p className="text-xs text-gray-400">Area: {inputEvent.state.area || 'No area'}</p>
+        <p className="text-sm">{t('inputs.type')}: {inputEvent.state.type === "input" ? t('inputs.event_entity') : t('inputs.binary_sensor')}</p>
+        <p className="text-xs text-gray-400">{t('inputs.area')}: {inputEvent.state.area || t('inputs.no_area')}</p>
       </div>
       <div className={`${isGrid ? 'text-right' : ''}`}>
         <span
@@ -41,6 +43,7 @@ const InputItem = memo(({ inputEvent, isGrid }: {
 ));
 
 export default function InputsView() {
+  const { t } = useTranslation();
   const { inputs } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('inputViewMode');
@@ -54,22 +57,23 @@ export default function InputsView() {
 
   // Filter inputs to only include InputState objects
   const validInputs = inputs.filter(isInputEvent);
-  console.log(validInputs);
+  
   if (validInputs.length === 0) {
     return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Inputs</h2>
+        <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
       </div>
       <div>
         No inputs configured.
       </div>
     </div>)
   }
+  
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Inputs</h2>
+        <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
         <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
       </div>
       <div className={isGrid 
@@ -77,7 +81,7 @@ export default function InputsView() {
         : "flex flex-col gap-4"
       }>
         {validInputs.map((inputEvent: InputEvent) => (
-          <InputItem key={inputEvent.entity_id} inputEvent={inputEvent} isGrid={isGrid} />
+          <InputItem key={inputEvent.entity_id} inputEvent={inputEvent} isGrid={isGrid} t={t} />
         ))}
       </div>
     </div>

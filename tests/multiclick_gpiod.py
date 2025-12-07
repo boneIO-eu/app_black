@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 import gpiod
 import yaml
@@ -131,7 +131,7 @@ async def monitor_lines(
     try:
         # Konfiguracja i requestowanie linii
         for chip, chip_definitions in grouped_inputs.items():
-            config: Dict[Tuple[int, ...], LineSettings] = {}
+            config: dict[Iterable[int | str] | int | str, LineSettings | None] = {}
             alias_map: Dict[Tuple[int, int], str] = {}
             for definition in chip_definitions:
                 settings_kwargs = {

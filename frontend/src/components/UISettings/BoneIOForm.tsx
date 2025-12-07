@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface BoneIOFormProps {
   data: any;
@@ -10,6 +11,7 @@ interface BoneIOFormProps {
  * Fields: name, version, device_type
  */
 const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
@@ -19,57 +21,57 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
       {/* Name */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Name</span>
+          <span className="label-text font-medium">{t('boneio_config.name')}</span>
         </label>
         <input
           type="text"
           className="input input-bordered w-full"
           value={data?.name || ''}
           onChange={(e) => handleChange('name', e.target.value)}
-          placeholder="BoneIO device name"
+          placeholder={t('boneio_config.name_placeholder')}
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Name of boneIO. Default is Black.</span>
+          <span className="label-text-alt text-base-content/60">{t('boneio_config.name_help')}</span>
         </label>
       </div>
 
       {/* Version */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Hardware Version</span>
+          <span className="label-text font-medium">{t('boneio_config.hardware_version')}</span>
         </label>
         <select
           className="select select-bordered w-full"
           value={data?.version || ''}
           onChange={(e) => handleChange('version', e.target.value || undefined)}
         >
-          <option value="">-- Select version --</option>
+          <option value="">{t('boneio_config.select_version')}</option>
           <option value="0.7">0.7</option>
           <option value="0.8">0.8</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">BoneIO Black Hardware version</span>
+          <span className="label-text-alt text-base-content/60">{t('boneio_config.hardware_version_help')}</span>
         </label>
       </div>
 
       {/* Device Type */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Device Type</span>
+          <span className="label-text font-medium">{t('boneio_config.device_type')}</span>
         </label>
         <select
           className="select select-bordered w-full"
           value={data?.device_type || ''}
           onChange={(e) => handleChange('device_type', e.target.value || undefined)}
         >
-          <option value="">-- Select device type --</option>
+          <option value="">{t('boneio_config.select_device_type')}</option>
           <option value="32x10a">32x10A (32 outputs, 10A each)</option>
           <option value="24x16a">24x16A (24 outputs, 16A each)</option>
           <option value="cover">Cover</option>
           <option value="cover mix">Cover Mix</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Predefined device type configuration</span>
+          <span className="label-text-alt text-base-content/60">{t('boneio_config.device_type_help')}</span>
         </label>
       </div>
     </div>

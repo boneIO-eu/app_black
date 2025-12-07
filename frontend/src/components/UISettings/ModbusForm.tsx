@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface ModbusFormProps {
   data: any;
@@ -10,19 +11,22 @@ interface ModbusFormProps {
  * Fields: uart, baudrate, stopbits, bytesize, parity
  */
 const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
 
   // Normalize uart value to lowercase for matching with options
-  const uartValue = data?.uart ? String(data.uart).toLowerCase() : '';
+  // Handle both "uart4" and "UART4" formats
+  const rawUart = data?.uart || '';
+  const uartValue = typeof rawUart === 'string' ? rawUart.toLowerCase() : '';
 
   return (
     <div className="space-y-4">
       {/* UART */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">UART <span className="text-error">*</span></span>
+          <span className="label-text font-medium">{t('modbus_config.uart')} <span className="text-error">*</span></span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -30,7 +34,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('uart', e.target.value)}
           required
         >
-          <option value="">-- Select UART --</option>
+          <option value="">{t('modbus_config.select_uart')}</option>
           <option value="uart1">UART1 (old BoneIO)</option>
           <option value="uart2">UART2</option>
           <option value="uart3">UART3</option>
@@ -38,14 +42,14 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value="uart5">UART5</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">UART ID to use. For new boneIO use uart4, for old boneIO use uart1.</span>
+          <span className="label-text-alt text-base-content/60">{t('modbus_config.uart_help')}</span>
         </label>
       </div>
 
       {/* Baudrate */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Baudrate</span>
+          <span className="label-text font-medium">{t('modbus_config.baudrate')}</span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -62,14 +66,14 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={115200}>115200</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Communication speed (default: 9600)</span>
+          <span className="label-text-alt text-base-content/60">{t('modbus_config.baudrate_help')}</span>
         </label>
       </div>
 
       {/* Bytesize */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Data Bits</span>
+          <span className="label-text font-medium">{t('modbus_config.data_bits')}</span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -80,14 +84,14 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={8}>8</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Number of data bits (default: 8)</span>
+          <span className="label-text-alt text-base-content/60">{t('modbus_config.data_bits_help')}</span>
         </label>
       </div>
 
       {/* Parity */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Parity</span>
+          <span className="label-text font-medium">{t('modbus_config.parity')}</span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -99,14 +103,14 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value="O">Odd (O)</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Parity checking (default: None)</span>
+          <span className="label-text-alt text-base-content/60">{t('modbus_config.parity_help')}</span>
         </label>
       </div>
 
       {/* Stopbits */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Stop Bits</span>
+          <span className="label-text font-medium">{t('modbus_config.stop_bits')}</span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -117,7 +121,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={2}>2</option>
         </select>
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Number of stop bits (default: 1)</span>
+          <span className="label-text-alt text-base-content/60">{t('modbus_config.stop_bits_help')}</span>
         </label>
       </div>
     </div>

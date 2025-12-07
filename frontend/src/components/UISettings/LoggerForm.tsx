@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface LoggerFormProps {
   data: any;
@@ -13,6 +14,7 @@ const LOG_LEVELS = ['debug', 'info', 'warning', 'error', 'critical'];
  * Fields: default (log level), logs (module-specific log levels)
  */
 const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const [newModule, setNewModule] = useState('');
 
   const handleChange = (field: string, value: any) => {
@@ -45,7 +47,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
       {/* Default Log Level */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Default Log Level</span>
+          <span className="label-text font-medium">{t('logger.default_level')}</span>
         </label>
         <select
           className="select select-bordered w-full"
@@ -60,7 +62,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
         </select>
         <label className="label">
           <span className="label-text-alt text-base-content/60">
-            Default logging level for the application
+            {t('logger.default_level_help')}
           </span>
         </label>
       </div>
@@ -68,7 +70,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
       {/* Module-specific Log Levels */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Module-specific Log Levels</span>
+          <span className="label-text font-medium">{t('logger.module_levels')}</span>
         </label>
         
         {/* Existing modules */}
@@ -96,7 +98,7 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
                 type="button"
                 className="btn btn-ghost btn-square btn-sm text-error"
                 onClick={() => handleRemoveModule(module)}
-                title="Remove module"
+                title={t('logger.remove_module')}
               >
                 <Trash2 size={16} />
               </button>
@@ -121,13 +123,13 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
             disabled={!newModule.trim()}
           >
             <Plus size={16} />
-            Add
+            {t('logger.add')}
           </button>
         </div>
         
         <label className="label">
           <span className="label-text-alt text-base-content/60">
-            Set custom log levels for specific Python modules (e.g., boneio.modbus, pymodbus.logging)
+            {t('logger.module_levels_help')}
           </span>
         </label>
       </div>

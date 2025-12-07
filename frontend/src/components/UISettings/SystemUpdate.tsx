@@ -3,6 +3,7 @@ import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistor
 import SelfTest from './SelfTest';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -35,6 +36,7 @@ interface Backup {
 
 const SystemUpdate: React.FC = () => {
   const { outputs } = useContext(WebSocketContext);
+  const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [backups, setBackups] = useState<Backup[]>([]);
@@ -59,10 +61,10 @@ const SystemUpdate: React.FC = () => {
       
       // Check if backend returned an error
       if (data.status === 'error') {
-        setError(data.message || 'Failed to check for updates');
+        setError(data.message || t('system_update.failed_to_check_updates_backend'));
       }
     } catch (err) {
-      setError('Failed to check for updates - network error');
+      setError(t('system_update.failed_to_check_updates'));
       console.error('Error checking for updates:', err);
     } finally {
       setIsChecking(false);
@@ -130,19 +132,19 @@ const SystemUpdate: React.FC = () => {
         } else if (status.status === 'error') {
           clearInterval(pollInterval);
           setIsUpdating(false);
-          setError(status.error || 'Update failed');
+          setError(status.error || t('system_update.update_failed'));
         }
       }, 1000);
       
     } catch (err) {
-      setError('Failed to start update');
+      setError(t('system_update.failed_to_start_update'));
       setIsUpdating(false);
     }
   };
 
   // Rollback
   const performRollback = async () => {
-    if (!confirm('Are you sure you want to rollback to the previous version?')) {
+    if (!confirm(t('system_update.confirm_rollback'))) {
       return;
     }
     
@@ -161,7 +163,7 @@ const SystemUpdate: React.FC = () => {
         setError(data.message);
       }
     } catch (err) {
-      setError('Rollback failed');
+      setError(t('system_update.rollback_failed'));
     }
   };
 
@@ -199,7 +201,7 @@ const SystemUpdate: React.FC = () => {
       document.body.removeChild(a);
       
     } catch (err) {
-      setError('Failed to download configuration');
+      setError(t('system_update.failed_to_check_updates'));
       console.error('Error downloading config:', err);
     } finally {
       setIsDownloading(false);
@@ -208,7 +210,7 @@ const SystemUpdate: React.FC = () => {
 
   // Turn off all outputs (frontend implementation - calls turn_off for each output)
   const turnOffAllOutputs = async () => {
-    if (!confirm('Are you sure you want to turn off ALL outputs?\n\nThis action cannot be undone.')) {
+    if (!confirm(t('settings.confirm_turn_off'))) {
       return;
     }
     
@@ -218,7 +220,7 @@ const SystemUpdate: React.FC = () => {
     );
     
     if (outputsToTurnOff.length === 0) {
-      setError('No outputs to turn off');
+      setError(t('settings.no_outputs_to_turn_off'));
       return;
     }
     
@@ -283,13 +285,13 @@ const SystemUpdate: React.FC = () => {
           <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">System Update</h2>
+              <h2 className="text-2xl font-bold">{t('system_update.title')}</h2>
               <button
                 className="btn btn-ghost btn-sm"
                 onClick={checkForUpdates}
                 disabled={isChecking || isUpdating}
               >
-                {isChecking ? <FaSpinner className="animate-spin" /> : 'Check for Updates'}
+                {isChecking ? <FaSpinner className="animate-spin" /> : t('system_update.check_for_updates')}
               </button>
             </div>
 
@@ -305,16 +307,16 @@ const SystemUpdate: React.FC = () => {
             {/* Current Version Card */}
             <div className="card bg-base-200">
               <div className="card-body">
-                <h3 className="card-title">Current Version</h3>
+                <h3 className="card-title">{t('system_update.current_version')}</h3>
                 <div className="flex items-center gap-4">
                   <span className="text-3xl font-mono font-bold text-primary">
                     {updateInfo?.current_version || '...'}
                   </span>
                   {updateInfo?.update_available && (
-                    <span className="badge badge-success badge-lg">Update Available!</span>
+                    <span className="badge badge-success badge-lg">{t('system_update.update_available')}</span>
                   )}
                   {updateInfo?.status === 'success' && !updateInfo?.update_available && (
-                    <span className="badge badge-info">Up to date</span>
+                    <span className="badge badge-info">{t('system_update.up_to_date')}</span>
                   )}
                 </div>
               </div>
@@ -325,20 +327,20 @@ const SystemUpdate: React.FC = () => {
               <div className="card bg-success/10 border border-success">
                 <div className="card-body">
                   <h3 className="card-title text-success">
-                    <FaDownload /> New Version Available
+                    <FaDownload /> {t('system_update.new_version_available')}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm opacity-70">Latest Version</p>
+                      <p className="text-sm opacity-70">{t('system_update.latest_version')}</p>
                       <p className="text-2xl font-mono font-bold">{updateInfo.latest_version}</p>
                     </div>
                     <div>
-                      <p className="text-sm opacity-70">Released</p>
-                      <p className="text-lg">{updateInfo.published_at ? formatDate(updateInfo.published_at) : 'Unknown'}</p>
+                      <p className="text-sm opacity-70">{t('system_update.released')}</p>
+                      <p className="text-lg">{updateInfo.published_at ? formatDate(updateInfo.published_at) : t('system_update.unknown')}</p>
                     </div>
                   </div>
                   {updateInfo.is_prerelease && (
-                    <div className="badge badge-warning">Pre-release</div>
+                    <div className="badge badge-warning">{t('system_update.prerelease')}</div>
                   )}
                   <div className="card-actions justify-end mt-4">
                     <a
@@ -347,7 +349,7 @@ const SystemUpdate: React.FC = () => {
                       rel="noopener noreferrer"
                       className="btn btn-ghost"
                     >
-                      View Release Notes
+                      {t('system_update.view_release_notes')}
                     </a>
                     <button
                       className="btn btn-success"
@@ -357,12 +359,12 @@ const SystemUpdate: React.FC = () => {
                       {isUpdating ? (
                         <>
                           <FaSpinner className="animate-spin" />
-                          Updating...
+                          {t('system_update.updating')}
                         </>
                       ) : (
                         <>
                           <FaDownload />
-                          Update Now
+                          {t('system_update.update_now')}
                         </>
                       )}
                     </button>
@@ -377,7 +379,7 @@ const SystemUpdate: React.FC = () => {
                 <div className="card-body">
                   <h3 className="card-title">
                     <FaSpinner className="animate-spin" />
-                    Update in Progress
+                    {t('system_update.update_in_progress')}
                   </h3>
                   
                   {/* Progress Bar */}
@@ -396,7 +398,7 @@ const SystemUpdate: React.FC = () => {
                   {/* Log */}
                   {updateStatus.log.length > 0 && (
                     <div className="mt-4">
-                      <p className="text-sm font-medium mb-2">Log:</p>
+                      <p className="text-sm font-medium mb-2">{t('system_update.log')}</p>
                       <div className="bg-base-300 rounded-lg p-3 max-h-40 overflow-y-auto font-mono text-xs">
                         {updateStatus.log.map((msg, i) => (
                           <div key={i} className="py-0.5">
@@ -432,10 +434,10 @@ const SystemUpdate: React.FC = () => {
               <div className="card-body">
                 <h3 className="card-title">
                   <FaClipboardCheck />
-                  Hardware Self Test
+                  {t('system_update.hardware_self_test')}
                 </h3>
                 <p className="text-sm opacity-70 mb-4">
-                  Test all outputs and inputs on your device to verify they are working correctly.
+                  {t('system_update.self_test_description')}
                 </p>
                 <div className="card-actions">
                   <button
@@ -444,7 +446,7 @@ const SystemUpdate: React.FC = () => {
                     disabled={isUpdating}
                   >
                     <FaClipboardCheck />
-                    Start Self Test
+                    {t('system_update.start_self_test')}
                   </button>
                 </div>
                 <div className="alert alert-info mt-4">
@@ -452,8 +454,8 @@ const SystemUpdate: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                   <div className="text-sm">
-                    <p>The test will toggle each output and wait for input events.</p>
-                    <p>You can skip or fail individual tests as needed.</p>
+                    <p>{t('system_update.self_test_info_1')}</p>
+                    <p>{t('system_update.self_test_info_2')}</p>
                   </div>
                 </div>
               </div>
@@ -464,10 +466,10 @@ const SystemUpdate: React.FC = () => {
               <div className="card-body">
                 <h3 className="card-title">
                   <FaPowerOff />
-                  Turn Off All Outputs
+                  {t('system_update.turn_off_all_outputs')}
                 </h3>
                 <p className="text-sm opacity-70 mb-4">
-                  Turn off all outputs and clear saved relay states. Useful after testing or before shipping.
+                  {t('system_update.turn_off_all_description')}
                 </p>
                 <div className="card-actions">
                   <button
@@ -478,12 +480,12 @@ const SystemUpdate: React.FC = () => {
                     {isTurningOffAll ? (
                       <>
                         <FaSpinner className="animate-spin" />
-                        Turning off...
+                        {t('system_update.turning_off')}
                       </>
                     ) : (
                       <>
                         <FaPowerOff />
-                        Turn Off All Outputs ({outputs.filter((o: OutputEvent) => o.state?.type !== 'cover' && o.state?.type !== 'none').length})
+                        {t('system_update.turn_off_all_outputs')} ({outputs.filter((o: OutputEvent) => o.state?.type !== 'cover' && o.state?.type !== 'none').length})
                       </>
                     )}
                   </button>
@@ -492,7 +494,7 @@ const SystemUpdate: React.FC = () => {
                 {turnOffProgress && (
                   <div className="mt-4">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm">Turning off outputs...</span>
+                      <span className="text-sm">{t('system_update.turning_off_outputs')}</span>
                       <span className="text-sm">{turnOffProgress.current} / {turnOffProgress.total}</span>
                     </div>
                     <progress 
@@ -516,8 +518,8 @@ const SystemUpdate: React.FC = () => {
                 <div className="alert alert-warning mt-4">
                   <FaExclamationTriangle />
                   <div className="text-sm">
-                    <p>This will turn off ALL outputs immediately.</p>
-                    <p>Saved relay states will be cleared - outputs will not restore on restart.</p>
+                    <p>{t('system_update.turn_off_warning_1')}</p>
+                    <p>{t('system_update.turn_off_warning_2')}</p>
                   </div>
                 </div>
               </div>
@@ -528,10 +530,10 @@ const SystemUpdate: React.FC = () => {
               <div className="card-body">
                 <h3 className="card-title">
                   <FaFileArchive />
-                  Configuration Backup
+                  {t('system_update.configuration_backup')}
                 </h3>
                 <p className="text-sm opacity-70 mb-4">
-                  Download your current configuration files as a compressed archive.
+                  {t('system_update.backup_description')}
                 </p>
                 <div className="card-actions">
                   <button
@@ -542,12 +544,12 @@ const SystemUpdate: React.FC = () => {
                     {isDownloading ? (
                       <>
                         <FaSpinner className="animate-spin" />
-                        Preparing...
+                        {t('system_update.preparing')}
                       </>
                     ) : (
                       <>
                         <FaFileArchive />
-                        Download Config (.tar.gz)
+                        {t('system_update.download_config')}
                       </>
                     )}
                   </button>
@@ -557,8 +559,8 @@ const SystemUpdate: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                   <div className="text-sm">
-                    <p>The archive contains all YAML configuration files from your device.</p>
-                    <p>Use this to backup your configuration before making major changes.</p>
+                    <p>{t('system_update.backup_info_1')}</p>
+                    <p>{t('system_update.backup_info_2')}</p>
                   </div>
                 </div>
               </div>
@@ -570,28 +572,28 @@ const SystemUpdate: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="card-title">
                     <FaHistory />
-                    Auto update Backups
+                    {t('system_update.auto_update_backups')}
                   </h3>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowBackups(!showBackups)}
                   >
-                    {showBackups ? 'Hide' : 'Show'} Backups ({backups.length})
+                    {showBackups ? `Hide Backups (${backups.length})` : `Show Backups (${backups.length})`}
                   </button>
                 </div>
 
                 {showBackups && (
                   <div className="mt-4">
                     {backups.length === 0 ? (
-                      <p className="text-sm opacity-70">No backups available yet.</p>
+                      <p className="text-sm opacity-70">{t('system_update.no_backups')}</p>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="table table-sm">
                           <thead>
                             <tr>
-                              <th>Version</th>
-                              <th>Date</th>
-                              <th>Actions</th>
+                              <th>{t('system_update.version')}</th>
+                              <th>{t('system_update.date')}</th>
+                              <th>{t('system_update.actions')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -607,7 +609,7 @@ const SystemUpdate: React.FC = () => {
                                       disabled={isUpdating}
                                     >
                                       <FaUndo />
-                                      Rollback
+                                      {t('system_update.rollback')}
                                     </button>
                                   )}
                                 </td>
@@ -625,8 +627,8 @@ const SystemUpdate: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                   <div className="text-sm">
-                    <p>Backups are created automatically before each update.</p>
-                    <p>The last 5 backups are kept. Use rollback if an update causes issues.</p>
+                    <p>{t('system_update.backup_info_3')}</p>
+                    <p>{t('system_update.backup_info_4')}</p>
                   </div>
                 </div>
               </div>

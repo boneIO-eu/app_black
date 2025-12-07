@@ -4,6 +4,7 @@ import * as yaml from 'js-yaml';
 import { FaSave, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle, FaUndo } from 'react-icons/fa';
 import ArrayTableWidget from './ArrayTableWidget';
 import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperiodToMilliseconds } from '@/components/UISettings/helpers/configSchemaUtils';
+import { useTranslation } from '@/hooks/useTranslation';
 // Custom forms for simple sections (replacing RJSF)
 import BoneIOForm from './BoneIOForm';
 import MqttForm from './MqttForm';
@@ -35,6 +36,7 @@ interface ConfigSection {
 export default function UISettings() {
   const { section } = useParams<{ section?: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [sections, setSections] = useState<ConfigSection[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [originalData, setOriginalData] = useState<Record<string, any>>({});
@@ -44,6 +46,7 @@ export default function UISettings() {
   const [isReloading, setIsReloading] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_schemaLoaded, setSchemaLoaded] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -78,22 +81,22 @@ export default function UISettings() {
 
   // Sections that only require reload (hot reload supported)
   const reloadSections = [
-    { name: 'areas', title: 'Areas/Rooms', icon: '🏠' },
-    { name: 'binary_sensor', title: 'Binary Sensors', icon: '🔘' },
-    { name: 'event', title: 'Events', icon: '⚡' },
-    { name: 'output', title: 'Outputs', icon: '💡' },
-    { name: 'output_group', title: 'Output Groups', icon: '🔗' },
-    { name: 'cover', title: 'Covers', icon: '🚪' },
-    { name: 'modbus_devices', title: 'Modbus Devices', icon: '📱' },
-    { name: 'logger', title: 'Logger', icon: '📝' },
+    { name: 'areas', title: t('sections.areas'), icon: '🏠' },
+    { name: 'binary_sensor', title: t('sections.binary_sensor'), icon: '🔘' },
+    { name: 'event', title: t('sections.event'), icon: '⚡' },
+    { name: 'output', title: t('sections.output'), icon: '💡' },
+    { name: 'output_group', title: t('sections.output_group'), icon: '🔗' },
+    { name: 'cover', title: t('sections.cover'), icon: '🚪' },
+    { name: 'modbus_devices', title: t('sections.modbus_devices'), icon: '📱' },
+    { name: 'logger', title: t('sections.logger'), icon: '📝' },
   ];
 
   // Sections that require full restart
   const restartSections = [
-    { name: 'boneio', title: 'boneIO', icon: '🔧' },
-    { name: 'mqtt', title: 'MQTT', icon: '📡' },
-    { name: 'web', title: 'Web Server', icon: '🌐' },
-    { name: 'modbus', title: 'Modbus', icon: '🔌' },
+    { name: 'boneio', title: t('sections.boneio'), icon: '🔧' },
+    { name: 'mqtt', title: t('sections.mqtt'), icon: '📡' },
+    { name: 'web', title: t('sections.web'), icon: '🌐' },
+    { name: 'modbus', title: t('sections.modbus'), icon: '🔌' },
     // { name: 'oled', title: 'OLED Display', icon: '📺' },
     // { name: 'lm75', title: 'LM75 Sensors', icon: '🌡️' },
     // { name: 'ina219', title: 'INA219 Sensors', icon: '⚡' },
@@ -749,15 +752,15 @@ export default function UISettings() {
 
   const activeSection_data = sections.find(s => s.name === activeSection);
   return (
-    <div className="flex h-full bg-base-100 relative">
+    <div className="flex flex-col lg:flex-row h-full bg-base-100 relative">
       {/* Global loading overlay - fixed to viewport */}
       {isReloading && (
         <div className="fixed inset-0 bg-base-100/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-primary"></span>
             <div className="text-center">
-              <p className="text-lg font-semibold text-base-content">Reloading configuration...</p>
-              <p className="text-sm text-base-content/70">Please wait while changes are applied</p>
+              <p className="text-lg font-semibold text-base-content">{t('settings.reloading_config')}</p>
+              <p className="text-sm text-base-content/70">{t('settings.wait_changes')}</p>
             </div>
           </div>
         </div>
@@ -771,8 +774,8 @@ export default function UISettings() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
-              <h3 className="font-bold">📝 You have unsaved changes</h3>
-              <div className="text-xs">Click Save to apply your changes.</div>
+              <h3 className="font-bold">📝 {t('settings.unsaved_changes')}</h3>
+              <div className="text-xs">{t('settings.click_save')}</div>
             </div>
           </div>
         </div>
@@ -786,8 +789,8 @@ export default function UISettings() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
-              <h3 className="font-bold">⚠️ App restart required</h3>
-              <div className="text-xs">Configuration was changed. Restart the application to apply changes.</div>
+              <h3 className="font-bold">⚠️ {t('settings.app_restart_required')}</h3>
+              <div className="text-xs">{t('settings.config_changed')}</div>
             </div>
             <button 
               className="btn btn-sm btn-warning"
@@ -797,10 +800,10 @@ export default function UISettings() {
               {isRestarting ? (
                 <>
                   <span className="loading loading-spinner loading-xs"></span>
-                  Restarting...
+                  {t('settings.restarting')}
                 </>
               ) : (
-                '🔄 Restart Now'
+                `🔄 ${t('settings.restart_now')}`
               )}
             </button>
           </div>
@@ -813,17 +816,28 @@ export default function UISettings() {
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-warning"></span>
             <div className="text-center">
-              <p className="text-lg font-semibold text-base-content">Restarting application...</p>
-              <p className="text-sm text-base-content/70">Please wait, the page will reload automatically.</p>
+              <p className="text-lg font-semibold text-base-content">{t('settings.restarting_app')}</p>
+              <p className="text-sm text-base-content/70">{t('settings.page_reload')}</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Sidebar with section tabs */}
-      <div className="w-80 bg-base-200 border-r border-base-content/10 overflow-y-auto">
-        <div className="p-4">
-          <h2 className="text-xl font-bold text-base-content mb-4">Configuration Sections</h2>
+      <div className="w-full lg:w-80 bg-base-200 border-r lg:border-r border-b lg:border-b-0 border-base-content/10 lg:min-h-0">
+        {/* Mobile accordion - only on mobile */}
+        <div className="lg:hidden">
+          <div className="collapse collapse-arrow bg-base-200 border-b border-base-content/10">
+            <input 
+              type="checkbox" 
+              checked={isSidebarOpen}
+              onChange={(e) => setIsSidebarOpen(e.target.checked)}
+            />
+            <div className="collapse-title text-lg font-bold text-base-content p-3">
+              {t('settings.configuration_sections')}
+            </div>
+            <div className="collapse-content">
+              <div className="p-3 pt-0">
           
           {/* Reload sections - hot reload supported */}
           <div className="space-y-2 mb-4">
@@ -871,7 +885,7 @@ export default function UISettings() {
 
           {/* Separator */}
           <div className="divider text-xs text-warning font-medium my-2">
-            ⚠️ Restart required for sections below
+            ⚠️ {t('settings.restart_required')}
           </div>
 
           {/* Restart sections */}
@@ -917,29 +931,130 @@ export default function UISettings() {
                 );
               })}
           </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop version - always visible */}
+        <div className="hidden lg:block overflow-y-auto max-h-none">
+          <div className="p-4">
+            <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
+            
+            {/* Reload sections - hot reload supported */}
+            <div className="space-y-2 mb-4">
+              {sections
+                .filter(s => reloadSections.some(rs => rs.name === s.name))
+                .map((section) => {
+                  const sectionConfig = configSections.find(s => s.name === section.name);
+                  const status = saveStatus[section.name];
+                  
+                  return (
+                    <button
+                      key={section.name}
+                      onClick={() => navigateToSection(section.name)}
+                      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+                        activeSection === section.name
+                          ? 'bg-primary text-primary-content shadow-md'
+                          : 'bg-base-100 hover:bg-base-300 text-base-content'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+                        <div>
+                          <div className="font-medium">{sectionConfig?.title}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {unsavedChanges[section.name] && (
+                          <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
+                        )}
+                        {status === 'success' && (
+                          <FaCheck className="text-success" title="Saved successfully" />
+                        )}
+                        {status === 'error' && (
+                          <FaExclamationTriangle className="text-error" title="Save failed" />
+                        )}
+                        {status === 'saving' && (
+                          <div className="loading loading-spinner loading-xs"></div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+
+            {/* Separator */}
+            <div className="divider text-xs text-warning font-medium my-2">
+              ⚠️ {t('settings.restart_required')}
+            </div>
+
+            {/* Restart sections */}
+            <div className="space-y-2">
+              {sections
+                .filter(s => restartSections.some(rs => rs.name === s.name))
+                .map((section) => {
+                  const sectionConfig = configSections.find(s => s.name === section.name);
+                  const status = saveStatus[section.name];
+                  
+                  return (
+                    <button
+                      key={section.name}
+                      onClick={() => navigateToSection(section.name)}
+                      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+                        activeSection === section.name
+                          ? 'bg-primary text-primary-content shadow-md'
+                          : 'bg-base-100 hover:bg-base-300 text-base-content'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+                        <div>
+                          <div className="font-medium">{sectionConfig?.title}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {unsavedChanges[section.name] && (
+                          <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
+                        )}
+                        {status === 'success' && (
+                          <FaCheck className="text-success" title="Saved successfully" />
+                        )}
+                        {status === 'error' && (
+                          <FaExclamationTriangle className="text-error" title="Save failed" />
+                        )}
+                        {status === 'saving' && (
+                          <div className="loading loading-spinner loading-xs"></div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
         {activeSection_data && (
           <>
             {/* Header */}
-            <div className="bg-base-200 border-b border-base-content/10 p-4">
+            <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-base-content">
                     {activeSection_data.name}
                   </h1>
                   <p className="text-sm text-base-content/70 mt-1">
-                    Configure {activeSection_data.name} settings
+                    {t('settings.configure_settings').replace('{section}', activeSection_data.name)}
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setShowYamlPreview(!showYamlPreview)}
                     className="btn btn-ghost btn-sm"
-                    title={showYamlPreview ? "Hide YAML preview" : "Show YAML preview"}
+                    title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
                   >
                     {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
                     YAML
@@ -951,7 +1066,7 @@ export default function UISettings() {
                       title="Restore to last saved state"
                     >
                       <FaUndo />
-                      Restore
+                      {t('settings.restore')}
                     </button>
                   )}
                   <button
@@ -964,7 +1079,7 @@ export default function UISettings() {
                     ) : (
                       <FaSave />
                     )}
-                    Save {activeSection_data.name}
+                    {t('settings.save')} {activeSection_data.name}
                   </button>
                 </div>
               </div>
@@ -990,13 +1105,13 @@ export default function UISettings() {
                         allOutputGroups={formData.output_group || []}
                         allAreas={formData.areas || []}
                         title={
-                          activeSection === 'binary_sensor' ? 'Binary Sensors' : 
-                          activeSection === 'event' ? 'Events' : 
-                          activeSection === 'output' ? 'Outputs' :
-                          activeSection === 'output_group' ? 'Output Groups' :
-                          activeSection === 'cover' ? 'Covers' :
-                          activeSection === 'areas' ? 'Areas/Rooms' :
-                          'Modbus Devices'
+                          activeSection === 'binary_sensor' ? t('sections.binary_sensor') : 
+                          activeSection === 'event' ? t('sections.event') : 
+                          activeSection === 'output' ? t('sections.output') :
+                          activeSection === 'output_group' ? t('sections.output_group') :
+                          activeSection === 'cover' ? t('sections.cover') :
+                          activeSection === 'areas' ? t('sections.areas') :
+                          t('sections.modbus_devices')
                         }
                       />
                     ) : (
@@ -1061,15 +1176,7 @@ export default function UISettings() {
                       allOutputs={formData.output || []}
                       allOutputGroups={formData.output_group || []}
                       allAreas={formData.areas || []}
-                      title={
-                        activeSection === 'binary_sensor' ? 'Binary Sensors' : 
-                        activeSection === 'event' ? 'Events' : 
-                        activeSection === 'output' ? 'Outputs' :
-                        activeSection === 'output_group' ? 'Output Groups' :
-                        activeSection === 'cover' ? 'Covers' :
-                        activeSection === 'areas' ? 'Areas/Rooms' :
-                        'Modbus Devices'
-                      }
+                      title={t(`sections.${activeSection}`)}
                     />
                   ) : (
                     // Custom forms for simple dict sections

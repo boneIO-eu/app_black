@@ -72,9 +72,11 @@ class ModbusManager:
             # Lazy import to avoid loading Modbus when not needed
             from boneio.modbus.client import Modbus
             
+            # Work on a copy to avoid modifying the original config
+            config = modbus_config.copy()
             
             # Validate UART configuration
-            uart = modbus_config.pop(UART)
+            uart = config.pop(UART)
             if uart and uart not in UARTS:
                 raise ModbusUartException(
                     f"UART {uart} is not available. Available UARTs: {UARTS}"
@@ -83,8 +85,8 @@ class ModbusManager:
             # Initialize Modbus client
             self._modbus = Modbus(
                 uart=UARTS[uart],
-                baudrate=modbus_config.pop("baudrate", 9600),
-                **modbus_config
+                baudrate=config.pop("baudrate", 9600),
+                **config
             )
             
             # Configure device coordinators

@@ -5,6 +5,7 @@ import ViewToggle from './ViewToggle';
 import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } from '../hooks/useWebSocket';
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Output type categories
 type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
@@ -13,28 +14,17 @@ type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_
  * Categorize output by its type
  */
 function categorizeOutput(type: string | undefined): OutputCategory {
-  const t = (type || '').toLowerCase();
+  const typeStr = (type || '').toLowerCase();
   
-  if (t === 'light') return 'light';
-  if (t === 'valve') return 'valve';
-  if (t === 'cover' || t === 'none') return 'state_only';
+  if (typeStr === 'light') return 'light';
+  if (typeStr === 'valve') return 'valve';
+  if (typeStr === 'cover' || typeStr === 'none') return 'state_only';
   // Default to switch for relay, switch, or unknown types
   return 'switch';
 }
 
-/**
- * Category display configuration
- */
-const categoryConfig: Record<OutputCategory, { label: string; order: number }> = {
-  light: { label: 'Lights', order: 1 },
-  switch: { label: 'Switches', order: 2 },
-  valve: { label: 'Valves', order: 3 },
-  cover: { label: 'Covers', order: 4 },
-  group: { label: 'Groups', order: 5 },
-  state_only: { label: 'State Only', order: 6 },
-};
-
 export default function OutputsView({error}: {error: string | null}) {
+  const { t } = useTranslation();
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers, groups } = useContext(WebSocketContext);
   
@@ -42,6 +32,19 @@ export default function OutputsView({error}: {error: string | null}) {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
+
+  // Get translated category labels
+  const getCategoryLabel = (category: OutputCategory): string => {
+    const labels: Record<OutputCategory, string> = {
+      light: t('outputs.categories.lights'),
+      switch: t('outputs.categories.switches'),
+      valve: t('outputs.categories.valves'),
+      cover: t('outputs.categories.covers'),
+      group: t('outputs.categories.groups'),
+      state_only: t('outputs.categories.state_only'),
+    };
+    return labels[category];
+  };
 
   // Filter and categorize outputs
   const { categorizedOutputs, stateOnlyOutputs } = useMemo(() => {
@@ -140,7 +143,7 @@ export default function OutputsView({error}: {error: string | null}) {
     
     return (
       <div key={category}>
-        <div className="divider">{categoryConfig[category].label}</div>
+        <div className="divider">{getCategoryLabel(category)}</div>
         <div className={isGrid ? gridClass : listClass}>
           {items.map((output) => (
             <OutputItem 
@@ -162,7 +165,7 @@ export default function OutputsView({error}: {error: string | null}) {
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="card-title">Controls</h2>
+            <h2 className="card-title">{t('outputs.title')}</h2>
             <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
           </div>
 
@@ -178,7 +181,7 @@ export default function OutputsView({error}: {error: string | null}) {
           {/* Covers */}
           {validCovers.length > 0 && (
             <>
-              <div className="divider">Covers</div>
+              <div className="divider">{getCategoryLabel('cover')}</div>
               <div className={isGrid ? gridClass : listClass}>
                 {validCovers.map((cover) => (
                   <CoverItem 
@@ -196,7 +199,7 @@ export default function OutputsView({error}: {error: string | null}) {
           {/* Groups */}
           {validGroups.length > 0 && (
             <>
-              <div className="divider">Groups</div>
+              <div className="divider">{getCategoryLabel('group')}</div>
               <div className={isGrid ? gridClass : listClass}>
                 {validGroups.map((group) => (
                   <OutputItem 

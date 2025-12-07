@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface WebServerFormProps {
   data: any;
@@ -10,6 +11,7 @@ interface WebServerFormProps {
  * Fields: port, auth (username, password)
  */
 const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
@@ -32,7 +34,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       {/* Port */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Port</span>
+          <span className="label-text font-medium">{t('webserver.port')}</span>
         </label>
         <input
           type="number"
@@ -42,17 +44,17 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
           placeholder="8090"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Port to run web server (default: 8090)</span>
+          <span className="label-text-alt text-base-content/60">{t('webserver.port_help')}</span>
         </label>
       </div>
 
       {/* Auth Section */}
-      <div className="divider">Authentication (optional)</div>
+      <div className="divider">{t('webserver.auth')}</div>
 
       {/* Username */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Username</span>
+          <span className="label-text font-medium">{t('webserver.username')}</span>
         </label>
         <input
           type="text"
@@ -62,14 +64,14 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
           placeholder="admin"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Username to connect to web interface</span>
+          <span className="label-text-alt text-base-content/60">{t('webserver.username_help')}</span>
         </label>
       </div>
 
       {/* Password */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Password</span>
+          <span className="label-text font-medium">{t('webserver.password')}</span>
         </label>
         <input
           type="password"
@@ -79,7 +81,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
           placeholder="••••••••"
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Password to web interface</span>
+          <span className="label-text-alt text-base-content/60">{t('webserver.password_help')}</span>
         </label>
       </div>
     </div>

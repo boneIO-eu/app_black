@@ -16,6 +16,7 @@ import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
 import SystemUpdate from './components/UISettings/SystemUpdate';
 import { ConfigProvider } from './contexts/ConfigContext';
+import { TranslationProvider } from './contexts/TranslationContext';
 
 export const WebSocketContext = createContext<{
   outputs: OutputEvent[];
@@ -291,7 +292,9 @@ export default function App() {
     <Router>
       <AuthProvider>
         <ConfigProvider>
-          <AppContent />
+          <TranslationProvider>
+            <AppContent />
+          </TranslationProvider>
         </ConfigProvider>
       </AuthProvider>
     </Router>
