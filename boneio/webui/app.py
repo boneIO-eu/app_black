@@ -25,13 +25,16 @@ from fastapi import (
     Body,
     Depends,
     FastAPI,
+    File,
     HTTPException,
+    UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from jose import jwt
 from jose.exceptions import JWTError
@@ -1089,6 +1092,129 @@ async def download_config():
         }
     )
 
+
+@app.post("/api/config/restore")
+async def restore_config(file: UploadFile = File(...)):
+    """Restore configuration from a tar.gz archive.
+    
+    Extracts and replaces YAML configuration files from uploaded archive.
+    Creates a backup of current config before restoring.
+    """
+    import tarfile
+    import io
+    import shutil
+    from datetime import datetime
+    
+    config_file = app.state.yaml_config_file
+    config_dir = Path(config_file).parent
+    
+    try:
+        # Validate file type
+        if not file.filename or not file.filename.endswith(('.tar.gz', '.tgz')):
+            return {
+                "status": "error",
+                "message": "Invalid file type. Please upload a .tar.gz or .tgz file."
+            }
+        
+        # Read uploaded file
+        contents = await file.read()
+        buffer = io.BytesIO(contents)
+        
+        # Create backup of current config before restoring
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = config_dir / "backups"
+        backup_dir.mkdir(exist_ok=True)
+        backup_path = backup_dir / f"config_backup_{timestamp}.tar.gz"
+        
+        # Backup current config
+        with tarfile.open(backup_path, mode='w:gz') as tar:
+            for pattern in ["*.yaml", "*.yml"]:
+                for yaml_file in config_dir.glob(pattern):
+                    if yaml_file.is_file():
+                        tar.add(str(yaml_file), arcname=yaml_file.name)
+            
+            # Backup subdirectories
+            for subdir in config_dir.iterdir():
+                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                    for pattern in ["*.yaml", "*.yml"]:
+                        for yaml_file in subdir.glob(pattern):
+                            if yaml_file.is_file():
+                                tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+        
+        _LOGGER.info(f"Created backup before restore: {backup_path}")
+        
+        # Extract and restore files
+        restored_files = []
+        with tarfile.open(fileobj=buffer, mode='r:gz') as tar:
+            # Validate archive contents
+            members = tar.getmembers()
+            for member in members:
+                # Security check - prevent path traversal
+                if '..' in member.name or member.name.startswith('/'):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid file path in archive: {member.name}"
+                    }
+                
+                # Only allow yaml files
+                if not (member.name.endswith('.yaml') or member.name.endswith('.yml')):
+                    _LOGGER.warning(f"Skipping non-YAML file: {member.name}")
+                    continue
+            
+            # Extract files
+            for member in members:
+                if member.name.endswith('.yaml') or member.name.endswith('.yml'):
+                    # Extract to config directory
+                    target_path = config_dir / member.name
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    source = tar.extractfile(member)
+                    if source is None:
+                        _LOGGER.warning(f"Could not extract {member.name}")
+                        continue
+                    
+                    with source:
+                        with open(target_path, 'wb') as target:
+                            target.write(source.read())
+                    
+                    restored_files.append(member.name)
+                    _LOGGER.info(f"Restored: {member.name}")
+        
+        # Invalidate config cache
+        invalidate_config_cache()
+        
+        # Validate restored configuration
+        try:
+            load_config_from_file(config_file=app.state.yaml_config_file)
+            validation_status = "success"
+            validation_message = "Configuration is valid"
+        except Exception as e:
+            validation_status = "warning"
+            validation_message = f"Configuration restored but validation failed: {str(e)}"
+            _LOGGER.warning(f"Restored config validation failed: {e}")
+        
+        return {
+            "status": "success",
+            "message": f"Restored {len(restored_files)} files from backup",
+            "restored_files": restored_files,
+            "backup_path": str(backup_path),
+            "validation_status": validation_status,
+            "validation_message": validation_message
+        }
+        
+    except tarfile.TarError as e:
+        _LOGGER.error(f"Failed to extract archive: {e}")
+        return {
+            "status": "error",
+            "message": f"Failed to extract archive: {str(e)}"
+        }
+    except Exception as e:
+        _LOGGER.error(f"Failed to restore config: {e}")
+        return {
+            "status": "error",
+            "message": f"Failed to restore configuration: {str(e)}"
+        }
+
 @app.get("/api/version")
 async def get_version():
     """Get application version."""
@@ -1279,6 +1405,447 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
         })
     
     return result
+
+
+# ============================================================================
+# Modbus Helper API Endpoints
+# ============================================================================
+
+# Global lock for Modbus Helper operations to prevent concurrent access
+_modbus_helper_lock = asyncio.Lock()
+
+# Flag to cancel ongoing Modbus search
+_modbus_search_cancel = False
+
+
+class ModbusGetRequest(BaseModel):
+    """Request model for Modbus GET operation."""
+    address: int
+    register_address: int
+    register_type: str = "holding"  # "holding" or "input"
+    value_type: str = "S_WORD"  # U_WORD, S_WORD, U_DWORD, S_DWORD, FP32, etc.
+
+
+class ModbusSetRequest(BaseModel):
+    """Request model for Modbus SET operation."""
+    address: int
+    register_address: int
+    value: int | float
+    
+
+class ModbusSearchRequest(BaseModel):
+    """Request model for Modbus SEARCH operation."""
+    register_address: int = 1
+    register_type: str = "input"  # "holding" or "input"
+    start_address: int = 1
+    end_address: int = 247
+    timeout: float = 0.3  # Timeout per device in seconds
+
+
+class ModbusConfigureDeviceRequest(BaseModel):
+    """Request model for Modbus device configuration (set address/baudrate)."""
+    device: str  # Device model name (e.g., "cwt", "sht30")
+    uart: str  # UART name (e.g., "uart4", "uart1")
+    current_address: int
+    current_baudrate: int
+    new_address: int | None = None
+    new_baudrate: int | None = None
+
+
+@app.post("/api/modbus/get")
+async def modbus_get(
+    request: ModbusGetRequest,
+    boneio_manager: Manager = Depends(get_manager)
+):
+    """Read a register from a Modbus device.
+    
+    Uses the existing Modbus client from the manager to read registers.
+    Operations are serialized using a lock to prevent concurrent access.
+    
+    Args:
+        request: ModbusGetRequest with device address and register info
+        
+    Returns:
+        dict: Contains the read value or error message
+    """
+    # Check if Modbus is configured
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {
+            "success": False,
+            "error": "Modbus is not configured. Add 'modbus' section to your config.",
+        }
+    
+    async with _modbus_helper_lock:
+        try:
+            # Determine register count based on value type
+            value_size = 1 if request.value_type in ["S_WORD", "U_WORD"] else 2
+            if request.value_type in ["U_QWORD", "S_QWORD", "U_QWORD_R"]:
+                value_size = 4
+            
+            # Read registers
+            result = await modbus_client.read_registers(
+                unit=request.address,
+                address=request.register_address,
+                count=value_size,
+                method=request.register_type,
+            )
+            
+            if result and hasattr(result, 'registers'):
+                payload = result.registers[0:value_size]
+                decoded_value = modbus_client.decode_value(payload, request.value_type)
+                
+                return {
+                    "success": True,
+                    "value": decoded_value,
+                    "raw_registers": list(payload),
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "No response from device",
+                }
+                
+        except Exception as e:
+            _LOGGER.error(f"Modbus GET error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+
+@app.post("/api/modbus/set")
+async def modbus_set(
+    request: ModbusSetRequest,
+    boneio_manager: Manager = Depends(get_manager)
+):
+    """Write to a Modbus device register.
+    
+    Uses the existing Modbus client from the manager to write registers.
+    
+    Args:
+        request: ModbusSetRequest with device address, register and value
+        
+    Returns:
+        dict: Contains success status and message
+    """
+    # Check if Modbus is configured
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {
+            "success": False,
+            "error": "Modbus is not configured. Add 'modbus' section to your config.",
+        }
+    
+    async with _modbus_helper_lock:
+        try:
+            # Write single register
+            result = await modbus_client.write_register(
+                unit=request.address,
+                address=request.register_address,
+                value=int(request.value),
+            )
+            
+            if result:
+                return {
+                    "success": True,
+                    "message": "Value written successfully.",
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Write operation failed - no response from device",
+                }
+                
+        except Exception as e:
+            _LOGGER.error(f"Modbus SET error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+
+@app.get("/api/modbus/search/stream")
+async def modbus_search_stream(
+    start_address: int = 1,
+    end_address: int = 247,
+    register_address: int = 1,
+    register_type: str = "input",
+    timeout: float = 0.3,
+    boneio_manager: Manager = Depends(get_manager)
+):
+    """Search for Modbus devices with Server-Sent Events for real-time updates.
+    
+    Streams progress and found devices as they are discovered.
+    
+    Args:
+        start_address: First address to scan
+        end_address: Last address to scan
+        register_address: Register to read for detection
+        register_type: Type of register (input/holding)
+        timeout: Timeout per device in seconds
+        
+    Returns:
+        SSE stream with progress updates
+    """
+    global _modbus_search_cancel
+    
+    async def event_generator():
+        """Generate SSE events for search progress."""
+        global _modbus_search_cancel
+        
+        # Check if Modbus is configured
+        modbus_client = boneio_manager.modbus.get_modbus_client()
+        if not modbus_client:
+            yield f"data: {json.dumps({'type': 'error', 'error': 'Modbus is not configured'})}\n\n"
+            return
+        
+        # Reset cancel flag
+        _modbus_search_cancel = False
+        
+        async with _modbus_helper_lock:
+            found_devices = []
+            total = end_address - start_address + 1
+            scanned = 0
+            
+            # Send start event
+            yield f"data: {json.dumps({'type': 'start', 'total': total})}\n\n"
+            
+            for addr in range(start_address, end_address + 1):
+                # Check if cancelled
+                if _modbus_search_cancel:
+                    yield f"data: {json.dumps({'type': 'cancelled', 'scanned': scanned, 'total': total, 'devices': found_devices})}\n\n"
+                    return
+                
+                # Scan device
+                try:
+                    found = await modbus_client.scan_device(
+                        unit=addr,
+                        address=register_address,
+                        method=register_type,
+                        timeout=timeout,
+                    )
+                    
+                    if found:
+                        found_devices.append(addr)
+                        _LOGGER.info(f"Found Modbus device at address {addr}")
+                        # Send found event immediately with current progress
+                        yield f"data: {json.dumps({'type': 'found', 'address': addr, 'devices': list(found_devices), 'scanned': scanned + 1, 'total': total})}\n\n"
+                        
+                except Exception:
+                    pass
+                
+                scanned += 1
+                
+                # Send progress every 5 addresses
+                if scanned % 5 == 0:
+                    yield f"data: {json.dumps({'type': 'progress', 'scanned': scanned, 'total': total, 'current': addr})}\n\n"
+                
+                await asyncio.sleep(0.02)
+            
+            # Send complete event
+            yield f"data: {json.dumps({'type': 'complete', 'devices': found_devices, 'count': len(found_devices), 'scanned': scanned, 'total': total})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+
+@app.post("/api/modbus/search/cancel")
+async def modbus_search_cancel():
+    """Cancel an ongoing Modbus search operation.
+    
+    Sets the cancel flag which will be checked by the search loop.
+    
+    Returns:
+        dict: Confirmation that cancel was requested
+    """
+    global _modbus_search_cancel
+    _modbus_search_cancel = True
+    _LOGGER.info("Modbus search cancel requested")
+    return {"success": True, "message": "Cancel requested"}
+
+
+@app.get("/api/modbus/config")
+async def get_modbus_config(boneio_manager: Manager = Depends(get_manager)):
+    """Get available Modbus configuration options.
+    
+    Returns available value types and whether Modbus is configured.
+    """
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    
+    return {
+        "configured": modbus_client is not None,
+        "register_types": ["holding", "input"],
+        "value_types": [
+            "U_WORD", "S_WORD", 
+            "U_DWORD", "S_DWORD", "U_DWORD_R", "S_DWORD_R",
+            "U_QWORD", "S_QWORD", "U_QWORD_R",
+            "FP32", "FP32_R"
+        ],
+    }
+
+
+@app.post("/api/modbus/configure-device")
+async def modbus_configure_device(
+    request: ModbusConfigureDeviceRequest,
+    boneio_manager: Manager = Depends(get_manager)
+):
+    """Configure Modbus device (set new address or baudrate).
+    
+    This endpoint allows changing the address or baudrate of a Modbus device.
+    Uses the existing Modbus client from the manager to avoid port conflicts.
+    The device must be connected and responding at the current address.
+    After changing settings, the device needs to be power-cycled.
+    
+    Args:
+        request: Configuration request with device model, current settings, and new settings
+        
+    Returns:
+        dict: Success status and message
+    """
+    import os
+    from boneio.core.utils import open_json
+    
+    SET_BASE = "set_base"
+    
+    # Check if Modbus is configured
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {
+            "success": False,
+            "error": "Modbus is not configured. Add 'modbus' section to your config.",
+        }
+    
+    async with _modbus_helper_lock:
+        try:
+            _LOGGER.info(
+                f"Configuring device {request.device} on {request.uart} at address {request.current_address}, "
+                f"baudrate {request.current_baudrate}, new_address={request.new_address}, "
+                f"new_baudrate={request.new_baudrate}"
+            )
+            
+            # Check if we need to temporarily change baudrate
+            original_baudrate = None
+            if modbus_client.client and hasattr(modbus_client.client, 'baudrate'):
+                original_baudrate = modbus_client.client.baudrate
+                if original_baudrate != request.current_baudrate:
+                    _LOGGER.info(
+                        f"Temporarily changing baudrate from {original_baudrate} to {request.current_baudrate} "
+                        f"to communicate with device"
+                    )
+                    # Close current connection
+                    if modbus_client.client.connected:
+                        modbus_client.client.close()
+                    # Change baudrate
+                    modbus_client.client.baudrate = request.current_baudrate
+                    # Reconnect with new baudrate
+                    modbus_client.client.connect()
+            
+            # Load device configuration to get register addresses
+            _db = open_json(
+                path=os.path.join(os.path.dirname(__file__), "..", "modbus", "devices", "sensors"),
+                model=request.device
+            )
+            set_base = _db.get(SET_BASE, {})
+            
+            if not set_base:
+                return {
+                    "success": False,
+                    "error_key": "configure_error_no_support",
+                    "error_params": {"device": request.device}
+                }
+            
+            # Perform the requested operation
+            if request.new_address is not None:
+                # Set new address
+                address_register = set_base.get("set_address_address")
+                if address_register is None:
+                    return {
+                        "success": False,
+                        "error_key": "configure_error_no_address",
+                        "error_params": {"device": request.device}
+                    }
+                
+                _LOGGER.info(f"Writing new address {request.new_address} to register {address_register}")
+                result = await modbus_client.write_register(
+                    unit=request.current_address,
+                    address=address_register,
+                    value=request.new_address,
+                )
+                
+                if not result:
+                    return {
+                        "success": False,
+                        "error_key": "configure_error_write_address"
+                    }
+                    
+            elif request.new_baudrate is not None:
+                # Set new baudrate
+                baudrate_config = set_base.get("set_baudrate")
+                if not baudrate_config:
+                    return {
+                        "success": False,
+                        "error_key": "configure_error_no_baudrate",
+                        "error_params": {"device": request.device}
+                    }
+                
+                baudrate_register = baudrate_config.get("address")
+                possible_baudrates = baudrate_config.get("possible_baudrates", {})
+                baudrate_value = possible_baudrates.get(str(request.new_baudrate))
+                
+                if baudrate_value is None:
+                    return {
+                        "success": False,
+                        "error_key": "configure_error_baudrate_not_supported",
+                        "error_params": {"supported": ", ".join(possible_baudrates.keys())}
+                    }
+                
+                _LOGGER.info(f"Writing baudrate value {baudrate_value} (for {request.new_baudrate}) to register {baudrate_register}")
+                result = await modbus_client.write_register(
+                    unit=request.current_address,
+                    address=baudrate_register,
+                    value=baudrate_value,
+                )
+                
+                if not result:
+                    return {
+                        "success": False,
+                        "error_key": "configure_error_write_baudrate"
+                    }
+            else:
+                return {
+                    "success": False,
+                    "error_key": "configure_error_no_operation"
+                }
+            
+            return {
+                "success": True,
+                "message_key": "configure_success"
+            }
+                
+        except Exception as e:
+            _LOGGER.error(f"Modbus configure error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+        finally:
+            # Restore original baudrate if it was changed
+            if original_baudrate is not None and original_baudrate != request.current_baudrate:
+                try:
+                    _LOGGER.info(f"Restoring original baudrate {original_baudrate}")
+                    if modbus_client.client.connected:
+                        modbus_client.client.close()
+                    modbus_client.client.baudrate = original_baudrate
+                    modbus_client.client.connect()
+                except Exception as restore_error:
+                    _LOGGER.error(f"Failed to restore original baudrate: {restore_error}")
 
 
 @app.get("/api/files")

@@ -152,46 +152,44 @@ class Modbus:
                 self._executor.shutdown(wait=False)
                 _LOGGER.warning("modbus communication closed")
 
-    def _pymodbus_connect(self) -> bool:
+    def _pymodbus_connect(self, silent: bool = False) -> bool:
         """Connect to Modbus device.
         
         This method ensures the client is ready and connected.
         Returns False if client was closed.
+        
+        Args:
+            silent: If True, suppress debug logging (useful for scanning)
         """
         try:
             if not self._client:
-                _LOGGER.error("Modbus client was closed")
+                if not silent:
+                    _LOGGER.error("Modbus client was closed")
                 return False
-            
-            _LOGGER.debug(f"Attempting to connect to Modbus port: {self._uart[ID]}")
-            _LOGGER.debug(f"Client state before connect: connected={self._client.connected}")
             
             # Check if already connected
             if self._client.connected:
-                _LOGGER.debug("Modbus client already connected")
                 return True
             
             # Try to connect (pymodbus 3.x handles this automatically on first request)
-            # But we can call it explicitly to verify connection
             result = self._client.connect()
             
-            _LOGGER.debug(f"Connect result: {result}, client.connected={self._client.connected}")
-            
             if result:
-                _LOGGER.debug("Modbus client connected successfully")
+                if not silent:
+                    _LOGGER.debug("Modbus client connected successfully")
                 return True
             else:
-                _LOGGER.error(f"Failed to connect Modbus client to {self._uart[ID]}")
-                _LOGGER.error("Possible causes: port doesn't exist, no permissions, port busy, or hardware issue")
+                if not silent:
+                    _LOGGER.error(f"Failed to connect Modbus client to {self._uart[ID]}")
                 return False
                 
         except ModbusException as exception_error:
-            _LOGGER.error(f"ModbusException during connect: {exception_error}")
+            if not silent:
+                _LOGGER.error(f"ModbusException during connect: {exception_error}")
             return False
         except Exception as e:
-            _LOGGER.error(f"Unexpected error during Modbus connect: {type(e).__name__}: {e}")
-            import traceback
-            _LOGGER.debug(f"Traceback: {traceback.format_exc()}")
+            if not silent:
+                _LOGGER.error(f"Unexpected error during Modbus connect: {type(e).__name__}: {e}")
             return False
 
     async def read_and_decode(
@@ -338,7 +336,63 @@ class Modbus:
         """Call async pymodbus."""
         async with self._lock:
             return await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
+
+    def scan_device_blocking(self, unit: int, address: int = 1, method: str = "input", timeout: float = 0.3) -> bool:
+        """Quick scan to check if device exists at address.
+        
+        Uses short timeout and no retries for fast scanning.
+        
+        Args:
+            unit: Device address to scan
+            address: Register address to read
+            method: Register type (input/holding)
+            timeout: Timeout in seconds (default 0.3s)
             
+        Returns:
+            True if device responds, False otherwise
+        """
+        if self._client is None:
+            return False
+            
+        # Save original settings
+        original_timeout = self._client.comm_params.timeout_connect
+        original_retries = self._client.retries
+        
+        try:
+            # Set fast scan settings
+            self._client.comm_params.timeout_connect = timeout
+            self._client.retries = 0
+            
+            # Ensure connected (silent mode - no logging during scan)
+            if not self._pymodbus_connect(silent=True):
+                return False
+            
+            # Try to read one register
+            kwargs = {"address": address, "count": 1, "device_id": int(unit)}
+            
+            if method == "input":
+                result = self._client.read_input_registers(**kwargs, no_response_expected=False)
+            else:
+                result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
+            
+            # Check if we got a valid response
+            return result is not None and hasattr(result, REGISTERS)
+            
+        except Exception:
+            return False
+        finally:
+            # Restore original settings
+            self._client.comm_params.timeout_connect = original_timeout
+            self._client.retries = original_retries
+
+    async def scan_device(self, unit: int, address: int = 1, method: str = "input", timeout: float = 0.3) -> bool:
+        """Async wrapper for scan_device_blocking."""
+        async with self._lock:
+            return await self._loop.run_in_executor(
+                self._executor, 
+                self.scan_device_blocking, 
+                unit, address, method, timeout
+            )
 
     def decode_value(self, payload, value_type):
         """Decode modbus registers to value using struct.

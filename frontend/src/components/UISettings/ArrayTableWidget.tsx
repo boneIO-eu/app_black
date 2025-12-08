@@ -9,6 +9,13 @@ import CoverForm from './CoverForm';
 import ModbusDeviceForm from './ModbusDeviceForm';
 import AreasForm from './AreasForm';
 import SensorForm from './SensorForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface Area {
   id: string;
@@ -40,7 +47,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
   const [availableDallasSensors, setAvailableDallasSensors] = useState<{address: string, type: string}[]>([]);
 
@@ -89,14 +98,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     const item = { ...value[index] };
     setEditingItem(item);
     setEditingIndex(index);
-    (document.getElementById('edit_modal') as HTMLDialogElement)?.showModal();
+    setAttemptedSubmit(false); // Reset przy otwieraniu modala
+    setIsModalOpen(true);
   };
 
   const handleAdd = () => {
     console.log('➕ ArrayTableWidget: handleAdd called');
     setEditingIndex(null);
     setEditingItem({});
-    (document.getElementById('edit_modal') as HTMLDialogElement)?.showModal();
+    setAttemptedSubmit(false); // Reset przy otwieraniu modala
+    setIsModalOpen(true);
   };
 
   // Check if all outputs/inputs are used
@@ -149,6 +160,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleSave = (e?: any) => {
     console.log('💾 ArrayTableWidget: handleSave called, calling onChange');
+    
+    // Oznacz że użytkownik próbował zapisać
+    setAttemptedSubmit(true);
     
     // Block save if there are validation errors from child form
     if (hasValidationErrors) {
@@ -217,7 +231,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     // Only call onChange when actually saving, not during editing
     console.log('🔄 ArrayTableWidget: calling onChange with:', newValue);
     onChange(newValue);
-    (document.getElementById('edit_modal') as HTMLDialogElement)?.close();
+    setIsModalOpen(false);
     setEditingItem(null);
     setEditingIndex(null);
   };
@@ -228,7 +242,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
   const handleCancel = () => {
-    (document.getElementById('edit_modal') as HTMLDialogElement)?.close();
+    setIsModalOpen(false);
     setEditingItem(null);
     setEditingIndex(null);
   };
@@ -729,14 +743,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       )}
 
       {/* Edit Modal */}
-      <dialog id="edit_modal" className="modal">
-        <div className="modal-box max-w-3xl w-11/12 md:w-full h-[60vh] flex flex-col">
-          <h3 className="font-bold text-lg mb-4">
-            {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
-          </h3>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-4xl sm:max-w-3xl w-[120vw] max-h-[80vh] flex flex-col gap-0 bg-base-100">
+          <DialogHeader>
+            <DialogTitle>
+              {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
+            </DialogTitle>
+          </DialogHeader>
           
           {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden break-words [&_.label-text]:whitespace-normal [&_.label-text]:break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:break-words [&_.form-control]:min-w-0">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 break-words [&_.label-text]:whitespace-normal [&_.label-text]:break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:break-words [&_.form-control]:min-w-0">
             {/* Only render form when editingItem is not null */}
             {editingItem && (
               <>
@@ -772,6 +788,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allAreas={allAreas}
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
+                    attemptedSubmit={attemptedSubmit}
                   />
                 ) : sectionType === 'output' ? (
                   <OutputForm
@@ -839,12 +856,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             )}
           </div>
           
-          {/* Modal actions at bottom */}
-          <div className="modal-action border-t border-base-300 pt-4">
+          {/* Action buttons - fixed at bottom */}
+          <DialogFooter className="flex-shrink-0">
             <button 
               type="button" 
+              onClick={handleCancel} 
               className="btn btn-ghost"
-              onClick={handleCancel}
             >
               Cancel
             </button>
@@ -857,12 +874,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             >
               {editingIndex !== null ? 'Save Changes' : 'Add Item'}
             </button>
-          </div>
-        </div>
-        <form method="dialog" className="modal-backdrop">
-          <button>close</button>
-        </form>
-      </dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

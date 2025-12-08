@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck, FaPowerOff } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck, FaPowerOff, FaUpload } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
@@ -49,6 +49,9 @@ const SystemUpdate: React.FC = () => {
   const [isTurningOffAll, setIsTurningOffAll] = useState(false);
   const [turnOffResult, setTurnOffResult] = useState<{ count: number; errors: string[] } | null>(null);
   const [turnOffProgress, setTurnOffProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -205,6 +208,59 @@ const SystemUpdate: React.FC = () => {
       console.error('Error downloading config:', err);
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Restore config from tar.gz
+  const restoreConfig = async (file: File) => {
+    setIsRestoring(true);
+    setError(null);
+    setRestoreResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/config/restore', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setRestoreResult(data);
+        
+        // Ask user if they want to restart
+        if (confirm(t('system_update.restore_success_restart'))) {
+          await fetch('/api/restart', { method: 'POST' });
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        }
+      } else {
+        setError(data.message);
+      }
+      
+    } catch (err) {
+      setError(t('system_update.restore_failed'));
+      console.error('Error restoring config:', err);
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  // Handle file input change
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (confirm(t('system_update.confirm_restore'))) {
+        restoreConfig(file);
+      }
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -535,11 +591,13 @@ const SystemUpdate: React.FC = () => {
                 <p className="text-sm opacity-70 mb-4">
                   {t('system_update.backup_description')}
                 </p>
-                <div className="card-actions">
+                
+                {/* Backup/Restore buttons */}
+                <div className="card-actions gap-2">
                   <button
                     className="btn btn-primary"
                     onClick={downloadConfig}
-                    disabled={isDownloading || isUpdating}
+                    disabled={isDownloading || isUpdating || isRestoring}
                   >
                     {isDownloading ? (
                       <>
@@ -548,12 +606,56 @@ const SystemUpdate: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <FaFileArchive />
+                        <FaDownload />
                         {t('system_update.download_config')}
                       </>
                     )}
                   </button>
+                  
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isDownloading || isUpdating || isRestoring}
+                  >
+                    {isRestoring ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('system_update.restoring')}
+                      </>
+                    ) : (
+                      <>
+                        <FaUpload />
+                        {t('system_update.restore_config')}
+                      </>
+                    )}
+                  </button>
+                  
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".tar.gz,.tgz"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
                 </div>
+                
+                {/* Restore result */}
+                {restoreResult && (
+                  <div className={`alert ${restoreResult.validation_status === 'success' ? 'alert-success' : 'alert-warning'} mt-4`}>
+                    <FaCheck />
+                    <div className="text-sm">
+                      <p>{restoreResult.message}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {t('system_update.backup_created')}: {restoreResult.backup_path}
+                      </p>
+                      {restoreResult.validation_status === 'warning' && (
+                        <p className="text-xs mt-1">{restoreResult.validation_message}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="alert alert-info mt-4">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -561,6 +663,7 @@ const SystemUpdate: React.FC = () => {
                   <div className="text-sm">
                     <p>{t('system_update.backup_info_1')}</p>
                     <p>{t('system_update.backup_info_2')}</p>
+                    <p className="mt-2 font-semibold">{t('system_update.restore_info')}</p>
                   </div>
                 </div>
               </div>

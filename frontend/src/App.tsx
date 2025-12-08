@@ -6,6 +6,7 @@ import OutputsView from './components/OutputsView';
 import InputsView from './components/InputsView';
 import SensorView from './components/SensorView';
 import ModbusView from './components/ModbusView';
+import ModbusHelper from './components/ModbusHelper';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
@@ -265,6 +266,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <ModbusView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/modbus-helper" element={
+          <ProtectedRoute>
+            <Layout>
+              <ModbusHelper />
             </Layout>
           </ProtectedRoute>
         } />

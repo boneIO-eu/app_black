@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
-import { sanitizeId } from './helpers/idValidation';
+import { FaPlus } from 'react-icons/fa';
+import { useTranslation } from '@/hooks/useTranslation';
+import ActionFields, { validateAction } from './ActionFields';
 
 interface Area {
   id: string;
@@ -21,6 +22,7 @@ interface EventFormProps {
   allCovers?: any[];
   allAreas?: Area[];
   onValidationChange?: (hasErrors: boolean) => void;
+  attemptedSubmit?: boolean; // Czy użytkownik próbował zapisać formularz
 }
 
 const EventForm: React.FC<EventFormProps> = ({ 
@@ -33,8 +35,10 @@ const EventForm: React.FC<EventFormProps> = ({
   allCovers = [],
   allAreas = [],
   editingIndex,
-  onValidationChange
+  onValidationChange,
+  attemptedSubmit = false
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'long'>('basic');
 
   // Extract enums from schema for dropdowns
@@ -74,30 +78,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, [field]: value });
   };
 
-  // Validate action - check if required fields are filled
-  const validateAction = (action: any): string | null => {
-    if (!action.action) return 'Action type is required';
-    
-    const actionType = action.action.toLowerCase();
-    
-    if (actionType === 'output' || actionType === 'output_over_mqtt') {
-      if (!action.pin) return 'Output is required for output actions';
-    }
-    
-    if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-      if (!action.pin) return 'Cover is required for cover actions';
-    }
-    
-    if (actionType === 'mqtt') {
-      if (!action.topic) return 'Topic is required for MQTT actions';
-    }
-    
-    if (actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') {
-      if (!action.boneio_id) return 'BoneIO ID is required for remote actions';
-    }
-    
-    return null;
-  };
+  // Validate action using imported function
 
   // Get all validation errors
   const getValidationErrors = (): string[] => {
@@ -106,7 +87,7 @@ const EventForm: React.FC<EventFormProps> = ({
     ['single', 'double', 'long'].forEach((type) => {
       const actions = data.actions?.[type] || [];
       actions.forEach((action: any, index: number) => {
-        const error = validateAction(action);
+        const error = validateAction(action, t);
         if (error) {
           errors.push(`${type.charAt(0).toUpperCase() + type.slice(1)} action ${index + 1}: ${error}`);
         }
@@ -150,7 +131,7 @@ const EventForm: React.FC<EventFormProps> = ({
     if (!newActions[actionType]) {
       newActions[actionType] = [];
     }
-    newActions[actionType].push({ action: 'mqtt' });
+    newActions[actionType].push({ action: 'output' });
     onChange({ ...data, actions: newActions });
   };
 
@@ -163,278 +144,28 @@ const EventForm: React.FC<EventFormProps> = ({
   };
 
   const renderActionFields = (type: 'single' | 'double' | 'long', action: any, index: number) => {
-    const actionType = action.action || 'mqtt';
-
     return (
-      <div key={index} className="border border-base-300 rounded-lg p-4 mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <h4 className="font-medium">Action {index + 1}</h4>
-          <button
-            onClick={() => removeAction(type, index)}
-            className="btn btn-ghost btn-xs text-error"
-          >
-            <FaTrash />
-          </button>
-        </div>
-
-        <div className="form-control mb-3">
-          <label className="label">
-            <span className="label-text font-medium">Action Type</span>
-          </label>
-          <select
-            className="select ed w-full"
-            value={actionType}
-            onChange={(e) => updateAction(type, index, 'action', e.target.value)}
-          >
-            {actionTypeOptions.map((actionType: string) => (
-              <option key={actionType} value={actionType}>
-                {actionType.split('_').map(word =>
-                  word.charAt(0).toUpperCase() + word.slice(1)
-                ).join(' ')}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(actionType === 'cover' || actionType === 'cover_over_mqtt') && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Cover</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              >
-                <option value="">Select cover...</option>
-                {allCovers
-                  .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                  .map((cover: any) => {
-                    const id = cover.id;
-                    const name = cover.name || id;
-                    const label = name !== id ? `${name} - ${id}` : id;
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Cover Action</span>
-              </label>
-              <select
-                className="select ed w-full"
-                value={action.action_cover || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
-              >
-                {actionCoverOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'output' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Output</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              >
-                <option value="">Select output...</option>
-                {allOutputs
-                  .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
-                  .map((output: any) => {
-                    const id = output.id || output.boneio_output;
-                    const name = output.name || id;
-                    const label = name !== id ? `${name} - ${id}` : id;
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Action Output</span>
-              </label>
-              <select
-                className="select ed w-full"
-                value={action.action_output || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
-              >
-                {actionOutputOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">MQTT Topic</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., boneio/input/IN_48"
-                value={action.topic || ''}
-                onChange={(e) => updateAction(type, index, 'topic', e.target.value)}
-              />
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">MQTT Message</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="Message to send"
-                value={action.action_mqtt_msg || ''}
-                onChange={(e) => updateAction(type, index, 'action_mqtt_msg', e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        {actionType === 'output_over_mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">BoneIO ID</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., boneio_12345"
-                value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
-              />
-              <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Output ID</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., light_kitchen or OUT_01"
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">Output ID on the remote BoneIO device</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Action Output</span>
-              </label>
-              <select
-                className="select ed w-full"
-                value={action.action_output || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
-              >
-                {actionOutputOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'cover_over_mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">BoneIO ID</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., boneio_12345"
-                value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
-              />
-              <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Cover ID (pin)</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., cover_living_room"
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">Cover ID on the remote BoneIO device</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">Cover Action</span>
-              </label>
-              <select
-                className="select ed w-full"
-                value={action.action_cover || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
-              >
-                {actionCoverOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        )}
-      </div>
+      <ActionFields
+        key={index}
+        action={action}
+        index={index}
+        onUpdate={(field, value) => updateAction(type, index, field, value)}
+        onRemove={() => removeAction(type, index)}
+        allOutputs={allOutputs}
+        allCovers={allCovers}
+        allAreas={allAreas}
+        actionTypeOptions={actionTypeOptions}
+        actionOutputOptions={actionOutputOptions}
+        actionCoverOptions={actionCoverOptions}
+        showValidation={attemptedSubmit}
+      />
     );
   };
 
   return (
     <div className="space-y-4">
-      {/* Validation Errors - sticky at top */}
-      {validationErrors.length > 0 && (
+      {/* Validation Errors - sticky at top - pokazuj tylko gdy użytkownik próbował zapisać */}
+      {attemptedSubmit && validationErrors.length > 0 && (
         <div className="alert alert-error sticky top-0 z-10 shadow-lg">
           <div>
             <h3 className="font-bold">Validation Errors ({validationErrors.length}):</h3>
@@ -621,12 +352,14 @@ const EventForm: React.FC<EventFormProps> = ({
             </button>
           </div>
           
-          {data.actions?.single?.map((action: any, index: number) => 
-            renderActionFields('single', action, index)
-          ) || (
+          {data.actions?.single && data.actions.single.length > 0 ? (
+            data.actions.single.map((action: any, index: number) => 
+              renderActionFields('single', action, index)
+            )
+          ) : (
             <div className="text-center py-8 text-base-content/60">
-              <p>No single press actions configured</p>
-              <p className="text-sm">Click "Add Action" to create your first action</p>
+              <p>{t('event_form.no_single_actions')}</p>
+              <p className="text-sm">{t('event_form.click_add_action')}</p>
             </div>
           )}
         </div>
@@ -646,12 +379,14 @@ const EventForm: React.FC<EventFormProps> = ({
             </button>
           </div>
           
-          {data.actions?.double?.map((action: any, index: number) => 
-            renderActionFields('double', action, index)
-          ) || (
+          {data.actions?.double && data.actions.double.length > 0 ? (
+            data.actions.double.map((action: any, index: number) => 
+              renderActionFields('double', action, index)
+            )
+          ) : (
             <div className="text-center py-8 text-base-content/60">
-              <p>No double press actions configured</p>
-              <p className="text-sm">Click "Add Action" to create your first action</p>
+              <p>{t('event_form.no_double_actions')}</p>
+              <p className="text-sm">{t('event_form.click_add_action')}</p>
             </div>
           )}
         </div>
@@ -671,12 +406,14 @@ const EventForm: React.FC<EventFormProps> = ({
             </button>
           </div>
           
-          {data.actions?.long?.map((action: any, index: number) => 
-            renderActionFields('long', action, index)
-          ) || (
+          {data.actions?.long && data.actions.long.length > 0 ? (
+            data.actions.long.map((action: any, index: number) => 
+              renderActionFields('long', action, index)
+            )
+          ) : (
             <div className="text-center py-8 text-base-content/60">
-              <p>No long press actions configured</p>
-              <p className="text-sm">Click "Add Action" to create your first action</p>
+              <p>{t('event_form.no_long_actions')}</p>
+              <p className="text-sm">{t('event_form.click_add_action')}</p>
             </div>
           )}
         </div>
