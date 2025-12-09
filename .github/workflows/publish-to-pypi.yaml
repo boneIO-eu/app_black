@@ -72,23 +72,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pdm-project/setup-pdm@v4
-        name: Setup Python 3.13 and PDM
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-          architecture: x64
-          enable-pep582: true
 
-      - name: Install dependencies
+      - name: Install build tools
         run: |
-          python -m pip install -U twine PyYAML
+          python -m pip install -U pip build twine PyYAML
 
       - name: Generate JSON Schemas
         run: |
           python boneio/core/config/schema_converter.py
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'  # Latest LTS
           cache: 'npm'
@@ -102,9 +100,11 @@ jobs:
 
       - name: Build Package
         run: |
-          pdm build
+          python -m build
 
       - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          pdm plugin add pdm-publish
-          pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
+          python -m twine upload dist/*
