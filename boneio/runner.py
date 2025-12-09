@@ -110,6 +110,7 @@ async def async_run(
         device_type=main_config.get("device_type", "boneIO Black"),
         network_info=network_state,
         is_web_active=web_active,
+        web_port=web_config.get("port", 8090),
         topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
