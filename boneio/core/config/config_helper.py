@@ -37,6 +37,7 @@ class ConfigHelper:
         ha_discovery_prefix: str = HOMEASSISTANT,
         network_info: dict = {},
         is_web_active: bool = False,
+        web_port: int = 8090,
         config_file_path: str | None = None,
     ):
         self._name = name
@@ -45,6 +46,7 @@ class ConfigHelper:
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._device_type = device_type
+        self._web_port = web_port
         self._fetch_old_discovery = None
         self._autodiscovery_messages = {
             SWITCH: {},
@@ -106,6 +108,10 @@ class ConfigHelper:
     @property
     def is_web_active(self) -> bool:
         return self._is_web_active
+
+    @property
+    def web_port(self) -> int:
+        return self._web_port
 
     @property
     def topic_prefix(self) -> str:

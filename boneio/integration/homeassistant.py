@@ -20,6 +20,7 @@ from boneio.const import (
     DOUBLE,
     INPUT,
     INPUT_SENSOR,
+    IP,
     LONG,
     NUMERIC,
     OFF,
@@ -68,8 +69,8 @@ def ha_availabilty_message(
     topic = config_helper.topic_prefix
     device_name = config_helper.name
     model = config_helper.device_type
-    if config_helper.is_web_active and config_helper.network_info:
-        web_url = f"http://{config_helper.network_info.get('ip', 'localhost')}:9000"
+    if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
+        web_url = f"http://{config_helper.network_info[IP]}:{config_helper.web_port}"
     
     web_url_dict = {
         "configuration_url": web_url
