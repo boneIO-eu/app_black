@@ -1119,13 +1119,13 @@ boneio:
       coerce:
         - version_to_str
       required: False
-      allowed: ["0.7", "0.8", 0.7, 0.8]
+      allowed: ["0.4", "0.7", "0.8", 0.4, 0.7, 0.8]
       meta:
         label: BoneIO Black Hardware version
     device_type:
       type: string
       required: False
-      allowed: ['32x10A', '32x10', '32', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '24x16a']
+      allowed: ['32x10A', '32x10', '32', '32x5A', '32x5', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '32x5a', '24x16a']
       coerce:
         - str
         - lower

@@ -222,7 +222,7 @@
   },
   "sections": {
     "areas": "Obszary/Pomieszczenia",
-    "binary_sensor": "Czujniki Binarnie",
+    "binary_sensor": "Czujniki Binarne",
     "event": "Encje zdarzeń",
     "output": "Wyjścia",
     "output_group": "Grupy Wyjść",
@@ -233,7 +233,16 @@
     "boneio": "boneIO",
     "mqtt": "MQTT",
     "web": "Serwer Web",
-    "modbus": "Modbus"
+    "modbus": "Modbus",
+    "mcp23017": "MCP23017 (Zaawansowane)"
+  },
+  "mcp": {
+    "info_title": "Konfiguracja MCP23017",
+    "info_description": "Zmień adresy I2C ekspanderów GPIO. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
+    "left_description": "Lewy ekspander GPIO (OUT_01-OUT_16 dla 32x10, OUT_01-OUT_12 dla 24x16)",
+    "right_description": "Prawy ekspander GPIO (OUT_17-OUT_32 dla 32x10, OUT_13-OUT_24 dla 24x16)",
+    "address": "Adres I2C",
+    "address_hint": "Wybierz adres I2C dla tego ekspandera"
   },
   "covers": {
     "platform": "Platforma",

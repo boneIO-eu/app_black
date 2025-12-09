@@ -9,14 +9,24 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
-            "description": "Id to use in HA if needed.",
+            "description": "Cover ID",
             "title": "Id"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "restore_state": {
             "oneOf": [
@@ -66,8 +76,8 @@
           },
           "open_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
@@ -75,8 +85,8 @@
           },
           "close_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
@@ -84,8 +94,8 @@
           },
           "tilt_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
@@ -93,8 +103,8 @@
           },
           "actuator_activation_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
@@ -144,7 +154,6 @@
           }
         },
         "required": [
-          "id",
           "open_relay",
           "close_relay",
           "open_time",

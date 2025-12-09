@@ -96,6 +96,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleEdit = (index: number) => {
     console.log('🔧 ArrayTableWidget: handleEdit called for index:', index);
     const item = { ...value[index] };
+    
+    // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
+    // This prevents duplicate fields when user edits old config with 'id' and form uses 'name'
+    if ((sectionType === 'binary_sensor' || sectionType === 'event') && item.id && !item.name) {
+      item.name = item.id;
+      delete item.id;
+    }
+    
     setEditingItem(item);
     setEditingIndex(index);
     setAttemptedSubmit(false); // Reset przy otwieraniu modala
@@ -222,11 +230,18 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return;
     }
     
+    // For binary_sensor and event, ensure we don't have both 'id' and 'name' fields
+    // Remove legacy 'id' field if 'name' exists
+    let cleanedData = { ...dataToSave };
+    if ((sectionType === 'binary_sensor' || sectionType === 'event') && cleanedData.name && cleanedData.id) {
+      delete cleanedData.id;
+    }
+    
     const newValue = [...value];
     if (editingIndex !== null) {
-      newValue[editingIndex] = dataToSave;
+      newValue[editingIndex] = cleanedData;
     } else {
-      newValue.push(dataToSave);
+      newValue.push(cleanedData);
     }
     // Only call onChange when actually saving, not during editing
     console.log('🔄 ArrayTableWidget: calling onChange with:', newValue);

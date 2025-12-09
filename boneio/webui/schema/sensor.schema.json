@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -18,29 +18,37 @@
             "description": "Id to use in HA if needed. Default to address.",
             "title": "Id"
           },
+          "name": {
+            "type": "string",
+            "description": "Display name for the sensor in Home Assistant.",
+            "title": "Name"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/room where the sensor is located. Used for HA device grouping.",
+            "title": "Area"
+          },
           "platform": {
             "type": "string",
-            "default": "dallas",
+            "default": "gpio_onewire",
             "enum": [
-              "dallas"
+              "gpio_onewire",
+              "ds2482"
             ],
             "examples": [
-              "dallas"
+              "gpio_onewire"
             ],
-            "description": "Platform of sensor to use. Currently only Dallas platform is supported.",
+            "description": "Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.",
             "title": "Platform"
           },
           "address": {
-            "type": [
-              "integer",
-              "string"
-            ],
-            "description": "Address of Dallas device",
+            "type": "string",
+            "description": "Address of Dallas device (e.g. 28-0000098c7df0)",
             "title": "Address"
           },
           "bus_id": {
             "type": "string",
-            "description": "Put bus_id (either dallas or ds2482) defined id if you want to add DS18B20 connected via DS2482. Defaults to Dallas bus id.",
+            "description": "DS2482 bus ID (only for ds2482 platform). References ds2482 section id.",
             "title": "Bus id"
           },
           "show_in_ha": {
@@ -77,8 +85,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -86,8 +94,8 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "60s",

@@ -9,13 +9,23 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area",
+            "title": "Area"
+          },
           "id": {
             "type": "string",
-            "description": "Id of Modbus sensor",
+            "description": "Device ID",
             "title": "Id"
           },
           "address": {
@@ -83,8 +93,8 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "minimum": 1000,
@@ -94,8 +104,8 @@
           },
           "sensors_filters": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "temperature": {
@@ -110,8 +120,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -129,8 +139,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -147,15 +157,15 @@
           },
           "data": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "width": {
                 "type": [
                   "integer",
-                  "string",
-                  "number"
+                  "number",
+                  "string"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
@@ -163,8 +173,8 @@
               "length": {
                 "type": [
                   "integer",
-                  "string",
-                  "number"
+                  "number",
+                  "string"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -180,7 +190,6 @@
           }
         },
         "required": [
-          "id",
           "address",
           "model"
         ]

@@ -55,7 +55,6 @@ input_mapping:
     pin: P9_15
   in_25:
     pin: P9_14
-  ##
   in_26:
     pin: P9_13
   in_27:

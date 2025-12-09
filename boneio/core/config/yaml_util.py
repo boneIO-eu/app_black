@@ -228,7 +228,8 @@ def normalize_board_name(name: str) -> str:
     """Normalize board name to a standard format.
     
     Examples:
-        32x10a, 32x10A, 32 -> 32_10
+        32x10a, 32x10A, 32x10 -> 32_10
+        32x5a, 32x5A, 32x5 -> 32_5
         cover -> cover
         cover mix, cm -> cover_mix
         24x16A, 24x16, 24 -> 24_16
@@ -246,7 +247,11 @@ def normalize_board_name(name: str) -> str:
     if name == 'cover':
         return 'cover'
     
-    # Handle 32x10A variations
+    # Handle 32x5A variations (must check before 32x10 since both start with 32)
+    if name in ('32x5a', '32x5'):
+        return '32_5'
+    
+    # Handle 32x10A variations (default for 32 without suffix)
     if name.startswith('32'):
         return '32_10'
     

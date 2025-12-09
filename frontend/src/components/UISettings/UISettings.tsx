@@ -11,6 +11,7 @@ import MqttForm from './MqttForm';
 import WebServerForm from './WebServerForm';
 import ModbusForm from './ModbusForm';
 import LoggerForm from './LoggerForm';
+import Mcp23017Form from './Mcp23017Form';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -98,10 +99,10 @@ export default function UISettings() {
     { name: 'mqtt', title: t('sections.mqtt'), icon: '📡' },
     { name: 'web', title: t('sections.web'), icon: '🌐' },
     { name: 'modbus', title: t('sections.modbus'), icon: '🔌' },
+    { name: 'mcp23017', title: t('sections.mcp23017'), icon: '🔗' },
     // { name: 'oled', title: 'OLED Display', icon: '📺' },
     // { name: 'lm75', title: 'LM75 Sensors', icon: '🌡️' },
     // { name: 'ina219', title: 'INA219 Sensors', icon: '⚡' },
-    // { name: 'mcp23017', title: 'MCP23017', icon: '🔗' },
     // { name: 'mcp9808', title: 'MCP9808', icon: '🌡️' },
     // { name: 'pcf8575', title: 'PCF8575', icon: '🔗' },
     // { name: 'pca9685', title: 'PCA9685', icon: '📡' },
@@ -336,6 +337,26 @@ export default function UISettings() {
             sectionInfo.uiSchema || {}
           );
         }
+      }
+      
+      // Special handling for mcp23017 - convert addresses to hex format
+      if (sectionName === 'mcp23017' && Array.isArray(filteredData)) {
+        filteredData = filteredData.map((entry: any) => {
+          if (entry && entry.address !== undefined) {
+            let addr = entry.address;
+            // Convert number to hex string
+            if (typeof addr === 'number') {
+              addr = `0x${addr.toString(16)}`;
+            } else if (typeof addr === 'string' && !addr.startsWith('0x')) {
+              const num = parseInt(addr, 10);
+              if (!isNaN(num)) {
+                addr = `0x${num.toString(16)}`;
+              }
+            }
+            return { ...entry, address: addr };
+          }
+          return entry;
+        });
       }
       
       // Convert to YAML format
@@ -1143,6 +1164,11 @@ export default function UISettings() {
                           data={formData[activeSection]}
                           onChange={(data) => handleSectionChange(activeSection, data)}
                         />
+                      ) : activeSection === 'mcp23017' ? (
+                        <Mcp23017Form
+                          data={formData[activeSection] || []}
+                          onChange={(data) => handleSectionChange(activeSection, data)}
+                        />
                       ) : (
                         <div className="alert alert-warning">
                           <span>No form available for section: {activeSection}</span>
@@ -1205,6 +1231,11 @@ export default function UISettings() {
                     ) : activeSection === 'logger' ? (
                       <LoggerForm
                         data={formData[activeSection]}
+                        onChange={(data) => handleSectionChange(activeSection, data)}
+                      />
+                    ) : activeSection === 'mcp23017' ? (
+                      <Mcp23017Form
+                        data={formData[activeSection] || []}
                         onChange={(data) => handleSectionChange(activeSection, data)}
                       />
                     ) : (

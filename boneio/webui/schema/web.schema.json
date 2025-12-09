@@ -4,9 +4,9 @@
   "properties": {
     "web": {
       "type": [
+        "object",
         "null",
-        "string",
-        "object"
+        "string"
       ],
       "properties": {
         "port": {
@@ -20,9 +20,9 @@
         },
         "auth": {
           "type": [
+            "object",
             "null",
-            "string",
-            "object"
+            "string"
           ],
           "default": {},
           "properties": {

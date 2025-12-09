@@ -233,7 +233,16 @@
     "boneio": "boneIO",
     "mqtt": "MQTT",
     "web": "Web Server",
-    "modbus": "Modbus"
+    "modbus": "Modbus",
+    "mcp23017": "MCP23017 (Advanced)"
+  },
+  "mcp": {
+    "info_title": "MCP23017 Configuration",
+    "info_description": "Change I2C addresses of GPIO expanders. Default addresses are set automatically by board configuration. Change only if your board has different addresses.",
+    "left_description": "Left GPIO expander (OUT_01-OUT_16 for 32x10, OUT_01-OUT_12 for 24x16)",
+    "right_description": "Right GPIO expander (OUT_17-OUT_32 for 32x10, OUT_13-OUT_24 for 24x16)",
+    "address": "I2C Address",
+    "address_hint": "Select I2C address for this expander"
   },
   "covers": {
     "platform": "Platform",

@@ -17,7 +17,6 @@ interface Action {
 }
 
 interface BinarySensorData {
-  id?: string;
   name?: string;
   pin?: string;
   boneio_input?: string;
