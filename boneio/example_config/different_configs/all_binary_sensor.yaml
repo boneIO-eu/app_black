@@ -1,10 +1,10 @@
-- id: IN_01
+- name: IN_01
   boneio_input: IN_01
   actions:
     pressed:
       - action: output
         pin: OUT_01
-- id: IN_02
+- name: IN_02
   boneio_input: IN_02
   actions:
     pressed:

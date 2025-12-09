@@ -1,14 +1,14 @@
-- id: adc1
+- name: adc1
   pin: P9_33
-- id: adc2
+- name: adc2
   pin: P9_36
-- id: adc3
+- name: adc3
   pin: P9_35
-- id: adc4
+- name: adc4
   pin: P9_38
-- id: adc5
+- name: adc5
   pin: P9_37
-- id: adc6
+- name: adc6
   pin: P9_40
-- id: adc7
+- name: adc7
   pin: P9_39

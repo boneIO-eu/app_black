@@ -1,65 +1,65 @@
 # config to Cover board v0.4
-- id: cover_01_up
+- name: cover_01_up
   boneio_output: cover_01_up
-- id: cover_01_down
+- name: cover_01_down
   boneio_output: cover_01_down
-- id: cover_02_up
+- name: cover_02_up
   boneio_output: cover_02_up
-- id: cover_02_down
+- name: cover_02_down
   boneio_output: cover_02_down
-- id: cover_03_up
+- name: cover_03_up
   boneio_output: cover_03_up
-- id: cover_03_down
+- name: cover_03_down
   boneio_output: cover_03_down
-- id: cover_04_up
+- name: cover_04_up
   boneio_output: cover_04_up
-- id: cover_04_down
+- name: cover_04_down
   boneio_output: cover_04_down
-- id: cover_05_up
+- name: cover_05_up
   boneio_output: cover_05_up
-- id: cover_05_down
+- name: cover_05_down
   boneio_output: cover_05_down
-- id: cover_06_up
+- name: cover_06_up
   boneio_output: cover_06_up
-- id: cover_06_down
+- name: cover_06_down
   boneio_output: cover_06_down
-- id: cover_07_up
+- name: cover_07_up
   boneio_output: cover_07_up
-- id: cover_07_down
+- name: cover_07_down
   boneio_output: cover_07_down
-- id: cover_08_up
+- name: cover_08_up
   boneio_output: cover_08_up
-- id: cover_08_down
+- name: cover_08_down
   boneio_output: cover_08_down
-- id: cover_09_up
+- name: cover_09_up
   boneio_output: cover_09_up
-- id: cover_09_down
+- name: cover_09_down
   boneio_output: cover_09_down
-- id: cover_10_up
+- name: cover_10_up
   boneio_output: cover_10_up
-- id: cover_10_down
+- name: cover_10_down
   boneio_output: cover_10_down
-- id: cover_11_up
+- name: cover_11_up
   boneio_output: cover_11_up
-- id: cover_11_down
+- name: cover_11_down
   boneio_output: cover_11_down
-- id: cover_12_up
+- name: cover_12_up
   boneio_output: cover_12_up
-- id: cover_12_down
+- name: cover_12_down
   boneio_output: cover_12_down
-- id: cover_13_up
+- name: cover_13_up
   boneio_output: cover_13_up
-- id: cover_13_down
+- name: cover_13_down
   boneio_output: cover_13_down
-- id: cover_14_up
+- name: cover_14_up
   boneio_output: cover_14_up
-- id: cover_14_down
+- name: cover_14_down
   boneio_output: cover_14_down
-- id: cover_15_up
+- name: cover_15_up
   boneio_output: cover_15_up
-- id: cover_15_down
+- name: cover_15_down
   boneio_output: cover_15_down
-- id: cover_16_up
+- name: cover_16_up
   boneio_output: cover_16_up
-- id: cover_16_down
+- name: cover_16_down
   boneio_output: cover_16_down

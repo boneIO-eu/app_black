@@ -24,7 +24,7 @@
 #     double:
 #       - action: output
 #         pin: OUT_01
-- id: IN_03
+- name: IN_03
   boneio_input: IN_03
   actions:
     single:
@@ -35,7 +35,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover02
-- id: IN_04
+- name: IN_04
   boneio_input: IN_04
   actions:
     single:
@@ -46,7 +46,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover03
-- id: IN_05
+- name: IN_05
   boneio_input: IN_05
   actions:
     single:
@@ -57,7 +57,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover04
-- id: IN_06
+- name: IN_06
   boneio_input: IN_06
   actions:
     single:
@@ -68,7 +68,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover05
-- id: IN_07
+- name: IN_07
   boneio_input: IN_07
   actions:
     single:
@@ -79,7 +79,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover06
-- id: IN_08
+- name: IN_08
   boneio_input: IN_08
   actions:
     single:
@@ -90,7 +90,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover07
-- id: IN_09
+- name: IN_09
   boneio_input: IN_09
   actions:
     single:
@@ -101,7 +101,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover08
-- id: IN_10
+- name: IN_10
   boneio_input: IN_10
   actions:
     single:
@@ -112,7 +112,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover09
-- id: IN_11
+- name: IN_11
   boneio_input: IN_11
   actions:
     single:
@@ -123,7 +123,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover10
-- id: IN_12
+- name: IN_12
   boneio_input: IN_12
   actions:
     single:
@@ -134,7 +134,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover11
-- id: IN_13
+- name: IN_13
   boneio_input: IN_13
   actions:
     single:
@@ -145,7 +145,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover12
-- id: IN_14
+- name: IN_14
   boneio_input: IN_14
   actions:
     single:
@@ -156,7 +156,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover13
-- id: IN_15
+- name: IN_15
   boneio_input: IN_15
   actions:
     single:
@@ -167,7 +167,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover14
-- id: IN_16
+- name: IN_16
   boneio_input: IN_16
   actions:
     single:
@@ -178,7 +178,7 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover15
-- id: IN_17
+- name: IN_17
   boneio_input: IN_17
   actions:
     single:
@@ -189,64 +189,64 @@
       - action: cover
         action_cover: toggle_close
         pin: Cover16
-- id: IN_18
+- name: IN_18
   boneio_input: IN_18
-- id: IN_19
+- name: IN_19
   boneio_input: IN_19
-- id: IN_20
+- name: IN_20
   boneio_input: IN_20
-- id: IN_21
+- name: IN_21
   boneio_input: IN_21
-- id: IN_22
+- name: IN_22
   boneio_input: IN_22
-- id: IN_23
+- name: IN_23
   boneio_input: IN_23
-- id: IN_24
+- name: IN_24
   boneio_input: IN_24
-- id: IN_25
+- name: IN_25
   boneio_input: IN_25
-- id: IN_26
+- name: IN_26
   boneio_input: IN_26
-- id: IN_27
+- name: IN_27
   boneio_input: IN_27
-- id: IN_28
+- name: IN_28
   boneio_input: IN_28
-- id: IN_29
+- name: IN_29
   boneio_input: IN_29
-- id: IN_30
+- name: IN_30
   boneio_input: IN_30
-- id: IN_31
+- name: IN_31
   boneio_input: IN_31
-- id: IN_32
+- name: IN_32
   boneio_input: IN_32
-- id: IN_33
+- name: IN_33
   boneio_input: IN_33
-- id: IN_34
+- name: IN_34
   boneio_input: IN_34
-- id: IN_35
+- name: IN_35
   boneio_input: IN_35
-- id: IN_36
+- name: IN_36
   boneio_input: IN_36
-- id: IN_37
+- name: IN_37
   boneio_input: IN_37
-- id: IN_38
+- name: IN_38
   boneio_input: IN_38
-- id: IN_39
+- name: IN_39
   boneio_input: IN_39
 
-- id: IN_40
+- name: IN_40
   boneio_input: IN_40
-- id: IN_41
+- name: IN_41
   boneio_input: IN_41
-- id: IN_42
+- name: IN_42
   boneio_input: IN_42
-- id: IN_43
+- name: IN_43
   boneio_input: IN_43
-- id: IN_44
+- name: IN_44
   boneio_input: IN_44
-- id: IN_45
+- name: IN_45
   boneio_input: IN_45
-- id: IN_46
+- name: IN_46
   boneio_input: IN_46
 # - id: IN_47
 #   boneio_input: IN_47

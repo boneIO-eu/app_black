@@ -3,14 +3,14 @@
 # PINs are shared between event.yaml and binary_sensor.yaml.
 # Don't duplicate PINs.
 
-- id: IN_01
+- name: IN_01
   boneio_input: IN_01
   actions:
     pressed:
       - action: cover
         action_cover: toggle_open
         pin: Cover01
-- id: IN_02
+- name: IN_02
   boneio_input: IN_02
   actions:
     pressed:

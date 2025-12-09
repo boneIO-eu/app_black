@@ -1,1 +1,112 @@
-../32x10/binary_sensor.yaml
+## Default config for binary sensor entities.
+# Binary sensor entities send on/off message to Home Assistant and run on pressed and released action.
+# PINs are shared between event.yaml and binary_sensor.yaml.
+# Don't duplicate PINs.
+
+- name: IN_48
+  boneio_input: IN_48
+  actions:
+    pressed:
+      - action: output
+        pin: OUT_01
+- name: IN_49
+  boneio_input: IN_49
+  actions:
+    pressed:
+      - action: output
+        pin: OUT_02
+
+# - id: IN_01
+#   boneio_input: IN_01
+# - id: IN_02
+#   boneio_input: IN_02
+# - id: IN_03
+#   boneio_input: IN_03
+# - id: IN_04
+#   boneio_input: IN_04
+# - id: IN_05
+#   boneio_input: IN_05
+# - id: IN_06
+#   boneio_input: IN_06
+# - id: IN_07
+#   boneio_input: IN_07
+# - id: IN_08
+#   boneio_input: IN_08
+# - id: IN_09
+#   boneio_input: IN_09
+# - id: IN_10
+#   boneio_input: IN_10
+# - id: IN_11
+#   boneio_input: IN_11
+# - id: IN_12
+#   boneio_input: IN_12
+# - id: IN_13
+#   boneio_input: IN_13
+# - id: IN_14
+#   boneio_input: IN_14
+# - id: IN_15
+#   boneio_input: IN_15
+# - id: IN_16
+#   boneio_input: IN_16
+# - id: IN_17
+#   boneio_input: IN_17
+# - id: IN_18
+#   boneio_input: IN_18
+# - id: IN_19
+#   boneio_input: IN_19
+# - id: IN_20
+#   boneio_input: IN_20
+# - id: IN_21
+#   boneio_input: IN_21
+# - id: IN_22
+#   boneio_input: IN_22
+# - id: IN_23
+#   boneio_input: IN_23
+# - id: IN_24
+#   boneio_input: IN_24
+# - id: IN_25
+#   boneio_input: IN_25
+# - id: IN_26
+#   boneio_input: IN_26
+# - id: IN_27
+#   boneio_input: IN_27
+# - id: IN_28
+#   boneio_input: IN_28
+# - id: IN_29
+#   boneio_input: IN_29
+# - id: IN_30
+#   boneio_input: IN_30
+# - id: IN_31
+#   boneio_input: IN_31
+# - id: IN_32
+#   boneio_input: IN_32
+# - id: IN_33
+#   boneio_input: IN_33
+# - id: IN_34
+#   boneio_input: IN_34
+# - id: IN_35
+#   boneio_input: IN_35
+# - id: IN_36
+#   boneio_input: IN_36
+# - id: IN_37
+#   boneio_input: IN_37
+# - id: IN_38
+#   boneio_input: IN_38
+# - id: IN_39
+#   boneio_input: IN_39
+# - id: IN_40
+#   boneio_input: IN_40
+# - id: IN_41
+#   boneio_input: IN_41
+# - id: IN_42
+#   boneio_input: IN_42
+# - id: IN_43
+#   boneio_input: IN_43
+# - id: IN_44
+#   boneio_input: IN_44
+# - id: IN_45
+#   boneio_input: IN_45
+# - id: IN_46
+#   boneio_input: IN_46
+# - id: IN_47
+#   boneio_input: IN_47

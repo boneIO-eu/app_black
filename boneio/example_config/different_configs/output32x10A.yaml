@@ -1,191 +1,191 @@
 # config to Relay board 32x10 v0.4
-- id: OUT_01
+- name: OUT_01
   kind: mcp
   mcp_id: mcp2
   pin: 7
   output_type: light
 
-- id: OUT_02
+- name: OUT_02
   kind: mcp
   mcp_id: mcp2
   pin: 6
   output_type: light
 
-- id: OUT_03
+- name: OUT_03
   kind: mcp
   mcp_id: mcp2
   pin: 5
   output_type: light
 
-- id: OUT_04
+- name: OUT_04
   kind: mcp
   mcp_id: mcp2
   pin: 4
   output_type: light
 
-- id: OUT_05
+- name: OUT_05
   kind: mcp
   mcp_id: mcp2
   pin: 3
   output_type: light
 
-- id: OUT_06
+- name: OUT_06
   kind: mcp
   mcp_id: mcp2
   pin: 2
   output_type: light
 
-- id: OUT_07
+- name: OUT_07
   kind: mcp
   mcp_id: mcp2
   pin: 1
   output_type: light
 
-- id: OUT_08
+- name: OUT_08
   kind: mcp
   mcp_id: mcp2
   pin: 0
   output_type: light
 
-- id: OUT_09
+- name: OUT_09
   kind: mcp
   mcp_id: mcp1
   pin: 7
   output_type: light
 
-- id: OUT_10
+- name: OUT_10
   kind: mcp
   mcp_id: mcp1
   pin: 6
   output_type: light
 
-- id: OUT_11
+- name: OUT_11
   kind: mcp
   mcp_id: mcp1
   pin: 5
   output_type: light
 
-- id: OUT_12
+- name: OUT_12
   kind: mcp
   mcp_id: mcp1
   pin: 4
   output_type: light
 
-- id: OUT_13
+- name: OUT_13
   kind: mcp
   mcp_id: mcp1
   pin: 3
   output_type: light
 
-- id: OUT_14
+- name: OUT_14
   kind: mcp
   mcp_id: mcp1
   pin: 2
   output_type: light
 
-- id: OUT_15
+- name: OUT_15
   kind: mcp
   mcp_id: mcp1
   pin: 1
   output_type: light
 
-- id: OUT_16
+- name: OUT_16
   kind: mcp
   mcp_id: mcp1
   pin: 0
   output_type: light
 
-- id: OUT_17
+- name: OUT_17
   kind: mcp
   mcp_id: mcp2
   pin: 8
   output_type: light
 
-- id: OUT_18
+- name: OUT_18
   kind: mcp
   mcp_id: mcp2
   pin: 9
   output_type: light
 
-- id: OUT_19
+- name: OUT_19
   kind: mcp
   mcp_id: mcp2
   pin: 10
   output_type: light
 
-- id: OUT_20
+- name: OUT_20
   kind: mcp
   mcp_id: mcp2
   pin: 11
   output_type: light
 
-- id: OUT_21
+- name: OUT_21
   kind: mcp
   mcp_id: mcp2
   pin: 12
   output_type: light
 
-- id: OUT_22
+- name: OUT_22
   kind: mcp
   mcp_id: mcp2
   pin: 13
   output_type: light
 
-- id: OUT_23
+- name: OUT_23
   kind: mcp
   mcp_id: mcp2
   pin: 14
   output_type: light
 
-- id: OUT_24
+- name: OUT_24
   kind: mcp
   mcp_id: mcp2
   pin: 15
   output_type: light
 
-- id: OUT_25
+- name: OUT_25
   kind: mcp
   mcp_id: mcp1
   pin: 8
   output_type: light
 
-- id: OUT_26
+- name: OUT_26
   kind: mcp
   mcp_id: mcp1
   pin: 9
   output_type: light
 
-- id: OUT_27
+- name: OUT_27
   kind: mcp
   mcp_id: mcp1
   pin: 10
   output_type: light
 
-- id: OUT_28
+- name: OUT_28
   kind: mcp
   mcp_id: mcp1
   pin: 11
   output_type: light
 
-- id: OUT_29
+- name: OUT_29
   kind: mcp
   mcp_id: mcp1
   pin: 12
   output_type: light
 
-- id: OUT_30
+- name: OUT_30
   kind: mcp
   mcp_id: mcp1
   pin: 13
   output_type: light
 
-- id: OUT_31
+- name: OUT_31
   kind: mcp
   mcp_id: mcp1
   pin: 14
   output_type: light
 
-- id: OUT_32
+- name: OUT_32
   kind: mcp
   mcp_id: mcp1
   pin: 15

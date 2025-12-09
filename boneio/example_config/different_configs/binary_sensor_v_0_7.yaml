@@ -2,7 +2,7 @@
 #  pin: P8_38
 #  gpio_mode: gpio_pu
 #  detection_type: new
-- id: IN_26
+- name: IN_26
   detection_type: new
   pin: P8_7
   actions:

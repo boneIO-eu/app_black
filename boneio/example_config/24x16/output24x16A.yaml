@@ -1,96 +1,96 @@
 # config to Relay board 24x16 v0.4
-- id: OUT_01
+- name: OUT_01
   boneio_output: OUT_01
   output_type: switch
 
-- id: OUT_02
+- name: OUT_02
   boneio_output: OUT_02
   output_type: switch
 
-- id: OUT_03
+- name: OUT_03
   boneio_output: OUT_03
   output_type: switch
 
-- id: OUT_04
+- name: OUT_04
   boneio_output: OUT_04
   output_type: switch
 
-- id: OUT_05
+- name: OUT_05
   boneio_output: OUT_05
   output_type: switch
 
-- id: OUT_06
+- name: OUT_06
   boneio_output: OUT_06
   output_type: switch
 
-- id: OUT_07
+- name: OUT_07
   boneio_output: OUT_07
   output_type: switch
 
-- id: OUT_08
+- name: OUT_08
   boneio_output: OUT_08
   output_type: switch
 
-- id: OUT_09
+- name: OUT_09
   boneio_output: OUT_09
   output_type: switch
 
-- id: OUT_10
+- name: OUT_10
   boneio_output: OUT_10
   output_type: switch
 
-- id: OUT_11
+- name: OUT_11
   boneio_output: OUT_11
   output_type: switch
 
-- id: OUT_12
+- name: OUT_12
   boneio_output: OUT_12
   output_type: switch
 
-- id: OUT_13
+- name: OUT_13
   boneio_output: OUT_13
   output_type: switch
 
-- id: OUT_14
+- name: OUT_14
   boneio_output: OUT_14
   output_type: switch
 
-- id: OUT_15
+- name: OUT_15
   boneio_output: OUT_15
   output_type: switch
 
-- id: OUT_16
+- name: OUT_16
   boneio_output: OUT_16
   output_type: switch
 
-- id: OUT_17
+- name: OUT_17
   boneio_output: OUT_17
   output_type: switch
 
-- id: OUT_18
+- name: OUT_18
   boneio_output: OUT_18
   output_type: switch
 
-- id: OUT_19
+- name: OUT_19
   boneio_output: OUT_19
   output_type: switch
 
-- id: OUT_20
+- name: OUT_20
   boneio_output: OUT_20
   output_type: switch
 
-- id: OUT_21
+- name: OUT_21
   boneio_output: OUT_21
   output_type: switch
 
-- id: OUT_22
+- name: OUT_22
   boneio_output: OUT_22
   output_type: switch
 
-- id: OUT_23
+- name: OUT_23
   boneio_output: OUT_23
   output_type: switch
 
-- id: OUT_24
+- name: OUT_24
   boneio_output: OUT_24
   output_type: switch

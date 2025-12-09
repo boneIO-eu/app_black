@@ -1,53 +1,53 @@
-- id: Cover01
+- name: Cover01
   open_relay: cover_01_up
   close_relay: cover_01_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover02
+- name: Cover02
   open_relay: cover_02_up
   close_relay: cover_02_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover03
+- name: Cover03
   open_relay: cover_03_up
   close_relay: cover_03_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover04
+- name: Cover04
   open_relay: cover_04_up
   close_relay: cover_04_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover05
+- name: Cover05
   open_relay: cover_05_up
   close_relay: cover_05_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover06
+- name: Cover06
   open_relay: cover_06_up
   close_relay: cover_06_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover07
+- name: Cover07
   open_relay: cover_07_up
   close_relay: cover_07_down
   open_time: 30s
   close_time: 30s
   show_in_ha: yes
   restore_state: yes
-- id: Cover08
+- name: Cover08
   open_relay: cover_08_up
   close_relay: cover_08_down
   open_time: 30s
