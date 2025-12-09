@@ -18,14 +18,16 @@ on:
       - edited
 
 jobs:
-  build-n-publish:
-    name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
-    runs-on: ubuntu-22.04  # Using Ubuntu 20.04 which supports Python 3.7
+  # Legacy build for v0.* tags (Python 3.7, Debian 10 compatibility)
+  build-legacy:
+    name: Build Legacy (Python 3.7) for v0.* tags
+    runs-on: ubuntu-20.04
+    if: startsWith(github.ref, 'refs/tags/v0.')
     steps:
       - uses: actions/checkout@master
 
       - uses: pdm-project/setup-pdm@v3
-        name: Setup Python and PDM
+        name: Setup Python 3.7 and PDM
         with:
           python-version: 3.7
           architecture: x64
@@ -43,7 +45,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'  # Using LTS version of Node.js
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -53,13 +55,56 @@ jobs:
           npm ci
           npm run build
 
-
-      - name: Build
+      - name: Build Package
         run: |
           pdm build
 
-      - name: Publish package
-        if: startsWith(github.ref, 'refs/tags') || startsWith(github.event.inputs.tags, 'Deploy')
+      - name: Publish to PyPI
+        run: |
+          pdm plugin add pdm-publish
+          pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
+
+  # Modern build for v1.* tags (Python 3.13+)
+  build-modern:
+    name: Build Modern (Python 3.13) for v1.* tags
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v1.')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pdm-project/setup-pdm@v4
+        name: Setup Python 3.13 and PDM
+        with:
+          python-version: '3.13'
+          architecture: x64
+          enable-pep582: true
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U twine PyYAML
+
+      - name: Generate JSON Schemas
+        run: |
+          python boneio/core/config/schema_converter.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'  # Latest LTS
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build Frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build Package
+        run: |
+          pdm build
+
+      - name: Publish to PyPI
         run: |
           pdm plugin add pdm-publish
           pdm publish --password ${{ secrets.PYPI_API_TOKEN }}
