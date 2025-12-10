@@ -1,10 +1,13 @@
 [Unit]
 Description=boneIO
-After=multi-user.target
+After=multi-user.target network.target
 
 [Service]
 Type=simple
-ExecStart=/home/debian/dev/venv/bin/boneio run -c /home/debian/config.yaml
+ExecStart=/home/boneio/boneio/venv/bin/boneio run -c /home/boneio/config.yaml
+User=boneio
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target

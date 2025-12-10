@@ -293,10 +293,14 @@ class CoverManager:
     def reload_covers(self) -> None:
         """Reload cover configuration from file.
         
-        This updates cover timings without recreating covers.
+        This updates cover timings and creates new covers if needed.
+        After reload, broadcasts all cover states to WebSocket clients.
         """
         _LOGGER.info("Reloading cover configuration")
         self._configure_covers(reload_config=True)
+        
+        # Broadcast updated states to WebSocket clients
+        self._broadcast_all_states()
 
     async def handle_cover_action(
         self,
@@ -354,6 +358,26 @@ class CoverManager:
                 self._manager.loop.create_task(_f())
             else:
                 _LOGGER.debug("Unknown cover action %s for device %s", message, device_id)
+
+    def _broadcast_all_states(self) -> None:
+        """Broadcast current state of all covers via WebSocket.
+        
+        This is called after reload to ensure frontend receives
+        the state of all covers, including newly created ones.
+        
+        Handles both PreviousCover (async_send_state) and BaseCover 
+        (send_state with state and position args) implementations.
+        """
+        for cover in self._covers.values():
+            try:
+                # PreviousCover has async_send_state()
+                if hasattr(cover, 'async_send_state'):
+                    self._manager.loop.create_task(cover.async_send_state())
+                # BaseCover (TimeBasedCover, VenetianCover) has send_state(state, json_position)
+                elif hasattr(cover, 'send_state') and hasattr(cover, 'json_position'):
+                    cover.send_state(cover.state, cover.json_position)
+            except Exception as e:
+                _LOGGER.debug(f"Error broadcasting cover state {cover.id}: {e}")
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""

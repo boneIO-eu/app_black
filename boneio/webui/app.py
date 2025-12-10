@@ -645,7 +645,11 @@ async def restart_service(background_tasks: BackgroundTasks):
 
 @app.get("/api/check_update")
 async def check_update():
-    """Check if there is a newer version of BoneIO available from GitHub releases."""
+    """Check if there is a newer version of BoneIO available from GitHub releases.
+    
+    Returns all available versions with the latest stable version as recommended.
+    Dev/prerelease versions are shown as alternatives.
+    """
     from boneio.version import __version__ as current_version
     
     try:
@@ -692,41 +696,52 @@ async def check_update():
                 "current_version": current_version
             }
         
-        # Function to filter out prereleases if needed
-        def not_prerelease(release):
-            return not release.get('prerelease', False)
+        # Parse all releases
+        available_versions = []
+        latest_stable = None
+        latest_prerelease = None
         
-        # Get the latest release (you can choose to include or exclude prereleases)
-        include_prerelease = True  # Set to False if you want to exclude prereleases
+        for release in releases:
+            tag = release['tag_name']
+            ver_str = tag[1:] if tag.startswith('v') else tag
+            is_prerelease = release.get('prerelease', False)
+            
+            # Also check if version string contains dev/alpha/beta/rc
+            if not is_prerelease:
+                ver_lower = ver_str.lower()
+                is_prerelease = any(x in ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])
+            
+            ver_info = {
+                "version": ver_str,
+                "is_prerelease": is_prerelease,
+                "release_url": release['html_url'],
+                "published_at": release['published_at'],
+            }
+            available_versions.append(ver_info)
+            
+            # Track latest stable and prerelease
+            if not is_prerelease and latest_stable is None:
+                latest_stable = ver_info
+            if is_prerelease and latest_prerelease is None:
+                latest_prerelease = ver_info
         
-        if include_prerelease:
-            latest_release = releases[0]  # First release is the latest
-        else:
-            # Find the first non-prerelease
-            latest_release = next(filter(not_prerelease, releases), None)
-            if not latest_release:
-                return {
-                    "status": "error",
-                    "message": "No stable releases found on GitHub",
-                    "current_version": current_version
-                }
+        # Determine recommended version (latest stable, or latest prerelease if no stable)
+        recommended = latest_stable or latest_prerelease or available_versions[0]
         
-        # Extract version from tag name (usually in format 'v1.2.3')
-        latest_version_str = latest_release['tag_name']
-        if latest_version_str.startswith('v'):
-            latest_version_str = latest_version_str[1:]  # Remove 'v' prefix if present
-        
-        # Compare versions
-        is_update_available = version.parse(latest_version_str) > version.parse(current_version)
+        # Check if update is available
+        is_update_available = version.parse(recommended["version"]) > version.parse(current_version)
         
         return {
             "status": "success",
             "current_version": current_version,
-            "latest_version": latest_version_str,
+            "latest_version": recommended["version"],
+            "latest_stable": latest_stable["version"] if latest_stable else None,
+            "latest_prerelease": latest_prerelease["version"] if latest_prerelease else None,
             "update_available": is_update_available,
-            "release_url": latest_release['html_url'],
-            "published_at": latest_release['published_at'],
-            "is_prerelease": latest_release.get('prerelease', False)
+            "release_url": recommended["release_url"],
+            "published_at": recommended["published_at"],
+            "is_prerelease": recommended["is_prerelease"],
+            "available_versions": available_versions[:10]  # Return last 10 versions
         }
     except requests.exceptions.Timeout:
         _LOGGER.error("Timeout while checking for updates")
@@ -791,9 +806,18 @@ async def get_update_status():
     """Get current update status and progress."""
     return _update_status
 
+class UpdateRequest(BaseModel):
+    """Request model for update endpoint."""
+    version: str | None = None  # Target version to install, None means latest
+
 @app.post("/api/update")
-async def update_boneio(background_tasks: BackgroundTasks):
-    """Update the BoneIO package with backup and restart the service."""
+async def update_boneio(background_tasks: BackgroundTasks, request: UpdateRequest = UpdateRequest()):
+    """Update the BoneIO package with backup and restart the service.
+    
+    Args:
+        version: Specific version to install (e.g., "1.0.1", "1.0.2dev1").
+                 If not provided, installs the latest version from PyPI.
+    """
     global _update_status
     
     if not is_running_as_service():
@@ -801,6 +825,8 @@ async def update_boneio(background_tasks: BackgroundTasks):
     
     if _update_status["status"] == "running":
         return {"status": "error", "message": "Update already in progress"}
+    
+    target_version = request.version
 
     async def update_and_restart():
         global _update_status
@@ -813,6 +839,7 @@ async def update_boneio(background_tasks: BackgroundTasks):
         _reset_update_status()
         _update_status["status"] = "running"
         _update_status["old_version"] = current_version
+        _update_status["target_version"] = target_version
         
         try:
             # Allow time for the response to be sent
@@ -883,10 +910,15 @@ async def update_boneio(background_tasks: BackgroundTasks):
                 _update_progress(40, "Pip upgrade skipped", "pip upgrade failed, continuing...")
             
             # Step 4: Install boneio update
-            _update_progress(45, "Downloading and installing BoneIO update...")
+            if target_version:
+                _update_progress(45, f"Downloading and installing BoneIO {target_version}...")
+                pip_package = f"boneio=={target_version}"
+            else:
+                _update_progress(45, "Downloading and installing latest BoneIO...")
+                pip_package = "boneio"
             
             result = subprocess.run(
-                [pip_path, "install", "--upgrade", "boneio"],
+                [pip_path, "install", "--upgrade", pip_package],
                 capture_output=True,
                 text=True,
                 timeout=300  # 5 minute timeout

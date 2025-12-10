@@ -116,6 +116,15 @@ body {
   body {
     @apply bg-base-100 text-base-content;
   }
+  
+  :root {
+    /* DaisyUI-compatible border color for shadcn components */
+    --input-border: color-mix(in oklab, var(--color-base-content) 20%, #0000);
+  }
+  
+  .dark {
+    --input-border: color-mix(in oklab, var(--color-base-content) 20%, #0000);
+  }
 }
 
 /* Custom form styles */

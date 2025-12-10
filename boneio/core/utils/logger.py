@@ -25,6 +25,9 @@ def configure_logger(log_config: dict, debug: int) -> None:
     """Configure logger based on config yaml."""
 
     def debug_logger():
+        # Always suppress hypercorn access logs (they spam INFO level)
+        logging.getLogger("hypercorn.access").setLevel(logging.WARNING)
+        
         if debug == 0:
             logging.getLogger().setLevel(logging.INFO)
         if debug > 0:
