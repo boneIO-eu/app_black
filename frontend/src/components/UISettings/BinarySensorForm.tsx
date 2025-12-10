@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Action {
   action: string;
@@ -229,19 +236,23 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           <label className="label">
             <span className="label-text font-medium">Action Type</span>
           </label>
-          <select
-            className="select select-bordered w-full"
+          <Select
             value={actionType}
-            onChange={(e) => updateAction(type, index, 'action', e.target.value)}
+            onValueChange={(value) => updateAction(type, index, 'action', value)}
           >
-            {actionTypeOptions.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {opt.split('_').map(word =>
-                  word.charAt(0).toUpperCase() + word.slice(1)
-                ).join(' ')}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select action..." />
+            </SelectTrigger>
+            <SelectContent>
+              {actionTypeOptions.map((opt: string) => (
+                <SelectItem key={opt} value={opt}>
+                  {opt.split('_').map(word =>
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                  ).join(' ')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {actionType === 'cover' && (
@@ -250,44 +261,51 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Cover</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'pin', value)}
               >
-                <option value="">Select cover...</option>
-                {allCovers
-                  .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                  .map((cover: any) => {
-                    const id = cover.id;
-                    const name = cover.name || id;
-                    const label = name !== id ? `${name} - ${id}` : id;
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select cover..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allCovers
+                    .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
+                    .map((cover: any) => {
+                      const id = cover.id;
+                      const name = cover.name || id;
+                      const label = name !== id ? `${name} - ${id}` : id;
+                      return (
+                        <SelectItem key={id} value={id}>
+                          {label}
+                        </SelectItem>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="form-control mb-3">
               <label className="label">
                 <span className="label-text font-medium">Cover Action</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.action_cover || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
               >
-                {actionCoverOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select action..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {actionCoverOptions.map((option: string) => (
+                    <SelectItem key={option} value={option}>
+                      {option.split('_').map(word => 
+                        word.charAt(0) + word.slice(1).toLowerCase()
+                      ).join(' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
@@ -298,42 +316,49 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Output</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'pin', value)}
               >
-                <option value="">Select output...</option>
-                {allOutputs
-                  .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
-                  .map((output: any) => {
-                    const id = output.id || output.boneio_output;
-                    const name = output.name || id;
-                    const label = name !== id ? `${name} - ${id}` : id;
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select output..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allOutputs
+                    .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
+                    .map((output: any) => {
+                      const id = output.id || output.boneio_output;
+                      const name = output.name || id;
+                      const label = name !== id ? `${name} - ${id}` : id;
+                      return (
+                        <SelectItem key={id} value={id}>
+                          {label}
+                        </SelectItem>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="form-control mb-3">
               <label className="label">
                 <span className="label-text font-medium">Output Action</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.action_output || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'action_output', value)}
               >
-                {actionOutputOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select action..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {actionOutputOptions.map((option: string) => (
+                    <SelectItem key={option} value={option}>
+                      {option.charAt(0) + option.slice(1).toLowerCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
@@ -406,17 +431,21 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Output Action</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.action_output || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_output', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'action_output', value)}
               >
-                {actionOutputOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select action..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {actionOutputOptions.map((option: string) => (
+                    <SelectItem key={option} value={option}>
+                      {option.charAt(0) + option.slice(1).toLowerCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
@@ -459,19 +488,23 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Cover Action</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={action.action_cover || 'TOGGLE'}
-                onChange={(e) => updateAction(type, index, 'action_cover', e.target.value)}
+                onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
               >
-                {actionCoverOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select action..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {actionCoverOptions.map((option: string) => (
+                    <SelectItem key={option} value={option}>
+                      {option.split('_').map(word => 
+                        word.charAt(0) + word.slice(1).toLowerCase()
+                      ).join(' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </>
         )}
@@ -551,18 +584,21 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">BoneIO Input</span>
               </label>
-              <select
-                className={`select ed w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'select-warning' : ''}`}
+              <Select
                 value={data.boneio_input || ''}
-                onChange={(e) => updateField('boneio_input', e.target.value)}
+                onValueChange={(value) => updateField('boneio_input', value)}
               >
-                <option value="">Select input...</option>
-                {boneioInputOptions.map((input: string) => (
-                  <option key={input} value={input}>
-                    {input}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                  <SelectValue placeholder="Select input..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {boneioInputOptions.map((input: string) => (
+                    <SelectItem key={input} value={input}>
+                      {input}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-warning whitespace-normal break-all">
@@ -586,18 +622,22 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Area / Room</span>
               </label>
-              <select
-                className="select select-bordered w-full"
-                value={data.area || ''}
-                onChange={(e) => updateField('area', e.target.value || undefined)}
+              <Select
+                value={data.area || '_none_'}
+                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
-                <option value="">No area (main device)</option>
-                {allAreas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No area (main device)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No area (main device)</SelectItem>
+                  {allAreas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt">
                   {allAreas.length === 0 
@@ -628,20 +668,24 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Device Class</span>
               </label>
-              <select
-                className="select ed w-full"
-                value={data.device_class || ''}
-                onChange={(e) => updateField('device_class', e.target.value)}
+              <Select
+                value={data.device_class || '_none_'}
+                onValueChange={(value) => updateField('device_class', value === '_none_' ? '' : value)}
               >
-                <option value="">None</option>
-                {deviceClassOptions.map((deviceClass: string) => (
-                  <option key={deviceClass} value={deviceClass}>
-                    {deviceClass.split('_').map(word => 
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">None</SelectItem>
+                  {deviceClassOptions.map((deviceClass: string) => (
+                    <SelectItem key={deviceClass} value={deviceClass}>
+                      {deviceClass.split('_').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                      ).join(' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction } from './ActionFields';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Area {
   id: string;
@@ -245,18 +252,21 @@ const EventForm: React.FC<EventFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">BoneIO Input</span>
               </label>
-              <select
-                className={`select ed w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'select-warning' : ''}`}
+              <Select
                 value={data.boneio_input || ''}
-                onChange={(e) => updateField('boneio_input', e.target.value)}
+                onValueChange={(value) => updateField('boneio_input', value)}
               >
-                <option value="">Select input...</option>
-                {boneioInputOptions.map((input: string) => (
-                  <option key={input} value={input}>
-                    {input}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                  <SelectValue placeholder="Select input..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {boneioInputOptions.map((input: string) => (
+                    <SelectItem key={input} value={input}>
+                      {input}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-warning whitespace-normal break-all">
@@ -280,18 +290,22 @@ const EventForm: React.FC<EventFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Area / Room</span>
               </label>
-              <select
-                className="select select-bordered w-full"
-                value={data.area || ''}
-                onChange={(e) => updateField('area', e.target.value || undefined)}
+              <Select
+                value={data.area || '_none_'}
+                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
-                <option value="">No area (main device)</option>
-                {allAreas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No area (main device)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No area (main device)</SelectItem>
+                  {allAreas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt">
                   {allAreas.length === 0 

@@ -16,15 +16,25 @@ interface UpdateStatus {
   new_version: string | null;
 }
 
+interface VersionInfo {
+  version: string;
+  is_prerelease: boolean;
+  release_url: string;
+  published_at: string;
+}
+
 interface UpdateInfo {
   status: string;
   current_version: string;
   latest_version?: string;
+  latest_stable?: string;
+  latest_prerelease?: string;
   update_available?: boolean;
   release_url?: string;
   published_at?: string;
   is_prerelease?: boolean;
   message?: string;
+  available_versions?: VersionInfo[];
 }
 
 interface Backup {
@@ -52,6 +62,7 @@ const SystemUpdate: React.FC = () => {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -98,13 +109,17 @@ const SystemUpdate: React.FC = () => {
     }
   }, []);
 
-  // Start update
-  const startUpdate = async () => {
+  // Start update with specific version
+  const startUpdate = async (version?: string) => {
     setIsUpdating(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/update', { method: 'POST' });
+      const response = await fetch('/api/update', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: version || selectedVersion })
+      });
       const data = await response.json();
       
       if (data.status === 'error') {
@@ -385,22 +400,56 @@ const SystemUpdate: React.FC = () => {
                   <h3 className="card-title text-success">
                     <FaDownload /> {t('system_update.new_version_available')}
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Version selector */}
+                  <div className="form-control w-full max-w-xs">
+                    <label className="label">
+                      <span className="label-text">{t('system_update.select_version')}</span>
+                    </label>
+                    <select 
+                      className="select select-bordered"
+                      value={selectedVersion || updateInfo.latest_version || ''}
+                      onChange={(e) => setSelectedVersion(e.target.value)}
+                    >
+                      {updateInfo.available_versions?.map((ver) => (
+                        <option key={ver.version} value={ver.version}>
+                          {ver.version} {ver.is_prerelease ? '(dev)' : ''} 
+                          {ver.version === updateInfo.latest_stable ? ' ⭐' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="label">
+                      <span className="label-text-alt">
+                        {updateInfo.latest_stable && (
+                          <span className="text-success">⭐ {t('system_update.recommended')}: {updateInfo.latest_stable}</span>
+                        )}
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div>
-                      <p className="text-sm opacity-70">{t('system_update.latest_version')}</p>
-                      <p className="text-2xl font-mono font-bold">{updateInfo.latest_version}</p>
+                      <p className="text-sm opacity-70">{t('system_update.selected_version')}</p>
+                      <p className="text-2xl font-mono font-bold">
+                        {selectedVersion || updateInfo.latest_version}
+                        {(selectedVersion || updateInfo.latest_version)?.toLowerCase().includes('dev') && (
+                          <span className="badge badge-warning ml-2">dev</span>
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm opacity-70">{t('system_update.released')}</p>
-                      <p className="text-lg">{updateInfo.published_at ? formatDate(updateInfo.published_at) : t('system_update.unknown')}</p>
+                      <p className="text-lg">
+                        {updateInfo.available_versions?.find(v => v.version === (selectedVersion || updateInfo.latest_version))?.published_at 
+                          ? formatDate(updateInfo.available_versions.find(v => v.version === (selectedVersion || updateInfo.latest_version))!.published_at) 
+                          : t('system_update.unknown')}
+                      </p>
                     </div>
                   </div>
-                  {updateInfo.is_prerelease && (
-                    <div className="badge badge-warning">{t('system_update.prerelease')}</div>
-                  )}
+
                   <div className="card-actions justify-end mt-4">
                     <a
-                      href={updateInfo.release_url}
+                      href={updateInfo.available_versions?.find(v => v.version === (selectedVersion || updateInfo.latest_version))?.release_url || updateInfo.release_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-ghost"
@@ -409,7 +458,7 @@ const SystemUpdate: React.FC = () => {
                     </a>
                     <button
                       className="btn btn-success"
-                      onClick={startUpdate}
+                      onClick={() => startUpdate(selectedVersion || updateInfo.latest_version)}
                       disabled={isUpdating}
                     >
                       {isUpdating ? (
@@ -420,7 +469,7 @@ const SystemUpdate: React.FC = () => {
                       ) : (
                         <>
                           <FaDownload />
-                          {t('system_update.update_now')}
+                          {t('system_update.update_to')} {selectedVersion || updateInfo.latest_version}
                         </>
                       )}
                     </button>

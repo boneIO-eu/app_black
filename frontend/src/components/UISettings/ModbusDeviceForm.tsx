@@ -3,6 +3,13 @@ import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -64,15 +71,19 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange 
         <div className="space-y-2">
           {filters.map((filter, index) => (
             <div key={index} className="flex items-center gap-2">
-              <select
-                className="select select-bordered select-sm flex-1"
+              <Select
                 value={getFilterType(filter)}
-                onChange={(e) => updateFilter(index, e.target.value as FilterType, getFilterValue(filter))}
+                onValueChange={(value) => updateFilter(index, value as FilterType, getFilterValue(filter))}
               >
-                {FILTER_TYPES.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+                <SelectTrigger className="flex-1 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FILTER_TYPES.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <input
                 type="number"
                 step="0.1"
@@ -225,18 +236,22 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               <label className="label py-1">
                 <span className="label-text font-medium">Area</span>
               </label>
-              <select
-                className="select select-bordered w-full"
-                value={data.area || ''}
-                onChange={(e) => updateField('area', e.target.value || undefined)}
+              <Select
+                value={data.area || '_none_'}
+                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
-                <option value="">No area</option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name || area.id}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No area" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No area</SelectItem>
+                  {areas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name || area.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
                   Room/area for grouping in HA
@@ -273,18 +288,21 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               <label className="label py-1">
                 <span className="label-text font-medium">Model *</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={data.model || ''}
-                onChange={(e) => updateField('model', e.target.value)}
+                onValueChange={(value) => updateField('model', value)}
               >
-                <option value="">Select model...</option>
-                {modelOptions.map((model: string) => (
-                  <option key={model} value={model}>
-                    {model.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select model..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelOptions.map((model: string) => (
+                    <SelectItem key={model} value={model}>
+                      {model.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
                   Device model

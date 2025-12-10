@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
 import { sanitizeId } from './helpers/idValidation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface OutputGroupFormProps {
   data: any;
@@ -168,17 +175,21 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">Output Type</span>
             </label>
-            <select
-              className="select ed w-full"
+            <Select
               value={data.output_type || 'switch'}
-              onChange={(e) => updateField('output_type', e.target.value)}
+              onValueChange={(value) => updateField('output_type', value)}
             >
-              {outputTypeOptions.map((type: string) => (
-                <option key={type} value={type}>
-                  {type.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select type..." />
+              </SelectTrigger>
+              <SelectContent>
+                {outputTypeOptions.map((type: string) => (
+                  <SelectItem key={type} value={type}>
+                    {type.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="label">
               <span className="label-text-alt text-info">
                 Device type in Home Assistant (switch or light)
@@ -191,18 +202,22 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">Area</span>
             </label>
-            <select
-              className="select ed w-full"
-              value={data.area || ''}
-              onChange={(e) => updateField('area', e.target.value || undefined)}
+            <Select
+              value={data.area || '_none_'}
+              onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
             >
-              <option value="">-- No area (main device) --</option>
-              {allAreas.map((area: any) => (
-                <option key={area.id} value={area.id}>
-                  {area.name || area.id}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="No area (main device)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">No area (main device)</SelectItem>
+                {allAreas.map((area: any) => (
+                  <SelectItem key={area.id} value={area.id}>
+                    {area.name || area.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="label">
               <span className="label-text-alt text-info">
                 Assign this group to a specific area/sub-device in Home Assistant

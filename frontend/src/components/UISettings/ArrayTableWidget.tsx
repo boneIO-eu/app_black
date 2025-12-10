@@ -67,6 +67,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     }
   }, [sectionType]);
 
+  // Callback to add new interlock group to local cache (before saving to backend)
+  const handleInterlockGroupCreated = (groupName: string) => {
+    setInterlockGroups(prev => {
+      if (!prev.includes(groupName)) {
+        return [...prev, groupName];
+      }
+      return prev;
+    });
+  };
+
   // Fetch available Dallas sensors for sensor section
   useEffect(() => {
     if (sectionType === 'sensor') {
@@ -767,7 +777,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           </DialogHeader>
           
           {/* Scrollable content area */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 break-words [&_.label-text]:whitespace-normal [&_.label-text]:break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:break-words [&_.form-control]:min-w-0">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 wrap-break-words [&_.label-text]:whitespace-normal [&_.label-text]:wrap-break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:wrap-break-words [&_.form-control]:min-w-0">
             {/* Only render form when editingItem is not null */}
             {editingItem && (
               <>
@@ -819,6 +829,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allAreas={allAreas}
                     editingIndex={editingIndex}
                     interlockGroups={interlockGroups}
+                    onInterlockGroupCreated={handleInterlockGroupCreated}
                   />
                 ) : sectionType === 'output_group' ? (
                   <OutputGroupForm

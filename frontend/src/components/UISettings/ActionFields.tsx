@@ -3,6 +3,13 @@ import { FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { useTranslation } from '@/hooks/useTranslation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Export validation function for use in parent components
 export const validateAction = (action: any, t: (key: string) => string): string | null => {
@@ -88,19 +95,23 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('event_form.action_type')}</span>
         </label>
-        <select
-          className="select select-bordered w-full"
+        <Select
           value={actionType}
-          onChange={(e) => onUpdate('action', e.target.value)}
+          onValueChange={(value) => onUpdate('action', value)}
         >
-          {actionTypeOptions.map((actionType: string) => (
-            <option key={actionType} value={actionType}>
-              {actionType.split('_').map(word =>
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select action..." />
+          </SelectTrigger>
+          <SelectContent>
+            {actionTypeOptions.map((opt: string) => (
+              <SelectItem key={opt} value={opt}>
+                {opt.split('_').map(word =>
+                  word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {(actionType === 'cover' || actionType === 'cover_over_mqtt') && (
@@ -109,44 +120,51 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('event_form.cover')}</span>
             </label>
-            <select
-              className="select select-bordered w-full"
+            <Select
               value={action.pin || ''}
-              onChange={(e) => onUpdate('pin', e.target.value)}
+              onValueChange={(value) => onUpdate('pin', value)}
             >
-              <option value="">{t('event_form.select_cover')}</option>
-              {allCovers
-                .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                .map((cover: any) => {
-                  const id = cover.id;
-                  const name = cover.name || id;
-                  const label = name !== id ? `${name} - ${id}` : id;
-                  return (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  );
-                })}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t('event_form.select_cover')} />
+              </SelectTrigger>
+              <SelectContent>
+                {allCovers
+                  .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
+                  .map((cover: any) => {
+                    const id = cover.id;
+                    const name = cover.name || id;
+                    const label = name !== id ? `${name} - ${id}` : id;
+                    return (
+                      <SelectItem key={id} value={id}>
+                        {label}
+                      </SelectItem>
+                    );
+                  })}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="form-control mb-3">
             <label className="label">
               <span className="label-text font-medium">{t('event_form.cover_action')}</span>
             </label>
-            <select
-              className="select select-bordered w-full"
+            <Select
               value={action.action_cover || 'TOGGLE'}
-              onChange={(e) => onUpdate('action_cover', e.target.value)}
+              onValueChange={(value) => onUpdate('action_cover', value)}
             >
-              {actionCoverOptions.map((option: string) => (
-                <option key={option} value={option}>
-                  {option.split('_').map(word => 
-                    word.charAt(0) + word.slice(1).toLowerCase()
-                  ).join(' ')}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionCoverOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       )}
@@ -170,17 +188,21 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('event_form.action_output')}</span>
             </label>
-            <select
-              className="select select-bordered w-full"
+            <Select
               value={action.action_output || 'TOGGLE'}
-              onChange={(e) => onUpdate('action_output', e.target.value)}
+              onValueChange={(value) => onUpdate('action_output', value)}
             >
-              {actionOutputOptions.map((option: string) => (
-                <option key={option} value={option}>
-                  {option.charAt(0) + option.slice(1).toLowerCase()}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionOutputOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       )}
@@ -253,17 +275,21 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('event_form.action_output')}</span>
             </label>
-            <select
-              className="select select-bordered w-full"
+            <Select
               value={action.action_output || 'TOGGLE'}
-              onChange={(e) => onUpdate('action_output', e.target.value)}
+              onValueChange={(value) => onUpdate('action_output', value)}
             >
-              {actionOutputOptions.map((option: string) => (
-                <option key={option} value={option}>
-                  {option.charAt(0) + option.slice(1).toLowerCase()}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionOutputOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       )}
@@ -306,19 +332,23 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('event_form.cover_action')}</span>
             </label>
-            <select
-              className="select select-bordered w-full"
+            <Select
               value={action.action_cover || 'TOGGLE'}
-              onChange={(e) => onUpdate('action_cover', e.target.value)}
+              onValueChange={(value) => onUpdate('action_cover', value)}
             >
-              {actionCoverOptions.map((option: string) => (
-                <option key={option} value={option}>
-                  {option.split('_').map(word => 
-                    word.charAt(0) + word.slice(1).toLowerCase()
-                  ).join(' ')}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionCoverOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       )}

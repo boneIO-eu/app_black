@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Area {
   id: string;
@@ -20,6 +27,7 @@ interface OutputFormProps {
   editingIndex?: number | null;
   allAreas?: Area[];
   interlockGroups?: string[];
+  onInterlockGroupCreated?: (groupName: string) => void;
 }
 
 const OutputForm: React.FC<OutputFormProps> = ({ 
@@ -31,7 +39,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
   allOutputs = [],
   allAreas = [],
   editingIndex,
-  interlockGroups = []
+  interlockGroups = [],
+  onInterlockGroupCreated
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [newInterlockGroup, setNewInterlockGroup] = useState('');
@@ -116,18 +125,21 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">{getFieldTitle('boneio_output')}</span>
               </label>
-              <select
-                className={`select select-bordered w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'select-warning' : ''}`}
+              <Select
                 value={data.boneio_output || ''}
-                onChange={(e) => updateField('boneio_output', e.target.value)}
+                onValueChange={(value) => updateField('boneio_output', value)}
               >
-                <option value="">Select output...</option>
-                {boneioOutputOptions.map((output: string) => (
-                  <option key={output} value={output}>
-                    {output}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''}`}>
+                  <SelectValue placeholder="Select output..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {boneioOutputOptions.map((output: string) => (
+                    <SelectItem key={output} value={output}>
+                      {output}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('boneio_output')}</span>
               </label>
@@ -163,17 +175,21 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">{getFieldTitle('output_type')}</span>
               </label>
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={data.output_type || 'none'}
-                onChange={(e) => updateField('output_type', e.target.value)}
+                onValueChange={(value) => updateField('output_type', value)}
               >
-                {outputTypeOptions.map((type: string) => (
-                  <option key={type} value={type}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {outputTypeOptions.map((type: string) => (
+                    <SelectItem key={type} value={type}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('output_type')}</span>
               </label>
@@ -218,18 +234,22 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Area / Room</span>
               </label>
-              <select
-                className="select select-bordered w-full"
-                value={data.area || ''}
-                onChange={(e) => updateField('area', e.target.value || undefined)}
+              <Select
+                value={data.area || '_none_'}
+                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
-                <option value="">No area (main device)</option>
-                {allAreas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No area (main device)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No area (main device)</SelectItem>
+                  {allAreas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt whitespace-normal break-words">
                   {allAreas.length === 0 
@@ -369,26 +389,28 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <label className="label">
                 <span className="label-text font-medium">Interlock Group</span>
               </label>
-              <div className="flex gap-2">
-                <select
-                  className="select select-bordered flex-1"
-                  value={data.interlock_group || ''}
-                  onChange={(e) => updateField('interlock_group', e.target.value || undefined)}
-                >
-                  <option value="">No interlock group</option>
+              <Select
+                value={data.interlock_group || '_none_'}
+                onValueChange={(value) => updateField('interlock_group', value === '_none_' ? undefined : value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No interlock group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">No interlock group</SelectItem>
                   {interlockGroups.map((group) => (
-                    <option key={group} value={group}>
+                    <SelectItem key={group} value={group}>
                       {group}
-                    </option>
+                    </SelectItem>
                   ))}
                   {/* Show current value if it's not in the list (new group) */}
                   {data.interlock_group && !interlockGroups.includes(data.interlock_group) && (
-                    <option value={data.interlock_group}>
+                    <SelectItem value={data.interlock_group}>
                       {data.interlock_group} (new)
-                    </option>
+                    </SelectItem>
                   )}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
               <label className="label">
                 <span className="label-text-alt whitespace-normal break-words">
                   Outputs in the same interlock group cannot be active simultaneously
@@ -410,7 +432,9 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   onChange={(e) => setNewInterlockGroup(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newInterlockGroup.trim()) {
-                      updateField('interlock_group', newInterlockGroup.trim());
+                      const groupName = newInterlockGroup.trim();
+                      updateField('interlock_group', groupName);
+                      onInterlockGroupCreated?.(groupName);
                       setNewInterlockGroup('');
                     }
                   }}
@@ -421,7 +445,9 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   disabled={!newInterlockGroup.trim()}
                   onClick={() => {
                     if (newInterlockGroup.trim()) {
-                      updateField('interlock_group', newInterlockGroup.trim());
+                      const groupName = newInterlockGroup.trim();
+                      updateField('interlock_group', groupName);
+                      onInterlockGroupCreated?.(groupName);
                       setNewInterlockGroup('');
                     }
                   }}

@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Area {
   id: string;
@@ -118,18 +125,22 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">Area / Room</span>
             </label>
-            <select
-              className="select select-bordered w-full"
-              value={data.area || ''}
-              onChange={(e) => updateField('area', e.target.value || undefined)}
+            <Select
+              value={data.area || '_none_'}
+              onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
             >
-              <option value="">No area (main device)</option>
-              {allAreas.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="No area (main device)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">No area (main device)</SelectItem>
+                {allAreas.map((area) => (
+                  <SelectItem key={area.id} value={area.id}>
+                    {area.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="label">
               <span className="label-text-alt whitespace-normal break-words">
                 {allAreas.length === 0 
@@ -145,17 +156,21 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">Platform *</span>
             </label>
-            <select
-              className="select ed w-full"
+            <Select
               value={selectedPlatform}
-              onChange={(e) => updateField('platform', e.target.value)}
+              onValueChange={(value) => updateField('platform', value)}
             >
-              {platformOptions.map((platform: string) => (
-                <option key={platform} value={platform}>
-                  {platform.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select platform..." />
+              </SelectTrigger>
+              <SelectContent>
+                {platformOptions.map((platform: string) => (
+                  <SelectItem key={platform} value={platform}>
+                    {platform.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="label">
               <span className="label-text-alt text-info">
                 {selectedPlatform === 'time_based' && 'Standard time-based cover control'}
@@ -175,22 +190,23 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 <span>No cover outputs available. Please configure outputs with output_type='cover' first.</span>
               </div>
             ) : (
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={data.open_relay || ''}
-                onChange={(e) => updateField('open_relay', e.target.value)}
+                onValueChange={(value) => updateField('open_relay', value)}
               >
-                <option value="">Select open relay...</option>
-                {availableCoverOutputs.map((output: string) => (
-                  <option 
-                    key={output} 
-                    value={output} 
-                    disabled={output === data.close_relay}
-                  >
-                    {output} {output === data.close_relay ? '(used as Close Relay)' : ''}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select open relay..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCoverOutputs
+                    .filter((output: string) => output !== data.close_relay)
+                    .map((output: string) => (
+                      <SelectItem key={output} value={output}>
+                        {output}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             )}
             <label className="label">
               <span className="label-text-alt text-info">
@@ -209,22 +225,23 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 <span>No cover outputs available. Please configure outputs with output_type='cover' first.</span>
               </div>
             ) : (
-              <select
-                className="select select-bordered w-full"
+              <Select
                 value={data.close_relay || ''}
-                onChange={(e) => updateField('close_relay', e.target.value)}
+                onValueChange={(value) => updateField('close_relay', value)}
               >
-                <option value="">Select close relay...</option>
-                {availableCoverOutputs.map((output: string) => (
-                  <option 
-                    key={output} 
-                    value={output} 
-                    disabled={output === data.open_relay}
-                  >
-                    {output} {output === data.open_relay ? '(used as Open Relay)' : ''}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select close relay..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCoverOutputs
+                    .filter((output: string) => output !== data.open_relay)
+                    .map((output: string) => (
+                      <SelectItem key={output} value={output}>
+                        {output}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             )}
             <label className="label">
               <span className="label-text-alt text-info">
@@ -283,18 +300,22 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">Device Class</span>
             </label>
-            <select
-              className="select ed w-full"
-              value={data.device_class || ''}
-              onChange={(e) => updateField('device_class', e.target.value || undefined)}
+            <Select
+              value={data.device_class || '_none_'}
+              onValueChange={(value) => updateField('device_class', value === '_none_' ? undefined : value)}
             >
-              <option value="">None</option>
-              {deviceClassOptions.map((deviceClass: string) => (
-                <option key={deviceClass} value={deviceClass}>
-                  {deviceClass.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">None</SelectItem>
+                {deviceClassOptions.map((deviceClass: string) => (
+                  <SelectItem key={deviceClass} value={deviceClass}>
+                    {deviceClass.toUpperCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <label className="label">
               <span className="label-text-alt text-info">
                 Device class for Home Assistant UI

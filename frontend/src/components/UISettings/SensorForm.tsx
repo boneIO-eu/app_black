@@ -3,6 +3,13 @@ import { FaPlus, FaTrash } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // Filter types available in schema
 const FILTER_TYPES = ['offset', 'round', 'multiply', 'filter_out', 'filter_out_greater', 'filter_out_lower'] as const;
@@ -108,22 +115,25 @@ const SensorForm: React.FC<SensorFormProps> = ({
           <label className="label">
             <span className="label-text font-medium">{t('sensors.detected_sensors')}</span>
           </label>
-          <select
-            className={`select select-bordered w-full ${errors.address ? 'select-error' : ''}`}
+          <Select
             value={data.address || ''}
-            onChange={(e) => handleChange('address', e.target.value)}
+            onValueChange={(value) => handleChange('address', value)}
           >
-            <option value="">{t('sensors.select_sensor')}</option>
-            {unusedSensors.map((sensor) => (
-              <option key={sensor.address} value={sensor.address}>
-                {sensor.address} ({sensor.type})
-              </option>
-            ))}
-            {/* Show current value if it's not in the list */}
-            {data.address && !availableSensors.find(s => s.address === data.address) && (
-              <option value={data.address}>{data.address} (manual)</option>
-            )}
-          </select>
+            <SelectTrigger className={`w-full ${errors.address ? 'border-error' : ''}`}>
+              <SelectValue placeholder={t('sensors.select_sensor')} />
+            </SelectTrigger>
+            <SelectContent>
+              {unusedSensors.map((sensor) => (
+                <SelectItem key={sensor.address} value={sensor.address}>
+                  {sensor.address} ({sensor.type})
+                </SelectItem>
+              ))}
+              {/* Show current value if it's not in the list */}
+              {data.address && !availableSensors.find(s => s.address === data.address) && (
+                <SelectItem value={data.address}>{data.address} (manual)</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
           {errors.address && (
             <label className="label">
               <span className="label-text-alt text-error">{errors.address}</span>
@@ -189,18 +199,22 @@ const SensorForm: React.FC<SensorFormProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('sensors.area')}</span>
         </label>
-        <select
-          className="select select-bordered w-full"
-          value={data.area || ''}
-          onChange={(e) => handleChange('area', e.target.value || undefined)}
+        <Select
+          value={data.area || '_none_'}
+          onValueChange={(value) => handleChange('area', value === '_none_' ? undefined : value)}
         >
-          <option value="">{t('sensors.no_area')}</option>
-          {allAreas.map((area) => (
-            <option key={area.id} value={area.id}>
-              {area.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={t('sensors.no_area')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none_">{t('sensors.no_area')}</SelectItem>
+            {allAreas.map((area) => (
+              <SelectItem key={area.id} value={area.id}>
+                {area.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Platform */}
@@ -208,14 +222,18 @@ const SensorForm: React.FC<SensorFormProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('sensors.platform')}</span>
         </label>
-        <select
-          className="select select-bordered w-full"
+        <Select
           value={data.platform || 'gpio_onewire'}
-          onChange={(e) => handleChange('platform', e.target.value)}
+          onValueChange={(value) => handleChange('platform', value)}
         >
-          <option value="gpio_onewire">GPIO 1-Wire (DS18B20)</option>
-          {/* <option value="ds2482">DS2482 I2C Bridge</option> */}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select platform..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>
+            {/* <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem> */}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Bus ID (only for ds2482) */}
@@ -283,21 +301,25 @@ const SensorForm: React.FC<SensorFormProps> = ({
 
                 return (
                   <div key={index} className="flex items-center gap-2">
-                    <select
-                      className="select select-bordered select-sm flex-1"
+                    <Select
                       value={filterType}
-                      onChange={(e) => {
+                      onValueChange={(value) => {
                         const newFilters = [...(data.filters || [])];
                         const newFilter: Filter = {};
-                        newFilter[e.target.value as FilterType] = filterValue;
+                        newFilter[value as FilterType] = filterValue;
                         newFilters[index] = newFilter;
                         handleChange('filters', newFilters);
                       }}
                     >
-                      {FILTER_TYPES.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="flex-1 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FILTER_TYPES.map(type => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <input
                       type="number"
                       step="0.1"
