@@ -1069,7 +1069,7 @@ export default function UISettings() {
                     {activeSection_data.name}
                   </h1>
                   <p className="text-sm text-base-content/70 mt-1">
-                    {t('settings.configure_settings').replace('{section}', activeSection_data.name)}
+                    {t(`sections.descriptions.${activeSection}`) || t('settings.configure_settings').replace('{section}', activeSection_data.name)}
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">

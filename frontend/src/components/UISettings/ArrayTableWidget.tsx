@@ -737,7 +737,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">{title || 'Items'}</h3>
         <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`} 
-             data-tip={areAllItemsUsed() ? (sectionType === 'output' ? 'All outputs are currently in use' : 'All inputs are currently in use') : 'Add new item'}>
+             data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
           <button
             onClick={handleAdd}
             className="btn btn-primary btn-sm"

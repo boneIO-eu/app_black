@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -42,6 +43,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
   interlockGroups = [],
   onInterlockGroupCreated
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
@@ -106,13 +108,13 @@ const OutputForm: React.FC<OutputFormProps> = ({
           className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('basic')}
         >
-          Basic Settings
+          {t('settings.basic_settings') || 'Basic Settings'}
         </a>
         <a 
           className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('advanced')}
         >
-          Advanced Settings
+          {t('settings.advanced_settings') || 'Advanced Settings'}
         </a>
       </div>
 
@@ -130,7 +132,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onValueChange={(value) => updateField('boneio_output', value)}
               >
                 <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''}`}>
-                  <SelectValue placeholder="Select output..." />
+                  <SelectValue placeholder={t('outputs.select_output')} />
                 </SelectTrigger>
                 <SelectContent>
                   {boneioOutputOptions.map((output: string) => (
@@ -154,14 +156,14 @@ const OutputForm: React.FC<OutputFormProps> = ({
                       maxWidth: '100%'
                     }}
                   >
-                    All outputs are in use. Free one or choose different device type.
+                    {t('outputs.all_outputs_used')}
                   </span>
                 </label>
               )}
               {usedOutputs.length > 0 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-info whitespace-normal break-all">
-                    Used: {usedOutputs.length > 5 
+                    {t('outputs.used_outputs')}: {usedOutputs.length > 5 
                       ? `${usedOutputs.slice(0, 3).join(', ')}, ... (+${usedOutputs.length - 3} more)`
                       : usedOutputs.join(', ')
                     }
@@ -180,7 +182,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onValueChange={(value) => updateField('output_type', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select type..." />
+                  <SelectValue placeholder={t('outputs.select_type')} />
                 </SelectTrigger>
                 <SelectContent>
                   {outputTypeOptions.map((type: string) => (
@@ -198,51 +200,51 @@ const OutputForm: React.FC<OutputFormProps> = ({
             {/* Display Name */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Display Name</span>
+                <span className="label-text font-medium">{t('outputs.display_name')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder="e.g., Living Room Light"
+                placeholder={t('sensors.name_placeholder')}
                 value={data.name || ''}
                 onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">Optional friendly name shown in Home Assistant</span>
+                <span className="label-text-alt whitespace-normal break-words">{t('common.optional')}</span>
               </label>
             </div>
 
             {/* Custom ID (optional override) */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Custom ID</span>
+                <span className="label-text font-medium">{t('outputs.custom_id')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder={data.boneio_output || 'Uses boneio_output if empty'}
+                placeholder={data.boneio_output || t('sensors.id_hint')}
                 value={data.id || ''}
                 onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               />
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">Optional. Only lowercase letters, numbers, underscores. Auto-sanitized.</span>
+                <span className="label-text-alt whitespace-normal break-words">{t('outputs.auto_sanitized')}</span>
               </label>
             </div>
 
             {/* Area / Room */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Area / Room</span>
+                <span className="label-text font-medium">{t('outputs.area')}</span>
               </label>
               <Select
                 value={data.area || '_none_'}
                 onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No area (main device)" />
+                  <SelectValue placeholder={t('outputs.no_area')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">No area (main device)</SelectItem>
+                  <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
                   {allAreas.map((area) => (
                     <SelectItem key={area.id} value={area.id}>
                       {area.name}
@@ -253,8 +255,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <label className="label">
                 <span className="label-text-alt whitespace-normal break-words">
                   {allAreas.length === 0 
-                    ? 'Define areas in the Areas/Rooms section first'
-                    : 'Creates sub-device linked to main BoneIO device'
+                    ? t('outputs.area_empty_hint')
+                    : t('outputs.area_hint')
                   }
                 </span>
               </label>

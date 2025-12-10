@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -72,6 +73,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   editingIndex,
   onValidationChange
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
 
   // Validate action - check if required fields are filled
@@ -518,7 +520,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       {validationErrors.length > 0 && (
         <div className="alert alert-error sticky top-0 z-10 shadow-lg">
           <div>
-            <h3 className="font-bold">Validation Errors ({validationErrors.length}):</h3>
+            <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>
             <ul className="list-disc list-inside max-h-24 overflow-y-auto">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -534,13 +536,13 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('basic')}
         >
-          Basic Settings
+          {t('settings.basic_settings')}
         </a>
         <a 
           className={`tab ${activeTab === 'pressed' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('pressed')}
         >
-          Pressed Actions
+          {t('inputs.pressed_actions')}
           {data.actions?.pressed && data.actions.pressed.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.pressed.length}
@@ -551,7 +553,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           className={`tab ${activeTab === 'released' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('released')}
         >
-          Released Actions
+          {t('inputs.released_actions')}
           {data.actions?.released && data.actions.released.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.released.length}
@@ -566,30 +568,30 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Name</span>
+                <span className="label-text font-medium">{t('outputs.display_name')}</span>
               </label>
               <input
                 type="text"
                 className="input w-full"
-                placeholder="e.g., Kitchen Motion Sensor"
+                placeholder={t('sensors.name_placeholder')}
                 value={data.name || ''}
                 onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Optional display name for HA</span>
+                <span className="label-text-alt">{t('common.optional')}</span>
               </label>
             </div>
 
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">BoneIO Input</span>
+                <span className="label-text font-medium">{t('inputs.boneio_input')}</span>
               </label>
               <Select
                 value={data.boneio_input || ''}
                 onValueChange={(value) => updateField('boneio_input', value)}
               >
                 <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
-                  <SelectValue placeholder="Select input..." />
+                  <SelectValue placeholder={t('inputs.select_input')} />
                 </SelectTrigger>
                 <SelectContent>
                   {boneioInputOptions.map((input: string) => (
@@ -602,14 +604,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-warning whitespace-normal break-all">
-                    All inputs are in use. You have to free one first.
+                    {t('inputs.all_inputs_used')}
                   </span>
                 </label>
               )}
               {usedInputs.length > 0 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-info whitespace-normal break-all">
-                    Used: {usedInputs.length > 5 
+                    {t('inputs.used_inputs')}: {usedInputs.length > 5 
                       ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
                       : usedInputs.join(', ')
                     }
@@ -620,17 +622,17 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Area / Room</span>
+                <span className="label-text font-medium">{t('outputs.area')}</span>
               </label>
               <Select
                 value={data.area || '_none_'}
                 onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No area (main device)" />
+                  <SelectValue placeholder={t('outputs.no_area')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">No area (main device)</SelectItem>
+                  <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
                   {allAreas.map((area) => (
                     <SelectItem key={area.id} value={area.id}>
                       {area.name}
@@ -641,8 +643,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
               <label className="label">
                 <span className="label-text-alt">
                   {allAreas.length === 0 
-                    ? 'Define areas in the Areas/Rooms section first'
-                    : 'Creates sub-device linked to main BoneIO device'
+                    ? t('outputs.area_empty_hint')
+                    : t('outputs.area_hint')
                   }
                 </span>
               </label>
@@ -650,7 +652,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Bounce Time (ms)</span>
+                <span className="label-text font-medium">{t('inputs.bounce_time')} (ms)</span>
               </label>
               <input
                 type="number"
@@ -660,23 +662,23 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                 onChange={(e) => updateField('bounce_time', parseInt(e.target.value) || 120)}
               />
               <label className="label">
-                <span className="label-text-alt">Debounce time in milliseconds</span>
+                <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
               </label>
             </div>
 
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Device Class</span>
+                <span className="label-text font-medium">{t('inputs.device_class')}</span>
               </label>
               <Select
                 value={data.device_class || '_none_'}
                 onValueChange={(value) => updateField('device_class', value === '_none_' ? '' : value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="None" />
+                  <SelectValue placeholder={t('inputs.none')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">None</SelectItem>
+                  <SelectItem value="_none_">{t('inputs.none')}</SelectItem>
                   {deviceClassOptions.map((deviceClass: string) => (
                     <SelectItem key={deviceClass} value={deviceClass}>
                       {deviceClass.split('_').map(word => 
@@ -689,11 +691,11 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
             </div>
           </div>
 
-          <div className="divider">Options</div>
+          <div className="divider">{t('settings.options')}</div>
 
           <div className="grid grid-cols-1 gap-4">
             <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">Show in Home Assistant</legend>
+              <legend className="fieldset-legend">{t('inputs.show_in_ha')}</legend>
               <label className="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
@@ -701,12 +703,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   checked={data.show_in_ha !== false}
                   onChange={(e) => updateField('show_in_ha', e.target.checked)}
                 />
-                <span className="label-text wrap-break-word">If you want you can disable discovering this input in HA</span>
+                <span className="label-text wrap-break-word">{t('inputs.show_in_ha_hint')}</span>
               </label>
             </fieldset>
 
             <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">Inverted</legend>
+              <legend className="fieldset-legend">{t('inputs.inverted')}</legend>
               <label className="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
@@ -714,12 +716,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   checked={data.inverted === true}
                   onChange={(e) => updateField('inverted', e.target.checked)}
                 />
-                <span className="label-text">Check if sensor type is inverted.</span>
+                <span className="label-text">{t('inputs.inverted_hint')}</span>
               </label>
             </fieldset>
 
             <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">Clear Message</legend>
+              <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
               <label className="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
@@ -727,7 +729,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   checked={data.clear_message === true}
                   onChange={(e) => updateField('clear_message', e.target.checked)}
                 />
-                <span className="label-text">Clear message after processing</span>
+                <span className="label-text">{t('inputs.clear_message_hint')}</span>
               </label>
             </fieldset>
           </div>
@@ -738,14 +740,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       {activeTab === 'pressed' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Pressed Actions</h3>
+            <h3 className="text-lg font-semibold">{t('inputs.pressed_actions')}</h3>
             <button
               type="button"
               onClick={() => addAction('pressed')}
               className="btn btn-primary btn-sm"
             >
               <FaPlus className="mr-2" />
-              Add Action
+              {t('inputs.add_action')}
             </button>
           </div>
 
@@ -755,8 +757,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
             )
           ) : (
             <div className="text-center py-8 text-base-content/60">
-              <p>No pressed actions configured</p>
-              <p className="text-sm">Click "Add Action" to create one</p>
+              <p>{t('inputs.no_pressed_actions')}</p>
+              <p className="text-sm">{t('inputs.click_add_action')}</p>
             </div>
           )}
         </div>
@@ -766,14 +768,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       {activeTab === 'released' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Released Actions</h3>
+            <h3 className="text-lg font-semibold">{t('inputs.released_actions')}</h3>
             <button
               type="button"
               onClick={() => addAction('released')}
               className="btn btn-primary btn-sm"
             >
               <FaPlus className="mr-2" />
-              Add Action
+              {t('inputs.add_action')}
             </button>
           </div>
 
@@ -783,8 +785,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
             )
           ) : (
             <div className="text-center py-8 text-base-content/60">
-              <p>No released actions configured</p>
-              <p className="text-sm">Click "Add Action" to create one</p>
+              <p>{t('inputs.no_released_actions')}</p>
+              <p className="text-sm">{t('inputs.click_add_action')}</p>
             </div>
           )}
         </div>

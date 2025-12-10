@@ -175,7 +175,7 @@ const EventForm: React.FC<EventFormProps> = ({
       {attemptedSubmit && validationErrors.length > 0 && (
         <div className="alert alert-error sticky top-0 z-10 shadow-lg">
           <div>
-            <h3 className="font-bold">Validation Errors ({validationErrors.length}):</h3>
+            <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>
             <ul className="list-disc list-inside max-h-24 overflow-y-auto">
               {validationErrors.map((error, index) => (
                 <li key={index}>{error}</li>
@@ -191,13 +191,13 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('basic')}
         >
-          Basic Settings
+          {t('settings.basic_settings')}
         </a>
         <a 
           className={`tab ${activeTab === 'single' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('single')}
         >
-          Single Click
+          {t('event_form.single_click')}
           {data.actions?.single && data.actions.single.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.single.length}
@@ -208,7 +208,7 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'double' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('double')}
         >
-          Double Click
+          {t('event_form.double_click')}
           {data.actions?.double && data.actions.double.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.double.length}
@@ -219,7 +219,7 @@ const EventForm: React.FC<EventFormProps> = ({
           className={`tab ${activeTab === 'long' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('long')}
         >
-          Long Click
+          {t('event_form.long_click')}
           {data.actions?.long && data.actions.long.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.long.length}
@@ -234,17 +234,17 @@ const EventForm: React.FC<EventFormProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Name</span>
+                <span className="label-text font-medium">{t('outputs.display_name')}</span>
               </label>
               <input
                 type="text"
                 className="input w-full"
-                placeholder="e.g., Kitchen Button"
+                placeholder={t('sensors.name_placeholder')}
                 value={data.name || ''}
                 onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Optional display name for HA</span>
+                <span className="label-text-alt">{t('common.optional')}</span>
               </label>
             </div>
 
@@ -270,14 +270,14 @@ const EventForm: React.FC<EventFormProps> = ({
               {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-warning whitespace-normal break-all">
-                    All inputs are in use. You have to free one first.
+                    {t('inputs.all_inputs_used')}
                   </span>
                 </label>
               )}
               {usedInputs.length > 0 && (
                 <label className="label max-w-full">
                   <span className="label-text-alt text-info whitespace-normal break-all">
-                    Used: {usedInputs.length > 5 
+                    {t('inputs.used_inputs')}: {usedInputs.length > 5 
                       ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
                       : usedInputs.join(', ')
                     }
@@ -318,7 +318,7 @@ const EventForm: React.FC<EventFormProps> = ({
 
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Bounce Time</span>
+                <span className="label-text font-medium">{t('inputs.bounce_time')}</span>
               </label>
               <input
                 type="text"
@@ -328,16 +328,16 @@ const EventForm: React.FC<EventFormProps> = ({
                 onChange={(e) => updateField('bounce_time', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Bounce time for GPIO in milliseconds</span>
+                <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
               </label>
             </div>
           </div>
 
-          <div className="divider">Options</div>
+          <div className="divider">{t('settings.options')}</div>
 
           <div className="grid grid-cols-1 gap-4">
             <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">Clear Message</legend>
+              <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
               <label className="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
@@ -345,7 +345,7 @@ const EventForm: React.FC<EventFormProps> = ({
                   checked={data.clear_message === true}
                   onChange={(e) => updateField('clear_message', e.target.checked)}
                 />
-                <span className="label-text break-words">Decide if after press/release callback send empty message to mqtt. Same as Zigbee2Mqtt is doing in button actions.</span>
+                <span className="label-text break-words">{t('event_form.clear_message_hint')}</span>
               </label>
             </fieldset>
           </div>
@@ -356,13 +356,13 @@ const EventForm: React.FC<EventFormProps> = ({
       {activeTab === 'single' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Single Press Actions</h3>
+            <h3 className="text-lg font-semibold">{t('event_form.single_actions')}</h3>
             <button
               onClick={() => addAction('single')}
               className="btn btn-primary btn-sm"
             >
               <FaPlus className="mr-2" />
-              Add Action
+              {t('inputs.add_action')}
             </button>
           </div>
           
@@ -383,13 +383,13 @@ const EventForm: React.FC<EventFormProps> = ({
       {activeTab === 'double' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Double Press Actions</h3>
+            <h3 className="text-lg font-semibold">{t('event_form.double_actions')}</h3>
             <button
               onClick={() => addAction('double')}
               className="btn btn-primary btn-sm"
             >
               <FaPlus className="mr-2" />
-              Add Action
+              {t('inputs.add_action')}
             </button>
           </div>
           
@@ -410,13 +410,13 @@ const EventForm: React.FC<EventFormProps> = ({
       {activeTab === 'long' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Long Press Actions</h3>
+            <h3 className="text-lg font-semibold">{t('event_form.long_actions')}</h3>
             <button
               onClick={() => addAction('long')}
               className="btn btn-primary btn-sm"
             >
               <FaPlus className="mr-2" />
-              Add Action
+              {t('inputs.add_action')}
             </button>
           </div>
           

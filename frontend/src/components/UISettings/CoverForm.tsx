@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
   allOutputs = [],
   allAreas = []
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
   // Get available outputs that have output_type === 'cover' (or deprecated 'none')
@@ -64,13 +66,13 @@ const CoverForm: React.FC<CoverFormProps> = ({
           className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('basic')}
         >
-          Basic
+          {t('settings.basic_settings')}
         </button>
         <button 
           className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('advanced')}
         >
-          Advanced
+          {t('settings.advanced_settings')}
         </button>
       </div>
 
@@ -80,18 +82,18 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Display Name */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Display Name</span>
+              <span className="label-text font-medium">{t('outputs.display_name')}</span>
             </label>
             <input
               type="text"
               className="input w-full"
               value={data.name || ''}
               onChange={(e) => updateField('name', e.target.value)}
-              placeholder="e.g., Living Room Blinds"
+              placeholder={t('sensors.name_placeholder')}
             />
             <label className="label">
               <span className="label-text-alt text-info">
-                Friendly name shown in Home Assistant. If not set, uses ID.
+                {t('common.optional')}
               </span>
             </label>
           </div>
@@ -99,21 +101,21 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* ID */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">ID</span>
+              <span className="label-text font-medium">{t('outputs.id')}</span>
             </label>
             <input
               type="text"
               className="input w-full"
               value={data.id || ''}
               onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-              placeholder="Auto-generated from relays if empty"
+              placeholder={t('sensors.id_hint')}
             />
             <label className="label">
               <span className="label-text-alt text-info">
-                Technical ID for MQTT topics. Only lowercase letters, numbers and underscores.
+                {t('modbus.technical_id')}
                 {!data.id && data.open_relay && data.close_relay && (
                   <span className="block mt-1">
-                    Will be: <code className="bg-base-300 px-1 rounded">cover_{data.open_relay}_{data.close_relay}</code>
+                    {t('modbus.will_be')}: <code className="bg-base-300 px-1 rounded">cover_{data.open_relay}_{data.close_relay}</code>
                   </span>
                 )}
               </span>
@@ -123,17 +125,17 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Area / Room */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Area / Room</span>
+              <span className="label-text font-medium">{t('outputs.area')}</span>
             </label>
             <Select
               value={data.area || '_none_'}
               onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="No area (main device)" />
+                <SelectValue placeholder={t('outputs.no_area')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none_">No area (main device)</SelectItem>
+                <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
                 {allAreas.map((area) => (
                   <SelectItem key={area.id} value={area.id}>
                     {area.name}
@@ -144,8 +146,8 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text-alt whitespace-normal break-words">
                 {allAreas.length === 0 
-                  ? 'Define areas in the Areas/Rooms section first'
-                  : 'Creates sub-device linked to main BoneIO device'
+                  ? t('outputs.area_empty_hint')
+                  : t('outputs.area_hint')
                 }
               </span>
             </label>
@@ -154,14 +156,14 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Platform */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Platform *</span>
+              <span className="label-text font-medium">{t('covers.platform')} *</span>
             </label>
             <Select
               value={selectedPlatform}
               onValueChange={(value) => updateField('platform', value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select platform..." />
+                <SelectValue placeholder={t('covers.select_platform')} />
               </SelectTrigger>
               <SelectContent>
                 {platformOptions.map((platform: string) => (
@@ -173,9 +175,9 @@ const CoverForm: React.FC<CoverFormProps> = ({
             </Select>
             <label className="label">
               <span className="label-text-alt text-info">
-                {selectedPlatform === 'time_based' && 'Standard time-based cover control'}
-                {selectedPlatform === 'venetian' && 'Venetian blinds with tilt support'}
-                {selectedPlatform === 'previous' && 'Previous position tracking with actuator'}
+                {selectedPlatform === 'time_based' && t('covers.platform_time_based')}
+                {selectedPlatform === 'venetian' && t('covers.platform_venetian')}
+                {selectedPlatform === 'previous' && t('covers.platform_previous')}
               </span>
             </label>
           </div>
@@ -183,11 +185,11 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Open Relay */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Open Relay *</span>
+              <span className="label-text font-medium">{t('covers.open_relay')} *</span>
             </label>
             {availableCoverOutputs.length === 0 ? (
               <div className="alert alert-warning">
-                <span>No cover outputs available. Please configure outputs with output_type='cover' first.</span>
+                <span>{t('covers.no_cover_outputs')}</span>
               </div>
             ) : (
               <Select
@@ -195,7 +197,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 onValueChange={(value) => updateField('open_relay', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select open relay..." />
+                  <SelectValue placeholder={t('covers.select_relay')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCoverOutputs
@@ -210,7 +212,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
             )}
             <label className="label">
               <span className="label-text-alt text-info">
-                Output used to open the cover
+                {t('covers.open_relay_hint')}
               </span>
             </label>
           </div>
@@ -218,11 +220,11 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Close Relay */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Close Relay *</span>
+              <span className="label-text font-medium">{t('covers.close_relay')} *</span>
             </label>
             {availableCoverOutputs.length === 0 ? (
               <div className="alert alert-warning">
-                <span>No cover outputs available. Please configure outputs with output_type='cover' first.</span>
+                <span>{t('covers.no_cover_outputs')}</span>
               </div>
             ) : (
               <Select
@@ -230,7 +232,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 onValueChange={(value) => updateField('close_relay', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select close relay..." />
+                  <SelectValue placeholder={t('covers.select_relay')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableCoverOutputs
@@ -245,7 +247,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
             )}
             <label className="label">
               <span className="label-text-alt text-info">
-                Output used to close the cover
+                {t('covers.close_relay_hint')}
               </span>
             </label>
           </div>
@@ -254,7 +256,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
           <SimpleTimePeriodInput
             value={data.open_time || ''}
             onChange={(value: string) => updateField('open_time', value)}
-            label="Open Time"
+            label={t('covers.open_time')}
             required={true}
             minimum={1000}
           />
@@ -263,7 +265,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
           <SimpleTimePeriodInput
             value={data.close_time || ''}
             onChange={(value: string) => updateField('close_time', value)}
-            label="Close Time"
+            label={t('covers.close_time')}
             required={true}
             minimum={1000}
           />
@@ -273,7 +275,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <SimpleTimePeriodInput
               value={data.tilt_duration || ''}
               onChange={(value: string) => updateField('tilt_duration', value)}
-              label="Tilt Duration"
+              label={t('covers.tilt_duration')}
               required={false}
               minimum={10}
             />
@@ -284,7 +286,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <SimpleTimePeriodInput
               value={data.actuator_activation_duration || ''}
               onChange={(value: string) => updateField('actuator_activation_duration', value)}
-              label="Actuator Activation Duration"
+              label={t('covers.actuator_duration')}
               required={false}
               minimum={0}
             />
@@ -298,17 +300,17 @@ const CoverForm: React.FC<CoverFormProps> = ({
           {/* Device Class */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Device Class</span>
+              <span className="label-text font-medium">{t('covers.device_class')}</span>
             </label>
             <Select
               value={data.device_class || '_none_'}
               onValueChange={(value) => updateField('device_class', value === '_none_' ? undefined : value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="None" />
+                <SelectValue placeholder={t('inputs.none')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none_">None</SelectItem>
+                <SelectItem value="_none_">{t('inputs.none')}</SelectItem>
                 {deviceClassOptions.map((deviceClass: string) => (
                   <SelectItem key={deviceClass} value={deviceClass}>
                     {deviceClass.toUpperCase()}
@@ -318,7 +320,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
             </Select>
             <label className="label">
               <span className="label-text-alt text-info">
-                Device class for Home Assistant UI
+                {t('covers.device_class_hint')}
               </span>
             </label>
           </div>
@@ -333,9 +335,9 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 onChange={(e) => updateField('restore_state', e.target.checked)}
               />
               <div>
-                <span className="label-text font-medium">Restore State</span>
+                <span className="label-text font-medium">{t('covers.restore_state')}</span>
                 <p className="text-sm text-base-content/70 mt-1">
-                  Restore saved state after restart
+                  {t('covers.restore_state_hint')}
                 </p>
               </div>
             </label>
@@ -351,9 +353,9 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 onChange={(e) => updateField('show_in_ha', e.target.checked)}
               />
               <div>
-                <span className="label-text font-medium">Show in Home Assistant</span>
+                <span className="label-text font-medium">{t('inputs.show_in_ha')}</span>
                 <p className="text-sm text-base-content/70 mt-1">
-                  Enable Home Assistant discovery for this cover
+                  {t('covers.show_in_ha_hint')}
                 </p>
               </div>
             </label>
