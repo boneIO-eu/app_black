@@ -74,7 +74,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
     
     // Address is required
     if (!data.address) {
-      newErrors.address = t('sensors.address_required');
+      newErrors.address = 'address_required';
     }
     
     // Check for duplicate address
@@ -82,12 +82,17 @@ const SensorForm: React.FC<SensorFormProps> = ({
       sensor.address === data.address && index !== editingIndex
     );
     if (isDuplicate) {
-      newErrors.address = t('sensors.address_duplicate');
+      newErrors.address = 'address_duplicate';
     }
     
     setErrors(newErrors);
     onValidationChange?.(Object.keys(newErrors).length > 0);
-  }, [data, existingSensors, editingIndex, onValidationChange, t]);
+  }, [data.address, existingSensors, editingIndex, onValidationChange]);
+  
+  // Helper to get translated error message
+  const getErrorMessage = (errorKey: string) => {
+    return t(`sensors.${errorKey}`);
+  };
 
   const handleChange = (field: keyof SensorData, value: any) => {
     onChange({ ...data, [field]: value });
@@ -136,7 +141,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
           </Select>
           {errors.address && (
             <label className="label">
-              <span className="label-text-alt text-error">{errors.address}</span>
+              <span className="label-text-alt text-error">{getErrorMessage(errors.address)}</span>
             </label>
           )}
         </div>
@@ -157,7 +162,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
           />
           {errors.address && (
             <label className="label">
-              <span className="label-text-alt text-error">{errors.address}</span>
+              <span className="label-text-alt text-error">{getErrorMessage(errors.address)}</span>
             </label>
           )}
         </div>
