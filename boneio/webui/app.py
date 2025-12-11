@@ -717,6 +717,8 @@ async def check_update():
                 "release_url": release['html_url'],
                 "published_at": release['published_at'],
             }
+            if tag.startswith("v0."):
+                continue
             available_versions.append(ver_info)
             
             # Track latest stable and prerelease
@@ -725,19 +727,52 @@ async def check_update():
             if is_prerelease and latest_prerelease is None:
                 latest_prerelease = ver_info
         
-        # Determine recommended version (latest stable, or latest prerelease if no stable)
-        recommended = latest_stable or latest_prerelease or available_versions[0]
+        # Determine if current version is a prerelease
+        current_ver_lower = current_version.lower()
+        current_is_prerelease = any(x in current_ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])
+        
+        # Determine recommended version based on current version type
+        # If user is on prerelease, recommend latest prerelease (if newer)
+        # If user is on stable, recommend latest stable
+        if current_is_prerelease:
+            recommended = latest_prerelease or latest_stable or available_versions[0]
+        else:
+            recommended = latest_stable or latest_prerelease or available_versions[0]
         
         # Check if update is available
-        is_update_available = version.parse(recommended["version"]) > version.parse(current_version)
+        # Compare with the appropriate version based on current version type
+        is_update_available = False
+        prerelease_update_available = False
+        try:
+            current_parsed = version.parse(current_version)
+            recommended_parsed = version.parse(recommended["version"])
+            is_update_available = recommended_parsed > current_parsed
+            
+            # If on prerelease, also check if there's a newer prerelease even if stable is recommended
+            if current_is_prerelease and latest_prerelease:
+                prerelease_parsed = version.parse(latest_prerelease["version"])
+                if prerelease_parsed > current_parsed:
+                    is_update_available = True
+                    recommended = latest_prerelease
+            
+            # If on stable, check if there's a newer prerelease available (for optional upgrade)
+            if not current_is_prerelease and latest_prerelease:
+                prerelease_parsed = version.parse(latest_prerelease["version"])
+                if prerelease_parsed > current_parsed:
+                    prerelease_update_available = True
+        except Exception as e:
+            _LOGGER.warning("Error parsing versions for comparison: %s", str(e))
+            is_update_available = False
         
         return {
             "status": "success",
             "current_version": current_version,
+            "current_is_prerelease": current_is_prerelease,
             "latest_version": recommended["version"],
             "latest_stable": latest_stable["version"] if latest_stable else None,
             "latest_prerelease": latest_prerelease["version"] if latest_prerelease else None,
             "update_available": is_update_available,
+            "prerelease_update_available": prerelease_update_available,
             "release_url": recommended["release_url"],
             "published_at": recommended["published_at"],
             "is_prerelease": recommended["is_prerelease"],

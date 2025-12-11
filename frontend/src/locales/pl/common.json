@@ -129,6 +129,8 @@
     "title": "Grupy",
     "name": "Nazwa",
     "id": "ID",
+    "id_hint": "Identyfikator techniczny używany w tematach MQTT i akcjach",
+    "name_hint": "Opcjonalna przyjazna nazwa wyświetlana w Home Assistant. Jeśli nie ustawiona, używa ID.",
     "member_outputs": "Wyjścia Członkowskie",
     "type": "Typ",
     "all_on": "Wszystkie Włączone",
@@ -180,7 +182,10 @@
     "cover": "Rolety",
     "event": "Encje zdarzeń",
     "binary_sensor": "Czujniki Binarne",
-    "modbus_devices": "Urządzenia Modbus"
+    "modbus_devices": "Urządzenia Modbus",
+    "save_changes": "Zapisz Zmiany",
+    "add_item": "Dodaj Element",
+    "fix_validation_errors": "Napraw błędy walidacji przed zapisaniem"
   },
   "system_update": {
     "title": "Aktualizacja Systemu",
@@ -250,7 +255,13 @@
     "rollback_message": "{message}\n\nKliknij OK aby zrestartować aplikację.",
     "rollback_failed": "Cofanie nie powiodło się",
     "turn_off_warning_1": "To natychmiast wyłączy WSZYSTKIE wyjścia.",
-    "turn_off_warning_2": "Zapisane stany przekaźników zostaną wyczyszczone - wyjścia nie zostaną przywrócone po restarcie."
+    "turn_off_warning_2": "Zapisane stany przekaźników zostaną wyczyszczone - wyjścia nie zostaną przywrócone po restarcie.",
+    "prerelease_available": "Dostępna wersja deweloperska",
+    "prerelease_available_description": "Dostępna jest nowsza wersja deweloperska. Wersje deweloperskie mogą zawierać nowe funkcje, ale mogą być mniej stabilne.",
+    "prerelease_version": "Wersja deweloperska",
+    "your_stable_version": "Twoja stabilna wersja",
+    "prerelease_warning": "Wersje deweloperskie nie są zalecane do użytku produkcyjnego. Instaluj tylko jeśli chcesz testować nowe funkcje.",
+    "install_prerelease": "Zainstaluj wersję dev"
   },
   "areas": {
     "title": "Obszary",
@@ -258,7 +269,11 @@
     "name": "Nazwa",
     "add": "Dodaj Obszar",
     "edit": "Edytuj",
-    "delete": "Usuń"
+    "delete": "Usuń",
+    "area_id": "ID Obszaru",
+    "area_name": "Nazwa Obszaru",
+    "id_hint": "Tylko małe litery, cyfry, podkreślenia. Automatyczna sanityzacja.",
+    "name_hint": "Nazwa wyświetlana w Home Assistant"
   },
   "sections": {
     "areas": "Obszary/Pomieszczenia",
@@ -388,6 +403,7 @@
   "common": {
     "save": "Zapisz",
     "cancel": "Anuluj",
+    "close": "Zamknij",
     "delete": "Usuń",
     "edit": "Edytuj",
     "add": "Dodaj",
@@ -506,6 +522,16 @@
     "validation_cover_required": "Roleta jest wymagana dla akcji rolety",
     "validation_topic_required": "Temat jest wymagany dla akcji MQTT",
     "validation_boneio_id_required": "ID BoneIO jest wymagane dla akcji zdalnych"
+  },
+  "config_check": {
+    "title": "Sprawdzanie Konfiguracji",
+    "checking": "Sprawdzanie konfiguracji...",
+    "valid": "Konfiguracja Poprawna",
+    "error": "Błąd Konfiguracji",
+    "failed": "Nie udało się sprawdzić konfiguracji",
+    "check_again": "Sprawdź Ponownie",
+    "check_button": "Sprawdź Konfigurację",
+    "description": "Kliknij przycisk poniżej, aby zweryfikować plik konfiguracji. Sprawdzi to błędy składni i zwaliduje strukturę konfiguracji. Najpierw zapisz plik, a następnie kliknij przycisk sprawdzania."
   }
 }
   

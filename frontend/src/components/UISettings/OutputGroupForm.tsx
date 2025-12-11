@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -23,6 +24,7 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
   allOutputs = [],
   allAreas = []
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
   // Get available outputs from allOutputs with their names
@@ -66,13 +68,13 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
           className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('basic')}
         >
-          Basic
+          {t('settings.basic_settings')}
         </button>
         <button 
           className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('advanced')}
         >
-          Advanced
+          {t('settings.advanced_settings')}
         </button>
       </div>
 
@@ -82,7 +84,7 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
           {/* ID */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">ID *</span>
+              <span className="label-text font-medium">{t('groups.id')} *</span>
             </label>
             <input
               type="text"
@@ -91,17 +93,15 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
               onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               placeholder="e.g., lights_living_room"
             />
-            <label className="label">
-              <span className="label-text-alt text-info">
-                Technical identifier used in MQTT topics and actions.
-              </span>
-            </label>
+            <p className="text-xs text-base-content/60 mt-1">
+              {t('groups.id_hint')}
+            </p>
           </div>
 
           {/* Name */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Display Name</span>
+              <span className="label-text font-medium">{t('groups.name')}</span>
             </label>
             <input
               type="text"
@@ -110,21 +110,19 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
               onChange={(e) => updateField('name', e.target.value)}
               placeholder="e.g., Living Room Lights"
             />
-            <label className="label">
-              <span className="label-text-alt text-info">
-                Optional friendly name shown in Home Assistant. If not set, uses ID.
-              </span>
-            </label>
+            <p className="text-xs text-base-content/60 mt-1">
+              {t('groups.name_hint')}
+            </p>
           </div>
 
           {/* Outputs Selection */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Member Outputs *</span>
+              <span className="label-text font-medium">{t('groups.member_outputs')} *</span>
             </label>
             <div className="border border-base-300 rounded-lg p-3">
               {availableOutputs.length === 0 ? (
-                <p className="text-warning">No outputs available. Please configure outputs first.</p>
+                <p className="text-warning">{t('groups.no_outputs_available')}</p>
               ) : (
                 <div className="flex flex-col gap-1">
                   {availableOutputs.map((output) => (
@@ -149,23 +147,19 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                 </div>
               )}
             </div>
-            <div className="flex justify-between mt-2">
-              <label className="label py-0">
-                <span className="label-text-alt text-info">
-                  Selected: {selectedOutputs.length > 0 
-                    ? selectedOutputs.map((id: string) => {
-                        const output = availableOutputs.find(o => o.id === id);
-                        return output ? output.name : id;
-                      }).join(', ') 
-                    : 'None'}
-                </span>
-              </label>
+            <div className="flex flex-wrap justify-between gap-2 mt-2">
+              <p className="text-xs text-base-content/60">
+                {t('groups.selected')}: {selectedOutputs.length > 0 
+                  ? selectedOutputs.map((id: string) => {
+                      const output = availableOutputs.find(o => o.id === id);
+                      return output ? output.name : id;
+                    }).join(', ') 
+                  : t('common.no')}
+              </p>
               {selectedOutputs.length === 0 && (
-                <label className="label py-0">
-                  <span className="label-text-alt text-error">
-                    At least one output is required
-                  </span>
-                </label>
+                <p className="text-xs text-error">
+                  {t('groups.at_least_one_required')}
+                </p>
               )}
             </div>
           </div>
@@ -173,14 +167,14 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
           {/* Output Type */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Output Type</span>
+              <span className="label-text font-medium">{t('groups.output_type')}</span>
             </label>
             <Select
               value={data.output_type || 'switch'}
               onValueChange={(value) => updateField('output_type', value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select type..." />
+                <SelectValue placeholder={t('outputs.select_type')} />
               </SelectTrigger>
               <SelectContent>
                 {outputTypeOptions.map((type: string) => (
@@ -190,27 +184,25 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                 ))}
               </SelectContent>
             </Select>
-            <label className="label">
-              <span className="label-text-alt text-info">
-                Device type in Home Assistant (switch or light)
-              </span>
-            </label>
+            <p className="text-xs text-base-content/60 mt-1">
+              {t('groups.output_type_hint')}
+            </p>
           </div>
 
           {/* Area */}
           <div className="form-control">
             <label className="label">
-              <span className="label-text font-medium">Area</span>
+              <span className="label-text font-medium">{t('outputs.area')}</span>
             </label>
             <Select
               value={data.area || '_none_'}
               onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="No area (main device)" />
+                <SelectValue placeholder={t('outputs.no_area')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="_none_">No area (main device)</SelectItem>
+                <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
                 {allAreas.map((area: any) => (
                   <SelectItem key={area.id} value={area.id}>
                     {area.name || area.id}
@@ -218,11 +210,9 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                 ))}
               </SelectContent>
             </Select>
-            <label className="label">
-              <span className="label-text-alt text-info">
-                Assign this group to a specific area/sub-device in Home Assistant
-              </span>
-            </label>
+            <p className="text-xs text-base-content/60 mt-1">
+              {t('groups.area_hint')}
+            </p>
           </div>
         </div>
       )}
@@ -239,13 +229,11 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                 checked={data.all_on_behaviour || false}
                 onChange={(e) => updateField('all_on_behaviour', e.target.checked)}
               />
-              <div>
-                <span className="label-text font-medium">All On Behaviour</span>
-                <p className="text-sm text-base-content/70 mt-1">
-                  If true, toggle when all outputs are on. Otherwise, group is on if any output is on.
-                </p>
-              </div>
+              <span className="label-text font-medium">{t('groups.all_on_behaviour')}</span>
             </label>
+            <p className="text-xs text-base-content/60 ml-10">
+              {t('groups.all_on_behaviour_hint')}
+            </p>
           </div>
         </div>
       )}

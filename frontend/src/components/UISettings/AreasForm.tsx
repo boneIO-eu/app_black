@@ -1,5 +1,6 @@
 import React from 'react';
 import { sanitizeId } from './helpers/idValidation';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface AreasFormProps {
   data: any;
@@ -11,6 +12,8 @@ interface AreasFormProps {
  * Fields: id, name
  */
 const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
+  const { t } = useTranslation();
+  
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
@@ -20,7 +23,7 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
       {/* ID */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Area ID <span className="text-error">*</span></span>
+          <span className="label-text font-medium">{t('areas.area_id')} <span className="text-error">*</span></span>
         </label>
         <input
           type="text"
@@ -31,14 +34,14 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
           required
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Only lowercase letters, numbers, underscores. Auto-sanitized.</span>
+          <span className="label-text-alt text-base-content/60">{t('areas.id_hint')}</span>
         </label>
       </div>
 
       {/* Name */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">Area Name <span className="text-error">*</span></span>
+          <span className="label-text font-medium">{t('areas.area_name')} <span className="text-error">*</span></span>
         </label>
         <input
           type="text"
@@ -49,7 +52,7 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
           required
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">Display name shown in Home Assistant</span>
+          <span className="label-text-alt text-base-content/60">{t('areas.name_hint')}</span>
         </label>
       </div>
     </div>

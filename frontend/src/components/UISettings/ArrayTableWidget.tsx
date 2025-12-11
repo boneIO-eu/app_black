@@ -769,7 +769,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
       {/* Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl sm:max-w-3xl w-[120vw] max-h-[80vh] flex flex-col gap-0 bg-base-100">
+        <DialogContent className="max-w-4xl sm:max-w-3xl lg:w-[120vw] max-h-[80vh] flex flex-col gap-0 bg-base-100">
           <DialogHeader>
             <DialogTitle>
               {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
@@ -883,22 +883,22 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           </div>
           
           {/* Action buttons - fixed at bottom */}
-          <DialogFooter className="flex-shrink-0">
+          <DialogFooter className="shrink-0 mt-2">
             <button 
               type="button" 
               onClick={handleCancel} 
               className="btn btn-ghost"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button 
               type="button" 
               onClick={handleSave} 
               className="btn btn-primary"
               disabled={hasValidationErrors}
-              title={hasValidationErrors ? 'Please fix validation errors before saving' : ''}
+              title={hasValidationErrors ? t('settings.fix_validation_errors') : ''}
             >
-              {editingIndex !== null ? 'Save Changes' : 'Add Item'}
+              {editingIndex !== null ? t('settings.save_changes') : t('settings.add_item')}
             </button>
           </DialogFooter>
         </DialogContent>

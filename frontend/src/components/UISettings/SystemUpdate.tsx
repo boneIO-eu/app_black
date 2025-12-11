@@ -26,10 +26,12 @@ interface VersionInfo {
 interface UpdateInfo {
   status: string;
   current_version: string;
+  current_is_prerelease?: boolean;
   latest_version?: string;
   latest_stable?: string;
   latest_prerelease?: string;
   update_available?: boolean;
+  prerelease_update_available?: boolean;
   release_url?: string;
   published_at?: string;
   is_prerelease?: boolean;
@@ -392,6 +394,67 @@ const SystemUpdate: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Prerelease Available Card (for stable users) */}
+            {updateInfo?.prerelease_update_available && !updateInfo?.update_available && (
+              <div className="card bg-warning/10 border border-warning">
+                <div className="card-body">
+                  <h3 className="card-title text-warning">
+                    <FaExclamationTriangle /> {t('system_update.prerelease_available')}
+                  </h3>
+                  <p className="text-sm opacity-70">
+                    {t('system_update.prerelease_available_description')}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <p className="text-sm opacity-70">{t('system_update.prerelease_version')}</p>
+                      <p className="text-2xl font-mono font-bold">
+                        {updateInfo.latest_prerelease}
+                        <span className="badge badge-warning ml-2">dev</span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm opacity-70">{t('system_update.your_stable_version')}</p>
+                      <p className="text-lg font-mono">
+                        {updateInfo.current_version}
+                        <span className="badge badge-success ml-2">stable</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="alert alert-warning mt-4">
+                    <FaExclamationTriangle />
+                    <span className="text-sm">{t('system_update.prerelease_warning')}</span>
+                  </div>
+                  <div className="card-actions justify-end mt-4">
+                    <a
+                      href={updateInfo.available_versions?.find(v => v.version === updateInfo.latest_prerelease)?.release_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-ghost"
+                    >
+                      {t('system_update.view_release_notes')}
+                    </a>
+                    <button
+                      className="btn btn-warning"
+                      onClick={() => startUpdate(updateInfo.latest_prerelease)}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? (
+                        <>
+                          <FaSpinner className="animate-spin" />
+                          {t('system_update.updating')}
+                        </>
+                      ) : (
+                        <>
+                          <FaDownload />
+                          {t('system_update.install_prerelease')}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Update Available Card */}
             {updateInfo?.update_available && (

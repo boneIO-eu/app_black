@@ -129,6 +129,8 @@
     "title": "Groups",
     "name": "Name",
     "id": "ID",
+    "id_hint": "Technical identifier used in MQTT topics and actions",
+    "name_hint": "Optional friendly name shown in Home Assistant. If not set, uses ID.",
     "member_outputs": "Member Outputs",
     "type": "Type",
     "all_on": "All On",
@@ -180,7 +182,10 @@
     "cover": "Covers",
     "event": "Events",
     "binary_sensor": "Binary Sensors",
-    "modbus_devices": "Modbus Devices"
+    "modbus_devices": "Modbus Devices",
+    "save_changes": "Save Changes",
+    "add_item": "Add Item",
+    "fix_validation_errors": "Please fix validation errors before saving"
   },
   "system_update": {
     "title": "System Update",
@@ -250,7 +255,13 @@
     "rollback_message": "{message}\n\nClick OK to restart the application.",
     "rollback_failed": "Rollback failed",
     "turn_off_warning_1": "This will turn off ALL outputs immediately.",
-    "turn_off_warning_2": "Saved relay states will be cleared - outputs will not restore on restart."
+    "turn_off_warning_2": "Saved relay states will be cleared - outputs will not restore on restart.",
+    "prerelease_available": "Development Version Available",
+    "prerelease_available_description": "A newer development version is available. Development versions may contain new features but could be less stable.",
+    "prerelease_version": "Development Version",
+    "your_stable_version": "Your Stable Version",
+    "prerelease_warning": "Development versions are not recommended for production use. Install only if you want to test new features.",
+    "install_prerelease": "Install Dev Version"
   },
   "areas": {
     "title": "Areas",
@@ -258,7 +269,11 @@
     "name": "Name",
     "add": "Add Area",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "area_id": "Area ID",
+    "area_name": "Area Name",
+    "id_hint": "Only lowercase letters, numbers, underscores. Auto-sanitized.",
+    "name_hint": "Display name shown in Home Assistant"
   },
   "sections": {
     "areas": "Areas/Rooms",
@@ -388,6 +403,7 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
+    "close": "Close",
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
@@ -505,5 +521,15 @@
     "validation_cover_required": "Cover is required for cover actions",
     "validation_topic_required": "Topic is required for MQTT actions",
     "validation_boneio_id_required": "BoneIO ID is required for remote actions"
+  },
+  "config_check": {
+    "title": "Configuration Check",
+    "checking": "Checking configuration...",
+    "valid": "Configuration Valid",
+    "error": "Configuration Error",
+    "failed": "Failed to check configuration",
+    "check_again": "Check Again",
+    "check_button": "Check Configuration",
+    "description": "Click the button below to verify your configuration file. This will check for syntax errors and validate the configuration structure. First save your file, then click the check button."
   }
 }

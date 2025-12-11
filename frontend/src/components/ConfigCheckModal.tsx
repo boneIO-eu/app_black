@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface ConfigCheckModalProps {
   isOpen: boolean;
@@ -7,6 +8,7 @@ interface ConfigCheckModalProps {
 }
 
 export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalProps) {
+  const { t } = useTranslation();
   const [isChecking, setIsChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<{
     status: 'success' | 'error';
@@ -24,7 +26,7 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
     } catch (error) {
       setCheckResult({
         status: 'error',
-        message: 'Failed to check configuration'
+        message: t('config_check.failed')
       });
     } finally {
       setIsChecking(false);
@@ -36,19 +38,19 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
   return (
     <div className="fixed inset-0 bg-base-300/80 flex items-center justify-center z-50">
       <div className="bg-base-200 p-8 rounded-lg shadow-lg max-w-2xl w-full mx-4">
-        <h2 className="text-2xl font-bold mb-6">Configuration Check</h2>
+        <h2 className="text-2xl font-bold mb-6">{t('config_check.title')}</h2>
         
         {isChecking ? (
           <div className="flex flex-col items-center gap-4 py-8">
             <div className="loading loading-spinner loading-lg"></div>
-            <p className="text-lg">Checking configuration...</p>
+            <p className="text-lg">{t('config_check.checking')}</p>
           </div>
         ) : checkResult ? (
           <div className="space-y-4">
             <div className={`text-lg font-semibold ${
               checkResult.status === 'success' ? 'text-success' : 'text-error'
             }`}>
-              {checkResult.status === 'success' ? 'Configuration Valid' : 'Configuration Error'}
+              {checkResult.status === 'success' ? t('config_check.valid') : t('config_check.error')}
             </div>
             {checkResult.message && (
               <pre className="bg-base-300 p-4 rounded-lg whitespace-pre-wrap">
@@ -63,7 +65,7 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
                   onClose();
                 }}
               >
-                Close
+                {t('common.close')}
               </button>
               <button 
                 className="btn btn-primary"
@@ -72,29 +74,27 @@ export default function ConfigCheckModal({ isOpen, onClose }: ConfigCheckModalPr
                   handleCheck();
                 }}
               >
-                Check Again
+                {t('config_check.check_again')}
               </button>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
             <p className="text-base-content/70">
-              Click the button below to verify your configuration file.
-              This will check for syntax errors and validate the configuration structure.
-              First save your file, then click the check button.
+              {t('config_check.description')}
             </p>
             <div className="flex justify-end gap-4">
               <button 
                 className="btn btn-ghost"
                 onClick={onClose}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button 
                 className="btn btn-primary"
                 onClick={handleCheck}
               >
-                Check Configuration
+                {t('config_check.check_button')}
               </button>
             </div>
           </div>

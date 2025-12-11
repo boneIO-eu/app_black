@@ -60,11 +60,9 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
             </option>
           ))}
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">
-            {t('logger.default_level_help')}
-          </span>
-        </label>
+        <p className="text-xs text-base-content/60 mt-1">
+          {t('logger.default_level_help')}
+        </p>
       </div>
 
       {/* Module-specific Log Levels */}
@@ -127,11 +125,9 @@ const LoggerForm: React.FC<LoggerFormProps> = ({ data, onChange }) => {
           </button>
         </div>
         
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">
-            {t('logger.module_levels_help')}
-          </span>
-        </label>
+        <p className="text-xs text-base-content/60 mt-1">
+          {t('logger.module_levels_help')}
+        </p>
       </div>
     </div>
   );
