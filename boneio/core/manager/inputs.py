@@ -545,7 +545,7 @@ class InputManager:
         click_type = event.click_type
         topic = f"{topic_prefix}/input/{input_id}"
         
-        if input_type == "event":         
+        if input_type == INPUT:         
             event_payload: dict[str, str | float | None] = {"event_type": click_type}
             if event.duration is not None:
                 event_payload["duration"] = round(event.duration, 3)
@@ -559,7 +559,7 @@ class InputManager:
                 topic, event_payload
             )
             
-        elif input_type == "binary_sensor":
+        elif input_type == INPUT_SENSOR:
             payload = str(click_type)  # "pressed" or "released"
             
             self._manager.send_message(
