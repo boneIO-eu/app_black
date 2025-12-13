@@ -47,6 +47,7 @@ interface ActionFieldsProps {
   onUpdate: (field: string, value: any) => void;
   onRemove: () => void;
   allOutputs: any[];
+  allOutputGroups: any[];
   allCovers: any[];
   allAreas: Area[];
   actionTypeOptions: string[];
@@ -61,6 +62,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   onUpdate,
   onRemove,
   allOutputs,
+  allOutputGroups,
   allCovers,
   allAreas,
   actionTypeOptions,
@@ -178,7 +180,15 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <OutputSelectDropdown
               value={action.pin || ''}
               onChange={(value: string) => onUpdate('pin', value)}
-              allOutputs={allOutputs.filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))}
+              allOutputs={[
+                ...allOutputs.filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output)),
+                ...allOutputGroups.filter((group: any) => group && typeof group === 'object' && group.id).map((group: any) => ({
+                  ...group,
+                  id: group.id,
+                  name: group.name || group.id,
+                  isGroup: true
+                }))
+              ]}
               allAreas={allAreas}
               placeholder={t('event_form.select_output')}
             />

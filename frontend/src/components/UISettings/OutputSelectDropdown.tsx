@@ -31,6 +31,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
     ...output,
     id: output.id || output.boneio_output,
     name: output.name || output.id || output.boneio_output,
+    isGroup: output.isGroup || false,
   }));
 
   // Find selected output for display
@@ -44,11 +45,14 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
 
   return (
     <Select value={value || ''} onValueChange={onChange}>
-      <SelectTrigger className="w-full input input-bordered h-auto min-h-[3rem] py-2">
+      <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
         <SelectValue placeholder={placeholder}>
           {selectedOutput ? (
             <div className="flex flex-col items-start">
-              <span className="font-medium">{selectedOutput.name}</span>
+              <span className="font-medium">
+                {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                {selectedOutput.name}
+              </span>
               <span className="text-xs opacity-60">
                 ID: {selectedOutput.id}
                 {selectedOutput.area && ` • Area: ${getAreaName(selectedOutput.area)}`}
@@ -64,10 +68,13 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
           <SelectItem 
             key={output.id} 
             value={output.id}
-            className="focus:bg-base-200 hover:bg-base-200 data-[highlighted]:bg-base-200"
+            className="focus:bg-base-200 hover:bg-base-200 data-highlighted:bg-base-200"
           >
             <div className="flex flex-col">
-              <span className="font-medium">{output.name}</span>
+              <span className="font-medium">
+                {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                {output.name}
+              </span>
               <span className="text-xs opacity-60">
                 ID: {output.id}
                 {output.area && ` • Area: ${getAreaName(output.area)}`}

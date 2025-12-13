@@ -368,6 +368,7 @@
     "name": "Name",
     "name_placeholder": "BoneIO device name",
     "name_help": "Name of boneIO. Default is Black.",
+    "name_required_error": "Name is required when hardware version or device type is selected",
     "hardware_version": "Hardware Version",
     "select_version": "-- Select version --",
     "hardware_version_help": "BoneIO Black Hardware version",

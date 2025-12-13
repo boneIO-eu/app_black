@@ -39,6 +39,8 @@ interface EventFormProps {
   editingIndex?: number | null;
   /** All outputs for action dropdowns */
   allOutputs?: OutputEntity[];
+  /** All output groups for action dropdowns */
+  allOutputGroups?: any[];
   /** All covers for action dropdowns */
   allCovers?: CoverEntity[];
   /** All areas for area dropdown */
@@ -56,6 +58,7 @@ const EventForm: React.FC<EventFormProps> = ({
   allBinarySensors = [],
   allEvents = [],
   allOutputs = [],
+  allOutputGroups = [],
   allCovers = [],
   allAreas = [],
   editingIndex,
@@ -176,6 +179,7 @@ const EventForm: React.FC<EventFormProps> = ({
         onUpdate={(field, value) => updateAction(type, index, field, value)}
         onRemove={() => removeAction(type, index)}
         allOutputs={allOutputs}
+        allOutputGroups={allOutputGroups}
         allCovers={allCovers}
         allAreas={allAreas}
         actionTypeOptions={actionTypeOptions}
@@ -359,7 +363,7 @@ const EventForm: React.FC<EventFormProps> = ({
                   checked={data.clear_message === true}
                   onChange={(e) => updateField('clear_message', e.target.checked)}
                 />
-                <span className="label-text break-words">{t('event_form.clear_message_hint')}</span>
+                <span className="label-text wrap-break-word">{t('event_form.clear_message_hint')}</span>
               </label>
             </fieldset>
           </div>

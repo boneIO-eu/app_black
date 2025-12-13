@@ -16,22 +16,34 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
     onChange({ ...data, [field]: value });
   };
 
+  // Check if name is required (when version or device_type is set)
+  const hasOtherFields = data?.version || data?.device_type;
+  const hasName = data?.name && data.name.trim() !== '';
+  const nameError = hasOtherFields && !hasName;
+
   return (
     <div className="space-y-4">
       {/* Name */}
       <div className="form-control">
         <label className="label">
-          <span className="label-text font-medium">{t('boneio_config.name')}</span>
+          <span className="label-text font-medium">
+            {t('boneio_config.name')}
+            {hasOtherFields && <span className="text-error ml-1">*</span>}
+          </span>
         </label>
         <input
           type="text"
-          className="input input-bordered w-full"
+          className={`input input-bordered w-full ${nameError ? 'input-error' : ''}`}
           value={data?.name || ''}
           onChange={(e) => handleChange('name', e.target.value)}
           placeholder={t('boneio_config.name_placeholder')}
         />
         <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('boneio_config.name_help')}</span>
+          {nameError ? (
+            <span className="label-text-alt text-error">{t('boneio_config.name_required_error')}</span>
+          ) : (
+            <span className="label-text-alt text-base-content/60">{t('boneio_config.name_help')}</span>
+          )}
         </label>
       </div>
 

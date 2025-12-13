@@ -43,7 +43,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups: _allOutputGroups = [], allCovers = [], allAreas = [] }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [] }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -794,6 +794,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allBinarySensors={allBinarySensors}
                     allEvents={allEvents}
                     allOutputs={allOutputs}
+                    allOutputGroups={allOutputGroups}
                     allCovers={allCovers}
                     allAreas={allAreas}
                     editingIndex={editingIndex}
@@ -810,6 +811,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allBinarySensors={allBinarySensors}
                     allEvents={allEvents}
                     allOutputs={allOutputs}
+                    allOutputGroups={allOutputGroups}
                     allCovers={allCovers}
                     allAreas={allAreas}
                     editingIndex={editingIndex}

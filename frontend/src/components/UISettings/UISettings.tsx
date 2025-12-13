@@ -528,6 +528,23 @@ export default function UISettings() {
       return;
     }
 
+    // Validate boneio section - name is required if any other field is set
+    if (sectionName === 'boneio') {
+      const boneioData = formData[sectionName];
+      const hasOtherFields = boneioData?.version || boneioData?.device_type;
+      const hasName = boneioData?.name && boneioData.name.trim() !== '';
+      
+      if (hasOtherFields && !hasName) {
+        console.log('❌ boneio section has version/device_type but no name');
+        setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
+        alert(t('boneio_config.name_required_error') || 'Name is required when version or device type is selected');
+        setTimeout(() => {
+          setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
+        }, 3000);
+        return;
+      }
+    }
+
     setSaveStatus(prev => ({ ...prev, [sectionName]: 'saving' }));
 
     try {
@@ -892,7 +909,7 @@ export default function UISettings() {
       
       {/* Restarting overlay */}
       {isRestarting && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-100">
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-warning"></span>
             <div className="text-center">

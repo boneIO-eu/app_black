@@ -9,6 +9,7 @@ This module manages all input devices including:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import TYPE_CHECKING, Callable
 
@@ -22,6 +23,8 @@ from boneio.const import (
     INPUT,
     INPUT_SENSOR,
     PIN,
+    PRESSED,
+    RELEASED,
     SHOW_HA,
 )
 from boneio.exceptions import GPIOInputException
@@ -524,6 +527,50 @@ class InputManager:
             # Remove from internal cache
             self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
 
+    def _publish_input_event_to_mqtt(
+        self, input_instance: GpioBaseClass, event: InputEvent
+    ) -> None:
+        """Publish input event to MQTT for Home Assistant.
+        
+        For event buttons (input_type=INPUT): sends JSON with event_type
+        For binary sensors (input_type=INPUT_SENSOR): sends pressed/released state
+        
+        Args:
+            input_instance: The input device instance
+            event: The input event data
+        """
+        topic_prefix = self._manager._config_helper.topic_prefix
+        input_id = input_instance.id
+        input_type = input_instance.input_type
+        click_type = event.click_type
+        topic = f"{topic_prefix}/input/{input_id}"
+        
+        if input_type == "event":         
+            event_payload: dict[str, str | float | None] = {"event_type": click_type}
+            if event.duration is not None:
+                event_payload["duration"] = round(event.duration, 3)
+            
+            self._manager.send_message(
+                topic=topic,
+                payload=json.dumps(event_payload),
+            )
+            _LOGGER.debug(
+                "Published event to MQTT: topic=%s, payload=%s",
+                topic, event_payload
+            )
+            
+        elif input_type == "binary_sensor":
+            payload = str(click_type)  # "pressed" or "released"
+            
+            self._manager.send_message(
+                topic=topic,
+                payload=payload,
+            )
+            _LOGGER.debug(
+                "Published binary sensor state to MQTT: topic=%s, payload=%s",
+                topic, payload
+            )
+
     async def handle_input_event(self, event: InputEvent) -> None:
         """Handle input event from EventBus.
         
@@ -556,6 +603,9 @@ class InputManager:
             event.click_type,
             len(actions)
         )
+        
+        # Send event to MQTT for Home Assistant
+        self._publish_input_event_to_mqtt(input_instance, event)
         
         # Execute actions for this input event
         if actions:

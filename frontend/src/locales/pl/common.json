@@ -368,6 +368,7 @@
     "name": "Nazwa",
     "name_placeholder": "Nazwa urządzenia BoneIO",
     "name_help": "Nazwa boneIO. Domyślnie Black.",
+    "name_required_error": "Nazwa jest wymagana gdy wybrano wersję sprzętową lub typ urządzenia",
     "hardware_version": "Wersja Sprzętowa",
     "select_version": "-- Wybierz wersję --",
     "hardware_version_help": "Wersja sprzętowa BoneIO Black",

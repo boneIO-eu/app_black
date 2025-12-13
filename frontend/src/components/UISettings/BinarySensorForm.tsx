@@ -56,6 +56,7 @@ interface BinarySensorFormProps {
   allEvents?: any[];
   editingIndex?: number | null;
   allOutputs?: any[];
+  allOutputGroups?: any[];
   allCovers?: any[];
   allAreas?: Area[];
   onValidationChange?: (hasErrors: boolean) => void;
@@ -68,6 +69,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allBinarySensors = [],
   allEvents = [],
   allOutputs = [],
+  allOutputGroups = [],
   allCovers = [],
   allAreas = [],
   editingIndex,
@@ -326,6 +328,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   <SelectValue placeholder="Select output..." />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Regular outputs */}
                   {allOutputs
                     .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
                     .map((output: any) => {
@@ -334,6 +337,20 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       const label = name !== id ? `${name} - ${id}` : id;
                       return (
                         <SelectItem key={id} value={id}>
+                          {label}
+                        </SelectItem>
+                      );
+                    })}
+                  {/* Output groups */}
+                  {allOutputGroups
+                    .filter((group: any) => group && typeof group === 'object' && group.id)
+                    .map((group: any) => {
+                      const id = group.id;
+                      const name = group.name || id;
+                      const label = name !== id ? `${name} - ${id}` : id;
+                      return (
+                        <SelectItem key={`group-${id}`} value={id}>
+                          <span className="badge badge-xs badge-secondary mr-1">Group</span>
                           {label}
                         </SelectItem>
                       );
