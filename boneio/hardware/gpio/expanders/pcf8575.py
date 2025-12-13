@@ -22,12 +22,18 @@ For BoneIO, we use PCF8575 primarily for output (relay control).
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from boneio.hardware.i2c.bus import SMBus2I2C
 
 _LOGGER = logging.getLogger(__name__)
+
+# Minimum delay between I2C operations in seconds
+# This prevents bus contention when switching multiple outputs rapidly
+I2C_OPERATION_DELAY = 0.002  # 2ms
 
 
 class PCF8575:
@@ -61,10 +67,17 @@ class PCF8575:
         self._i2c = i2c
         self._address = address
         
+        # Lock for thread-safe pin operations
+        # This prevents race conditions when multiple outputs are switched simultaneously
+        self._lock = threading.Lock()
+        
         # State tracking for all 16 pins (2 bytes)
         # Bit = 1: HIGH (output) or input with pull-up
         # Bit = 0: LOW (output)
         self._state = 0xFFFF  # All pins HIGH (default state)
+        
+        # Timestamp of last I2C operation for rate limiting
+        self._last_operation_time = 0.0
         
         # Initialize device - write default state
         self._write_state()
@@ -202,28 +215,48 @@ class PCF8575:
     def _set_pin_output(self, pin: int, value: bool) -> None:
         """Set a pin to output mode with specified value.
         
+        Thread-safe operation with rate limiting to prevent I2C bus contention.
+        
         Args:
             pin: Pin number (0-15)
             value: Output value (True=HIGH, False=LOW)
         """
-        if value:
-            # Set bit to 1 (HIGH)
-            self._state |= (1 << pin)
-        else:
-            # Clear bit to 0 (LOW)
-            self._state &= ~(1 << pin)
-        
-        self._write_state()
+        with self._lock:
+            # Rate limiting: ensure minimum delay between I2C operations
+            now = time.monotonic()
+            elapsed = now - self._last_operation_time
+            if elapsed < I2C_OPERATION_DELAY:
+                time.sleep(I2C_OPERATION_DELAY - elapsed)
+            
+            if value:
+                # Set bit to 1 (HIGH)
+                self._state |= (1 << pin)
+            else:
+                # Clear bit to 0 (LOW)
+                self._state &= ~(1 << pin)
+            
+            self._write_state()
+            self._last_operation_time = time.monotonic()
 
     def _set_pin_input(self, pin: int) -> None:
         """Set a pin to input mode (enables pull-up).
         
+        Thread-safe operation with rate limiting.
+        
         Args:
             pin: Pin number (0-15)
         """
-        # Set bit to 1 to enable pull-up for input
-        self._state |= (1 << pin)
-        self._write_state()
+        with self._lock:
+            # Rate limiting: ensure minimum delay between I2C operations
+            now = time.monotonic()
+            elapsed = now - self._last_operation_time
+            if elapsed < I2C_OPERATION_DELAY:
+                time.sleep(I2C_OPERATION_DELAY - elapsed)
+            
+            # Set bit to 1 to enable pull-up for input
+            self._state |= (1 << pin)
+            self._write_state()
+            self._last_operation_time = time.monotonic()
 
     def _read_pin(self, pin: int) -> bool:
         """Read the current value of a pin.

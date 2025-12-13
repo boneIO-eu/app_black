@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import * as yaml from 'js-yaml';
 import { FaSave, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle, FaUndo } from 'react-icons/fa';
 import ArrayTableWidget from './ArrayTableWidget';
-import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperiodToMilliseconds } from '@/components/UISettings/helpers/configSchemaUtils';
+import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperiodToMilliseconds, convertMillisecondsToTimeperiod } from '@/components/UISettings/helpers/configSchemaUtils';
 import { useTranslation } from '@/hooks/useTranslation';
 // Custom forms for simple sections (replacing RJSF)
 import BoneIOForm from './BoneIOForm';
@@ -48,10 +48,7 @@ export default function UISettings() {
   const [restartRequired, setRestartRequired] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_schemaLoaded, setSchemaLoaded] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_schemaCache, setSchemaCache] = useState<any>(null);
+  const [schemaLoaded, setSchemaLoaded] = useState(false);
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
@@ -122,7 +119,6 @@ export default function UISettings() {
    * Convert data to match schema types (for form display)
    */
   const convertDataToSchemaTypes = (data: Record<string, any>, schema: any): Record<string, any> => {
-    console.log("convertDataToSchemaTypes called with:", { data, schema });
     
     if (!data || !schema || typeof data !== 'object' || typeof schema !== 'object') {
       return data;
@@ -137,8 +133,6 @@ export default function UISettings() {
           const propSchema = schema.properties[key] as any;
           const currentValue = converted[key];
           
-          console.log(`Processing key: ${key}, currentValue:`, currentValue, `propSchema:`, propSchema);
-          
           // Handle array with items schema
           if (propSchema?.items && Array.isArray(currentValue)) {
             converted[key] = currentValue.map((item: any) => {
@@ -152,12 +146,10 @@ export default function UISettings() {
           else if (propSchema?.['x-timeperiod'] === true) {
             const milliseconds = convertTimeperiodToMilliseconds(currentValue);
             converted[key] = milliseconds;
-            console.log(`✓ Converted timeperiod ${key}:`, currentValue, '→', milliseconds, 'ms');
           }
           // Convert number to string if schema expects string with enum
           else if (propSchema?.type === 'string' && propSchema?.enum && typeof currentValue === 'number') {
             const stringValue = String(currentValue);
-            console.log(`Converting ${key}: ${currentValue} (${typeof currentValue}) → ${stringValue} (${typeof stringValue})`);
             // Check if the string version exists in enum
             if (propSchema.enum.includes(stringValue)) {
               converted[key] = stringValue;
@@ -174,7 +166,6 @@ export default function UISettings() {
       });
     }
     
-    console.log("convertDataToSchemaTypes result:", converted);
     return converted;
   };
 
@@ -183,6 +174,7 @@ export default function UISettings() {
    */
   const loadConfiguration = useCallback(async () => {
     try {
+      console.log('Loading configuration... WYWOLANE');
       // Check restart status from backend (non-blocking)
       fetch('/api/status/restart')
         .then(r => r.ok ? r.json() : null)
@@ -197,7 +189,7 @@ export default function UISettings() {
       const configData = configContent?.config || {};
       
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
-      setFormData(configData);
+      // setFormData(configData);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
       
       // Create initial sections without schema (for custom forms that don't need it)
@@ -212,15 +204,41 @@ export default function UISettings() {
       
       // Load schema in background (lazy) - only needed for ArrayTableWidget sections
       const isDevelopment = import.meta.env.DEV;
-      fetch(isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json')
+      const schemaUrl = isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json';
+      
+      fetch(schemaUrl, { cache: 'no-store' })
         .then(r => r.json())
         .then(mainSchema => {
-          setSchemaCache(mainSchema);
-          setSchemaLoaded(true);
+          // Debug: log all schema keys
+          console.log('📦 Schema loaded. All property keys:', Object.keys(mainSchema.properties || {}));
+          console.log('📦 Cover schema exists?', !!mainSchema.properties?.cover);
+          if (mainSchema.properties?.cover) {
+            console.log('📦 Cover schema type:', mainSchema.properties.cover.type);
+          }
           
           // Update sections with proper schemas
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
-            const sectionSchema = mainSchema.properties?.[sectionConfig.name] || { type: 'object' };
+            let sectionSchema = mainSchema.properties?.[sectionConfig.name];
+            
+            // Debug for cover section
+            if (sectionConfig.name === 'cover') {
+              console.log('🔍 Cover section lookup:', {
+                name: sectionConfig.name,
+                found: !!sectionSchema,
+                schema: sectionSchema
+              });
+            }
+            
+            // Safe fallback if schema is missing
+            if (!sectionSchema) {
+              console.warn(`⚠️ Missing schema for section: ${sectionConfig.name}`);
+              if (['cover', 'output', 'input', 'event', 'binary_sensor', 'modbus_devices', 'areas', 'sensor', 'output_group'].includes(sectionConfig.name)) {
+                sectionSchema = { type: 'array', items: { type: 'object', properties: {} } };
+              } else {
+                sectionSchema = { type: 'object', properties: {} };
+              }
+            }
+
             return {
               name: sectionConfig.name,
               schema: sectionSchema,
@@ -236,7 +254,9 @@ export default function UISettings() {
           setFormData(convertedFormData);
           setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
           
-          console.log('✅ Schema loaded in background');
+          // Mark schema as loaded AFTER data conversion is complete
+          setSchemaLoaded(true);
+          console.log('✅ Schema loaded and data converted', convertedFormData);
         })
         .catch(err => console.warn('Schema loading failed (non-critical):', err));
         
@@ -357,6 +377,44 @@ export default function UISettings() {
           }
           return entry;
         });
+      }
+      
+      // Convert timeperiod fields from milliseconds (number) back to string with unit
+      // This is needed because formData stores timeperiods as numbers for form inputs
+      const convertTimeperiodsForYaml = (obj: any, schema: any): any => {
+        if (!obj || typeof obj !== 'object') return obj;
+        
+        if (Array.isArray(obj)) {
+          const itemsSchema = schema?.items;
+          return obj.map((item: any) => convertTimeperiodsForYaml(item, itemsSchema));
+        }
+        
+        const result = { ...obj };
+        const properties = schema?.properties || {};
+        
+        Object.keys(result).forEach(key => {
+          const propSchema = properties[key];
+          const value = result[key];
+          
+          // Check if this is a timeperiod field
+          if (propSchema && propSchema['x-timeperiod'] === true && typeof value === 'number') {
+            result[key] = convertMillisecondsToTimeperiod(value);
+          }
+          // Recursively handle nested objects/arrays
+          else if (typeof value === 'object' && value !== null) {
+            result[key] = convertTimeperiodsForYaml(value, propSchema);
+          }
+        });
+        
+        return result;
+      };
+      
+      // Apply timeperiod conversion if we have schema
+      if (sectionName) {
+        const sectionInfo = sections.find(s => s.name === sectionName);
+        if (sectionInfo?.schema) {
+          filteredData = convertTimeperiodsForYaml(filteredData, sectionInfo.schema);
+        }
       }
       
       // Convert to YAML format
@@ -1114,29 +1172,39 @@ export default function UISettings() {
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
                     {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
-                      <ArrayTableWidget
-                        value={formData[activeSection] || []}
-                        uiSchema={activeSection_data.uiSchema.items}
-                        onChange={(newData) => handleSectionChange(activeSection, newData)}
-                        schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
-                        deviceType={formData.boneio?.device_type}
-                        allBinarySensors={formData.binary_sensor || []}
-                        allEvents={formData.event || []}
-                        allOutputs={formData.output || []}
-                        allOutputGroups={formData.output_group || []}
-                        allAreas={formData.areas || []}
-                        title={
-                          activeSection === 'binary_sensor' ? t('sections.binary_sensor') : 
-                          activeSection === 'event' ? t('sections.event') : 
-                          activeSection === 'output' ? t('sections.output') :
-                          activeSection === 'output_group' ? t('sections.output_group') :
-                          activeSection === 'cover' ? t('sections.cover') :
-                          activeSection === 'areas' ? t('sections.areas') :
-                          activeSection === 'sensor' ? t('sections.sensor') :
-                          t('sections.modbus_devices')
-                        }
-                      />
+                      // Array sections - wait for schema to load and data to be converted
+                      !schemaLoaded ? (
+                        <div className="flex items-center justify-center h-64">
+                          <div className="flex flex-col items-center gap-4">
+                            <span className="loading loading-spinner loading-lg text-primary"></span>
+                            <p className="text-base-content/70">{t('settings.loading_schema')}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <ArrayTableWidget
+                          value={formData[activeSection] || []}
+                          uiSchema={activeSection_data.uiSchema.items}
+                          onChange={(newData) => handleSectionChange(activeSection, newData)}
+                          schema={activeSection_data.normalizedSchema}
+                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
+                          deviceType={formData.boneio?.device_type}
+                          allBinarySensors={formData.binary_sensor || []}
+                          allEvents={formData.event || []}
+                          allOutputs={formData.output || []}
+                          allOutputGroups={formData.output_group || []}
+                          allAreas={formData.areas || []}
+                          title={
+                            activeSection === 'binary_sensor' ? t('sections.binary_sensor') : 
+                            activeSection === 'event' ? t('sections.event') : 
+                            activeSection === 'output' ? t('sections.output') :
+                            activeSection === 'output_group' ? t('sections.output_group') :
+                            activeSection === 'cover' ? t('sections.cover') :
+                            activeSection === 'areas' ? t('sections.areas') :
+                            activeSection === 'sensor' ? t('sections.sensor') :
+                            t('sections.modbus_devices')
+                          }
+                        />
+                      )
                     ) : (
                       // Custom forms for simple dict sections
                       activeSection === 'boneio' ? (
@@ -1192,20 +1260,30 @@ export default function UISettings() {
               ) : (
                 <div className="h-full overflow-y-auto p-6">
                   {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
-                    <ArrayTableWidget
-                      value={formData[activeSection] || []}
-                      uiSchema={activeSection_data.uiSchema.items}
-                      onChange={(newData) => handleSectionChange(activeSection, newData)}
-                      schema={activeSection_data.normalizedSchema}
-                      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
-                      deviceType={formData.boneio?.device_type}
-                      allBinarySensors={formData.binary_sensor || []}
-                      allEvents={formData.event || []}
-                      allOutputs={formData.output || []}
-                      allOutputGroups={formData.output_group || []}
-                      allAreas={formData.areas || []}
-                      title={t(`sections.${activeSection}`)}
-                    />
+                    // Array sections - wait for schema to load and data to be converted
+                    !schemaLoaded ? (
+                      <div className="flex items-center justify-center h-64">
+                        <div className="flex flex-col items-center gap-4">
+                          <span className="loading loading-spinner loading-lg text-primary"></span>
+                          <p className="text-base-content/70">{t('settings.loading_schema')}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <ArrayTableWidget
+                        value={formData[activeSection] || []}
+                        uiSchema={activeSection_data.uiSchema.items}
+                        onChange={(newData) => handleSectionChange(activeSection, newData)}
+                        schema={activeSection_data.normalizedSchema}
+                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
+                        deviceType={formData.boneio?.device_type}
+                        allBinarySensors={formData.binary_sensor || []}
+                        allEvents={formData.event || []}
+                        allOutputs={formData.output || []}
+                        allOutputGroups={formData.output_group || []}
+                        allAreas={formData.areas || []}
+                        title={t(`sections.${activeSection}`)}
+                      />
+                    )
                   ) : (
                     // Custom forms for simple dict sections
                     activeSection === 'boneio' ? (

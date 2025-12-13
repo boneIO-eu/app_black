@@ -44,17 +44,32 @@ const CoverForm: React.FC<CoverFormProps> = ({
       .filter(Boolean);
   }, [allOutputs]);
 
-  // Extract enums from schema
-  const platformOptions = schema?.items?.properties?.platform?.enum || ['time_based', 'venetian', 'previous'];
+  // Extract enums from schema (exclude deprecated 'previous' platform)
+  const platformOptions = (schema?.items?.properties?.platform?.enum || ['time_based', 'venetian', 'previous'])
+    .filter((p: string) => p !== 'previous');
   const deviceClassOptions = schema?.items?.properties?.device_class?.enum || [
     'awning', 'blind', 'curtain', 'damper', 'door', 'garage', 'gate', 'shade', 'shutter', 'window'
   ];
 
   const updateField = (field: string, value: any) => {
-    onChange({ ...data, [field]: value });
+    const newData = { ...data, [field]: value };
+    
+    // Clean up platform-specific fields when platform changes
+    if (field === 'platform') {
+      if (value !== 'venetian') {
+        // Remove tilt_duration when not venetian
+        delete newData.tilt_duration;
+      }
+      if (value !== 'previous') {
+        // Remove actuator_activation_duration when not previous
+        delete newData.actuator_activation_duration;
+      }
+    }
+    
+    onChange(newData);
   };
 
-  const selectedPlatform = data.platform || 'previous';
+  const selectedPlatform = data.platform || 'time_based';
   const showTiltDuration = selectedPlatform === 'venetian';
   const showActuatorDuration = selectedPlatform === 'previous';
 
@@ -144,7 +159,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
               </SelectContent>
             </Select>
             <label className="label">
-              <span className="label-text-alt whitespace-normal break-words">
+              <span className="label-text-alt whitespace-normal wrap-break-words">
                 {allAreas.length === 0 
                   ? t('outputs.area_empty_hint')
                   : t('outputs.area_hint')

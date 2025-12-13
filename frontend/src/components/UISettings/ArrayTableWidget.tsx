@@ -272,6 +272,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setEditingIndex(null);
   };
 
+
   // Render table headers based on section type
   const renderTableHeaders = () => {
     if (sectionType === 'output') {

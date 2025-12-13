@@ -165,6 +165,7 @@
     "page_reload": "Please wait, the page will reload automatically.",
     "reloading_config": "Reloading configuration...",
     "wait_changes": "Please wait while changes are applied",
+    "loading_schema": "Loading schema...",
     "yaml_preview": "YAML Preview",
     "hide_yaml": "Hide YAML preview",
     "show_yaml": "Show YAML preview",

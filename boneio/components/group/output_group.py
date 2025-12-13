@@ -86,20 +86,26 @@ class OutputGroup(BasicOutput):
     async def async_turn_on(self, timestamp=None) -> None:
         """Turn on all members in the group.
         
-        Args:
-            timestamp: Optional timestamp for the operation
-        """
-        for x in self._group_members:
-            self._loop.create_task(x.async_turn_on(timestamp=timestamp))
-
-    async def async_turn_off(self, timestamp=None) -> None:
-        """Turn off all members in the group.
+        Executes turn_on sequentially to prevent I2C bus contention
+        when multiple outputs are on the same GPIO expander.
         
         Args:
             timestamp: Optional timestamp for the operation
         """
         for x in self._group_members:
-            self._loop.create_task(x.async_turn_off(timestamp=timestamp))
+            await x.async_turn_on(timestamp=timestamp)
+
+    async def async_turn_off(self, timestamp=None) -> None:
+        """Turn off all members in the group.
+        
+        Executes turn_off sequentially to prevent I2C bus contention
+        when multiple outputs are on the same GPIO expander.
+        
+        Args:
+            timestamp: Optional timestamp for the operation
+        """
+        for x in self._group_members:
+            await x.async_turn_off(timestamp=timestamp)
 
     @property
     def is_active(self) -> bool:

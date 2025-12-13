@@ -1,0 +1,273 @@
+/**
+ * TypeScript types for boneIO configuration entities.
+ * Generated based on config.schema.json
+ */
+
+// ============================================
+// Common types
+// ============================================
+
+/** GPIO mode options */
+export type GpioMode = 'gpio' | 'gpio_pu' | 'gpio_pd' | 'gpio_input';
+
+/** Device class for event entities */
+export type EventDeviceClass = 'button' | 'doorbell' | 'motion';
+
+/** Action types */
+export type ActionType = 
+  | 'output' | 'OUTPUT' | 'Output'
+  | 'cover' | 'COVER' | 'Cover'
+  | 'mqtt' | 'MQTT' | 'Mqtt'
+  | 'output_over_mqtt' | 'OUTPUT_OVER_MQTT' | 'Output_Over_Mqtt'
+  | 'cover_over_mqtt' | 'COVER_OVER_MQTT' | 'Cover_Over_Mqtt';
+
+/** Output action options */
+export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
+
+/** Cover action options */
+export type CoverAction = 
+  | 'TOGGLE' | 'OPEN' | 'CLOSE' | 'STOP' 
+  | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' 
+  | 'TILT' | 'TILT_OPEN' | 'TILT_CLOSE';
+
+/** BoneIO input pin identifiers (IN_01 to IN_49, case-insensitive) */
+export type BoneioInput = string;
+
+// ============================================
+// Action types
+// ============================================
+
+/** Extra data for cover actions (position, tilt) */
+export interface ActionData {
+  /** Position to set cover to (0-100) */
+  position?: number;
+  /** Tilt position to set cover to (0-100) */
+  tilt_position?: number;
+}
+
+/** Single action configuration */
+export interface Action {
+  /** Type of action to perform */
+  action: ActionType;
+  /** Pin/output ID to control */
+  pin?: string;
+  /** MQTT topic for mqtt action */
+  topic?: string;
+  /** Cover action type */
+  action_cover?: CoverAction;
+  /** Output action type */
+  action_output?: OutputAction;
+  /** MQTT message payload */
+  action_mqtt_msg?: string;
+  /** BoneIO device ID for remote actions */
+  boneio_id?: string;
+  /** Extra data (for cover position/tilt) */
+  data?: ActionData;
+}
+
+/** Action type keys for event entity */
+export type EventActionType = 'single' | 'double' | 'long';
+
+/** Actions configuration for event entity */
+export interface EventActions {
+  /** Actions triggered on single click */
+  single?: Action[];
+  /** Actions triggered on double click */
+  double?: Action[];
+  /** Actions triggered on long press */
+  long?: Action[];
+  /** Index signature for dynamic access */
+  [key: string]: Action[] | undefined;
+}
+
+// ============================================
+// Event entity
+// ============================================
+
+/** Event entity configuration */
+export interface EventEntity {
+  /** Display name in Home Assistant */
+  name?: string;
+  /** Unique ID for MQTT topic */
+  id?: string;
+  /** GPIO pin */
+  pin?: string;
+  /** BoneIO predefined input reference */
+  boneio_input?: BoneioInput;
+  /** GPIO mode configuration */
+  gpio_mode?: GpioMode;
+  /** Bounce time in milliseconds */
+  bounce_time?: number | string;
+  /** Clear MQTT message after action (like Zigbee2MQTT) */
+  clear_message?: boolean;
+  /** Show entity in Home Assistant */
+  show_in_ha?: boolean;
+  /** Invert sensor state */
+  inverted?: boolean;
+  /** Device class for Home Assistant */
+  device_class?: EventDeviceClass;
+  /** Area/Room assignment */
+  area?: string;
+  /** Actions configuration */
+  actions?: EventActions;
+}
+
+// ============================================
+// Binary sensor entity
+// ============================================
+
+/** Binary sensor device class */
+export type BinarySensorDeviceClass = 
+  | 'door' | 'garage_door' | 'lock' | 'moisture' 
+  | 'motion' | 'occupancy' | 'opening' | 'presence' 
+  | 'smoke' | 'vibration' | 'window';
+
+/** Binary sensor kind */
+export type BinarySensorKind = 'sensor' | 'button';
+
+/** Actions for binary sensor (pressed/released) */
+export interface BinarySensorActions {
+  /** Actions triggered on press */
+  pressed?: Action[];
+  /** Actions triggered on release */
+  released?: Action[];
+}
+
+/** Binary sensor entity configuration */
+export interface BinarySensorEntity {
+  /** Display name in Home Assistant */
+  name?: string;
+  /** Unique ID for MQTT topic */
+  id?: string;
+  /** GPIO pin */
+  pin?: string;
+  /** BoneIO predefined input reference */
+  boneio_input?: BoneioInput;
+  /** GPIO mode configuration */
+  gpio_mode?: GpioMode;
+  /** Bounce time in milliseconds */
+  bounce_time?: number | string;
+  /** Show entity in Home Assistant */
+  show_in_ha?: boolean;
+  /** Invert sensor state */
+  inverted?: boolean;
+  /** Sensor kind (sensor or button) */
+  kind?: BinarySensorKind;
+  /** Device class for Home Assistant */
+  device_class?: BinarySensorDeviceClass;
+  /** Area/Room assignment */
+  area?: string;
+  /** Actions configuration */
+  actions?: BinarySensorActions;
+}
+
+// ============================================
+// Input entity (alias for binary sensor)
+// ============================================
+
+export type InputEntity = BinarySensorEntity;
+
+// ============================================
+// Cover entity
+// ============================================
+
+/** Cover device type */
+export type CoverDeviceType = 
+  | 'cover' | 'Cover' | 'COVER'
+  | 'cover mix' | 'Cover Mix' | 'COVER MIX'
+  | 'roller' | 'Roller' | 'ROLLER'
+  | 'time based' | 'Time Based' | 'TIME BASED';
+
+/** Cover entity configuration */
+export interface CoverEntity {
+  /** Display name in Home Assistant */
+  name?: string;
+  /** Unique ID for MQTT topic */
+  id?: string;
+  /** Open relay/output pin */
+  open_relay?: string;
+  /** Close relay/output pin */
+  close_relay?: string;
+  /** Open time in milliseconds */
+  open_time?: number | string;
+  /** Close time in milliseconds */
+  close_time?: number | string;
+  /** Device type */
+  device_type?: CoverDeviceType;
+  /** Show entity in Home Assistant */
+  show_in_ha?: boolean;
+  /** Area/Room assignment */
+  area?: string;
+  /** Restore last state on startup */
+  restore_state?: boolean;
+  /** Tilt time in milliseconds (for blinds) */
+  tilt_time?: number | string;
+}
+
+// ============================================
+// Output entity
+// ============================================
+
+/** Output kind */
+export type OutputKind = 'light' | 'switch';
+
+/** Output entity configuration */
+export interface OutputEntity {
+  /** Display name in Home Assistant */
+  name?: string;
+  /** Unique ID for MQTT topic */
+  id?: string;
+  /** GPIO pin or MCP address */
+  pin?: string;
+  /** Output kind (light or switch) */
+  kind?: OutputKind;
+  /** Show entity in Home Assistant */
+  show_in_ha?: boolean;
+  /** Area/Room assignment */
+  area?: string;
+  /** Restore last state on startup */
+  restore_state?: boolean;
+  /** Momentary output duration */
+  momentary_turn_on?: number | string;
+  /** Momentary output duration */
+  momentary_turn_off?: number | string;
+}
+
+// ============================================
+// Area entity
+// ============================================
+
+/** Area/Room configuration */
+export interface AreaEntity {
+  /** Area ID */
+  id: string;
+  /** Display name */
+  name: string;
+}
+
+// ============================================
+// Full config type
+// ============================================
+
+/** Complete boneIO configuration */
+export interface BoneIOConfig {
+  mqtt?: Record<string, any>;
+  web?: Record<string, any>;
+  oled?: Record<string, any>;
+  modbus?: Record<string, any>;
+  dallas?: Record<string, any>;
+  lm75?: Record<string, any>;
+  pca9685?: Record<string, any>;
+  mcp23017?: Record<string, any>;
+  pcf8575?: Record<string, any>;
+  output?: OutputEntity[];
+  input?: InputEntity[];
+  binary_sensor?: BinarySensorEntity[];
+  event?: EventEntity[];
+  cover?: CoverEntity[];
+  areas?: AreaEntity[];
+  sensor?: Record<string, any>[];
+  adc?: Record<string, any>[];
+  modbus_devices?: Record<string, any>[];
+  output_group?: Record<string, any>[];
+}

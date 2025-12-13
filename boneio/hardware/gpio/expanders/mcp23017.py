@@ -7,6 +7,8 @@ This implementation is output-only for relay control.
 from __future__ import annotations
 
 import logging
+import threading
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -21,6 +23,10 @@ GPIOA = 0x12   # GPIO register for port A
 GPIOB = 0x13   # GPIO register for port B
 OLATA = 0x14   # Output latch register for port A
 OLATB = 0x15   # Output latch register for port B
+
+# Minimum delay between I2C operations in seconds
+# This prevents bus contention when switching multiple outputs rapidly
+I2C_OPERATION_DELAY = 0.002  # 2ms
 
 
 class MCP23017:
@@ -54,9 +60,16 @@ class MCP23017:
         self._i2c = i2c
         self._address = address
         
+        # Lock for thread-safe pin operations
+        # This prevents race conditions when multiple outputs are switched simultaneously
+        self._lock = threading.Lock()
+        
         # Track output states (16 pins, 2 bytes)
         self._port_a_state = 0x00  # Pins 0-7
         self._port_b_state = 0x00  # Pins 8-15
+        
+        # Timestamp of last I2C operation for rate limiting
+        self._last_operation_time = 0.0
         
         # Lock the I2C bus for initialization
         if not self._i2c.try_lock():
@@ -130,25 +143,36 @@ class MCP23017:
     def _write_pin(self, pin_number: int, value: bool) -> None:
         """Write value to a pin.
         
+        Thread-safe operation with rate limiting to prevent I2C bus contention.
+        
         Args:
             pin_number: Pin number (0-15)
             value: Output state (True=HIGH, False=LOW)
         """
-        if pin_number < 8:
-            # Port A (pins 0-7)
-            if value:
-                self._port_a_state |= (1 << pin_number)  # Set bit
+        with self._lock:
+            # Rate limiting: ensure minimum delay between I2C operations
+            now = time.monotonic()
+            elapsed = now - self._last_operation_time
+            if elapsed < I2C_OPERATION_DELAY:
+                time.sleep(I2C_OPERATION_DELAY - elapsed)
+            
+            if pin_number < 8:
+                # Port A (pins 0-7)
+                if value:
+                    self._port_a_state |= (1 << pin_number)  # Set bit
+                else:
+                    self._port_a_state &= ~(1 << pin_number)  # Clear bit
+                self._write_register(OLATA, self._port_a_state)
             else:
-                self._port_a_state &= ~(1 << pin_number)  # Clear bit
-            self._write_register(OLATA, self._port_a_state)
-        else:
-            # Port B (pins 8-15)
-            pin_bit = pin_number - 8
-            if value:
-                self._port_b_state |= (1 << pin_bit)  # Set bit
-            else:
-                self._port_b_state &= ~(1 << pin_bit)  # Clear bit
-            self._write_register(OLATB, self._port_b_state)
+                # Port B (pins 8-15)
+                pin_bit = pin_number - 8
+                if value:
+                    self._port_b_state |= (1 << pin_bit)  # Set bit
+                else:
+                    self._port_b_state &= ~(1 << pin_bit)  # Clear bit
+                self._write_register(OLATB, self._port_b_state)
+            
+            self._last_operation_time = time.monotonic()
 
     def configure_pin_as_output(self, pin_number: int, value: bool = False) -> None:
         """Configure a pin as output and set initial value.

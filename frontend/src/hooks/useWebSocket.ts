@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { useApiAvailability } from './useApiAvailability';
 
@@ -268,30 +268,51 @@ export function useWebSocket(): WebSocketHookResult {
   const { isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
 
+  // Track if this is the first mount
+  const isFirstMount = useRef(true);
+
   useEffect(() => {
     // Don't attempt to connect if API is not available
     if (!isApiAvailable) {
       return;
     }
 
-    activeConnections++;
+    // Only increment on first mount to avoid multiple connections
+    if (isFirstMount.current) {
+      activeConnections++;
+      isFirstMount.current = false;
+    }
+
     console.log('Setting up WebSocket connection, API available:', isApiAvailable);
 
     const connect = () => {
       setupWebSocket(setError, isAuthRequired, isApiAvailable);
     };
 
+    // If WebSocket is already connected, don't reconnect
+    if (globalWs?.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected, skipping reconnect');
+      return;
+    }
+
     // Add a small delay before the initial connection attempt
     const initialConnectTimeout = setTimeout(connect, 500);
 
     return () => {
       clearTimeout(initialConnectTimeout);
+      // Don't close WebSocket on dependency changes, only on unmount
+    };
+  }, [isAuthRequired, isApiAvailable]);
+
+  // Separate cleanup effect that only runs on unmount
+  useEffect(() => {
+    return () => {
       activeConnections--;
       if (activeConnections === 0) {
         closeWebSocket();
       }
     };
-  }, [isAuthRequired, isApiAvailable]);
+  }, []);
 
   const addMessageListener = useCallback((callback: (message: StateUpdate) => void) => {
     globalMessageListeners.add(callback);

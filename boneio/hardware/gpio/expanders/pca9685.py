@@ -28,6 +28,7 @@ Each channel has 4 registers:
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,10 @@ if TYPE_CHECKING:
     from boneio.hardware.i2c.bus import SMBus2I2C
 
 _LOGGER = logging.getLogger(__name__)
+
+# Minimum delay between I2C operations in seconds
+# This prevents bus contention when switching multiple outputs rapidly
+I2C_OPERATION_DELAY = 0.002  # 2ms
 
 # Register addresses
 MODE1 = 0x00
@@ -188,6 +193,13 @@ class PCA9685:
         self._address = address
         self._reference_clock_speed = reference_clock_speed
         
+        # Lock for thread-safe channel operations
+        # This prevents race conditions when multiple outputs are switched simultaneously
+        self._lock = threading.Lock()
+        
+        # Timestamp of last I2C operation for rate limiting
+        self._last_operation_time = 0.0
+        
         # Initialize channels container
         self.channels = PCAChannels(self)
         
@@ -267,6 +279,8 @@ class PCA9685:
     def _write_channel(self, channel: int, value: int) -> None:
         """Write PWM value to a channel (0-4095).
         
+        Thread-safe operation with rate limiting to prevent I2C bus contention.
+        
         Args:
             channel: Channel number (0-15)
             value: PWM value (0-4095, 12-bit)
@@ -277,52 +291,61 @@ class PCA9685:
         if not 0 <= value <= 4095:
             raise ValueError(f"PWM value must be 0-4095, got {value}")
         
-        # Calculate register addresses for this channel
-        # Each channel has 4 registers: ON_L, ON_H, OFF_L, OFF_H
-        base_reg = LED0_ON_L + (channel * 4)
-        
-        # For normal PWM:
-        # - ON time = 0 (start at beginning of cycle)
-        # - OFF time = value (turn off at specified point)
-        on_time = 0
-        off_time = value
-        
-        # Special case: full off (value = 0)
-        if value == 0:
-            # Set bit 12 of OFF time to turn LED fully off
-            off_time = 0x1000
-        # Special case: full on (value = 4095)
-        elif value == 4095:
-            # Set bit 12 of ON time to turn LED fully on
-            on_time = 0x1000
-            off_time = 0
-        
-        # Write 4 bytes: ON_L, ON_H, OFF_L, OFF_H
-        data = [
-            on_time & 0xFF,         # ON_L
-            (on_time >> 8) & 0xFF,  # ON_H
-            off_time & 0xFF,        # OFF_L
-            (off_time >> 8) & 0xFF, # OFF_H
-        ]
-        
-        try:
-            self._i2c.write_i2c_block_data(self._address, base_reg, data)
-            _LOGGER.debug(
-                "PCA9685 0x%02X: Channel %d set to %d (ON=0x%04X, OFF=0x%04X)",
-                self._address,
-                channel,
-                value,
-                on_time,
-                off_time,
-            )
-        except Exception as e:
-            _LOGGER.error(
-                "Failed to write channel %d on PCA9685 at 0x%02X: %s",
-                channel,
-                self._address,
-                e,
-            )
-            raise
+        with self._lock:
+            # Rate limiting: ensure minimum delay between I2C operations
+            now = time.monotonic()
+            elapsed = now - self._last_operation_time
+            if elapsed < I2C_OPERATION_DELAY:
+                time.sleep(I2C_OPERATION_DELAY - elapsed)
+            
+            # Calculate register addresses for this channel
+            # Each channel has 4 registers: ON_L, ON_H, OFF_L, OFF_H
+            base_reg = LED0_ON_L + (channel * 4)
+            
+            # For normal PWM:
+            # - ON time = 0 (start at beginning of cycle)
+            # - OFF time = value (turn off at specified point)
+            on_time = 0
+            off_time = value
+            
+            # Special case: full off (value = 0)
+            if value == 0:
+                # Set bit 12 of OFF time to turn LED fully off
+                off_time = 0x1000
+            # Special case: full on (value = 4095)
+            elif value == 4095:
+                # Set bit 12 of ON time to turn LED fully on
+                on_time = 0x1000
+                off_time = 0
+            
+            # Write 4 bytes: ON_L, ON_H, OFF_L, OFF_H
+            data = [
+                on_time & 0xFF,         # ON_L
+                (on_time >> 8) & 0xFF,  # ON_H
+                off_time & 0xFF,        # OFF_L
+                (off_time >> 8) & 0xFF, # OFF_H
+            ]
+            
+            try:
+                self._i2c.write_i2c_block_data(self._address, base_reg, data)
+                _LOGGER.debug(
+                    "PCA9685 0x%02X: Channel %d set to %d (ON=0x%04X, OFF=0x%04X)",
+                    self._address,
+                    channel,
+                    value,
+                    on_time,
+                    off_time,
+                )
+            except Exception as e:
+                _LOGGER.error(
+                    "Failed to write channel %d on PCA9685 at 0x%02X: %s",
+                    channel,
+                    self._address,
+                    e,
+                )
+                raise
+            
+            self._last_operation_time = time.monotonic()
 
     def _read_channel(self, channel: int) -> int:
         """Read PWM value from a channel (0-4095).

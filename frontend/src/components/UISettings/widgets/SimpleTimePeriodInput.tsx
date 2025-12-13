@@ -1,4 +1,11 @@
 import React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface SimpleTimePeriodInputProps {
   value: string | number;  // Accept both string "30s" and number (ms) for backwards compat
@@ -6,6 +13,8 @@ interface SimpleTimePeriodInputProps {
   label: string;
   required?: boolean;
   minimum?: number;  // Minimum in milliseconds (for validation display)
+  maximum?: number;  // Maximum in milliseconds (for validation and clamping)
+  allowedUnits?: ('ms' | 's' | 'min' | 'h')[];  // Restrict available units
 }
 
 /**
@@ -17,7 +26,9 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   onChange,
   label,
   required = false,
-  minimum = 0
+  minimum = 0,
+  maximum,
+  allowedUnits = ['ms', 's', 'min', 'h']
 }) => {
   // Parse value - can be string "30s" or number (ms for backwards compat)
   const parseValue = (val: string | number): { value: number; unit: string } => {
@@ -77,7 +88,16 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   }, [value]);
 
   const handleValueChange = (newValue: string) => {
-    const num = parseFloat(newValue) || 0;
+    let num = parseFloat(newValue) || 0;
+    
+    // Clamp to maximum if set
+    if (maximum !== undefined) {
+      const maxForUnit = getMaxForUnit(inputUnit);
+      if (num > maxForUnit) {
+        num = maxForUnit;
+      }
+    }
+    
     setInputValue(num);
     onChange(toTimeString(num, inputUnit));
   };
@@ -92,7 +112,16 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
     const divisor = unit === 'h' ? 3600000 : unit === 'min' ? 60000 : unit === 's' ? 1000 : 1;
     return Math.ceil(minimum / divisor);
   };
+  
+  // Get maximum value based on maximum prop (in ms)
+  const getMaxForUnit = (unit: string): number => {
+    if (maximum === undefined) return Infinity;
+    const divisor = unit === 'h' ? 3600000 : unit === 'min' ? 60000 : unit === 's' ? 1000 : 1;
+    return Math.floor(maximum / divisor);
+  };
+  
   const minValue = getMinForUnit(inputUnit);
+  const maxValue = maximum !== undefined ? getMaxForUnit(inputUnit) : undefined;
 
   return (
     <div className="form-control w-full">
@@ -108,25 +137,29 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
           value={inputValue}
           onChange={(e) => handleValueChange(e.target.value)}
           min={minValue}
-          step={inputUnit === 'ms' ? 100 : 1}
-          className="input input-bordered"
+          max={maxValue}
+          step={inputUnit === 'ms' ? 10 : 1}
+          className="input input-bordered flex-1 min-h-12"
           placeholder="0"
         />
-        <select
-          value={inputUnit}
-          onChange={(e) => handleUnitChange(e.target.value)}
-          className="select select-bordered max-w-20"
-        >
-          <option value="ms">ms</option>
-          <option value="s">s</option>
-          <option value="min">min</option>
-          <option value="h">h</option>
-        </select>
+        <Select value={inputUnit} onValueChange={handleUnitChange}>
+          <SelectTrigger className="w-20">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {allowedUnits.includes('ms') && <SelectItem value="ms">ms</SelectItem>}
+            {allowedUnits.includes('s') && <SelectItem value="s">s</SelectItem>}
+            {allowedUnits.includes('min') && <SelectItem value="min">min</SelectItem>}
+            {allowedUnits.includes('h') && <SelectItem value="h">h</SelectItem>}
+          </SelectContent>
+        </Select>
       </div>
-      {minimum > 0 && (
+      {(minimum > 0 || maximum !== undefined) && (
         <label className="label">
           <span className="label-text-alt text-base-content/70">
-            Minimum: {minValue} {inputUnit} ({minimum}ms)
+            {minimum > 0 && `Min: ${minimum}ms`}
+            {minimum > 0 && maximum !== undefined && ' | '}
+            {maximum !== undefined && `Max: ${maximum}ms`}
           </span>
         </label>
       )}

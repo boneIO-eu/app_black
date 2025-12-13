@@ -428,7 +428,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """
         return self._additional_entities_by_name.get(name)
 
-    def find_entity(self, entity_id: str) -> BaseEntity | None:
+    def find_entity(self, entity_id: str) -> ModbusEntity | DerivedEntity | ModbusDerivedNumericSensor | ModbusDerivedTextSensor | ModbusDerivedSelect | ModbusDerivedSwitch | None:
         """Find entity by ID or decoded name in both regular and additional entities.
         
         Args:

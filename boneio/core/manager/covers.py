@@ -110,26 +110,43 @@ class CoverManager:
                 # Update existing cover or create new one
                 if _id in self._covers:
                     _cover = self._covers[_id]
-                    _cover.update_config_times(_config)
-                    # Re-send HA autodiscovery with potentially new area
-                    if _config.get(SHOW_HA, True):
-                        # Remove old autodiscovery first (in case area changed)
-                        self._remove_cover_ha_discovery(_id)
-                        # Send new autodiscovery
-                        platform = _config.get("platform", "previous")
-                        if platform == "venetian":
-                            availability_msg_func = ha_cover_with_tilt_availabilty_message
-                        else:
-                            availability_msg_func = ha_cover_availabilty_message
-                        self._manager.send_ha_autodiscovery(
-                            id=_cover.id,
-                            name=_cover.name,
-                            ha_type=COVER,
-                            device_class=_config.get(DEVICE_CLASS),
-                            area=_config.get("area"),
-                            availability_msg_func=availability_msg_func,
+                    new_platform = _config.get("platform", "previous")
+                    
+                    # Check if platform (cover type) changed - need to recreate cover
+                    current_kind = _cover.kind
+                    new_kind = "venetian" if new_platform == "venetian" else ("time" if new_platform == "time_based" else "previous")
+                    
+                    if current_kind != new_kind:
+                        # Platform changed - remove old cover and create new one
+                        _LOGGER.info(
+                            "Cover %s platform changed from %s to %s, recreating cover",
+                            _id, current_kind, new_kind
                         )
-                    continue
+                        # Remove old HA autodiscovery
+                        self._remove_cover_ha_discovery(_id)
+                        # Remove old cover from dict (will be recreated below)
+                        del self._covers[_id]
+                    else:
+                        # Same platform - just update times and autodiscovery
+                        _cover.update_config_times(_config)
+                        # Re-send HA autodiscovery with potentially new area
+                        if _config.get(SHOW_HA, True):
+                            # Remove old autodiscovery first (in case area changed)
+                            self._remove_cover_ha_discovery(_id)
+                            # Send new autodiscovery
+                            if new_platform == "venetian":
+                                availability_msg_func = ha_cover_with_tilt_availabilty_message
+                            else:
+                                availability_msg_func = ha_cover_availabilty_message
+                            self._manager.send_ha_autodiscovery(
+                                id=_cover.id,
+                                name=_cover.name,
+                                ha_type=COVER,
+                                device_class=_config.get(DEVICE_CLASS),
+                                area=_config.get("area"),
+                                availability_msg_func=availability_msg_func,
+                            )
+                        continue
                 
                 self._covers[_id] = self._configure_cover(
                     cover_id=_id,
@@ -197,7 +214,7 @@ class CoverManager:
                 restored_state=restored_state,
                 tilt_duration=tilt_duration,
                 actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
-                **{k: v for k, v in config.items() if k not in ("platform", "actuator_activation_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{k: v for k, v in config.items() if k not in ("platform", "actuator_activation_duration", "tilt_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_with_tilt_availabilty_message
         elif platform == "time_based":
@@ -365,19 +382,21 @@ class CoverManager:
         This is called after reload to ensure frontend receives
         the state of all covers, including newly created ones.
         
-        Handles both PreviousCover (async_send_state) and BaseCover 
-        (send_state with state and position args) implementations.
+        Handles both PreviousCover (send_state with no args) and BaseCover 
+        (send_state with state and json_position args) implementations.
         """
+        from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
+        
         for cover in self._covers.values():
             try:
-                # PreviousCover has async_send_state()
-                if hasattr(cover, 'async_send_state'):
-                    self._manager.loop.create_task(cover.async_send_state())
-                # BaseCover (TimeBasedCover, VenetianCover) has send_state(state, json_position)
-                elif hasattr(cover, 'send_state') and hasattr(cover, 'json_position'):
+                if isinstance(cover, PreviousCover):
+                    # PreviousCover.send_state() takes no arguments
+                    cover.send_state()
+                elif isinstance(cover, (TimeBasedCover, VenetianCover)):
+                    # BaseCover.send_state(state, json_position) takes 2 arguments
                     cover.send_state(cover.state, cover.json_position)
             except Exception as e:
-                _LOGGER.debug(f"Error broadcasting cover state {cover.id}: {e}")
+                _LOGGER.debug("Error broadcasting cover state %s: %s", cover.id, e)
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""

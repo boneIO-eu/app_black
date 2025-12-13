@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction } from './ActionFields';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import {
   Select,
   SelectContent,
@@ -9,27 +10,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-interface Area {
-  id: string;
-  name: string;
-}
+import type { 
+  EventEntity, 
+  AreaEntity,
+  OutputEntity,
+  CoverEntity,
+  BinarySensorEntity 
+} from '@/types/config';
 
 interface EventFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  /** Current event entity data being edited */
+  data: EventEntity;
+  /** Callback when data changes */
+  onChange: (data: EventEntity) => void;
+  /** Callback to save the form */
   onSave: () => void;
+  /** Callback to cancel editing */
   onCancel: () => void;
+  /** Whether this is a new entity */
   isNew: boolean;
+  /** JSON Schema for validation */
   schema?: any;
-  allBinarySensors?: any[];
-  allEvents?: any[];
+  /** All binary sensors for input filtering */
+  allBinarySensors?: BinarySensorEntity[];
+  /** All events for input filtering */
+  allEvents?: EventEntity[];
+  /** Index of item being edited (null for new) */
   editingIndex?: number | null;
-  allOutputs?: any[];
-  allCovers?: any[];
-  allAreas?: Area[];
+  /** All outputs for action dropdowns */
+  allOutputs?: OutputEntity[];
+  /** All covers for action dropdowns */
+  allCovers?: CoverEntity[];
+  /** All areas for area dropdown */
+  allAreas?: AreaEntity[];
+  /** Callback when validation state changes */
   onValidationChange?: (hasErrors: boolean) => void;
-  attemptedSubmit?: boolean; // Czy użytkownik próbował zapisać formularz
+  /** Whether user attempted to submit (shows validation errors) */
+  attemptedSubmit?: boolean;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ 
@@ -317,15 +334,12 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
 
             <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('inputs.bounce_time')}</span>
-              </label>
-              <input
-                type="text"
-                className="input  w-full"
-                placeholder="e.g., 30ms"
-                value={data.bounce_time || '30ms'}
-                onChange={(e) => updateField('bounce_time', e.target.value)}
+              <SimpleTimePeriodInput
+                label={t('inputs.bounce_time')}
+                value={data.bounce_time || '120ms'}
+                onChange={(value) => updateField('bounce_time', value)}
+                maximum={1000}
+                allowedUnits={['ms', 's']}
               />
               <label className="label">
                 <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>

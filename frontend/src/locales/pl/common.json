@@ -165,6 +165,7 @@
     "page_reload": "Proszę czekać, strona odświeży się automatycznie.",
     "reloading_config": "Przeładowywanie konfiguracji...",
     "wait_changes": "Proszę czekać, zmiany są stosowane",
+    "loading_schema": "Ładowanie schematu...",
     "yaml_preview": "Podgląd YAML",
     "hide_yaml": "Ukryj podgląd YAML",
     "show_yaml": "Pokaż podgląd YAML",

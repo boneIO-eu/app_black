@@ -340,5 +340,15 @@ class PreviousCover(BasicMqtt):
         return "previous"
     
     def update_config_times(self, config: dict) -> None:
-        self._open_duration = config.get("open_duration", self._open_duration)
-        self._close_duration = config.get("close_duration", self._close_duration)
+        """Update cover timing configuration.
+        
+        Args:
+            config: Dictionary with timing values as TimePeriod objects.
+                   Keys: open_time, close_time
+        """
+        if "open_time" in config:
+            self._open_time = config["open_time"]
+            self._open = RelayHelper(relay=self._open.relay, time=config["open_time"])
+        if "close_time" in config:
+            self._close_time = config["close_time"]
+            self._close = RelayHelper(relay=self._close.relay, time=config["close_time"])

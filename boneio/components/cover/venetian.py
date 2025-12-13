@@ -260,12 +260,18 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         await self.set_tilt(tilt_position=0)
 
     def update_config_times(self, config: dict) -> None:
-        self._open_duration = config.get("open_duration", self._open_duration)
-        self._close_duration = config.get("close_duration", self._close_duration)
-        self._actuator_activation_duration = config.get(
-            "actuator_activation_duration", self._actuator_activation_duration
-        )
-        self._tilt_duration = config.get("tilt_duration", self._tilt_duration)
+        """Update cover timing configuration.
+        
+        Args:
+            config: Dictionary with timing values as TimePeriod objects.
+                   Keys: open_time, close_time, tilt_duration
+        """
+        if "open_time" in config:
+            self._open_time = config["open_time"].total_milliseconds
+        if "close_time" in config:
+            self._close_time = config["close_time"].total_milliseconds
+        if "tilt_duration" in config and config["tilt_duration"]:
+            self._tilt_duration = config["tilt_duration"].total_milliseconds
 
     async def run_cover(
         self,

@@ -25,7 +25,7 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
  /**
    * Convert milliseconds back to string format for backend
    */
- const convertMillisecondsToTimeperiod = (milliseconds: number): string => {
+ export const convertMillisecondsToTimeperiod = (milliseconds: number): string => {
     // Check if it's a whole number of hours
     if (milliseconds >= 3600000 && milliseconds % 3600000 === 0) {
       return `${milliseconds / 3600000}h`;
@@ -152,9 +152,16 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
                   
                   if (itemPropSchema && 
                       typeof itemPropSchema === 'object' && 
-                      itemPropSchema['x-timeperiod'] === true && 
-                      typeof convertedItem[itemKey] === 'number') {
-                    convertedItem[itemKey] = convertMillisecondsToTimeperiod(convertedItem[itemKey]);
+                      itemPropSchema['x-timeperiod'] === true) {
+                    const val = convertedItem[itemKey];
+                    // If already string with unit (from SimpleTimePeriodInput), keep it
+                    if (typeof val === 'string' && /^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(val)) {
+                      // Already has unit, keep as-is
+                    }
+                    // If number (milliseconds), convert to string with unit
+                    else if (typeof val === 'number') {
+                      convertedItem[itemKey] = convertMillisecondsToTimeperiod(val);
+                    }
                   }
                 });
               }
@@ -184,7 +191,6 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
           console.log(`Converting timeperiod ${key}: ${currentValue}ms`, propSchema);
           const timeperiodString = convertMillisecondsToTimeperiod(currentValue);
           converted[key] = timeperiodString;
-          console.log(`✓ Converted timeperiod ${key}: ${currentValue}ms → ${timeperiodString}`);
         }
         // Otherwise keep as-is
         else {
