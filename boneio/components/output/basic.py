@@ -150,7 +150,7 @@ class VirtualEnergySensor:
             payload=payload,
             retain=True,
         )
-        _LOGGER.info(f"Sent virtual energy state for {self._parent.id}: {payload}")
+        _LOGGER.debug(f"Sent virtual energy state for {self._parent.id}: {payload}")
 
 
 class BasicOutput(BasicMqtt):

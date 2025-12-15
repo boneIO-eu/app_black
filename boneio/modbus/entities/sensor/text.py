@@ -26,7 +26,6 @@ class ModbusTextSensor(ModbusBaseEntity):
         state_class: str,
         device_class: str,
         value_type: str,
-        return_type: str,
         filters: list,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
@@ -34,8 +33,7 @@ class ModbusTextSensor(ModbusBaseEntity):
         user_filters: list | None = [],
         ha_filter: str = "",
     ) -> None:
-        """
-        Initialize single sensor.
+        """Initialize single sensor.
 
         Args:
             name: name of sensor
@@ -45,8 +43,7 @@ class ModbusTextSensor(ModbusBaseEntity):
             unit_of_measurement: unit of measurement
             state_class: state class
             device_class: device class
-            value_type: type of value
-            return_type: type of return
+            value_type: type of value for decoding
             filters: list of filters
             message_bus: message bus instance
             config_helper: config helper instance
@@ -63,7 +60,6 @@ class ModbusTextSensor(ModbusBaseEntity):
             state_class=state_class,
             device_class=device_class,
             value_type=value_type,
-            return_type=return_type,
             filters=filters,
             message_bus=message_bus,
             config_helper=config_helper,

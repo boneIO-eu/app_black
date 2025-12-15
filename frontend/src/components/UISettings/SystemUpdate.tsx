@@ -793,7 +793,9 @@ const SystemUpdate: React.FC = () => {
                     className="btn btn-ghost btn-sm"
                     onClick={() => setShowBackups(!showBackups)}
                   >
-                    {showBackups ? `Hide Backups (${backups.length})` : `Show Backups (${backups.length})`}
+                    {showBackups
+                      ? t('system_update.hide_backups').replace('{count}', String(backups.length))
+                      : t('system_update.show_backups').replace('{count}', String(backups.length))}
                   </button>
                 </div>
 

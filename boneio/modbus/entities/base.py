@@ -26,7 +26,6 @@ class BaseEntity(Filter):
         state_class: str | None   = None,
         device_class: str | None = None,
         value_type: str | None = None,
-        return_type: str | None = None,
         filters: list = [],
         user_filters: list | None = [],
         ha_filter: str = "round(2)",
@@ -43,7 +42,6 @@ class BaseEntity(Filter):
         self._user_filters = user_filters
         self._filters = filters
         self._value = None
-        self._return_type = return_type
         self._value_type = value_type
         self._ha_filter = ha_filter
         self._timestamp = time.time()
@@ -68,10 +66,6 @@ class BaseEntity(Filter):
         )
         self._value = value
         self._timestamp = timestamp
-
-    @property
-    def return_type(self) -> str | None:
-        return self._return_type
 
     def get_value(self) -> float | int | None:
         return self._value
@@ -177,24 +171,23 @@ class ModbusBaseEntity(BaseEntity):
         state_class: str | None = None,
         device_class: str | None = None,
         value_type: str | None = None,
-        return_type: str | None = None,
         filters: list | None = None,
         user_filters: list | None = [],
         ha_filter: str = "",
     ) -> None:
         """
         Initialize single sensor.
-        :param name: name of sensor
-        :param register_address: address of register
-        :param base_address: address of base
-        :param unit_of_measurement: unit of measurement
-        :param state_class: state class
-        :param device_class: device class
-        :param value_type: type of value
-        :param return_type: type of return
-        :param user_filters: list of user filters
-        :param filters: list of filters
-        :param send_ha_autodiscovery: function for sending HA autodiscovery
+        
+        Args:
+            name: name of sensor
+            register_address: address of register
+            base_address: address of base
+            unit_of_measurement: unit of measurement
+            state_class: state class
+            device_class: device class
+            value_type: type of value for decoding
+            user_filters: list of user filters
+            filters: list of filters
         """
         super().__init__(
             name=name,
@@ -203,7 +196,6 @@ class ModbusBaseEntity(BaseEntity):
             state_class=state_class,
             device_class=device_class,
             value_type=value_type,
-            return_type=return_type,
             filters=filters or [],
             message_bus=message_bus,
             config_helper=config_helper,

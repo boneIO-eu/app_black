@@ -52,7 +52,6 @@ from boneio.modbus.entities.writeable.numeric import (
 from boneio.models.events import ModbusDeviceEvent
 
 from .client import VALUE_TYPES, Modbus
-from .utils import CONVERT_METHODS, REGISTERS_BASE
 
 # Type aliases for cleaner code
 ModbusEntity = Union[
@@ -154,7 +153,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     def __init_modbus_entities__(self):
         # Standard sensors
-        for index, data in enumerate(self._db[REGISTERS_BASE]):
+        for index, data in enumerate(self._db["registers_base"]):
             base = data[BASE]
             self._modbus_entities.append({})
             for register in data[REGISTERS]:
@@ -173,7 +172,6 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "state_class": register.get("state_class"),
                     "device_class": register.get("device_class"),
                     "value_type": register.get("value_type"),
-                    "return_type": register.get("return_type", "regular"),
                     "filters": register.get("filters", []),
                     "message_bus": self._message_bus,
                     "config_helper": self.manager.config_helper,
@@ -256,7 +254,6 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             state_class=additional.get("state_class", "measurement"),
             device_class=additional.get("device_class", "volume"),
             value_type=None,
-            return_type=None,
             filters=[],
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -690,7 +687,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             or (isinstance(self._discovery_sent, datetime) and (datetime.now() - self._discovery_sent).seconds > 3600)
         ) and self.manager.config_helper.topic_prefix:
             self._discovery_sent = False
-            first_register_base = self._db[REGISTERS_BASE][0]
+            first_register_base = self._db["registers_base"][0]
             register_method = first_register_base.get("register_type", "input")
             # Let's try fetch register 2 times in case something wrong with initial packet.
             for _ in [0, 1]:
@@ -753,22 +750,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     sensor.base_address,
                     e,
                 )
-        elif sensor.return_type:
-            # Go with old method. Remove when switch Sofar to new.
-            _LOGGER.debug(
-                "Using old return_type method for sensor %s: return_type=%s, value_type=%s",
-                sensor.name,
-                sensor.return_type,
-                sensor.value_type,
-            )
-            decoded_value = CONVERT_METHODS[sensor.return_type](
-                result=values,
-                base=sensor.base_address,
-                addr=sensor.address,
-            )
         else:
             _LOGGER.warning(
-                "Sensor %s has neither value_type nor return_type defined",
+                "Sensor %s has no value_type defined",
                 sensor.name,
             )
                 
@@ -800,7 +784,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
         
-        for index, data in enumerate(self._db[REGISTERS_BASE]):
+        for index, data in enumerate(self._db["registers_base"]):
             values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data[BASE],

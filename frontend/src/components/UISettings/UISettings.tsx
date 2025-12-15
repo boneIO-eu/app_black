@@ -1209,6 +1209,7 @@ export default function UISettings() {
                           allEvents={formData.event || []}
                           allOutputs={formData.output || []}
                           allOutputGroups={formData.output_group || []}
+                          allCovers={formData.cover || []}
                           allAreas={formData.areas || []}
                           title={
                             activeSection === 'binary_sensor' ? t('sections.binary_sensor') : 
@@ -1297,6 +1298,7 @@ export default function UISettings() {
                         allEvents={formData.event || []}
                         allOutputs={formData.output || []}
                         allOutputGroups={formData.output_group || []}
+                        allCovers={formData.cover || []}
                         allAreas={formData.areas || []}
                         title={t(`sections.${activeSection}`)}
                       />

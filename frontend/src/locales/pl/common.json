@@ -186,7 +186,9 @@
     "modbus_devices": "Urządzenia Modbus",
     "save_changes": "Zapisz Zmiany",
     "add_item": "Dodaj Element",
-    "fix_validation_errors": "Napraw błędy walidacji przed zapisaniem"
+    "fix_validation_errors": "Napraw błędy walidacji przed zapisaniem",
+    "confirm_turn_off": "Czy na pewno chcesz wyłączyć wszystkie wyjścia?",
+    "no_outputs_to_turn_off": "Brak wyjść do wyłączenia"
   },
   "system_update": {
     "title": "Aktualizacja Systemu",

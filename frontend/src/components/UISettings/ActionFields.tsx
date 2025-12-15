@@ -74,6 +74,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   const actionType = action.action || 'output';
 
   const validationError = showValidation ? validateAction(action, t) : null;
+  console.log("all cover", allCovers, "first cover keys:", allCovers[0] ? Object.keys(allCovers[0]) : "empty")
 
   return (
     <div className="border border-base-300 rounded-lg p-4 mb-4">
@@ -131,11 +132,14 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               </SelectTrigger>
               <SelectContent>
                 {allCovers
-                  .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                  .map((cover: any) => {
-                    const id = cover.id;
+                  .filter((cover: any) => cover && typeof cover === 'object')
+                  .map((cover: any, index: number) => {
+                    // Cover ID can be explicit or generated from open_relay + close_relay
+                    const id = cover.id || (cover.open_relay && cover.close_relay 
+                      ? `cover_${cover.open_relay}_${cover.close_relay}`.toLowerCase()
+                      : `cover_${index}`);
                     const name = cover.name || id;
-                    const label = name !== id ? `${name} - ${id}` : id;
+                    const label = name !== id ? `${name} (${id})` : id;
                     return (
                       <SelectItem key={id} value={id}>
                         {label}

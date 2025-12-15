@@ -45,6 +45,11 @@ export interface ArrayTableWidgetProps {
  */
 const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [] }) => {
   const { t } = useTranslation();
+  
+  // Debug: log allCovers when in event/binary_sensor section
+  if (sectionType === 'event' || sectionType === 'binary_sensor') {
+    console.log('🎯 ArrayTableWidget allCovers:', allCovers, 'sectionType:', sectionType);
+  }
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

@@ -29,7 +29,6 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
             name=name,
             parent=parent,
             value_type=None,
-            return_type=None,
             filters=[],
             message_bus=message_bus,
             config_helper=config_helper,

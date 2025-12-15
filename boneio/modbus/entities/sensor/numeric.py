@@ -10,6 +10,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ModbusNumericSensor(ModbusBaseEntity):
+    """Modbus numeric sensor entity."""
+    
     def __init__(
         self,
         name: str,
@@ -20,26 +22,24 @@ class ModbusNumericSensor(ModbusBaseEntity):
         state_class: str,
         device_class: str,
         value_type: str,
-        return_type: str,
         filters: list,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
         user_filters: list | None = [],
         ha_filter: str = "round(2)",
     ) -> None:
-        """
-        Initialize single sensor.
-        :param name: name of sensor
-        :param register_address: address of register
-        :param base_address: address of base
-        :param unit_of_measurement: unit of measurement
-        :param state_class: state class
-        :param device_class: device class
-        :param value_type: type of value
-        :param return_type: type of return
-        :param user_filters: list of user filters
-        :param filters: list of filters
-        :param send_ha_autodiscovery: function for sending HA autodiscovery
+        """Initialize single sensor.
+        
+        Args:
+            name: name of sensor
+            register_address: address of register
+            base_address: address of base
+            unit_of_measurement: unit of measurement
+            state_class: state class
+            device_class: device class
+            value_type: type of value for decoding
+            user_filters: list of user filters
+            filters: list of filters
         """
         super().__init__(
             name=name,
@@ -48,7 +48,6 @@ class ModbusNumericSensor(ModbusBaseEntity):
             state_class=state_class,
             device_class=device_class,
             value_type=value_type,
-            return_type=return_type,
             filters=filters,
             message_bus=message_bus,
             config_helper=config_helper,

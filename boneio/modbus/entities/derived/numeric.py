@@ -7,6 +7,8 @@ from boneio.modbus.entities.base import ModbusDerivedEntity
 
 
 class ModbusDerivedNumericSensor(ModbusDerivedEntity):
+    """Derived numeric sensor that calculates values from source sensors."""
+    
     def __init__(
         self,
         name: str,
@@ -15,7 +17,6 @@ class ModbusDerivedNumericSensor(ModbusDerivedEntity):
         state_class: str,
         device_class: str,
         value_type: str | None,
-        return_type: str | None,
         filters: list,
         message_bus: MessageBus,
         formula: str,
@@ -34,7 +35,6 @@ class ModbusDerivedNumericSensor(ModbusDerivedEntity):
             state_class=state_class,
             device_class=device_class,
             value_type=value_type,
-            return_type=return_type,
             filters=filters,
             message_bus=message_bus,
             config_helper=config_helper,

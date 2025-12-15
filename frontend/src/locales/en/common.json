@@ -186,7 +186,9 @@
     "modbus_devices": "Modbus Devices",
     "save_changes": "Save Changes",
     "add_item": "Add Item",
-    "fix_validation_errors": "Please fix validation errors before saving"
+    "fix_validation_errors": "Please fix validation errors before saving",
+    "confirm_turn_off": "Are you sure you want to turn off all outputs?",
+    "no_outputs_to_turn_off": "No outputs to turn off"
   },
   "system_update": {
     "title": "System Update",

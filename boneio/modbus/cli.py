@@ -8,7 +8,7 @@ from boneio.core.utils import open_json
 from pymodbus.pdu import ExceptionResponse
 
 from .client import Modbus
-from .utils import REGISTERS_BASE, allowed_operations
+from .utils import allowed_operations
 
 _LOGGER = logging.getLogger(__name__)
 SET_BASE = "set_base"
@@ -158,7 +158,7 @@ async def async_run_modbus_set(
     if not custom_cmd:
         _db = open_json(path=os.path.dirname(__file__), model=device)
         set_base = _db.get(SET_BASE, {})
-        first_reg_base = _db.get(REGISTERS_BASE, [])[0]
+        first_reg_base = _db.get("registers_base", [])[0]
         if not first_reg_base:
             return False
         first_record = first_reg_base.get(REGISTERS, [])[0]

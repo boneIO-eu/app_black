@@ -7,15 +7,15 @@
             "register_type": "holding",
             "registers": [
                 {
-                    "name": "Temperature1 PT100",
+                    "name": "Temperature_PT100",
                     "address": 1,
                     "unit_of_measurement": "°C",
                     "state_class": "measurement",
                     "device_class": "temperature",
-                    "return_type": "multiply0_1"
+                    "value_type": "S_WORD",
+                    "filters": [{ "multiply": 0.1 }]
                 }
             ]
-
         }
     ]
 }
