@@ -156,6 +156,7 @@
           "unit_of_measurement": "kWh",
           "state_class": "total",
           "device_class": "energy",
+          "value_type": "U_DWORD",
           "filters": [{ "multiply": 0.01 }]
         }
       ]

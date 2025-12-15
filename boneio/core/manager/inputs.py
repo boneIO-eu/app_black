@@ -422,8 +422,6 @@ class InputManager:
         - Removing deleted inputs (from internal state and HA Discovery)
         - Adding inputs that use already-registered GPIO pins (e.g., moving from event to binary_sensor)
         """
-        import asyncio
-        
         _LOGGER.info("Reloading input configuration")
         
         # Get new config
@@ -491,9 +489,42 @@ class InputManager:
         # - Add new inputs if their GPIO pin is already registered
         self._configure_inputs(reload_config=True)
         
-        # Signal WebSocket handlers to re-send all input states to clients
-        from boneio.models.events import InputsReloadedEvent
-        self._manager._event_bus.trigger_event(InputsReloadedEvent())
+        # Broadcast all input states to WebSocket clients
+        # Global listeners will receive these events for all inputs (including new ones)
+        self._broadcast_all_input_states()
+    
+    def _broadcast_all_input_states(self) -> None:
+        """Broadcast current state of all inputs via WebSocket.
+        
+        This is called after reload to ensure frontend receives
+        the updated input list immediately.
+        """
+        import time
+        from boneio.models import InputState
+        from boneio.models.events import InputEvent
+        
+        timestamp = time.time()
+        
+        for input_ in self._inputs.values():
+            try:
+                input_state = InputState(
+                    name=input_.name,
+                    state=input_.last_state,
+                    type=input_.input_type,
+                    pin=input_.pin,
+                    timestamp=timestamp,
+                    boneio_input=input_.boneio_input,
+                    area=input_.area
+                )
+                event = InputEvent(
+                    entity_id=input_.id,
+                    state=input_state,
+                    click_type=None,
+                    duration=None
+                )
+                self._manager._event_bus.trigger_event(event)
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting input state %s: %s", input_.id, e)
     
     def _remove_input_ha_discovery(self, input_id: str, old_area: str | None = None) -> None:
         """Remove HA Discovery entries for an input.

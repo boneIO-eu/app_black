@@ -65,6 +65,10 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["boneio*"]
 
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.yaml", "*.yml", "*.ttf"]
+"boneio.webui" = ["frontend-dist/**/*"]
+
 [tool.setuptools.dynamic]
 version = {attr = "boneio.version.__version__"}
 

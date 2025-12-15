@@ -733,6 +733,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         
         if sensor.value_type:
             # New method using value_type
+            _LOGGER.debug(
+                "Using new value_type method for sensor %s: value_type=%s",
+                sensor.name,
+                sensor.value_type,
+            )
             start_index = sensor.address - sensor.base_address
             count = VALUE_TYPES[sensor.value_type]["count"]
             payload = values.registers[start_index : start_index + count]
@@ -750,6 +755,12 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 )
         elif sensor.return_type:
             # Go with old method. Remove when switch Sofar to new.
+            _LOGGER.debug(
+                "Using old return_type method for sensor %s: return_type=%s, value_type=%s",
+                sensor.name,
+                sensor.return_type,
+                sensor.value_type,
+            )
             decoded_value = CONVERT_METHODS[sensor.return_type](
                 result=values,
                 base=sensor.base_address,

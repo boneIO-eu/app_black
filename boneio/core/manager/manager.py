@@ -582,7 +582,6 @@ class Manager:
         reloaded_sections = []
         failed_sections = []
         
-        import asyncio
         import inspect
         
         # Sections that support hot reload (some are async, some are sync)

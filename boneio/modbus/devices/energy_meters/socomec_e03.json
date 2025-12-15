@@ -94,6 +94,7 @@
           "address": 50952,
           "unit_of_measurement": "kWh",
           "state_class": "total",
+          "value_type": "U_DWORD",
           "device_class": "energy",
           "filters": [{ "multiply": 0.01 }]
         }

@@ -5,6 +5,7 @@ This module manages Modbus RTU/TCP devices and coordinators.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -272,7 +273,6 @@ class ModbusManager:
         
         The Modbus client itself is not recreated.
         """
-        import asyncio
         
         _LOGGER.info("Reloading Modbus devices configuration")
         

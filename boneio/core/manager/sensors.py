@@ -547,8 +547,14 @@ class SensorManager:
             for sensor in self._dallas_sensors[:]:
                 if sensor._address == address:
                     _LOGGER.info("Removing Dallas sensor: %s", address)
-                    # Remove HA autodiscovery
-                    self._manager._config_helper.remove_autodiscovery_msg(SENSOR, sensor.id)
+                    # Remove HA autodiscovery - find all topics for this sensor
+                    matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(sensor.id)
+                    for ha_type, topic in matching_topics:
+                        _LOGGER.debug("Removing HA Discovery for sensor %s: %s", sensor.id, topic)
+                        # Send empty/null payload to remove from HA (HA requires zero-length retained message)
+                        self._manager.send_message(topic=topic, payload=None, retain=True)
+                        # Remove from internal cache
+                        self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
                     # Remove from lists
                     self._dallas_sensors.remove(sensor)
                     if sensor in self._temp_sensors:
@@ -597,6 +603,33 @@ class SensorManager:
                         break
         
         _LOGGER.info("Dallas sensors reload complete. Total: %d", len(self._dallas_sensors))
+        
+        # Broadcast updated states to WebSocket clients
+        await self._broadcast_all_sensor_states()
+
+    async def _broadcast_all_sensor_states(self) -> None:
+        """Broadcast current state of all sensors via WebSocket.
+        
+        This is called after reload to ensure frontend receives
+        the updated sensor list immediately.
+        """
+        import time
+        timestamp = time.time()
+        
+        # Update all Dallas sensors
+        for sensor in self._dallas_sensors:
+            try:
+                await sensor.async_update(timestamp)
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
+        
+        # Update all I2C temperature sensors
+        for sensor in self._temp_sensors:
+            if sensor not in self._dallas_sensors:  # Avoid duplicates
+                try:
+                    await sensor.async_update(timestamp)
+                except Exception as e:
+                    _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
 
     def get_ina219_sensors(self) -> list:
         """Get all INA219 sensors.

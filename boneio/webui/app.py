@@ -167,153 +167,70 @@ async def boneio_state_changed_callback(event: Event):
     await websocket_manager.broadcast_state(event)
 
 
-def add_listener_for_all_outputs(boneio_manager: Manager):
-    """Add WebSocket listeners for all outputs."""
-    for output in boneio_manager.outputs.get_all_outputs().values():
-        if output.output_type == COVER or output.output_type == NONE:
-            continue
-        boneio_manager.event_bus.add_event_listener(
-            event_type="output",
-            entity_id=output.id,
-            listener_id="ws",
-            target=boneio_state_changed_callback,
-        )
-
-
-def remove_listener_for_all_outputs(boneio_manager: Manager):
-    """Remove WebSocket listeners for all outputs."""
-    boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws")
-
-
-def add_listener_for_all_groups(boneio_manager: Manager):
-    """Add WebSocket listeners for all output groups."""
-    for group in boneio_manager.outputs.get_all_output_groups().values():
-        boneio_manager.event_bus.add_event_listener(
-            event_type="group",
-            entity_id=group.id,
-            listener_id="ws",
-            target=boneio_state_changed_callback,
-        )
-
-
-def remove_listener_for_all_groups(boneio_manager: Manager):
-    """Remove WebSocket listeners for all output groups."""
-    boneio_manager.event_bus.remove_event_listener(event_type="group", listener_id="ws")
-
-
-def add_listener_for_all_covers(boneio_manager: Manager):
-    """Add WebSocket listeners for all covers."""
-    for cover in boneio_manager.covers.get_all_covers().values():
-        boneio_manager.event_bus.add_event_listener(
-            event_type="cover",
-            entity_id=cover.id,
-            listener_id="ws",
-            target=boneio_state_changed_callback,
-        )
-
-
-def remove_listener_for_all_covers(boneio_manager: Manager):
-    """Remove WebSocket listeners for all covers."""
-    boneio_manager.event_bus.remove_event_listener(event_type="cover", listener_id="ws")
-
-
-def add_listener_for_all_inputs(boneio_manager: Manager):
-    """Add WebSocket listeners for all inputs."""
-    for input in boneio_manager.inputs.get_inputs_list():
-        boneio_manager.event_bus.add_event_listener(
-            event_type="input",
-            entity_id=input.id,
-            listener_id="ws",
-            target=boneio_state_changed_callback,
-        )
-
-
-def remove_listener_for_all_inputs(boneio_manager: Manager):
-    """Remove WebSocket listeners for all inputs."""
-    boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws")
-
-
-async def inputs_reloaded_callback(event):
-    """Callback when inputs are reloaded - re-send all input states to WebSocket clients."""
-    websocket_manager: WebSocketManager = app.state.websocket_manager
-    manager: Manager = app.state.manager
+def add_all_websocket_listeners(boneio_manager: Manager):
+    """Add global WebSocket listeners for all entity types.
     
-    _LOGGER.debug("Inputs reloaded, broadcasting all input states to WebSocket clients")
-    
-    for input_ in manager.inputs.get_inputs_list():
-        try:
-            input_state = InputState(
-                name=input_.name,
-                state=input_.last_state,
-                type=input_.input_type,
-                pin=input_.pin,
-                timestamp=input_.last_press_timestamp,
-                boneio_input=input_.boneio_input,
-                area=input_.area
-            )
-            update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
-            await websocket_manager.broadcast_state(update)
-        except Exception as e:
-            _LOGGER.error(f"Error broadcasting input state for {input_.id}: {e}")
-
-
-def add_listener_for_inputs_reloaded(boneio_manager: Manager):
-    """Add listener for inputs reloaded event."""
+    Uses global listeners (entity_id="") to receive events from all entities,
+    including dynamically added ones after reload. This is the preferred approach
+    as it doesn't require re-registering listeners when entities are added/removed.
+    """
+    # Output events (relays, switches, lights, etc.)
     boneio_manager.event_bus.add_event_listener(
-        event_type="inputs_reloaded",
+        event_type="output",
         entity_id="",
-        listener_id="ws_inputs_reload",
-        target=inputs_reloaded_callback,
+        listener_id="ws_output_global",
+        target=boneio_state_changed_callback,
+    )
+    
+    # Output group events
+    boneio_manager.event_bus.add_event_listener(
+        event_type="group",
+        entity_id="",
+        listener_id="ws_group_global",
+        target=boneio_state_changed_callback,
+    )
+    
+    # Cover events
+    boneio_manager.event_bus.add_event_listener(
+        event_type="cover",
+        entity_id="",
+        listener_id="ws_cover_global",
+        target=boneio_state_changed_callback,
+    )
+    
+    # Input events (buttons, binary sensors)
+    boneio_manager.event_bus.add_event_listener(
+        event_type="input",
+        entity_id="",
+        listener_id="ws_input_global",
+        target=boneio_state_changed_callback,
+    )
+    
+    # Modbus device events
+    boneio_manager.event_bus.add_event_listener(
+        event_type="modbus_device",
+        entity_id="",
+        listener_id="ws_modbus_global",
+        target=boneio_state_changed_callback,
+    )
+    
+    # Sensor events (temperature, power, etc.)
+    boneio_manager.event_bus.add_event_listener(
+        event_type="sensor",
+        entity_id="",
+        listener_id="ws_sensor_global",
+        target=boneio_state_changed_callback,
     )
 
 
-def remove_listener_for_inputs_reloaded(boneio_manager: Manager):
-    """Remove listener for inputs reloaded event."""
-    boneio_manager.event_bus.remove_event_listener(event_type="inputs_reloaded", listener_id="ws_inputs_reload")
-
-
-def sensor_listener_for_all_sensors(boneio_manager: Manager):
-    """Add WebSocket listeners for all sensors."""
-    for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
-        if not modbus_coordinator:
-            continue
-        for entities in modbus_coordinator.get_all_entities():
-            for entity in entities.values():
-                boneio_manager.event_bus.add_event_listener(
-                    event_type="modbus_device",
-                    entity_id=entity.id,
-                    listener_id="ws",
-                    target=boneio_state_changed_callback,
-                )
-        for additional_entities in modbus_coordinator.get_all_additional_entities():
-            for entity in additional_entities.values():
-                boneio_manager.event_bus.add_event_listener(
-                    event_type="modbus_device",
-                    entity_id=entity.id,
-                    listener_id="ws",
-                    target=boneio_state_changed_callback,
-                )
-    for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
-        for ina in single_ina_device.sensors.values():
-            boneio_manager.event_bus.add_event_listener(
-                event_type="sensor",
-                entity_id=ina.id,
-                listener_id="ws",
-                target=boneio_state_changed_callback,
-            )
-    for sensor in boneio_manager.sensors.get_all_temp_sensors():
-        boneio_manager.event_bus.add_event_listener(
-            event_type="sensor",
-            entity_id=sensor.id,
-            listener_id="ws",
-            target=boneio_state_changed_callback,
-        )
-
-
-def remove_listener_for_all_sensors(boneio_manager: Manager):
-    """Remove WebSocket listeners for all sensors."""
-    boneio_manager.event_bus.remove_event_listener(listener_id="ws")
-    boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws")
+def remove_all_websocket_listeners(boneio_manager: Manager):
+    """Remove all global WebSocket listeners."""
+    boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws_output_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="group", listener_id="ws_group_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="cover", listener_id="ws_cover_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws_input_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="modbus_device", listener_id="ws_modbus_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws_sensor_global")
 
 
 # ============================================================================
@@ -511,12 +428,7 @@ async def websocket_endpoint(
 
             if websocket.application_state == WebSocketState.CONNECTED:
                 _LOGGER.debug("Initial states sent, setting up event listeners")
-                add_listener_for_all_outputs(boneio_manager=boneio_manager)
-                add_listener_for_all_groups(boneio_manager=boneio_manager)
-                add_listener_for_all_covers(boneio_manager=boneio_manager)
-                add_listener_for_all_inputs(boneio_manager=boneio_manager)
-                add_listener_for_inputs_reloaded(boneio_manager=boneio_manager)
-                sensor_listener_for_all_sensors(boneio_manager=boneio_manager)
+                add_all_websocket_listeners(boneio_manager=boneio_manager)
 
                 # Keep connection alive
                 while True:
@@ -543,11 +455,7 @@ async def websocket_endpoint(
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
         if not app.state.websocket_manager.active_connections:
-            remove_listener_for_all_outputs(boneio_manager=boneio_manager)
-            remove_listener_for_all_covers(boneio_manager=boneio_manager)
-            remove_listener_for_all_inputs(boneio_manager=boneio_manager)
-            remove_listener_for_inputs_reloaded(boneio_manager=boneio_manager)
-            remove_listener_for_all_sensors(boneio_manager=boneio_manager)
+            remove_all_websocket_listeners(boneio_manager=boneio_manager)
 
 
 # ============================================================================
