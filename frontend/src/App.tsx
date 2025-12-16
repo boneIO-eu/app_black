@@ -189,6 +189,8 @@ function AppContent() {
           }
           if (sections.includes('all') || sections.includes('modbus_devices')) {
             setModbusDevices([]);
+          }
+          if (sections.includes('all') || sections.includes('modbus_devices') || sections.includes('sensor')) {
             setSensors([]);
           }
         }
