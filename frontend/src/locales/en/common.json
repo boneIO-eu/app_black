@@ -188,7 +188,11 @@
     "add_item": "Add Item",
     "fix_validation_errors": "Please fix validation errors before saving",
     "confirm_turn_off": "Are you sure you want to turn off all outputs?",
-    "no_outputs_to_turn_off": "No outputs to turn off"
+    "no_outputs_to_turn_off": "No outputs to turn off",
+    "delete_warning_title": "Warning: Item is in use",
+    "delete_warning_message": "This item is used in the following actions. Deleting it will also remove these actions.",
+    "affected_actions": "Affected actions",
+    "delete_and_remove_actions": "Remove Actions now and save changes"
   },
   "system_update": {
     "title": "System Update",

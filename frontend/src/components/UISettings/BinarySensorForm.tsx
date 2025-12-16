@@ -60,6 +60,12 @@ interface BinarySensorFormProps {
   allCovers?: any[];
   allAreas?: Area[];
   onValidationChange?: (hasErrors: boolean) => void;
+  /** Saved (committed) outputs for comparison */
+  savedOutputs?: any[];
+  /** Saved (committed) output groups for comparison */
+  savedOutputGroups?: any[];
+  /** Saved (committed) covers for comparison */
+  savedCovers?: any[];
 }
 
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
@@ -73,10 +79,39 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allCovers = [],
   allAreas = [],
   editingIndex,
-  onValidationChange
+  onValidationChange,
+  savedOutputs,
+  savedOutputGroups,
+  savedCovers
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+
+  /**
+   * Check if an output is saved (committed) by comparing with saved data.
+   */
+  const isOutputSaved = (outputId: string): boolean => {
+    if (!savedOutputs) return true;
+    return savedOutputs.some((o: any) => {
+      const id = o.id || o.boneio_output;
+      return id === outputId;
+    });
+  };
+
+  const isOutputGroupSaved = (groupId: string): boolean => {
+    if (!savedOutputGroups) return true;
+    return savedOutputGroups.some((g: any) => g.id === groupId);
+  };
+
+  const isCoverSaved = (coverId: string): boolean => {
+    if (!savedCovers) return true;
+    return savedCovers.some((c: any) => {
+      const id = c.id || (c.open_relay && c.close_relay 
+        ? `cover_${c.open_relay}_${c.close_relay}`.toLowerCase()
+        : null);
+      return id === coverId;
+    });
+  };
 
   // Validate action - check if required fields are filled
   const validateAction = (action: Action): string | null => {
@@ -274,13 +309,22 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   {allCovers
-                    .filter((cover: any) => cover && typeof cover === 'object' && cover.id)
-                    .map((cover: any) => {
-                      const id = cover.id;
+                    .filter((cover: any) => cover && typeof cover === 'object')
+                    .map((cover: any, idx: number) => {
+                      const id = cover.id || (cover.open_relay && cover.close_relay 
+                        ? `cover_${cover.open_relay}_${cover.close_relay}`.toLowerCase()
+                        : `cover_${idx}`);
                       const name = cover.name || id;
-                      const label = name !== id ? `${name} - ${id}` : id;
+                      const label = name !== id ? `${name} (${id})` : id;
+                      const isSaved = isCoverSaved(id);
                       return (
-                        <SelectItem key={id} value={id}>
+                        <SelectItem 
+                          key={id} 
+                          value={id}
+                          disabled={!isSaved}
+                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
                           {label}
                         </SelectItem>
                       );
@@ -334,9 +378,16 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     .map((output: any) => {
                       const id = output.id || output.boneio_output;
                       const name = output.name || id;
-                      const label = name !== id ? `${name} - ${id}` : id;
+                      const label = name !== id ? `${name} (${id})` : id;
+                      const isSaved = isOutputSaved(id);
                       return (
-                        <SelectItem key={id} value={id}>
+                        <SelectItem 
+                          key={id} 
+                          value={id}
+                          disabled={!isSaved}
+                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
                           {label}
                         </SelectItem>
                       );
@@ -347,10 +398,17 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     .map((group: any) => {
                       const id = group.id;
                       const name = group.name || id;
-                      const label = name !== id ? `${name} - ${id}` : id;
+                      const label = name !== id ? `${name} (${id})` : id;
+                      const isSaved = isOutputGroupSaved(id);
                       return (
-                        <SelectItem key={`group-${id}`} value={id}>
+                        <SelectItem 
+                          key={`group-${id}`} 
+                          value={id}
+                          disabled={!isSaved}
+                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
                           <span className="badge badge-xs badge-secondary mr-1">Group</span>
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
                           {label}
                         </SelectItem>
                       );

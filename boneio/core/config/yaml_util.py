@@ -892,6 +892,21 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
     
     _LOGGER.info(f"Updating section '{section}' with data: {data}")
     
+    # Special handling for mcp23017 - convert hex strings to integers
+    # This ensures YAML writes them as integers which are then read back as hex
+    if section == 'mcp23017' and isinstance(data, list):
+        for entry in data:
+            if isinstance(entry, dict) and 'address' in entry:
+                addr = entry['address']
+                if isinstance(addr, str):
+                    if addr.startswith('0x') or addr.startswith('0X'):
+                        entry['address'] = int(addr, 16)
+                    else:
+                        try:
+                            entry['address'] = int(addr, 10)
+                        except ValueError:
+                            pass  # Keep as string if conversion fails
+    
     # Strip default values to keep YAML clean
     cleaned_data = strip_default_values(data, {}, section)
     _LOGGER.info(f"Cleaned data (defaults removed): {cleaned_data}")

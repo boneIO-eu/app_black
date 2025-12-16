@@ -49,6 +49,12 @@ interface EventFormProps {
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
   attemptedSubmit?: boolean;
+  /** Saved (committed) outputs for comparison */
+  savedOutputs?: OutputEntity[];
+  /** Saved (committed) output groups for comparison */
+  savedOutputGroups?: any[];
+  /** Saved (committed) covers for comparison */
+  savedCovers?: CoverEntity[];
 }
 
 const EventForm: React.FC<EventFormProps> = ({ 
@@ -63,7 +69,10 @@ const EventForm: React.FC<EventFormProps> = ({
   allAreas = [],
   editingIndex,
   onValidationChange,
-  attemptedSubmit = false
+  attemptedSubmit = false,
+  savedOutputs,
+  savedOutputGroups,
+  savedCovers
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'long'>('basic');
@@ -186,6 +195,9 @@ const EventForm: React.FC<EventFormProps> = ({
         actionOutputOptions={actionOutputOptions}
         actionCoverOptions={actionCoverOptions}
         showValidation={attemptedSubmit}
+        savedOutputs={savedOutputs}
+        savedOutputGroups={savedOutputGroups}
+        savedCovers={savedCovers}
       />
     );
   };

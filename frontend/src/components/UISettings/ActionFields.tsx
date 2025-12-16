@@ -54,6 +54,12 @@ interface ActionFieldsProps {
   actionOutputOptions: string[];
   actionCoverOptions: string[];
   showValidation?: boolean; // Kontrola czy pokazywać błędy walidacji
+  /** Saved (committed) outputs for comparison - items not in saved are disabled */
+  savedOutputs?: any[];
+  /** Saved (committed) output groups for comparison */
+  savedOutputGroups?: any[];
+  /** Saved (committed) covers for comparison */
+  savedCovers?: any[];
 }
 
 const ActionFields: React.FC<ActionFieldsProps> = ({
@@ -69,12 +75,28 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   actionOutputOptions,
   actionCoverOptions,
   showValidation = false,
+  savedOutputs,
+  savedOutputGroups,
+  savedCovers,
 }) => {
   const { t } = useTranslation();
   const actionType = action.action || 'output';
 
   const validationError = showValidation ? validateAction(action, t) : null;
-  console.log("all cover", allCovers, "first cover keys:", allCovers[0] ? Object.keys(allCovers[0]) : "empty")
+
+  /**
+   * Check if a cover is saved (committed) by comparing with saved data.
+   * Returns true if cover exists in saved data.
+   */
+  const isCoverSaved = (coverId: string): boolean => {
+    if (!savedCovers) return true; // If no saved data provided, assume all are saved
+    return savedCovers.some((c: any) => {
+      const id = c.id || (c.open_relay && c.close_relay 
+        ? `cover_${c.open_relay}_${c.close_relay}`.toLowerCase()
+        : null);
+      return id === coverId;
+    });
+  };
 
   return (
     <div className="border border-base-300 rounded-lg p-4 mb-4">
@@ -140,8 +162,15 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                       : `cover_${index}`);
                     const name = cover.name || id;
                     const label = name !== id ? `${name} (${id})` : id;
+                    const isSaved = isCoverSaved(id);
                     return (
-                      <SelectItem key={id} value={id}>
+                      <SelectItem 
+                        key={id} 
+                        value={id}
+                        disabled={!isSaved}
+                        className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
+                      >
+                        {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
                         {label}
                       </SelectItem>
                     );
@@ -195,6 +224,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               ]}
               allAreas={allAreas}
               placeholder={t('event_form.select_output')}
+              savedOutputs={savedOutputs}
+              savedOutputGroups={savedOutputGroups}
             />
           </div>
 

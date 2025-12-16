@@ -188,7 +188,11 @@
     "add_item": "Dodaj Element",
     "fix_validation_errors": "Napraw błędy walidacji przed zapisaniem",
     "confirm_turn_off": "Czy na pewno chcesz wyłączyć wszystkie wyjścia?",
-    "no_outputs_to_turn_off": "Brak wyjść do wyłączenia"
+    "no_outputs_to_turn_off": "Brak wyjść do wyłączenia",
+    "delete_warning_title": "Uwaga: Element jest używany",
+    "delete_warning_message": "Ten element jest używany w poniższych akcjach. Usunięcie go spowoduje również usunięcie tych akcji.",
+    "affected_actions": "Akcje do usunięcia",
+    "delete_and_remove_actions": "Usuń Akcje teraz i zapisz zmiany"
   },
   "system_update": {
     "title": "Aktualizacja Systemu",

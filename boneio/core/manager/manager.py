@@ -544,6 +544,20 @@ class Manager:
                     retain=False,
                 )
 
+    def _reload_logger(self) -> None:
+        """Reload logger configuration from config file.
+        
+        This allows hot-reloading of log levels without restarting the application.
+        """
+        from boneio.core.utils.logger import configure_logger
+        
+        config = self._config_helper.get_config()
+        log_config = config.get("logger", {})
+        
+        _LOGGER.info("Reloading logger configuration")
+        configure_logger(log_config, debug=0)
+        _LOGGER.info("Logger configuration reloaded successfully")
+
     async def reload_config(self, reload_sections: list[str] | None = None) -> dict:
         """Reload configuration from file.
         
@@ -594,6 +608,7 @@ class Manager:
             BINARY_SENSOR: self.inputs.reload_inputs,  # Alias for "input" (async)
             "modbus_devices": self.modbus.reload_modbus_devices,
             "sensor": self.sensors.reload_dallas_sensors,  # Dallas temperature sensors
+            "logger": self._reload_logger,  # Logger configuration
         }
         
         # If specific sections requested, filter

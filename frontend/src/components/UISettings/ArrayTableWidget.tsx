@@ -36,6 +36,18 @@ export interface ArrayTableWidgetProps {
   allOutputGroups?: any[];
   allCovers?: any[];
   allAreas?: Area[];
+  /** Saved (committed) data for comparison - items not in saved are shown as disabled */
+  savedOutputs?: any[];
+  savedOutputGroups?: any[];
+  savedCovers?: any[];
+  /** Callback to update events when orphaned actions need to be removed */
+  onUpdateEvents?: (newEvents: any[]) => void;
+  /** Callback to update binary_sensors when orphaned actions need to be removed */
+  onUpdateBinarySensors?: (newBinarySensors: any[]) => void;
+  /** Callback to save a section after orphaned actions are removed.
+   * If data is provided, it will be saved directly instead of using formData.
+   */
+  onSaveSection?: (sectionName: string, data?: any) => Promise<void>;
 }
 
 /**
@@ -43,13 +55,8 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [] }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
   const { t } = useTranslation();
-  
-  // Debug: log allCovers when in event/binary_sensor section
-  if (sectionType === 'event' || sectionType === 'binary_sensor') {
-    console.log('🎯 ArrayTableWidget allCovers:', allCovers, 'sectionType:', sectionType);
-  }
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,6 +64,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
   const [availableDallasSensors, setAvailableDallasSensors] = useState<{address: string, type: string}[]>([]);
+  
+  // State for delete confirmation dialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [affectedActions, setAffectedActions] = useState<{type: string, name: string, actionType: string}[]>([]);
 
   // Fetch interlock groups for output section
   useEffect(() => {
@@ -266,9 +278,187 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setEditingIndex(null);
   };
 
+  /**
+   * Find all actions in events and binary_sensors that reference the given item ID.
+   * Returns list of affected actions with their source (event/binary_sensor name and action type).
+   */
+  const findAffectedActions = (itemId: string): {type: string, name: string, actionType: string}[] => {
+    const affected: {type: string, name: string, actionType: string}[] = [];
+    
+    // Check events
+    allEvents.forEach((event: any) => {
+      const eventName = event.name || event.boneio_input || 'Unknown Event';
+      ['single', 'double', 'long'].forEach((pressType) => {
+        const actions = event.actions?.[pressType] || [];
+        actions.forEach((action: any) => {
+          if (action.pin === itemId) {
+            affected.push({
+              type: 'Event',
+              name: eventName,
+              actionType: `${pressType} → ${action.action || 'output'}`
+            });
+          }
+        });
+      });
+    });
+    
+    // Check binary_sensors
+    allBinarySensors.forEach((sensor: any) => {
+      const sensorName = sensor.name || sensor.boneio_input || 'Unknown Sensor';
+      ['pressed', 'released'].forEach((pressType) => {
+        const actions = sensor.actions?.[pressType] || [];
+        actions.forEach((action: any) => {
+          if (action.pin === itemId) {
+            affected.push({
+              type: 'Binary Sensor',
+              name: sensorName,
+              actionType: `${pressType} → ${action.action || 'output'}`
+            });
+          }
+        });
+      });
+    });
+    
+    return affected;
+  };
+
+  /**
+   * Remove actions that reference the given item ID from events and binary_sensors.
+   * Returns the updated data for immediate saving.
+   */
+  const removeOrphanedActions = (itemId: string): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
+    console.log('🗑️ removeOrphanedActions called with itemId:', itemId);
+    
+    let updatedEvents: any[] | null = null;
+    let updatedSensors: any[] | null = null;
+    
+    // Update events
+    if (onUpdateEvents) {
+      updatedEvents = allEvents.map((event: any) => {
+        const updatedActions: any = {};
+        ['single', 'double', 'long'].forEach((pressType) => {
+          const actions = event.actions?.[pressType] || [];
+          const filtered = actions.filter((action: any) => {
+            const shouldKeep = action.pin !== itemId;
+            if (!shouldKeep) {
+              console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> pin=${action.pin}`);
+            }
+            return shouldKeep;
+          });
+          updatedActions[pressType] = filtered;
+        });
+        return { ...event, actions: updatedActions };
+      });
+      console.log('🗑️ Updated events:', updatedEvents);
+      onUpdateEvents(updatedEvents);
+    }
+    
+    // Update binary_sensors
+    if (onUpdateBinarySensors) {
+      updatedSensors = allBinarySensors.map((sensor: any) => {
+        const updatedActions: any = {};
+        ['pressed', 'released'].forEach((pressType) => {
+          const actions = sensor.actions?.[pressType] || [];
+          const filtered = actions.filter((action: any) => {
+            const shouldKeep = action.pin !== itemId;
+            if (!shouldKeep) {
+              console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> pin=${action.pin}`);
+            }
+            return shouldKeep;
+          });
+          updatedActions[pressType] = filtered;
+        });
+        return { ...sensor, actions: updatedActions };
+      });
+      console.log('🗑️ Updated sensors:', updatedSensors);
+      onUpdateBinarySensors(updatedSensors);
+    }
+    
+    return { updatedEvents, updatedSensors };
+  };
+
+  /**
+   * Get the ID of an item being deleted based on section type.
+   */
+  const getItemId = (item: any): string => {
+    if (sectionType === 'output') {
+      return item.id || item.boneio_output || '';
+    } else if (sectionType === 'output_group') {
+      return item.id || '';
+    } else if (sectionType === 'cover') {
+      return item.id || (item.open_relay && item.close_relay 
+        ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase()
+        : '');
+    }
+    return '';
+  };
+
   const handleDelete = (index: number) => {
+    const item = value[index];
+    
+    // Only check for affected actions when deleting output, output_group, or cover
+    if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover') {
+      const itemId = getItemId(item);
+      const affected = findAffectedActions(itemId);
+      
+      if (affected.length > 0) {
+        // Show confirmation dialog
+        setDeleteIndex(index);
+        setAffectedActions(affected);
+        setDeleteConfirmOpen(true);
+        return;
+      }
+    }
+    
+    // No affected actions, delete directly
     const newValue = value.filter((_, i) => i !== index);
     onChange(newValue);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteIndex === null) return;
+    
+    const item = value[deleteIndex];
+    const itemId = getItemId(item);
+    
+    // Check which sections have affected actions
+    const hasEventActions = affectedActions.some(a => a.type === 'Event');
+    const hasBinarySensorActions = affectedActions.some(a => a.type === 'Binary Sensor');
+    
+    // Remove orphaned actions first and get updated data
+    const { updatedEvents, updatedSensors } = removeOrphanedActions(itemId);
+    
+    // Delete the item and get updated value
+    const newValue = value.filter((_, i) => i !== deleteIndex);
+    onChange(newValue);
+    
+    // Close dialog
+    setDeleteConfirmOpen(false);
+    setDeleteIndex(null);
+    setAffectedActions([]);
+    
+    // Save all affected sections with the updated data directly
+    if (onSaveSection) {
+      // First save the current section (output/output_group/cover) with the item removed
+      console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
+      await onSaveSection(sectionType, newValue);
+      
+      // Then save event and binary_sensor sections with orphaned actions removed
+      if (hasEventActions && updatedEvents) {
+        console.log('🔄 Auto-saving event section with updated data:', updatedEvents);
+        await onSaveSection('event', updatedEvents);
+      }
+      if (hasBinarySensorActions && updatedSensors) {
+        console.log('🔄 Auto-saving binary_sensor section with updated data:', updatedSensors);
+        await onSaveSection('binary_sensor', updatedSensors);
+      }
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setDeleteIndex(null);
+    setAffectedActions([]);
   };
 
   const handleCancel = () => {
@@ -804,6 +994,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allAreas={allAreas}
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
+                    savedOutputs={savedOutputs}
+                    savedOutputGroups={savedOutputGroups}
+                    savedCovers={savedCovers}
                   />
                 ) : sectionType === 'event' ? (
                   <EventForm
@@ -822,6 +1015,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
                     attemptedSubmit={attemptedSubmit}
+                    savedOutputs={savedOutputs}
+                    savedOutputGroups={savedOutputGroups}
+                    savedCovers={savedCovers}
                   />
                 ) : sectionType === 'output' ? (
                   <OutputForm
@@ -907,6 +1103,48 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               title={hasValidationErrors ? t('settings.fix_validation_errors') : ''}
             >
               {editingIndex !== null ? t('settings.save_changes') : t('settings.add_item')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md bg-base-100">
+          <DialogHeader>
+            <DialogTitle className="text-warning flex items-center gap-2">
+              ⚠️ {t('settings.delete_warning_title')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4">{t('settings.delete_warning_message')}</p>
+            <div className="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+              <p className="font-medium mb-2">{t('settings.affected_actions')} ({affectedActions.length}):</p>
+              <ul className="space-y-1 text-sm">
+                {affectedActions.map((action, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <span className="badge badge-xs badge-outline">{action.type}</span>
+                    <span className="font-medium">{action.name}</span>
+                    <span className="text-base-content/60">→ {action.actionType}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <button 
+              type="button" 
+              onClick={cancelDelete} 
+              className="btn btn-ghost"
+            >
+              {t('common.cancel')}
+            </button>
+            <button 
+              type="button" 
+              onClick={confirmDelete} 
+              className="btn btn-error"
+            >
+              {t('settings.delete_and_remove_actions')}
             </button>
           </DialogFooter>
         </DialogContent>
