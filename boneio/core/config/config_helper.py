@@ -38,6 +38,7 @@ class ConfigHelper:
         network_info: dict = {},
         is_web_active: bool = False,
         web_port: int = 8090,
+        nginx_proxy_port: int | None = None,
         config_file_path: str | None = None,
     ):
         self._name = name
@@ -47,6 +48,7 @@ class ConfigHelper:
         self._ha_discovery_prefix = ha_discovery_prefix
         self._device_type = device_type
         self._web_port = web_port
+        self._nginx_proxy_port = nginx_proxy_port
         self._fetch_old_discovery = None
         self._autodiscovery_messages = {
             SWITCH: {},
@@ -112,6 +114,16 @@ class ConfigHelper:
     @property
     def web_port(self) -> int:
         return self._web_port
+
+    @property
+    def nginx_proxy_port(self) -> int | None:
+        """Get nginx proxy port if configured."""
+        return self._nginx_proxy_port
+
+    @property
+    def ha_configuration_port(self) -> int:
+        """Get port for HA discovery URL. Uses nginx_proxy_port if set, otherwise web_port."""
+        return self._nginx_proxy_port if self._nginx_proxy_port else self._web_port
 
     @property
     def topic_prefix(self) -> str:

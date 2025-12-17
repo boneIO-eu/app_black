@@ -897,6 +897,285 @@ class SensorManager:
         else:
             sensor.stop_tracking()
 
+    async def reload_virtual_energy_sensors(self) -> None:
+        """Reload virtual energy sensor configuration from file.
+        
+        This handles:
+        - Adding new sensors
+        - Removing deleted sensors
+        - Updating existing sensor configurations
+        """
+        from boneio.components.sensor import VirtualEnergySensor
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
+        from boneio.core.utils.util import sanitize_string
+        
+        _LOGGER.info("Reloading virtual energy sensors configuration")
+        
+        # Get fresh config - virtual_energy_sensor is a top-level section
+        config = self._manager._config_helper.reload_config()
+        new_configs = config.get(VIRTUAL_ENERGY_SENSOR, [])
+        
+        # Get current and new sensor IDs
+        current_ids = {s.id for s in self._virtual_energy_sensors}
+        new_ids = set()
+        for cfg in new_configs:
+            sensor_id = cfg.get("id") or sanitize_string(cfg.get("name", ""))
+            if sensor_id:
+                new_ids.add(sensor_id)
+        
+        _LOGGER.debug("Virtual energy sensors - current: %s, new: %s", current_ids, new_ids)
+        
+        # Find sensors to add and remove
+        to_add = new_ids - current_ids
+        to_remove = current_ids - new_ids
+        
+        # Remove deleted sensors
+        for sensor_id in to_remove:
+            for sensor in self._virtual_energy_sensors[:]:
+                if sensor.id == sensor_id:
+                    _LOGGER.info("Removing virtual energy sensor: %s", sensor_id)
+                    
+                    # Stop tracking
+                    sensor.stop_tracking()
+                    
+                    # Remove event listener
+                    self._manager._event_bus.remove_event_listener(
+                        event_type="output",
+                        listener_id=f"virtual_energy_{sensor_id}",
+                    )
+                    
+                    # Remove HA autodiscovery for both power/energy or flow/water sensors
+                    for suffix in ["_power", "_energy", "_flow", "_water"]:
+                        full_id = f"{sensor_id}{suffix}"
+                        matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(full_id)
+                        for ha_type, topic in matching_topics:
+                            _LOGGER.debug("Removing HA Discovery for sensor %s: %s", full_id, topic)
+                            self._manager.send_message(topic=topic, payload=None, retain=True)
+                            self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
+                    
+                    # Remove from list
+                    self._virtual_energy_sensors.remove(sensor)
+        
+        # Add new sensors
+        for cfg in new_configs:
+            sensor_id = cfg.get("id") or sanitize_string(cfg.get("name", ""))
+            if sensor_id and sensor_id in to_add:
+                _LOGGER.info("Adding new virtual energy sensor: %s", sensor_id)
+                self._create_virtual_energy_sensor(cfg)
+        
+        # Update existing sensors
+        for cfg in new_configs:
+            sensor_id = cfg.get("id") or sanitize_string(cfg.get("name", ""))
+            if sensor_id and sensor_id not in to_add and sensor_id not in to_remove:
+                for sensor in self._virtual_energy_sensors:
+                    if sensor.id == sensor_id:
+                        # Update sensor properties
+                        new_name = cfg.get("name")
+                        if new_name and sensor.name != new_name:
+                            _LOGGER.debug("Updating virtual energy sensor %s name: %s -> %s", sensor_id, sensor.name, new_name)
+                            sensor._name = new_name
+                        
+                        # Update power_usage or flow_rate
+                        sensor_type = cfg.get("sensor_type")
+                        if sensor_type == "power":
+                            new_power = cfg.get("power_usage")
+                            if new_power and sensor._power_usage != new_power:
+                                sensor._power_usage = new_power
+                        elif sensor_type == "water":
+                            new_flow = cfg.get("flow_rate")
+                            if new_flow and sensor._flow_rate != new_flow:
+                                sensor._flow_rate = new_flow
+                        
+                        # Resend HA autodiscovery with updated info
+                        area = cfg.get("area")
+                        if sensor_type == "power":
+                            self._manager.send_ha_autodiscovery(
+                                id=f"{sensor_id}_power",
+                                name=f"{new_name} Power",
+                                ha_type=SENSOR,
+                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                                unit_of_measurement="W",
+                                device_class="power",
+                                state_class="measurement",
+                                area=area,
+                            )
+                            self._manager.send_ha_autodiscovery(
+                                id=f"{sensor_id}_energy",
+                                name=f"{new_name} Energy",
+                                ha_type=SENSOR,
+                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                                unit_of_measurement="Wh",
+                                device_class="energy",
+                                state_class="total_increasing",
+                                area=area,
+                            )
+                        elif sensor_type == "water":
+                            self._manager.send_ha_autodiscovery(
+                                id=f"{sensor_id}_flow",
+                                name=f"{new_name} Flow Rate",
+                                ha_type=SENSOR,
+                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                                unit_of_measurement="L/h",
+                                device_class="volume_flow_rate",
+                                state_class="measurement",
+                                area=area,
+                            )
+                            self._manager.send_ha_autodiscovery(
+                                id=f"{sensor_id}_water",
+                                name=f"{new_name} Water",
+                                ha_type=SENSOR,
+                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                                unit_of_measurement="L",
+                                device_class="water",
+                                state_class="total_increasing",
+                                area=area,
+                            )
+                        break
+        
+        # Update internal config cache
+        self._virtual_energy_sensor_configs = new_configs
+        
+        _LOGGER.info("Virtual energy sensors reload complete. Total: %d", len(self._virtual_energy_sensors))
+        
+        # Broadcast updated states
+        await self._broadcast_virtual_energy_states()
+
+    def _create_virtual_energy_sensor(self, config: dict) -> None:
+        """Create a single virtual energy sensor from config.
+        
+        Args:
+            config: Sensor configuration dictionary
+        """
+        from boneio.components.sensor import VirtualEnergySensor
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
+        from boneio.core.utils.util import sanitize_string
+        
+        name = config.get("name")
+        output_id = config.get("output_id")
+        sensor_type = config.get("sensor_type")
+        
+        if not name or not output_id or not sensor_type:
+            _LOGGER.error(
+                "Invalid virtual_energy_sensor config: name=%s, output_id=%s, sensor_type=%s",
+                name, output_id, sensor_type
+            )
+            return
+        
+        # Get the output reference
+        output = self._manager.outputs.get_output(output_id)
+        if not output:
+            _LOGGER.error(
+                "Output '%s' not found for virtual_energy_sensor '%s'",
+                output_id, name
+            )
+            return
+        
+        # Generate ID if not provided
+        sensor_id = config.get("id") or sanitize_string(name)
+        area = config.get("area")
+        
+        # Get power_usage or flow_rate based on sensor_type
+        power_usage = config.get("power_usage") if sensor_type == "power" else None
+        flow_rate = config.get("flow_rate") if sensor_type == "water" else None
+        
+        if sensor_type == "power" and power_usage is None:
+            _LOGGER.error(
+                "power_usage required for sensor_type='power' in virtual_energy_sensor '%s'",
+                name
+            )
+            return
+        if sensor_type == "water" and flow_rate is None:
+            _LOGGER.error(
+                "flow_rate required for sensor_type='water' in virtual_energy_sensor '%s'",
+                name
+            )
+            return
+        
+        # Create the sensor
+        sensor = VirtualEnergySensor(
+            id=sensor_id,
+            name=name,
+            output=output,
+            message_bus=self._manager._message_bus,
+            event_bus=self._manager._event_bus,
+            loop=self._manager.loop,
+            topic_prefix=self._manager._topic_prefix,
+            sensor_type=sensor_type,
+            power_usage=power_usage,
+            flow_rate=flow_rate,
+            area=area,
+        )
+        self._virtual_energy_sensors.append(sensor)
+        
+        # Register event listener to track output state changes
+        self._manager._event_bus.add_event_listener(
+            event_type="output",
+            entity_id=output_id,
+            listener_id=f"virtual_energy_{sensor_id}",
+            target=lambda event, s=sensor: self._on_output_state_change(event, s),
+        )
+        
+        # Send HA autodiscovery
+        if sensor_type == "power":
+            self._manager.send_ha_autodiscovery(
+                id=f"{sensor_id}_power",
+                name=f"{name} Power",
+                ha_type=SENSOR,
+                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                unit_of_measurement="W",
+                device_class="power",
+                state_class="measurement",
+                area=area,
+            )
+            self._manager.send_ha_autodiscovery(
+                id=f"{sensor_id}_energy",
+                name=f"{name} Energy",
+                ha_type=SENSOR,
+                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                unit_of_measurement="Wh",
+                device_class="energy",
+                state_class="total_increasing",
+                area=area,
+            )
+        elif sensor_type == "water":
+            self._manager.send_ha_autodiscovery(
+                id=f"{sensor_id}_flow",
+                name=f"{name} Flow Rate",
+                ha_type=SENSOR,
+                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                unit_of_measurement="L/h",
+                device_class="volume_flow_rate",
+                state_class="measurement",
+                area=area,
+            )
+            self._manager.send_ha_autodiscovery(
+                id=f"{sensor_id}_water",
+                name=f"{name} Water",
+                ha_type=SENSOR,
+                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                unit_of_measurement="L",
+                device_class="water",
+                state_class="total_increasing",
+                area=area,
+            )
+        
+        # Start tracking if output is already ON
+        if output.state == ON:
+            sensor.start_tracking()
+        
+        _LOGGER.info(
+            "Configured virtual_energy_sensor: id=%s, name=%s, output=%s, type=%s",
+            sensor_id, name, output_id, sensor_type
+        )
+
+    async def _broadcast_virtual_energy_states(self) -> None:
+        """Broadcast current state of all virtual energy sensors via WebSocket."""
+        for sensor in self._virtual_energy_sensors:
+            try:
+                sensor._send_state()
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting virtual energy sensor state %s: %s", sensor.id, e)
+
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all sensors.
         

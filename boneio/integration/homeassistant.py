@@ -70,7 +70,7 @@ def ha_availabilty_message(
     device_name = config_helper.name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
     if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
-        web_url = f"http://{config_helper.network_info[IP]}:{config_helper.web_port}"
+        web_url = f"http://{config_helper.network_info[IP]}:{config_helper.ha_configuration_port}"
     
     web_url_dict = {
         "configuration_url": web_url

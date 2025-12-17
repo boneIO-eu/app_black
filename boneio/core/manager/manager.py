@@ -611,6 +611,7 @@ class Manager:
             BINARY_SENSOR: self.inputs.reload_inputs,  # Alias for "input" (async)
             "modbus_devices": self.modbus.reload_modbus_devices,
             "sensor": self.sensors.reload_dallas_sensors,  # Dallas temperature sensors
+            "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
         }
         

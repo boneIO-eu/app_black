@@ -404,6 +404,9 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port to run web server (default: 8090)",
+    "nginx_proxy_port": "Nginx Proxy Port",
+    "nginx_proxy_port_help": "Port used in Home Assistant discovery URL. Set this if you use nginx reverse proxy (e.g. for Node-RED integration).",
+    "nginx_proxy_port_placeholder": "Leave empty to use web server port",
     "auth": "Authentication (optional)",
     "username": "Username",
     "username_help": "Username to connect to web interface",
