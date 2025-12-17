@@ -274,8 +274,8 @@ async def async_run(
         except Exception as e:
             _LOGGER.error(f"Error stopping GPIO manager: {e}")
         
-        # Stop the event bus
-        event_bus.request_stop()
+        # Stop the event bus (this invokes sigterm listeners which turn off Cover relays)
+        await event_bus.stop()
         
         # Create a copy of tasks set to avoid modification during iteration
         remaining_tasks = list(tasks)

@@ -80,11 +80,17 @@ class MCP23017:
             # IOCON register is at 0x0A and 0x0B (shared in BANK=0)
             self._write_register(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
             
-            # Clear output latches BEFORE configuring as outputs to prevent glitches
-            self._write_register(OLATA, 0x00)
-            self._write_register(OLATB, 0x00)
+            # Read current output latch states from hardware to preserve relay states
+            # This prevents momentary OFF state during application restart
+            self._port_a_state = self._read_register(OLATA)
+            self._port_b_state = self._read_register(OLATB)
+            _LOGGER.debug(
+                f"MCP23017@0x{address:02X} preserved states: "
+                f"A=0b{self._port_a_state:08b}, B=0b{self._port_b_state:08b}"
+            )
             
             # Initialize: Set all pins as outputs (IODIR=0x00)
+            # This does NOT change the output latch values
             self._write_register(IODIRA, 0x00)
             self._write_register(IODIRB, 0x00)
             
