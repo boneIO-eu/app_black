@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -111,14 +113,66 @@ class StateManager:
         """Retrieve all states."""
         return self._state
 
-    def _save_state(self) -> None:
-        with open(self._file, "w+", encoding="utf-8") as f:
-            json.dump(self._state, f, indent=2)
+    def _save_state(self) -> bool:
+        """Save state to file atomically.
+        
+        Uses a temporary file and atomic rename to prevent corruption
+        if disk is full or write fails mid-operation.
+        
+        Returns:
+            bool: True if save succeeded, False otherwise.
+        """
+        dir_path = os.path.dirname(self._file) or "."
+        fd = None
+        temp_path = None
+        
+        try:
+            # Write to temporary file in same directory (for atomic rename)
+            fd, temp_path = tempfile.mkstemp(
+                suffix=".tmp",
+                prefix=".state_",
+                dir=dir_path
+            )
+            
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                fd = None  # os.fdopen takes ownership
+                json.dump(self._state, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())  # Ensure data is on disk
+            
+            # Atomic rename (on POSIX systems)
+            os.replace(temp_path, self._file)
+            temp_path = None  # Successfully moved
+            return True
+            
+        except OSError as err:
+            _LOGGER.error(
+                "Failed to save state file %s: %s. State kept in memory.",
+                self._file,
+                err
+            )
+            return False
+        finally:
+            # Cleanup on failure
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            if temp_path is not None:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
 
-    async def save_state(self) -> None:
-        """Async save state."""
+    async def save_state(self) -> bool:
+        """Async save state.
+        
+        Returns:
+            bool: True if save succeeded, False otherwise.
+        """
         if self._lock.locked():
             # Let's not save state if something happens same time.
-            return
+            return False
         async with self._lock:
-            await self._loop.run_in_executor(None, self._save_state)
+            return await self._loop.run_in_executor(None, self._save_state)
