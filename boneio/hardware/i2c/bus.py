@@ -10,7 +10,7 @@ import logging
 import threading
 from typing import Optional
 
-from smbus2 import SMBus
+from smbus2 import SMBus, i2c_msg
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,12 +21,11 @@ class SMBus2I2C:
     This class mimics the busio.I2C interface used by Adafruit CircuitPython libraries,
     allowing them to work with smbus2 on Python 3.13+.
     
+    It uses low-level i2c_msg and i2c_rdwr for correct transaction handling
+    (Repeated Start, raw reads/writes).
+    
     Args:
         bus_number: I2C bus number (typically 2 for BeagleBone Black)
-    
-    Example:
-        i2c = SMBus2I2CWrapper(bus_number=2)
-        # Now can be used with Adafruit libraries that expect busio.I2C
     """
 
     def __init__(self, bus_number: int = 2):
@@ -108,9 +107,11 @@ class SMBus2I2C:
             return
             
         try:
-            # Use read_i2c_block_data for block reads
-            data = self._bus.read_i2c_block_data(address, 0, length)
-            buffer[start:end] = data
+            # Use i2c_msg for raw read
+            msg = i2c_msg.read(address, length)
+            self._bus.i2c_rdwr(msg)
+            # Copy data from message to buffer
+            buffer[start:end] = bytes(msg)
         except OSError as e:
             _LOGGER.error(f"I2C read error on address 0x{address:02X}: {e}")
             raise
@@ -139,18 +140,10 @@ class SMBus2I2C:
             return
             
         try:
-            if len(data) == 1:
-                # Single byte write
-                self._bus.write_byte(address, data[0])
-            elif len(data) == 2:
-                # Two byte write - use write_byte_data for raw 2-byte write
-                # This works for devices like PCF8575 that expect raw bytes
-                self._bus.write_byte_data(address, data[0], data[1])
-            else:
-                # Block write - first byte is register/command, rest is data
-                register = data[0]
-                payload = list(data[1:])
-                self._bus.write_i2c_block_data(address, register, payload)
+            # Use i2c_msg for raw write
+            # We need to construct the message with the data
+            msg = i2c_msg.write(address, list(data))
+            self._bus.i2c_rdwr(msg)
         except OSError as e:
             _LOGGER.error(f"I2C write error on address 0x{address:02X}: {e}")
             raise
@@ -166,7 +159,7 @@ class SMBus2I2C:
         in_start: int = 0,
         in_end: Optional[int] = None
     ) -> None:
-        """Write data to I2C device then read response.
+        """Write data to I2C device then read response using Repeated Start.
         
         Args:
             address: I2C device address (7-bit)
@@ -184,20 +177,32 @@ class SMBus2I2C:
             out_end = len(buffer_out)
         if in_end is None:
             in_end = len(buffer_in)
+            
+        out_len = out_end - out_start
+        in_len = in_end - in_start
+        
+        if out_len == 0 and in_len == 0:
+            return
+            
+        if out_len == 0:
+            self.readfrom_into(address, buffer_in, start=in_start, end=in_end)
+            return
+            
+        if in_len == 0:
+            self.writeto(address, buffer_out, start=out_start, end=out_end)
+            return
         
         try:
-            # Write phase
-            out_data = buffer_out[out_start:out_end]
-            if len(out_data) == 0:
-                register = 0
-            else:
-                register = out_data[0]
-                
-            # Read phase
-            in_length = in_end - in_start
-            if in_length > 0:
-                data = self._bus.read_i2c_block_data(address, register, in_length)
-                buffer_in[in_start:in_end] = data
+            # Create two messages for i2c_rdwr
+            # This ensures a Repeated Start condition between write and read
+            msg_write = i2c_msg.write(address, list(buffer_out[out_start:out_end]))
+            msg_read = i2c_msg.read(address, in_len)
+            
+            # Execute combined transaction
+            self._bus.i2c_rdwr(msg_write, msg_read)
+            
+            # Copy result to input buffer
+            buffer_in[in_start:in_end] = bytes(msg_read)
         except OSError as e:
             _LOGGER.error(f"I2C write-then-read error on address 0x{address:02X}: {e}")
             raise

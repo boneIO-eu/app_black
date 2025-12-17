@@ -76,20 +76,24 @@ class MCP23017:
             raise RuntimeError("Failed to lock I2C bus for MCP23017 initialization")
         
         try:
+            # Disable Sequential Operation (SEQOP) - logic assumes Byte mode
+            # IOCON register is at 0x0A and 0x0B (shared in BANK=0)
+            self._write_register(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
+            
+            # Clear output latches BEFORE configuring as outputs to prevent glitches
+            self._write_register(OLATA, 0x00)
+            self._write_register(OLATB, 0x00)
+            
             # Initialize: Set all pins as outputs (IODIR=0x00)
             self._write_register(IODIRA, 0x00)
             self._write_register(IODIRB, 0x00)
-            
-            # Clear all outputs
-            self._write_register(OLATA, 0x00)
-            self._write_register(OLATB, 0x00)
             
             _LOGGER.info(f"Initialized MCP23017 at address 0x{address:02X}")
         finally:
             self._i2c.unlock()
 
     def _write_register(self, register: int, value: int) -> None:
-        """Write byte to register.
+        """Write byte to register using direct SMBus call.
         
         Args:
             register: Register address
@@ -97,14 +101,14 @@ class MCP23017:
         """
         with self._i2c:
             try:
-                data = bytes([register, value])
-                self._i2c.writeto(self._address, data)
+                # Use direct SMBus method from wrapper
+                self._i2c.write_byte_data(self._address, register, value)
             except Exception as e:
                 _LOGGER.error(f"Failed to write MCP23017 register 0x{register:02X}: {e}")
                 raise
 
     def _read_register(self, register: int) -> int:
-        """Read byte from register.
+        """Read byte from register using direct SMBus call with retry.
         
         Args:
             register: Register address
@@ -112,38 +116,48 @@ class MCP23017:
         Returns:
             Byte value from register
         """
+        retries = 3
+        last_error = None
+        
         with self._i2c:
-            try:
-                buffer_out = bytes([register])
-                buffer_in = bytearray(1)
-                self._i2c.writeto_then_readfrom(self._address, buffer_out, buffer_in)
-                return buffer_in[0]
-            except Exception as e:
-                _LOGGER.error(f"Failed to read MCP23017 register 0x{register:02X}: {e}")
-                raise
+            for i in range(retries):
+                try:
+                    # Use direct SMBus method from wrapper
+                    return self._i2c.read_byte_data(self._address, register)
+                except Exception as e:
+                    last_error = e
+                    # Small delay before retry
+                    time.sleep(0.001 * (i + 1))
+            
+            _LOGGER.error(f"Failed to read MCP23017 register 0x{register:02X} after {retries} attempts: {last_error}")
+            raise last_error or RuntimeError(f"Failed to read register 0x{register:02X}")
 
     def _configure_pin_as_output(self, pin_number: int) -> None:
         """Configure a pin as output.
         
+        Thread-safe operation.
+        
         Args:
             pin_number: Pin number (0-15)
         """
-        if pin_number < 8:
-            # Port A (pins 0-7)
-            iodir = self._read_register(IODIRA)
-            iodir &= ~(1 << pin_number)  # Clear bit = output
-            self._write_register(IODIRA, iodir)
-        else:
-            # Port B (pins 8-15)
-            pin_bit = pin_number - 8
-            iodir = self._read_register(IODIRB)
-            iodir &= ~(1 << pin_bit)  # Clear bit = output
-            self._write_register(IODIRB, iodir)
+        with self._lock:
+            if pin_number < 8:
+                # Port A (pins 0-7)
+                iodir = self._read_register(IODIRA)
+                iodir &= ~(1 << pin_number)  # Clear bit = output
+                self._write_register(IODIRA, iodir)
+            else:
+                # Port B (pins 8-15)
+                pin_bit = pin_number - 8
+                iodir = self._read_register(IODIRB)
+                iodir &= ~(1 << pin_bit)  # Clear bit = output
+                self._write_register(IODIRB, iodir)
 
     def _write_pin(self, pin_number: int, value: bool) -> None:
-        """Write value to a pin.
+        """Write value to a pin using hardware Read-Modify-Write.
         
-        Thread-safe operation with rate limiting to prevent I2C bus contention.
+        This implementation reads the actual register state before modifying it,
+        ensuring robust operation even if cache was desynchronized.
         
         Args:
             pin_number: Pin number (0-15)
@@ -156,21 +170,49 @@ class MCP23017:
             if elapsed < I2C_OPERATION_DELAY:
                 time.sleep(I2C_OPERATION_DELAY - elapsed)
             
-            if pin_number < 8:
-                # Port A (pins 0-7)
-                if value:
-                    self._port_a_state |= (1 << pin_number)  # Set bit
+            try:
+                if pin_number < 8:
+                    # Port A (pins 0-7)
+                    reg = OLATA
+                    bit = pin_number
+                    # Read current state from hardware
+                    current_state = self._read_register(reg)
+                    
+                    if value:
+                        new_state = current_state | (1 << bit)
+                    else:
+                        new_state = current_state & ~(1 << bit)
+                    
+                    if new_state != current_state:
+                        _LOGGER.debug(
+                            f"MCP23017@0x{self._address:02X} pin {pin_number} -> {value}: "
+                            f"OLATA 0b{current_state:08b} -> 0b{new_state:08b}"
+                        )
+                        self._write_register(reg, new_state)
+                        self._port_a_state = new_state
                 else:
-                    self._port_a_state &= ~(1 << pin_number)  # Clear bit
-                self._write_register(OLATA, self._port_a_state)
-            else:
-                # Port B (pins 8-15)
-                pin_bit = pin_number - 8
-                if value:
-                    self._port_b_state |= (1 << pin_bit)  # Set bit
-                else:
-                    self._port_b_state &= ~(1 << pin_bit)  # Clear bit
-                self._write_register(OLATB, self._port_b_state)
+                    # Port B (pins 8-15)
+                    reg = OLATB
+                    bit = pin_number - 8
+                    # Read current state from hardware
+                    current_state = self._read_register(reg)
+                    
+                    if value:
+                        new_state = current_state | (1 << bit)
+                    else:
+                        new_state = current_state & ~(1 << bit)
+                    
+                    if new_state != current_state:
+                        _LOGGER.debug(
+                            f"MCP23017@0x{self._address:02X} pin {pin_number} -> {value}: "
+                            f"OLATB 0b{current_state:08b} -> 0b{new_state:08b}"
+                        )
+                        self._write_register(reg, new_state)
+                        self._port_b_state = new_state
+                        
+            except Exception as e:
+                _LOGGER.error(f"Error writing pin {pin_number}: {e}")
+                # Don't raise, try to continue operation
             
             self._last_operation_time = time.monotonic()
 
@@ -212,11 +254,30 @@ class MCP23017:
         if not 0 <= pin_number <= 15:
             raise ValueError(f"Pin number must be 0-15, got {pin_number}")
         
-        if pin_number < 8:
-            return bool(self._port_a_state & (1 << pin_number))
-        else:
-            pin_bit = pin_number - 8
-            return bool(self._port_b_state & (1 << pin_bit))
+        with self._lock:
+            if pin_number < 8:
+                return bool(self._port_a_state & (1 << pin_number))
+            else:
+                pin_bit = pin_number - 8
+                return bool(self._port_b_state & (1 << pin_bit))
+
+    def verify_port_state(self) -> tuple[int, int]:
+        """Read actual port states from hardware and compare with cached state.
+        
+        Returns:
+            Tuple of (actual_port_a, actual_port_b) read from hardware
+        """
+        with self._lock:
+            actual_a = self._read_register(OLATA)
+            actual_b = self._read_register(OLATB)
+            
+            if actual_a != self._port_a_state or actual_b != self._port_b_state:
+                _LOGGER.warning(
+                    f"MCP23017@0x{self._address:02X} state mismatch! "
+                    f"Cached: A=0b{self._port_a_state:08b}, B=0b{self._port_b_state:08b} | "
+                    f"Actual: A=0b{actual_a:08b}, B=0b{actual_b:08b}"
+                )
+            return (actual_a, actual_b)
 
     def __del__(self):
         """Cleanup on deletion."""

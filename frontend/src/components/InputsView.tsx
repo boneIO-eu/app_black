@@ -29,6 +29,8 @@ const InputItem = memo(({ inputEvent, isGrid, t }: {
             inputEvent.state.state === 'single' ? 'bg-success text-black' :
             inputEvent.state.state === 'double' ? 'bg-warning text-black' :
             inputEvent.state.state === 'long' ? 'bg-info text-white' :
+            inputEvent.state.state === 'pressed' ? 'bg-success text-black' :
+            inputEvent.state.state === 'released' ? 'bg-warning text-black' :
             'bg-base-200 text-base-content'
           )}
         >
