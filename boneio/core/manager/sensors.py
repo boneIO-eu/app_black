@@ -751,6 +751,9 @@ class SensorManager:
         from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         from boneio.core.utils.util import sanitize_string
         
+        # Track used IDs to detect duplicates
+        used_ids: set[str] = set()
+        
         for config in self._virtual_energy_sensor_configs:
             name = config.get("name")
             output_id = config.get("output_id")
@@ -774,6 +777,16 @@ class SensorManager:
             
             # Generate ID if not provided
             sensor_id = config.get("id") or sanitize_string(name)
+            
+            # Check for duplicate IDs
+            if sensor_id in used_ids:
+                _LOGGER.error(
+                    "Duplicate virtual_energy_sensor ID '%s' (from name '%s'). Skipping.",
+                    sensor_id, name
+                )
+                continue
+            used_ids.add(sensor_id)
+            
             area = config.get("area")
             
             # Get power_usage or flow_rate based on sensor_type
@@ -915,15 +928,23 @@ class SensorManager:
         config = self._manager._config_helper.reload_config()
         new_configs = config.get(VIRTUAL_ENERGY_SENSOR, [])
         
-        # Get current and new sensor IDs
+        # Get current and new sensor IDs, detecting duplicates
         current_ids = {s.id for s in self._virtual_energy_sensors}
         new_ids = set()
+        duplicate_ids = set()
         for cfg in new_configs:
             sensor_id = cfg.get("id") or sanitize_string(cfg.get("name", ""))
             if sensor_id:
-                new_ids.add(sensor_id)
+                if sensor_id in new_ids:
+                    duplicate_ids.add(sensor_id)
+                    _LOGGER.error(
+                        "Duplicate virtual_energy_sensor ID '%s' detected. Only first occurrence will be used.",
+                        sensor_id
+                    )
+                else:
+                    new_ids.add(sensor_id)
         
-        _LOGGER.debug("Virtual energy sensors - current: %s, new: %s", current_ids, new_ids)
+        _LOGGER.debug("Virtual energy sensors - current: %s, new: %s, duplicates: %s", current_ids, new_ids, duplicate_ids)
         
         # Find sensors to add and remove
         to_add = new_ids - current_ids
@@ -956,12 +977,14 @@ class SensorManager:
                     # Remove from list
                     self._virtual_energy_sensors.remove(sensor)
         
-        # Add new sensors
+        # Add new sensors (skip duplicates - only first occurrence is used)
+        added_ids = set()
         for cfg in new_configs:
             sensor_id = cfg.get("id") or sanitize_string(cfg.get("name", ""))
-            if sensor_id and sensor_id in to_add:
+            if sensor_id and sensor_id in to_add and sensor_id not in added_ids and sensor_id not in duplicate_ids:
                 _LOGGER.info("Adding new virtual energy sensor: %s", sensor_id)
                 self._create_virtual_energy_sensor(cfg)
+                added_ids.add(sensor_id)
         
         # Update existing sensors
         for cfg in new_configs:

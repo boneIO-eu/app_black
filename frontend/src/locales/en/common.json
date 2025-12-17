@@ -561,7 +561,9 @@
     "area": "Area",
     "area_hint": "Optional area assignment for Home Assistant",
     "no_area": "No area (main device)",
-    "no_outputs_available": "No outputs available. Please configure outputs first."
+    "no_outputs_available": "No outputs available. Please configure outputs first.",
+    "duplicate_id_error": "Duplicate sensor IDs detected",
+    "unique_id_required": "Each sensor must have a unique ID or name."
   },
   "config_check": {
     "title": "Configuration Check",

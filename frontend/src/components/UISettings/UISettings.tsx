@@ -550,6 +550,34 @@ export default function UISettings() {
       }
     }
 
+    // Validate virtual_energy_sensor - IDs must be unique
+    if (sectionName === 'virtual_energy_sensor' && Array.isArray(dataToUse)) {
+      const ids = new Set<string>();
+      const duplicates: string[] = [];
+      
+      for (const sensor of dataToUse) {
+        // Generate ID from name if not provided (same logic as backend)
+        const sensorId = sensor.id || (sensor.name ? sensor.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') : '');
+        if (sensorId) {
+          if (ids.has(sensorId)) {
+            duplicates.push(sensorId);
+          } else {
+            ids.add(sensorId);
+          }
+        }
+      }
+      
+      if (duplicates.length > 0) {
+        console.log('❌ Duplicate virtual_energy_sensor IDs:', duplicates);
+        setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
+        alert(`${t('virtual_energy_sensor.duplicate_id_error') || 'Duplicate sensor IDs detected'}: ${duplicates.join(', ')}. ${t('virtual_energy_sensor.unique_id_required') || 'Each sensor must have a unique ID or name.'}`);
+        setTimeout(() => {
+          setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
+        }, 3000);
+        return;
+      }
+    }
+
     setSaveStatus(prev => ({ ...prev, [sectionName]: 'saving' }));
 
     try {

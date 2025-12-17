@@ -562,7 +562,9 @@
     "area": "Obszar",
     "area_hint": "Opcjonalne przypisanie do obszaru w Home Assistant",
     "no_area": "Brak obszaru (główne urządzenie)",
-    "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia."
+    "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia.",
+    "duplicate_id_error": "Wykryto zduplikowane ID sensorów",
+    "unique_id_required": "Każdy sensor musi mieć unikalne ID lub nazwę."
   },
   "config_check": {
     "title": "Sprawdzanie Konfiguracji",

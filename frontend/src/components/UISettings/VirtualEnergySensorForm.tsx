@@ -44,6 +44,8 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
   onChange,
   allAreas = [],
   allOutputs = [],
+  existingSensors = [],
+  editingIndex,
   onValidationChange
 }) => {
   const { t } = useTranslation();
@@ -81,8 +83,25 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
       newErrors.flow_rate = 'flow_rate_required';
     }
     
+    // Check for duplicate ID (same logic as backend - generate from name if not provided)
+    if (data.name?.trim()) {
+      const currentId = data.id || sanitizeId(data.name);
+      const isDuplicate = existingSensors.some((sensor, index) => {
+        // Skip the sensor being edited
+        if (editingIndex !== null && editingIndex !== undefined && index === editingIndex) {
+          return false;
+        }
+        const existingId = sensor.id || (sensor.name ? sanitizeId(sensor.name) : '');
+        return existingId === currentId;
+      });
+      
+      if (isDuplicate) {
+        newErrors.id = 'duplicate_id_error';
+      }
+    }
+    
     return newErrors;
-  }, [data.name, data.output_id, data.sensor_type, data.power_usage, data.flow_rate]);
+  }, [data.name, data.id, data.output_id, data.sensor_type, data.power_usage, data.flow_rate, existingSensors, editingIndex]);
 
   // Notify parent about validation state changes
   useEffect(() => {
@@ -139,11 +158,16 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
         </label>
         <input
           type="text"
-          className="input input-bordered w-full font-mono"
+          className={`input input-bordered w-full font-mono ${errors.id ? 'input-error' : ''}`}
           value={data.id || ''}
           onChange={(e) => handleIdChange(e.target.value)}
           placeholder={t('virtual_energy_sensor.id_placeholder')}
         />
+        {errors.id && (
+          <label className="label">
+            <span className="label-text-alt text-error">{t(`virtual_energy_sensor.${errors.id}`)}</span>
+          </label>
+        )}
         <label className="label">
           <span className="label-text-alt">{t('virtual_energy_sensor.id_hint')}</span>
         </label>

@@ -1154,6 +1154,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     schema={schema}
                     allAreas={allAreas}
                     allOutputs={allOutputs}
+                    existingSensors={value}
+                    editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
                   />
                 ) : (
