@@ -16,6 +16,7 @@ import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
 import SystemUpdate from './components/UISettings/SystemUpdate';
+import NodeRedView from './components/NodeRedView';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 
@@ -289,6 +290,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <SystemUpdate />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/nodered" element={
+          <ProtectedRoute>
+            <Layout>
+              <NodeRedView />
             </Layout>
           </ProtectedRoute>
         } />

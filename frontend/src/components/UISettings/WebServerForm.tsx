@@ -48,6 +48,31 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
         </label>
       </div>
 
+      {/* Nginx Proxy Port */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">{t('webserver.nginx_proxy_port')}</span>
+        </label>
+        <input
+          type="number"
+          className="input input-bordered w-full"
+          value={data?.nginx_proxy_port ?? ''}
+          onChange={(e) => {
+            const val = e.target.value ? parseInt(e.target.value) : undefined;
+            if (val) {
+              handleChange('nginx_proxy_port', val);
+            } else {
+              const { nginx_proxy_port: _, ...rest } = data || {};
+              onChange(rest);
+            }
+          }}
+          placeholder={t('webserver.nginx_proxy_port_placeholder')}
+        />
+        <label className="label">
+          <span className="label-text-alt text-base-content/60">{t('webserver.nginx_proxy_port_help')}</span>
+        </label>
+      </div>
+
       {/* Auth Section */}
       <div className="divider">{t('webserver.auth')}</div>
 

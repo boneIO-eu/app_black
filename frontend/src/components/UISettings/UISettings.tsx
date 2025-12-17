@@ -639,7 +639,7 @@ export default function UISettings() {
         }
         
         // Trigger reload for sections that support hot-reload
-        const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor', 'modbus_devices', 'areas', 'sensor', 'logger'];
+        const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor', 'modbus_devices', 'areas', 'sensor', 'virtual_energy_sensor', 'logger'];
         if (reloadableSections.includes(sectionName)) {
           try {
             setIsReloading(true);

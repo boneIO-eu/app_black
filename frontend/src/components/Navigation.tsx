@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaTerminal } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaTerminal, FaProjectDiagram } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useState, useEffect } from 'react';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useAuth } from '../hooks/useAuth';
 import { useDeviceName } from '../hooks/useDeviceName';
 import { useConfig } from '../contexts/ConfigContext';
+import { useNodeRedAvailability } from '../hooks/useNodeRedAvailability';
 import { useTranslation } from '../hooks/useTranslation';
 import Logo from "./Logo"
 
@@ -98,6 +99,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasBoneioSection } = useConfig();
+  const { isNodeRedAvailable } = useNodeRedAvailability();
 
   const menuItems: MenuItem[] = [
     { path: '/', default: true, icon: FaLightbulb, label: t('navigation.outputs') },
@@ -110,6 +112,8 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings'), experimental: true }] : []),
     { path: '/logs', icon: FaList, label: t('navigation.logs') },
     { path: '/system-update', icon: FaCog, label: t('navigation.system_update') },
+    // Node-RED - only show if available via nginx proxy
+    ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED' }] : []),
     { path: '/help', icon: FaQuestionCircle, label: t('navigation.help') },
   ];
 

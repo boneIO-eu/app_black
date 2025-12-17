@@ -31,6 +31,18 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           ws: true
+        },
+        // Node-RED proxy (requires nginx from docker/nodered to be running)
+        '/nodered-status': {
+          target: env.VITE_NODERED_URL || 'http://localhost:8091',
+          changeOrigin: true,
+          secure: false
+        },
+        '/nodered': {
+          target: env.VITE_NODERED_URL || 'http://localhost:8091',
+          changeOrigin: true,
+          secure: false,
+          ws: true
         }
       }
     }

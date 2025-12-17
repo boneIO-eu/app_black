@@ -1,0 +1,28 @@
+services:
+  node-red:
+    image: nodered/node-red:4.1.2-22
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Warsaw
+    volumes:
+      - ./data:/data
+      - ./node-red/settings.js:/data/settings.js:ro
+    networks:
+      - edge
+
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    depends_on:
+      - node-red
+    ports:
+      - "${NGINX_PORT:-8091}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - edge
+
+networks:
+  edge:
