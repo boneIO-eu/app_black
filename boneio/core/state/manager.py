@@ -86,7 +86,7 @@ class StateManager:
             del self._state[attr_type][attribute]
 
     def save_attribute(
-        self, attr_type: str, attribute: str, value: str
+        self, attr_type: str, attribute: str, value: str | bool
     ) -> None:
         """Save single attribute to file."""
         if attr_type not in self._state:

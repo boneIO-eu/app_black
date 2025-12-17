@@ -32,6 +32,7 @@ from boneio.const import (
     NONE,
     OUTPUT,
     OUTPUT_TYPE,
+    ON,
     PCA,
     PCA_ID,
     PCF,
@@ -431,23 +432,37 @@ class OutputManager:
         await asyncio.sleep(0.5)
         await output.async_send_state()
 
-    async def _relay_callback(self, output_state: Any) -> None:
+    async def _relay_callback(self, event: Any) -> None:
         """Handle relay state change events.
         
         Saves relay state to state manager.
         
         Args:
-            output_state: OutputState object with id and state
+            event: OutputEvent object containing entity_id and state (OutputState)
         """
-        from boneio.const import ON
+        if not event:
+            return
         
+        # event is OutputEvent with entity_id and state (OutputState)
+        # OutputState has 'state' field with ON/OFF value
+        entity_id = getattr(event, 'entity_id', None)
+        output_state = getattr(event, 'state', None)
+        
+        if not entity_id or not output_state:
+            _LOGGER.warning("Invalid relay callback event: %s", event)
+            return
+        
+        # Get the actual state value from OutputState
+        state_value = getattr(output_state, 'state', None)
+        if state_value is None:
+            return
+            
         # Save state to state manager
-        if hasattr(output_state, 'id') and hasattr(output_state, 'state'):
-            self._manager._state_manager.save_attribute(
-                attr_type=RELAY,
-                attribute=output_state.id,
-                value=output_state.state == ON,
-            )
+        self._manager._state_manager.save_attribute(
+            attr_type=RELAY,
+            attribute=entity_id,
+            value=state_value == ON,
+        )
 
     def get_output(self, id: str) -> BasicOutput | None:
         """Get output by ID.
