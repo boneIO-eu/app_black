@@ -87,6 +87,7 @@ export default function UISettings() {
     { name: 'cover', title: t('sections.cover'), icon: '🚪' },
     { name: 'modbus_devices', title: t('sections.modbus_devices'), icon: '📱' },
     { name: 'sensor', title: t('sections.sensor'), icon: '🌡️' },
+    { name: 'virtual_energy_sensor', title: t('sections.virtual_energy_sensor'), icon: '⚡' },
     { name: 'logger', title: t('sections.logger'), icon: '📝' },
   ];
 
@@ -1222,7 +1223,7 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
+                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor') ? (
                       // Array sections - wait for schema to load and data to be converted
                       !schemaLoaded ? (
                         <div className="flex items-center justify-center h-64">
@@ -1237,7 +1238,7 @@ export default function UISettings() {
                           uiSchema={activeSection_data.uiSchema.items}
                           onChange={(newData) => handleSectionChange(activeSection, newData)}
                           schema={activeSection_data.normalizedSchema}
-                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
+                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other'}
                           deviceType={formData.boneio?.device_type}
                           allBinarySensors={formData.binary_sensor || []}
                           allEvents={formData.event || []}
@@ -1259,6 +1260,7 @@ export default function UISettings() {
                             activeSection === 'cover' ? t('sections.cover') :
                             activeSection === 'areas' ? t('sections.areas') :
                             activeSection === 'sensor' ? t('sections.sensor') :
+                            activeSection === 'virtual_energy_sensor' ? t('sections.virtual_energy_sensor') :
                             t('sections.modbus_devices')
                           }
                         />
@@ -1317,7 +1319,7 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor') ? (
+                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor') ? (
                     // Array sections - wait for schema to load and data to be converted
                     !schemaLoaded ? (
                       <div className="flex items-center justify-center h-64">
@@ -1332,7 +1334,7 @@ export default function UISettings() {
                         uiSchema={activeSection_data.uiSchema.items}
                         onChange={(newData) => handleSectionChange(activeSection, newData)}
                         schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other'}
+                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other'}
                         deviceType={formData.boneio?.device_type}
                         allBinarySensors={formData.binary_sensor || []}
                         allEvents={formData.event || []}

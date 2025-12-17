@@ -166,6 +166,7 @@ cover_actions = {
 }
 
 INA219 = "ina219"
+VIRTUAL_ENERGY_SENSOR = "virtual_energy_sensor"
 PINS = {
     # Based on boneio/boards/0.8/input.yaml
     "P8_37": {"chip": 1, "line": 14},

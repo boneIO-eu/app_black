@@ -132,9 +132,7 @@ def ha_virtual_energy_sensor_discovery_message(
 ) -> dict[str, str]:
     """
     Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
-    Returns two dicts:
-     - sensor.<id>_power: current power in W
-     - sensor.<id>_energy: total energy in Wh
+    DEPRECATED: Use ha_virtual_energy_sensor_availabilty_message instead.
     """
     topic = config_helper.topic_prefix
     # Power sensor discovery
@@ -143,6 +141,57 @@ def ha_virtual_energy_sensor_discovery_message(
         config_helper=config_helper,
         **kwargs,
     )
+    return msg
+
+
+def ha_virtual_energy_sensor_availabilty_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    model: str = "boneIO Black",
+    **kwargs
+) -> dict[str, str]:
+    """Create availability topic for virtual energy sensors.
+    
+    Args:
+        id: Sensor ID
+        name: Sensor name (custom name for HA Energy panel)
+        config_helper: ConfigHelper instance
+        model: Device model
+        **kwargs: Additional fields (unit_of_measurement, device_class, state_class, area)
+        
+    Returns:
+        HA discovery message dict
+    """
+    topic = config_helper.topic_prefix
+    
+    # Extract sensor base ID (remove _power, _energy, _flow, _water suffix)
+    base_id = id.rsplit('_', 1)[0] if id.endswith(('_power', '_energy', '_flow', '_water')) else id
+    
+    msg = ha_availabilty_message(
+        device_type=SENSOR,
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        model=model,
+        **kwargs
+    )
+    
+    # Set state topic to the virtual energy sensor topic
+    msg["state_topic"] = f"{topic}/energy/{base_id}"
+    
+    # Set value template based on sensor type
+    if id.endswith('_power'):
+        msg["value_template"] = "{{ value_json.power }}"
+    elif id.endswith('_energy'):
+        msg["value_template"] = "{{ value_json.energy }}"
+    elif id.endswith('_flow'):
+        msg["value_template"] = "{{ value_json.volume_flow_rate }}"
+    elif id.endswith('_water'):
+        msg["value_template"] = "{{ value_json.water }}"
+    else:
+        msg["value_template"] = "{{ value_json.state }}"
+    
     return msg
 
 

@@ -22,11 +22,13 @@ from boneio.const import (
     INA219,
     LM75,
     MCP_TEMP_9808,
+    ON,
     ONEWIRE,
     PIN,
     SENSOR,
     SHOW_HA,
     UPDATE_INTERVAL,
+    VIRTUAL_ENERGY_SENSOR,
     DallasBusTypes,
 )
 from boneio.core.utils import TimePeriod
@@ -48,6 +50,8 @@ from boneio.integration.homeassistant import (
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
     from boneio.hardware.sensor.temperature import MCP9808, PCT2075
+    from boneio.components.sensor import VirtualEnergySensor
+    from boneio.models.events import OutputEvent
 
 # Type alias for all temperature sensors (I2C + Dallas)
 TempSensorType = "PCT2075 | MCP9808 | DallasSensor"
@@ -89,6 +93,8 @@ class SensorManager:
         self._adc_sensors = []
         self._dallas_sensors = []
         self._system_sensors = []
+        self._virtual_energy_sensors = []
+        self._virtual_energy_sensor_configs = sensors.get(VIRTUAL_ENERGY_SENSOR, [])
         
         # Configure all sensor types
         self._configure_temp_sensors(sensors=sensors)
@@ -100,6 +106,7 @@ class SensorManager:
         )
         self._configure_adc(adc_list=adc)
         self._configure_system_sensors()
+        # Note: virtual_energy_sensors are configured after outputs are ready
         
         _LOGGER.info(
             "SensorManager initialized with %d temp sensors, %d INA219, %d ADC, %d Dallas, %d system",
@@ -514,6 +521,14 @@ class SensorManager:
         """
         return self._dallas_sensors
 
+    def get_virtual_energy_sensors(self) -> list["VirtualEnergySensor"]:
+        """Get all virtual energy sensors.
+        
+        Returns:
+            List of VirtualEnergySensor instances
+        """
+        return self._virtual_energy_sensors
+
     async def reload_dallas_sensors(self) -> None:
         """Reload Dallas sensor configuration from file.
         
@@ -725,6 +740,162 @@ class SensorManager:
             len(self._system_sensors),
             [s.id for s in self._system_sensors]
         )
+
+    def configure_virtual_energy_sensors(self) -> None:
+        """Configure virtual energy sensors after outputs are initialized.
+        
+        This must be called after OutputsManager has configured all outputs,
+        as virtual energy sensors need references to output objects.
+        """
+        from boneio.components.sensor import VirtualEnergySensor
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
+        from boneio.core.utils.util import sanitize_string
+        
+        for config in self._virtual_energy_sensor_configs:
+            name = config.get("name")
+            output_id = config.get("output_id")
+            sensor_type = config.get("sensor_type")
+            
+            if not name or not output_id or not sensor_type:
+                _LOGGER.error(
+                    "Invalid virtual_energy_sensor config: name=%s, output_id=%s, sensor_type=%s",
+                    name, output_id, sensor_type
+                )
+                continue
+            
+            # Get the output reference
+            output = self._manager.outputs.get_output(output_id)
+            if not output:
+                _LOGGER.error(
+                    "Output '%s' not found for virtual_energy_sensor '%s'",
+                    output_id, name
+                )
+                continue
+            
+            # Generate ID if not provided
+            sensor_id = config.get("id") or sanitize_string(name)
+            area = config.get("area")
+            
+            # Get power_usage or flow_rate based on sensor_type
+            power_usage = config.get("power_usage") if sensor_type == "power" else None
+            flow_rate = config.get("flow_rate") if sensor_type == "water" else None
+            
+            if sensor_type == "power" and power_usage is None:
+                _LOGGER.error(
+                    "power_usage required for sensor_type='power' in virtual_energy_sensor '%s'",
+                    name
+                )
+                continue
+            if sensor_type == "water" and flow_rate is None:
+                _LOGGER.error(
+                    "flow_rate required for sensor_type='water' in virtual_energy_sensor '%s'",
+                    name
+                )
+                continue
+            
+            # Create the sensor
+            sensor = VirtualEnergySensor(
+                id=sensor_id,
+                name=name,
+                output=output,
+                message_bus=self._manager._message_bus,
+                event_bus=self._manager._event_bus,
+                loop=self._manager.loop,
+                topic_prefix=self._manager._topic_prefix,
+                sensor_type=sensor_type,
+                power_usage=power_usage,
+                flow_rate=flow_rate,
+                area=area,
+            )
+            self._virtual_energy_sensors.append(sensor)
+            
+            # Register event listener to track output state changes
+            self._manager._event_bus.add_event_listener(
+                event_type="output",
+                entity_id=output_id,
+                listener_id=f"virtual_energy_{sensor_id}",
+                target=lambda event, s=sensor: self._on_output_state_change(event, s),
+            )
+            
+            # Send HA autodiscovery
+            if sensor_type == "power":
+                # Power sensor (W)
+                self._manager.send_ha_autodiscovery(
+                    id=f"{sensor_id}_power",
+                    name=f"{name} Power",
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                    unit_of_measurement="W",
+                    device_class="power",
+                    state_class="measurement",
+                    area=area,
+                )
+                # Energy sensor (Wh)
+                self._manager.send_ha_autodiscovery(
+                    id=f"{sensor_id}_energy",
+                    name=f"{name} Energy",
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                    unit_of_measurement="Wh",
+                    device_class="energy",
+                    state_class="total_increasing",
+                    area=area,
+                )
+            elif sensor_type == "water":
+                # Flow rate sensor (L/h)
+                self._manager.send_ha_autodiscovery(
+                    id=f"{sensor_id}_flow",
+                    name=f"{name} Flow Rate",
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                    unit_of_measurement="L/h",
+                    device_class="volume_flow_rate",
+                    state_class="measurement",
+                    area=area,
+                )
+                # Water consumption sensor (L)
+                self._manager.send_ha_autodiscovery(
+                    id=f"{sensor_id}_water",
+                    name=f"{name} Water",
+                    ha_type=SENSOR,
+                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
+                    unit_of_measurement="L",
+                    device_class="water",
+                    state_class="total_increasing",
+                    area=area,
+                )
+            
+            # Start tracking if output is already ON
+            if output.state == ON:
+                sensor.start_tracking()
+            
+            _LOGGER.info(
+                "Configured virtual_energy_sensor: id=%s, name=%s, output=%s, type=%s",
+                sensor_id, name, output_id, sensor_type
+            )
+        
+        if self._virtual_energy_sensors:
+            _LOGGER.info(
+                "Configured %d virtual energy sensors",
+                len(self._virtual_energy_sensors)
+            )
+
+    def _on_output_state_change(self, event: "OutputEvent", sensor: "VirtualEnergySensor") -> None:
+        """Handle output state change for virtual energy sensor."""
+        from boneio.const import ON
+        
+        if not event:
+            return
+        
+        output_state = getattr(event, 'state', None)
+        if not output_state:
+            return
+        
+        state_value = getattr(output_state, 'state', None)
+        if state_value == ON:
+            sensor.start_tracking()
+        else:
+            sensor.stop_tracking()
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all sensors.

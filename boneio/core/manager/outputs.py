@@ -46,7 +46,6 @@ from boneio.const import (
 from boneio.core.utils import TimePeriod, strip_accents
 from boneio.core.utils.util import sanitize_string
 from boneio.hardware.gpio.expanders import MCP23017, PCA9685, PCF8575
-from boneio.integration.homeassistant import ha_virtual_energy_sensor_discovery_message
 from boneio.integration.interlock import SoftwareInterlockManager
 
 if TYPE_CHECKING:
@@ -373,58 +372,6 @@ class OutputManager:
         )
         self._interlock_manager.register(relay, interlock_groups)
         self.grouped_outputs_by_expander[expander_id][relay_id] = relay
-        
-        # Send HA autodiscovery for virtual power/energy sensors
-        if relay.is_virtual_power:
-            self._manager.send_ha_autodiscovery(
-                id=f"{relay_id}_virtual_power",
-                relay_id=relay_id,
-                name=f"{name} Virtual Power",
-                ha_type="sensor",
-                device_type="energy",
-                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
-                unit_of_measurement="W",
-                device_class="power",
-                state_class="measurement",
-                value_template="{{ value_json.power }}"
-            )
-            self._manager.send_ha_autodiscovery(
-                id=f"{relay_id}_virtual_energy",
-                relay_id=relay_id,
-                name=f"{name} Virtual Energy",
-                ha_type="sensor",
-                device_type="energy",
-                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
-                unit_of_measurement="Wh",
-                device_class="energy",
-                state_class="total_increasing",
-                value_template="{{ value_json.energy }}"
-            )
-        if relay.is_virtual_volume_flow_rate:
-            self._manager.send_ha_autodiscovery(
-                id=f"{relay_id}_virtual_volume_flow_rate",
-                relay_id=relay_id,
-                name=f"{name} Virtual Volume Flow Rate",
-                ha_type="sensor",
-                device_type="energy",
-                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
-                unit_of_measurement="L/h",
-                device_class="volume_flow_rate",
-                state_class="measurement",
-                value_template="{{ value_json.volume_flow_rate }}"
-            )
-            self._manager.send_ha_autodiscovery(
-                id=f"{relay_id}_virtual_consumption",
-                relay_id=relay_id,
-                name=f"{name} Virtual consumption",
-                ha_type="sensor",
-                device_type="energy",
-                availability_msg_func=ha_virtual_energy_sensor_discovery_message,
-                unit_of_measurement="L",
-                device_class="water",
-                state_class="total_increasing",
-                value_template="{{ value_json.water }}"
-            )
         return relay
 
     async def _delayed_send_state(self, output: BasicOutput) -> None:

@@ -291,6 +291,7 @@
     "cover": "Covers",
     "modbus_devices": "Modbus Devices",
     "sensor": "Onewire Sensors",
+    "virtual_energy_sensor": "Virtual Energy Sensors",
     "descriptions": {
       "areas": "Define rooms and areas to organize your devices in Home Assistant.",
       "binary_sensor": "Binary sensors react to press and release events. Use them for simple on/off inputs like door sensors or motion detectors.",
@@ -299,7 +300,8 @@
       "output_group": "Group multiple outputs together to control them as a single entity.",
       "cover": "Configure covers like blinds, shutters, and garage doors with open/close relays.",
       "modbus_devices": "Add Modbus devices like energy meters, temperature sensors, and other RS485 equipment.",
-      "sensor": "Configure 1-Wire temperature sensors (DS18B20) connected to your device."
+      "sensor": "Configure 1-Wire temperature sensors (DS18B20) connected to your device.",
+      "virtual_energy_sensor": "Configure virtual energy and water sensors linked to outputs for Home Assistant Energy panel."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -529,6 +531,34 @@
     "validation_cover_required": "Cover is required for cover actions",
     "validation_topic_required": "Topic is required for MQTT actions",
     "validation_boneio_id_required": "BoneIO ID is required for remote actions"
+  },
+  "virtual_energy_sensor": {
+    "name": "Name",
+    "name_required": "Name is required",
+    "name_placeholder": "e.g. Living Room Light - Energy",
+    "name_hint": "Custom name displayed in Home Assistant Energy panel",
+    "custom_id": "Custom ID",
+    "id_placeholder": "auto-generated if empty",
+    "id_hint": "Optional unique identifier. Auto-generated from name if not provided.",
+    "output_id": "Output",
+    "output_id_hint": "Select the output this sensor is linked to",
+    "output_id_required": "Output is required",
+    "select_output": "Select output...",
+    "sensor_type": "Sensor Type",
+    "sensor_type_required": "Sensor type is required",
+    "select_sensor_type": "Select sensor type...",
+    "type_power": "Power (W/Wh)",
+    "type_water": "Water (L/h, L)",
+    "power_usage": "Power Usage",
+    "power_usage_hint": "Power consumption in watts, e.g. 60W, 100W",
+    "power_usage_required": "Power usage is required for power sensors",
+    "flow_rate": "Flow Rate",
+    "flow_rate_hint": "Water flow rate, e.g. 500 L/h",
+    "flow_rate_required": "Flow rate is required for water sensors",
+    "area": "Area",
+    "area_hint": "Optional area assignment for Home Assistant",
+    "no_area": "No area (main device)",
+    "no_outputs_available": "No outputs available. Please configure outputs first."
   },
   "config_check": {
     "title": "Configuration Check",

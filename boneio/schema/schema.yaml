@@ -402,6 +402,84 @@ ina219:
             device_class: voltage
       update_interval: !include update_interval.yaml
 
+virtual_energy_sensor:
+  type: list
+  required: False
+  meta:
+    label: "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant."
+  schema:
+    type: dict
+    required: False
+    schema:
+      id:
+        type: string
+        required: False
+        coerce: str
+        meta:
+          label: Sensor ID
+          description: |
+            Unique identifier for the sensor. If not provided, will be generated from name.
+      name:
+        type: string
+        required: True
+        meta:
+          label: Sensor Name
+          description: |
+            Display name for the sensor in Home Assistant Energy panel.
+            Example: "Gabinet - Główne", "Kuchnia - Oświetlenie"
+      output_id:
+        type: string
+        required: True
+        meta:
+          label: Output ID
+          description: |
+            ID of the output to track. The sensor will measure energy/water consumption when this output is ON.
+      sensor_type:
+        type: string
+        required: True
+        allowed:
+          - power
+          - water
+        meta:
+          label: Sensor Type
+          description: |
+            Type of virtual sensor: 'power' for energy meter (W/Wh) or 'water' for flow meter (L/h, L).
+      power_usage:
+        type:
+          - string
+          - number
+        coerce:
+          - power_value_to_watts
+        required: False
+        dependencies:
+          sensor_type:
+            - power
+        meta:
+          label: Power Usage
+          description: |
+            Power consumption in Watts when output is ON. Accepts values like: 10, '10W', '1kW'.
+      flow_rate:
+        type:
+          - string
+          - number
+        coerce:
+          - volume_flow_rate_to_lph
+        required: False
+        dependencies:
+          sensor_type:
+            - water
+        meta:
+          label: Flow Rate
+          description: |
+            Water flow rate when output is ON. Accepts values like: 10, '10L/h', '5L/min'.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area
+          description: |
+            Area ID to assign this sensor to a sub-device in Home Assistant.
+
 mcp9808:
   type: list
   required: False
@@ -591,22 +669,6 @@ output:
         required: False
         meta:
           label: How long can this relay be on. Can"t be used if output_type is "none".
-      virtual_power_usage:
-        type: 
-          - string
-          - number
-        coerce:
-          - power_value_to_watts
-        meta:
-          label: Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.
-      virtual_volume_flow_rate:
-        type: 
-          - string
-          - number
-        coerce:
-          - volume_flow_rate_to_lph
-        meta:
-          label: Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.
       restore_state:
         type: boolean
         required: True

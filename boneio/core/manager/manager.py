@@ -190,6 +190,9 @@ class Manager:
             topic_prefix=self._topic_prefix,
         )
         
+        # Configure virtual energy sensors (must be after outputs are initialized)
+        self.sensors.configure_virtual_energy_sensors()
+        
         # NOTE: Input event listener is registered in InputManager.__init__
         # (removing duplicate registration here that caused double event handling)
         

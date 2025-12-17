@@ -419,6 +419,61 @@ async def websocket_endpoint(
                     except Exception as e:
                         _LOGGER.error(f"Error preparing temperature sensor state: {type(e).__name__} - {e}")
 
+                # Send virtual energy sensor states
+                for ve_sensor in boneio_manager.sensors.get_virtual_energy_sensors():
+                    try:
+                        import time
+                        # For power sensors: send current power and total energy
+                        if ve_sensor.sensor_type == "power":
+                            # Current power (W)
+                            power_state = SensorState(
+                                id=f"{ve_sensor.id}_power",
+                                name=f"{ve_sensor.name} Power",
+                                state=ve_sensor.get_current_power(),
+                                unit="W",
+                                timestamp=int(time.time()),
+                            )
+                            update = SensorEvent(entity_id=f"{ve_sensor.id}_power", state=power_state)
+                            if not await send_state_update(update):
+                                return
+                            # Total energy (Wh)
+                            energy_state = SensorState(
+                                id=f"{ve_sensor.id}_energy",
+                                name=f"{ve_sensor.name} Energy",
+                                state=ve_sensor.get_total_energy(),
+                                unit="Wh",
+                                timestamp=int(time.time()),
+                            )
+                            update = SensorEvent(entity_id=f"{ve_sensor.id}_energy", state=energy_state)
+                            if not await send_state_update(update):
+                                return
+                        # For water sensors: send current flow rate and total water
+                        elif ve_sensor.sensor_type == "water":
+                            # Current flow rate (L/h)
+                            flow_state = SensorState(
+                                id=f"{ve_sensor.id}_flow",
+                                name=f"{ve_sensor.name} Flow Rate",
+                                state=ve_sensor.get_current_flow_rate(),
+                                unit="L/h",
+                                timestamp=int(time.time()),
+                            )
+                            update = SensorEvent(entity_id=f"{ve_sensor.id}_flow", state=flow_state)
+                            if not await send_state_update(update):
+                                return
+                            # Total water (L)
+                            water_state = SensorState(
+                                id=f"{ve_sensor.id}_water",
+                                name=f"{ve_sensor.name} Water",
+                                state=ve_sensor.get_total_water(),
+                                unit="L",
+                                timestamp=int(time.time()),
+                            )
+                            update = SensorEvent(entity_id=f"{ve_sensor.id}_water", state=water_state)
+                            if not await send_state_update(update):
+                                return
+                    except Exception as e:
+                        _LOGGER.error(f"Error preparing virtual energy sensor state: {type(e).__name__} - {e}")
+
             except WebSocketDisconnect:
                 _LOGGER.info("WebSocket disconnected while sending initial states")
                 return

@@ -9,6 +9,7 @@ import CoverForm from './CoverForm';
 import ModbusDeviceForm from './ModbusDeviceForm';
 import AreasForm from './AreasForm';
 import SensorForm from './SensorForm';
+import VirtualEnergySensorForm from './VirtualEnergySensorForm';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -542,6 +543,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           <th>{t('outputs.actions')}</th>
         </tr>
       );
+    } else if (sectionType === 'virtual_energy_sensor') {
+      return (
+        <tr>
+          <th>{t('virtual_energy_sensor.name')}</th>
+          <th>{t('virtual_energy_sensor.output_id')}</th>
+          <th>{t('virtual_energy_sensor.sensor_type')}</th>
+          <th>{t('virtual_energy_sensor.area')}</th>
+          <th>{t('outputs.actions')}</th>
+        </tr>
+      );
     } else {
       return (
         <tr>
@@ -900,6 +911,62 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           </tr>
         );
       });
+    } else if (sectionType === 'virtual_energy_sensor') {
+      return value.map((item, index) => {
+        const areaName = item.area 
+          ? allAreas.find(a => a.id === item.area)?.name || item.area 
+          : '-';
+        const sensorTypeLabel = item.sensor_type === 'power' 
+          ? t('virtual_energy_sensor.type_power')
+          : item.sensor_type === 'water'
+            ? t('virtual_energy_sensor.type_water')
+            : '-';
+        const outputName = item.output_id 
+          ? allOutputs.find(o => o.id === item.output_id)?.name || item.output_id
+          : '-';
+        
+        return (
+          <tr key={index}>
+            <td>
+              <div>
+                <div className="font-medium">{item.name || `Sensor ${index + 1}`}</div>
+                {item.id && (
+                  <div className="text-xs text-base-content/60">ID: {item.id}</div>
+                )}
+              </div>
+            </td>
+            <td>{outputName}</td>
+            <td>
+              <span className={`badge badge-sm ${item.sensor_type === 'power' ? 'badge-warning' : 'badge-info'}`}>
+                {sensorTypeLabel}
+              </span>
+              <div className="text-xs text-base-content/60 mt-1">
+                {item.sensor_type === 'power' && item.power_usage}
+                {item.sensor_type === 'water' && item.flow_rate}
+              </div>
+            </td>
+            <td>{areaName}</td>
+            <td>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleEdit(index)}
+                  className="btn btn-ghost btn-xs"
+                  title={t('outputs.edit')}
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(index)}
+                  className="btn btn-ghost btn-xs text-error"
+                  title={t('outputs.delete')}
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      });
     } else {
       return value.map((item, index) => (
         <tr key={index}>
@@ -1075,6 +1142,18 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     availableSensors={availableDallasSensors}
                     existingSensors={value}
                     editingIndex={editingIndex}
+                    onValidationChange={setHasValidationErrors}
+                  />
+                ) : sectionType === 'virtual_energy_sensor' ? (
+                  <VirtualEnergySensorForm
+                    data={editingItem}
+                    onChange={setEditingItem}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                    isNew={editingIndex === null}
+                    schema={schema}
+                    allAreas={allAreas}
+                    allOutputs={allOutputs}
                     onValidationChange={setHasValidationErrors}
                   />
                 ) : (

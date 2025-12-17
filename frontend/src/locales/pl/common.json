@@ -291,6 +291,7 @@
     "cover": "Rolety",
     "modbus_devices": "Urządzenia Modbus",
     "sensor": "Czujki Onewire",
+    "virtual_energy_sensor": "Wirtualne Sensory Energii",
     "descriptions": {
       "areas": "Zdefiniuj pokoje i obszary, aby uporządkować urządzenia w Home Assistant.",
       "binary_sensor": "Czujniki binarne reagują na wciśnięcie i puszczenie. Używaj ich do prostych wejść wł/wył jak czujniki drzwi czy ruchu.",
@@ -299,7 +300,8 @@
       "output_group": "Grupuj wiele wyjść razem, aby sterować nimi jako jedną encją.",
       "cover": "Skonfiguruj rolety, żaluzje i bramy garażowe z przekaźnikami otwierania/zamykania.",
       "modbus_devices": "Dodaj urządzenia Modbus jak liczniki energii, czujniki temperatury i inne urządzenia RS485.",
-      "sensor": "Skonfiguruj czujniki temperatury 1-Wire (DS18B20) podłączone do urządzenia."
+      "sensor": "Skonfiguruj czujniki temperatury 1-Wire (DS18B20) podłączone do urządzenia.",
+      "virtual_energy_sensor": "Skonfiguruj wirtualne sensory energii i wody powiązane z wyjściami dla panelu Energia w Home Assistant."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -530,6 +532,34 @@
     "validation_cover_required": "Roleta jest wymagana dla akcji rolety",
     "validation_topic_required": "Temat jest wymagany dla akcji MQTT",
     "validation_boneio_id_required": "ID BoneIO jest wymagane dla akcji zdalnych"
+  },
+  "virtual_energy_sensor": {
+    "name": "Nazwa",
+    "name_required": "Nazwa jest wymagana",
+    "name_placeholder": "np. Lampa Salon - Energia",
+    "name_hint": "Własna nazwa wyświetlana w panelu Energia Home Assistant",
+    "custom_id": "Własne ID",
+    "id_placeholder": "auto-generowane jeśli puste",
+    "id_hint": "Opcjonalny unikalny identyfikator. Auto-generowany z nazwy jeśli nie podany.",
+    "output_id": "Wyjście",
+    "output_id_hint": "Wybierz wyjście, z którym powiązany jest ten sensor",
+    "output_id_required": "Wyjście jest wymagane",
+    "select_output": "Wybierz wyjście...",
+    "sensor_type": "Typ Sensora",
+    "sensor_type_required": "Typ sensora jest wymagany",
+    "select_sensor_type": "Wybierz typ sensora...",
+    "type_power": "Energia (W/Wh)",
+    "type_water": "Woda (L/h, L)",
+    "power_usage": "Zużycie Mocy",
+    "power_usage_hint": "Zużycie mocy w watach, np. 60W, 100W",
+    "power_usage_required": "Zużycie mocy jest wymagane dla sensorów energii",
+    "flow_rate": "Przepływ",
+    "flow_rate_hint": "Przepływ wody, np. 500 L/h",
+    "flow_rate_required": "Przepływ jest wymagany dla sensorów wody",
+    "area": "Obszar",
+    "area_hint": "Opcjonalne przypisanie do obszaru w Home Assistant",
+    "no_area": "Brak obszaru (główne urządzenie)",
+    "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia."
   },
   "config_check": {
     "title": "Sprawdzanie Konfiguracji",
