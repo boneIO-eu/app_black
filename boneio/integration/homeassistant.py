@@ -68,7 +68,7 @@ def ha_availabilty_message(
     # Extract values from config_helper if provided
     topic = config_helper.topic_prefix
     device_name = config_helper.name
-    model = config_helper.device_type
+    model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
     if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
         web_url = f"http://{config_helper.network_info[IP]}:{config_helper.web_port}"
     
@@ -254,21 +254,23 @@ def ha_binary_sensor_availabilty_message(
 def ha_sensor_ina_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
-    """Create availability topic for HA."""
+    """Create availability topic for HA INA219 power sensor (diagnostic)."""
     msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
+    msg["entity_category"] = "diagnostic"
     return msg
 
 
 def ha_sensor_temp_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
-    """Create availability topic for HA."""
+    """Create availability topic for HA board temperature sensor (diagnostic)."""
     msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
     msg["device_class"] = "temperature"
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
+    msg["entity_category"] = "diagnostic"
     return msg
 
 
@@ -276,7 +278,7 @@ def ha_sensor_system_availabilty_message(
     id: str,
     name: str,
     config_helper: ConfigHelper,
-    model: str = "boneIO Relay Board",
+    model: str = "boneIO Black",
     device_class: str | None = None,
     icon: str | None = None,
     **kwargs
@@ -305,6 +307,7 @@ def ha_sensor_system_availabilty_message(
     )
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
+    msg["entity_category"] = "diagnostic"
     
     if device_class:
         msg["device_class"] = device_class
