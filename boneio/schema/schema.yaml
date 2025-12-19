@@ -948,6 +948,34 @@ event:
         allowed: ['button', 'doorbell', 'motion']
         meta:
           label: Device class to use in HA
+      double_click_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        default: '220ms'
+        meta:
+          label: Double Click Duration
+          description: |
+            Time window in milliseconds to detect double click.
+            If second click happens within this time, it's detected as double click.
+      long_press_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        default: '400ms'
+        meta:
+          label: Long Press Duration
+          description: |
+            Time in milliseconds to detect long press.
+            If button is held longer than this, it's detected as long press.
       actions:
         required: False
         type: dict

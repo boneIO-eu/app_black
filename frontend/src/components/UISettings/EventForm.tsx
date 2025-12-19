@@ -363,6 +363,36 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           </div>
 
+          <div className="divider">{t('event_form.click_timings')}</div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.double_click_duration')}
+                value={data.double_click_duration || '220ms'}
+                onChange={(value) => updateField('double_click_duration', value)}
+                maximum={2000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.double_click_duration_hint')}</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.long_press_duration')}
+                value={data.long_press_duration || '400ms'}
+                onChange={(value) => updateField('long_press_duration', value)}
+                maximum={5000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.long_press_duration_hint')}</span>
+              </label>
+            </div>
+          </div>
+
           <div className="divider">{t('settings.options')}</div>
 
           <div className="grid grid-cols-1 gap-4">

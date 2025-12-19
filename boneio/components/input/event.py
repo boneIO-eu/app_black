@@ -11,25 +11,35 @@ from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
 _LOGGER = logging.getLogger(__name__)
 
-# TIMINGS FOR BUTTONS
-DOUBLE_CLICK_DURATION_MS = 220
-LONG_PRESS_DURATION_MS = 400
+# DEFAULT TIMINGS FOR BUTTONS (can be overridden in config)
+DEFAULT_DOUBLE_CLICK_DURATION_MS = 220
+DEFAULT_LONG_PRESS_DURATION_MS = 400
 
 
 class GpioEventButton(GpioBaseClass):
     """Represent Gpio input switch with multiclick detection."""
 
     def __init__(self, **kwargs) -> None:
-        """Setup GPIO Event Button with multiclick support."""
+        """Setup GPIO Event Button with multiclick support.
+        
+        Args:
+            double_click_duration: Time window in ms to detect double click (default: 220ms)
+            long_press_duration: Time in ms to detect long press (default: 400ms)
+            **kwargs: Additional arguments passed to GpioBaseClass
+        """
         super().__init__(**kwargs)
+        
+        # Get timing values from config or use defaults
+        double_click_duration = kwargs.get('double_click_duration', DEFAULT_DOUBLE_CLICK_DURATION_MS)
+        long_press_duration = kwargs.get('long_press_duration', DEFAULT_LONG_PRESS_DURATION_MS)
         
         # Create multiclick detector
         self._detector = MultiClickDetector(
             loop=self._loop,
             callback=self._on_click_detected,
             debounce_ms=self._bounce_time * 1000,  # Convert to ms
-            multiclick_window_ms=DOUBLE_CLICK_DURATION_MS,
-            hold_threshold_ms=LONG_PRESS_DURATION_MS,
+            multiclick_window_ms=double_click_duration,
+            hold_threshold_ms=long_press_duration,
             name=self._name,
             pin=self._pin,
         )

@@ -108,6 +108,10 @@ export interface EventEntity {
   device_class?: EventDeviceClass;
   /** Area/Room assignment */
   area?: string;
+  /** Time window to detect double click (default: 220ms) */
+  double_click_duration?: number | string;
+  /** Time to detect long press (default: 400ms) */
+  long_press_duration?: number | string;
   /** Actions configuration */
   actions?: EventActions;
 }
