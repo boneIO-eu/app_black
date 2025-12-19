@@ -10,185 +10,185 @@
 #     single:
 #       - action: cover
 #         action_cover: toggle_open
-#         pin: Cover01
+#         boneio_cover: Cover01
 #     double:
 #       - action: cover
 #         action_cover: toggle_close
-#         pin: Cover01
+#         boneio_cover: Cover01
 # - id: IN_02
 #   boneio_input: IN_02
 #   actions:
 #     single:
 #       - action: output
-#         pin: OUT_01
+#         boneio_output: OUT_01
 #     double:
 #       - action: output
-#         pin: OUT_01
+#         boneio_output: OUT_01
 - name: IN_03
   boneio_input: IN_03
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover02
+        boneio_cover: Cover02
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover02
+        boneio_cover: Cover02
 - name: IN_04
   boneio_input: IN_04
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover03
+        boneio_cover: Cover03
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover03
+        boneio_cover: Cover03
 - name: IN_05
   boneio_input: IN_05
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover04
+        boneio_cover: Cover04
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover04
+        boneio_cover: Cover04
 - name: IN_06
   boneio_input: IN_06
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover05
+        boneio_cover: Cover05
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover05
+        boneio_cover: Cover05
 - name: IN_07
   boneio_input: IN_07
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover06
+        boneio_cover: Cover06
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover06
+        boneio_cover: Cover06
 - name: IN_08
   boneio_input: IN_08
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover07
+        boneio_cover: Cover07
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover07
+        boneio_cover: Cover07
 - name: IN_09
   boneio_input: IN_09
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover08
+        boneio_cover: Cover08
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover08
+        boneio_cover: Cover08
 - name: IN_10
   boneio_input: IN_10
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover09
+        boneio_cover: Cover09
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover09
+        boneio_cover: Cover09
 - name: IN_11
   boneio_input: IN_11
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover10
+        boneio_cover: Cover10
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover10
+        boneio_cover: Cover10
 - name: IN_12
   boneio_input: IN_12
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover11
+        boneio_cover: Cover11
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover11
+        boneio_cover: Cover11
 - name: IN_13
   boneio_input: IN_13
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover12
+        boneio_cover: Cover12
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover12
+        boneio_cover: Cover12
 - name: IN_14
   boneio_input: IN_14
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover13
+        boneio_cover: Cover13
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover13
+        boneio_cover: Cover13
 - name: IN_15
   boneio_input: IN_15
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover14
+        boneio_cover: Cover14
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover14
+        boneio_cover: Cover14
 - name: IN_16
   boneio_input: IN_16
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover15
+        boneio_cover: Cover15
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover15
+        boneio_cover: Cover15
 - name: IN_17
   boneio_input: IN_17
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        pin: Cover16
+        boneio_cover: Cover16
     double:
       - action: cover
         action_cover: toggle_close
-        pin: Cover16
+        boneio_cover: Cover16
 - name: IN_18
   boneio_input: IN_18
 - name: IN_19

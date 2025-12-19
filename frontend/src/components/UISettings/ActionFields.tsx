@@ -18,11 +18,11 @@ export const validateAction = (action: any, t: (key: string) => string): string 
   const actionType = action.action.toLowerCase();
   
   if (actionType === 'output' || actionType === 'output_over_mqtt') {
-    if (!action.pin) return t('event_form.validation_output_required');
+    if (!action.boneio_output && !action.pin) return t('event_form.validation_output_required');
   }
   
   if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-    if (!action.pin) return t('event_form.validation_cover_required');
+    if (!action.boneio_cover && !action.pin) return t('event_form.validation_cover_required');
   }
   
   if (actionType === 'mqtt') {
@@ -146,8 +146,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <span className="label-text font-medium">{t('event_form.cover')}</span>
             </label>
             <Select
-              value={action.pin || ''}
-              onValueChange={(value) => onUpdate('pin', value)}
+              value={action.boneio_cover || action.pin || ''}
+              onValueChange={(value) => onUpdate('boneio_cover', value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={t('event_form.select_cover')} />
@@ -211,8 +211,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <span className="label-text font-medium">{t('event_form.output')}</span>
             </label>
             <OutputSelectDropdown
-              value={action.pin || ''}
-              onChange={(value: string) => onUpdate('pin', value)}
+              value={action.boneio_output || action.pin || ''}
+              onChange={(value: string) => onUpdate('boneio_output', value)}
               allOutputs={[
                 ...allOutputs.filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output)),
                 ...allOutputGroups.filter((group: any) => group && typeof group === 'object' && group.id).map((group: any) => ({
@@ -308,8 +308,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               type="text"
               className="input input-bordered w-full"
               placeholder={t('event_form.output_id_placeholder')}
-              value={action.pin || ''}
-              onChange={(e) => onUpdate('pin', e.target.value)}
+              value={action.boneio_output || action.pin || ''}
+              onChange={(e) => onUpdate('boneio_output', e.target.value)}
             />
             <label className="label">
               <span className="label-text-alt">{t('event_form.output_id_hint')}</span>
@@ -365,8 +365,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               type="text"
               className="input input-bordered w-full"
               placeholder={t('event_form.cover_id_placeholder')}
-              value={action.pin || ''}
-              onChange={(e) => onUpdate('pin', e.target.value)}
+              value={action.boneio_cover || action.pin || ''}
+              onChange={(e) => onUpdate('boneio_cover', e.target.value)}
             />
             <label className="label">
               <span className="label-text-alt">{t('event_form.cover_id_hint')}</span>

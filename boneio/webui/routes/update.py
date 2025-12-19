@@ -459,3 +459,209 @@ async def list_backups():
         })
     
     return {"backups": backup_list}
+
+
+# Available device types for factory reset
+DEVICE_TYPES = ["24x16", "32x10", "cover", "cover_mix"]
+
+
+@router.get("/factory_reset/device_types")
+async def get_device_types():
+    """
+    Get available device types for factory reset.
+    
+    Returns:
+        List of available device types.
+    """
+    return {"device_types": DEVICE_TYPES}
+
+
+class FactoryResetRequest(BaseModel):
+    """Request model for factory reset endpoint."""
+    device_type: str
+
+
+@router.post("/factory_reset")
+async def factory_reset(request: FactoryResetRequest):
+    """
+    Reset configuration to factory defaults for selected device type.
+    
+    This will:
+    1. Create a backup of current configuration
+    2. Copy example config files for the selected device type
+    3. Restart the application
+    
+    Args:
+        request: Device type to reset to (24x16, 32x10, cover, cover_mix)
+        
+    Returns:
+        Status response.
+    """
+    device_type = request.device_type.lower()
+    
+    if device_type not in DEVICE_TYPES:
+        return {
+            "status": "error",
+            "message": f"Invalid device type: {device_type}. Available: {', '.join(DEVICE_TYPES)}"
+        }
+    
+    # Find example config directory
+    # First try relative to boneio package
+    import boneio
+    boneio_path = os.path.dirname(boneio.__file__)
+    example_config_dir = os.path.join(boneio_path, "example_config", device_type)
+    
+    if not os.path.isdir(example_config_dir):
+        return {
+            "status": "error",
+            "message": f"Example config not found for device type: {device_type}"
+        }
+    
+    # User config directory
+    config_dir = os.path.expanduser("~/boneio")
+    
+    if not os.path.isdir(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+    
+    try:
+        # Step 1: Create backup of current configuration
+        backup_dir = os.path.expanduser("~/boneio_config_backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"config_backup_{timestamp}")
+        
+        # Copy all yaml files from config_dir to backup
+        yaml_files = glob.glob(os.path.join(config_dir, "*.yaml"))
+        if yaml_files:
+            os.makedirs(backup_path, exist_ok=True)
+            for yaml_file in yaml_files:
+                shutil.copy2(yaml_file, backup_path)
+            _LOGGER.info(f"Configuration backup created at {backup_path}")
+        
+        # Step 2: Copy example config files
+        example_files = glob.glob(os.path.join(example_config_dir, "*.yaml"))
+        
+        if not example_files:
+            return {
+                "status": "error",
+                "message": f"No YAML files found in example config for {device_type}"
+            }
+        
+        copied_files = []
+        for example_file in example_files:
+            filename = os.path.basename(example_file)
+            dest_path = os.path.join(config_dir, filename)
+            shutil.copy2(example_file, dest_path)
+            copied_files.append(filename)
+            _LOGGER.info(f"Copied {filename} to {config_dir}")
+        
+        _LOGGER.info(f"Factory reset completed for device type: {device_type}")
+        
+        return {
+            "status": "success",
+            "message": f"Configuration reset to {device_type} defaults",
+            "backup_path": backup_path if yaml_files else None,
+            "copied_files": copied_files,
+            "restart_required": True
+        }
+        
+    except Exception as e:
+        _LOGGER.exception(f"Error during factory reset: {e}")
+        return {
+            "status": "error",
+            "message": f"Factory reset failed: {str(e)}"
+        }
+
+
+@router.get("/factory_reset/config_backups")
+async def list_config_backups():
+    """
+    List available configuration backups.
+    
+    Returns:
+        List of configuration backup information.
+    """
+    backup_dir = os.path.expanduser("~/boneio_config_backups")
+    
+    if not os.path.isdir(backup_dir):
+        return {"backups": []}
+    
+    backups = sorted(glob.glob(os.path.join(backup_dir, "config_backup_*")), reverse=True)
+    
+    backup_list = []
+    for backup in backups:
+        name = os.path.basename(backup)
+        parts = name.split('_')
+        timestamp = f"{parts[2]}_{parts[3]}" if len(parts) > 3 else "unknown"
+        
+        # Count yaml files in backup
+        yaml_count = len(glob.glob(os.path.join(backup, "*.yaml")))
+        
+        backup_list.append({
+            "path": backup,
+            "name": name,
+            "timestamp": timestamp,
+            "file_count": yaml_count,
+        })
+    
+    return {"backups": backup_list}
+
+
+class RestoreConfigBackupRequest(BaseModel):
+    """Request model for restoring config backup."""
+    backup_path: str
+
+
+@router.post("/factory_reset/restore_backup")
+async def restore_config_backup(request: RestoreConfigBackupRequest):
+    """
+    Restore configuration from a backup.
+    
+    Args:
+        request: Path to backup to restore
+        
+    Returns:
+        Status response.
+    """
+    backup_path = request.backup_path
+    
+    if not os.path.isdir(backup_path):
+        return {
+            "status": "error",
+            "message": f"Backup not found: {backup_path}"
+        }
+    
+    config_dir = os.path.expanduser("~/boneio")
+    
+    try:
+        # Copy yaml files from backup to config dir
+        yaml_files = glob.glob(os.path.join(backup_path, "*.yaml"))
+        
+        if not yaml_files:
+            return {
+                "status": "error",
+                "message": "No YAML files found in backup"
+            }
+        
+        restored_files = []
+        for yaml_file in yaml_files:
+            filename = os.path.basename(yaml_file)
+            dest_path = os.path.join(config_dir, filename)
+            shutil.copy2(yaml_file, dest_path)
+            restored_files.append(filename)
+            _LOGGER.info(f"Restored {filename} from backup")
+        
+        return {
+            "status": "success",
+            "message": f"Configuration restored from backup",
+            "restored_files": restored_files,
+            "restart_required": True
+        }
+        
+    except Exception as e:
+        _LOGGER.exception(f"Error restoring backup: {e}")
+        return {
+            "status": "error",
+            "message": f"Restore failed: {str(e)}"
+        }

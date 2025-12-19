@@ -5,10 +5,22 @@ schema:
     allowed: ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt']
     coerce: lower
     case_insensitive: true
-  pin:
+  boneio_output:
     type: string
     required_if:
-      action: ['output', 'group', 'cover', 'output_over_mqtt', 'cover_over_mqtt']
+      action: ['output', 'group', 'output_over_mqtt']
+    meta:
+      label: Output ID
+      description: |
+        ID of the output to control. This should match the id/boneio_output defined in your output configuration.
+  boneio_cover:
+    type: string
+    required_if:
+      action: ['cover', 'cover_over_mqtt']
+    meta:
+      label: Cover ID
+      description: |
+        ID of the cover to control. This should match the id defined in your cover configuration.
   topic:
     type: string
     required_if:

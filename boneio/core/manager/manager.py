@@ -393,7 +393,8 @@ class Manager:
                 action = action_definition.get("action")
                 
                 if action == OUTPUT:
-                    entity_id = action_definition.get("pin")
+                    # Support both new 'boneio_output' and legacy 'pin' for backward compatibility
+                    entity_id = action_definition.get("boneio_output") or action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
                     action_output = action_definition.get("action_output")
                     output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(stripped_entity_id)
@@ -410,7 +411,8 @@ class Manager:
                     _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
                     
                 elif action == COVER:
-                    entity_id = action_definition.get("pin")
+                    # Support both new 'boneio_cover' and legacy 'pin' for backward compatibility
+                    entity_id = action_definition.get("boneio_cover") or action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
                     action_cover = action_definition.get("action_cover")
                     extra_data = action_definition.get("data", {})

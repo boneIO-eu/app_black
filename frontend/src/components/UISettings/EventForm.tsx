@@ -75,7 +75,7 @@ const EventForm: React.FC<EventFormProps> = ({
   savedCovers
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'long'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'long' | 'advanced'>('basic');
 
   // Extract enums from schema for dropdowns
   const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];
@@ -259,6 +259,12 @@ const EventForm: React.FC<EventFormProps> = ({
             </span>
           )}
         </a>
+        <a 
+          className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('advanced')}
+        >
+          {t('settings.advanced_settings')}
+        </a>
       </div>
 
       {/* Basic Settings Tab */}
@@ -349,65 +355,6 @@ const EventForm: React.FC<EventFormProps> = ({
               </label>
             </div>
 
-            <div className="form-control">
-              <SimpleTimePeriodInput
-                label={t('inputs.bounce_time')}
-                value={data.bounce_time || '120ms'}
-                onChange={(value) => updateField('bounce_time', value)}
-                maximum={1000}
-                allowedUnits={['ms', 's']}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="divider">{t('event_form.click_timings')}</div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-control">
-              <SimpleTimePeriodInput
-                label={t('event_form.double_click_duration')}
-                value={data.double_click_duration || '220ms'}
-                onChange={(value) => updateField('double_click_duration', value)}
-                maximum={2000}
-                allowedUnits={['ms', 's']}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('event_form.double_click_duration_hint')}</span>
-              </label>
-            </div>
-
-            <div className="form-control">
-              <SimpleTimePeriodInput
-                label={t('event_form.long_press_duration')}
-                value={data.long_press_duration || '400ms'}
-                onChange={(value) => updateField('long_press_duration', value)}
-                maximum={5000}
-                allowedUnits={['ms', 's']}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('event_form.long_press_duration_hint')}</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="divider">{t('settings.options')}</div>
-
-          <div className="grid grid-cols-1 gap-4">
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.clear_message === true}
-                  onChange={(e) => updateField('clear_message', e.target.checked)}
-                />
-                <span className="label-text wrap-break-word">{t('event_form.clear_message_hint')}</span>
-              </label>
-            </fieldset>
           </div>
         </div>
       )}
@@ -490,6 +437,89 @@ const EventForm: React.FC<EventFormProps> = ({
               <p className="text-sm">{t('event_form.click_add_action')}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Advanced Settings Tab */}
+      {activeTab === 'advanced' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('inputs.bounce_time')}
+                value={data.bounce_time || '30ms'}
+                onChange={(value) => updateField('bounce_time', value)}
+                maximum={1000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('inputs.bounce_time_hint')} ({t('common.default')}: 30ms)</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.double_click_duration')}
+                value={data.double_click_duration || '220ms'}
+                onChange={(value) => updateField('double_click_duration', value)}
+                maximum={2000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.double_click_duration_hint')} ({t('common.default')}: 220ms)</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.long_press_duration')}
+                value={data.long_press_duration || '400ms'}
+                onChange={(value) => updateField('long_press_duration', value)}
+                maximum={5000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.long_press_duration_hint')} ({t('common.default')}: 400ms)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Timing validation warning */}
+          {(() => {
+            const parseMs = (val: string | number | undefined, defaultVal: number): number => {
+              if (val === undefined) return defaultVal;
+              if (typeof val === 'number') return val;
+              const match = val.match(/^(\d+(?:\.\d+)?)(ms|s)?$/);
+              if (!match) return defaultVal;
+              const num = parseFloat(match[1]);
+              const unit = match[2] || 'ms';
+              return unit === 's' ? num * 1000 : num;
+            };
+            const doubleMs = parseMs(data.double_click_duration, 220);
+            const longMs = parseMs(data.long_press_duration, 400);
+            if (doubleMs >= longMs) {
+              return (
+                <div className="alert alert-warning mt-2">
+                  <span>{t('event_form.timing_validation_error')}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          <div className="mt-4">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              onClick={() => {
+                updateField('bounce_time', '30ms');
+                updateField('double_click_duration', '220ms');
+                updateField('long_press_duration', '400ms');
+              }}
+            >
+              {t('event_form.restore_defaults')}
+            </button>
+          </div>
         </div>
       )}
     </div>

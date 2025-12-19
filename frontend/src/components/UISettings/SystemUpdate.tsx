@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
-import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck, FaPowerOff, FaUpload } from 'react-icons/fa';
+import { FaDownload, FaUndo, FaCheck, FaExclamationTriangle, FaSpinner, FaHistory, FaFileArchive, FaClipboardCheck, FaPowerOff, FaUpload, FaRedo } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
@@ -65,6 +65,15 @@ const SystemUpdate: React.FC = () => {
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  
+  // Factory reset state
+  const [showFactoryReset, setShowFactoryReset] = useState(false);
+  const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<string | null>(null);
+  const [isResettingFactory, setIsResettingFactory] = useState(false);
+  const [factoryResetResult, setFactoryResetResult] = useState<any>(null);
+  const [configBackups, setConfigBackups] = useState<any[]>([]);
+  const [showConfigBackups, setShowConfigBackups] = useState(false);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -97,6 +106,69 @@ const SystemUpdate: React.FC = () => {
       console.error('Error fetching backups:', err);
     }
   }, []);
+
+  // Fetch device types for factory reset
+  const fetchDeviceTypes = useCallback(async () => {
+    try {
+      const response = await fetch('/api/factory_reset/device_types');
+      const data = await response.json();
+      setDeviceTypes(data.device_types || []);
+    } catch (err) {
+      console.error('Error fetching device types:', err);
+    }
+  }, []);
+
+  // Fetch config backups
+  const fetchConfigBackups = useCallback(async () => {
+    try {
+      const response = await fetch('/api/factory_reset/config_backups');
+      const data = await response.json();
+      setConfigBackups(data.backups || []);
+    } catch (err) {
+      console.error('Error fetching config backups:', err);
+    }
+  }, []);
+
+  // Perform factory reset
+  const performFactoryReset = async () => {
+    if (!selectedDeviceType) return;
+    
+    setIsResettingFactory(true);
+    setFactoryResetResult(null);
+    
+    try {
+      const response = await fetch('/api/factory_reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_type: selectedDeviceType })
+      });
+      const data = await response.json();
+      setFactoryResetResult(data);
+      
+      if (data.status === 'success') {
+        fetchConfigBackups();
+      }
+    } catch (err) {
+      setFactoryResetResult({ status: 'error', message: 'Failed to perform factory reset' });
+    } finally {
+      setIsResettingFactory(false);
+    }
+  };
+
+  // Restore config backup
+  const restoreConfigBackup = async (backupPath: string) => {
+    try {
+      const response = await fetch('/api/factory_reset/restore_backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_path: backupPath })
+      });
+      const data = await response.json();
+      setFactoryResetResult(data);
+    } catch (err) {
+      setFactoryResetResult({ status: 'error', message: 'Failed to restore backup' });
+    }
+  };
 
   // Poll update status
   const pollUpdateStatus = useCallback(async () => {
@@ -373,7 +445,7 @@ const SystemUpdate: React.FC = () => {
               <div className="alert alert-error">
                 <FaExclamationTriangle />
                 <span>{error}</span>
-                <button className="btn btn-ghost btn-sm" onClick={() => setError(null)}>×</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setError(null)}>×</button>
               </div>
             )}
 
@@ -430,7 +502,7 @@ const SystemUpdate: React.FC = () => {
                       href={updateInfo.available_versions?.find(v => v.version === updateInfo.latest_prerelease)?.release_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-ghost"
+                      className="btn btn-outline"
                     >
                       {t('system_update.view_release_notes')}
                     </a>
@@ -515,7 +587,7 @@ const SystemUpdate: React.FC = () => {
                       href={updateInfo.available_versions?.find(v => v.version === (selectedVersion || updateInfo.latest_version))?.release_url || updateInfo.release_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-ghost"
+                      className="btn btn-outline"
                     >
                       {t('system_update.view_release_notes')}
                     </a>
@@ -790,7 +862,7 @@ const SystemUpdate: React.FC = () => {
                     {t('system_update.auto_update_backups')}
                   </h3>
                   <button
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-outline btn-sm"
                     onClick={() => setShowBackups(!showBackups)}
                   >
                     {showBackups
@@ -848,6 +920,152 @@ const SystemUpdate: React.FC = () => {
                     <p>{t('system_update.backup_info_4')}</p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Factory Reset Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <div className="flex items-center justify-between">
+                  <h3 className="card-title">
+                    <FaRedo />
+                    {t('system_update.factory_reset')}
+                  </h3>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => {
+                      setShowFactoryReset(!showFactoryReset);
+                      if (!showFactoryReset) {
+                        fetchDeviceTypes();
+                        fetchConfigBackups();
+                      }
+                    }}
+                  >
+                    {showFactoryReset ? t('common.close') : t('system_update.show_factory_reset')}
+                  </button>
+                </div>
+
+                {showFactoryReset && (
+                  <div className="mt-4 space-y-4">
+                    <div className="alert alert-warning">
+                      <FaExclamationTriangle />
+                      <span>{t('system_update.factory_reset_warning')}</span>
+                    </div>
+
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">{t('system_update.select_device_type')}</span>
+                      </label>
+                      <select
+                        className="select select-bordered w-full max-w-xs"
+                        value={selectedDeviceType || ''}
+                        onChange={(e) => setSelectedDeviceType(e.target.value || null)}
+                      >
+                        <option value="">{t('system_update.select_device_type_placeholder')}</option>
+                        {deviceTypes.map((type) => (
+                          <option key={type} value={type}>
+                            {type === '24x16' ? 'boneIO 24x16A' :
+                             type === '32x10' ? 'boneIO 32x10A' :
+                             type === 'cover' ? 'boneIO Cover' :
+                             type === 'cover_mix' ? 'boneIO Cover Mix' : type}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      className="btn btn-outline btn-error"
+                      onClick={performFactoryReset}
+                      disabled={!selectedDeviceType || isResettingFactory}
+                    >
+                      {isResettingFactory ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-2" />
+                          {t('system_update.resetting')}
+                        </>
+                      ) : (
+                        <>
+                          <FaRedo className="mr-2" />
+                          {t('system_update.reset_to_factory')}
+                        </>
+                      )}
+                    </button>
+
+                    {factoryResetResult && (
+                      <div className={`alert ${factoryResetResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}>
+                        {factoryResetResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+                        <div className="text-sm">
+                          <p>{factoryResetResult.message}</p>
+                          {factoryResetResult.backup_path && (
+                            <p className="text-xs opacity-70 mt-1">
+                              {t('system_update.backup_created')}: {factoryResetResult.backup_path}
+                            </p>
+                          )}
+                          {factoryResetResult.copied_files && (
+                            <p className="text-xs opacity-70 mt-1">
+                              {t('system_update.copied_files')}: {factoryResetResult.copied_files.join(', ')}
+                            </p>
+                          )}
+                          {factoryResetResult.restart_required && (
+                            <p className="text-xs font-semibold mt-2">{t('system_update.restart_required')}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Config Backups */}
+                    <div className="divider">{t('system_update.config_backups')}</div>
+                    
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setShowConfigBackups(!showConfigBackups);
+                        if (!showConfigBackups) fetchConfigBackups();
+                      }}
+                    >
+                      {showConfigBackups
+                        ? t('system_update.hide_config_backups').replace('{count}', String(configBackups.length))
+                        : t('system_update.show_config_backups').replace('{count}', String(configBackups.length))}
+                    </button>
+
+                    {showConfigBackups && (
+                      <div className="mt-2">
+                        {configBackups.length === 0 ? (
+                          <p className="text-sm opacity-70">{t('system_update.no_config_backups')}</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="table table-sm">
+                              <thead>
+                                <tr>
+                                  <th>{t('system_update.date')}</th>
+                                  <th>{t('system_update.files')}</th>
+                                  <th>{t('system_update.actions')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {configBackups.map((backup) => (
+                                  <tr key={backup.path}>
+                                    <td>{backup.timestamp.replace('_', ' ')}</td>
+                                    <td>{backup.file_count} {t('system_update.yaml_files')}</td>
+                                    <td>
+                                      <button
+                                        className="btn btn-warning btn-xs"
+                                        onClick={() => restoreConfigBackup(backup.path)}
+                                      >
+                                        <FaUndo />
+                                        {t('system_update.restore')}
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

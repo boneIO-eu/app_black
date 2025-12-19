@@ -12,6 +12,11 @@ import {
 
 interface Action {
   action: string;
+  /** Output ID to control (for output action) */
+  boneio_output?: string;
+  /** Cover ID to control (for cover action) */
+  boneio_cover?: string;
+  /** @deprecated Use boneio_output or boneio_cover instead */
   pin?: string;
   topic?: string;
   action_cover?: string;
@@ -301,8 +306,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                 <span className="label-text font-medium">Cover</span>
               </label>
               <Select
-                value={action.pin || ''}
-                onValueChange={(value) => updateAction(type, index, 'pin', value)}
+                value={action.boneio_cover || action.pin || ''}
+                onValueChange={(value) => updateAction(type, index, 'boneio_cover', value)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select cover..." />
@@ -365,8 +370,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                 <span className="label-text font-medium">Output</span>
               </label>
               <Select
-                value={action.pin || ''}
-                onValueChange={(value) => updateAction(type, index, 'pin', value)}
+                value={action.boneio_output || action.pin || ''}
+                onValueChange={(value) => updateAction(type, index, 'boneio_output', value)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select output..." />

@@ -49,7 +49,11 @@ export interface ActionData {
 export interface Action {
   /** Type of action to perform */
   action: ActionType;
-  /** Pin/output ID to control */
+  /** Output ID to control (for output action) */
+  boneio_output?: string;
+  /** Cover ID to control (for cover action) */
+  boneio_cover?: string;
+  /** @deprecated Use boneio_output or boneio_cover instead */
   pin?: string;
   /** MQTT topic for mqtt action */
   topic?: string;

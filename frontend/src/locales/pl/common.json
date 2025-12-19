@@ -268,7 +268,23 @@
     "prerelease_version": "Wersja deweloperska",
     "your_stable_version": "Twoja stabilna wersja",
     "prerelease_warning": "Wersje deweloperskie nie są zalecane do użytku produkcyjnego. Instaluj tylko jeśli chcesz testować nowe funkcje.",
-    "install_prerelease": "Zainstaluj wersję dev"
+    "install_prerelease": "Zainstaluj wersję dev",
+    "factory_reset": "Przywróć Ustawienia Fabryczne",
+    "show_factory_reset": "Pokaż Opcje",
+    "factory_reset_warning": "To zastąpi twoją obecną konfigurację ustawieniami fabrycznymi. Kopia zapasowa zostanie utworzona automatycznie.",
+    "select_device_type": "Wybierz Typ Urządzenia",
+    "select_device_type_placeholder": "-- Wybierz typ urządzenia --",
+    "reset_to_factory": "Przywróć Ustawienia Fabryczne",
+    "resetting": "Przywracanie...",
+    "copied_files": "Skopiowane pliki",
+    "restart_required": "Wymagany restart aby zastosować zmiany",
+    "config_backups": "Kopie Zapasowe Konfiguracji",
+    "show_config_backups": "Pokaż Kopie ({count})",
+    "hide_config_backups": "Ukryj Kopie ({count})",
+    "no_config_backups": "Brak dostępnych kopii zapasowych konfiguracji.",
+    "files": "Pliki",
+    "yaml_files": "plików YAML",
+    "restore": "Przywróć"
   },
   "areas": {
     "title": "Obszary",
@@ -428,7 +444,8 @@
     "confirm": "Jesteś pewien?",
     "yes": "Tak",
     "no": "Nie",
-    "language": "Język"
+    "language": "Język",
+    "default": "Domyślnie"
   },
   "validation": {
     "id_required": "ID jest wymagane",
@@ -514,6 +531,8 @@
     "double_click_duration_hint": "Okno czasowe do wykrycia podwójnego kliknięcia. Jeśli drugie kliknięcie nastąpi w tym czasie, zostanie wykryte jako podwójne.",
     "long_press_duration": "Czas Długiego Naciśnięcia",
     "long_press_duration_hint": "Czas do wykrycia długiego naciśnięcia. Jeśli przycisk jest trzymany dłużej, zostanie wykryte jako długie naciśnięcie.",
+    "timing_validation_error": "Czas podwójnego kliknięcia musi być mniejszy niż czas długiego naciśnięcia!",
+    "restore_defaults": "Przywróć Domyślne",
     "action": "Akcja",
     "action_type": "Typ Akcji",
     "cover": "Roleta",

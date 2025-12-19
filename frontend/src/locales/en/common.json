@@ -268,7 +268,23 @@
     "prerelease_version": "Development Version",
     "your_stable_version": "Your Stable Version",
     "prerelease_warning": "Development versions are not recommended for production use. Install only if you want to test new features.",
-    "install_prerelease": "Install Dev Version"
+    "install_prerelease": "Install Dev Version",
+    "factory_reset": "Factory Reset",
+    "show_factory_reset": "Show Options",
+    "factory_reset_warning": "This will replace your current configuration with factory defaults. A backup will be created automatically.",
+    "select_device_type": "Select Device Type",
+    "select_device_type_placeholder": "-- Select device type --",
+    "reset_to_factory": "Reset to Factory Defaults",
+    "resetting": "Resetting...",
+    "copied_files": "Copied files",
+    "restart_required": "Restart required to apply changes",
+    "config_backups": "Configuration Backups",
+    "show_config_backups": "Show Backups ({count})",
+    "hide_config_backups": "Hide Backups ({count})",
+    "no_config_backups": "No configuration backups available.",
+    "files": "Files",
+    "yaml_files": "YAML files",
+    "restore": "Restore"
   },
   "areas": {
     "title": "Areas",
@@ -428,7 +444,8 @@
     "confirm": "Are you sure?",
     "yes": "Yes",
     "no": "No",
-    "language": "Language"
+    "language": "Language",
+    "default": "Default"
   },
   "validation": {
     "id_required": "ID is required",
@@ -513,6 +530,8 @@
     "double_click_duration_hint": "Time window to detect double click. If second click happens within this time, it's detected as double click.",
     "long_press_duration": "Long Press Duration",
     "long_press_duration_hint": "Time to detect long press. If button is held longer than this, it's detected as long press.",
+    "timing_validation_error": "Double click duration must be less than long press duration!",
+    "restore_defaults": "Restore Defaults",
     "action": "Action",
     "action_type": "Action Type",
     "cover": "Cover",

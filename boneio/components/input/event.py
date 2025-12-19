@@ -8,12 +8,32 @@ import time
 from boneio.const import ClickTypes
 from boneio.components.input.detectors import MultiClickDetector
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
+from boneio.core.utils import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
 
 # DEFAULT TIMINGS FOR BUTTONS (can be overridden in config)
 DEFAULT_DOUBLE_CLICK_DURATION_MS = 220
 DEFAULT_LONG_PRESS_DURATION_MS = 400
+
+
+def _to_milliseconds(value, default_ms: int) -> int:
+    """Convert a value to milliseconds.
+    
+    Args:
+        value: Can be int, float, TimePeriod, or None
+        default_ms: Default value in milliseconds if value is None
+        
+    Returns:
+        Value in milliseconds as integer
+    """
+    if value is None:
+        return default_ms
+    if isinstance(value, TimePeriod):
+        return int(value.total_milliseconds)
+    if isinstance(value, (int, float)):
+        return int(value)
+    return default_ms
 
 
 class GpioEventButton(GpioBaseClass):
@@ -29,9 +49,15 @@ class GpioEventButton(GpioBaseClass):
         """
         super().__init__(**kwargs)
         
-        # Get timing values from config or use defaults
-        double_click_duration = kwargs.get('double_click_duration', DEFAULT_DOUBLE_CLICK_DURATION_MS)
-        long_press_duration = kwargs.get('long_press_duration', DEFAULT_LONG_PRESS_DURATION_MS)
+        # Get timing values from config or use defaults, converting TimePeriod to ms
+        double_click_duration = _to_milliseconds(
+            kwargs.get('double_click_duration'),
+            DEFAULT_DOUBLE_CLICK_DURATION_MS
+        )
+        long_press_duration = _to_milliseconds(
+            kwargs.get('long_press_duration'),
+            DEFAULT_LONG_PRESS_DURATION_MS
+        )
         
         # Create multiclick detector
         self._detector = MultiClickDetector(
