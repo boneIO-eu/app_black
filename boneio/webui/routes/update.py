@@ -540,10 +540,16 @@ async def factory_reset(request: FactoryResetRequest):
                 shutil.copy2(yaml_file, backup_path)
             _LOGGER.info(f"Configuration backup created at {backup_path}")
         
-        # Step 2: Remove old configuration files
+        # Step 2: Remove old configuration files and state
         for yaml_file in yaml_files:
             os.remove(yaml_file)
             _LOGGER.info(f"Removed old config file: {os.path.basename(yaml_file)}")
+        
+        # Remove state.json to prevent old device states from interfering
+        state_file = os.path.join(config_dir, "state.json")
+        if os.path.exists(state_file):
+            os.remove(state_file)
+            _LOGGER.info("Removed old state.json file")
         
         # Step 3: Copy example config files
         example_files = glob.glob(os.path.join(example_config_dir, "*.yaml"))
