@@ -488,8 +488,9 @@ async def factory_reset(request: FactoryResetRequest):
     
     This will:
     1. Create a backup of current configuration
-    2. Copy example config files for the selected device type
-    3. Restart the application
+    2. Remove old configuration files
+    3. Copy example config files for the selected device type
+    4. Restart the application
     
     Args:
         request: Device type to reset to (24x16, 32x10, cover, cover_mix)
@@ -539,7 +540,12 @@ async def factory_reset(request: FactoryResetRequest):
                 shutil.copy2(yaml_file, backup_path)
             _LOGGER.info(f"Configuration backup created at {backup_path}")
         
-        # Step 2: Copy example config files
+        # Step 2: Remove old configuration files
+        for yaml_file in yaml_files:
+            os.remove(yaml_file)
+            _LOGGER.info(f"Removed old config file: {os.path.basename(yaml_file)}")
+        
+        # Step 3: Copy example config files
         example_files = glob.glob(os.path.join(example_config_dir, "*.yaml"))
         
         if not example_files:
