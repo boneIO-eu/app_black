@@ -74,6 +74,10 @@ const SystemUpdate: React.FC = () => {
   const [factoryResetResult, setFactoryResetResult] = useState<any>(null);
   const [configBackups, setConfigBackups] = useState<any[]>([]);
   const [showConfigBackups, setShowConfigBackups] = useState(false);
+  
+  // Restart state
+  const [restartRequired, setRestartRequired] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -129,6 +133,22 @@ const SystemUpdate: React.FC = () => {
     }
   }, []);
 
+  // Handle application restart
+  const handleRestart = async () => {
+    if (!confirm(t('system_update.restart_required'))) {
+      return;
+    }
+    
+    setIsRestarting(true);
+    try {
+      await fetch('/api/restart', { method: 'POST' });
+      // The server will restart, so we won't get a response
+    } catch (error) {
+      // Expected - server is restarting
+      console.log('Server is restarting...');
+    }
+  };
+
   // Perform factory reset
   const performFactoryReset = async () => {
     if (!selectedDeviceType) return;
@@ -147,6 +167,10 @@ const SystemUpdate: React.FC = () => {
       
       if (data.status === 'success') {
         fetchConfigBackups();
+        // Check if restart is required
+        if (data.restart_required) {
+          setRestartRequired(true);
+        }
       }
     } catch (err) {
       setFactoryResetResult({ status: 'error', message: 'Failed to perform factory reset' });
@@ -1073,6 +1097,35 @@ const SystemUpdate: React.FC = () => {
       </div>
       {/* Self Test Modal */}
       <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />
+      
+      {/* Restart required toast - persistent, with restart button */}
+      {restartRequired && (
+        <div className="toast toast-top toast-center z-50">
+          <div className="alert alert-error shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <h3 className="font-bold">⚠️ {t('settings.app_restart_required')}</h3>
+              <div className="text-xs">{t('settings.config_changed')}</div>
+            </div>
+            <button 
+              className="btn btn-sm btn-warning"
+              onClick={handleRestart}
+              disabled={isRestarting}
+            >
+              {isRestarting ? (
+                <>
+                  <span className="loading loading-spinner loading-xs"></span>
+                  {t('settings.restarting')}
+                </>
+              ) : (
+                `🔄 ${t('settings.restart_now')}`
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

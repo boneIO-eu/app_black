@@ -17,6 +17,8 @@ interface OutputSelectDropdownProps {
   savedOutputs?: any[];
   /** Saved (committed) output groups for comparison */
   savedOutputGroups?: any[];
+  /** IDs to exclude from the list (e.g., to prevent selecting same output twice) */
+  excludeIds?: string[];
 }
 
 /**
@@ -31,6 +33,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
   placeholder = 'Select output...',
   savedOutputs,
   savedOutputGroups,
+  excludeIds = [],
 }) => {
   /**
    * Check if an output is saved (committed) by comparing with saved data.
@@ -48,19 +51,24 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
     }
   };
 
-  // Normalize outputs to have consistent id field
-  const normalizedOutputs = allOutputs.map((output) => {
-    const id = output.id || output.boneio_output;
-    const isGroup = output.isGroup || false;
-    const isSaved = isOutputSaved(id, isGroup);
-    return {
-      ...output,
-      id,
-      name: output.name || id,
-      isGroup,
-      isSaved,
-    };
-  });
+  // Normalize outputs to have consistent id field and filter out excluded IDs
+  const normalizedOutputs = allOutputs
+    .filter((output) => {
+      const id = output.id || output.boneio_output;
+      return !excludeIds.includes(id);
+    })
+    .map((output) => {
+      const id = output.id || output.boneio_output;
+      const isGroup = output.isGroup || false;
+      const isSaved = isOutputSaved(id, isGroup);
+      return {
+        ...output,
+        id,
+        name: output.name || id,
+        isGroup,
+        isSaved,
+      };
+    });
 
   // Find selected output for display
   const selectedOutput = normalizedOutputs.find((output) => output.id === value);

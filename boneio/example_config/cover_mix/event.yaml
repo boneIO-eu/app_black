@@ -3,104 +3,83 @@
 # PINs are shared between event.yaml and binary_sensor.yaml.
 # Don't duplicate PINs.
 
-# IN_01 and IN_02 are enabled in binary_sensor.yaml by default.
-# - id: IN_01
-#   boneio_input: IN_01
-#   actions:
-#     single:
-#       - action: cover
-#         action_cover: toggle_open
-#         boneio_cover: Cover01
-#     double:
-#       - action: cover
-#         action_cover: toggle_close
-#         boneio_cover: Cover01
-# - id: IN_02
-#   boneio_input: IN_02
-#   actions:
-#     single:
-#       - action: output
-#         boneio_output: OUT_01
-#     double:
-#       - action: output
-#         boneio_output: OUT_01
 - name: IN_03
   boneio_input: IN_03
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover02
+        boneio_cover: cover_02_up_02_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover02
+        boneio_cover: cover_02_up_02_down
 - name: IN_04
   boneio_input: IN_04
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover03
+        boneio_cover: cover_03_up_03_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover03
+        boneio_cover: cover_03_up_03_down
 - name: IN_05
   boneio_input: IN_05
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover04
+        boneio_cover: cover_04_up_04_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover04
+        boneio_cover: cover_04_up_04_down
 - name: IN_06
   boneio_input: IN_06
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover05
+        boneio_cover: cover_05_up_05_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover05
+        boneio_cover: cover_05_up_05_down
 - name: IN_07
   boneio_input: IN_07
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover06
+        boneio_cover: cover_06_up_06_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover06
+        boneio_cover: cover_06_up_06_down
 - name: IN_08
   boneio_input: IN_08
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover07
+        boneio_cover: cover_07_up_07_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover07
+        boneio_cover: cover_07_up_07_down
 - name: IN_09
   boneio_input: IN_09
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover08
+        boneio_cover: cover_08_up_08_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover08
+        boneio_cover: cover_08_up_08_down
 - name: IN_10
   boneio_input: IN_10
 - name: IN_11

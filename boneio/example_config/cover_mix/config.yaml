@@ -30,5 +30,13 @@ boneio:
   version: 0.8
   device_type: "Cover Mix"
   
+modbus:
+  uart: uart4
+
+logger:
+  default: info
+
 web:
-# adc: !include adc.yaml Uncomment only if needed.
+  port: 8090 #If you change this you need to change Nginx proxy settings in /home/boneio/docker/
+  nginx_proxy_port: 8091
+# adc: !include adc.yaml Uncomment only if needed. Not supported yet in v1.0.0

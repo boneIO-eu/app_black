@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "virtual_energy_sensor": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Sensor ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Sensor Name",
+            "title": "Name"
+          },
+          "output_id": {
+            "type": "string",
+            "description": "Output ID",
+            "title": "Output id"
+          },
+          "sensor_type": {
+            "type": "string",
+            "enum": [
+              "power",
+              "water"
+            ],
+            "examples": [
+              "power"
+            ],
+            "description": "Sensor Type",
+            "title": "Sensor type"
+          },
+          "power_usage": {
+            "type": "string",
+            "description": "Power Usage",
+            "title": "Power usage",
+            "x-dependencies": {
+              "sensor_type": [
+                "power"
+              ]
+            }
+          },
+          "flow_rate": {
+            "type": "string",
+            "description": "Flow Rate",
+            "title": "Flow rate",
+            "x-dependencies": {
+              "sensor_type": [
+                "water"
+              ]
+            }
+          },
+          "area": {
+            "type": "string",
+            "description": "Area",
+            "title": "Area"
+          }
+        },
+        "required": [
+          "name",
+          "output_id",
+          "sensor_type"
+        ]
+      },
+      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
+      "title": "Virtual energy sensor"
+    }
+  }
+}

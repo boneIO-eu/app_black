@@ -185,7 +185,7 @@ class CoverManager:
         """
         from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
         
-        platform = config.get("platform", "previous")
+        platform = config.get("platform", "time_based")
         
         def state_save(value: dict[str, int]):
             if config[RESTORE_STATE]:
@@ -204,6 +204,8 @@ class CoverManager:
             )
             if isinstance(restored_state, (float, int)):
                 restored_state = {"position": restored_state, "tilt_position": 100}
+            elif isinstance(restored_state, str):
+                restored_state = {"position": 100, "tilt_position": 100}
             cover = VenetianCover(
                 id=cover_id,
                 name=cover_name,
@@ -224,6 +226,8 @@ class CoverManager:
             )
             if isinstance(restored_state, (float, int)):
                 restored_state = {"position": restored_state}
+            elif isinstance(restored_state, str):
+                restored_state = {"position": 100}
             cover = TimeBasedCover(
                 id=cover_id,
                 name=cover_name,
@@ -235,13 +239,15 @@ class CoverManager:
                 **{k: v for k, v in config.items() if k not in ("platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_availabilty_message
-        else:
+        elif platform == "previous":
             _LOGGER.debug("Configuring previous cover %s", cover_id)
             restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
             if isinstance(restored_state, (float, int)):
                 restored_state = {"position": restored_state}
+            elif isinstance(restored_state, str):
+                restored_state = {"position": 100}
             cover = PreviousCover(
                 id=cover_id,
                 name=cover_name,

@@ -4,13 +4,13 @@
   "properties": {
     "output": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -64,16 +64,16 @@
           },
           "pin": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -81,22 +81,12 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
-          },
-          "virtual_power_usage": {
-            "type": "string",
-            "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
-            "title": "Virtual power usage"
-          },
-          "virtual_volume_flow_rate": {
-            "type": "string",
-            "description": "Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.",
-            "title": "Virtual volume flow rate"
           },
           "restore_state": {
             "oneOf": [
@@ -120,16 +110,16 @@
           },
           "interlock_group": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"

@@ -4,13 +4,13 @@
   "properties": {
     "event": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -67,8 +67,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -295,21 +295,41 @@
             "description": "Device class to use in HA",
             "title": "Device class"
           },
+          "double_click_duration": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
+            "default": "220ms",
+            "description": "Double Click Duration",
+            "title": "Double click duration"
+          },
+          "long_press_duration": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
+            "default": "400ms",
+            "description": "Long Press Duration",
+            "title": "Long press duration"
+          },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -335,8 +355,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -365,23 +392,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -419,13 +446,13 @@
               },
               "double": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -451,8 +478,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -481,23 +515,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -535,13 +569,13 @@
               },
               "long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -567,8 +601,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -597,23 +638,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"

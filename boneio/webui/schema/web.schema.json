@@ -4,25 +4,34 @@
   "properties": {
     "web": {
       "type": [
-        "object",
         "null",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8090,
           "description": "Port to run web server",
           "title": "Port"
         },
+        "nginx_proxy_port": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ],
+          "description": "Nginx reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
+          "title": "Nginx proxy port"
+        },
         "auth": {
           "type": [
-            "object",
             "null",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {

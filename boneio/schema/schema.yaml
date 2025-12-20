@@ -1061,7 +1061,7 @@ cover:
       platform:
         type: string
         required: True
-        default: previous
+        default: time_based
         allowed: ['time_based', 'venetian', 'previous']
         meta:
           label: Platform to use for cover.

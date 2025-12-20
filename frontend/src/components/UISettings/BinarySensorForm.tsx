@@ -219,12 +219,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     onChange({ ...data, [field]: value });
   };
 
-  const updateAction = (
-    type: 'pressed' | 'released',
-    index: number,
-    field: keyof Action,
-    value: any
-  ) => {
+  const updateAction = (type: 'pressed' | 'released', index: number, field: string, value: any) => {
     const actions = { ...data.actions };
     if (!actions[type]) actions[type] = [];
     const updatedActions = [...actions[type]!];
@@ -238,7 +233,18 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         ...(currentAction?.boneio_id && { boneio_id: currentAction.boneio_id })
       };
     } else {
-      updatedActions[index] = { ...updatedActions[index], [field]: value };
+      // When setting new boneio_output or boneio_cover, remove old pin field
+      if (field === 'boneio_output' || field === 'boneio_cover') {
+        const currentAction = updatedActions[index];
+        if (currentAction?.pin) {
+          const { pin, ...rest } = currentAction;
+          updatedActions[index] = { ...rest, [field]: value };
+        } else {
+          updatedActions[index] = { ...updatedActions[index], [field]: value };
+        }
+      } else {
+        updatedActions[index] = { ...updatedActions[index], [field]: value };
+      }
     }
     
     actions[type] = updatedActions;

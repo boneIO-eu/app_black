@@ -4,13 +4,13 @@
   "properties": {
     "areas": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -34,8 +34,8 @@
     },
     "mqtt": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "host": {
@@ -55,8 +55,8 @@
         },
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -69,8 +69,8 @@
         },
         "ha_discovery": {
           "type": [
-            "object",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {
@@ -115,25 +115,34 @@
     },
     "web": {
       "type": [
-        "object",
         "null",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8090,
           "description": "Port to run web server",
           "title": "Port"
         },
+        "nginx_proxy_port": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ],
+          "description": "Nginx reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
+          "title": "Nginx proxy port"
+        },
         "auth": {
           "type": [
-            "object",
             "null",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {
@@ -157,8 +166,8 @@
     },
     "logger": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "default": {
@@ -208,8 +217,8 @@
     },
     "oled": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "default": {},
       "properties": {
@@ -237,8 +246,8 @@
         },
         "screens": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "default": [
             "uptime",
@@ -271,13 +280,13 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "items": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "sensor_type": {
@@ -309,8 +318,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "x-timeperiod": true,
           "default": "60s",
@@ -323,8 +332,8 @@
     },
     "modbus": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "uart": {
@@ -344,15 +353,15 @@
         },
         "baudrate": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1,
           "enum": [
@@ -365,8 +374,8 @@
         },
         "bytesize": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8
         },
@@ -391,13 +400,13 @@
     },
     "modbus_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -417,8 +426,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -480,8 +489,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "minimum": 1000,
@@ -491,14 +500,14 @@
           },
           "sensors_filters": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "temperature": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -507,8 +516,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -516,8 +525,8 @@
               },
               "humidity": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -526,8 +535,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -544,24 +553,24 @@
           },
           "data": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "width": {
                 "type": [
-                  "integer",
+                  "string",
                   "number",
-                  "string"
+                  "integer"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "integer",
+                  "string",
                   "number",
-                  "string"
+                  "integer"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -586,13 +595,13 @@
     },
     "lm75": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -602,8 +611,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -611,8 +620,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -621,8 +630,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -631,8 +640,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -656,13 +665,13 @@
     },
     "ina219": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -672,8 +681,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -681,8 +690,8 @@
           },
           "sensors": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -700,8 +709,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ],
               "properties": {
                 "id": {
@@ -722,8 +731,8 @@
                 },
                 "filters": {
                   "type": [
-                    "array",
-                    "string"
+                    "string",
+                    "array"
                   ],
                   "default": [
                     {
@@ -732,8 +741,8 @@
                   ],
                   "items": {
                     "type": [
-                      "object",
-                      "string"
+                      "string",
+                      "object"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -744,8 +753,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -757,15 +766,88 @@
       "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
       "title": "Ina219"
     },
-    "mcp9808": {
+    "virtual_energy_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Sensor ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Sensor Name",
+            "title": "Name"
+          },
+          "output_id": {
+            "type": "string",
+            "description": "Output ID",
+            "title": "Output id"
+          },
+          "sensor_type": {
+            "type": "string",
+            "enum": [
+              "power",
+              "water"
+            ],
+            "examples": [
+              "power"
+            ],
+            "description": "Sensor Type",
+            "title": "Sensor type"
+          },
+          "power_usage": {
+            "type": "string",
+            "description": "Power Usage",
+            "title": "Power usage",
+            "x-dependencies": {
+              "sensor_type": [
+                "power"
+              ]
+            }
+          },
+          "flow_rate": {
+            "type": "string",
+            "description": "Flow Rate",
+            "title": "Flow rate",
+            "x-dependencies": {
+              "sensor_type": [
+                "water"
+              ]
+            }
+          },
+          "area": {
+            "type": "string",
+            "description": "Area",
+            "title": "Area"
+          }
+        },
+        "required": [
+          "name",
+          "output_id",
+          "sensor_type"
+        ]
+      },
+      "description": "Virtual energy/water sensors linked to outputs. Creates power/energy or flow/volume sensors in Home Assistant.",
+      "title": "Virtual energy sensor"
+    },
+    "mcp9808": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -775,8 +857,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -784,8 +866,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -794,8 +876,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -804,8 +886,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -829,13 +911,13 @@
     },
     "mcp23017": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -845,16 +927,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -871,13 +953,13 @@
     },
     "pcf8575": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -887,16 +969,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -913,13 +995,13 @@
     },
     "pca9685": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -929,16 +1011,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -955,13 +1037,13 @@
     },
     "output": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -1015,16 +1097,16 @@
           },
           "pin": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -1032,22 +1114,12 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
-          },
-          "virtual_power_usage": {
-            "type": "string",
-            "description": "Virtual power usage in Watts (e.g. 9 or '9W' OR 9kW). Used for virtual energy meter.",
-            "title": "Virtual power usage"
-          },
-          "virtual_volume_flow_rate": {
-            "type": "string",
-            "description": "Virtual volume flow rate in liters per hour (e.g. 9 or 9L/min OR 9L/h). Used for virtual flow meter.",
-            "title": "Virtual volume flow rate"
           },
           "restore_state": {
             "oneOf": [
@@ -1071,16 +1143,16 @@
           },
           "interlock_group": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1120,13 +1192,13 @@
     },
     "output_group": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1141,8 +1213,8 @@
           },
           "outputs": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Output IDs",
             "title": "Outputs"
@@ -1197,13 +1269,13 @@
     },
     "binary_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1255,8 +1327,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -1530,19 +1602,19 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1568,8 +1640,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -1598,23 +1677,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1652,13 +1731,13 @@
               },
               "released": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1684,8 +1763,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -1714,23 +1800,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1775,13 +1861,13 @@
     },
     "event": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -1838,8 +1924,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -2066,21 +2152,41 @@
             "description": "Device class to use in HA",
             "title": "Device class"
           },
+          "double_click_duration": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
+            "default": "220ms",
+            "description": "Double Click Duration",
+            "title": "Double click duration"
+          },
+          "long_press_duration": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "x-timeperiod": true,
+            "default": "400ms",
+            "description": "Long Press Duration",
+            "title": "Long press duration"
+          },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2106,8 +2212,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -2136,23 +2249,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2190,13 +2303,13 @@
               },
               "double": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2222,8 +2335,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -2252,23 +2372,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2306,13 +2426,13 @@
               },
               "long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2338,8 +2458,15 @@
                         "mqtt"
                       ]
                     },
-                    "pin": {
-                      "type": "string"
+                    "boneio_output": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Boneio output"
+                    },
+                    "boneio_cover": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Boneio cover"
                     },
                     "topic": {
                       "type": "string",
@@ -2368,23 +2495,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2429,13 +2556,13 @@
     },
     "adc": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2462,8 +2589,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -2494,8 +2621,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -2507,8 +2634,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2524,13 +2651,13 @@
     },
     "cover": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -2596,8 +2723,8 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
@@ -2605,8 +2732,8 @@
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
@@ -2614,8 +2741,8 @@
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
@@ -2623,8 +2750,8 @@
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
@@ -2685,13 +2812,13 @@
     },
     "ds2482": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2712,13 +2839,13 @@
     },
     "sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2783,8 +2910,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -2793,8 +2920,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2802,8 +2929,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -2831,8 +2958,8 @@
     },
     "boneio": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "name": {
@@ -2842,8 +2969,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.4",

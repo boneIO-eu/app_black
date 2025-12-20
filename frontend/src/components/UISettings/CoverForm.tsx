@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -32,17 +33,6 @@ const CoverForm: React.FC<CoverFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
-
-  // Get available outputs that have output_type === 'cover' (or deprecated 'none')
-  const availableCoverOutputs = useMemo(() => {
-    return allOutputs
-      .filter(output => {
-        const outputType = output.output_type?.toLowerCase();
-        return outputType === 'cover'; // 'none' is deprecated
-      })
-      .map(output => output.boneio_output || output.id)
-      .filter(Boolean);
-  }, [allOutputs]);
 
   // Extract enums from schema (exclude deprecated 'previous' platform)
   const platformOptions = (schema?.items?.properties?.platform?.enum || ['time_based', 'venetian', 'previous'])
@@ -202,29 +192,18 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('covers.open_relay')} *</span>
             </label>
-            {availableCoverOutputs.length === 0 ? (
-              <div className="alert alert-warning">
-                <span>{t('covers.no_cover_outputs')}</span>
-              </div>
-            ) : (
-              <Select
-                value={data.open_relay || ''}
-                onValueChange={(value) => updateField('open_relay', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('covers.select_relay')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCoverOutputs
-                    .filter((output: string) => output !== data.close_relay)
-                    .map((output: string) => (
-                      <SelectItem key={output} value={output}>
-                        {output}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
+            <OutputSelectDropdown
+              value={data.open_relay || ''}
+              onChange={(value: string) => updateField('open_relay', value)}
+              allOutputs={allOutputs.filter((output: any) => 
+                output && typeof output === 'object' && 
+                (output.id || output.boneio_output) &&
+                output.output_type?.toLowerCase() === 'cover'
+              )}
+              allAreas={allAreas}
+              placeholder={t('covers.select_relay')}
+              excludeIds={data.close_relay ? [data.close_relay] : []}
+            />
             <label className="label">
               <span className="label-text-alt text-info">
                 {t('covers.open_relay_hint')}
@@ -237,29 +216,18 @@ const CoverForm: React.FC<CoverFormProps> = ({
             <label className="label">
               <span className="label-text font-medium">{t('covers.close_relay')} *</span>
             </label>
-            {availableCoverOutputs.length === 0 ? (
-              <div className="alert alert-warning">
-                <span>{t('covers.no_cover_outputs')}</span>
-              </div>
-            ) : (
-              <Select
-                value={data.close_relay || ''}
-                onValueChange={(value) => updateField('close_relay', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('covers.select_relay')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCoverOutputs
-                    .filter((output: string) => output !== data.open_relay)
-                    .map((output: string) => (
-                      <SelectItem key={output} value={output}>
-                        {output}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
+            <OutputSelectDropdown
+              value={data.close_relay || ''}
+              onChange={(value: string) => updateField('close_relay', value)}
+              allOutputs={allOutputs.filter((output: any) => 
+                output && typeof output === 'object' && 
+                (output.id || output.boneio_output) &&
+                output.output_type?.toLowerCase() === 'cover'
+              )}
+              allAreas={allAreas}
+              placeholder={t('covers.select_relay')}
+              excludeIds={data.open_relay ? [data.open_relay] : []}
+            />
             <label className="label">
               <span className="label-text-alt text-info">
                 {t('covers.close_relay_hint')}

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 from fastapi.responses import StreamingResponse
 
-from boneio.core.config.yaml_util import load_config_from_file, update_config_section
+from boneio.core.config.yaml_util import load_config_from_file, update_config_section, load_yaml_file
 from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -104,7 +104,9 @@ async def get_parsed_config():
             return {"config": _config_cache["data"]}
         
         start = time.time()
-        config_data = load_config_from_file(config_file)
+        # Use load_yaml_file instead of load_config_from_file to get raw YAML data
+        # without TimePeriod parsing - frontend expects strings like "220ms", not objects
+        config_data = load_yaml_file(config_file)
         elapsed = time.time() - start
         
         _config_cache["data"] = config_data

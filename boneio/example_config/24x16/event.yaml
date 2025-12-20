@@ -3,7 +3,6 @@
 # PINs are shared between event.yaml and binary_sensor.yaml.
 # Don't duplicate PINs.
 
-# IN_48 and IN_49 are enabled in binary_sensor.yaml by default.
 - name: IN_01
   boneio_input: IN_01
   actions:
@@ -207,7 +206,3 @@
   boneio_input: IN_46
 - name: IN_47
   boneio_input: IN_47
-# - id: IN_48
-#   boneio_input: IN_48
-# - id: IN_49
-#   boneio_input: IN_49

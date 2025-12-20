@@ -30,165 +30,165 @@
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover02
+        boneio_cover: cover_02_up_02_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover02
+        boneio_cover: cover_02_up_02_down
 - name: IN_04
   boneio_input: IN_04
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover03
+        boneio_cover: cover_03_up_03_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover03
+        boneio_cover: cover_03_up_03_down
 - name: IN_05
   boneio_input: IN_05
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover04
+        boneio_cover: cover_04_up_04_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover04
+        boneio_cover: cover_04_up_04_down
 - name: IN_06
   boneio_input: IN_06
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover05
+        boneio_cover: cover_05_up_05_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover05
+        boneio_cover: cover_05_up_05_down
 - name: IN_07
   boneio_input: IN_07
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover06
+        boneio_cover: cover_06_up_06_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover06
+        boneio_cover: cover_06_up_06_down
 - name: IN_08
   boneio_input: IN_08
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover07
+        boneio_cover: cover_07_up_07_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover07
+        boneio_cover: cover_07_up_07_down
 - name: IN_09
   boneio_input: IN_09
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover08
+        boneio_cover: cover_08_up_08_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover08
+        boneio_cover: cover_08_up_08_down
 - name: IN_10
   boneio_input: IN_10
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover09
+        boneio_cover: cover_09_up_09_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover09
+        boneio_cover: cover_09_up_09_down
 - name: IN_11
   boneio_input: IN_11
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover10
+        boneio_cover: cover_10_up_10_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover10
+        boneio_cover: cover_10_up_10_down
 - name: IN_12
   boneio_input: IN_12
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover11
+        boneio_cover: cover_11_up_11_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover11
+        boneio_cover: cover_11_up_11_down
 - name: IN_13
   boneio_input: IN_13
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover12
+        boneio_cover: cover_12_up_12_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover12
+        boneio_cover: cover_12_up_12_down
 - name: IN_14
   boneio_input: IN_14
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover13
+        boneio_cover: cover_13_up_13_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover13
+        boneio_cover: cover_13_up_13_down
 - name: IN_15
   boneio_input: IN_15
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover14
+        boneio_cover: cover_14_up_14_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover14
+        boneio_cover: cover_14_up_14_down
 - name: IN_16
   boneio_input: IN_16
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover15
+        boneio_cover: cover_15_up_15_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover15
+        boneio_cover: cover_15_up_15_down
 - name: IN_17
   boneio_input: IN_17
   actions:
     single:
       - action: cover
         action_cover: toggle_open
-        boneio_cover: Cover16
+        boneio_cover: cover_16_up_16_down
     double:
       - action: cover
         action_cover: toggle_close
-        boneio_cover: Cover16
+        boneio_cover: cover_16_up_16_down
 - name: IN_18
   boneio_input: IN_18
 - name: IN_19

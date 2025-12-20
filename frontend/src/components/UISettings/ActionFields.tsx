@@ -85,6 +85,19 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   const validationError = showValidation ? validateAction(action, t) : null;
 
   /**
+   * Wrapper for onUpdate that removes deprecated 'pin' field when setting new fields
+   */
+  const handleUpdate = (field: string, value: any) => {
+    if (field === 'boneio_output' || field === 'boneio_cover') {
+      // When setting new field, also remove old 'pin' field if it exists
+      if (action.pin) {
+        onUpdate('pin', undefined);
+      }
+    }
+    onUpdate(field, value);
+  };
+
+  /**
    * Check if a cover is saved (committed) by comparing with saved data.
    * Returns true if cover exists in saved data.
    */
@@ -147,7 +160,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             </label>
             <Select
               value={action.boneio_cover || action.pin || ''}
-              onValueChange={(value) => onUpdate('boneio_cover', value)}
+              onValueChange={(value) => handleUpdate('boneio_cover', value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder={t('event_form.select_cover')} />
@@ -212,9 +225,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             </label>
             <OutputSelectDropdown
               value={action.boneio_output || action.pin || ''}
-              onChange={(value: string) => onUpdate('boneio_output', value)}
+              onChange={(value: string) => handleUpdate('boneio_output', value)}
               allOutputs={[
-                ...allOutputs.filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output)),
+                ...allOutputs.filter((output: any) => output && typeof output === 'object' && output.output_type?.toLowerCase() !== 'cover' && (output.id || output.boneio_output)),
                 ...allOutputGroups.filter((group: any) => group && typeof group === 'object' && group.id).map((group: any) => ({
                   ...group,
                   id: group.id,
@@ -309,7 +322,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               className="input input-bordered w-full"
               placeholder={t('event_form.output_id_placeholder')}
               value={action.boneio_output || action.pin || ''}
-              onChange={(e) => onUpdate('boneio_output', e.target.value)}
+              onChange={(e) => handleUpdate('boneio_output', e.target.value)}
             />
             <label className="label">
               <span className="label-text-alt">{t('event_form.output_id_hint')}</span>
@@ -366,7 +379,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               className="input input-bordered w-full"
               placeholder={t('event_form.cover_id_placeholder')}
               value={action.boneio_cover || action.pin || ''}
-              onChange={(e) => onUpdate('boneio_cover', e.target.value)}
+              onChange={(e) => handleUpdate('boneio_cover', e.target.value)}
             />
             <label className="label">
               <span className="label-text-alt">{t('event_form.cover_id_hint')}</span>
