@@ -159,3 +159,21 @@ async def get_restart_status():
     if _app_state:
         return {"restart_pending": getattr(_app_state, 'restart_pending', False)}
     return {"restart_pending": False}
+
+
+@router.get("/hardware/errors")
+async def get_hardware_errors():
+    """
+    Get hardware initialization errors.
+    
+    Returns list of hardware errors that occurred during startup,
+    such as I2C communication failures with MCP23017/PCF8575/PCA9685.
+    
+    Returns:
+        Dictionary with errors list.
+    """
+    if _app_state and hasattr(_app_state, 'manager'):
+        manager = _app_state.manager
+        errors = getattr(manager, '_hardware_errors', [])
+        return {"errors": errors}
+    return {"errors": []}

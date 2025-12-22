@@ -15,7 +15,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { useApiAvailability } from './hooks/useApiAvailability';
 import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
-import SystemUpdate from './components/UISettings/SystemUpdate';
+import SystemState from './components/UISettings/SystemState';
 import NodeRedView from './components/NodeRedView';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
@@ -286,10 +286,10 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/system-update" element={
+        <Route path="/system" element={
           <ProtectedRoute>
             <Layout>
-              <SystemUpdate />
+              <SystemState />
             </Layout>
           </ProtectedRoute>
         } />

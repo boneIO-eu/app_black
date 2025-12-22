@@ -79,7 +79,9 @@
     "output_type": "Typ wyjścia",
     "restore_state": "Przywracanie stanu",
     "momentary_turn_on": "Chwilowe włączenie",
-    "momentary_turn_off": "Chwilowe wyłączenie"
+    "momentary_turn_off": "Chwilowe wyłączenie",
+    "hardware_errors_found": "błędów sprzętowych znaleziono",
+    "view_details": "Zobacz szczegóły"
   },
   "inputs": {
     "title": "Wejścia",
@@ -320,7 +322,9 @@
     "no_config_backups": "Brak dostępnych kopii zapasowych konfiguracji.",
     "files": "Pliki",
     "yaml_files": "plików YAML",
-    "restore": "Przywróć"
+    "restore": "Przywróć",
+    "hardware_errors_title": "Błędy Inicjalizacji Sprzętu",
+    "hardware_errors_hint": "Nie udało się zainicjalizować expanderów sprzętowych. Sprawdź adresy I2C w konfiguracji MCP23017/PCF8575/PCA9685 i zweryfikuj połączenia sprzętowe."
   },
   "areas": {
     "title": "Obszary",

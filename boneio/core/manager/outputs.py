@@ -165,9 +165,10 @@ class OutputManager:
         grouped_outputs = {}
         for expander in expander_config:
             id = expander[ID] or expander[ADDRESS]
+            address = expander[ADDRESS]
             try:
                 expander_dict[id] = _EXPANDER_CLASS[exp_type](
-                    i2c=self._manager._i2cbusio, address=expander[ADDRESS], reset=False
+                    i2c=self._manager._i2cbusio, address=address, reset=False
                 )
                 sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
                 if sleep_time.total_seconds > 0:
@@ -179,8 +180,20 @@ class OutputManager:
                 else:
                     _LOGGER.debug("%s %s is initializing.", exp_type, id)
                 grouped_outputs[id] = {}
-            except TimeoutError as err:
-                _LOGGER.error("Can't connect to %s %s: %s", exp_type, id, err)
+            except (TimeoutError, OSError) as err:
+                error_msg = f"Can't connect to {exp_type} at address {address:#x} (ID: {id}): {err}"
+                _LOGGER.error(error_msg)
+                # Store error in manager for WebUI display
+                if not hasattr(self._manager, '_hardware_errors'):
+                    self._manager._hardware_errors = []
+                self._manager._hardware_errors.append({
+                    'type': 'expander',
+                    'expander_type': exp_type,
+                    'id': id,
+                    'address': address,
+                    'error': str(err),
+                    'message': error_msg
+                })
         return grouped_outputs
 
     def _configure_output_groups(self) -> None:
@@ -576,6 +589,21 @@ class OutputManager:
                 config=config_copy,
                 restore_state=effective_restore_state,
             )
+            
+            # Check if output was successfully configured
+            if out is None:
+                _LOGGER.warning("Skipping output '%s' - failed to configure (expander not available)", _id)
+                # Add to hardware errors for WebUI display
+                if not hasattr(self._manager, '_hardware_errors'):
+                    self._manager._hardware_errors = []
+                self._manager._hardware_errors.append({
+                    'type': 'output',
+                    'id': _id,
+                    'name': _name,
+                    'error': 'Expander not available',
+                    'message': f"Output '{_id}' ({_name}) skipped - expander not initialized"
+                })
+                continue
             
             # Store area on output object for later use
             out.area = area

@@ -13,6 +13,7 @@ import {
   FaRedo,
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
+import HardwareErrors from './HardwareErrors';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -58,7 +59,7 @@ interface Backup {
   timestamp: string;
 }
 
-const SystemUpdate: React.FC = () => {
+const SystemState: React.FC = () => {
   const { outputs } = useContext(WebSocketContext);
   const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -109,6 +110,20 @@ const SystemUpdate: React.FC = () => {
   const [passwordResults, setPasswordResults] = useState<{
     [key: string]: { status: string; message: string };
   }>({});
+
+  // Hardware errors state
+  const [hardwareErrors, setHardwareErrors] = useState<any[]>([]);
+
+  // Fetch hardware errors
+  const fetchHardwareErrors = useCallback(async () => {
+    try {
+      const response = await fetch('/api/hardware/errors');
+      const data = await response.json();
+      setHardwareErrors(data.errors || []);
+    } catch (err) {
+      console.error('Failed to fetch hardware errors:', err);
+    }
+  }, []);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -460,7 +475,8 @@ const SystemUpdate: React.FC = () => {
   useEffect(() => {
     checkForUpdates();
     fetchBackups();
-  }, [checkForUpdates, fetchBackups]);
+    fetchHardwareErrors();
+  }, [checkForUpdates, fetchBackups, fetchHardwareErrors]);
 
   // Format date
   const formatDate = (dateStr: string) => {
@@ -554,7 +570,11 @@ const SystemUpdate: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Hardware Errors - Separate Container */}
+      <HardwareErrors errors={hardwareErrors} />
+
+      {/* System Update Card */}
       <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
           <div className="space-y-6">
@@ -1500,4 +1520,4 @@ const SystemUpdate: React.FC = () => {
   );
 };
 
-export default SystemUpdate;
+export default SystemState;

@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo } from 'react';
+import { useState, useContext, useMemo, useEffect } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
@@ -6,6 +6,7 @@ import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } fr
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
+import { FaExclamationTriangle } from 'react-icons/fa';
 
 // Output type categories
 type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
@@ -27,11 +28,30 @@ export default function OutputsView({error}: {error: string | null}) {
   const { t } = useTranslation();
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers, groups } = useContext(WebSocketContext);
+  const [hardwareErrorsCount, setHardwareErrorsCount] = useState<number>(0);
   
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
+
+  // Fetch hardware errors count
+  useEffect(() => {
+    const fetchHardwareErrors = async () => {
+      try {
+        const response = await fetch('/api/hardware/errors');
+        const data = await response.json();
+        setHardwareErrorsCount(data.errors?.length || 0);
+      } catch (err) {
+        console.error('Failed to fetch hardware errors:', err);
+      }
+    };
+
+    fetchHardwareErrors();
+    // Poll every 30 seconds
+    const interval = setInterval(fetchHardwareErrors, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Get translated category labels
   const getCategoryLabel = (category: OutputCategory): string => {
@@ -231,6 +251,24 @@ export default function OutputsView({error}: {error: string | null}) {
         </div>
       </div>
       {outputError && <div className='toast'><div className="alert alert-error">{outputError}</div></div>}
+      
+      {/* Hardware Errors Toast */}
+      {hardwareErrorsCount > 0 && (
+        <div className="toast toast-top toast-center z-50">
+          <div className="alert alert-error shadow-lg">
+            <FaExclamationTriangle />
+            <div>
+              <h3 className="font-bold">{t('system_update.hardware_errors_title')}</h3>
+              <div className="text-xs">
+                {hardwareErrorsCount} {t('outputs.hardware_errors_found')}
+              </div>
+            </div>
+            <a href="/system" className="btn btn-sm btn-outline">
+              {t('outputs.view_details')}
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

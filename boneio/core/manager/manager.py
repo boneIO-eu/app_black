@@ -123,6 +123,9 @@ class Manager:
         self._config_file_path = config_file_path
         self._topic_prefix = config_helper.topic_prefix
         
+        # Hardware errors storage for WebUI
+        self._hardware_errors: list[dict[str, Any]] = []
+        
         # Web server info
         self._web_active = web_active
         self._web_port = web_port

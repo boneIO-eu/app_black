@@ -111,7 +111,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings') }] : []),
     { path: '/config', icon: FaCode, label: t('navigation.config') },
     { path: '/logs', icon: FaList, label: t('navigation.logs') },
-    { path: '/system-update', icon: FaCog, label: t('navigation.system_update') },
+    { path: '/system', icon: FaCog, label: t('navigation.system_update') },
     // Node-RED - only show if available via nginx proxy
     ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED' }] : []),
     { path: '/help', icon: FaQuestionCircle, label: t('navigation.help') },
