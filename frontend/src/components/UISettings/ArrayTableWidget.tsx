@@ -635,11 +635,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             <td className="uppercase">{item.open_relay || '-'}</td>
             <td className="uppercase">{item.close_relay || '-'}</td>
             <td>
-              <div className="text-xs">
-                <div>Open: {item.open_time ? `${item.open_time}ms` : '-'}</div>
-                <div>Close: {item.close_time ? `${item.close_time}ms` : '-'}</div>
-                {item.tilt_duration && <div>Tilt: {item.tilt_duration}ms</div>}
-                {item.actuator_activation_duration && <div>Actuator: {item.actuator_activation_duration}ms</div>}
+              <div className="text-xs capitalize">
+                <div>{t('covers.open')}: {item.open_time ? `${item.open_time}ms` : '-'}</div>
+                <div>{t('covers.close')}: {item.close_time ? `${item.close_time}ms` : '-'}</div>
+                {item.tilt_duration && <div>{t('covers.tilt')}: {item.tilt_duration}ms</div>}
+                {item.actuator_activation_duration && <div>{t('covers.actuator_duration').replace(' Activation Duration', '').replace(' Aktywacji Siłownika', '')}: {item.actuator_activation_duration}ms</div>}
               </div>
             </td>
             <td>

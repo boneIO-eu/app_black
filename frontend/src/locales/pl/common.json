@@ -5,7 +5,7 @@
     "inputs": "Wejścia",
     "sensors": "Czujniki",
     "modbus": "Modbus",
-    "modbus_helper": "Pomocnik Modbus",
+    "modbus_helper": "Narzędzia dodatkowe",
     "config": "Edytor YAML",
     "settings": "Ustawienia",
     "logs": "Logi",
@@ -357,7 +357,13 @@
       "cover": "Skonfiguruj rolety, żaluzje i bramy garażowe z przekaźnikami otwierania/zamykania.",
       "modbus_devices": "Dodaj urządzenia Modbus jak liczniki energii, czujniki temperatury i inne urządzenia RS485.",
       "sensor": "Skonfiguruj czujniki temperatury 1-Wire (DS18B20) podłączone do urządzenia.",
-      "virtual_energy_sensor": "Skonfiguruj wirtualne sensory energii i wody powiązane z wyjściami dla panelu Energia w Home Assistant."
+      "virtual_energy_sensor": "Skonfiguruj wirtualne sensory energii i wody powiązane z wyjściami dla panelu Energia w Home Assistant.",
+      "mcp23017": "Skonfiguruj adresy I2C ekspanderów MCP23017. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
+      "logger": "Skonfiguruj poziomy logowania dla konkretnych modułów Python (np., boneio.modbus, pymodbus).",
+      "boneio": "Konfiguracja boneIO",
+      "mqtt": "Konfiguracja MQTT",
+      "web": "Konfiguracja Serwera Web",
+      "modbus": "Konfiguracja Modbus"
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -414,6 +420,16 @@
     "technical_id": "Techniczne ID dla tematów MQTT. Tylko małe litery, cyfry i podkreślniki.",
     "will_be": "Będzie"
   },
+  "modbus_view": {
+    "title": "Urządzenia Modbus",
+    "no_devices": "Brak skonfigurowanych urządzeń Modbus",
+    "sensors": "Czujniki",
+    "controls": "Sterowanie",
+    "other_group": "Inne",
+    "set_button": "Ustaw",
+    "enter_value": "Wprowadź wartość",
+    "error_setting_value": "Nie udało się ustawić wartości"
+  },
   "modbus_config": {
     "uart": "UART",
     "uart_required": "UART",
@@ -434,7 +450,12 @@
     "module_levels": "Poziomy Logowania dla Modułów",
     "module_levels_help": "Ustaw niestandardowe poziomy logowania dla konkretnych modułów Python (np. boneio.modbus, pymodbus.logging)",
     "add": "Dodaj",
-    "remove_module": "Usuń moduł"
+    "remove_module": "Usuń moduł",
+    "common_modules_title": "Szybkie Dodawanie Popularnych Modułów",
+    "common_modules_description": "Dodaj często używane moduły z rekomendowanymi poziomami logowania",
+    "debug_warning": "Używaj <strong>DEBUG</strong> tylko do debugowania. Tworzy duże pliki logów!",
+    "module_added": "Dodano",
+    "module_add": "Dodaj"
   },
   "boneio_config": {
     "name": "Nazwa",

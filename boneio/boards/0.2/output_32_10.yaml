@@ -1,0 +1,137 @@
+mcp23017:
+  - id: mcp_right
+    address: 0x20
+  - id: mcp_left
+    address: 0x21
+
+output_mapping:
+  out_01:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 7
+  out_02:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 6
+  out_03:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 5
+  out_04:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 4
+  out_05:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 3
+  out_06:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 2
+  out_07:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 1
+  out_08:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 0
+  out_09:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 7
+  out_10:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 6
+  out_11:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 5
+  out_12:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 4
+  out_13:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 3
+  out_14:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 2
+  out_15:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 1
+  out_16:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 0
+  out_17:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 8
+  out_18:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 9
+  out_19:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 10
+  out_20:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 11
+  out_21:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 12
+  out_22:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 13
+  out_23:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 14
+  out_24:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 15
+  out_25:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 8
+  out_26:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 9
+  out_27:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 10
+  out_28:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 11
+  out_29:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 12
+  out_30:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 13
+  out_31:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 14
+  out_32:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 15
+
+

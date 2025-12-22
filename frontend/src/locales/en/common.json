@@ -5,7 +5,7 @@
     "inputs": "Inputs",
     "sensors": "Sensors",
     "modbus": "Modbus",
-    "modbus_helper": "Modbus Helper",
+    "modbus_helper": "Helper tool",
     "config": "YAML editor",
     "settings": "Settings",
     "logs": "Logs",
@@ -388,7 +388,13 @@
       "cover": "Configure covers like blinds, shutters, and garage doors with open/close relays.",
       "modbus_devices": "Add Modbus devices like energy meters, temperature sensors, and other RS485 equipment.",
       "sensor": "Configure 1-Wire temperature sensors (DS18B20) connected to your device.",
-      "virtual_energy_sensor": "Configure virtual energy and water sensors linked to outputs for Home Assistant Energy panel."
+      "virtual_energy_sensor": "Configure virtual energy and water sensors linked to outputs for Home Assistant Energy panel.",
+      "mcp23017": "Configure I2C addresses of GPIO expanders. Default addresses are set automatically by board configuration. Change only if your board has different addresses.",
+      "logger": "Configure log levels for specific Python modules (e.g., boneio.modbus, pymodbus).",
+      "boneio": "boneIO",
+      "mqtt": "MQTT",
+      "web": "Web Server",
+      "modbus": "Modbus"
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -413,6 +419,16 @@
     "technical_id": "Technical ID for MQTT topics. Only lowercase letters, numbers and underscores.",
     "will_be": "Will be"
   },
+  "modbus_view": {
+    "title": "Modbus Devices",
+    "no_devices": "No Modbus devices configured",
+    "sensors": "Sensors",
+    "controls": "Controls",
+    "other_group": "Other",
+    "set_button": "Set",
+    "enter_value": "Enter value",
+    "error_setting_value": "Failed to set value"
+  },
   "modbus_config": {
     "uart": "UART",
     "uart_required": "UART",
@@ -433,7 +449,12 @@
     "module_levels": "Module-specific Log Levels",
     "module_levels_help": "Set custom log levels for specific Python modules (e.g., boneio.modbus, pymodbus.logging)",
     "add": "Add",
-    "remove_module": "Remove module"
+    "remove_module": "Remove module",
+    "common_modules_title": "Quick Add Common Modules",
+    "common_modules_description": "Add frequently used modules with recommended log levels",
+    "debug_warning": "Use <strong>DEBUG</strong> only for troubleshooting. It creates large log files!",
+    "module_added": "Added",
+    "module_add": "Add"
   },
   "boneio_config": {
     "name": "Name",

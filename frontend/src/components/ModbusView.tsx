@@ -4,6 +4,7 @@ import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Separate component for individual Modbus device - memoized by device.id and state
 const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
@@ -11,6 +12,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
   isGrid: boolean;
   onValueChange: (coordinatorId: string, entityId: string, value: string | number) => void;
 }) => {
+  const { t } = useTranslation();
   const handleSelectChange = async (value: string) => {
     // Extract entity_id from device.id (format: {coordinator_id}{decoded_name})
     // or use decoded_name if it's available
@@ -156,9 +158,9 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
 
     // Format placeholder to show decimal when step is decimal
     const formatPlaceholder = (value: string | number | null) => {
-      if (value === null || value === undefined) return 'Enter value';
+      if (value === null || value === undefined) return t('modbus_view.enter_value');
       const numValue = typeof value === 'string' ? parseFloat(value) : value;
-      if (isNaN(numValue)) return 'Enter value';
+      if (isNaN(numValue)) return t('modbus_view.enter_value');
       
       // Show decimal if step is less than 1
       if (device.step && device.step < 1) {
@@ -205,7 +207,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
                 disabled={!isValueChanged()}
                 onClick={() => handleWriteableSensorChange(inputValue)}
               >
-                Set
+                {t('modbus_view.set_button')}
               </button>
             </div>
             <p className="text-gray-500 text-xs mt-2">
@@ -261,6 +263,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
 });
 
 export default function ModbusView() {
+  const { t } = useTranslation();
   const { modbus_devices } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('modbusViewMode');
@@ -276,7 +279,7 @@ export default function ModbusView() {
   // Group Modbus devices by device_group - memoized
   const groupedModbusDevices = useMemo(() => {
     const groups = validModbusDevices.reduce((groups, device) => {
-      const group = device.device_group || 'Other';
+      const group = device.device_group || t('modbus_view.other_group');
       if (!groups[group]) {
         groups[group] = [];
       }
@@ -330,14 +333,14 @@ export default function ModbusView() {
       setError(null);
     } catch (err: any) {
       console.error('Error setting modbus value:', err);
-      setError(err.response?.data?.detail || 'Failed to set value');
+      setError(err.response?.data?.detail || t('modbus_view.error_setting_value'));
     }
   };
 
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Modbus Devices</h2>
+        <h2 className="text-xl font-bold">{t('modbus_view.title')}</h2>
         <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
       </div>
       
@@ -350,7 +353,7 @@ export default function ModbusView() {
       {/* Grouped Modbus Devices */}
       {Object.keys(groupedModbusDevices).length === 0 ? (
         <div className="text-center py-8 text-base-content/60">
-          No Modbus devices configured
+          {t('modbus_view.no_devices')}
         </div>
       ) : (
         Object.entries(groupedModbusDevices).map(([groupName, devices]) => {
@@ -364,7 +367,7 @@ export default function ModbusView() {
                 {/* Sensors Section */}
                 {sensors.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-md font-medium text-base-content/70 mb-3">Sensors</h4>
+                    <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.sensors')}</h4>
                     <div className={isGrid 
                       ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
                       : "flex flex-col gap-4"
@@ -384,7 +387,7 @@ export default function ModbusView() {
                 {/* Writeable Entities Section */}
                 {writeable.length > 0 && (
                   <div>
-                    <h4 className="text-md font-medium text-base-content/70 mb-3">Controls</h4>
+                    <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.controls')}</h4>
                     <div className={isGrid 
                       ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
                       : "flex flex-col gap-4"

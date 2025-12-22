@@ -47,19 +47,47 @@ const OutputForm: React.FC<OutputFormProps> = ({
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
-  // Extract enums from schema for dropdowns
-  const getOutputCount = (deviceType: string) => {
+  // Generate output names based on device type
+  const generateBoneioOutputs = (deviceType: string) => {
     const type = deviceType?.toLowerCase() || '';
-    if (type.includes('32') || type.includes('cm')) {
-      return 32; // 32x10A, Cover, Cover Mix
-    } else if (type.includes('24')) {
-      return 24; // 24x16A
+    
+    // Cover type: 01_up, 01_down, 02_up, 02_down ... 16_up, 16_down
+    if (type === 'cover') {
+      const outputs: string[] = [];
+      for (let i = 1; i <= 16; i++) {
+        const num = i.toString().padStart(2, '0');
+        outputs.push(`${num}_up`);
+        outputs.push(`${num}_down`);
+      }
+      return outputs;
     }
-    return 49; // default fallback
+    
+    // Cover Mix type: 01_up, 01_down, 02_up, 02_down ... 08_up, 08_down
+    if (type === 'cover mix') {
+      const outputs: string[] = [];
+      for (let i = 1; i <= 8; i++) {
+        const num = i.toString().padStart(2, '0');
+        outputs.push(`${num}_up`);
+        outputs.push(`${num}_down`);
+      }
+      return outputs;
+    }
+    
+    // 24x16A: OUT_01 - OUT_24
+    if (type.includes('24')) {
+      return Array.from({ length: 24 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
+    }
+    
+    // 32x10A: OUT_01 - OUT_32
+    if (type.includes('32')) {
+      return Array.from({ length: 32 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
+    }
+    
+    // Default fallback: OUT_01 - OUT_49
+    return Array.from({ length: 49 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
   };
 
-  const outputCount = getOutputCount(deviceType || '');
-  const allBoneioOutputs = Array.from({ length: outputCount }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
+  const allBoneioOutputs = generateBoneioOutputs(deviceType || '');
   
   // Filter out already used outputs (except current one)
   const usedOutputs = allOutputs
@@ -84,7 +112,18 @@ const OutputForm: React.FC<OutputFormProps> = ({
   const outputTypeOptions = schema?.items?.properties?.output_type?.enum || [];
 
   const updateField = (field: string, value: any) => {
-    onChange({ ...data, [field]: value });
+    const newData = { ...data, [field]: value };
+    
+    // When changing to cover type, clear incompatible fields
+    if (field === 'output_type' && value === 'cover') {
+      delete newData.momentary_turn_on;
+      delete newData.momentary_turn_off;
+      delete newData.interlock_group;
+      delete newData.area;
+      delete newData.restore_state;
+    }
+    
+    onChange(newData);
   };
 
   const toggleRestoreState = () => {
@@ -98,21 +137,23 @@ const OutputForm: React.FC<OutputFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* DaisyUI Tabs */}
-      <div className="tabs tabs-bordered tabs-lifted">
-        <a 
-          className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('basic')}
-        >
-          {t('settings.basic_settings') || 'Basic Settings'}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('advanced')}
-        >
-          {t('settings.advanced_settings') || 'Advanced Settings'}
-        </a>
-      </div>
+      {/* DaisyUI Tabs - Hide Advanced tab for cover type */}
+      {data.output_type !== 'cover' && (
+        <div className="tabs tabs-bordered tabs-lifted">
+          <a 
+            className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('basic')}
+          >
+            {t('settings.basic_settings') || 'Basic Settings'}
+          </a>
+          <a 
+            className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('advanced')}
+          >
+            {t('settings.advanced_settings') || 'Advanced Settings'}
+          </a>
+        </div>
+      )}
 
       {/* Basic Settings Tab */}
       {activeTab === 'basic' && (
@@ -227,54 +268,61 @@ const OutputForm: React.FC<OutputFormProps> = ({
               </label>
             </div>
 
-            {/* Area / Room */}
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('outputs.area')}</span>
-              </label>
-              <Select
-                value={data.area || '_none_'}
-                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('outputs.no_area')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                  {allAreas.map((area) => (
-                    <SelectItem key={area.id} value={area.id}>
-                      {area.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="label">
-                <span className="label-text-alt whitespace-normal wrap-break-word">
-                  {allAreas.length === 0 
-                    ? t('outputs.area_empty_hint')
-                    : t('outputs.area_hint')
-                  }
-                </span>
-              </label>
-            </div>
+            {/* Area / Room - Hidden for cover type */}
+            {data.output_type !== 'cover' && (
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('outputs.area')}</span>
+                </label>
+                <Select
+                  value={data.area || '_none_'}
+                  onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t('outputs.no_area')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
+                    {allAreas.map((area) => (
+                      <SelectItem key={area.id} value={area.id}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <label className="label">
+                  <span className="label-text-alt whitespace-normal wrap-break-word">
+                    {allAreas.length === 0 
+                      ? t('outputs.area_empty_hint')
+                      : t('outputs.area_hint')
+                    }
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
 
-          <div className="divider">{t('outputs.divider_options')}</div>
+          {/* Restore State - Hidden for cover type */}
+          {data.output_type !== 'cover' && (
+            <>
+              <div className="divider">{t('outputs.divider_options')}</div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('outputs.restore_state')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.restore_state === true}
-                  onChange={toggleRestoreState}
-                />
-                <span className="label-text">{getFieldDescription('restore_state')}</span>
-              </label>
-            </fieldset>
-          </div>
+              <div className="grid grid-cols-1 gap-4">
+                <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                  <legend className="fieldset-legend">{t('outputs.restore_state')}</legend>
+                  <label className="label cursor-pointer justify-start gap-4">
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary"
+                      checked={data.restore_state === true}
+                      onChange={toggleRestoreState}
+                    />
+                    <span className="label-text">{getFieldDescription('restore_state')}</span>
+                  </label>
+                </fieldset>
+              </div>
+            </>
+          )}
         </div>
       )}
 

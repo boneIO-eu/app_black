@@ -1,0 +1,169 @@
+mcp23017:
+  - id: mcp_right
+    address: 0x20
+  - id: mcp_left
+    address: 0x21
+
+output_mapping:
+  01_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 7
+    output_type: none
+  01_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 6
+    output_type: none
+  02_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 5
+    output_type: none
+  02_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 4
+    output_type: none
+  03_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 3
+    output_type: none
+  03_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 2
+    output_type: none
+  04_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 1
+    output_type: none
+  04_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 0
+    output_type: none
+  05_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 7
+    output_type: none
+  05_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 6
+    output_type: none
+  06_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 5
+    output_type: none
+  06_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 4
+    output_type: none
+  07_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 3
+    output_type: none
+  07_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 2
+    output_type: none
+  08_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 1
+    output_type: none
+  08_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 0
+    output_type: none
+  09_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 8
+    output_type: none
+  09_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 9
+    output_type: none
+  10_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 10
+    output_type: none
+  10_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 11
+    output_type: none
+  11_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 12
+    output_type: none
+  11_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 13
+    output_type: none
+  12_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 14
+    output_type: none
+  12_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 15
+    output_type: none
+  13_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 8
+    output_type: none
+  13_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 9
+    output_type: none
+  14_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 10
+    output_type: none
+  14_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 11
+    output_type: none
+  15_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 12
+    output_type: none
+  15_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 13
+    output_type: none
+  16_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 14
+    output_type: none
+  16_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 15
+    output_type: none
+
+

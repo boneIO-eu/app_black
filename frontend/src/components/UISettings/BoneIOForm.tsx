@@ -58,6 +58,11 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('version', e.target.value || undefined)}
         >
           <option value="">{t('boneio_config.select_version')}</option>
+          <option value="0.2">0.2</option>
+          <option value="0.3">0.3</option>
+          <option value="0.4">0.4</option>
+          <option value="0.5">0.5</option>
+          <option value="0.6">0.6</option>
           <option value="0.7">0.7</option>
           <option value="0.8">0.8</option>
         </select>
@@ -73,7 +78,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         </label>
         <select
           className="select select-bordered w-full"
-          value={data?.device_type || ''}
+          value={(data?.device_type || '').toLowerCase()}
           onChange={(e) => handleChange('device_type', e.target.value || undefined)}
         >
           <option value="">{t('boneio_config.select_device_type')}</option>
