@@ -5,6 +5,7 @@ import { formatTimestamp } from '../utils/formatters';
 import { FaStop } from 'react-icons/fa';
 import { LuArrowDownNarrowWide, LuArrowUpNarrowWide, LuArrowDownLeft, LuArrowUpRight } from "react-icons/lu";
 import { CoverState } from "@/hooks/useWebSocket";
+import { useTranslation } from '@/hooks/useTranslation';
 
 
 interface CoverItemProps {
@@ -15,6 +16,8 @@ interface CoverItemProps {
 }
 
 const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error }) => {
+  const { t } = useTranslation();
+  
   // Main position slider
   const Icon = cover.state === 'open' ? MdBlinds : MdBlindsClosed;
   const [sliderPosition, setSliderPosition] = useState<number>(cover.position);
@@ -106,10 +109,10 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
       <span className="text-lg">{cover.name}</span>
       <div className="flex-1 flex flex-col gap-1">
       <span className="text-xs text-center bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
-        {cover.current_operation || 'idle'} {cover.position !== undefined ? `(${cover.position}%)` : ''}
+        {cover.current_operation ? t(`covers.${cover.current_operation}`) : t('covers.idle')} {cover.position !== undefined ? `(${cover.position}%)` : ''}
       </span>
       {isVenetian && <span className="text-xs text-center bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
-        {`tilt (${cover.tilt}%)`}
+        {`${t('covers.tilt')} (${cover.tilt}%)`}
       </span>}
       </div>
     </div>
@@ -142,7 +145,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => handleTilt(0)}
           disabled={error !== null || cover.current_operation !== 'idle'}
-          title="Tilt Down"
+          title={t('covers.tilt_down')}
         >
           <LuArrowDownLeft />
         </button>
@@ -150,7 +153,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => handleTilt(100)}
           disabled={error !== null || cover.current_operation !== 'idle'}
-          title="Tilt Up"
+          title={t('covers.tilt_up')}
         >
           <LuArrowUpRight />
         </button>
@@ -194,8 +197,8 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           </>
         )}
                 <div className="flex justify-between text-xs text-gray-500 my-1">
-                  <span>Close</span>
-                  <span>Open</span>
+                  <span>{t('covers.close')}</span>
+                  <span>{t('covers.open')}</span>
                 </div>
       </div>
 

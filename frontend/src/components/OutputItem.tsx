@@ -5,6 +5,8 @@ import { RiOutletLine } from "react-icons/ri";
 import { GiValve } from "react-icons/gi";
 import { formatTimestamp } from '../utils/formatters';
 import { OutputState } from "@/hooks/useWebSocket";
+import { ImSwitch } from "react-icons/im";
+import { useTranslation } from '@/hooks/useTranslation';
 
 // Color palette for interlock groups - each group gets a consistent color
 const INTERLOCK_COLORS = [
@@ -53,7 +55,7 @@ function getIconAndOnColor(type: string, isGroup: boolean = false): { Icon: Reac
     case 'light':
       return { Icon: FaLightbulb, onColor: 'text-yellow-400' };
     default:
-      return { Icon: FaLightbulb, onColor: 'text-yellow-400' };
+      return { Icon: ImSwitch, onColor: 'text-yellow-400' };
   }
 }
 
@@ -65,6 +67,7 @@ const OutputItem: React.FC<OutputItemProps> = ({
   stateOnly = false,
   isGroup = false,
 }) => { 
+  const { t } = useTranslation();
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
   
   return (
@@ -74,7 +77,7 @@ const OutputItem: React.FC<OutputItemProps> = ({
         <div className="flex flex-col">
           <span className="text-lg">{output.name}</span>
           <span className="text-xs text-gray-500">{output.id}</span>
-          <span className="text-xs text-gray-400">Area: {output.area || 'No area'}</span>
+          <span className="text-xs text-gray-400">{t('outputs.area_short')}: {output.area || t('outputs.no_area')}</span>
           {output.interlock_groups && output.interlock_groups.length > 0 && (
             <div className="flex items-center gap-1 mt-1">
               <FaLock className="text-xs text-gray-400" />

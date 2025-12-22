@@ -107,9 +107,9 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors') },
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/modbus-helper', icon: FaTerminal, label: t('navigation.modbus_helper') },
-    { path: '/config', icon: FaCode, label: t('navigation.config') },
     // Settings (experimental) - only show if boneio section exists in config
-    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings'), experimental: true }] : []),
+    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings') }] : []),
+    { path: '/config', icon: FaCode, label: t('navigation.config') },
     { path: '/logs', icon: FaList, label: t('navigation.logs') },
     { path: '/system-update', icon: FaCog, label: t('navigation.system_update') },
     // Node-RED - only show if available via nginx proxy

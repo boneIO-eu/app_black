@@ -1,0 +1,12 @@
+# Allow boneio user to change mosquitto passwords without password prompt
+# This file should be copied to /etc/sudoers.d/boneio-mosquitto
+# Usage: sudo cp boneio/sudoers.d/boneio-mosquitto /etc/sudoers.d/
+# Then: sudo chmod 0440 /etc/sudoers.d/boneio-mosquitto
+
+# Allow mosquitto_passwd command for password file
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd boneio *
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd homeassistant *
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd mqtt *
+
+# Allow mosquitto service reload
+boneio ALL=(ALL) NOPASSWD: /bin/systemctl reload mosquitto

@@ -292,7 +292,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       ['single', 'double', 'long'].forEach((pressType) => {
         const actions = event.actions?.[pressType] || [];
         actions.forEach((action: any) => {
-          if (action.pin === itemId) {
+          if (action.pin === itemId || action.boneio_output === itemId) {
             affected.push({
               type: 'Event',
               name: eventName,
@@ -309,7 +309,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       ['pressed', 'released'].forEach((pressType) => {
         const actions = sensor.actions?.[pressType] || [];
         actions.forEach((action: any) => {
-          if (action.pin === itemId) {
+          if (action.pin === itemId || action.boneio_output === itemId) {
             affected.push({
               type: 'Binary Sensor',
               name: sensorName,
@@ -319,6 +319,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       });
     });
+    console.log("Affected actions:", affected);
     
     return affected;
   };
@@ -340,9 +341,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['single', 'double', 'long'].forEach((pressType) => {
           const actions = event.actions?.[pressType] || [];
           const filtered = actions.filter((action: any) => {
-            const shouldKeep = action.pin !== itemId;
+            const shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
             if (!shouldKeep) {
-              console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> pin=${action.pin}`);
+              console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
             }
             return shouldKeep;
           });
@@ -361,9 +362,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['pressed', 'released'].forEach((pressType) => {
           const actions = sensor.actions?.[pressType] || [];
           const filtered = actions.filter((action: any) => {
-            const shouldKeep = action.pin !== itemId;
+            const shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
             if (!shouldKeep) {
-              console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> pin=${action.pin}`);
+              console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
             }
             return shouldKeep;
           });

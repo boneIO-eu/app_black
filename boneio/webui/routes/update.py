@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
+from boneio.core.config.yaml_util import load_config_from_file
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -676,4 +677,143 @@ async def restore_config_backup(request: RestoreConfigBackupRequest):
         return {
             "status": "error",
             "message": f"Restore failed: {str(e)}"
+        }
+
+
+@router.get("/mqtt/username")
+async def get_mqtt_username():
+    """
+    Get the MQTT username from configuration.
+    
+    Returns the username that the application uses to connect to MQTT broker.
+    This is used to warn users when changing this password.
+    
+    Returns:
+        Username from mqtt.username config or 'boneio' as default
+    """
+    try:
+        # Try to read from config directory
+        config_dir = os.path.expanduser("~/.boneio")
+        mqtt_config_path = os.path.join(config_dir, "mqtt.yaml")
+        
+        if os.path.exists(mqtt_config_path):
+            config = load_config_from_file(mqtt_config_path)
+            if config:
+                mqtt_config = config.get("mqtt", {})
+                username = mqtt_config.get("username", "boneio")
+            else:
+                username = "boneio"
+        else:
+            # Fallback to default
+            username = "boneio"
+        
+        return {
+            "status": "success",
+            "username": username
+        }
+    except Exception as e:
+        _LOGGER.exception(f"Failed to get MQTT username: {e}")
+        # Return default if config reading fails
+        return {
+            "status": "success",
+            "username": "boneio"
+        }
+
+
+class MqttPasswordChangeRequest(BaseModel):
+    """Request model for MQTT password change."""
+    username: str
+    new_password: str
+
+
+@router.post("/mqtt/change_password")
+async def change_mqtt_password(request: MqttPasswordChangeRequest):
+    """
+    Change MQTT password for specified user.
+    
+    Supports three users: boneio, homeassistant, mqtt
+    Uses mosquitto_passwd to update password file.
+    
+    WARNING: This endpoint sends passwords in plain text over HTTP.
+    Use only over HTTPS or in a trusted local network.
+    
+    Args:
+        request: Username and new password
+        
+    Returns:
+        Status response with success/error message
+    """
+    # Validate username
+    allowed_users = ["boneio", "homeassistant", "mqtt"]
+    if request.username not in allowed_users:
+        return {
+            "status": "error",
+            "message": f"Invalid username. Allowed users: {', '.join(allowed_users)}"
+        }
+    
+    # Validate password
+    if len(request.new_password) < 8:
+        return {
+            "status": "error",
+            "message": "Password must be at least 8 characters long"
+        }
+    
+    # Path to mosquitto password file
+    passwd_file = "/etc/mosquitto/passwd"
+    
+    try:
+        # Check if mosquitto_passwd command exists
+        check_cmd = subprocess.run(
+            ["which", "mosquitto_passwd"],
+            capture_output=True,
+            text=True
+        )
+        
+        if check_cmd.returncode != 0:
+            return {
+                "status": "error",
+                "message": "mosquitto_passwd command not found. Is Mosquitto installed?"
+            }
+        
+        # Use mosquitto_passwd to update password
+        # -b = batch mode (password on command line)
+        result = subprocess.run(
+            ["sudo", "mosquitto_passwd", "-b", passwd_file, request.username, request.new_password],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        _LOGGER.info(f"MQTT password changed for user: {request.username}")
+        
+        # Reload mosquitto to apply changes
+        try:
+            reload_result = subprocess.run(
+                ["sudo", "systemctl", "reload", "mosquitto"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            _LOGGER.info("Mosquitto service reloaded successfully")
+        except subprocess.CalledProcessError as e:
+            _LOGGER.warning(f"Failed to reload mosquitto service: {e.stderr}")
+            # Don't fail the whole operation if reload fails
+        
+        return {
+            "status": "success",
+            "message": f"Password changed successfully for user: {request.username}"
+        }
+        
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr if e.stderr else str(e)
+        _LOGGER.error(f"Failed to change MQTT password for {request.username}: {error_msg}")
+        return {
+            "status": "error",
+            "message": f"Failed to change password: {error_msg}"
+        }
+    except Exception as e:
+        _LOGGER.exception(f"Unexpected error changing MQTT password: {e}")
+        return {
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}"
         }

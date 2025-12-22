@@ -38,10 +38,9 @@ from boneio.const import (
     PCF,
     PCF_ID,
     PIN,
-    RELAY,
     RESTORE_STATE,
     SET_BRIGHTNESS,
-    relay_actions,
+    output_actions,
 )
 from boneio.core.utils import TimePeriod, strip_accents
 from boneio.core.utils.util import sanitize_string
@@ -272,7 +271,7 @@ class OutputManager:
 
     def _configure_relay(
         self,
-        relay_id: str,
+        entity_id: str,
         name: str,
         config: dict,
         restore_state: bool = False,
@@ -290,14 +289,14 @@ class OutputManager:
         """
         output_type = config.pop(OUTPUT_TYPE)
         restored_state = (
-            self._manager._state_manager.get(attr_type=RELAY, attr=relay_id, default_value=False)
+            self._manager._state_manager.get(attr_type=OUTPUT, attr=entity_id, default_value=False)
             if restore_state
             else False
         )
         if output_type == NONE and self._manager._state_manager.get(
-            attr_type=RELAY, attr=relay_id
+            attr_type=OUTPUT, attr=entity_id
         ):
-            self._manager._state_manager.del_attribute(attr_type=RELAY, attribute=relay_id)
+            self._manager._state_manager.del_attribute(attr_type=OUTPUT, attribute=entity_id)
             restored_state = False
 
         # Determine output class and expander based on kind
@@ -363,7 +362,7 @@ class OutputManager:
             message_bus=self._manager._message_bus,
             event_bus=self._manager._event_bus,
             topic_prefix=self._manager._topic_prefix,
-            id=relay_id,
+            id=entity_id,
             restored_state=restored_state,
             interlock_manager=self._interlock_manager,
             interlock_groups=interlock_groups,
@@ -371,7 +370,7 @@ class OutputManager:
             **extra_args,
         )
         self._interlock_manager.register(relay, interlock_groups)
-        self.grouped_outputs_by_expander[expander_id][relay_id] = relay
+        self.grouped_outputs_by_expander[expander_id][entity_id] = relay
         return relay
 
     async def _delayed_send_state(self, output: BasicOutput) -> None:
@@ -406,7 +405,7 @@ class OutputManager:
             
         # Save state to state manager
         self._manager._state_manager.save_attribute(
-            attr_type=RELAY,
+            attr_type=OUTPUT,
             attribute=entity_id,
             value=state_value == ON,
         )
@@ -477,7 +476,7 @@ class OutputManager:
         if command == "set":
             target_device = self._outputs.get(device_id)
             if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
+                action_from_msg = output_actions.get(message.upper())
                 if action_from_msg:
                     getattr(target_device, action_from_msg)()
                 else:
@@ -572,7 +571,7 @@ class OutputManager:
                 effective_restore_state = restore_state
             
             out = self._configure_relay(
-                relay_id=_id,
+                entity_id=_id,
                 name=_name,
                 config=config_copy,
                 restore_state=effective_restore_state,

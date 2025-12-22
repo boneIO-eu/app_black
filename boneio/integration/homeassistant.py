@@ -27,7 +27,7 @@ from boneio.const import (
     ON,
     OPEN,
     OPENING,
-    RELAY,
+    OUTPUT,
     SELECT,
     SENSOR,
     SINGLE,
@@ -113,6 +113,7 @@ def ha_availabilty_message(
     # This allows moving entities between sub-devices by changing their area
     # Let's test topic only, don't add area into entity_id.
     unique_id_prefix = topic if area else topic
+    unique_id = f"{unique_id_prefix}{device_type}{id}"
     
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -120,7 +121,7 @@ def ha_availabilty_message(
         "device": device_info,
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
-        "unique_id": f"{unique_id_prefix}{device_type}{id}",
+        "unique_id": unique_id,
         # "object_id": f"{topic}{device_type}{id}",
         **kwargs,
     }
@@ -137,6 +138,7 @@ def ha_virtual_energy_sensor_discovery_message(
     topic = config_helper.topic_prefix
     # Power sensor discovery
     msg = ha_availabilty_message(
+        entity_type=SENSOR,
         state_topic=f"{topic}/energy/{relay_id}",
         config_helper=config_helper,
         **kwargs,
@@ -170,6 +172,7 @@ def ha_virtual_energy_sensor_availabilty_message(
     
     msg = ha_availabilty_message(
         device_type=SENSOR,
+        entity_type=SENSOR,
         config_helper=config_helper,
         id=id,
         name=name,
@@ -195,7 +198,7 @@ def ha_virtual_energy_sensor_availabilty_message(
     return msg
 
 
-def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
+def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create LIGHT availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
@@ -207,10 +210,10 @@ def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_ty
 
 def ha_led_availabilty_message(id: str, config_helper: ConfigHelper, **kwargs):
     """Create LED availability topic for HA."""
-    msg = ha_availabilty_message(device_type=RELAY, config_helper=config_helper, id=id, **kwargs)
-    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{RELAY}/{id}/set"
-    msg["brightness_state_topic"] = f"{config_helper.topic_prefix}/{RELAY}/{id}"
-    msg["brightness_command_topic"] = f"{config_helper.topic_prefix}/cmd/{RELAY}/{id}/set_brightness"
+    msg = ha_availabilty_message(device_type=OUTPUT, config_helper=config_helper, id=id, **kwargs)
+    msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{OUTPUT}/{id}/set"
+    msg["brightness_state_topic"] = f"{config_helper.topic_prefix}/{OUTPUT}/{id}"
+    msg["brightness_command_topic"] = f"{config_helper.topic_prefix}/cmd/{OUTPUT}/{id}/set_brightness"
     msg["brightness_scale"] = 65535
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -229,7 +232,7 @@ def ha_button_availabilty_message(
     return msg
 
 
-def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
+def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create SWITCH availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
@@ -257,7 +260,7 @@ def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_ty
     return msg
 
 
-def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = RELAY, **kwargs):
+def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create Valve availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
@@ -420,7 +423,7 @@ def modbus_sensor_availabilty_message(
         "device": device,
         "name": sensor_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{name.lower()}",
+        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -452,7 +455,7 @@ def modbus_select_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -485,7 +488,7 @@ def modbus_numeric_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/{device_type}/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{name.lower()}",
+        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -497,7 +500,7 @@ def ha_cover_availabilty_message(
     topic = config_helper.topic_prefix
     kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
     msg = ha_availabilty_message(
-        device_type=COVER, config_helper=config_helper, id=id, name=name, **kwargs
+        device_type=COVER, entity_type="cover", config_helper=config_helper, id=id, name=name, **kwargs
     )
 
     return {
@@ -524,7 +527,7 @@ def ha_cover_with_tilt_availabilty_message(
     topic = config_helper.topic_prefix
     kwargs = {"device_class": device_class, **kwargs} if device_class else { **kwargs }
     msg = ha_availabilty_message(
-        device_type=COVER, config_helper=config_helper, id=id, name=name, **kwargs
+        device_type=COVER, entity_type="cover", config_helper=config_helper, id=id, name=name, **kwargs
     )
 
     return {

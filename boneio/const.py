@@ -5,7 +5,6 @@ BONEIO = "boneio"
 NONE = "none"
 
 # MISCELLANEOUS CONSTS
-RELAY = "relay"
 LED = "led"
 ON = "ON"
 OFF = "OFF"
@@ -52,7 +51,7 @@ UARTS = {
     # "uart5": {ID: "/dev/ttyS5", TX: "P8.37", RX: "P8.38"},
 }
 
-relay_actions = {
+output_actions = {
     ON: "async_turn_on",
     OFF: "async_turn_off",
     TOGGLE: "async_toggle",

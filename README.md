@@ -4,7 +4,7 @@ boneio run -dd -c config.yaml
 # Installation instructions
 
 ```
-sudo apt install libopenjp2-7-dev python3-venv libjpeg-dev docker-compose fonts-dejavu-core fonts-dejavu-extra libffi-dev libfreetype-dev libtiff6 libxcb1 mosquitto
+sudo apt install -y libopenjp2-7-dev python3-venv libjpeg-dev docker-compose docker.io fonts-dejavu-core fonts-dejavu-extra libffi-dev libfreetype-dev libtiff6 libxcb1 mosquitto
 mkdir ~/boneio
 python3 -m venv ~/boneio/venv
 source ~/boneio/venv/bin/activate

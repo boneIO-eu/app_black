@@ -5,7 +5,7 @@ import asyncio
 import logging
 import time
 
-from boneio.const import COVER, LIGHT, NONE, OFF, ON, RELAY, STATE, SWITCH
+from boneio.const import COVER, LIGHT, NONE, OFF, ON, OUTPUT, STATE, SWITCH
 from boneio.core.messaging import BasicMqtt
 from boneio.models.events import OutputEvent
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
@@ -35,7 +35,7 @@ class BasicOutput(BasicMqtt):
         name: str | None = None,
         output_type=SWITCH,
         restored_state: bool = False,
-        topic_type: str = RELAY,
+        topic_type: str = OUTPUT,
         interlock_manager: SoftwareInterlockManager | None = None,
         interlock_groups: list[str] = [],
         **kwargs,

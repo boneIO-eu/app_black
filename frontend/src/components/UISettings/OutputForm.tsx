@@ -96,10 +96,6 @@ const OutputForm: React.FC<OutputFormProps> = ({
     return uiSchema?.[fieldName]?.['ui:description'] || '';
   };
 
-  const getFieldTitle = (fieldName: string) => {
-    return uiSchema?.[fieldName]?.['ui:title'] || fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-  };
-
   return (
     <div className="space-y-4">
       {/* DaisyUI Tabs */}
@@ -125,7 +121,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
             {/* BoneIO Output - Primary field */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">{getFieldTitle('boneio_output')}</span>
+                <span className="label-text font-medium">{t('outputs.boneio_output')}</span>
               </label>
               <Select
                 value={data.boneio_output || ''}
@@ -143,7 +139,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 </SelectContent>
               </Select>
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('boneio_output')}</span>
+                <span className="label-text-alt whitespace-normal wrap-break-word">{getFieldDescription('boneio_output')}</span>
               </label>
               {usedOutputs.length > 0 && boneioOutputOptions.length === 1 && (
                 <label className="label max-w-full">
@@ -175,7 +171,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
             {/* Output Type */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">{getFieldTitle('output_type')}</span>
+                <span className="label-text font-medium">{t('outputs.output_type')}</span>
               </label>
               <Select
                 value={data.output_type || 'none'}
@@ -193,7 +189,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 </SelectContent>
               </Select>
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">{getFieldDescription('output_type')}</span>
+                <span className="label-text-alt whitespace-normal wrap-break-word">{getFieldDescription('output_type')}</span>
               </label>
             </div>
 
@@ -210,7 +206,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onChange={(e) => updateField('name', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">{t('common.optional')}</span>
+                <span className="label-text-alt whitespace-normal wrap-break-word">{t('common.optional')}</span>
               </label>
             </div>
 
@@ -227,7 +223,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               />
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">{t('outputs.auto_sanitized')}</span>
+                <span className="label-text-alt whitespace-normal wrap-break-word">{t('outputs.auto_sanitized')}</span>
               </label>
             </div>
 
@@ -253,7 +249,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                 </SelectContent>
               </Select>
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">
+                <span className="label-text-alt whitespace-normal wrap-break-word">
                   {allAreas.length === 0 
                     ? t('outputs.area_empty_hint')
                     : t('outputs.area_hint')
@@ -263,11 +259,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
             </div>
           </div>
 
-          <div className="divider">Options</div>
+          <div className="divider">{t('outputs.divider_options')}</div>
 
           <div className="grid grid-cols-1 gap-4">
             <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{getFieldTitle('restore_state')}</legend>
+              <legend className="fieldset-legend">{t('outputs.restore_state')}</legend>
               <label className="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
@@ -290,7 +286,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
             <SimpleTimePeriodInput
               value={data.momentary_turn_on || ''}
               onChange={(value: string) => updateField('momentary_turn_on', value || undefined)}
-              label={getFieldTitle('momentary_turn_on') || 'Momentary Turn On'}
+              label={t('outputs.momentary_turn_on')}
               required={false}
               minimum={0}
             />
@@ -299,7 +295,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
             <SimpleTimePeriodInput
               value={data.momentary_turn_off || ''}
               onChange={(value: string) => updateField('momentary_turn_off', value || undefined)}
-              label={getFieldTitle('momentary_turn_off') || 'Momentary Turn Off'}
+              label={t('outputs.momentary_turn_off')}
               required={false}
               minimum={0}
             />
@@ -308,32 +304,32 @@ const OutputForm: React.FC<OutputFormProps> = ({
           <div className="alert alert-info">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div>
-              <h3 className="font-bold">Momentary Actions</h3>
+              <h3 className="font-bold">{t('outputs.momentary_actions_title')}</h3>
               <div className="text-sm">
-                <p>When enabled, the output will automatically turn off after the specified duration.</p>
-                <p>Useful for buttons, triggers, or pulse-controlled devices.</p>
-                <p>Supported time formats: 5s (seconds), 50ms (milliseconds), 2minutes, 1h (hours)</p>
+                <p>{t('outputs.momentary_actions_desc1')}</p>
+                <p>{t('outputs.momentary_actions_desc2')}</p>
+                <p>{t('outputs.momentary_actions_desc3')}</p>
               </div>
             </div>
           </div>
 
-          <div className="divider">Interlock Groups</div>
+          <div className="divider">{t('outputs.divider_interlock')}</div>
 
           <div className="grid grid-cols-1 gap-4">
             {/* Current Interlock Group */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Interlock Group</span>
+                <span className="label-text font-medium">{t('outputs.interlock_group_label')}</span>
               </label>
               <Select
                 value={data.interlock_group || '_none_'}
                 onValueChange={(value) => updateField('interlock_group', value === '_none_' ? undefined : value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No interlock group" />
+                  <SelectValue placeholder={t('outputs.interlock_group_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">No interlock group</SelectItem>
+                  <SelectItem value="_none_">{t('outputs.interlock_group_none')}</SelectItem>
                   {interlockGroups.map((group) => (
                     <SelectItem key={group} value={group}>
                       {group}
@@ -342,14 +338,14 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   {/* Show current value if it's not in the list (new group) */}
                   {data.interlock_group && !interlockGroups.includes(data.interlock_group) && (
                     <SelectItem value={data.interlock_group}>
-                      {data.interlock_group} (new)
+                      {data.interlock_group} ({t('outputs.interlock_group_new')})
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">
-                  Outputs in the same interlock group cannot be active simultaneously
+                <span className="label-text-alt whitespace-normal wrap-break-word">
+                  {t('outputs.interlock_description')}
                 </span>
               </label>
             </div>
@@ -357,13 +353,13 @@ const OutputForm: React.FC<OutputFormProps> = ({
             {/* Add New Interlock Group */}
             <div className="form-control">
               <label className="label">
-                <span className="label-text font-medium">Create New Group</span>
+                <span className="label-text font-medium">{t('outputs.create_new_group')}</span>
               </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   className="input input-bordered flex-1"
-                  placeholder="Enter new group name..."
+                  placeholder={t('outputs.enter_group_name')}
                   value={newInterlockGroup}
                   onChange={(e) => setNewInterlockGroup(e.target.value)}
                   onKeyDown={(e) => {
@@ -388,12 +384,12 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     }
                   }}
                 >
-                  Add
+                  {t('outputs.add_button')}
                 </button>
               </div>
               <label className="label">
-                <span className="label-text-alt whitespace-normal break-words">
-                  Type a name and press Enter or click Add to create and assign a new group
+                <span className="label-text-alt whitespace-normal wrap-break-word">
+                  {t('outputs.create_group_hint')}
                 </span>
               </label>
             </div>
@@ -402,10 +398,10 @@ const OutputForm: React.FC<OutputFormProps> = ({
           <div className="alert alert-info">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <div>
-              <h3 className="font-bold">Software Interlock</h3>
+              <h3 className="font-bold">{t('outputs.software_interlock_title')}</h3>
               <div className="text-sm">
-                <p>Prevents multiple outputs in the same group from being ON at the same time.</p>
-                <p>Useful for motor direction control, mutually exclusive devices, etc.</p>
+                <p>{t('outputs.software_interlock_desc1')}</p>
+                <p>{t('outputs.software_interlock_desc2')}</p>
               </div>
             </div>
           </div>

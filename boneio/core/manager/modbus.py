@@ -313,18 +313,28 @@ class ModbusManager:
             self._remove_modbus_ha_discovery_for_id(device_id)
             del self._modbus_coordinators[device_id]
         
-        # Check for area changes in existing devices and recreate if needed
+        # Check for area or name changes in existing devices and recreate if needed
         devices_to_recreate = set()
         for device_id in devices_to_update:
             coordinator = self._modbus_coordinators.get(device_id)
             if coordinator:
                 old_area = getattr(coordinator, 'area', None)
                 new_area = new_device_configs[device_id].get("area")
+                old_name = getattr(coordinator, '_name', None)
+                new_name = new_device_configs[device_id].get("name")
                 
                 if old_area != new_area:
                     _LOGGER.info(
                         "Modbus device %s area changed: %s -> %s, recreating",
                         device_id, old_area, new_area
+                    )
+                    # Remove old HA Discovery
+                    self._remove_modbus_ha_discovery_for_id(device_id)
+                    devices_to_recreate.add(device_id)
+                elif old_name != new_name:
+                    _LOGGER.info(
+                        "Modbus device %s name changed: %s -> %s, recreating",
+                        device_id, old_name, new_name
                     )
                     # Remove old HA Discovery
                     self._remove_modbus_ha_discovery_for_id(device_id)

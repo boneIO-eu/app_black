@@ -250,8 +250,9 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if state, timestamp, entity_type, x_mapping or isGrid changed
+  // Custom comparison: only re-render if state, timestamp, name, entity_type, x_mapping or isGrid changed
   return prevProps.device.id === nextProps.device.id &&
+         prevProps.device.name === nextProps.device.name &&
          prevProps.device.state === nextProps.device.state &&
          prevProps.device.timestamp === nextProps.device.timestamp &&
          prevProps.device.entity_type === nextProps.device.entity_type &&

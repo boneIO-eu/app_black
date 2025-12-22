@@ -22,11 +22,10 @@ from boneio.const import (
     ONLINE,
     OUTPUT,
     OUTPUT_OVER_MQTT,
-    RELAY,
     SET_BRIGHTNESS,
     STATE,
     cover_actions,
-    relay_actions,
+    output_actions,
 )
 from boneio.core.config import ConfigHelper
 from boneio.core.config.loader import create_serial_number_sensor
@@ -398,7 +397,7 @@ class Manager:
                     stripped_entity_id = strip_accents(entity_id)
                     action_output = action_definition.get("action_output")
                     output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(stripped_entity_id)
-                    action_to_execute = relay_actions.get(action_output)
+                    action_to_execute = output_actions.get(action_output)
                     if output and action_to_execute:
                         _f = getattr(output, action_to_execute, None)
                         if _f:
@@ -445,7 +444,7 @@ class Manager:
                 elif action == OUTPUT_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
                     action_output = action_definition.get("action_output")
-                    action_to_execute = relay_actions.get(action_output.upper())
+                    action_to_execute = output_actions.get(action_output.upper())
                     if boneio_id and action_to_execute:
                         parsed_actions[click_type].append({
                             "action": action,
@@ -535,7 +534,7 @@ class Manager:
                 boneio_id = action_definition.get("boneio_id")
                 action_output = action_definition.get("action_output")
                 self.send_message(
-                    topic=f"{boneio_id}/cmd/relay/{pin}/set",
+                    topic=f"{boneio_id}/cmd/output/{pin}/set",
                     payload=action_output,
                     retain=False,
                 )
@@ -728,10 +727,10 @@ class Manager:
             return
         
         # Handle relay/output commands
-        if msg_type == RELAY and command == "set":
+        if msg_type == OUTPUT and command == "set":
             target_device = self.outputs.get_output(device_id)
             if target_device and target_device.output_type != "none":
-                action_from_msg = relay_actions.get(message.upper())
+                action_from_msg = output_actions.get(message.upper())
                 if action_from_msg:
                     _f = getattr(target_device, action_from_msg)
                     await _f()
@@ -741,7 +740,7 @@ class Manager:
                 _LOGGER.debug("Target device not found %s.", device_id)
             return
         
-        if msg_type == RELAY and command == SET_BRIGHTNESS:
+        if msg_type == OUTPUT and command == SET_BRIGHTNESS:
             target_device = self.outputs.get_output(device_id)
             if target_device and target_device.output_type != "none" and message != "":
                 target_device.set_brightness(int(message))
@@ -774,7 +773,7 @@ class Manager:
         if msg_type == "group" and command == "set":
             target_device = self.outputs.get_output_group(device_id)
             if target_device and target_device.output_type != NONE:
-                action_from_msg = relay_actions.get(message.upper())
+                action_from_msg = output_actions.get(message.upper())
                 if action_from_msg:
                     asyncio.create_task(getattr(target_device, action_from_msg)())
                 else:
