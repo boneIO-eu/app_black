@@ -1,16 +1,17 @@
 {
-	# Global options
-	auto_https off
-	admin off
+	# Global options - no ACME, use internal CA for all sites
 }
 
+# HTTP -> HTTPS redirect
 :80 {
 	redir https://{host}{uri} permanent
 }
 
-:443 {
-	# Self-signed certificate on startup
-	tls internal
+# HTTPS catch-all with internal self-signed certificate
+https:// {
+	tls internal {
+		on_demand
+	}
 
 	# Handle errors (502, 503, 504)
 	handle_errors {
