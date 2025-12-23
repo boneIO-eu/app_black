@@ -42,6 +42,7 @@ from boneio.version import __version__
 # Import routes
 from boneio.webui.routes import (
     auth_router,
+    caddy_router,
     config_router,
     covers_router,
     modbus_router,
@@ -141,6 +142,7 @@ app.include_router(config_router)
 app.include_router(update_router)
 app.include_router(modbus_router)
 app.include_router(sensors_router)
+app.include_router(caddy_router)
 
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides

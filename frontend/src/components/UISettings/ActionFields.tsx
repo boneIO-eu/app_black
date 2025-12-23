@@ -18,11 +18,11 @@ export const validateAction = (action: any, t: (key: string) => string): string 
   const actionType = action.action.toLowerCase();
   
   if (actionType === 'output' || actionType === 'output_over_mqtt') {
-    if (!action.boneio_output && !action.pin) return t('event_form.validation_output_required');
+    if (!action.boneio_output) return t('event_form.validation_output_required');
   }
   
   if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-    if (!action.boneio_cover && !action.pin) return t('event_form.validation_cover_required');
+    if (!action.boneio_cover) return t('event_form.validation_cover_required');
   }
   
   if (actionType === 'mqtt') {

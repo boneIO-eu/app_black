@@ -125,11 +125,11 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     const actionType = action.action.toLowerCase();
     
     if (actionType === 'output' || actionType === 'output_over_mqtt') {
-      if (!action.pin || !action.boneio_output) return t('binary_sensor_form.output_required_for_output_actions');
+      if (!action.boneio_output) return t('binary_sensor_form.output_required_for_output_actions');
     }
     
     if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-      if (!action.pin || !action.boneio_cover) return t('binary_sensor_form.cover_required_for_cover_actions');
+      if (!action.boneio_cover) return t('binary_sensor_form.cover_required_for_cover_actions');
     }
     
     if (actionType === 'mqtt') {
