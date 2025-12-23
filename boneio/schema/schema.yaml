@@ -86,12 +86,12 @@ web:
       default: 8090
       meta:
         label: Port to run web server
-    nginx_proxy_port:
+    proxy_port:
       required: False
       type: integer
       nullable: True
       meta:
-        label: Nginx reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
+        label: Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
     auth:
       required: False
       type: dict

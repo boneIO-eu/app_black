@@ -724,6 +724,86 @@ class CustomValidator(Validator):
 
 
 
+def _migrate_config(doc: dict, config_file: str | None = None) -> tuple[dict, bool]:
+    """
+    Apply configuration migrations for backward compatibility.
+    
+    Args:
+        doc: Configuration document to migrate
+        config_file: Optional path to config file for persisting migrations
+        
+    Returns:
+        Tuple of (migrated configuration document, whether migrations were applied)
+    """
+    migrated = False
+    migrations_applied = []
+    
+    # Migration: nginx_proxy_port -> proxy_port in web section
+    if "web" in doc and isinstance(doc["web"], dict):
+        if "nginx_proxy_port" in doc["web"]:
+            _LOGGER.info("Migrating 'web.nginx_proxy_port' to 'web.proxy_port'")
+            doc["web"]["proxy_port"] = doc["web"].pop("nginx_proxy_port")
+            migrated = True
+            migrations_applied.append("web.nginx_proxy_port -> web.proxy_port")
+    
+    # Migration: modbus_sensors -> modbus_devices
+    if "modbus_sensors" in doc:
+        _LOGGER.warning("Modbus sensors are renamed to modbus_devices. Please update your config.")
+        migrated = True
+        migrations_applied.append("modbus_sensors -> modbus_devices")
+    
+    if migrated:
+        _LOGGER.info("Configuration migrations applied: %s", ", ".join(migrations_applied))
+        
+        # Persist migrations to config file if provided
+        if config_file:
+            try:
+                _persist_migrations(config_file, doc, migrations_applied)
+            except Exception as e:
+                _LOGGER.error("Failed to persist migrations to config file: %s", e)
+    
+    return doc, migrated
+
+
+def _persist_migrations(config_file: str, migrated_doc: dict, migrations: list[str]) -> None:
+    """
+    Persist migrated configuration back to YAML file.
+    
+    Args:
+        config_file: Path to config file
+        migrated_doc: Migrated configuration document
+        migrations: List of applied migrations for logging
+    """
+    import os
+    from pathlib import Path
+    
+    config_dir = Path(config_file).parent
+    
+    # Read original file to preserve structure and !include directives
+    with open(config_file, 'r', encoding='utf-8') as f:
+        original_lines = f.readlines()
+    
+    # For web.nginx_proxy_port -> web.proxy_port migration
+    if any("nginx_proxy_port" in m for m in migrations):
+        updated_lines = []
+        for line in original_lines:
+            # Replace nginx_proxy_port with proxy_port in the line
+            if "nginx_proxy_port:" in line:
+                indent = len(line) - len(line.lstrip())
+                value_part = line.split("nginx_proxy_port:", 1)[1]
+                updated_line = " " * indent + "proxy_port:" + value_part
+                updated_lines.append(updated_line)
+                _LOGGER.info("Replaced line in config file: %s -> %s", line.rstrip(), updated_line.rstrip())
+            else:
+                updated_lines.append(line)
+        
+        # Write back to file
+        with open(config_file, 'w', encoding='utf-8') as f:
+            f.writelines(updated_lines)
+        
+        _LOGGER.info("Persisted migrations to config file: %s", config_file)
+
+
 def load_config_from_string(config_str: str) -> dict:
     """Load config from string."""
     schema = _get_schema()  # Use cached schema instead of loading every time
@@ -732,9 +812,10 @@ def load_config_from_string(config_str: str) -> dict:
     # First normalize the document
     doc = v.normalized(config_str, always_return_document=True)  # type: ignore[attr-defined]
     
+    # Apply migrations (without persisting - that happens in load_config_from_file)
+    doc, _ = _migrate_config(doc, config_file=None)
+    
     # Then merge board config
-    if "modbus_sensors" in doc:
-        _LOGGER.warning("Modbus sensors are renamed to modbus_devices. Please update your config.")
     merged_doc = merge_board_config(doc)
     
     # Finally validate
@@ -761,7 +842,34 @@ def load_config_from_file(config_file: str):
     if not config_yaml:
         _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
-    return load_config_from_string(config_yaml)
+    
+    # Load and validate config
+    schema = _get_schema()
+    v = CustomValidator(schema, purge_unknown=True)
+    
+    # First normalize the document
+    doc = v.normalized(config_yaml, always_return_document=True)  # type: ignore[attr-defined]
+    
+    # Apply migrations and persist to file if needed
+    doc, migrations_applied = _migrate_config(doc, config_file=config_file)
+    
+    # Then merge board config
+    merged_doc = merge_board_config(doc)
+    
+    # Finally validate
+    if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
+        error_msg = "Configuration validation failed:\n"
+        for field, errors in v.errors.items():  # type: ignore[attr-defined]
+            error_lines = []
+            if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
+                error_lines = [
+                    f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
+                    for line in config_yaml.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
+                ]
+            error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
+        raise ConfigurationException(error_msg)
+    
+    return merged_doc
 
 
 def strip_default_values(data: Any, schema: dict | None = None, section: str | None = None) -> Any:

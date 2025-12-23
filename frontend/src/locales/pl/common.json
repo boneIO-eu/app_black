@@ -594,9 +594,9 @@
   "webserver": {
     "port": "Port",
     "port_help": "Port do uruchomienia serwera web (domyślnie: 8090)",
-    "nginx_proxy_port": "Port Proxy Nginx",
-    "nginx_proxy_port_help": "Port używany w URL autodiscovery Home Assistant. Ustaw jeśli używasz nginx reverse proxy (np. dla integracji Node-RED).",
-    "nginx_proxy_port_placeholder": "Zostaw puste aby użyć portu serwera web",
+    "proxy_port": "Port Proxy Nginx",
+    "proxy_port_help": "Port używany w URL autodiscovery Home Assistant. Ustaw jeśli używasz nginx reverse proxy (np. dla integracji Node-RED).",
+    "proxy_port_placeholder": "Zostaw puste aby użyć portu serwera web",
     "auth": "Uwierzytelnianie (opcjonalnie)",
     "username": "Nazwa użytkownika",
     "username_help": "Nazwa użytkownika do interfejsu web",

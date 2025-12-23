@@ -18,7 +18,7 @@
           "description": "Port to run web server",
           "title": "Port"
         },
-        "nginx_proxy_port": {
+        "proxy_port": {
           "type": [
             "string",
             "integer",
