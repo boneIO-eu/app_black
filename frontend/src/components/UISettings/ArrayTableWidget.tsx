@@ -203,7 +203,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     // Block save if there are validation errors from child form
     if (hasValidationErrors) {
       console.log('❌ ArrayTableWidget: Save blocked due to validation errors');
-      alert('Please fix validation errors before saving');
+      alert(t('array_table_widget.fix_validation_errors_before_saving'));
       return;
     }
     
@@ -216,26 +216,26 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     
     if (sectionType === 'binary_sensor') {
       isValid = !!dataToSave.boneio_input;
-      errorMessage = 'BoneIO Input is required';
+      errorMessage = t('array_table_widget.boneio_input_required');
     } else if (sectionType === 'event') {
       isValid = !!dataToSave.boneio_input;
-      errorMessage = 'BoneIO Input is required';
+      errorMessage = t('array_table_widget.boneio_input_required');
     } else if (sectionType === 'output') {
       isValid = !!dataToSave.boneio_output;
-      errorMessage = 'BoneIO Output is required';
+      errorMessage = t('array_table_widget.boneio_output_required');
     } else if (sectionType === 'output_group') {
       const hasId = !!dataToSave.id;
       const hasOutputs = !!dataToSave.outputs && (Array.isArray(dataToSave.outputs) ? dataToSave.outputs.length > 0 : true);
       isValid = hasId && hasOutputs;
-      errorMessage = !hasId ? 'ID is required' : 'At least one output is required';
+      errorMessage = !hasId ? t('array_table_widget.id_required') : t('array_table_widget.at_least_one_output_required');
     } else if (sectionType === 'cover') {
       // ID is now optional (auto-generated from relays)
       isValid = !!dataToSave.open_relay && !!dataToSave.close_relay && !!dataToSave.open_time && !!dataToSave.close_time;
-      errorMessage = 'Open relay, close relay, open time and close time are required';
+      errorMessage = t('array_table_widget.cover_fields_required');
     } else if (sectionType === 'modbus_devices') {
       // ID is now optional (auto-generated from address and model)
       isValid = !!dataToSave.address && !!dataToSave.model;
-      errorMessage = 'Address and model are required';
+      errorMessage = t('array_table_widget.address_and_model_required');
       
       // Validate update_interval minimum (1 second = 1000ms)
       if (isValid && dataToSave.update_interval) {
@@ -245,7 +245,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         
         if (interval < 1000) {
           isValid = false;
-          errorMessage = 'Update interval must be at least 1 second (1000ms)';
+          errorMessage = t('array_table_widget.update_interval_minimum');
         }
       }
     } else {
@@ -288,13 +288,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     
     // Check events
     allEvents.forEach((event: any) => {
-      const eventName = event.name || event.boneio_input || 'Unknown Event';
+      const eventName = event.name || event.boneio_input || t('array_table_widget.unknown_event');
       ['single', 'double', 'long'].forEach((pressType) => {
         const actions = event.actions?.[pressType] || [];
         actions.forEach((action: any) => {
           if (action.pin === itemId || action.boneio_output === itemId) {
             affected.push({
-              type: 'Event',
+              type: t('array_table_widget.event'),
               name: eventName,
               actionType: `${pressType} → ${action.action || 'output'}`
             });
@@ -305,13 +305,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     
     // Check binary_sensors
     allBinarySensors.forEach((sensor: any) => {
-      const sensorName = sensor.name || sensor.boneio_input || 'Unknown Sensor';
+      const sensorName = sensor.name || sensor.boneio_input || t('array_table_widget.unknown_sensor');
       ['pressed', 'released'].forEach((pressType) => {
         const actions = sensor.actions?.[pressType] || [];
         actions.forEach((action: any) => {
           if (action.pin === itemId || action.boneio_output === itemId) {
             affected.push({
-              type: 'Binary Sensor',
+              type: t('array_table_widget.binary_sensor'),
               name: sensorName,
               actionType: `${pressType} → ${action.action || 'output'}`
             });
@@ -558,7 +558,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return (
         <tr>
           <th>{t('outputs.id')}/{t('outputs.name')}</th>
-          <th>Details</th>
+          <th>{t('array_table_widget.details')}</th>
           <th>{t('outputs.actions')}</th>
         </tr>
       );
@@ -686,7 +686,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     </span>
                   ))
                 ) : (
-                  <span className="text-warning">No outputs</span>
+                  <span className="text-warning">{t('array_table_widget.no_outputs')}</span>
                 )}
               </div>
             </td>
@@ -766,9 +766,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             <td>
               {item.restore_state !== undefined ? (
                 item.restore_state ? (
-                  <span className="badge badge-success badge-sm">Yes</span>
+                  <span className="badge badge-success badge-sm">{t('common.yes')}</span>
                 ) : (
-                  <span className="badge badge-ghost badge-sm">No</span>
+                  <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
                 )
               ) : (
                 '-'
@@ -776,9 +776,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             </td>
             <td>
               {isMomentary ? (
-                <span className="badge badge-warning badge-sm">Yes</span>
+                <span className="badge badge-warning badge-sm">{t('common.yes')}</span>
               ) : (
-                <span className="badge badge-ghost badge-sm">No</span>
+                <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
               )}
             </td>
             <td>
@@ -811,14 +811,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         
         return (
           <tr key={index}>
-            <td>{item.name || `Item ${index + 1}`}</td>
+            <td>{item.name || `${t('array_table_widget.item')} ${index + 1}`}</td>
             <td className="uppercase">{item.boneio_input || '-'}</td>
             <td>{areaName}</td>
             <td>
               {item.actions ? (
-                <span className="badge badge-success badge-sm">Yes</span>
+                <span className="badge badge-success badge-sm">{t('common.yes')}</span>
               ) : (
-                <span className="badge badge-ghost badge-sm">No</span>
+                <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
               )}
             </td>
             <td>
@@ -826,14 +826,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <button
                   onClick={() => handleEdit(index)}
                   className="btn btn-ghost btn-xs"
-                  title="Edit Item"
+                  title={t('array_table_widget.edit_item')}
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => handleDelete(index)}
                   className="btn btn-ghost btn-xs text-error"
-                  title="Delete"
+                  title={t('array_table_widget.delete_item')}
                 >
                   <FaTrash />
                 </button>
@@ -852,14 +852,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               <button
                 onClick={() => handleEdit(index)}
                 className="btn btn-ghost btn-xs"
-                title="Edit Area"
+                title={t('array_table_widget.edit_area')}
               >
                 <FaEdit />
               </button>
               <button
                 onClick={() => handleDelete(index)}
                 className="btn btn-ghost btn-xs text-error"
-                title="Delete"
+                title={t('array_table_widget.delete_item')}
               >
                 <FaTrash />
               </button>
@@ -874,7 +874,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           ? allAreas.find(a => a.id === item.area)?.name || item.area 
           : '-';
         const effectiveId = item.id || item.address;
-        const displayName = item.name || effectiveId || `Sensor ${index + 1}`;
+        const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${index + 1}`;
         
         return (
           <tr key={index}>
@@ -896,14 +896,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <button
                   onClick={() => handleEdit(index)}
                   className="btn btn-ghost btn-xs"
-                  title={t('outputs.edit')}
+                  title={t('array_table_widget.edit_item')}
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => handleDelete(index)}
                   className="btn btn-ghost btn-xs text-error"
-                  title={t('outputs.delete')}
+                  title={t('array_table_widget.delete_item')}
                 >
                   <FaTrash />
                 </button>
@@ -930,7 +930,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           <tr key={index}>
             <td>
               <div>
-                <div className="font-medium">{item.name || `Sensor ${index + 1}`}</div>
+                <div className="font-medium">{item.name || `${t('array_table_widget.sensor')} ${index + 1}`}</div>
                 {item.id && (
                   <div className="text-xs text-base-content/60">ID: {item.id}</div>
                 )}
@@ -952,14 +952,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <button
                   onClick={() => handleEdit(index)}
                   className="btn btn-ghost btn-xs"
-                  title={t('outputs.edit')}
+                  title={t('array_table_widget.edit_item')}
                 >
                   <FaEdit />
                 </button>
                 <button
                   onClick={() => handleDelete(index)}
                   className="btn btn-ghost btn-xs text-error"
-                  title={t('outputs.delete')}
+                  title={t('array_table_widget.delete_item')}
                 >
                   <FaTrash />
                 </button>
@@ -971,21 +971,21 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else {
       return value.map((item, index) => (
         <tr key={index}>
-          <td>{item.id || item.name || `Item ${index + 1}`}</td>
+          <td>{item.id || item.name || `${t('array_table_widget.item')} ${index + 1}`}</td>
           <td>{JSON.stringify(item, null, 2)}</td>
           <td>
             <div className="flex space-x-1">
               <button
                 onClick={() => handleEdit(index)}
                 className="btn btn-ghost btn-xs"
-                title="Edit Item"
+                title={t('array_table_widget.edit_item')}
               >
                 <FaEdit />
               </button>
               <button
                 onClick={() => handleDelete(index)}
                 className="btn btn-ghost btn-xs text-error"
-                title="Delete"
+                title={t('array_table_widget.delete_item')}
               >
                 <FaTrash />
               </button>
@@ -999,7 +999,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">{title || 'Items'}</h3>
+        <h3 className="text-lg font-semibold">{title || t('array_table_widget.items')}</h3>
         <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`} 
              data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
           <button
@@ -1161,7 +1161,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                   />
                 ) : (
                   <div className="alert alert-warning">
-                    <span>No form available for section type: {sectionType}</span>
+                    <span>{t('array_table_widget.no_form_available').replace('{sectionType}', sectionType)}</span>
                   </div>
                 )}
               </>

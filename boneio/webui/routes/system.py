@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import subprocess
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
 
 from boneio.core.config import ConfigHelper
 from boneio.core.config.yaml_util import load_config_from_file
@@ -177,3 +179,73 @@ async def get_hardware_errors():
         errors = getattr(manager, '_hardware_errors', [])
         return {"errors": errors}
     return {"errors": []}
+
+
+class HostnameRequest(BaseModel):
+    """Request model for hostname change."""
+    hostname: str
+
+
+@router.get("/hostname")
+async def get_hostname():
+    """
+    Get current system hostname.
+    
+    Returns:
+        Dictionary with hostname string.
+    """
+    try:
+        result = subprocess.run(
+            ["hostname"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        hostname = result.stdout.strip()
+        return {"hostname": hostname}
+    except subprocess.CalledProcessError as e:
+        _LOGGER.error(f"Failed to get hostname: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get hostname")
+    except Exception as e:
+        _LOGGER.error(f"Error getting hostname: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/hostname")
+async def set_hostname(request: HostnameRequest):
+    """
+    Set system hostname.
+    
+    Args:
+        request: HostnameRequest with new hostname.
+        
+    Returns:
+        Status response indicating if hostname was changed.
+    """
+    new_hostname = request.hostname.strip()
+    
+    if not new_hostname:
+        raise HTTPException(status_code=400, detail="Hostname cannot be empty")
+    
+    if len(new_hostname) > 63:
+        raise HTTPException(status_code=400, detail="Hostname too long (max 63 characters)")
+    
+    if not all(c.isalnum() or c in '-_' for c in new_hostname):
+        raise HTTPException(status_code=400, detail="Hostname can only contain alphanumeric characters, hyphens, and underscores")
+    
+    try:
+        subprocess.run(
+            ["sudo", "hostnamectl", "set-hostname", new_hostname],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        
+        _LOGGER.info(f"Hostname changed to: {new_hostname}")
+        return {"status": "success", "hostname": new_hostname}
+    except subprocess.CalledProcessError as e:
+        _LOGGER.error(f"Failed to set hostname: {e.stderr}")
+        raise HTTPException(status_code=500, detail=f"Failed to set hostname: {e.stderr}")
+    except Exception as e:
+        _LOGGER.error(f"Error setting hostname: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

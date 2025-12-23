@@ -120,24 +120,24 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
   // Validate action - check if required fields are filled
   const validateAction = (action: Action): string | null => {
-    if (!action.action) return 'Action type is required';
+    if (!action.action) return t('binary_sensor_form.action_type_required');
     
     const actionType = action.action.toLowerCase();
     
     if (actionType === 'output' || actionType === 'output_over_mqtt') {
-      if (!action.pin) return 'Output is required for output actions';
+      if (!action.pin || !action.boneio_output) return t('binary_sensor_form.output_required_for_output_actions');
     }
     
     if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-      if (!action.pin) return 'Cover is required for cover actions';
+      if (!action.pin || !action.boneio_cover) return t('binary_sensor_form.cover_required_for_cover_actions');
     }
     
     if (actionType === 'mqtt') {
-      if (!action.topic) return 'Topic is required for MQTT actions';
+      if (!action.topic) return t('binary_sensor_form.topic_required_for_mqtt_actions');
     }
     
     if (actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') {
-      if (!action.boneio_id) return 'BoneIO ID is required for remote actions';
+      if (!action.boneio_id) return t('binary_sensor_form.boneio_id_required_for_remote_actions');
     }
     
     return null;
@@ -273,7 +273,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     return (
       <div key={index} className="border border-base-300 rounded-lg p-4 mb-4">
         <div className="flex justify-between items-center mb-3">
-          <h4 className="font-medium">Action {index + 1}</h4>
+          <h4 className="font-medium">{t('binary_sensor_form.action')} {index + 1}</h4>
           <button
             onClick={() => removeAction(type, index)}
             className="btn btn-ghost btn-xs text-error"
@@ -284,14 +284,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
         <div className="form-control mb-3">
           <label className="label">
-            <span className="label-text font-medium">Action Type</span>
+            <span className="label-text font-medium">{t('binary_sensor_form.action_type')}</span>
           </label>
           <Select
             value={actionType}
             onValueChange={(value) => updateAction(type, index, 'action', value)}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select action..." />
+              <SelectValue placeholder={t('binary_sensor_form.select_action')} />
             </SelectTrigger>
             <SelectContent>
               {actionTypeOptions.map((opt: string) => (
@@ -309,14 +309,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           <>
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Cover</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.cover')}</span>
               </label>
               <Select
                 value={action.boneio_cover || action.pin || ''}
                 onValueChange={(value) => updateAction(type, index, 'boneio_cover', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select cover..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_cover')} />
                 </SelectTrigger>
                 <SelectContent>
                   {allCovers
@@ -335,7 +335,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                           disabled={!isSaved}
                           className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
                         >
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
                           {label}
                         </SelectItem>
                       );
@@ -346,14 +346,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Cover Action</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.cover_action')}</span>
               </label>
               <Select
                 value={action.action_cover || 'TOGGLE'}
                 onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select action..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
                 </SelectTrigger>
                 <SelectContent>
                   {actionCoverOptions.map((option: string) => (
@@ -373,14 +373,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           <>
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Output</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.output')}</span>
               </label>
               <Select
                 value={action.boneio_output || action.pin || ''}
                 onValueChange={(value) => updateAction(type, index, 'boneio_output', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select output..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_output')} />
                 </SelectTrigger>
                 <SelectContent>
                   {/* Regular outputs */}
@@ -398,7 +398,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                           disabled={!isSaved}
                           className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
                         >
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
                           {label}
                         </SelectItem>
                       );
@@ -418,8 +418,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                           disabled={!isSaved}
                           className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
                         >
-                          <span className="badge badge-xs badge-secondary mr-1">Group</span>
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                          <span className="badge badge-xs badge-secondary mr-1">{t('binary_sensor_form.group')}</span>
+                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
                           {label}
                         </SelectItem>
                       );
@@ -430,14 +430,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Output Action</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.output_action')}</span>
               </label>
               <Select
                 value={action.action_output || 'TOGGLE'}
                 onValueChange={(value) => updateAction(type, index, 'action_output', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select action..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
                 </SelectTrigger>
                 <SelectContent>
                   {actionOutputOptions.map((option: string) => (
@@ -455,12 +455,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           <>
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">MQTT Topic</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.mqtt_topic')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder="e.g., boneio/input/IN_48"
+                placeholder={t('binary_sensor_form.mqtt_topic_placeholder')}
                 value={action.topic || ''}
                 onChange={(e) => updateAction(type, index, 'topic', e.target.value)}
               />
@@ -468,12 +468,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">MQTT Message</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.mqtt_message')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder="Message to send"
+                placeholder={t('binary_sensor_form.mqtt_message_placeholder')}
                 value={action.action_mqtt_msg || ''}
                 onChange={(e) => updateAction(type, index, 'action_mqtt_msg', e.target.value)}
               />
@@ -501,30 +501,30 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Output ID</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.output_id')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder="e.g., light_kitchen or OUT_01"
+                placeholder={t('binary_sensor_form.output_id_placeholder')}
                 value={action.pin || ''}
                 onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Output ID on the remote BoneIO device</span>
+                <span className="label-text-alt">{t('binary_sensor_form.output_id_hint')}</span>
               </label>
             </div>
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Output Action</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.output_action')}</span>
               </label>
               <Select
                 value={action.action_output || 'TOGGLE'}
                 onValueChange={(value) => updateAction(type, index, 'action_output', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select action..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
                 </SelectTrigger>
                 <SelectContent>
                   {actionOutputOptions.map((option: string) => (
@@ -558,30 +558,30 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Cover ID (pin)</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.cover_id_pin')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder="e.g., cover_living_room"
+                placeholder={t('binary_sensor_form.cover_id_placeholder')}
                 value={action.pin || ''}
                 onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
               />
               <label className="label">
-                <span className="label-text-alt">Cover ID on the remote BoneIO device</span>
+                <span className="label-text-alt">{t('binary_sensor_form.cover_id_hint')}</span>
               </label>
             </div>
 
             <div className="form-control mb-3">
               <label className="label">
-                <span className="label-text font-medium">Cover Action</span>
+                <span className="label-text font-medium">{t('binary_sensor_form.cover_action')}</span>
               </label>
               <Select
                 value={action.action_cover || 'TOGGLE'}
                 onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select action..." />
+                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
                 </SelectTrigger>
                 <SelectContent>
                   {actionCoverOptions.map((option: string) => (

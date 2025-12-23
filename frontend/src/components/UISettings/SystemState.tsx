@@ -114,6 +114,12 @@ const SystemState: React.FC = () => {
   // Hardware errors state
   const [hardwareErrors, setHardwareErrors] = useState<any[]>([]);
 
+  // Hostname state
+  const [currentHostname, setCurrentHostname] = useState<string>('');
+  const [newHostname, setNewHostname] = useState<string>('');
+  const [isChangingHostname, setIsChangingHostname] = useState(false);
+  const [hostnameResult, setHostnameResult] = useState<{ status: string; message: string } | null>(null);
+
   // Fetch hardware errors
   const fetchHardwareErrors = useCallback(async () => {
     try {
@@ -124,6 +130,55 @@ const SystemState: React.FC = () => {
       console.error('Failed to fetch hardware errors:', err);
     }
   }, []);
+
+  // Fetch current hostname
+  const fetchHostname = useCallback(async () => {
+    try {
+      const response = await fetch('/api/hostname');
+      const data = await response.json();
+      setCurrentHostname(data.hostname || '');
+      setNewHostname(data.hostname || '');
+    } catch (err) {
+      console.error('Failed to fetch hostname:', err);
+    }
+  }, []);
+
+  // Change hostname
+  const changeHostname = async () => {
+    if (!newHostname.trim()) {
+      setHostnameResult({ status: 'error', message: t('settings.hostname_empty') });
+      return;
+    }
+
+    if (newHostname === currentHostname) {
+      setHostnameResult({ status: 'error', message: t('settings.hostname_unchanged') });
+      return;
+    }
+
+    setIsChangingHostname(true);
+    setHostnameResult(null);
+
+    try {
+      const response = await fetch('/api/hostname', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostname: newHostname }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || t('settings.hostname_change_failed'));
+      }
+
+      const data = await response.json();
+      setCurrentHostname(data.hostname);
+      setHostnameResult({ status: 'success', message: t('settings.hostname_changed') });
+    } catch (err: any) {
+      setHostnameResult({ status: 'error', message: err.message || t('settings.hostname_change_failed') });
+    } finally {
+      setIsChangingHostname(false);
+    }
+  };
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -476,7 +531,10 @@ const SystemState: React.FC = () => {
     checkForUpdates();
     fetchBackups();
     fetchHardwareErrors();
-  }, [checkForUpdates, fetchBackups, fetchHardwareErrors]);
+    fetchDeviceTypes();
+    fetchConfigBackups();
+    fetchHostname();
+  }, [checkForUpdates, fetchBackups, fetchHardwareErrors, fetchDeviceTypes, fetchConfigBackups, fetchHostname]);
 
   // Format date
   const formatDate = (dateStr: string) => {
@@ -1135,6 +1193,86 @@ const SystemState: React.FC = () => {
                     <p>{t('system_update.backup_info_3')}</p>
                     <p>{t('system_update.backup_info_4')}</p>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Hostname Change Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  {t('settings.hostname_title')}
+                </h3>
+                <p className="text-sm opacity-70 mt-2">{t('settings.hostname_description')}</p>
+
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <label className="label">
+                      <span className="label-text">{t('settings.current_hostname')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      value={currentHostname}
+                      disabled
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">
+                      <span className="label-text">{t('settings.new_hostname')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      value={newHostname}
+                      onChange={e => setNewHostname(e.target.value)}
+                      placeholder={t('settings.hostname_placeholder')}
+                      disabled={isChangingHostname}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt">{t('settings.hostname_hint')}</span>
+                    </label>
+                  </div>
+
+                  {hostnameResult && (
+                    <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
+                      {hostnameResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+                      <span>{hostnameResult.message}</span>
+                    </div>
+                  )}
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={changeHostname}
+                    disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
+                  >
+                    {isChangingHostname ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('settings.changing_hostname')}
+                      </>
+                    ) : (
+                      <>
+                        <FaCheck />
+                        {t('settings.change_hostname')}
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
