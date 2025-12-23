@@ -29,15 +29,23 @@ class CaddyConfig(BaseModel):
     
     mode: str = Field(
         default="self_signed",
-        description="Certificate mode: 'self_signed' or 'acme'"
+        description="Certificate mode: 'self_signed', 'acme_dns', or 'manual'"
     )
     domain: Optional[str] = Field(
         default=None,
-        description="Domain name for ACME certificate (required when mode is 'acme')"
+        description="Domain name for ACME certificate (required when mode is 'acme_dns')"
     )
     email: Optional[str] = Field(
         default=None,
         description="Email for ACME registration (optional but recommended)"
+    )
+    cert_path: Optional[str] = Field(
+        default=None,
+        description="Path to certificate file (for manual mode)"
+    )
+    key_path: Optional[str] = Field(
+        default=None,
+        description="Path to private key file (for manual mode)"
     )
     
     class Config:
@@ -45,7 +53,7 @@ class CaddyConfig(BaseModel):
         
         json_schema_extra = {
             "example": {
-                "mode": "acme",
+                "mode": "acme_dns",
                 "domain": "boneio.example.com",
                 "email": "admin@example.com"
             }
@@ -137,15 +145,15 @@ def generate_caddyfile(config: CaddyConfig) -> str:
         "",
     ])
     
-    # HTTP redirect (only for ACME mode)
-    if config.mode == "acme" and config.domain:
+    # HTTP redirect
+    if config.mode in ["acme_dns", "manual"] and config.domain:
         lines.extend([
             ":80 {",
             f"\tredir https://{config.domain}{{uri}} permanent",
             "}",
             "",
         ])
-    elif config.mode == "self_signed":
+    else:
         lines.extend([
             ":80 {",
             "\tredir https://{host}{uri} permanent",
@@ -154,17 +162,27 @@ def generate_caddyfile(config: CaddyConfig) -> str:
         ])
     
     # HTTPS server block
-    if config.mode == "acme" and config.domain:
+    if config.mode == "acme_dns" and config.domain:
+        # ACME with DNS challenge (not used directly, certs come from acme.sh)
         lines.append(f"{config.domain} {{")
         if config.email:
             lines.append(f"\ttls {config.email}")
         else:
             lines.append("\ttls")
+    elif config.mode == "manual" and config.cert_path and config.key_path:
+        # Manual certificate mode
+        if config.domain:
+            lines.append(f"{config.domain} {{")
+        else:
+            lines.append("https:// {")
+        lines.append(f"\ttls {config.cert_path} {config.key_path}")
     else:
+        # Self-signed (default)
         lines.extend([
-            ":443 {",
-            "\t# Self-signed certificate on startup",
-            "\ttls internal",
+            "https:// {",
+            "\ttls internal {",
+            "\t\ton_demand",
+            "\t}",
         ])
     
     # Common configuration
@@ -332,11 +350,11 @@ async def update_caddy_config(config: CaddyConfig):
     """
     try:
         # Validate configuration
-        if config.mode == "acme":
+        if config.mode == "acme_dns":
             if not config.domain:
                 raise HTTPException(
                     status_code=400, 
-                    detail="Domain is required for ACME mode"
+                    detail="Domain is required for ACME DNS mode"
                 )
             
             # Basic domain validation
@@ -351,6 +369,26 @@ async def update_caddy_config(config: CaddyConfig):
                 raise HTTPException(
                     status_code=400,
                     detail="Invalid email format"
+                )
+        
+        elif config.mode == "manual":
+            if not config.cert_path or not config.key_path:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Certificate and key paths are required for manual mode"
+                )
+            
+            # Check if files exist
+            if not os.path.exists(config.cert_path):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Certificate file not found: {config.cert_path}"
+                )
+            
+            if not os.path.exists(config.key_path):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Key file not found: {config.key_path}"
                 )
         
         # Generate new Caddyfile
@@ -473,3 +511,231 @@ async def test_caddy_connection():
             "running": False,
             "message": str(e)
         }
+
+
+class DNSChallengeRequest(BaseModel):
+    """DNS challenge request model."""
+    domain: str
+    email: Optional[str] = None
+
+
+class DNSChallengeResponse(BaseModel):
+    """DNS challenge response model."""
+    status: str
+    domain: str
+    txt_record_name: str
+    txt_record_value: str
+    message: str
+
+
+@router.post("/dns-challenge/start", response_model=DNSChallengeResponse)
+async def start_dns_challenge(request: DNSChallengeRequest):
+    """
+    Start DNS challenge process - generates TXT record that user must add to DNS.
+    
+    This uses acme.sh in manual DNS mode to generate the challenge.
+    User must add the TXT record to their DNS before calling /dns-challenge/verify.
+    
+    Args:
+        request: Domain and optional email for ACME registration.
+        
+    Returns:
+        DNS challenge details with TXT record name and value.
+    """
+    try:
+        # Validate domain
+        if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$", request.domain):
+            raise HTTPException(status_code=400, detail="Invalid domain format")
+        
+        # Create acme.sh directory if it doesn't exist
+        acme_dir = os.path.join(CADDY_CONFIG_DIR, "acme.sh")
+        os.makedirs(acme_dir, exist_ok=True)
+        
+        # Install acme.sh if not present
+        acme_sh_path = os.path.join(acme_dir, "acme.sh")
+        if not os.path.exists(acme_sh_path):
+            _LOGGER.info("Installing acme.sh...")
+            install_result = subprocess.run(
+                ["curl", "https://get.acme.sh", "|", "sh", "-s", "email=" + (request.email or "")],
+                shell=True,
+                cwd=acme_dir,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if install_result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to install acme.sh: {install_result.stderr}"
+                )
+        
+        # Start DNS challenge
+        cmd = [
+            acme_sh_path,
+            "--issue",
+            "--dns",
+            "-d", request.domain,
+            "--yes-I-know-dns-manual-mode-enough-go-ahead-please"
+        ]
+        
+        if request.email:
+            cmd.extend(["--accountemail", request.email])
+        
+        result = subprocess.run(
+            cmd,
+            cwd=acme_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env={**os.environ, "HOME": acme_dir}
+        )
+        
+        # Parse output to extract TXT record details
+        output = result.stdout + result.stderr
+        
+        # Look for pattern: "Add the following txt record:"
+        # Domain:_acme-challenge.example.com
+        # Txt value:9ihDbjYfTExAYeDs4DBUeuTo18KBzwvTEjUnSwd32-c
+        
+        txt_name_match = re.search(r"Domain:\s*(_acme-challenge\.[^\s]+)", output)
+        txt_value_match = re.search(r"Txt value:\s*([^\s]+)", output)
+        
+        if not txt_name_match or not txt_value_match:
+            _LOGGER.error("Failed to parse acme.sh output: %s", output)
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate DNS challenge. Please check logs."
+            )
+        
+        txt_record_name = txt_name_match.group(1)
+        txt_record_value = txt_value_match.group(1)
+        
+        _LOGGER.info(
+            "DNS challenge started for %s: %s = %s",
+            request.domain, txt_record_name, txt_record_value
+        )
+        
+        return DNSChallengeResponse(
+            status="success",
+            domain=request.domain,
+            txt_record_name=txt_record_name,
+            txt_record_value=txt_record_value,
+            message="Add this TXT record to your DNS and wait for propagation (usually 5-10 minutes)"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error starting DNS challenge: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/dns-challenge/verify")
+async def verify_dns_challenge(request: DNSChallengeRequest):
+    """
+    Verify DNS challenge and issue certificate.
+    
+    Call this after user has added the TXT record to their DNS.
+    This will complete the ACME challenge and obtain the certificate.
+    
+    Args:
+        request: Domain to verify.
+        
+    Returns:
+        Status response with certificate details.
+    """
+    try:
+        acme_dir = os.path.join(CADDY_CONFIG_DIR, "acme.sh")
+        acme_sh_path = os.path.join(acme_dir, "acme.sh")
+        
+        if not os.path.exists(acme_sh_path):
+            raise HTTPException(
+                status_code=400,
+                detail="DNS challenge not started. Call /dns-challenge/start first."
+            )
+        
+        # Renew/verify the certificate
+        result = subprocess.run(
+            [
+                acme_sh_path,
+                "--renew",
+                "-d", request.domain,
+                "--yes-I-know-dns-manual-mode-enough-go-ahead-please"
+            ],
+            cwd=acme_dir,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env={**os.environ, "HOME": acme_dir}
+        )
+        
+        if result.returncode != 0:
+            output = result.stdout + result.stderr
+            if "Verify error" in output or "Challenge error" in output:
+                return {
+                    "status": "error",
+                    "message": "DNS verification failed. Please ensure the TXT record is correctly set and has propagated."
+                }
+            raise HTTPException(
+                status_code=500,
+                detail=f"Certificate issuance failed: {result.stderr}"
+            )
+        
+        # Install certificate to Caddy directory
+        cert_dir = os.path.join(CADDY_CONFIG_DIR, "certs")
+        os.makedirs(cert_dir, exist_ok=True)
+        
+        install_result = subprocess.run(
+            [
+                acme_sh_path,
+                "--install-cert",
+                "-d", request.domain,
+                "--cert-file", os.path.join(cert_dir, f"{request.domain}.crt"),
+                "--key-file", os.path.join(cert_dir, f"{request.domain}.key"),
+                "--fullchain-file", os.path.join(cert_dir, f"{request.domain}.fullchain.crt")
+            ],
+            cwd=acme_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            env={**os.environ, "HOME": acme_dir}
+        )
+        
+        if install_result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to install certificate: {install_result.stderr}"
+            )
+        
+        # Update Caddyfile to use the new certificate
+        config = CaddyConfig(
+            mode="manual",
+            domain=request.domain,
+            cert_path=os.path.join(cert_dir, f"{request.domain}.fullchain.crt"),
+            key_path=os.path.join(cert_dir, f"{request.domain}.key")
+        )
+        
+        caddyfile_content = generate_caddyfile(config)
+        
+        with open(CADDYFILE_PATH, "w") as f:
+            f.write(caddyfile_content)
+        
+        # Reload Caddy
+        success, message = reload_caddy()
+        
+        if not success:
+            return {
+                "status": "warning",
+                "message": f"Certificate obtained but Caddy reload failed: {message}"
+            }
+        
+        return {
+            "status": "success",
+            "message": "Certificate obtained and installed successfully!"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error verifying DNS challenge: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))

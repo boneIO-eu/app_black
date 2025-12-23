@@ -1542,7 +1542,7 @@ const SystemState: React.FC = () => {
             </div>
 
             {/* SSL/TLS Certificates Section */}
-            <div className="card bg-base-200">
+            <div className="card bg-base-200 hidden">
               <div className="card-body">
                 <div className="flex items-center justify-between">
                   <h3 className="card-title">
