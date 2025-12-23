@@ -944,9 +944,9 @@ const SystemState: React.FC = () => {
                   >
                     <FaCheck />
                     <div className="text-sm">
-                      <p>Turned off {turnOffResult.count} outputs.</p>
+                      <p>{t('system_update.turned_off_outputs').replace('{count}', String(turnOffResult.count))}</p>
                       {turnOffResult.errors.length > 0 && (
-                        <p>Errors: {turnOffResult.errors.join(', ')}</p>
+                        <p>{t('system_update.errors')}: {turnOffResult.errors.join(', ')}</p>
                       )}
                     </div>
                   </div>

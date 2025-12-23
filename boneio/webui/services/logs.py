@@ -142,12 +142,12 @@ async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
             except Exception as e:
                 message = f"Error decoding message: {e}"
         else:
-            message = log.get('MESSAGE', '')
+            message = log.get('MESSAGE') or ''
         log_entries.append(
             LogEntry(
-                timestamp=log.get("__REALTIME_TIMESTAMP", ""),
+                timestamp=str(log.get("__REALTIME_TIMESTAMP") or ""),
                 message=message,
-                level=log.get("PRIORITY", ""),
+                level=str(log.get("PRIORITY") or ""),
             )
         )
 

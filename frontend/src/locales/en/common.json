@@ -332,6 +332,8 @@
     "rollback_failed": "Rollback failed",
     "turn_off_warning_1": "This will turn off ALL outputs immediately.",
     "turn_off_warning_2": "Saved relay states will be cleared - outputs will not restore on restart.",
+    "turned_off_outputs": "Turned off {{count}} outputs.",
+    "errors": "Errors",
     "prerelease_available": "Development Version Available",
     "prerelease_available_description": "A newer development version is available. Development versions may contain new features but could be less stable.",
     "prerelease_version": "Development Version",
@@ -665,6 +667,18 @@
     "failed": "Failed to check configuration",
     "check_again": "Check Again",
     "check_button": "Check Configuration",
-    "description": "Click the button below to verify your configuration file. This will check for syntax errors and validate the configuration structure. First save your file, then click the check button."
+    "description": "Click the button below to verify your configuration file. This will check for syntax errors and validate the configuration structure. Save the file first, then click the check button."
+  },
+  "help": {
+    "title": "Thanks for using boneIO Black",
+    "version": "Your app version",
+    "description": "We'd like to help you with your problems.",
+    "encouraging_text": "We're proud you chose boneIO Black! Your project deserves the best home automation solution. Together we're building a community of smart home enthusiasts!",
+    "discord_community": "Join our community on Discord and get help",
+    "app_repository": "Repository containing this app",
+    "documentation": "Documentation of application",
+    "system_image": "System image for your device",
+    "suggestions_title": "Have suggestions or ideas?",
+    "suggestions_text": "If you have feature requests or suggestions, write to us on Discord or create an issue on GitHub. Your feedback helps us improve boneIO!"
   }
 }

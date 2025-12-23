@@ -301,6 +301,8 @@
     "rollback_failed": "Cofanie nie powiodło się",
     "turn_off_warning_1": "To natychmiast wyłączy WSZYSTKIE wyjścia.",
     "turn_off_warning_2": "Zapisane stany przekaźników zostaną wyczyszczone - wyjścia nie zostaną przywrócone po restarcie.",
+    "turned_off_outputs": "Wyłączono {{count}} wyjść.",
+    "errors": "Błędy",
     "prerelease_available": "Dostępna wersja deweloperska",
     "prerelease_available_description": "Dostępna jest nowsza wersja deweloperska. Wersje deweloperskie mogą zawierać nowe funkcje, ale mogą być mniej stabilne.",
     "prerelease_version": "Wersja deweloperska",
@@ -668,6 +670,18 @@
     "check_again": "Sprawdź Ponownie",
     "check_button": "Sprawdź Konfigurację",
     "description": "Kliknij przycisk poniżej, aby zweryfikować plik konfiguracji. Sprawdzi to błędy składni i zwaliduje strukturę konfiguracji. Najpierw zapisz plik, a następnie kliknij przycisk sprawdzania."
+  },
+  "help": {
+    "title": "Dziękujemy za korzystanie z boneIO Black",
+    "version": "Wersja aplikacji",
+    "description": "Chcemy pomóc Ci rozwiązać problemy.",
+    "encouraging_text": "Jesteśmy dumni, że wybrałeś boneIO Black! Twój projekt zasługuje na najlepsze rozwiązanie automatyki domowej. Razem tworzymy społeczność pasjonatów smart home!",
+    "discord_community": "Dołącz do naszej społeczności na Discordzie i uzyskaj pomoc",
+    "app_repository": "Repozytorium zawierające tę aplikację",
+    "documentation": "Dokumentacja aplikacji",
+    "system_image": "Obraz systemu dla Twojego urządzenia",
+    "suggestions_title": "Masz sugestie lub pomysły?",
+    "suggestions_text": "Jeśli masz propozycje nowych funkcji lub sugestie, napisz do nas na Discordzie albo zgłoś issue na GitHubie. Twoja opinia pomaga nam ulepszać boneIO!"
   }
 }
   
