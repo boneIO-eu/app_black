@@ -46,12 +46,12 @@ class ConfigHelper:
         self._name = name
         
         # Generate serial number from MAC for topic prefix
-        serial = get_serial_from_mac(network_info) if topic_with_serial else ""
+        self._serial_no = get_serial_from_mac(network_info) if topic_with_serial else ""
         
         # Build topic prefix: use provided prefix or name, optionally append serial
         base_topic = topic_prefix if topic_prefix else name
-        if serial:
-            full_topic = f"{base_topic}_{serial}"
+        if self._serial_no:
+            full_topic = f"{base_topic}_{self._serial_no}"
         else:
             full_topic = base_topic
         sanitized_topic_prefix = sanitize_mqtt_topic(full_topic)
@@ -128,9 +128,17 @@ class ConfigHelper:
         return self._web_port
 
     @property
+    def serial_number(self) -> str:
+        return self._serial_no
+
+    @property
     def proxy_port(self) -> int | None:
         """Get nginx proxy port if configured."""
         return self._proxy_port
+
+    @property
+    def http_proto(self) -> str:
+        return "https" if self._proxy_port else "http"
 
     @property
     def ha_configuration_port(self) -> int:

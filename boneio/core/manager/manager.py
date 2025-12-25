@@ -28,7 +28,6 @@ from boneio.const import (
     output_actions,
 )
 from boneio.core.config import ConfigHelper
-from boneio.core.config.loader import create_serial_number_sensor
 from boneio.core.events import EventBus
 from boneio.core.manager.covers import CoverManager
 from boneio.core.manager.display import DisplayManager
@@ -183,13 +182,6 @@ class Manager:
         self.display = DisplayManager(
             manager=self,
             oled_config=oled,
-        )
-        
-        # Initialize serial number sensor
-        self._serial_number_sensor = create_serial_number_sensor(
-            manager=self,
-            message_bus=self._message_bus,
-            topic_prefix=self._topic_prefix,
         )
         
         # Configure virtual energy sensors (must be after outputs are initialized)

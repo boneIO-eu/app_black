@@ -70,7 +70,7 @@ def ha_availabilty_message(
     device_name = config_helper.name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
     if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
-        web_url = f"http://{config_helper.network_info[IP]}:{config_helper.ha_configuration_port}"
+        web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.ha_configuration_port}"
     
     web_url_dict = {
         "configuration_url": web_url
@@ -93,7 +93,9 @@ def ha_availabilty_message(
             "identifiers": [f"{topic}_{area}"],  # Use area ID for consistent grouping
             "manufacturer": "boneIO",
             "model": model,
+            "model_id": config_helper.topic_prefix,
             "name": sub_device_name,
+            "serial_number": config_helper.serial_number,
             "sw_version": __version__,
             "via_device": topic,  # Link to main BoneIO device
             "suggested_area": area,  # Use area ID (lowercase) - HA converts area names to lowercase
@@ -104,7 +106,9 @@ def ha_availabilty_message(
             "identifiers": [topic],
             "manufacturer": "boneIO",
             "model": model,
+            "model_id": config_helper.topic_prefix,
             "name": device_name,
+            "serial_number": config_helper.serial_number,
             "sw_version": __version__,
             **web_url_dict
         }
