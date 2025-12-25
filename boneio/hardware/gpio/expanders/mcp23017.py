@@ -56,7 +56,15 @@ class MCP23017:
             i2c: I2C bus instance (SMBus2I2C)
             address: I2C address of the device (default 0x20)
             reset: Reset flag (unused, for API compatibility with Adafruit library)
+        
+        Raises:
+            ValueError: If address is not in valid range (0x20-0x27)
+            RuntimeError: If I2C bus cannot be locked
         """
+        # Validate I2C address (MCP23017 supports 0x20-0x27 via A0-A2 pins)
+        if not 0x20 <= address <= 0x27:
+            raise ValueError(f"MCP23017 address must be 0x20-0x27, got 0x{address:02X}")
+        
         self._i2c = i2c
         self._address = address
         
@@ -78,12 +86,14 @@ class MCP23017:
         try:
             # Disable Sequential Operation (SEQOP) - logic assumes Byte mode
             # IOCON register is at 0x0A and 0x0B (shared in BANK=0)
-            self._write_register(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
+            # Write to both registers for robustness in case of dirty startup
+            self._write_register_unlocked(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
+            self._write_register_unlocked(0x0B, 0x20)  # Mirror register
             
             # Read current output latch states from hardware to preserve relay states
             # This prevents momentary OFF state during application restart
-            self._port_a_state = self._read_register(OLATA)
-            self._port_b_state = self._read_register(OLATB)
+            self._port_a_state = self._read_register_unlocked(OLATA)
+            self._port_b_state = self._read_register_unlocked(OLATB)
             _LOGGER.debug(
                 f"MCP23017@0x{address:02X} preserved states: "
                 f"A=0b{self._port_a_state:08b}, B=0b{self._port_b_state:08b}"
@@ -91,8 +101,8 @@ class MCP23017:
             
             # Initialize: Set all pins as outputs (IODIR=0x00)
             # This does NOT change the output latch values
-            self._write_register(IODIRA, 0x00)
-            self._write_register(IODIRB, 0x00)
+            self._write_register_unlocked(IODIRA, 0x00)
+            self._write_register_unlocked(IODIRB, 0x00)
             
             _LOGGER.info(f"Initialized MCP23017 at address 0x{address:02X}")
         finally:
