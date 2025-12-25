@@ -6,6 +6,7 @@ from boneio.core.system.monitor import (
     get_disk_info,
     get_memory_info,
     get_network_info,
+    get_serial_from_mac,
     get_swap_info,
     get_uptime,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "get_disk_info",
     "get_memory_info",
     "get_network_info",
+    "get_serial_from_mac",
     "get_swap_info",
     "get_uptime",
     # Host data classes

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from boneio.core.sensor import BaseSensor
-from boneio.core.system import get_network_info
+from boneio.core.system import get_serial_from_mac
 from boneio.core.utils import TimePeriod
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,23 +75,15 @@ class SerialNumberSensor(BaseSensor):
             timestamp: Current timestamp
         """
         try:
-            network_info = get_network_info()
+            serial = get_serial_from_mac()
             
-            if not network_info or "mac" not in network_info:
-                _LOGGER.warning("Could not retrieve MAC address for serial number")
+            if not serial:
+                _LOGGER.warning("Could not retrieve serial number from MAC address")
                 return
             
-            mac_address = network_info["mac"]
-            if not mac_address or mac_address == "none":
-                _LOGGER.warning("Invalid MAC address: %s", mac_address)
-                return
+            self._state = serial
             
-            # Remove colons and take last 6 characters
-            # Example: "aa:bb:cc:dd:ee:ff" -> "ddeeff"
-            mac_clean = mac_address.replace(':', '')[-6:]
-            self._state = f"blk{mac_clean}"
-            
-            _LOGGER.debug("Serial number updated: %s (from MAC: %s)", self._state, mac_address)
+            _LOGGER.debug("Serial number updated: %s", self._state)
             
             # Publish to MQTT and EventBus
             self._publish_state(timestamp=timestamp)

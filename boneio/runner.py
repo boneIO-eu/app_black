@@ -117,6 +117,7 @@ async def async_run(
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
         config_file_path=config_file,
+        topic_with_serial=config.get(MQTT, {}).get("topic_with_serial", True),
     )
     
     # Load areas configuration

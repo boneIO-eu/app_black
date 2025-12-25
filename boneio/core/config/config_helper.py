@@ -23,6 +23,7 @@ from boneio.const import (
     VALVE,
 )
 from boneio.core.utils.util import sanitize_mqtt_topic
+from boneio.core.system import get_serial_from_mac
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,9 +41,20 @@ class ConfigHelper:
         web_port: int = 8090,
         proxy_port: int | None = None,
         config_file_path: str | None = None,
+        topic_with_serial: bool = True,
     ):
         self._name = name
-        sanitized_topic_prefix = sanitize_mqtt_topic(topic_prefix) if topic_prefix else sanitize_mqtt_topic(name)
+        
+        # Generate serial number from MAC for topic prefix
+        serial = get_serial_from_mac(network_info) if topic_with_serial else ""
+        
+        # Build topic prefix: use provided prefix or name, optionally append serial
+        base_topic = topic_prefix if topic_prefix else name
+        if serial:
+            full_topic = f"{base_topic}_{serial}"
+        else:
+            full_topic = base_topic
+        sanitized_topic_prefix = sanitize_mqtt_topic(full_topic)
         self._topic_prefix = sanitized_topic_prefix
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix

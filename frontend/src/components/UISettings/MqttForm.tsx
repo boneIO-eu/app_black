@@ -112,6 +112,22 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
         </label>
       </div>
 
+      {/* Topic with Serial */}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-4">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-primary"
+            checked={data?.topic_with_serial ?? true}
+            onChange={(e) => handleChange('topic_with_serial', e.target.checked)}
+          />
+          <div className="flex flex-col">
+            <span className="label-text font-medium">{t('mqtt_config.topic_with_serial')}</span>
+            <span className="label-text-alt text-base-content/60">{t('mqtt_config.topic_with_serial_help')}</span>
+          </div>
+        </label>
+      </div>
+
       {/* HA Discovery Section */}
       <div className="divider">{t('mqtt_config.ha_discovery')}</div>
 

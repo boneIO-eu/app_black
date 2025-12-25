@@ -215,6 +215,10 @@
     "delete_warning_message": "Ten element jest używany w poniższych akcjach. Usunięcie go spowoduje również usunięcie tych akcji.",
     "affected_actions": "Akcje do usunięcia",
     "delete_and_remove_actions": "Usuń Akcje teraz i zapisz zmiany",
+    "area_in_use_title": "Uwaga: Obszar jest używany",
+    "area_in_use_message": "Ten obszar jest przypisany do poniższych elementów. Po usunięciu obszaru, te elementy stracą przypisanie do obszaru.",
+    "items_using_area": "Elementy używające tego obszaru",
+    "delete_anyway": "Usuń mimo to",
     "hostname_title": "Zmiana Hostname",
     "hostname_description": "Zmień nazwę hosta systemu. Hostname identyfikuje urządzenie w sieci.",
     "show_hostname_section": "Pokaż ustawienia Hostname",
@@ -585,6 +589,8 @@
     "password_help": "Hasło do brokera MQTT (opcjonalnie)",
     "topic_prefix": "Prefiks Tematu",
     "topic_prefix_help": "Prefiks tematu dla boneIO. Jeśli nie ustawiony, używa nazwy urządzenia.",
+    "topic_with_serial": "Dodaj numer seryjny do tematu",
+    "topic_with_serial_help": "Dodaje numer seryjny urządzenia do prefiksu tematu MQTT. Przydatne gdy masz kilka identycznych urządzeń, np. \"boneio_blk8c7df0\" zamiast \"boneio\".",
     "ha_discovery": "Autodiscovery Home Assistant",
     "enable_ha_discovery": "Włącz HA Autodiscovery",
     "enable_ha_discovery_help": "Automatycznie rejestruj urządzenia w Home Assistant",
@@ -785,6 +791,19 @@
     "system_image": "Obraz systemu dla Twojego urządzenia",
     "suggestions_title": "Masz sugestie lub pomysły?",
     "suggestions_text": "Jeśli masz propozycje nowych funkcji lub sugestie, napisz do nas na Discordzie albo zgłoś issue na GitHubie. Twoja opinia pomaga nam ulepszać boneIO!"
+  },
+  "import_export": {
+    "export": "Eksportuj",
+    "import": "Importuj",
+    "import_title": "Importuj dane",
+    "import_confirm": "Znaleziono {count} elementów do zaimportowania.",
+    "mode_merge": "Scal z istniejącymi",
+    "mode_merge_desc": "Dodaj nowe elementy, pomiń duplikaty",
+    "mode_replace": "Zastąp wszystkie",
+    "mode_replace_desc": "Usuń istniejące i wstaw nowe",
+    "confirm_import": "Importuj",
+    "invalid_format": "Nieprawidłowy format pliku. Oczekiwano pliku JSON z polem 'data'.",
+    "parse_error": "Błąd parsowania pliku JSON."
   }
 }
   

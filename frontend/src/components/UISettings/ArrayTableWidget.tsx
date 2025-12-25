@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
+import * as yaml from 'js-yaml';
 import { useTranslation } from '../../hooks/useTranslation';
 import BinarySensorForm from './BinarySensorForm';
 import EventForm from './EventForm';
@@ -46,6 +47,9 @@ export interface ArrayTableWidgetProps {
   allOutputGroups?: any[];
   allCovers?: any[];
   allAreas?: Area[];
+  allSensors?: any[];
+  allModbusDevices?: any[];
+  allVirtualEnergySensors?: any[];
   /** Saved (committed) data for comparison - items not in saved are shown as disabled */
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -65,7 +69,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -78,6 +82,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // State for delete confirmation dialog
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  
+  // State for import dialog
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importData, setImportData] = useState<any[] | null>(null);
+  const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge');
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [affectedActions, setAffectedActions] = useState<{type: string, name: string, actionType: string}[]>([]);
 
   // Fetch interlock groups for output section
@@ -289,6 +300,104 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
   /**
+   * Find all items that use the given area ID.
+   * Returns list of affected items with their section type and name.
+   */
+  const findItemsUsingArea = (areaId: string): {type: string, name: string, actionType: string}[] => {
+    const affected: {type: string, name: string, actionType: string}[] = [];
+    
+    // Check outputs
+    allOutputs.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('navigation.outputs'),
+          name: item.id || item.name || item.boneio_output || t('array_table_widget.unknown'),
+          actionType: item.boneio_output || ''
+        });
+      }
+    });
+    
+    // Check output groups
+    allOutputGroups.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('outputs.output_group'),
+          name: item.id || item.name || t('array_table_widget.unknown'),
+          actionType: ''
+        });
+      }
+    });
+    
+    // Check covers
+    allCovers.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('covers.title'),
+          name: item.id || item.name || t('array_table_widget.unknown'),
+          actionType: `${item.open_relay} / ${item.close_relay}`
+        });
+      }
+    });
+    
+    // Check binary sensors
+    allBinarySensors.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('navigation.inputs'),
+          name: item.name || item.boneio_input || t('array_table_widget.unknown'),
+          actionType: item.boneio_input || ''
+        });
+      }
+    });
+    
+    // Check events
+    allEvents.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('event_form.title'),
+          name: item.name || item.boneio_input || t('array_table_widget.unknown'),
+          actionType: item.boneio_input || ''
+        });
+      }
+    });
+    
+    // Check sensors
+    allSensors.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('navigation.sensors'),
+          name: item.id || item.name || t('array_table_widget.unknown'),
+          actionType: item.address || ''
+        });
+      }
+    });
+    
+    // Check modbus devices
+    allModbusDevices.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('navigation.modbus'),
+          name: item.id || item.name || t('array_table_widget.unknown'),
+          actionType: `${item.model} @ ${item.address}`
+        });
+      }
+    });
+    
+    // Check virtual energy sensors
+    allVirtualEnergySensors.forEach((item: any) => {
+      if (item.area === areaId) {
+        affected.push({
+          type: t('virtual_energy_sensor.title'),
+          name: item.id || item.name || t('array_table_widget.unknown'),
+          actionType: ''
+        });
+      }
+    });
+    
+    return affected;
+  };
+
+  /**
    * Find all actions in events and binary_sensors that reference the given item ID.
    * Returns list of affected actions with their source (event/binary_sensor name and action type).
    */
@@ -407,6 +516,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleDelete = (index: number) => {
     const item = value[index];
     
+    // Check for affected items when deleting an area
+    if (sectionType === 'areas') {
+      const areaId = item.id;
+      const affected = findItemsUsingArea(areaId);
+      
+      if (affected.length > 0) {
+        // Show confirmation dialog - but for areas we just warn, don't auto-remove
+        setDeleteIndex(index);
+        setAffectedActions(affected);
+        setDeleteConfirmOpen(true);
+        return;
+      }
+    }
+    
     // Only check for affected actions when deleting output, output_group, or cover
     if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover') {
       const itemId = getItemId(item);
@@ -430,6 +553,25 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if (deleteIndex === null) return;
     
     const item = value[deleteIndex];
+    
+    // For areas, just delete without removing references (user is warned)
+    if (sectionType === 'areas') {
+      const newValue = value.filter((_, i) => i !== deleteIndex);
+      onChange(newValue);
+      
+      // Close dialog
+      setDeleteConfirmOpen(false);
+      setDeleteIndex(null);
+      setAffectedActions([]);
+      
+      // Save the areas section
+      if (onSaveSection) {
+        console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
+        await onSaveSection(sectionType, newValue);
+      }
+      return;
+    }
+    
     const itemId = getItemId(item);
     
     // Check which sections have affected actions
@@ -478,6 +620,112 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setEditingIndex(null);
   };
 
+  /**
+   * Export current section data as YAML file
+   */
+  const handleExport = () => {
+    const exportData = {
+      section: sectionType,
+      version: '1.0',
+      exported_at: new Date().toISOString(),
+      data: value
+    };
+    
+    const yamlContent = yaml.dump(exportData, { indent: 2, lineWidth: -1, noRefs: true });
+    const blob = new Blob([yamlContent], { type: 'application/x-yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `boneio_${sectionType}_${new Date().toISOString().split('T')[0]}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  /**
+   * Handle file selection for import (supports YAML and JSON)
+   */
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        let parsed: any;
+        
+        // Try YAML first (also handles JSON since JSON is valid YAML)
+        try {
+          parsed = yaml.load(content);
+        } catch {
+          // Fallback to JSON parse for better error messages
+          parsed = JSON.parse(content);
+        }
+        
+        // Validate structure
+        if (!parsed.data || !Array.isArray(parsed.data)) {
+          setImportError(t('import_export.invalid_format'));
+          setImportData(null);
+          setImportDialogOpen(true);
+          return;
+        }
+        
+        // Check section type match (warning only)
+        if (parsed.section && parsed.section !== sectionType) {
+          console.warn(`Import section mismatch: expected ${sectionType}, got ${parsed.section}`);
+        }
+        
+        setImportData(parsed.data);
+        setImportError(null);
+        setImportDialogOpen(true);
+      } catch {
+        setImportError(t('import_export.parse_error'));
+        setImportData(null);
+        setImportDialogOpen(true);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  /**
+   * Confirm import with selected mode
+   */
+  const confirmImport = () => {
+    if (!importData) return;
+    
+    if (importMode === 'replace') {
+      onChange(importData);
+    } else {
+      // Merge: add new items, skip duplicates by id/name
+      const existingIds = new Set(value.map(item => item.id || item.name || item.boneio_output || item.boneio_input));
+      const newItems = importData.filter(item => {
+        const itemId = item.id || item.name || item.boneio_output || item.boneio_input;
+        return !existingIds.has(itemId);
+      });
+      onChange([...value, ...newItems]);
+    }
+    
+    setImportDialogOpen(false);
+    setImportData(null);
+    setImportMode('merge');
+  };
+
+  /**
+   * Cancel import
+   */
+  const cancelImport = () => {
+    setImportDialogOpen(false);
+    setImportData(null);
+    setImportError(null);
+    setImportMode('merge');
+  };
 
   // Render appropriate table component based on section type
   const renderTable = () => {
@@ -513,18 +761,53 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept=".yaml,.yml,.json"
+        className="hidden"
+      />
+      
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h3 className="text-lg font-semibold">{title || t('array_table_widget.items')}</h3>
-        <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`} 
-             data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
-          <button
-            onClick={handleAdd}
-            className="btn btn-primary btn-sm"
-            disabled={areAllItemsUsed()}
-          >
-            <FaPlus className="mr-2" />
-            {t('settings.add_new')}
-          </button>
+        <div className="flex gap-2 flex-wrap">
+          {/* Export button */}
+          <div className="tooltip tooltip-bottom" data-tip={t('import_export.export')}>
+            <button
+              onClick={handleExport}
+              className="btn btn-ghost btn-sm"
+              disabled={value.length === 0}
+            >
+              <FaDownload />
+              <span className="hidden sm:inline ml-1">{t('import_export.export')}</span>
+            </button>
+          </div>
+          
+          {/* Import button */}
+          <div className="tooltip tooltip-bottom" data-tip={t('import_export.import')}>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn btn-ghost btn-sm"
+            >
+              <FaUpload />
+              <span className="hidden sm:inline ml-1">{t('import_export.import')}</span>
+            </button>
+          </div>
+          
+          {/* Add new button */}
+          <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`} 
+               data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
+            <button
+              onClick={handleAdd}
+              className="btn btn-primary btn-sm"
+              disabled={areAllItemsUsed()}
+            >
+              <FaPlus className="mr-2" />
+              {t('settings.add_new')}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -714,19 +997,27 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         <DialogContent className="max-w-md bg-base-100">
           <DialogHeader>
             <DialogTitle className="text-warning flex items-center gap-2">
-              ⚠️ {t('settings.delete_warning_title')}
+              ⚠️ {sectionType === 'areas' ? t('settings.area_in_use_title') : t('settings.delete_warning_title')}
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <p className="mb-4">{t('settings.delete_warning_message')}</p>
+            <p className="mb-4">
+              {sectionType === 'areas' 
+                ? t('settings.area_in_use_message') 
+                : t('settings.delete_warning_message')}
+            </p>
             <div className="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-              <p className="font-medium mb-2">{t('settings.affected_actions')} ({affectedActions.length}):</p>
+              <p className="font-medium mb-2">
+                {sectionType === 'areas' 
+                  ? t('settings.items_using_area') 
+                  : t('settings.affected_actions')} ({affectedActions.length}):
+              </p>
               <ul className="space-y-1 text-sm">
                 {affectedActions.map((action, idx) => (
-                  <li key={idx} className="flex items-center gap-2">
+                  <li key={idx} className="flex items-center gap-2 flex-wrap">
                     <span className="badge badge-xs badge-outline">{action.type}</span>
                     <span className="font-medium">{action.name}</span>
-                    <span className="text-base-content/60">→ {action.actionType}</span>
+                    {action.actionType && <span className="text-base-content/60">({action.actionType})</span>}
                   </li>
                 ))}
               </ul>
@@ -745,8 +1036,80 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               onClick={confirmDelete} 
               className="btn btn-error"
             >
-              {t('settings.delete_and_remove_actions')}
+              {sectionType === 'areas' ? t('settings.delete_anyway') : t('settings.delete_and_remove_actions')}
             </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Confirmation Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-md bg-base-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              📥 {t('import_export.import_title')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {importError ? (
+              <div className="alert alert-error">
+                <span>{importError}</span>
+              </div>
+            ) : (
+              <>
+                <p>{t('import_export.import_confirm').replace('{count}', String(importData?.length || 0))}</p>
+                
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      className="radio radio-primary"
+                      checked={importMode === 'merge'}
+                      onChange={() => setImportMode('merge')}
+                    />
+                    <div>
+                      <span className="label-text font-medium">{t('import_export.mode_merge')}</span>
+                      <p className="text-xs text-base-content/60">{t('import_export.mode_merge_desc')}</p>
+                    </div>
+                  </label>
+                </div>
+                
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="radio"
+                      name="importMode"
+                      className="radio radio-warning"
+                      checked={importMode === 'replace'}
+                      onChange={() => setImportMode('replace')}
+                    />
+                    <div>
+                      <span className="label-text font-medium">{t('import_export.mode_replace')}</span>
+                      <p className="text-xs text-base-content/60">{t('import_export.mode_replace_desc')}</p>
+                    </div>
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <button 
+              type="button" 
+              onClick={cancelImport} 
+              className="btn btn-ghost"
+            >
+              {t('common.cancel')}
+            </button>
+            {!importError && (
+              <button 
+                type="button" 
+                onClick={confirmImport} 
+                className={`btn ${importMode === 'replace' ? 'btn-warning' : 'btn-primary'}`}
+              >
+                {t('import_export.confirm_import')}
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

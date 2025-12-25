@@ -86,6 +86,33 @@ def get_network_info() -> dict[str, str]:
         return {IP: NONE, MASK: NONE, MAC: NONE}
 
 
+def get_serial_from_mac(network_info: dict | None = None) -> str:
+    """Generate serial number from MAC address.
+    
+    Args:
+        network_info: Optional dictionary containing 'mac' key with MAC address.
+                     If None, will fetch network info automatically.
+        
+    Returns:
+        Serial number string like 'blk8c7df0' or empty string if MAC unavailable
+        
+    Example:
+        >>> get_serial_from_mac()
+        'blk8c7df0'
+        >>> get_serial_from_mac({'mac': 'aa:bb:cc:dd:ee:ff'})
+        'blkddeeff'
+    """
+    if network_info is None:
+        network_info = get_network_info()
+    
+    mac_address = network_info.get("mac", "")
+    if not mac_address or mac_address == "none":
+        return ""
+    # Remove colons and take last 6 characters
+    mac_clean = mac_address.replace(':', '')[-6:]
+    return f"blk{mac_clean}"
+
+
 def get_cpu_info() -> dict[str, str]:
     """Fetch CPU usage information.
     

@@ -1274,6 +1274,9 @@ export default function UISettings() {
                           allOutputGroups={formData.output_group || []}
                           allCovers={formData.cover || []}
                           allAreas={formData.areas || []}
+                          allSensors={formData.sensor || []}
+                          allModbusDevices={formData.modbus_devices || []}
+                          allVirtualEnergySensors={formData.virtual_energy_sensor || []}
                           savedOutputs={originalData.output || []}
                           savedOutputGroups={originalData.output_group || []}
                           savedCovers={originalData.cover || []}
@@ -1370,6 +1373,9 @@ export default function UISettings() {
                         allOutputGroups={formData.output_group || []}
                         allCovers={formData.cover || []}
                         allAreas={formData.areas || []}
+                        allSensors={formData.sensor || []}
+                        allModbusDevices={formData.modbus_devices || []}
+                        allVirtualEnergySensors={formData.virtual_energy_sensor || []}
                         savedOutputs={originalData.output || []}
                         savedOutputGroups={originalData.output_group || []}
                         savedCovers={originalData.cover || []}

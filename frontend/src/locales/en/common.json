@@ -215,6 +215,10 @@
     "delete_warning_message": "This item is used in the following actions. Deleting it will also remove these actions.",
     "affected_actions": "Affected actions",
     "delete_and_remove_actions": "Remove Actions now and save changes",
+    "area_in_use_title": "Warning: Area is in use",
+    "area_in_use_message": "This area is assigned to the following items. After deleting the area, these items will lose their area assignment.",
+    "items_using_area": "Items using this area",
+    "delete_anyway": "Delete anyway",
     "hostname_title": "Change Hostname",
     "hostname_description": "Change the system hostname. The hostname identifies the device on the network.",
     "show_hostname_section": "Show Hostname Settings",
@@ -584,6 +588,8 @@
     "password_help": "Password to MQTT broker (optional)",
     "topic_prefix": "Topic Prefix",
     "topic_prefix_help": "Prefix topic for boneIO. If not set, uses device name.",
+    "topic_with_serial": "Append serial number to topic",
+    "topic_with_serial_help": "Appends device serial number to MQTT topic prefix. Useful when you have multiple identical devices, e.g. \"boneio_blk8c7df0\" instead of \"boneio\".",
     "ha_discovery": "Home Assistant Discovery",
     "enable_ha_discovery": "Enable HA Discovery",
     "enable_ha_discovery_help": "Automatically register devices in Home Assistant",
@@ -783,5 +789,18 @@
     "system_image": "System image for your device",
     "suggestions_title": "Have suggestions or ideas?",
     "suggestions_text": "If you have feature requests or suggestions, write to us on Discord or create an issue on GitHub. Your feedback helps us improve boneIO!"
+  },
+  "import_export": {
+    "export": "Export",
+    "import": "Import",
+    "import_title": "Import Data",
+    "import_confirm": "Found {count} items to import.",
+    "mode_merge": "Merge with existing",
+    "mode_merge_desc": "Add new items, skip duplicates",
+    "mode_replace": "Replace all",
+    "mode_replace_desc": "Remove existing and insert new",
+    "confirm_import": "Import",
+    "invalid_format": "Invalid file format. Expected JSON file with 'data' field.",
+    "parse_error": "Error parsing JSON file."
   }
 }
