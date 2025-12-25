@@ -103,11 +103,13 @@ const OutputForm: React.FC<OutputFormProps> = ({
   
   const availableOutputs = allBoneioOutputs.filter(output => !usedOutputs.includes(output));
   
-  // If current output is used by this item, include it in options
+  // If editing existing item, always include current output in options (even if it would be filtered)
   const currentOutput = data.boneio_output;
-  const boneioOutputOptions = currentOutput && usedOutputs.includes(currentOutput)
+  const boneioOutputOptions = currentOutput
     ? [...new Set([currentOutput, ...availableOutputs])].sort()
     : availableOutputs;
+
+  console.log("boneio output options", boneioOutputOptions);
   
   const outputTypeOptions = schema?.items?.properties?.output_type?.enum || [];
 

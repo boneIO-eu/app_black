@@ -27,16 +27,28 @@ class TestMCP23017Initialization:
         assert mock_i2c.get_register(0x20, IODIRA) == 0x00
         assert mock_i2c.get_register(0x20, IODIRB) == 0x00
     
-    def test_init_clears_all_outputs(self):
-        """MCP23017 should clear all outputs on init."""
+    def test_init_preserves_relay_states(self):
+        """MCP23017 should preserve existing relay states on init (no momentary OFF)."""
         mock_i2c = MockSMBus2I2C(bus_number=2)
-        mock_i2c.add_device(0x20, MockMCP23017Registers.default())
+        
+        # Set up device with some relays already ON (simulating hardware state before restart)
+        registers = MockMCP23017Registers.default()
+        registers[OLATA] = 0b00001111  # Pins 0-3 ON
+        registers[OLATB] = 0b11110000  # Pins 12-15 ON
+        mock_i2c.add_device(0x20, registers)
         
         mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False)  # type: ignore[arg-type]
         
-        # OLAT registers should be 0x00 (all low)
-        assert mock_i2c.get_register(0x20, OLATA) == 0x00
-        assert mock_i2c.get_register(0x20, OLATB) == 0x00
+        # OLAT registers should be preserved (not cleared to 0x00)
+        assert mock_i2c.get_register(0x20, OLATA) == 0b00001111
+        assert mock_i2c.get_register(0x20, OLATB) == 0b11110000
+        
+        # Verify internal state cache matches
+        assert mcp.get_pin_value(0) is True
+        assert mcp.get_pin_value(3) is True
+        assert mcp.get_pin_value(4) is False
+        assert mcp.get_pin_value(12) is True
+        assert mcp.get_pin_value(15) is True
     
     def test_init_with_different_address(self):
         """MCP23017 should work with different I2C addresses."""
@@ -46,6 +58,20 @@ class TestMCP23017Initialization:
         mcp = MCP23017(i2c=mock_i2c, address=0x27, reset=False)  # type: ignore[arg-type]
         
         assert mock_i2c.get_register(0x27, IODIRA) == 0x00
+    
+    def test_init_invalid_address_too_low(self):
+        """MCP23017 should reject addresses below 0x20."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        
+        with pytest.raises(ValueError, match="MCP23017 address must be 0x20-0x27"):
+            MCP23017(i2c=mock_i2c, address=0x1F, reset=False)  # type: ignore[arg-type]
+    
+    def test_init_invalid_address_too_high(self):
+        """MCP23017 should reject addresses above 0x27."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        
+        with pytest.raises(ValueError, match="MCP23017 address must be 0x20-0x27"):
+            MCP23017(i2c=mock_i2c, address=0x28, reset=False)  # type: ignore[arg-type]
 
 
 class TestMCP23017PinControl:

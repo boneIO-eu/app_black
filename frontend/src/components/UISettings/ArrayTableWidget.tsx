@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
 import BinarySensorForm from './BinarySensorForm';
 import EventForm from './EventForm';
@@ -17,6 +17,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import AreasTable from './tables/AreasTable';
+import OutputTable from './tables/OutputTable';
+import OutputGroupTable from './tables/OutputGroupTable';
+import CoverTable from './tables/CoverTable';
+import BinarySensorEventTable from './tables/BinarySensorEventTable';
+import ModbusDeviceTable from './tables/ModbusDeviceTable';
+import SensorTable from './tables/SensorTable';
+import VirtualEnergySensorTable from './tables/VirtualEnergySensorTable';
+import GenericTable from './tables/GenericTable';
 
 interface Area {
   id: string;
@@ -470,531 +479,37 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
 
-  // Render table headers based on section type
-  const renderTableHeaders = () => {
-    if (sectionType === 'output') {
-      return (
-        <tr>
-          <th>{t('outputs.name')} / {t('outputs.id')}</th>
-          <th>{t('outputs.boneio_output')}</th>
-          <th>{t('outputs.type')}</th>
-          <th>{t('outputs.area')}</th>
-          <th>{t('outputs.interlock')}</th>
-          <th>{t('outputs.restore')}</th>
-          <th>{t('outputs.momentary')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'output_group') {
-      return (
-        <tr>
-          <th>{t('outputs.name')} / {t('outputs.id')}</th>
-          <th>{t('groups.member_outputs')}</th>
-          <th>{t('outputs.type')}</th>
-          <th>{t('groups.all_on')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'cover') {
-      return (
-        <tr>
-          <th>{t('outputs.name')} / {t('outputs.id')}</th>
-          <th>{t('covers.platform')}</th>
-          <th>{t('covers.open_relay')}</th>
-          <th>{t('covers.close_relay')}</th>
-          <th>{t('covers.times')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'modbus_devices') {
-      return (
-        <tr>
-          <th>{t('modbus.name_id')}</th>
-          <th>{t('modbus.model')}</th>
-          <th>{t('modbus.address')}</th>
-          <th>{t('modbus.update_interval')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
-      return (
-        <tr>
-          <th>{t('inputs.id')}/{t('inputs.name')}</th>
-          <th>{t('inputs.boneio_input')}</th>
-          <th>{t('inputs.area')}</th>
-          <th>{t('inputs.has_actions')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'areas') {
-      return (
-        <tr>
-          <th>{t('areas.id')}</th>
-          <th>{t('areas.name')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'sensor') {
-      return (
-        <tr>
-          <th>{t('sensors.name')} / {t('sensors.id')}</th>
-          <th>{t('sensors.address')}</th>
-          <th>{t('sensors.area')}</th>
-          <th>{t('sensors.platform')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else if (sectionType === 'virtual_energy_sensor') {
-      return (
-        <tr>
-          <th>{t('virtual_energy_sensor.name')}</th>
-          <th>{t('virtual_energy_sensor.output_id')}</th>
-          <th>{t('virtual_energy_sensor.sensor_type')}</th>
-          <th>{t('virtual_energy_sensor.area')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
-    } else {
-      return (
-        <tr>
-          <th>{t('outputs.id')}/{t('outputs.name')}</th>
-          <th>{t('array_table_widget.details')}</th>
-          <th>{t('outputs.actions')}</th>
-        </tr>
-      );
+  // Render appropriate table component based on section type
+  const renderTable = () => {
+    const commonProps = {
+      items: value,
+      onEdit: handleEdit,
+      onDelete: handleDelete,
+    };
+
+    switch (sectionType) {
+      case 'output':
+        return <OutputTable {...commonProps} allAreas={allAreas} />;
+      case 'output_group':
+        return <OutputGroupTable {...commonProps} allAreas={allAreas} />;
+      case 'cover':
+        return <CoverTable {...commonProps} allAreas={allAreas} />;
+      case 'binary_sensor':
+      case 'event':
+        return <BinarySensorEventTable {...commonProps} allAreas={allAreas} />;
+      case 'modbus_devices':
+        return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} />;
+      case 'areas':
+        return <AreasTable {...commonProps} />;
+      case 'sensor':
+        return <SensorTable {...commonProps} allAreas={allAreas} />;
+      case 'virtual_energy_sensor':
+        return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
+      default:
+        return <GenericTable {...commonProps} />;
     }
   };
 
-  // Render table rows based on section type
-  const renderTableRows = () => {
-    if (sectionType === 'modbus_devices') {
-      return value.map((item, index) => {
-        // Generate display ID if not set
-        const displayId = item.id || (item.address && item.model 
-          ? `${item.address}_${item.model}`.toLowerCase() 
-          : `Device ${index + 1}`);
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                {item.name && <div className="font-medium">{item.name}</div>}
-                <div className={item.name ? "text-xs text-base-content/60" : ""}>{displayId}</div>
-              </div>
-            </td>
-            <td>
-              {item.model ? (
-                <span className="badge badge-info badge-sm uppercase">{item.model}</span>
-              ) : (
-                '-'
-              )}
-            </td>
-            <td>{item.address || '-'}</td>
-            <td>{item.update_interval ? formatTimeperiod(item.update_interval) : '-'}</td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title="Edit Item"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title="Delete"
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'cover') {
-      return value.map((item, index) => {
-        // Generate display ID if not set
-        const displayId = item.id || (item.open_relay && item.close_relay 
-          ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
-          : `Cover ${index + 1}`);
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                {item.name && <div className="font-medium">{item.name}</div>}
-                <div className={item.name ? "text-xs text-base-content/60" : ""}>{displayId}</div>
-              </div>
-            </td>
-            <td>
-              {item.platform ? (
-                <span className="badge badge-info badge-sm">{item.platform}</span>
-              ) : (
-                '-'
-              )}
-            </td>
-            <td className="uppercase">{item.open_relay || '-'}</td>
-            <td className="uppercase">{item.close_relay || '-'}</td>
-            <td>
-              <div className="text-xs capitalize">
-                <div>{t('covers.open')}: {item.open_time ? `${item.open_time}ms` : '-'}</div>
-                <div>{t('covers.close')}: {item.close_time ? `${item.close_time}ms` : '-'}</div>
-                {item.tilt_duration && <div>{t('covers.tilt')}: {item.tilt_duration}ms</div>}
-                {item.actuator_activation_duration && <div>{t('covers.actuator_duration').replace(' Activation Duration', '').replace(' Aktywacji Siłownika', '')}: {item.actuator_activation_duration}ms</div>}
-              </div>
-            </td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title="Edit Item"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title="Delete"
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'output_group') {
-      return value.map((item, index) => {
-        const outputs = Array.isArray(item.outputs) ? item.outputs : [];
-        const displayName = item.name || item.id || `Group ${index + 1}`;
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                <div className="font-medium">{displayName}</div>
-                {item.name && item.id && (
-                  <div className="text-xs text-base-content/60">ID: {item.id}</div>
-                )}
-              </div>
-            </td>
-            <td>
-              <div className="flex flex-wrap gap-1">
-                {outputs.length > 0 ? (
-                  outputs.map((output: string, idx: number) => (
-                    <span key={idx} className="badge badge-primary badge-sm uppercase">
-                      {output}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-warning">{t('array_table_widget.no_outputs')}</span>
-                )}
-              </div>
-            </td>
-            <td>
-              {item.output_type ? (
-                <span className="badge badge-info badge-sm">{item.output_type}</span>
-              ) : (
-                '-'
-              )}
-            </td>
-            <td>
-              {item.all_on_behaviour ? (
-                <span className="badge badge-success badge-sm">Yes</span>
-              ) : (
-                <span className="badge badge-ghost badge-sm">No</span>
-              )}
-            </td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title="Edit Item"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title="Delete"
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'output') {
-      return value.map((item, index) => {
-        const isMomentary = item.momentary_turn_on || item.momentary_turn_off;
-        // effective_id: id > boneio_output
-        const effectiveId = item.id || item.boneio_output;
-        const displayName = item.name || effectiveId || `Item ${index + 1}`;
-        // Find area name from allAreas
-        const areaName = item.area 
-          ? allAreas.find(a => a.id === item.area)?.name || item.area 
-          : '-';
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                <div className="font-medium">{displayName}</div>
-                {item.name && effectiveId && (
-                  <div className="text-xs text-base-content/60">ID: {effectiveId}</div>
-                )}
-              </div>
-            </td>
-            <td className="uppercase">{item.boneio_output || '-'}</td>
-            <td>
-              {item.output_type ? (
-                <span className="badge badge-info badge-sm">{item.output_type}</span>
-              ) : (
-                '-'
-              )}
-            </td>
-            <td>{areaName}</td>
-            <td>
-              {item.interlock_group ? (
-                <span className="badge badge-error badge-sm" title={`Interlock: ${item.interlock_group}`}>
-                  {item.interlock_group}
-                </span>
-              ) : (
-                <span className="text-base-content/40">-</span>
-              )}
-            </td>
-            <td>
-              {item.restore_state !== undefined ? (
-                item.restore_state ? (
-                  <span className="badge badge-success badge-sm">{t('common.yes')}</span>
-                ) : (
-                  <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
-                )
-              ) : (
-                '-'
-              )}
-            </td>
-            <td>
-              {isMomentary ? (
-                <span className="badge badge-warning badge-sm">{t('common.yes')}</span>
-              ) : (
-                <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
-              )}
-            </td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title={t('outputs.edit')}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title={t('outputs.delete')}
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
-      return value.map((item, index) => {
-        // Find area name from allAreas
-        const areaName = item.area 
-          ? allAreas.find(a => a.id === item.area)?.name || item.area 
-          : '-';
-        
-        return (
-          <tr key={index}>
-            <td>{item.name || `${t('array_table_widget.item')} ${index + 1}`}</td>
-            <td className="uppercase">{item.boneio_input || '-'}</td>
-            <td>{areaName}</td>
-            <td>
-              {item.actions ? (
-                <span className="badge badge-success badge-sm">{t('common.yes')}</span>
-              ) : (
-                <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
-              )}
-            </td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title={t('array_table_widget.edit_item')}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title={t('array_table_widget.delete_item')}
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'areas') {
-      return value.map((item, index) => (
-        <tr key={index}>
-          <td className="font-mono">{item.id || `area_${index + 1}`}</td>
-          <td>{item.name || '-'}</td>
-          <td>
-            <div className="flex space-x-1">
-              <button
-                onClick={() => handleEdit(index)}
-                className="btn btn-ghost btn-xs"
-                title={t('array_table_widget.edit_area')}
-              >
-                <FaEdit />
-              </button>
-              <button
-                onClick={() => handleDelete(index)}
-                className="btn btn-ghost btn-xs text-error"
-                title={t('array_table_widget.delete_item')}
-              >
-                <FaTrash />
-              </button>
-            </div>
-          </td>
-        </tr>
-      ));
-    } else if (sectionType === 'sensor') {
-      return value.map((item, index) => {
-        // Find area name from allAreas
-        const areaName = item.area 
-          ? allAreas.find(a => a.id === item.area)?.name || item.area 
-          : '-';
-        const effectiveId = item.id || item.address;
-        const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${index + 1}`;
-        
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                <div className="font-medium">{displayName}</div>
-                {item.name && effectiveId && (
-                  <div className="text-xs text-base-content/60">ID: {effectiveId}</div>
-                )}
-              </div>
-            </td>
-            <td className="font-mono text-sm">{item.address || '-'}</td>
-            <td>{areaName}</td>
-            <td>
-              <span className="badge badge-info badge-sm">{item.platform || 'gpio_onewire'}</span>
-            </td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title={t('array_table_widget.edit_item')}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title={t('array_table_widget.delete_item')}
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else if (sectionType === 'virtual_energy_sensor') {
-      return value.map((item, index) => {
-        const areaName = item.area 
-          ? allAreas.find(a => a.id === item.area)?.name || item.area 
-          : '-';
-        const sensorTypeLabel = item.sensor_type === 'power' 
-          ? t('virtual_energy_sensor.type_power')
-          : item.sensor_type === 'water'
-            ? t('virtual_energy_sensor.type_water')
-            : '-';
-        const outputName = item.output_id 
-          ? allOutputs.find(o => o.id === item.output_id)?.name || item.output_id
-          : '-';
-        
-        return (
-          <tr key={index}>
-            <td>
-              <div>
-                <div className="font-medium">{item.name || `${t('array_table_widget.sensor')} ${index + 1}`}</div>
-                {item.id && (
-                  <div className="text-xs text-base-content/60">ID: {item.id}</div>
-                )}
-              </div>
-            </td>
-            <td>{outputName}</td>
-            <td>
-              <span className={`badge badge-sm ${item.sensor_type === 'power' ? 'badge-warning' : 'badge-info'}`}>
-                {sensorTypeLabel}
-              </span>
-              <div className="text-xs text-base-content/60 mt-1">
-                {item.sensor_type === 'power' && item.power_usage}
-                {item.sensor_type === 'water' && item.flow_rate}
-              </div>
-            </td>
-            <td>{areaName}</td>
-            <td>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handleEdit(index)}
-                  className="btn btn-ghost btn-xs"
-                  title={t('array_table_widget.edit_item')}
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(index)}
-                  className="btn btn-ghost btn-xs text-error"
-                  title={t('array_table_widget.delete_item')}
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      });
-    } else {
-      return value.map((item, index) => (
-        <tr key={index}>
-          <td>{item.id || item.name || `${t('array_table_widget.item')} ${index + 1}`}</td>
-          <td>{JSON.stringify(item, null, 2)}</td>
-          <td>
-            <div className="flex space-x-1">
-              <button
-                onClick={() => handleEdit(index)}
-                className="btn btn-ghost btn-xs"
-                title={t('array_table_widget.edit_item')}
-              >
-                <FaEdit />
-              </button>
-              <button
-                onClick={() => handleDelete(index)}
-                className="btn btn-ghost btn-xs text-error"
-                title={t('array_table_widget.delete_item')}
-              >
-                <FaTrash />
-              </button>
-            </div>
-          </td>
-        </tr>
-      ));
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -1014,16 +529,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       </div>
 
       {value.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="table table-zebra w-full">
-            <thead>
-              {renderTableHeaders()}
-            </thead>
-            <tbody>
-              {renderTableRows()}
-            </tbody>
-          </table>
-        </div>
+        renderTable()
       ) : (
         <div className="text-center py-8 text-base-content/60">
           <p>{t('settings.no_items')}</p>
@@ -1036,7 +542,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         <DialogContent className="max-w-4xl sm:max-w-3xl lg:w-[120vw] max-h-[80vh] flex flex-col gap-0 bg-base-100">
           <DialogHeader>
             <DialogTitle>
-              {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
+              {editingIndex !== null ? (
+                <>
+                  {t('settings.edit_item')}
+                  {editingItem && (editingItem.id || editingItem.name || editingItem.boneio_output || editingItem.boneio_input) && (
+                    <span className="font-normal text-base-content/70">
+                      {' - '}
+                      {editingItem.id || editingItem.name || ''}
+                      {(editingItem.id || editingItem.name) && (editingItem.boneio_output || editingItem.boneio_input) && ' '}
+                      {editingItem.boneio_output && <span className="text-sm">({editingItem.boneio_output})</span>}
+                      {editingItem.boneio_input && <span className="text-sm">({editingItem.boneio_input})</span>}
+                    </span>
+                  )}
+                </>
+              ) : t('settings.add_new_item')}
             </DialogTitle>
           </DialogHeader>
           
