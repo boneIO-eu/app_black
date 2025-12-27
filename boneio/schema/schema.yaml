@@ -991,6 +991,20 @@ event:
           description: |
             Time in milliseconds to detect long press.
             If button is held longer than this, it's detected as long press.
+      sequence_window_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        default: '500ms'
+        meta:
+          label: Sequence Window Duration
+          description: |
+            Time window in milliseconds to detect click sequences.
+            If next click happens within this time after previous, it's detected as sequence (e.g., double_then_long).
       actions:
         required: False
         type: dict

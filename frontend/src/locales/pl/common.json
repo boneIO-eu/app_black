@@ -730,6 +730,8 @@
     "double_click_duration_hint": "Okno czasowe do wykrycia podwójnego kliknięcia. Jeśli drugie kliknięcie nastąpi w tym czasie, zostanie wykryte jako podwójne.",
     "long_press_duration": "Czas Długiego Naciśnięcia",
     "long_press_duration_hint": "Czas do wykrycia długiego naciśnięcia. Jeśli przycisk jest trzymany dłużej, zostanie wykryte jako długie naciśnięcie.",
+    "sequence_window_duration": "Okno Sekwencji",
+    "sequence_window_duration_hint": "Okno czasowe do wykrycia sekwencji kliknięć (np. podwójne + długie). Jeśli kolejne kliknięcie nastąpi w tym czasie po poprzednim, zostanie wykryte jako sekwencja.",
     "timing_validation_error": "Czas podwójnego kliknięcia musi być mniejszy niż czas długiego naciśnięcia!",
     "restore_defaults": "Przywróć Domyślne",
     "action": "Akcja",

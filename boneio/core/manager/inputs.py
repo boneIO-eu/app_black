@@ -215,11 +215,6 @@ class InputManager:
             
             # Reload: update existing input's actions and name
             if existing_input:
-                if not isinstance(existing_input, GpioEventButton):
-                    _LOGGER.warning(
-                        "Cannot reconfigure input type for %s. Restart required.", pin
-                    )
-                    return existing_input
                 
                 # Check if HA-relevant fields changed (name, area)
                 old_name = existing_input._name if hasattr(existing_input, '_name') else None
@@ -235,6 +230,13 @@ class InputManager:
                 
                 # Store area on input
                 existing_input.area = area
+                
+                # Update timing parameters if this is an event button
+                existing_input.update_timings(
+                    double_click_duration=gpio.get('double_click_duration'),
+                    long_press_duration=gpio.get('long_press_duration'),
+                    sequence_window_duration=gpio.get('sequence_window_duration'),
+                )
                 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area)
                 # Actions are internal to the controller and don't need HA update

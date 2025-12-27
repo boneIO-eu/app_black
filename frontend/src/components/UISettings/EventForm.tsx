@@ -638,6 +638,19 @@ const EventForm: React.FC<EventFormProps> = ({
                 <span className="label-text-alt">{t('event_form.long_press_duration_hint')} ({t('common.default')}: 400ms)</span>
               </label>
             </div>
+
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.sequence_window_duration')}
+                value={data.sequence_window_duration || '500ms'}
+                onChange={(value) => updateField('sequence_window_duration', value)}
+                maximum={2000}
+                allowedUnits={['ms', 's']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.sequence_window_duration_hint')} ({t('common.default')}: 500ms)</span>
+              </label>
+            </div>
           </div>
 
           {/* Timing validation warning */}
@@ -671,6 +684,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 updateField('bounce_time', '30ms');
                 updateField('double_click_duration', '220ms');
                 updateField('long_press_duration', '400ms');
+                updateField('sequence_window_duration', '500ms');
               }}
             >
               {t('event_form.restore_defaults')}
