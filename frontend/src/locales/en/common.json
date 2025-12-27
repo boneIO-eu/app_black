@@ -842,8 +842,12 @@
     "covers_hint": "Optional list of covers for dropdown selection in actions. You can also enter ID manually.",
     "cover_name_placeholder": "Name (optional)",
     "add_cover": "Add Cover",
-    "add": "Add Remote Device",
+    "add": "Add",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "autodiscovered_title": "Discovered devices",
+    "autodiscovered_hint": "These BoneIO devices were automatically discovered on the network. Click 'Add' to configure.",
+    "add_from_discovery": "Add from autodiscovery",
+    "scanning": "Scanning network..."
   }
 }

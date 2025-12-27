@@ -40,6 +40,8 @@ class ConfigHelper:
         web_port: int = 8090,
         proxy_port: int | None = None,
         config_file_path: str | None = None,
+        send_boneio_autodiscovery: bool = True,
+        receive_boneio_autodiscovery: bool = True,
     ):
         self._name = name
         
@@ -56,6 +58,8 @@ class ConfigHelper:
             _LOGGER.warning("Could not determine serial number from MAC, using fallback topic prefix")
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
+        self._send_boneio_autodiscovery = send_boneio_autodiscovery
+        self._receive_boneio_autodiscovery = receive_boneio_autodiscovery
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -163,6 +167,16 @@ class ConfigHelper:
     @property
     def ha_discovery_prefix(self) -> str:
         return self._ha_discovery_prefix
+
+    @property
+    def send_boneio_autodiscovery(self) -> bool:
+        """Check if BoneIO autodiscovery publishing is enabled."""
+        return self._send_boneio_autodiscovery
+
+    @property
+    def receive_boneio_autodiscovery(self) -> bool:
+        """Check if BoneIO autodiscovery receiving is enabled."""
+        return self._receive_boneio_autodiscovery
 
     @property
     def device_type(self) -> str:

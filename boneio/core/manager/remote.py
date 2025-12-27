@@ -1,10 +1,12 @@
 """Remote device manager.
 
 Manages all configured remote devices and provides access to them.
+Supports autodiscovery of neighboring BoneIO Black devices via MQTT.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -20,30 +22,41 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Discovery topic pattern: boneio/blk_{serial}/discovery/{type}
+DISCOVERY_TOPIC_PREFIX = "boneio"
+DISCOVERY_SUBTOPIC = "discovery"
+
 
 class RemoteDeviceManager:
     """Manager for remote devices.
     
     Handles initialization and access to all configured remote devices.
+    Supports autodiscovery of neighboring BoneIO Black devices via MQTT.
     
     Args:
         message_bus: Message bus for MQTT communication
         remote_devices_config: List of remote device configurations
+        own_serial: Serial number of this device (to exclude from autodiscovery)
     """
     
     def __init__(
         self,
         message_bus: MessageBus | None = None,
         remote_devices_config: list[dict[str, Any]] | None = None,
+        own_serial: str | None = None,
     ) -> None:
         """Initialize remote device manager.
         
         Args:
             message_bus: Message bus for MQTT communication
             remote_devices_config: List of remote device configurations
+            own_serial: Serial number of this device (to exclude from autodiscovery)
         """
         self._message_bus = message_bus
         self._devices: dict[str, RemoteDevice] = {}
+        self._own_serial = own_serial
+        # Track autodiscovered devices separately from configured ones
+        self._autodiscovered_devices: dict[str, MQTTRemoteDevice] = {}
         
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
@@ -250,4 +263,264 @@ class RemoteDeviceManager:
         return {
             device_id: device.to_dict()
             for device_id, device in self._devices.items()
+        }
+    
+    # ==================== Autodiscovery ====================
+    
+    def get_discovery_topic(self) -> str:
+        """Get MQTT topic pattern for autodiscovery subscription.
+        
+        Returns:
+            Topic pattern like "boneio/+/discovery/#"
+        """
+        return f"{DISCOVERY_TOPIC_PREFIX}/+/{DISCOVERY_SUBTOPIC}/#"
+    
+    def is_discovery_topic(self, topic: str) -> bool:
+        """Check if topic is a discovery topic.
+        
+        Args:
+            topic: MQTT topic string
+            
+        Returns:
+            True if topic matches discovery pattern
+        """
+        parts = topic.split("/")
+        # Pattern: boneio/{device_id}/discovery/{type}
+        return (
+            len(parts) >= 4
+            and parts[0] == DISCOVERY_TOPIC_PREFIX
+            and parts[2] == DISCOVERY_SUBTOPIC
+        )
+    
+    def handle_discovery_message(self, topic: str, payload: str) -> None:
+        """Handle incoming discovery message from another BoneIO device.
+        
+        Parses the discovery payload and creates/updates the remote device.
+        
+        Args:
+            topic: MQTT topic (e.g., "boneio/blk_abc123/discovery/outputs")
+            payload: JSON payload with discovery data
+        """
+        if not self.is_discovery_topic(topic):
+            return
+        
+        parts = topic.split("/")
+        device_id = parts[1]  # e.g., "blk_abc123"
+        discovery_type = parts[3] if len(parts) > 3 else None  # e.g., "outputs", "covers", "device"
+        
+        # Skip our own device
+        if self._own_serial and device_id == self._own_serial:
+            _LOGGER.debug("Ignoring discovery from own device: %s", device_id)
+            return
+        
+        # Skip if this device is already configured manually
+        if device_id in self._devices:
+            _LOGGER.debug(
+                "Device %s is manually configured, updating from discovery",
+                device_id
+            )
+            self._update_configured_device_from_discovery(device_id, discovery_type, payload)
+            return
+        
+        # Parse payload
+        try:
+            data = json.loads(payload) if payload else None
+        except json.JSONDecodeError as e:
+            _LOGGER.warning("Invalid JSON in discovery payload for %s: %s", topic, e)
+            return
+        
+        if data is None:
+            # Empty payload means device is offline/removed
+            self._remove_autodiscovered_device(device_id)
+            return
+        
+        # Process discovery by type
+        if discovery_type == "device":
+            self._handle_device_discovery(device_id, data)
+        elif discovery_type == "outputs":
+            self._handle_outputs_discovery(device_id, data)
+        elif discovery_type == "covers":
+            self._handle_covers_discovery(device_id, data)
+        else:
+            _LOGGER.debug("Ignoring discovery type '%s' for device %s", discovery_type, device_id)
+    
+    def _handle_device_discovery(self, device_id: str, data: dict[str, Any]) -> None:
+        """Handle device info discovery.
+        
+        Creates a new autodiscovered device if not exists.
+        
+        Args:
+            device_id: Device ID (e.g., "blk_abc123")
+            data: Device info payload
+        """
+        if device_id not in self._autodiscovered_devices:
+            name = data.get("name", device_id)
+            device = MQTTRemoteDevice(
+                id=device_id,
+                name=name,
+                device_type=RemoteDeviceType.BONEIO_BLACK,
+            )
+            self._autodiscovered_devices[device_id] = device
+            _LOGGER.info(
+                "Autodiscovered BoneIO device: %s (%s), firmware=%s",
+                name, device_id, data.get("firmware", "unknown")
+            )
+        else:
+            # Update name if changed
+            device = self._autodiscovered_devices[device_id]
+            new_name = data.get("name")
+            if new_name and new_name != device.name:
+                device._name = new_name
+                _LOGGER.debug("Updated autodiscovered device name: %s -> %s", device_id, new_name)
+    
+    def _handle_outputs_discovery(self, device_id: str, data: list[dict[str, Any]]) -> None:
+        """Handle outputs discovery.
+        
+        Updates outputs list for autodiscovered device.
+        
+        Args:
+            device_id: Device ID
+            data: List of output definitions
+        """
+        device = self._autodiscovered_devices.get(device_id)
+        if not device:
+            # Device info not received yet, create placeholder
+            device = MQTTRemoteDevice(
+                id=device_id,
+                name=device_id,
+                device_type=RemoteDeviceType.BONEIO_BLACK,
+            )
+            self._autodiscovered_devices[device_id] = device
+            _LOGGER.debug("Created placeholder for autodiscovered device: %s", device_id)
+        
+        # Update outputs
+        device.set_outputs(data)
+        _LOGGER.debug(
+            "Updated outputs for autodiscovered device %s: %d outputs",
+            device_id, len(data)
+        )
+    
+    def _handle_covers_discovery(self, device_id: str, data: list[dict[str, Any]]) -> None:
+        """Handle covers discovery.
+        
+        Updates covers list for autodiscovered device.
+        
+        Args:
+            device_id: Device ID
+            data: List of cover definitions
+        """
+        device = self._autodiscovered_devices.get(device_id)
+        if not device:
+            # Device info not received yet, create placeholder
+            device = MQTTRemoteDevice(
+                id=device_id,
+                name=device_id,
+                device_type=RemoteDeviceType.BONEIO_BLACK,
+            )
+            self._autodiscovered_devices[device_id] = device
+            _LOGGER.debug("Created placeholder for autodiscovered device: %s", device_id)
+        
+        # Update covers
+        device.set_covers(data)
+        _LOGGER.debug(
+            "Updated covers for autodiscovered device %s: %d covers",
+            device_id, len(data)
+        )
+    
+    def _update_configured_device_from_discovery(
+        self, device_id: str, discovery_type: str | None, payload: str
+    ) -> None:
+        """Update manually configured device with discovery data.
+        
+        This allows manually configured devices to receive autodiscovered
+        outputs/covers without overwriting the manual configuration.
+        
+        Args:
+            device_id: Device ID
+            discovery_type: Type of discovery (outputs, covers, etc.)
+            payload: JSON payload
+        """
+        device = self._devices.get(device_id)
+        if not device or not isinstance(device, MQTTRemoteDevice):
+            return
+        
+        try:
+            data = json.loads(payload) if payload else None
+        except json.JSONDecodeError:
+            return
+        
+        if data is None:
+            return
+        
+        if discovery_type == "outputs":
+            # Only update if device has no manually configured outputs
+            if not device.outputs:
+                device.set_outputs(data)
+                _LOGGER.info(
+                    "Updated configured device %s with autodiscovered outputs: %d",
+                    device_id, len(data)
+                )
+        elif discovery_type == "covers":
+            # Only update if device has no manually configured covers
+            if not device.covers:
+                device.set_covers(data)
+                _LOGGER.info(
+                    "Updated configured device %s with autodiscovered covers: %d",
+                    device_id, len(data)
+                )
+    
+    def _remove_autodiscovered_device(self, device_id: str) -> None:
+        """Remove autodiscovered device.
+        
+        Args:
+            device_id: Device ID to remove
+        """
+        if device_id in self._autodiscovered_devices:
+            del self._autodiscovered_devices[device_id]
+            _LOGGER.info("Removed autodiscovered device: %s", device_id)
+    
+    def get_autodiscovered_device(self, device_id: str) -> MQTTRemoteDevice | None:
+        """Get autodiscovered device by ID.
+        
+        Args:
+            device_id: Device ID
+            
+        Returns:
+            MQTTRemoteDevice or None
+        """
+        return self._autodiscovered_devices.get(device_id)
+    
+    def get_all_autodiscovered_devices(self) -> dict[str, MQTTRemoteDevice]:
+        """Get all autodiscovered devices.
+        
+        Returns:
+            Dictionary of device_id -> MQTTRemoteDevice
+        """
+        return self._autodiscovered_devices.copy()
+    
+    def get_all_available_devices(self) -> dict[str, RemoteDevice]:
+        """Get all available devices (configured + autodiscovered).
+        
+        Configured devices take precedence over autodiscovered ones.
+        
+        Returns:
+            Dictionary of device_id -> RemoteDevice
+        """
+        # Start with autodiscovered, then overlay configured
+        all_devices: dict[str, RemoteDevice] = {}
+        for device_id, device in self._autodiscovered_devices.items():
+            all_devices[device_id] = device
+        for device_id, device in self._devices.items():
+            all_devices[device_id] = device
+        return all_devices
+    
+    def autodiscovered_to_dict(self) -> dict[str, Any]:
+        """Convert autodiscovered devices to dictionary representation.
+        
+        Returns:
+            Dictionary with autodiscovered devices information
+        """
+        return {
+            device_id: device.to_dict()
+            for device_id, device in self._autodiscovered_devices.items()
         }

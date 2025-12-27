@@ -70,6 +70,23 @@ mqtt:
           default: homeassistant
           meta:
             label: Prefix topic of HA discovery.
+    send_boneio_autodiscovery:
+      type: boolean
+      default: True
+      meta:
+        label: Enable sending BoneIO autodiscovery messages
+        description: |
+          When enabled, this device publishes its outputs, covers, inputs, and sensors
+          to MQTT discovery topics (boneio/{device_id}/discovery/*) so other BoneIO
+          devices can discover and control it.
+    receive_boneio_autodiscovery:
+      type: boolean
+      default: True
+      meta:
+        label: Enable receiving BoneIO autodiscovery messages
+        description: |
+          When enabled, this device subscribes to BoneIO autodiscovery topics
+          (boneio/+/discovery/#) and automatically discovers neighboring BoneIO devices.
 
 web:
   type: dict

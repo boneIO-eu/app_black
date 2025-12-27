@@ -66,6 +66,9 @@ class MQTTClient(MessageBus):
             self._config_helper.subscribe_topic,
             "homeassistant/status",
         ]
+        # Add BoneIO autodiscovery subscription if enabled
+        if self._config_helper.receive_boneio_autodiscovery:
+            self._topics.append("boneio/+/discovery/#")
         self._running = True
         self._cancel_future: asyncio.Future | None = None
 

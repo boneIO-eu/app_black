@@ -51,6 +51,40 @@ async def get_remote_devices(manager: Manager = Depends(get_manager)):
     return {"devices": list(manager.remote_devices.to_dict().values())}
 
 
+@router.get("/autodiscovered")
+async def get_autodiscovered_devices(manager: Manager = Depends(get_manager)):
+    """
+    Get all autodiscovered remote devices.
+    
+    These are BoneIO devices discovered via MQTT autodiscovery (boneio/+/discovery/#).
+    Autodiscovered devices can be used for actions without manual configuration.
+    
+    Returns:
+        List of autodiscovered device configurations with their outputs and covers.
+    """
+    if not manager.remote_devices:
+        return {"devices": []}
+    
+    return {"devices": list(manager.remote_devices.autodiscovered_to_dict().values())}
+
+
+@router.get("/all")
+async def get_all_available_devices(manager: Manager = Depends(get_manager)):
+    """
+    Get all available remote devices (configured + autodiscovered).
+    
+    Configured devices take precedence over autodiscovered ones with the same ID.
+    
+    Returns:
+        List of all available device configurations.
+    """
+    if not manager.remote_devices:
+        return {"devices": []}
+    
+    all_devices = manager.remote_devices.get_all_available_devices()
+    return {"devices": [device.to_dict() for device in all_devices.values()]}
+
+
 @router.get("/{device_id}")
 async def get_remote_device(device_id: str, manager: Manager = Depends(get_manager)):
     """

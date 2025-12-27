@@ -191,6 +191,7 @@ class Manager:
         self.remote_devices = RemoteDeviceManager(
             message_bus=message_bus,
             remote_devices_config=remote_devices,
+            own_serial=config_helper.serial_no,
         )
         
         # 8. BlackDiscoveryPublisher (publishes device info for autodiscovery of neighboring BoneIO devices)
@@ -825,6 +826,7 @@ class Manager:
         
         Handles:
         - HA status messages (online/offline)
+        - BoneIO discovery messages (autodiscovery of neighboring devices)
         - Relay/output commands (set, brightness)
         - Cover commands
         
@@ -839,6 +841,11 @@ class Manager:
             if message == ONLINE:
                 self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
+            return
+        
+        # Handle BoneIO discovery messages (autodiscovery of neighboring devices)
+        if self._config_helper.receive_boneio_autodiscovery and self.remote_devices.is_discovery_topic(topic):
+            self.remote_devices.handle_discovery_message(topic, message)
             return
         
         # Verify topic starts with command prefix

@@ -106,6 +106,7 @@ async def async_run(
         web_active = False
         web_config = {}
 
+    mqtt_config = config.get(MQTT, {})
     _config_helper = ConfigHelper(
         name=main_config.get(NAME, BONEIO),
         device_type=main_config.get("device_type", "boneIO Black"),
@@ -113,9 +114,11 @@ async def async_run(
         is_web_active=web_active,
         web_port=web_config.get("port", 8090),
         proxy_port=web_config.get("proxy_port"),
-        ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
-        ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
+        ha_discovery=mqtt_config.get(HA_DISCOVERY, {}).get(ENABLED, False),
+        ha_discovery_prefix=mqtt_config.get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
         config_file_path=config_file,
+        send_boneio_autodiscovery=mqtt_config.get("send_boneio_autodiscovery", True),
+        receive_boneio_autodiscovery=mqtt_config.get("receive_boneio_autodiscovery", True),
     )
     
     # Load areas configuration

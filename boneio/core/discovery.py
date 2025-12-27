@@ -186,7 +186,14 @@ class BlackDiscoveryPublisher:
         - boneio/{device_id}/discovery/modbus
         
         All with retain=True.
+        
+        Does nothing if send_boneio_autodiscovery is disabled in config.
         """
+        # Check if autodiscovery publishing is enabled
+        if not self._manager._config_helper.send_boneio_autodiscovery:
+            _LOGGER.debug("BoneIO autodiscovery publishing is disabled")
+            return
+        
         try:
             device_info = self._build_device_info()
             _LOGGER.info(

@@ -174,6 +174,25 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setIsModalOpen(true);
   };
 
+  // Handle adding remote device from autodiscovery
+  const handleAddFromDiscovery = (device: any) => {
+    console.log('➕ ArrayTableWidget: handleAddFromDiscovery called', device);
+    setEditingIndex(null);
+    // Pre-fill form with autodiscovered device data
+    setEditingItem({
+      id: device.id,
+      name: device.name || device.id,
+      protocol: 'mqtt',
+      device_type: 'boneio_black',
+      mqtt: {
+        outputs: device.outputs || [],
+        covers: device.covers || [],
+      },
+    });
+    setAttemptedSubmit(false);
+    setIsModalOpen(true);
+  };
+
   // Check if all outputs/inputs are used
   const areAllItemsUsed = () => {
     if (sectionType === 'output') {
@@ -820,7 +839,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       case 'virtual_energy_sensor':
         return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
       case 'remote_devices':
-        return <RemoteDeviceTable {...commonProps} />;
+        return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={handleAddFromDiscovery} />;
       default:
         return <GenericTable {...commonProps} />;
     }

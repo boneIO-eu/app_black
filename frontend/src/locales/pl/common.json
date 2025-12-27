@@ -844,9 +844,13 @@
     "covers_hint": "Opcjonalna lista rolet do wyboru w akcjach. Możesz też wpisać ID ręcznie.",
     "cover_name_placeholder": "Nazwa (opcjonalnie)",
     "add_cover": "Dodaj Roletę",
-    "add": "Dodaj Zdalne Urządzenie",
+    "add": "Dodaj",
     "edit": "Edytuj",
-    "delete": "Usuń"
+    "delete": "Usuń",
+    "autodiscovered_title": "Wykryte urządzenia",
+    "autodiscovered_hint": "Te urządzenia BoneIO zostały automatycznie wykryte w sieci. Kliknij 'Dodaj' aby skonfigurować.",
+    "add_from_discovery": "Dodaj z autodiscovery",
+    "scanning": "Skanowanie sieci..."
   }
 }
   
