@@ -596,8 +596,6 @@
     "password_help": "Hasło do brokera MQTT (opcjonalnie)",
     "topic_prefix": "Prefiks Tematu",
     "topic_prefix_help": "Prefiks tematu dla boneIO. Jeśli nie ustawiony, używa nazwy urządzenia.",
-    "topic_with_serial": "Dodaj numer seryjny do tematu",
-    "topic_with_serial_help": "Dodaje numer seryjny urządzenia do prefiksu tematu MQTT. Przydatne gdy masz kilka identycznych urządzeń, np. \"boneio_blk8c7df0\" zamiast \"boneio\".",
     "ha_discovery": "Autodiscovery Home Assistant",
     "enable_ha_discovery": "Włącz HA Autodiscovery",
     "enable_ha_discovery_help": "Automatycznie rejestruj urządzenia w Home Assistant",

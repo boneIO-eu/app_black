@@ -116,7 +116,8 @@ def ha_availabilty_message(
     # Include area in unique_id so HA treats entities in different areas as distinct
     # This allows moving entities between sub-devices by changing their area
     # Let's test topic only, don't add area into entity_id.
-    unique_id_prefix = topic if area else topic
+    # Remove slashes from unique_id to avoid HA issues
+    unique_id_prefix = topic.replace("/", "_") if area else topic.replace("/", "_")
     unique_id = f"{unique_id_prefix}{device_type}{id}"
     
     return {
@@ -395,7 +396,7 @@ def modbus_availabilty_message(
         },
         "name": entity_id,
         "state_topic": f"{config_helper.topic_prefix}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{config_helper.topic_prefix}{entity_id.replace('_', '').lower()}{name.lower()}",
+        "unique_id": f"{config_helper.topic_prefix.replace('/', '_')}{entity_id.replace('_', '').lower()}{name.lower()}",
         **kwargs,
     }
 
@@ -427,7 +428,7 @@ def modbus_sensor_availabilty_message(
         "device": device,
         "name": sensor_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{sensor_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{sensor_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -459,7 +460,7 @@ def modbus_select_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -492,7 +493,7 @@ def modbus_numeric_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic}{entity_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').lower()}{id.lower()}",
         **kwargs,
     }
 
