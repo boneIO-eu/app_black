@@ -1,10 +1,16 @@
-import { useContext, memo, useState } from 'react';
+import { useContext, memo, useState, useEffect, useRef, useCallback } from 'react';
 import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
+
+interface ToastNotification {
+  id: string;
+  message: string;
+  type: string;
+}
 
 // Separate component for individual input
 const InputItem = memo(({ inputEvent, isGrid, t }: {
@@ -51,14 +57,58 @@ export default function InputsView() {
     const saved = localStorage.getItem('inputViewMode');
     return saved ? saved === 'grid' : true;
   });
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const prevInputsRef = useRef<Map<string, string>>(new Map());
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('inputViewMode', gridView ? 'grid' : 'list');
   };
 
+  // Add toast notification
+  const addToast = useCallback((message: string, type: string) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, message, type }]);
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 3000);
+  }, []);
+
   // Filter inputs to only include InputState objects
   const validInputs = inputs.filter(isInputEvent);
+
+  // Initialize prevInputsRef on first render (to avoid showing toast on page load)
+  const isInitializedRef = useRef(false);
+
+  // Detect input state changes and show toast
+  useEffect(() => {
+    const eventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple'];
+    
+    // On first render, just populate the ref without showing toasts
+    if (!isInitializedRef.current) {
+      validInputs.forEach((inputEvent: InputEvent) => {
+        prevInputsRef.current.set(inputEvent.entity_id, inputEvent.state.state);
+      });
+      isInitializedRef.current = true;
+      return;
+    }
+    
+    validInputs.forEach((inputEvent: InputEvent) => {
+      const prevState = prevInputsRef.current.get(inputEvent.entity_id);
+      const currentState = inputEvent.state.state;
+      
+      // Only show toast for event types (not ON/OFF binary states)
+      if (prevState !== currentState && eventTypes.includes(currentState)) {
+        addToast(
+          `${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`,
+          currentState
+        );
+      }
+      
+      prevInputsRef.current.set(inputEvent.entity_id, currentState);
+    });
+  }, [validInputs, addToast, t]);
   
   if (validInputs.length === 0) {
     return (
@@ -86,6 +136,29 @@ export default function InputsView() {
           <InputItem key={inputEvent.entity_id} inputEvent={inputEvent} isGrid={isGrid} t={t} />
         ))}
       </div>
+
+      {/* Toast notifications for input events */}
+      {toasts.length > 0 && (
+        <div className="toast toast-top toast-end z-50">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={clsx(
+                'alert shadow-lg animate-fade-in',
+                toast.type === 'single' && 'alert-success',
+                toast.type === 'double' && 'alert-warning',
+                toast.type === 'long' && 'alert-info',
+                toast.type === 'triple' && 'alert-secondary',
+                toast.type === 'pressed' && 'alert-success',
+                toast.type === 'released' && 'alert-warning',
+                !['single', 'double', 'long', 'triple', 'pressed', 'released'].includes(toast.type) && 'alert-info'
+              )}
+            >
+              <span>{toast.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

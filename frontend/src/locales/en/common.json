@@ -119,7 +119,9 @@
     "add_action": "Add Action",
     "no_pressed_actions": "No pressed actions configured",
     "no_released_actions": "No released actions configured",
-    "click_add_action": "Click \"Add Action\" to create one"
+    "click_add_action": "Click \"Add Action\" to create one",
+    "detected": "Detected",
+    "in": "in"
   },
   "sensors": {
     "title": "Onewire Sensors",
@@ -864,6 +866,9 @@
     "add_from_discovery": "Add from autodiscovery",
     "scanning": "Scanning network...",
     "topic_prefix": "MQTT Topic Prefix",
-    "topic_prefix_hint": "MQTT topic prefix for this device (e.g. boneio/blk123456)"
+    "topic_prefix_hint": "MQTT topic prefix for this device (e.g. boneio/blk123456)",
+    "managed_by_title": "Managed by",
+    "managed_by_hint": "These devices have configured this boneIO as a remote device and can control it.",
+    "serial": "Serial"
   }
 }

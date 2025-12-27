@@ -68,6 +68,23 @@ async def get_autodiscovered_devices(manager: Manager = Depends(get_manager)):
     return {"devices": list(manager.remote_devices.autodiscovered_to_dict().values())}
 
 
+@router.get("/managed-by")
+async def get_managed_by_devices(manager: Manager = Depends(get_manager)):
+    """
+    Get devices that manage this boneIO.
+    
+    These are other BoneIO devices that have configured this device as a remote device.
+    They publish to boneio/{this_device}/discovery/managed_by/{their_serial}.
+    
+    Returns:
+        List of devices that manage this boneIO.
+    """
+    if not manager.remote_devices:
+        return {"devices": []}
+    
+    return {"devices": list(manager.remote_devices.get_managed_by_devices().values())}
+
+
 @router.get("/all")
 async def get_all_available_devices(manager: Manager = Depends(get_manager)):
     """

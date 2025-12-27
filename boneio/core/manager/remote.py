@@ -57,6 +57,8 @@ class RemoteDeviceManager:
         self._own_serial = own_serial
         # Track autodiscovered devices separately from configured ones
         self._autodiscovered_devices: dict[str, MQTTRemoteDevice] = {}
+        # Track devices that manage this boneIO (received via discovery/managed_by topic)
+        self._managed_by_devices: dict[str, dict[str, Any]] = {}
         
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
@@ -76,11 +78,53 @@ class RemoteDeviceManager:
                         "Configured remote device '%s' (protocol=%s)",
                         device.name, device.protocol.value
                     )
+                    # Publish managed_by to the remote device
+                    self._publish_managed_by(device)
             except Exception as e:
                 _LOGGER.error(
                     "Failed to configure remote device '%s': %s",
                     device_config.get("id", "unknown"), e
                 )
+    
+    def _publish_managed_by(self, device: RemoteDevice) -> None:
+        """Publish managed_by message to remote device.
+        
+        Tells the remote device that we are managing it.
+        Topic: boneio/{remote_device_id}/discovery/managed_by/{our_serial}
+        
+        Args:
+            device: Remote device to notify
+        """
+        if not self._own_serial:
+            _LOGGER.debug("Cannot publish managed_by - own_serial not set")
+            return
+        
+        if not self._message_bus:
+            _LOGGER.debug("Cannot publish managed_by - message_bus not set")
+            return
+        
+        if not isinstance(device, MQTTRemoteDevice):
+            return
+        
+        # Build topic: boneio/{remote_device}/discovery/managed_by/{our_serial}
+        topic = f"{device.topic_prefix}/discovery/managed_by/{self._own_serial}"
+        
+        # Build payload with our device info
+        payload = json.dumps({
+            "id": self._own_serial,
+            "name": self._own_serial,  # Will be updated with actual name if available
+            "serial": self._own_serial,
+        })
+        
+        self._message_bus.send_message(
+            topic=topic,
+            payload=payload,
+            retain=True,
+        )
+        _LOGGER.info(
+            "Published managed_by to %s (topic=%s)",
+            device.id, topic
+        )
     
     def _create_device(self, config: dict[str, Any]) -> RemoteDevice | None:
         """Create remote device from config.
@@ -341,6 +385,12 @@ class RemoteDeviceManager:
             self._handle_outputs_discovery(device_id, data)
         elif discovery_type == "covers":
             self._handle_covers_discovery(device_id, data)
+        elif discovery_type == "managed_by":
+            # Handle managed_by - this is for OUR device, not the sender
+            # Topic: boneio/{our_device}/discovery/managed_by/{manager_serial}
+            manager_serial = parts[4] if len(parts) > 4 else None
+            if manager_serial:
+                self.handle_managed_by_discovery(manager_serial, data)
         else:
             _LOGGER.debug("Ignoring discovery type '%s' for device %s", discovery_type, device_id)
     
@@ -524,3 +574,37 @@ class RemoteDeviceManager:
             device_id: device.to_dict()
             for device_id, device in self._autodiscovered_devices.items()
         }
+    
+    def get_managed_by_devices(self) -> dict[str, dict[str, Any]]:
+        """Get devices that manage this boneIO.
+        
+        Returns:
+            Dictionary of serial -> device info
+        """
+        return self._managed_by_devices.copy()
+    
+    def handle_managed_by_discovery(self, manager_serial: str, data: dict[str, Any] | None) -> None:
+        """Handle managed_by discovery message.
+        
+        Called when another boneIO publishes to our discovery/managed_by topic.
+        
+        Args:
+            manager_serial: Serial of the managing device
+            data: Device info (id, name, serial) or None to remove
+        """
+        if data is None:
+            # Empty payload means device no longer manages us
+            if manager_serial in self._managed_by_devices:
+                del self._managed_by_devices[manager_serial]
+                _LOGGER.info("Removed managed_by device: %s", manager_serial)
+            return
+        
+        self._managed_by_devices[manager_serial] = {
+            "id": data.get("id", manager_serial),
+            "name": data.get("name", manager_serial),
+            "serial": manager_serial,
+        }
+        _LOGGER.info(
+            "Added managed_by device: %s (%s)",
+            data.get("name", manager_serial), manager_serial
+        )

@@ -122,7 +122,14 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
       {menuItems.map((item) => (
         <li key={item.path}>
           <a
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+              // Close drawer if open (for mobile side menu)
+              const drawerCheckbox = document.getElementById('my-drawer') as HTMLInputElement;
+              if (drawerCheckbox) {
+                drawerCheckbox.checked = false;
+              }
+              navigate(item.path);
+            }}
             className={clsx({
               'active bg-primary text-primary-content font-semibold': 
                 (location.pathname === item.path) || 

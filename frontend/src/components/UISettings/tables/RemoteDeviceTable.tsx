@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-import { FaPlus, FaWifi } from 'react-icons/fa';
+import { FaPlus, FaWifi, FaLink } from 'react-icons/fa';
 
 interface AutodiscoveredDevice {
   id: string;
@@ -11,6 +11,12 @@ interface AutodiscoveredDevice {
   device_type: string;
   outputs?: { id: string; name: string }[];
   covers?: { id: string; name: string }[];
+}
+
+interface ManagedByDevice {
+  id: string;
+  name: string;
+  serial: string;
 }
 
 interface RemoteDeviceTableProps {
@@ -23,9 +29,10 @@ interface RemoteDeviceTableProps {
 const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, onDelete, onAddFromDiscovery }) => {
   const { t } = useTranslation();
   const [autodiscoveredDevices, setAutodiscoveredDevices] = useState<AutodiscoveredDevice[]>([]);
+  const [managedByDevices, setManagedByDevices] = useState<ManagedByDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch autodiscovered devices
+  // Fetch autodiscovered devices and managed_by devices
   useEffect(() => {
     const fetchAutodiscovered = async () => {
       setIsLoading(true);
@@ -42,10 +49,26 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
       }
     };
 
+    const fetchManagedBy = async () => {
+      try {
+        const response = await fetch('/api/remote-devices/managed-by');
+        if (response.ok) {
+          const data = await response.json();
+          setManagedByDevices(data.devices || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch managed_by devices:', error);
+      }
+    };
+
     fetchAutodiscovered();
+    fetchManagedBy();
     
     // Refresh every 30 seconds
-    const interval = setInterval(fetchAutodiscovered, 30000);
+    const interval = setInterval(() => {
+      fetchAutodiscovered();
+      fetchManagedBy();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -161,6 +184,40 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
           </Tbody>
         </Table>
       </div>
+
+      {/* Managed by section - shows which devices manage this boneIO */}
+      {managedByDevices.length > 0 && (
+        <div className="bg-base-200 rounded-lg p-4 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <FaLink className="text-info" />
+            <h3 className="font-semibold">{t('remote_devices.managed_by_title')}</h3>
+            <span className="badge badge-info badge-sm">{managedByDevices.length}</span>
+          </div>
+          <p className="text-sm text-base-content/70 mb-3">
+            {t('remote_devices.managed_by_hint')}
+          </p>
+          <div className="overflow-x-auto">
+            <Table className="table table-zebra w-full">
+              <Thead>
+                <Tr>
+                  <Th>{t('remote_devices.device_id')}</Th>
+                  <Th>{t('remote_devices.device_name')}</Th>
+                  <Th>{t('remote_devices.serial')}</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {managedByDevices.map((device) => (
+                  <Tr key={device.serial} className="hover:bg-base-300">
+                    <Td className="font-mono">{device.id}</Td>
+                    <Td>{device.name || device.id}</Td>
+                    <Td className="font-mono text-sm">{device.serial}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

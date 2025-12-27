@@ -1202,7 +1202,7 @@ export default function UISettings() {
           <>
             {/* Header */}
             <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-bold text-base-content">
                     {activeSection_data.name}

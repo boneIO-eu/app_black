@@ -65,6 +65,8 @@ class MQTTClient(MessageBus):
         self._topics = [
             self._config_helper.subscribe_topic,
             "homeassistant/status",
+            # Subscribe to managed_by messages for this device
+            f"{self._config_helper.topic_prefix}/discovery/managed_by/#",
         ]
         # Add BoneIO autodiscovery subscription if enabled
         if self._config_helper.receive_boneio_autodiscovery:
