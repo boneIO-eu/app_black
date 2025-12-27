@@ -40,6 +40,8 @@
     "select_type": "Wybierz typ...",
     "all_outputs_used": "Wszystkie wyjścia są zajęte. Zwolnij jedno lub wybierz inny typ urządzenia.",
     "used_outputs": "Zajęte",
+    "used_in_cover_title": "Wyjście używane w rolecie",
+    "used_in_cover_message": "To wyjście jest używane w rolecie. Aby edytować, najpierw usuń je z rolety:",
     "output_types": {
       "none": "Brak",
       "relay": "Przekaźnik",

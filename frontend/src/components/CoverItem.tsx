@@ -26,9 +26,6 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
   // Venetian tilt slider
   const [tilt, setTilt] = useState<number>(cover.tilt ?? 0);
   const isVenetian = cover.kind === 'venetian';
-  if (cover.kind == "venetian"){
-    console.log("c", cover, cover.tilt)
-  }
   const [isTiltActive, setIsTiltActive] = useState<boolean>(false);
 
   // Sync tilt state with prop

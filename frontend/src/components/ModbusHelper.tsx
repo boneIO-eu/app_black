@@ -172,7 +172,6 @@ export default function ModbusHelper() {
             setLoading(false);
             break;
           case 'cancelled':
-            console.log("cancelled", data);
             setResult({
               success: true,
               devices: data.devices,

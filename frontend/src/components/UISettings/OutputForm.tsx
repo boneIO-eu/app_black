@@ -15,6 +15,14 @@ interface Area {
   name: string;
 }
 
+interface CoverEntity {
+  id?: string;
+  name?: string;
+  pin?: string;
+  open_relay?: string;
+  close_relay?: string;
+}
+
 interface OutputFormProps {
   data: any;
   onChange: (data: any) => void;
@@ -29,6 +37,7 @@ interface OutputFormProps {
   allAreas?: Area[];
   interlockGroups?: string[];
   onInterlockGroupCreated?: (groupName: string) => void;
+  allCovers?: CoverEntity[];
 }
 
 const OutputForm: React.FC<OutputFormProps> = ({ 
@@ -41,11 +50,28 @@ const OutputForm: React.FC<OutputFormProps> = ({
   allAreas = [],
   editingIndex,
   interlockGroups = [],
-  onInterlockGroupCreated
+  onInterlockGroupCreated,
+  allCovers = []
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
   const [newInterlockGroup, setNewInterlockGroup] = useState('');
+
+  // Check if this output is used in any cover
+  const getUsedInCover = (): CoverEntity | null => {
+    const outputId = data.boneio_output || data.id;
+    if (!outputId) return null;
+    
+    for (const cover of allCovers) {
+      if (cover.open_relay === outputId || cover.close_relay === outputId) {
+        return cover;
+      }
+    }
+    return null;
+  };
+  
+  const usedInCover = getUsedInCover();
+  const isUsedInCover = usedInCover !== null;
 
   // Generate output names based on device type
   const generateBoneioOutputs = (deviceType: string) => {
@@ -139,6 +165,21 @@ const OutputForm: React.FC<OutputFormProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Warning alert when output is used in a cover */}
+      {isUsedInCover && (
+        <div className="alert alert-warning">
+          <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <h3 className="font-bold">{t('outputs.used_in_cover_title')}</h3>
+            <div className="text-sm">
+              {t('outputs.used_in_cover_message')} <strong>{usedInCover?.name || usedInCover?.id || usedInCover?.pin || usedInCover?.open_relay || 'unknown'}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DaisyUI Tabs - Hide Advanced tab for cover type */}
       {data.output_type !== 'cover' && (
         <div className="tabs tabs-bordered tabs-lifted">
@@ -169,8 +210,9 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <Select
                 value={data.boneio_output || ''}
                 onValueChange={(value) => updateField('boneio_output', value)}
+                disabled={isUsedInCover}
               >
-                <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''}`}>
+                <SelectTrigger className={`w-full uppercase ${usedOutputs.length > 0 && boneioOutputOptions.length === 0 ? 'border-warning' : ''} ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <SelectValue placeholder={t('outputs.select_output')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -219,8 +261,9 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <Select
                 value={data.output_type || 'none'}
                 onValueChange={(value) => updateField('output_type', value)}
+                disabled={isUsedInCover}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={`w-full ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <SelectValue placeholder={t('outputs.select_type')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,10 +303,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
               </label>
               <input
                 type="text"
-                className="input input-bordered w-full"
+                className={`input input-bordered w-full ${isUsedInCover ? 'opacity-50 cursor-not-allowed' : ''}`}
                 placeholder={data.boneio_output || t('sensors.id_hint')}
                 value={data.id || ''}
                 onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+                disabled={isUsedInCover}
               />
               <label className="label">
                 <span className="label-text-alt whitespace-normal wrap-break-word">{t('outputs.auto_sanitized')}</span>

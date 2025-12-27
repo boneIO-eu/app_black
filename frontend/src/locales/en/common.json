@@ -40,6 +40,8 @@
     "select_type": "Select type...",
     "all_outputs_used": "All outputs are in use. Free one or choose different device type.",
     "used_outputs": "Used",
+    "used_in_cover_title": "Output used in cover",
+    "used_in_cover_message": "This output is used in a cover. To edit, first remove it from cover:",
     "output_types": {
       "none": "None",
       "relay": "Relay",

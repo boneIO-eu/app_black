@@ -31,6 +31,7 @@ class InputEvent(BaseModel):
         click_type: Type of click (single, double, long, pressed, released)
         duration: Duration of the press in seconds (optional)
         state: Current state of the input
+        publish_only: If True, only publish to MQTT without executing actions
     """
     
     event_type: Literal["input"] = "input"
@@ -38,6 +39,7 @@ class InputEvent(BaseModel):
     click_type: ClickTypes | None = None
     duration: float | None = None
     state: InputState
+    publish_only: bool = False
 
 
 class OutputEvent(BaseModel):

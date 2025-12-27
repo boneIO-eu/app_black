@@ -992,6 +992,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     editingIndex={editingIndex}
                     interlockGroups={interlockGroups}
                     onInterlockGroupCreated={handleInterlockGroupCreated}
+                    allCovers={allCovers}
                   />
                 ) : sectionType === 'output_group' ? (
                   <OutputGroupForm

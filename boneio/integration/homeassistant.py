@@ -93,7 +93,7 @@ def ha_availabilty_message(
             "identifiers": [f"{topic}_{area}"],  # Use area ID for consistent grouping
             "manufacturer": "boneIO",
             "model": model,
-            "model_id": config_helper.topic_prefix,
+            "model_id": config_helper.serial_number,
             "name": sub_device_name,
             "serial_number": config_helper.serial_number,
             "sw_version": __version__,
@@ -106,7 +106,7 @@ def ha_availabilty_message(
             "identifiers": [topic],
             "manufacturer": "boneIO",
             "model": model,
-            "model_id": config_helper.topic_prefix,
+            "model_id": config_helper.serial_number,
             "name": device_name,
             "serial_number": config_helper.serial_number,
             "sw_version": __version__,
