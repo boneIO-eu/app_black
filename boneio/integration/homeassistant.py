@@ -428,7 +428,7 @@ def modbus_sensor_availabilty_message(
         "device": device,
         "name": sensor_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{sensor_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{sensor_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -460,7 +460,7 @@ def modbus_select_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
         **kwargs,
     }
 
@@ -493,7 +493,7 @@ def modbus_numeric_availabilty_message(
         "device": device,
         "name": entity_id,
         "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').lower()}{id.lower()}",
+        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
         **kwargs,
     }
 

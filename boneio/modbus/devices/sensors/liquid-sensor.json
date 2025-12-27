@@ -38,7 +38,7 @@
     {
       "name": "Measurement Volume",
       "source": "measurement_value",
-      "unit_of_measurement": "l",
+      "unit_of_measurement": "L",
       "device_class": "volume_storage",
       "state_class": "measurement",
       "formula": "width * length * X * 10",

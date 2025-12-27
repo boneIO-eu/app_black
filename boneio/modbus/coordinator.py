@@ -689,24 +689,22 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             self._discovery_sent = False
             first_register_base = self._db["registers_base"][0]
             register_method = first_register_base.get("register_type", "input")
-            # Let's try fetch register 2 times in case something wrong with initial packet.
-            for _ in [0, 1]:
-                register = await self._modbus.read_and_decode(
-                    unit=self._address,
-                    address=first_register_base[REGISTERS][0][ADDRESS],
-                    method=register_method,
-                    payload_type=first_register_base[REGISTERS][0].get(
-                        "value_type", "FP32"
-                    ),
-                )
-                if register is not None:
-                    self._discovery_sent = self._send_discovery_for_all_registers()
-                    await asyncio.sleep(2)
-                    break
-            if not self._discovery_sent:
-                _LOGGER.error(
-                    "Discovery for %s not sent. First register not available.",
+            # Single attempt - don't block other devices with retries
+            register = await self._modbus.read_and_decode(
+                unit=self._address,
+                address=first_register_base[REGISTERS][0][ADDRESS],
+                method=register_method,
+                payload_type=first_register_base[REGISTERS][0].get(
+                    "value_type", "FP32"
+                ),
+            )
+            if register is not None:
+                self._discovery_sent = self._send_discovery_for_all_registers()
+            else:
+                _LOGGER.debug(
+                    "Discovery for %s not sent yet. Device not available at address %s.",
                     self._id,
+                    self._address,
                 )
 
     def _update_sensor_and_derived(
@@ -797,9 +795,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 _LOGGER.info("Sending online payload about device %s.", self._name)
                 self._payload_online = ONLINE
                 self._message_bus.send_message(
-                    topic=f"{self.manager.config_helper.topic_prefix}/{self._id}/{STATE}",
+                    topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
                     payload=self._payload_online,
                 )
+                # Send HA discovery if not sent yet (device was offline during startup)
+                if not self._discovery_sent:
+                    _LOGGER.info("Device %s is now available, sending HA discovery.", self._name)
+                    self._discovery_sent = self._send_discovery_for_all_registers()
                 
             if not values:
                 if update_interval < 600:
@@ -809,7 +811,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     # Let's assume device is offline.
                     self.set_payload_offline()
                     self._message_bus.send_message(
-                        topic=f"{self.manager.config_helper.topic_prefix}/{self._id}/{STATE}",
+                        topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
                         payload=self._payload_online,
                     )
                     self._discovery_sent = False

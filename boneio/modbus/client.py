@@ -102,7 +102,7 @@ class Modbus:
         stopbits: int = 1,
         bytesize: int = 8,
         parity: str = "N",
-        timeout: float = 3,
+        timeout: float = 1.5,
     ) -> None:
         """Initialize the Modbus hub."""
         rx = uart.get(RX)
@@ -118,6 +118,12 @@ class Modbus:
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
         _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
+        # Calculate inter-character timeout based on baudrate (3.5 characters)
+        # At 9600 baud: 1 char = 11 bits (start + 8 data + parity + stop) = ~1.15ms
+        # 3.5 chars = ~4ms, we use slightly more for safety
+        char_time_ms = (11 * 1000) / baudrate  # Time for 1 character in ms
+        inter_char_timeout = (char_time_ms * 3.5) / 1000  # Convert to seconds
+        
         self._client = ModbusSerialClient(
             port=self._uart[ID],
             framer=FramerType.RTU,
@@ -126,9 +132,9 @@ class Modbus:
             bytesize=bytesize,
             parity=parity,
             timeout=timeout,
-            retries=3,
+            retries=2,  # Reduced from 3 to speed up detection of offline devices
         )
-        _LOGGER.debug("ModbusSerialClient created successfully")
+        _LOGGER.debug("ModbusSerialClient created successfully with timeout=%.2fs, retries=2", timeout)
 
     @property
     def client(self) -> ModbusSerialClient | None:
@@ -249,23 +255,23 @@ class Modbus:
                 return None
 
             if not hasattr(result, REGISTERS):
-                _LOGGER.error("No result from read: %s", str(result))
+                _LOGGER.error("No result from read for device %s at address %s: %s", unit, address, str(result))
                 result = None
 
         except ValueError as exception_error:
-            _LOGGER.error("Error reading registers: %s", exception_error)
+            _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
             pass
         except (ModbusException, struct.error) as exception_error:
-            _LOGGER.error("Error reading registers: %s", exception_error)
+            _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
             pass
         except TimeoutError:
-            _LOGGER.error("Timeout reading registers from device %s", unit)
+            _LOGGER.error("Timeout reading registers from device %s at address %s", unit, address)
             pass
         except asyncio.CancelledError as err:
-            _LOGGER.error("Operation cancelled reading registers from device %s with error %s", unit, err)
+            _LOGGER.error("Operation cancelled reading registers from device %s at address %s: %s", unit, address, err)
             pass
         except Exception as e:
-            _LOGGER.error(f"Unexpected error reading registers: {type(e).__name__} - {e}")
+            _LOGGER.error("Unexpected error reading registers from device %s at address %s: %s - %s", unit, address, type(e).__name__, e)
             pass
         finally:
             end_time = time.perf_counter()
