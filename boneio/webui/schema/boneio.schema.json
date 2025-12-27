@@ -4,8 +4,8 @@
   "properties": {
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "name": {

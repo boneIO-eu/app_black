@@ -85,7 +85,7 @@ class Oled:
             event_bus: Event bus for handling events
             i2c_bus: I2C bus instance (optional, will create if not provided)
         """
-        self._host_data = host_data
+        self._host_data: HostData = host_data
         self._grouped_outputs_by_expander = grouped_outputs_by_expander
         self._event_bus = event_bus
         

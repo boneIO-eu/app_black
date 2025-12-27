@@ -113,11 +113,9 @@ async def async_run(
         is_web_active=web_active,
         web_port=web_config.get("port", 8090),
         proxy_port=web_config.get("proxy_port"),
-        topic_prefix=config.get(MQTT, {}).get(TOPIC_PREFIX, None),
         ha_discovery=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(ENABLED, False),
         ha_discovery_prefix=config.get(MQTT, {}).get(HA_DISCOVERY, {}).get(TOPIC_PREFIX, "homeassistant"),
         config_file_path=config_file,
-        topic_with_serial=config.get(MQTT, {}).get("topic_with_serial", True),
     )
     
     # Load areas configuration
@@ -147,6 +145,7 @@ async def async_run(
         relay_pins=config.get(OUTPUT, []),
         event_pins=config.get(EVENT_ENTITY, []),
         binary_pins=config.get(BINARY_SENSOR, []),
+        remote_devices=config.get("remote_devices", []),
         config_file_path=config_file,
         state_manager=StateManager(
             state_file=f"{os.path.split(config_file)[0]}state.json"
@@ -188,6 +187,13 @@ async def async_run(
     message_bus_task = asyncio.create_task(message_bus.start_client())
     tasks.add(message_bus_task)
     message_bus_task.add_done_callback(tasks.discard)
+    
+    # Publish discovery after message bus is started
+    if isinstance(message_bus, MQTTClient):
+        # Wait a bit for MQTT connection to establish
+        await asyncio.sleep(2)
+        _LOGGER.info("Publishing device discovery information")
+        await manager.publish_discovery()
     
     # Start web server if configured
     if web_active:

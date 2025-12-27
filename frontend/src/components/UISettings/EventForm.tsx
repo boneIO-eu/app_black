@@ -18,6 +18,15 @@ import type {
   BinarySensorEntity 
 } from '@/types/config';
 
+interface RemoteDeviceEntity {
+  id: string;
+  name?: string;
+  mqtt?: {
+    outputs?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string }[];
+  };
+}
+
 interface EventFormProps {
   /** Current event entity data being edited */
   data: EventEntity;
@@ -45,6 +54,8 @@ interface EventFormProps {
   allCovers?: CoverEntity[];
   /** All areas for area dropdown */
   allAreas?: AreaEntity[];
+  /** All remote devices for remote action dropdowns */
+  allRemoteDevices?: RemoteDeviceEntity[];
   /** Callback when validation state changes */
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
@@ -67,6 +78,7 @@ const EventForm: React.FC<EventFormProps> = ({
   allOutputGroups = [],
   allCovers = [],
   allAreas = [],
+  allRemoteDevices = [],
   editingIndex,
   onValidationChange,
   attemptedSubmit = false,
@@ -191,6 +203,7 @@ const EventForm: React.FC<EventFormProps> = ({
         allOutputGroups={allOutputGroups}
         allCovers={allCovers}
         allAreas={allAreas}
+        allRemoteDevices={allRemoteDevices}
         actionTypeOptions={actionTypeOptions}
         actionOutputOptions={actionOutputOptions}
         actionCoverOptions={actionCoverOptions}

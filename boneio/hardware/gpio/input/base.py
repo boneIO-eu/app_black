@@ -20,23 +20,6 @@ from boneio.models.events import InputEvent
 _LOGGER = logging.getLogger(__name__)
 
 
-def read_input(pin: str) -> bool:
-    """Read current value of a GPIO pin.
-    
-    Args:
-        pin: Pin name (e.g., "P8_30")
-        
-    Returns:
-        True if pin is high, False if low
-    """
-    try:
-        gpio_manager = get_gpio_manager()
-        return gpio_manager.read_value(pin)
-    except Exception as exc:
-        _LOGGER.error("Error reading pin %s: %s", pin, exc)
-        return False
-
-
 class GpioBaseClass:
     """Base class for GPIO inputs.
     

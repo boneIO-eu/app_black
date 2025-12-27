@@ -1,0 +1,238 @@
+# Remote Devices Schema
+# Currently supported: mqtt
+# Planned for future: loxone, esphome_udp, esphome_api, can
+
+type: list
+required: False
+meta:
+  label: "Remote devices that can be controlled from this boneIO."
+schema:
+  type: dict
+  schema:
+    id:
+      type: string
+      required: True
+      coerce: str
+      meta:
+        label: Device ID
+        description: |
+          Unique identifier for this remote device (used in actions).
+          Example: "salon_boneio", "garage_esp"
+    name:
+      type: string
+      required: True
+      meta:
+        label: Device Name
+        description: |
+          Friendly name for this device shown in UI.
+          Example: "Salon boneIO", "ESP Garage"
+    protocol:
+      type: string
+      required: True
+      # Currently only mqtt is implemented
+      # Future: 'loxone', 'esphome_udp', 'esphome_api', 'can'
+      allowed: ['mqtt']
+      meta:
+        label: Protocol
+        description: |
+          Communication protocol to use:
+          - mqtt: Standard MQTT (boneIO Black, ESPHome, other MQTT devices)
+    device_type:
+      type: string
+      required: False
+      default: "boneio_black"
+      allowed: ['boneio_black', 'esphome', 'generic']
+      meta:
+        label: Device Type
+        description: |
+          Type of remote device. Affects how commands are formatted:
+          - boneio_black: Another boneIO Black device
+          - esphome: ESPHome device
+          - generic: Generic device (custom topic format)
+    
+    # MQTT Protocol Parameters
+    mqtt:
+      type: dict
+      required: False
+      dependencies:
+        protocol: ['mqtt']
+      meta:
+        label: MQTT Protocol Settings
+        description: |
+          For boneIO Black devices, outputs and covers will be auto-discovered.
+          The device_id should match the remote device's serial (e.g., "blk_abc123").
+      schema:
+        outputs:
+          type: list
+          required: False
+          meta:
+            label: Available Outputs
+            description: "Optional list of outputs for dropdown selection in actions"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Output ID
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Output Name (for UI)
+        covers:
+          type: list
+          required: False
+          meta:
+            label: Available Covers
+            description: "Optional list of covers for dropdown selection in actions"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Cover ID
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Cover Name (for UI)
+    
+    # =========================================================================
+    # FUTURE PROTOCOLS - NOT YET IMPLEMENTED
+    # Below are planned protocol configurations for future implementation.
+    # Uncomment and add to 'allowed' list in 'protocol' field when ready.
+    # =========================================================================
+    
+    # # CAN Protocol Parameters (future)
+    # can:
+    #   type: dict
+    #   required: False
+    #   dependencies:
+    #     protocol: ['can']
+    #   meta:
+    #     label: CAN Protocol Settings
+    #   schema:
+    #     node_id:
+    #       type: integer
+    #       required: True
+    #       meta:
+    #         label: CAN Node ID
+    #         description: "CAN bus node identifier of the remote device"
+    #     outputs:
+    #       type: list
+    #       required: False
+    #       meta:
+    #         label: Available Outputs
+    #       schema:
+    #         type: dict
+    #         schema:
+    #           id:
+    #             type: string
+    #             required: True
+    #           name:
+    #             type: string
+    #             required: False
+    #     covers:
+    #       type: list
+    #       required: False
+    #       meta:
+    #         label: Available Covers
+    #       schema:
+    #         type: dict
+    #         schema:
+    #           id:
+    #             type: string
+    #             required: True
+    #           name:
+    #             type: string
+    #             required: False
+    
+    # # ESPHome UDP Parameters (future)
+    # esphome_udp:
+    #   type: dict
+    #   required: False
+    #   dependencies:
+    #     protocol: ['esphome_udp']
+    #   meta:
+    #     label: ESPHome UDP Settings
+    #   schema:
+    #     host:
+    #       type: string
+    #       required: True
+    #       meta:
+    #         label: Host
+    #         description: "IP address or hostname of ESPHome device"
+    #     port:
+    #       type: integer
+    #       required: False
+    #       default: 6053
+    #       meta:
+    #         label: Port
+    
+    # # ESPHome API Parameters (future)
+    # esphome_api:
+    #   type: dict
+    #   required: False
+    #   dependencies:
+    #     protocol: ['esphome_api']
+    #   meta:
+    #     label: ESPHome API Settings
+    #   schema:
+    #     host:
+    #       type: string
+    #       required: True
+    #       meta:
+    #         label: Host
+    #         description: "IP address or hostname of ESPHome device"
+    #     port:
+    #       type: integer
+    #       required: False
+    #       default: 6053
+    #       meta:
+    #         label: Port
+    #     password:
+    #       type: string
+    #       required: False
+    #       meta:
+    #         label: API Password
+    #     encryption_key:
+    #       type: string
+    #       required: False
+    #       meta:
+    #         label: Encryption Key
+    
+    # # Loxone Parameters (future)
+    # loxone:
+    #   type: dict
+    #   required: False
+    #   dependencies:
+    #     protocol: ['loxone']
+    #   meta:
+    #     label: Loxone Settings
+    #   schema:
+    #     host:
+    #       type: string
+    #       required: True
+    #       meta:
+    #         label: Miniserver Host
+    #         description: "IP address or hostname of Loxone Miniserver"
+    #     port:
+    #       type: integer
+    #       required: False
+    #       default: 80
+    #       meta:
+    #         label: Port
+    #     username:
+    #       type: string
+    #       required: False
+    #       meta:
+    #         label: Username
+    #     password:
+    #       type: string
+    #       required: False
+    #       meta:
+    #         label: Password

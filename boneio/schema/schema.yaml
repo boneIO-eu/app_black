@@ -24,6 +24,9 @@ areas:
             Display name for the area shown in Home Assistant.
             Example: "Living Room", "Kitchen", "Garaż"
 
+# Remote devices - control outputs/covers on other devices via MQTT, CAN, etc.
+remote_devices: !include remote_devices.yaml
+
 mqtt:
   type: dict
   required: False
@@ -51,17 +54,6 @@ mqtt:
       default: 1883
       meta:
         label: Port to connect to mqtt broker
-    topic_prefix:
-      type: string
-      required: False
-      meta:
-        label: Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.
-    topic_with_serial:
-      type: boolean
-      required: False
-      default: True
-      meta:
-        label: Append device serial number to the MQTT topic prefix. Useful when you have multiple identical devices to avoid topic conflicts. Example - "boneio_blk8c7df0" instead of "boneio".
     ha_discovery:
       type: dict
       meta:

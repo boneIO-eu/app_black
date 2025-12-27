@@ -354,6 +354,12 @@ class InputManager:
                         availability_msg_func=ha_binary_sensor_availabilty_message,
                         area=area,
                     )
+                
+                # Send current state if initial_send is enabled (so user doesn't need to restart)
+                if gpio.get("initial_send", False):
+                    _LOGGER.debug(f"Sending current state for {input_id} after reload (initial_send=True)")
+                    existing_input.send_current_state()
+                
                 return existing_input
             
             # Create new binary sensor input

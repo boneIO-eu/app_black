@@ -33,12 +33,31 @@ export const validateAction = (action: any, t: (key: string) => string): string 
     if (!action.boneio_id) return t('event_form.validation_boneio_id_required');
   }
   
+  if (actionType === 'remote_output') {
+    if (!action.remote_device) return t('event_form.validation_remote_device_required');
+    if (!action.output_id) return t('event_form.validation_output_id_required');
+  }
+  
+  if (actionType === 'remote_cover') {
+    if (!action.remote_device) return t('event_form.validation_remote_device_required');
+    if (!action.cover_id) return t('event_form.validation_cover_id_required');
+  }
+  
   return null;
 };
 
 interface Area {
   id: string;
   name: string;
+}
+
+interface RemoteDevice {
+  id: string;
+  name?: string;
+  mqtt?: {
+    outputs?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string }[];
+  };
 }
 
 interface ActionFieldsProps {
@@ -50,6 +69,7 @@ interface ActionFieldsProps {
   allOutputGroups: any[];
   allCovers: any[];
   allAreas: Area[];
+  allRemoteDevices?: RemoteDevice[];
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];
@@ -71,6 +91,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   allOutputGroups,
   allCovers,
   allAreas,
+  allRemoteDevices = [],
   actionTypeOptions,
   actionOutputOptions,
   actionCoverOptions,
@@ -384,6 +405,170 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <label className="label">
               <span className="label-text-alt">{t('event_form.cover_id_hint')}</span>
             </label>
+          </div>
+
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.cover_action')}</span>
+            </label>
+            <Select
+              value={action.action_cover || 'TOGGLE'}
+              onValueChange={(value) => onUpdate('action_cover', value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionCoverOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.split('_').map(word => 
+                      word.charAt(0) + word.slice(1).toLowerCase()
+                    ).join(' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {actionType === 'remote_output' && (
+        <>
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.remote_device')}</span>
+            </label>
+            <Select
+              value={action.remote_device || ''}
+              onValueChange={(value) => {
+                onUpdate('remote_device', value);
+                // Clear output_id when device changes
+                onUpdate('output_id', '');
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t('event_form.select_remote_device')} />
+              </SelectTrigger>
+              <SelectContent>
+                {allRemoteDevices.map((device) => (
+                  <SelectItem key={device.id} value={device.id}>
+                    {device.name || device.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.output_id')}</span>
+            </label>
+            <Select
+              value={action.output_id || ''}
+              onValueChange={(value) => onUpdate('output_id', value)}
+              disabled={!action.remote_device}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t('event_form.select_output_id')} />
+              </SelectTrigger>
+              <SelectContent>
+                {(() => {
+                  const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
+                  const outputs = selectedDevice?.mqtt?.outputs || [];
+                  return outputs.map((output) => (
+                    <SelectItem key={output.id} value={output.id}>
+                      {output.name || output.id}
+                    </SelectItem>
+                  ));
+                })()}
+              </SelectContent>
+            </Select>
+            {!action.remote_device && (
+              <label className="label">
+                <span className="label-text-alt text-warning">{t('event_form.select_device_first')}</span>
+              </label>
+            )}
+          </div>
+
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.output_action')}</span>
+            </label>
+            <Select
+              value={action.action_output || 'TOGGLE'}
+              onValueChange={(value) => onUpdate('action_output', value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action..." />
+              </SelectTrigger>
+              <SelectContent>
+                {actionOutputOptions.map((option: string) => (
+                  <SelectItem key={option} value={option}>
+                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {actionType === 'remote_cover' && (
+        <>
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.remote_device')}</span>
+            </label>
+            <Select
+              value={action.remote_device || ''}
+              onValueChange={(value) => {
+                onUpdate('remote_device', value);
+                // Clear cover_id when device changes
+                onUpdate('cover_id', '');
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t('event_form.select_remote_device')} />
+              </SelectTrigger>
+              <SelectContent>
+                {allRemoteDevices.map((device) => (
+                  <SelectItem key={device.id} value={device.id}>
+                    {device.name || device.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="form-control mb-3">
+            <label className="label">
+              <span className="label-text font-medium">{t('event_form.cover_id')}</span>
+            </label>
+            <Select
+              value={action.cover_id || ''}
+              onValueChange={(value) => onUpdate('cover_id', value)}
+              disabled={!action.remote_device}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t('event_form.select_cover_id')} />
+              </SelectTrigger>
+              <SelectContent>
+                {(() => {
+                  const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
+                  const covers = selectedDevice?.mqtt?.covers || [];
+                  return covers.map((cover) => (
+                    <SelectItem key={cover.id} value={cover.id}>
+                      {cover.name || cover.id}
+                    </SelectItem>
+                  ));
+                })()}
+              </SelectContent>
+            </Select>
+            {!action.remote_device && (
+              <label className="label">
+                <span className="label-text-alt text-warning">{t('event_form.select_device_first')}</span>
+              </label>
+            )}
           </div>
 
           <div className="form-control mb-3">

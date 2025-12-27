@@ -35,6 +35,8 @@ from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
+from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
 from boneio.hardware.i2c.bus import SMBus2I2C
@@ -106,6 +108,7 @@ class Manager:
         oled: dict[str, Any] = {},
         adc: list[dict] | None = None,
         cover: list[dict] = [],
+        remote_devices: list[dict] = [],
         web_active: bool = False,
         web_port: int = 8090,
     ) -> None:
@@ -182,6 +185,18 @@ class Manager:
         self.display = DisplayManager(
             manager=self,
             oled_config=oled,
+        )
+        
+        # 7. RemoteDeviceManager (optional - for controlling remote devices)
+        self.remote_devices = RemoteDeviceManager(
+            message_bus=message_bus,
+            remote_devices_config=remote_devices,
+        )
+        
+        # 8. BlackDiscoveryPublisher (publishes device info for autodiscovery of neighboring BoneIO devices)
+        self._discovery_publisher = BlackDiscoveryPublisher(
+            manager=self,
+            message_bus=message_bus,
         )
         
         # Configure virtual energy sensors (must be after outputs are initialized)
@@ -310,7 +325,7 @@ class Manager:
             output_type: Output type (optional, used for outputs like LIGHT, LED, SWITCH, VALVE)
             **kwargs: Additional parameters
         """
-        from boneio.const import BUTTON, GROUP, LED, LIGHT, SWITCH, VALVE
+        from boneio.const import BUTTON, LED, LIGHT, SWITCH, VALVE
         from boneio.integration.homeassistant import (
             ha_button_availabilty_message,
             ha_group_availabilty_message,
@@ -359,7 +374,7 @@ class Manager:
                 config_helper=self._config_helper,
                 **kwargs
             )
-            topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.topic_prefix}/{id}/config"
+            topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_no}/{id}/config"
             _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
             self._config_helper.add_autodiscovery_msg(
                 topic=topic, ha_type=ha_type, payload=payload
@@ -376,7 +391,7 @@ class Manager:
         Returns:
             Parsed actions dictionary
         """
-        from boneio.const import TOPIC
+        from boneio.const import TOPIC, REMOTE_OUTPUT, REMOTE_COVER
         from boneio.core.utils import strip_accents
         
         parsed_actions = {}
@@ -461,6 +476,38 @@ class Manager:
                         })
                         continue
                     _LOGGER.warning("COVER_OVER_MQTT action missing data for %s", pin)
+                
+                elif action == REMOTE_OUTPUT:
+                    # Remote output on another device (via remote_devices)
+                    remote_device = action_definition.get("remote_device")
+                    output_id = action_definition.get("output_id")
+                    action_output = action_definition.get("action_output", "TOGGLE")
+                    if remote_device and output_id:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "remote_device": remote_device,
+                            "output_id": output_id,
+                            "action_output": action_output,
+                        })
+                        continue
+                    _LOGGER.warning("REMOTE_OUTPUT action missing remote_device or output_id for %s", pin)
+                
+                elif action == REMOTE_COVER:
+                    # Remote cover on another device (via remote_devices)
+                    remote_device = action_definition.get("remote_device")
+                    cover_id = action_definition.get("cover_id")
+                    action_cover = action_definition.get("action_cover", "TOGGLE")
+                    extra_data = action_definition.get("data", {})
+                    if remote_device and cover_id:
+                        parsed_actions[click_type].append({
+                            "action": action,
+                            "remote_device": remote_device,
+                            "cover_id": cover_id,
+                            "action_cover": action_cover,
+                            "extra_data": extra_data,
+                        })
+                        continue
+                    _LOGGER.warning("REMOTE_COVER action missing remote_device or cover_id for %s", pin)
                     
         return parsed_actions
 
@@ -472,16 +519,13 @@ class Manager:
         
         Args:
             actions: List of actions to execute
-            entity_id: Entity that triggered the actions
-            click_type: Type of click/trigger
         """
-        # All imports at top of file
+        from boneio.const import REMOTE_OUTPUT, REMOTE_COVER
         
         start_time = time.time()
         
         for action_definition in actions:
             action = action_definition.get("action")
-            pin = action_definition.get("pin")
             
             if action == MQTT:
                 action_topic = action_definition.get("action_topic")
@@ -495,31 +539,33 @@ class Manager:
                 continue
                 
             elif action == OUTPUT:
-                output = self.outputs.get_output(pin) or self.outputs.get_output_group(pin)
+                output_id = action_definition.get("pin") or action_definition.get("boneio_output")
+                output = self.outputs.get_output(output_id) or self.outputs.get_output_group(output_id)
                 if not output:
-                    _LOGGER.warning("Output %s not found for action", pin)
+                    _LOGGER.warning("Output %s not found for action", output_id)
                     continue
                 action_to_execute = action_definition.get("action_to_execute")
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
                     action_to_execute,
-                    output.name if hasattr(output, 'name') else pin,
+                    output.name if hasattr(output, 'name') else output_id,
                     time.time() - start_time,
                 )
                 _f = getattr(output, action_to_execute)
                 await _f()
                 
             elif action == COVER:
-                cover = self.covers.get_cover(pin)
+                cover_id = action_definition.get("pin") or action_definition.get("boneio_cover")
+                cover = self.covers.get_cover(cover_id)
                 if not cover:
-                    _LOGGER.warning("Cover %s not found for action", pin)
+                    _LOGGER.warning("Cover %s not found for action", cover_id)
                     continue
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
                 _LOGGER.debug(
                     "Executing action %s for cover %s. Duration: %s",
                     action_to_execute,
-                    cover.name if hasattr(cover, 'name') else pin,
+                    cover.name if hasattr(cover, 'name') else cover_id,
                     time.time() - start_time,
                 )
                 _f = getattr(cover, action_to_execute)
@@ -527,20 +573,46 @@ class Manager:
                 
             elif action == OUTPUT_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
+                output_id = action_definition.get("boneio_output") or action_definition.get("pin")
                 action_output = action_definition.get("action_output")
                 self.send_message(
-                    topic=f"{boneio_id}/cmd/output/{pin}/set",
+                    topic=f"{boneio_id}/cmd/output/{output_id}/set",
                     payload=action_output,
                     retain=False,
                 )
                 
             elif action == COVER_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
+                cover_id = action_definition.get("boneio_cover") or action_definition.get("pin")
                 action_cover = action_definition.get("action_cover")
                 self.send_message(
-                    topic=f"{boneio_id}/cmd/cover/{pin}/set",
+                    topic=f"{boneio_id}/cmd/cover/{cover_id}/set",
                     payload=action_cover,
                     retain=False,
+                )
+            
+            elif action == REMOTE_OUTPUT:
+                # Control output on remote device
+                remote_device_id = action_definition.get("remote_device")
+                output_id = action_definition.get("output_id")
+                action_output = action_definition.get("action_output", "TOGGLE")
+                await self.remote_devices.control_output(
+                    device_id=remote_device_id,
+                    output_id=output_id,
+                    action=action_output,
+                )
+            
+            elif action == REMOTE_COVER:
+                # Control cover on remote device
+                remote_device_id = action_definition.get("remote_device")
+                cover_id = action_definition.get("cover_id")
+                action_cover = action_definition.get("action_cover", "TOGGLE")
+                extra_data = action_definition.get("extra_data", {})
+                await self.remote_devices.control_cover(
+                    device_id=remote_device_id,
+                    cover_id=cover_id,
+                    action=action_cover,
+                    **extra_data,
                 )
 
     def _reload_logger(self) -> None:
@@ -557,6 +629,71 @@ class Manager:
         configure_logger(log_config, debug=0)
         _LOGGER.info("Logger configuration reloaded successfully")
 
+    def _reload_remote_devices(self) -> None:
+        """Reload remote devices configuration from config file.
+        
+        This allows hot-reloading of remote devices without restarting the application.
+        """
+        config = self._config_helper.get_config()
+        remote_devices_config = config.get("remote_devices", [])
+        
+        _LOGGER.info("Reloading remote devices configuration")
+        self.remote_devices.reload(remote_devices_config)
+        _LOGGER.info("Remote devices configuration reloaded successfully")
+    
+    async def publish_discovery(self) -> None:
+        """Publish all device discovery information to MQTT.
+        
+        This should be called after manager is fully initialized.
+        """
+        if hasattr(self, '_discovery_publisher'):
+            await self._discovery_publisher.publish_discovery()
+        else:
+            _LOGGER.warning("Discovery publisher not initialized")
+    
+    async def _publish_discovery_for_sections(self, sections: list[str]) -> None:
+        """Publish discovery only for specific sections.
+        
+        Maps config sections to discovery topics:
+        - output -> outputs
+        - cover -> covers
+        - input, event, binary_sensor -> inputs
+        - sensor, virtual_energy_sensor -> sensors
+        - modbus_devices -> modbus
+        
+        Args:
+            sections: List of reloaded config section names
+        """
+        if not hasattr(self, '_discovery_publisher'):
+            _LOGGER.warning("Discovery publisher not initialized")
+            return
+        
+        publisher = self._discovery_publisher
+        
+        # Map config sections to discovery methods
+        section_to_discovery = {
+            "output": publisher.publish_outputs,
+            "cover": publisher.publish_covers,
+            "input": publisher.publish_inputs,
+            "event": publisher.publish_inputs,
+            "binary_sensor": publisher.publish_inputs,
+            "sensor": publisher.publish_sensors,
+            "virtual_energy_sensor": publisher.publish_sensors,
+            "modbus_devices": publisher.publish_modbus,
+        }
+        
+        published = set()
+        for section in sections:
+            if section in section_to_discovery:
+                method = section_to_discovery[section]
+                method_name = method.__name__
+                if method_name not in published:
+                    method()
+                    published.add(method_name)
+        
+        if published:
+            _LOGGER.info("Published discovery for sections: %s", list(published))
+
     async def reload_config(self, reload_sections: list[str] | None = None) -> dict:
         """Reload configuration from file.
         
@@ -566,7 +703,8 @@ class Manager:
         Args:
             reload_sections: Optional list of section names to reload.
                            If None, reloads all supported sections (output, cover, input, modbus_devices).
-                           Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 'modbus_devices'
+                           Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 
+                           'modbus_devices', 'sensor', 'virtual_energy_sensor', 'logger', 'remote_devices'
         
         Returns:
             dict: Status of reload operation with details:
@@ -609,6 +747,7 @@ class Manager:
             "sensor": self.sensors.reload_dallas_sensors,  # Dallas temperature sensors
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
+            "remote_devices": self._reload_remote_devices,  # Remote devices configuration
         }
         
         # If specific sections requested, filter
@@ -656,8 +795,12 @@ class Manager:
         
         if status == "success":
             _LOGGER.info("Config reload completed successfully")
+            # Publish updated discovery for reloaded sections
+            await self._publish_discovery_for_sections(reloaded_sections)
         elif status == "partial":
             _LOGGER.warning("Config reload completed with some failures")
+            # Publish discovery for successfully reloaded sections
+            await self._publish_discovery_for_sections(reloaded_sections)
         else:
             _LOGGER.error("Config reload failed")
         

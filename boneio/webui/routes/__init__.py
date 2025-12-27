@@ -9,6 +9,7 @@ from .update import router as update_router
 from .modbus import router as modbus_router
 from .sensors import router as sensors_router
 from .caddy import router as caddy_router
+from .remote_devices import router as remote_devices_router
 
 __all__ = [
     "auth_router",
@@ -20,4 +21,5 @@ __all__ = [
     "modbus_router",
     "sensors_router",
     "caddy_router",
+    "remote_devices_router",
 ]

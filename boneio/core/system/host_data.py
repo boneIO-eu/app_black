@@ -317,7 +317,7 @@ class HostData:
             return None
         network_state = self._data[NETWORK].state
         if IP in network_state:
-            return f"http://{network_state[IP]}:{self._manager.web_bind_port}"
+            return f"{self._manager.config_helper.http_proto}://{network_state[IP]}:{self._manager.config_helper.ha_configuration_port}"
         return None
 
     def get(self, type: str) -> dict | str | None:

@@ -31,7 +31,6 @@ _LOGGER = logging.getLogger(__name__)
 class ConfigHelper:
     def __init__(
         self,
-        topic_prefix: str,
         name: str = BONEIO,
         device_type: str = "boneIO Black",
         ha_discovery: bool = True,
@@ -41,21 +40,20 @@ class ConfigHelper:
         web_port: int = 8090,
         proxy_port: int | None = None,
         config_file_path: str | None = None,
-        topic_with_serial: bool = True,
     ):
         self._name = name
         
-        # Generate serial number from MAC for topic prefix
-        self._serial_no = get_serial_from_mac(network_info) if topic_with_serial else ""
+        # Generate serial number from MAC - always required for topic prefix
+        self._serial_no = get_serial_from_mac(network_info)
         
-        # Build topic prefix: use provided prefix or name, optionally append serial
-        base_topic = topic_prefix if topic_prefix else name
+        # Build fixed topic prefix: boneio/blk_{serial}
+        # This is no longer configurable - always uses this format
         if self._serial_no:
-            full_topic = f"{base_topic}_{self._serial_no}"
+            self._topic_prefix = f"boneio/{self._serial_no}"
         else:
-            full_topic = base_topic
-        sanitized_topic_prefix = sanitize_mqtt_topic(full_topic)
-        self._topic_prefix = sanitized_topic_prefix
+            # Fallback if MAC not available (should rarely happen)
+            self._topic_prefix = "boneio/blk_unknown"
+            _LOGGER.warning("Could not determine serial number from MAC, using fallback topic prefix")
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._device_type = device_type
@@ -148,6 +146,11 @@ class ConfigHelper:
     @property
     def topic_prefix(self) -> str:
         return self._topic_prefix
+
+    @property
+    def serial_no(self) -> str:
+        """Get device serial number (e.g., 'blk_abc123')."""
+        return self._serial_no or "blk_unknown"
 
     @property
     def name(self) -> str:

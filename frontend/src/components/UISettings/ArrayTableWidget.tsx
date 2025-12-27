@@ -11,6 +11,7 @@ import ModbusDeviceForm from './ModbusDeviceForm';
 import AreasForm from './AreasForm';
 import SensorForm from './SensorForm';
 import VirtualEnergySensorForm from './VirtualEnergySensorForm';
+import RemoteDeviceForm from './RemoteDeviceForm';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import BinarySensorEventTable from './tables/BinarySensorEventTable';
 import ModbusDeviceTable from './tables/ModbusDeviceTable';
 import SensorTable from './tables/SensorTable';
 import VirtualEnergySensorTable from './tables/VirtualEnergySensorTable';
+import RemoteDeviceTable from './tables/RemoteDeviceTable';
 import GenericTable from './tables/GenericTable';
 
 interface Area {
@@ -39,7 +41,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -50,6 +52,7 @@ export interface ArrayTableWidgetProps {
   allSensors?: any[];
   allModbusDevices?: any[];
   allVirtualEnergySensors?: any[];
+  allRemoteDevices?: any[];
   /** Saved (committed) data for comparison - items not in saved are shown as disabled */
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -69,7 +72,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -161,7 +164,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleAdd = () => {
     console.log('➕ ArrayTableWidget: handleAdd called');
     setEditingIndex(null);
-    setEditingItem({});
+    // Set default values for remote_devices
+    if (sectionType === 'remote_devices') {
+      setEditingItem({ protocol: 'mqtt', device_type: 'boneio_black' });
+    } else {
+      setEditingItem({});
+    }
     setAttemptedSubmit(false); // Reset przy otwieraniu modala
     setIsModalOpen(true);
   };
@@ -208,6 +216,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return false;
     } else if (sectionType === 'modbus_devices') {
       // Modbus devices don't have a fixed limit, so always allow adding
+      return false;
+    } else if (sectionType === 'remote_devices') {
+      // Remote devices don't have a fixed limit, so always allow adding
       return false;
     }
     
@@ -268,6 +279,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           errorMessage = t('array_table_widget.update_interval_minimum');
         }
       }
+    } else if (sectionType === 'remote_devices') {
+      // Remote device requires id, name, protocol and mqtt.topic_prefix
+      isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol && !!dataToSave.mqtt?.topic_prefix;
+      errorMessage = t('array_table_widget.remote_device_fields_required');
+      console.log(dataToSave)
     } else {
       // For other sections, allow saving (or add specific validation)
       isValid = true;
@@ -400,8 +416,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   /**
    * Find all actions in events and binary_sensors that reference the given item ID.
    * Returns list of affected actions with their source (event/binary_sensor name and action type).
+   * For remote_devices, checks remote_device field in remote_output and remote_cover actions.
    */
-  const findAffectedActions = (itemId: string): {type: string, name: string, actionType: string}[] => {
+  const findAffectedActions = (itemId: string, isRemoteDevice: boolean = false): {type: string, name: string, actionType: string}[] => {
     const affected: {type: string, name: string, actionType: string}[] = [];
     
     // Check events
@@ -410,12 +427,24 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       ['single', 'double', 'long'].forEach((pressType) => {
         const actions = event.actions?.[pressType] || [];
         actions.forEach((action: any) => {
-          if (action.pin === itemId || action.boneio_output === itemId) {
-            affected.push({
-              type: t('array_table_widget.event'),
-              name: eventName,
-              actionType: `${pressType} → ${action.action || 'output'}`
-            });
+          if (isRemoteDevice) {
+            // For remote_devices, check remote_device field
+            if (action.remote_device === itemId) {
+              affected.push({
+                type: t('array_table_widget.event'),
+                name: eventName,
+                actionType: `${pressType} → ${action.action || 'remote_output'}`
+              });
+            }
+          } else {
+            // For output/cover, check pin and boneio_output
+            if (action.pin === itemId || action.boneio_output === itemId) {
+              affected.push({
+                type: t('array_table_widget.event'),
+                name: eventName,
+                actionType: `${pressType} → ${action.action || 'output'}`
+              });
+            }
           }
         });
       });
@@ -427,12 +456,24 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       ['pressed', 'released'].forEach((pressType) => {
         const actions = sensor.actions?.[pressType] || [];
         actions.forEach((action: any) => {
-          if (action.pin === itemId || action.boneio_output === itemId) {
-            affected.push({
-              type: t('array_table_widget.binary_sensor'),
-              name: sensorName,
-              actionType: `${pressType} → ${action.action || 'output'}`
-            });
+          if (isRemoteDevice) {
+            // For remote_devices, check remote_device field
+            if (action.remote_device === itemId) {
+              affected.push({
+                type: t('array_table_widget.binary_sensor'),
+                name: sensorName,
+                actionType: `${pressType} → ${action.action || 'remote_output'}`
+              });
+            }
+          } else {
+            // For output/cover, check pin and boneio_output
+            if (action.pin === itemId || action.boneio_output === itemId) {
+              affected.push({
+                type: t('array_table_widget.binary_sensor'),
+                name: sensorName,
+                actionType: `${pressType} → ${action.action || 'output'}`
+              });
+            }
           }
         });
       });
@@ -445,9 +486,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   /**
    * Remove actions that reference the given item ID from events and binary_sensors.
    * Returns the updated data for immediate saving.
+   * For remote_devices, removes actions where remote_device matches itemId.
    */
-  const removeOrphanedActions = (itemId: string): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
-    console.log('🗑️ removeOrphanedActions called with itemId:', itemId);
+  const removeOrphanedActions = (itemId: string, isRemoteDevice: boolean = false): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
+    console.log('🗑️ removeOrphanedActions called with itemId:', itemId, 'isRemoteDevice:', isRemoteDevice);
     
     let updatedEvents: any[] | null = null;
     let updatedSensors: any[] | null = null;
@@ -459,9 +501,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['single', 'double', 'long'].forEach((pressType) => {
           const actions = event.actions?.[pressType] || [];
           const filtered = actions.filter((action: any) => {
-            const shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
-            if (!shouldKeep) {
-              console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
+            let shouldKeep: boolean;
+            if (isRemoteDevice) {
+              // For remote_devices, check remote_device field
+              shouldKeep = action.remote_device !== itemId;
+              if (!shouldKeep) {
+                console.log(`🗑️ Removing remote action from event ${event.name || event.boneio_input}: ${pressType} -> remote_device=${action.remote_device}`);
+              }
+            } else {
+              // For output/cover, check pin and boneio_output
+              shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
+              if (!shouldKeep) {
+                console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
+              }
             }
             return shouldKeep;
           });
@@ -480,9 +532,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['pressed', 'released'].forEach((pressType) => {
           const actions = sensor.actions?.[pressType] || [];
           const filtered = actions.filter((action: any) => {
-            const shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
-            if (!shouldKeep) {
-              console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
+            let shouldKeep: boolean;
+            if (isRemoteDevice) {
+              // For remote_devices, check remote_device field
+              shouldKeep = action.remote_device !== itemId;
+              if (!shouldKeep) {
+                console.log(`🗑️ Removing remote action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> remote_device=${action.remote_device}`);
+              }
+            } else {
+              // For output/cover, check pin and boneio_output
+              shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
+              if (!shouldKeep) {
+                console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
+              }
             }
             return shouldKeep;
           });
@@ -509,6 +571,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return item.id || (item.open_relay && item.close_relay 
         ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase()
         : '');
+    } else if (sectionType === 'remote_devices') {
+      return item.id || '';
     }
     return '';
   };
@@ -530,10 +594,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
     }
     
-    // Only check for affected actions when deleting output, output_group, or cover
-    if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover') {
+    // Only check for affected actions when deleting output, output_group, cover, or remote_devices
+    if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover' || sectionType === 'remote_devices') {
       const itemId = getItemId(item);
-      const affected = findAffectedActions(itemId);
+      const isRemoteDevice = sectionType === 'remote_devices';
+      const affected = findAffectedActions(itemId, isRemoteDevice);
       
       if (affected.length > 0) {
         // Show confirmation dialog
@@ -573,13 +638,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     }
     
     const itemId = getItemId(item);
+    const isRemoteDevice = sectionType === 'remote_devices';
     
     // Check which sections have affected actions
-    const hasEventActions = affectedActions.some(a => a.type === 'Event');
-    const hasBinarySensorActions = affectedActions.some(a => a.type === 'Binary Sensor');
+    const hasEventActions = affectedActions.some(a => a.type === t('array_table_widget.event'));
+    const hasBinarySensorActions = affectedActions.some(a => a.type === t('array_table_widget.binary_sensor'));
     
     // Remove orphaned actions first and get updated data
-    const { updatedEvents, updatedSensors } = removeOrphanedActions(itemId);
+    const { updatedEvents, updatedSensors } = removeOrphanedActions(itemId, isRemoteDevice);
     
     // Delete the item and get updated value
     const newValue = value.filter((_, i) => i !== deleteIndex);
@@ -592,7 +658,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     
     // Save all affected sections with the updated data directly
     if (onSaveSection) {
-      // First save the current section (output/output_group/cover) with the item removed
+      // First save the current section (output/output_group/cover/remote_devices) with the item removed
       console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
       await onSaveSection(sectionType, newValue);
       
@@ -753,6 +819,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return <SensorTable {...commonProps} allAreas={allAreas} />;
       case 'virtual_energy_sensor':
         return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
+      case 'remote_devices':
+        return <RemoteDeviceTable {...commonProps} />;
       default:
         return <GenericTable {...commonProps} />;
     }
@@ -882,6 +950,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allOutputGroups={allOutputGroups}
                     allCovers={allCovers}
                     allAreas={allAreas}
+                    allRemoteDevices={allRemoteDevices}
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
                     attemptedSubmit={attemptedSubmit}
@@ -960,6 +1029,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     existingSensors={value}
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
+                  />
+                ) : sectionType === 'remote_devices' ? (
+                  <RemoteDeviceForm
+                    data={editingItem}
+                    onChange={setEditingItem}
                   />
                 ) : (
                   <div className="alert alert-warning">

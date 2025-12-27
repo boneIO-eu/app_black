@@ -36,6 +36,7 @@ interface BinarySensorData {
   bounce_time?: string | number;
   show_in_ha?: boolean;
   inverted?: boolean;
+  initial_send?: boolean;
   clear_message?: boolean;
   device_class?: string;
   area?: string;
@@ -803,6 +804,19 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   onChange={(e) => updateField('inverted', e.target.checked)}
                 />
                 <span className="label-text">{t('inputs.inverted_hint')}</span>
+              </label>
+            </fieldset>
+
+            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+              <legend className="fieldset-legend">{t('inputs.initial_send')}</legend>
+              <label className="label cursor-pointer justify-start gap-4">
+                <input
+                  type="checkbox"
+                  className="toggle toggle-primary"
+                  checked={data.initial_send === true}
+                  onChange={(e) => updateField('initial_send', e.target.checked)}
+                />
+                <span className="label-text">{t('inputs.initial_send_hint')}</span>
               </label>
             </fieldset>
 

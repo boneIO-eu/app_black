@@ -51,19 +51,26 @@ class GpioInputBinarySensor(GpioBaseClass):
         
         # Send initial state if requested
         if kwargs.get("initial_send", False):
-            self._loop.call_soon(self._send_initial_state)
+            self._loop.call_soon(callback=self._send_initial_state)
 
     def _send_initial_state(self) -> None:
         """Send initial state after setup."""
+        self.send_current_state()
+
+    def send_current_state(self) -> None:
+        """Send current state to MQTT and event bus.
+        
+        This can be called on startup (if initial_send=True) or after config reload.
+        """
         # Read current state from GPIO manager
-        from boneio.hardware.gpio.input.base import read_input
-        current_value = read_input(self._pin)
+        gpio_manager = get_gpio_manager(loop=self._loop)
+        current_value = gpio_manager.read_value(self._pin)
         
         # Determine state based on inversion
         is_pressed = not current_value if not self._inverted else current_value
         state_str = PRESSED if is_pressed else RELEASED
         
-        _LOGGER.debug("Sending initial state for %s: %s", self._name, state_str)
+        _LOGGER.debug("Sending current state for %s: %s", self._name, state_str)
         self.press_callback(
             click_type=state_str,
             duration=None,

@@ -85,6 +85,7 @@ export default function UISettings() {
     { name: 'output', title: t('sections.output'), icon: '💡' },
     { name: 'output_group', title: t('sections.output_group'), icon: '🔗' },
     { name: 'cover', title: t('sections.cover'), icon: '🚪' },
+    { name: 'remote_devices', title: t('sections.remote_devices'), icon: '🌐' },
     { name: 'modbus_devices', title: t('sections.modbus_devices'), icon: '📱' },
     { name: 'sensor', title: t('sections.sensor'), icon: '🌡️' },
     { name: 'virtual_energy_sensor', title: t('sections.virtual_energy_sensor'), icon: '⚡' },
@@ -1251,7 +1252,7 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor') ? (
+                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor' || activeSection === 'remote_devices') ? (
                       // Array sections - wait for schema to load and data to be converted
                       !schemaLoaded ? (
                         <div className="flex items-center justify-center h-64">
@@ -1266,7 +1267,7 @@ export default function UISettings() {
                           uiSchema={activeSection_data.uiSchema.items}
                           onChange={(newData) => handleSectionChange(activeSection, newData)}
                           schema={activeSection_data.normalizedSchema}
-                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other'}
+                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other'}
                           deviceType={formData.boneio?.device_type}
                           allBinarySensors={formData.binary_sensor || []}
                           allEvents={formData.event || []}
@@ -1277,6 +1278,7 @@ export default function UISettings() {
                           allSensors={formData.sensor || []}
                           allModbusDevices={formData.modbus_devices || []}
                           allVirtualEnergySensors={formData.virtual_energy_sensor || []}
+                          allRemoteDevices={formData.remote_devices || []}
                           savedOutputs={originalData.output || []}
                           savedOutputGroups={originalData.output_group || []}
                           savedCovers={originalData.cover || []}
@@ -1292,6 +1294,7 @@ export default function UISettings() {
                             activeSection === 'areas' ? t('sections.areas') :
                             activeSection === 'sensor' ? t('sections.sensor') :
                             activeSection === 'virtual_energy_sensor' ? t('sections.virtual_energy_sensor') :
+                            activeSection === 'remote_devices' ? t('sections.remote_devices') :
                             t('sections.modbus_devices')
                           }
                         />
@@ -1350,7 +1353,7 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor') ? (
+                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor' || activeSection === 'remote_devices') ? (
                     // Array sections - wait for schema to load and data to be converted
                     !schemaLoaded ? (
                       <div className="flex items-center justify-center h-64">
@@ -1365,7 +1368,7 @@ export default function UISettings() {
                         uiSchema={activeSection_data.uiSchema.items}
                         onChange={(newData) => handleSectionChange(activeSection, newData)}
                         schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'other'}
+                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other'}
                         deviceType={formData.boneio?.device_type}
                         allBinarySensors={formData.binary_sensor || []}
                         allEvents={formData.event || []}
@@ -1376,6 +1379,7 @@ export default function UISettings() {
                         allSensors={formData.sensor || []}
                         allModbusDevices={formData.modbus_devices || []}
                         allVirtualEnergySensors={formData.virtual_energy_sensor || []}
+                        allRemoteDevices={formData.remote_devices || []}
                         savedOutputs={originalData.output || []}
                         savedOutputGroups={originalData.output_group || []}
                         savedCovers={originalData.cover || []}

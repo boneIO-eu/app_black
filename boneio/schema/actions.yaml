@@ -2,7 +2,7 @@ type: dict
 schema:
   action:
     type: string
-    allowed: ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt']
+    allowed: ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover']
     coerce: lower
     case_insensitive: true
   boneio_output:
@@ -26,15 +26,15 @@ schema:
     required_if:
       action: ['mqtt']
     forbidden_if:
-      action: ['output', 'cover', 'mqtt_output', 'cover_over_mqtt']
+      action: ['output', 'cover', 'mqtt_output', 'cover_over_mqtt', 'remote_output', 'remote_cover']
     meta:
       label: If mqtt action then topic to send
   action_cover:
     type: string
     required_if:
-      action: ['cover', 'cover_over_mqtt']
+      action: ['cover', 'cover_over_mqtt', 'remote_cover']
     forbidden_if:
-      action: ['output', 'mqtt', 'mqtt_output']
+      action: ['output', 'mqtt', 'mqtt_output', 'remote_output']
     allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE']
     coerce: action_field
     default: TOGGLE
@@ -61,9 +61,9 @@ schema:
   action_output:
     type: string
     required_if:
-      action: ['output', 'output_over_mqtt']
+      action: ['output', 'output_over_mqtt', 'remote_output']
     forbidden_if:
-      action: ['cover', 'mqtt', 'cover_over_mqtt']
+      action: ['cover', 'mqtt', 'cover_over_mqtt', 'remote_cover']
     allowed: ['TOGGLE', 'ON', 'OFF']
     coerce: action_field
     default: TOGGLE
@@ -75,7 +75,7 @@ schema:
     required_if:
       action: ['mqtt', 'output_over_mqtt', 'cover_over_mqtt']
     forbidden_if:
-      action: ['output', 'cover']
+      action: ['output', 'cover', 'remote_output', 'remote_cover']
     meta:
       label: What message to send to mqtt topic
   boneio_id:
@@ -83,6 +83,41 @@ schema:
     required_if:
       action: ['output_over_mqtt', 'cover_over_mqtt']
     forbidden_if:
-      action: ['output', 'cover', 'mqtt']
+      action: ['output', 'cover', 'mqtt', 'remote_output', 'remote_cover']
     meta:
       label: boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.
+  
+  # Remote device actions - control outputs/covers on remote devices defined in remote_devices section
+  remote_device:
+    type: string
+    required_if:
+      action: ['remote_output', 'remote_cover']
+    forbidden_if:
+      action: ['output', 'cover', 'mqtt', 'output_over_mqtt', 'cover_over_mqtt']
+    meta:
+      label: Remote Device ID
+      description: |
+        ID of the remote device (from remote_devices section).
+        Example: "salon_boneio", "garage_esp"
+  output_id:
+    type: string
+    required_if:
+      action: ['remote_output']
+    forbidden_if:
+      action: ['output', 'cover', 'mqtt', 'output_over_mqtt', 'cover_over_mqtt', 'remote_cover']
+    meta:
+      label: Remote Output ID
+      description: |
+        ID of the output on the remote device.
+        Example: "relay_1", "light_kitchen"
+  cover_id:
+    type: string
+    required_if:
+      action: ['remote_cover']
+    forbidden_if:
+      action: ['output', 'cover', 'mqtt', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output']
+    meta:
+      label: Remote Cover ID
+      description: |
+        ID of the cover on the remote device.
+        Example: "cover_living_room", "blinds_bedroom"

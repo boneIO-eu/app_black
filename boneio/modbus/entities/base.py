@@ -47,7 +47,7 @@ class BaseEntity(Filter):
         self._timestamp = time.time()
         self._id = f"{self._parent[ID]}{self._decoded_name_low.replace('_', '')}"
         self._topic = (
-            f"{self._config_helper.ha_discovery_prefix}/{self._entity_type}/{self._config_helper.topic_prefix}{self._parent[ID]}"
+            f"{self._config_helper.ha_discovery_prefix}/{self._entity_type}/{self._config_helper.serial_no}{self._parent[ID]}"
             f"/{self._id}/config"
         )
 

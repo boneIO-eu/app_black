@@ -4,13 +4,13 @@
   "properties": {
     "areas": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -32,10 +32,147 @@
       "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
       "title": "Areas"
     },
+    "remote_devices": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Device ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Device Name",
+            "title": "Name"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "mqtt"
+            ],
+            "examples": [
+              "mqtt"
+            ],
+            "description": "Protocol",
+            "title": "Protocol"
+          },
+          "device_type": {
+            "type": "string",
+            "default": "boneio_black",
+            "enum": [
+              "boneio_black",
+              "esphome",
+              "generic"
+            ],
+            "examples": [
+              "boneio_black"
+            ],
+            "description": "Device Type",
+            "title": "Device type"
+          },
+          "mqtt": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "properties": {
+              "topic_prefix": {
+                "type": "string",
+                "description": "Topic Prefix",
+                "title": "Topic prefix"
+              },
+              "outputs": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Output Name (for UI)",
+                      "title": "Name"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Outputs",
+                "title": "Outputs"
+              },
+              "covers": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Cover Name (for UI)",
+                      "title": "Name"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Covers",
+                "title": "Covers"
+              }
+            },
+            "required": [
+              "topic_prefix"
+            ],
+            "description": "MQTT Protocol Settings",
+            "title": "Mqtt",
+            "x-dependencies": {
+              "protocol": [
+                "mqtt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "protocol"
+        ]
+      },
+      "description": "Remote devices that can be controlled from this boneIO.",
+      "title": "Remote devices"
+    },
     "mqtt": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "host": {
@@ -55,8 +192,8 @@
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -67,10 +204,32 @@
           "description": "Prefix topic for boneIO to use. If not set, then it will be set to name of the device from boneio section, otherwise set to boneIO.",
           "title": "Topic prefix"
         },
+        "topic_with_serial": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Append device serial number to the MQTT topic prefix. Useful when you have multiple identical devices to avoid topic conflicts. Example - \"boneio_blk8c7df0\" instead of \"boneio\".",
+          "title": "Topic with serial"
+        },
         "ha_discovery": {
           "type": [
-            "string",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -116,14 +275,14 @@
     "web": {
       "type": [
         "null",
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -131,18 +290,18 @@
         },
         "proxy_port": {
           "type": [
-            "string",
+            "null",
             "integer",
-            "null"
+            "string"
           ],
-          "description": "Nginx reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
-          "title": "Nginx proxy port"
+          "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
+          "title": "Proxy port"
         },
         "auth": {
           "type": [
             "null",
-            "string",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -166,8 +325,8 @@
     },
     "logger": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "default": {
@@ -217,8 +376,8 @@
     },
     "oled": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "default": {},
       "properties": {
@@ -246,8 +405,8 @@
         },
         "screens": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "default": [
             "uptime",
@@ -280,13 +439,13 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "items": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "sensor_type": {
@@ -332,8 +491,8 @@
     },
     "modbus": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "uart": {
@@ -353,15 +512,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -374,8 +533,8 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
@@ -400,13 +559,13 @@
     },
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -426,8 +585,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -500,14 +659,14 @@
           },
           "sensors_filters": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -516,8 +675,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -525,8 +684,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -535,8 +694,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -553,24 +712,24 @@
           },
           "data": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -595,13 +754,13 @@
     },
     "lm75": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -611,8 +770,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -630,8 +789,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -640,8 +799,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -665,13 +824,13 @@
     },
     "ina219": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -681,8 +840,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -690,8 +849,8 @@
           },
           "sensors": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -709,8 +868,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "id": {
@@ -731,8 +890,8 @@
                 },
                 "filters": {
                   "type": [
-                    "string",
-                    "array"
+                    "array",
+                    "string"
                   ],
                   "default": [
                     {
@@ -741,8 +900,8 @@
                   ],
                   "items": {
                     "type": [
-                      "string",
-                      "object"
+                      "object",
+                      "string"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -768,13 +927,13 @@
     },
     "virtual_energy_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -841,13 +1000,13 @@
     },
     "mcp9808": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -857,8 +1016,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -876,8 +1035,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -886,8 +1045,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -911,13 +1070,13 @@
     },
     "mcp23017": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -927,8 +1086,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -953,13 +1112,13 @@
     },
     "pcf8575": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -969,8 +1128,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -995,13 +1154,13 @@
     },
     "pca9685": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1011,8 +1170,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -1037,13 +1196,13 @@
     },
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -1097,8 +1256,8 @@
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
@@ -1143,16 +1302,16 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1192,13 +1351,13 @@
     },
     "output_group": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1213,8 +1372,8 @@
           },
           "outputs": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Output IDs",
             "title": "Outputs"
@@ -1269,13 +1428,13 @@
     },
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1602,19 +1761,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1630,11 +1789,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -1677,23 +1842,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1725,19 +1890,34 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1753,11 +1933,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -1800,23 +1986,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1848,6 +2034,21 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
@@ -1861,13 +2062,13 @@
     },
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -2174,19 +2375,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2202,11 +2403,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -2249,23 +2456,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2297,19 +2504,34 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2325,11 +2547,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -2372,23 +2600,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2420,19 +2648,34 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2448,11 +2691,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -2495,23 +2744,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2543,6 +2792,21 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
@@ -2556,13 +2820,13 @@
     },
     "adc": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2621,8 +2885,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -2634,8 +2898,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2651,13 +2915,13 @@
     },
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -2709,7 +2973,7 @@
           },
           "platform": {
             "type": "string",
-            "default": "previous",
+            "default": "time_based",
             "enum": [
               "time_based",
               "venetian",
@@ -2812,13 +3076,13 @@
     },
     "ds2482": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2839,13 +3103,13 @@
     },
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2910,8 +3174,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -2920,8 +3184,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -2958,8 +3222,8 @@
     },
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "name": {

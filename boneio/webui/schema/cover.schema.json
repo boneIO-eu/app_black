@@ -4,13 +4,13 @@
   "properties": {
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -62,7 +62,7 @@
           },
           "platform": {
             "type": "string",
-            "default": "previous",
+            "default": "time_based",
             "enum": [
               "time_based",
               "venetian",

@@ -99,7 +99,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             self,
             id=id or address,
             name=name,
-            topic_type=SENSOR,
+            topic_type="modbus",
             topic_prefix=manager.config_helper.topic_prefix,
             message_bus=manager._message_bus,
         )

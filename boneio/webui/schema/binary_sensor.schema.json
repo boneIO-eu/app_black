@@ -4,13 +4,13 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -337,19 +337,19 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -365,11 +365,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -412,23 +418,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -460,19 +466,34 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -488,11 +509,17 @@
                         "OUTPUT_OVER_MQTT",
                         "Output",
                         "Output_Over_Mqtt",
+                        "REMOTE_COVER",
+                        "REMOTE_OUTPUT",
+                        "Remote_Cover",
+                        "Remote_Output",
                         "cover",
                         "cover_over_mqtt",
                         "mqtt",
                         "output",
-                        "output_over_mqtt"
+                        "output_over_mqtt",
+                        "remote_cover",
+                        "remote_output"
                       ],
                       "examples": [
                         "mqtt"
@@ -535,23 +562,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -583,6 +610,21 @@
                       "type": "string",
                       "description": "boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.",
                       "title": "Boneio id"
+                    },
+                    "remote_device": {
+                      "type": "string",
+                      "description": "Remote Device ID",
+                      "title": "Remote device"
+                    },
+                    "output_id": {
+                      "type": "string",
+                      "description": "Remote Output ID",
+                      "title": "Output id"
+                    },
+                    "cover_id": {
+                      "type": "string",
+                      "description": "Remote Cover ID",
+                      "title": "Cover id"
                     }
                   }
                 }

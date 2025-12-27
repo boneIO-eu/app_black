@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "remote_devices": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Device ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Device Name",
+            "title": "Name"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "mqtt"
+            ],
+            "examples": [
+              "mqtt"
+            ],
+            "description": "Protocol",
+            "title": "Protocol"
+          },
+          "device_type": {
+            "type": "string",
+            "default": "boneio_black",
+            "enum": [
+              "boneio_black",
+              "esphome",
+              "generic"
+            ],
+            "examples": [
+              "boneio_black"
+            ],
+            "description": "Device Type",
+            "title": "Device type"
+          },
+          "mqtt": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "properties": {
+              "topic_prefix": {
+                "type": "string",
+                "description": "Topic Prefix",
+                "title": "Topic prefix"
+              },
+              "outputs": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Output ID",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Output Name (for UI)",
+                      "title": "Name"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Outputs",
+                "title": "Outputs"
+              },
+              "covers": {
+                "type": [
+                  "array",
+                  "string"
+                ],
+                "items": {
+                  "type": [
+                    "object",
+                    "string"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Cover ID",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Cover Name (for UI)",
+                      "title": "Name"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Covers",
+                "title": "Covers"
+              }
+            },
+            "required": [
+              "topic_prefix"
+            ],
+            "description": "MQTT Protocol Settings",
+            "title": "Mqtt",
+            "x-dependencies": {
+              "protocol": [
+                "mqtt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "protocol"
+        ]
+      },
+      "description": "Remote devices that can be controlled from this boneIO.",
+      "title": "Remote devices"
+    }
+  }
+}
