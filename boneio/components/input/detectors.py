@@ -159,14 +159,7 @@ class MultiClickDetector:
         
         elapsed = current_time - self._state.last_click_time
         if elapsed > self._sequence_window:
-            # Too much time passed, no sequence
-            if elapsed > self._sequence_window * 2:
-                # Too much time passed, no sequence
-                _LOGGER.warning(
-                    "Too much time passed between clicks on %s (%s)",
-                    self._name,
-                    self._pin,
-                )
+            # Too much time passed, no sequence - this is normal behavior
             return None
         
         # Look up sequence in mapping

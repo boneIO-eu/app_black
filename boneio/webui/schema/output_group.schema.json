@@ -4,13 +4,13 @@
   "properties": {
     "output_group": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -25,8 +25,8 @@
           },
           "outputs": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Output IDs",
             "title": "Outputs"

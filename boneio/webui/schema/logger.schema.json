@@ -4,8 +4,8 @@
   "properties": {
     "logger": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "default": {

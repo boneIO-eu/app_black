@@ -4,13 +4,13 @@
   "properties": {
     "mcp9808": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -20,8 +20,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -39,8 +39,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -49,8 +49,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",

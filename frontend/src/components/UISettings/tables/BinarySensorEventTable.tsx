@@ -30,8 +30,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   const hasActions = (item: any): boolean => {
     if (!item.actions || typeof item.actions !== 'object') return false;
     
-    // Check all possible action types (pressed, released, single, double, long)
-    const actionTypes = ['pressed', 'released', 'single', 'double', 'long'];
+    // Check all possible action types (pressed, released, single, double, triple, long, sequences)
+    const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
     
     return actionTypes.some(type => {
       const actions = item.actions[type];

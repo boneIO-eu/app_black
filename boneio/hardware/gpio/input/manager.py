@@ -356,7 +356,8 @@ class GpioManager:
 
         request = self._requests[chip]
         values = request.get_values([line])
-        return bool(values[line])
+        # get_values returns a list with one element (index 0) for the requested line
+        return bool(values[0])
 
     def is_pin_registered(self, pin: str) -> bool:
         """Check if a pin is registered with the GPIO manager.

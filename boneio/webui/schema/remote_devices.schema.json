@@ -4,13 +4,13 @@
   "properties": {
     "remote_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -50,24 +50,19 @@
           },
           "mqtt": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
-              "topic_prefix": {
-                "type": "string",
-                "description": "Topic Prefix",
-                "title": "Topic prefix"
-              },
               "outputs": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -90,13 +85,13 @@
               },
               "covers": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -118,9 +113,6 @@
                 "title": "Covers"
               }
             },
-            "required": [
-              "topic_prefix"
-            ],
             "description": "MQTT Protocol Settings",
             "title": "Mqtt",
             "x-dependencies": {

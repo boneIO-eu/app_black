@@ -132,7 +132,7 @@ const EventForm: React.FC<EventFormProps> = ({
   const getValidationErrors = (): string[] => {
     const errors: string[] = [];
     
-    ['single', 'double', 'long'].forEach((type) => {
+    ['single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'].forEach((type) => {
       const actions = data.actions?.[type] || [];
       actions.forEach((action: any, index: number) => {
         const error = validateAction(action, t);
