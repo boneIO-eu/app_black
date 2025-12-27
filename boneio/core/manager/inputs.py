@@ -643,8 +643,8 @@ class InputManager:
         # Send event to MQTT for Home Assistant
         self._publish_input_event_to_mqtt(input_instance, event)
         
-        # Execute actions for this input event
-        if actions:
+        # Execute actions for this input event (skip if publish_only)
+        if actions and not event.publish_only:
             await self._manager.execute_actions(actions=actions)
 
     async def send_ha_autodiscovery(self) -> None:
