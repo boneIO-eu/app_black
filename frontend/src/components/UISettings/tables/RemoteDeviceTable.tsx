@@ -200,7 +200,6 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
             <Table className="table table-zebra w-full">
               <Thead>
                 <Tr>
-                  <Th>{t('remote_devices.device_id')}</Th>
                   <Th>{t('remote_devices.device_name')}</Th>
                   <Th>{t('remote_devices.serial')}</Th>
                 </Tr>
@@ -208,7 +207,6 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
               <Tbody>
                 {managedByDevices.map((device) => (
                   <Tr key={device.serial} className="hover:bg-base-300">
-                    <Td className="font-mono">{device.id}</Td>
                     <Td>{device.name || device.id}</Td>
                     <Td className="font-mono text-sm">{device.serial}</Td>
                   </Tr>

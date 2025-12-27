@@ -15,6 +15,7 @@ import Logo from "./Logo"
 export default function Navigation() {
   const { isAuthenticated, logout } = useAuth();
   const [version, setVersion] = useState<string>('');
+  const [serialNo, setSerialNo] = useState<string>('');
   const { deviceName } = useDeviceName();
 
   useEffect(() => {
@@ -22,6 +23,9 @@ export default function Navigation() {
       try {
         const response = await axios.get('/api/version');
         setVersion(response.data.version);
+        if (response.data.serial_no) {
+          setSerialNo(response.data.serial_no);
+        }
       } catch (error) {
         console.error('Error fetching version:', error);
       }
@@ -65,6 +69,9 @@ export default function Navigation() {
           )}
           {version && (
             <span><span className="opacity-60">v</span>{version}</span>
+          )}
+          {serialNo && (
+            <span><span className="opacity-60">S/N:</span> {serialNo}</span>
           )}
         </div>
       </div>

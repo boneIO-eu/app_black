@@ -602,7 +602,12 @@
     "enable_ha_discovery": "Włącz HA Autodiscovery",
     "enable_ha_discovery_help": "Automatycznie rejestruj urządzenia w Home Assistant",
     "ha_discovery_prefix": "Prefiks Tematu Autodiscovery HA",
-    "ha_discovery_prefix_help": "Prefiks tematu autodiscovery HA (domyślnie: homeassistant)"
+    "ha_discovery_prefix_help": "Prefiks tematu autodiscovery HA (domyślnie: homeassistant)",
+    "boneio_autodiscovery": "Autodiscovery BoneIO",
+    "send_boneio_autodiscovery": "Wysyłaj Autodiscovery BoneIO",
+    "send_boneio_autodiscovery_help": "Publikuj wyjścia, rolety, wejścia i czujniki do tematów MQTT, aby inne urządzenia BoneIO mogły je odkryć i sterować tym urządzeniem.",
+    "receive_boneio_autodiscovery": "Odbieraj Autodiscovery BoneIO",
+    "receive_boneio_autodiscovery_help": "Subskrybuj tematy autodiscovery BoneIO i automatycznie odkrywaj sąsiednie urządzenia BoneIO."
   },
   "webserver": {
     "port": "Port",

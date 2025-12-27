@@ -147,6 +147,41 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           <span className="label-text-alt text-base-content/60">{t('mqtt_config.ha_discovery_prefix_help')}</span>
         </label>
       </div>
+
+      {/* BoneIO Autodiscovery Section */}
+      <div className="divider">{t('mqtt_config.boneio_autodiscovery')}</div>
+
+      {/* Send BoneIO Autodiscovery */}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-4">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-primary"
+            checked={data?.send_boneio_autodiscovery ?? true}
+            onChange={(e) => handleChange('send_boneio_autodiscovery', e.target.checked)}
+          />
+          <div className="flex flex-col">
+            <span className="label-text font-medium">{t('mqtt_config.send_boneio_autodiscovery')}</span>
+            <span className="label-text-alt text-base-content/60">{t('mqtt_config.send_boneio_autodiscovery_help')}</span>
+          </div>
+        </label>
+      </div>
+
+      {/* Receive BoneIO Autodiscovery */}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-4">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-primary"
+            checked={data?.receive_boneio_autodiscovery ?? true}
+            onChange={(e) => handleChange('receive_boneio_autodiscovery', e.target.checked)}
+          />
+          <div className="flex flex-col">
+            <span className="label-text font-medium">{t('mqtt_config.receive_boneio_autodiscovery')}</span>
+            <span className="label-text-alt text-base-content/60">{t('mqtt_config.receive_boneio_autodiscovery_help')}</span>
+          </div>
+        </label>
+      </div>
     </div>
   );
 };

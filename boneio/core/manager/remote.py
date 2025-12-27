@@ -44,6 +44,7 @@ class RemoteDeviceManager:
         message_bus: MessageBus | None = None,
         remote_devices_config: list[dict[str, Any]] | None = None,
         own_serial: str | None = None,
+        name: str | None = None,
     ) -> None:
         """Initialize remote device manager.
         
@@ -55,6 +56,7 @@ class RemoteDeviceManager:
         self._message_bus = message_bus
         self._devices: dict[str, RemoteDevice] = {}
         self._own_serial = own_serial
+        self._name = name
         # Track autodiscovered devices separately from configured ones
         self._autodiscovered_devices: dict[str, MQTTRemoteDevice] = {}
         # Track devices that manage this boneIO (received via discovery/managed_by topic)
@@ -111,8 +113,7 @@ class RemoteDeviceManager:
         
         # Build payload with our device info
         payload = json.dumps({
-            "id": self._own_serial,
-            "name": self._own_serial,  # Will be updated with actual name if available
+            "name": self._name or self._own_serial,
             "serial": self._own_serial,
         })
         
@@ -352,7 +353,27 @@ class RemoteDeviceManager:
         device_id = parts[1]  # e.g., "blk_abc123"
         discovery_type = parts[3] if len(parts) > 3 else None  # e.g., "outputs", "covers", "device"
         
-        # Skip our own device
+        # Handle managed_by BEFORE skipping own device check
+        # Topic: boneio/{our_device}/discovery/managed_by/{manager_serial}
+        # This is for messages TO our device, so device_id will be our serial
+        if discovery_type == "managed_by":
+            manager_serial = parts[4] if len(parts) > 4 else None
+            if manager_serial and self._own_serial != manager_serial:
+                try:
+                    data = json.loads(payload) if payload else None
+                except json.JSONDecodeError as e:
+                    _LOGGER.warning("Invalid JSON in managed_by payload: %s", e)
+                    return
+                if data:
+                    self.handle_managed_by_discovery(manager_serial, data)
+                else:
+                    # Empty payload - remove managed_by entry
+                    if manager_serial in self._managed_by_devices:
+                        del self._managed_by_devices[manager_serial]
+                        _LOGGER.info("Removed managed_by device: %s", manager_serial)
+            return
+        
+        # Skip our own device (for other discovery types)
         if self._own_serial and device_id == self._own_serial:
             _LOGGER.debug("Ignoring discovery from own device: %s", device_id)
             return
@@ -385,12 +406,6 @@ class RemoteDeviceManager:
             self._handle_outputs_discovery(device_id, data)
         elif discovery_type == "covers":
             self._handle_covers_discovery(device_id, data)
-        elif discovery_type == "managed_by":
-            # Handle managed_by - this is for OUR device, not the sender
-            # Topic: boneio/{our_device}/discovery/managed_by/{manager_serial}
-            manager_serial = parts[4] if len(parts) > 4 else None
-            if manager_serial:
-                self.handle_managed_by_discovery(manager_serial, data)
         else:
             _LOGGER.debug("Ignoring discovery type '%s' for device %s", discovery_type, device_id)
     

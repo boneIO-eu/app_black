@@ -601,7 +601,12 @@
     "enable_ha_discovery": "Enable HA Discovery",
     "enable_ha_discovery_help": "Automatically register devices in Home Assistant",
     "ha_discovery_prefix": "HA Discovery Topic Prefix",
-    "ha_discovery_prefix_help": "Prefix topic of HA discovery (default: homeassistant)"
+    "ha_discovery_prefix_help": "Prefix topic of HA discovery (default: homeassistant)",
+    "boneio_autodiscovery": "BoneIO Autodiscovery",
+    "send_boneio_autodiscovery": "Send BoneIO Autodiscovery",
+    "send_boneio_autodiscovery_help": "Publish outputs, covers, inputs, and sensors to MQTT discovery topics so other BoneIO devices can discover and control this device.",
+    "receive_boneio_autodiscovery": "Receive BoneIO Autodiscovery",
+    "receive_boneio_autodiscovery_help": "Subscribe to BoneIO autodiscovery topics and automatically discover neighboring BoneIO devices."
   },
   "webserver": {
     "port": "Port",

@@ -108,14 +108,17 @@ async def restart_service(background_tasks: BackgroundTasks):
 
 
 @router.get("/version")
-async def get_version():
+async def get_version(config_helper: ConfigHelper = Depends(get_config_helper)):
     """
-    Get application version.
+    Get application version and serial number.
+    
+    Args:
+        config_helper: ConfigHelper instance.
     
     Returns:
-        Dictionary with version string.
+        Dictionary with version and serial_no strings.
     """
-    return {"version": __version__}
+    return {"version": __version__, "serial_no": config_helper.serial_no}
 
 
 @router.get("/name")
