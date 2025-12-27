@@ -7,6 +7,7 @@ import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import { cn } from '@/lib/utils';
 
 // Output type categories
 type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
@@ -202,7 +203,7 @@ export default function OutputsView({error}: {error: string | null}) {
           {validCovers.length > 0 && (
             <>
               <div className="divider">{getCategoryLabel('cover')}</div>
-              <div className={isGrid ? gridClass : listClass}>
+              <div className={isGrid ? cn(gridClass, "grid-cols-1") : listClass}>
                 {validCovers.map((cover) => (
                   <CoverItem 
                     key={cover.id}

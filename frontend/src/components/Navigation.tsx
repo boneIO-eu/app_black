@@ -124,30 +124,65 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/help', icon: FaQuestionCircle, label: t('navigation.help') },
   ];
 
+  const isActive = (item: MenuItem) => 
+    (location.pathname === item.path) || 
+    (item.path !== '/' && item.path !== '/modbus' && location.pathname.startsWith(item.path)) ||
+    (location.pathname === "/" && item?.default);
+
+  const handleClick = (path: string) => {
+    // Close drawer if open (for mobile side menu)
+    const drawerCheckbox = document.getElementById('my-drawer') as HTMLInputElement;
+    if (drawerCheckbox) {
+      drawerCheckbox.checked = false;
+    }
+    navigate(path);
+  };
+
+  // Desktop horizontal menu
+  if (!sideMenu) {
+    return (
+      <ul className="menu menu-horizontal hidden xl:flex">
+        {menuItems.map((item) => (
+          <li key={item.path}>
+            <a
+              onClick={() => handleClick(item.path)}
+              className={clsx({
+                'active bg-primary text-primary-content font-semibold': isActive(item),
+              })}
+            >
+              <item.icon className="h-5 w-5 xl:hidden" />
+              <span className="hidden xl:inline">
+                {item.label}
+                {item.experimental && <span className="ml-1 badge badge-warning badge-xs">{t('navigation.experimental')}</span>}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  // Mobile side menu - larger, more touch-friendly
   return (
-    <ul className={clsx('menu', { 'menu-horizontal hidden xl:flex': !sideMenu })}>
+    <ul className="flex flex-col gap-1">
       {menuItems.map((item) => (
         <li key={item.path}>
           <a
-            onClick={() => {
-              // Close drawer if open (for mobile side menu)
-              const drawerCheckbox = document.getElementById('my-drawer') as HTMLInputElement;
-              if (drawerCheckbox) {
-                drawerCheckbox.checked = false;
-              }
-              navigate(item.path);
-            }}
-            className={clsx({
-              'active bg-primary text-primary-content font-semibold': 
-                (location.pathname === item.path) || 
-                (item.path !== '/' && item.path !== '/modbus' && location.pathname.startsWith(item.path)) ||
-                (location.pathname === "/" && item?.default),
-            })}
+            onClick={() => handleClick(item.path)}
+            className={clsx(
+              'flex items-center gap-4 px-4 py-4 rounded-xl text-lg font-medium transition-all',
+              'active:scale-[0.98] cursor-pointer',
+              isActive(item)
+                ? 'bg-primary text-primary-content shadow-md'
+                : 'hover:bg-base-200 text-base-content'
+            )}
           >
-            <item.icon className={clsx('h-5 w-5', { 'xl:hidden': !sideMenu })} />
-            <span className={clsx({ 'hidden xl:inline': !sideMenu })}>
+            <item.icon className="h-6 w-6 shrink-0" />
+            <span className="flex-1">
               {item.label}
-              {item.experimental && <span className="ml-1 badge badge-warning badge-xs">{t('navigation.experimental')}</span>}
+              {item.experimental && (
+                <span className="ml-2 badge badge-warning badge-sm">{t('navigation.experimental')}</span>
+              )}
             </span>
           </a>
         </li>
@@ -157,12 +192,52 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
 }
 
 export const DrawerSide = () => {
+  const [version, setVersion] = useState<string>('');
+  const [serialNo, setSerialNo] = useState<string>('');
+  const { deviceName } = useDeviceName();
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const response = await axios.get('/api/version');
+        setVersion(response.data.version);
+        if (response.data.serial_no) {
+          setSerialNo(response.data.serial_no);
+        }
+      } catch (error) {
+        console.error('Error fetching version:', error);
+      }
+    };
+    fetchVersion();
+  }, []);
+
   return (
-  <div className='drawer-side z-40'>
-    <label htmlFor="my-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
-    <div className='menu menu-lg bg-base-100 text-base-content min-h-full w-80 p-3 pt-4 shadow-lg'>
-      <Menu sideMenu={true} />
+    <div className="drawer-side z-40">
+      <label htmlFor="my-drawer" aria-label="close sidebar" className="drawer-overlay"></label>
+      <div className="bg-base-100 text-base-content min-h-full w-80 p-4 pt-6 shadow-xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-2 pb-4 mb-2 border-b border-base-300">
+          <Logo />
+        </div>
+        
+        {/* Menu */}
+        <div className="flex-1 overflow-y-auto">
+          <Menu sideMenu={true} />
+        </div>
+
+        {/* Footer */}
+        <div className="pt-4 mt-2 border-t border-base-300 px-2 text-xs flex flex-col gap-1">
+          {deviceName && (
+            <span><span className="opacity-60">boneIO:</span> {deviceName}</span>
+          )}
+          {version && (
+            <span><span className="opacity-60">v</span>{version}</span>
+          )}
+          {serialNo && (
+            <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+          )}
+        </div>
+      </div>
     </div>
-  </div>)
-  
+  );
 }
