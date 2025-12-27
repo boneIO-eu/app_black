@@ -58,7 +58,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   const renderActionDetails = (item: any) => {
     if (!item.actions) return null;
 
-    const actionTypes = ['pressed', 'released', 'single', 'double', 'long'];
+    const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
     const availableActions = actionTypes.filter(type => {
       const actions = item.actions[type];
       return Array.isArray(actions) && actions.length > 0;
@@ -81,8 +81,16 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                 return `👆 ${t('event_form.single_click')}`;
               case 'double':
                 return `👆👆 ${t('event_form.double_click')}`;
+              case 'triple':
+                return `👆👆👆 ${t('event_form.triple_click')}`;
               case 'long':
                 return `⏱️ ${t('event_form.long_click')}`;
+              case 'double_then_long':
+                return `👆👆⏱️ ${t('event_form.double_then_long')}`;
+              case 'single_then_long':
+                return `👆⏱️ ${t('event_form.single_then_long')}`;
+              case 'double_then_single':
+                return `👆👆👆 ${t('event_form.double_then_single')}`;
               default:
                 return actionType;
             }

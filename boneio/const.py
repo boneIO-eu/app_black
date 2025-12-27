@@ -83,6 +83,7 @@ WHITE = "white"
 INPUT = "input"
 SINGLE = "single"
 DOUBLE = "double"
+TRIPLE = "triple"
 LONG = "long"
 PRESSED = "pressed"
 RELEASED = "released"
@@ -145,7 +146,24 @@ CLOSE = "close"
 STOP = "stop"
 
 # TYPING
-ClickTypes = Literal["single", "double", "long", "pressed", "released"]
+# Basic click types + sequence aliases
+ClickTypes = Literal[
+    "single", "double", "triple", "long", "pressed", "released",
+    # Sequence aliases
+    "double_then_long",   # double click followed by long press
+    "single_then_long",   # single click followed by long press
+    "double_then_single", # double click followed by single click
+]
+
+# Sequence definitions for MultiClickDetector
+CLICK_SEQUENCES: dict[tuple[str, str], str] = {
+    ("double", "long"): "double_then_long",
+    ("single", "long"): "single_then_long",
+    ("double", "single"): "double_then_single",
+}
+
+# Default window for sequence detection (ms)
+DEFAULT_SEQUENCE_WINDOW_MS = 500
 BinaryStateTypes = Literal["pressed", "released"]
 OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 InputTypes = Literal[INPUT, INPUT_SENSOR]

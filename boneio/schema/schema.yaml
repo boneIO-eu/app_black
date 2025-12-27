@@ -997,7 +997,11 @@ event:
         schema:
           single: !include actions_switch.yaml
           double: !include actions_switch.yaml
+          triple: !include actions_switch.yaml
           long: !include actions_switch.yaml
+          double_then_long: !include actions_switch.yaml
+          single_then_long: !include actions_switch.yaml
+          double_then_single: !include actions_switch.yaml
 adc:
   type: list
   meta:

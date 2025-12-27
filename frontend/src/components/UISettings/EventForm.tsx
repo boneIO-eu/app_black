@@ -87,7 +87,7 @@ const EventForm: React.FC<EventFormProps> = ({
   savedCovers
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'long' | 'advanced'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'>('basic');
 
   // Extract enums from schema for dropdowns
   const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];
@@ -152,7 +152,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onValidationChange?.(validationErrors.length > 0);
   }, [validationErrors.length, onValidationChange]);
 
-  const updateAction = (actionType: 'single' | 'double' | 'long', index: number, field: string, value: any) => {
+  const updateAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', index: number, field: string, value: any) => {
     const newActions = { ...data.actions };
     if (!newActions[actionType]) {
       newActions[actionType] = [];
@@ -174,7 +174,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, actions: newActions });
   };
 
-  const addAction = (actionType: 'single' | 'double' | 'long') => {
+  const addAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single') => {
     const newActions = { ...data.actions };
     if (!newActions[actionType]) {
       newActions[actionType] = [];
@@ -183,7 +183,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, actions: newActions });
   };
 
-  const removeAction = (actionType: 'single' | 'double' | 'long', index: number) => {
+  const removeAction = (actionType: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', index: number) => {
     const newActions = { ...data.actions };
     if (newActions[actionType]) {
       newActions[actionType] = newActions[actionType].filter((_: any, i: number) => i !== index);
@@ -191,7 +191,7 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, actions: newActions });
   };
 
-  const renderActionFields = (type: 'single' | 'double' | 'long', action: any, index: number) => {
+  const renderActionFields = (type: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', action: any, index: number) => {
     return (
       <ActionFields
         key={index}
@@ -262,6 +262,17 @@ const EventForm: React.FC<EventFormProps> = ({
           )}
         </a>
         <a 
+          className={`tab ${activeTab === 'triple' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('triple')}
+        >
+          {t('event_form.triple_click')}
+          {data.actions?.triple && data.actions.triple.length > 0 && (
+            <span className="badge badge-sm badge-primary ml-2">
+              {data.actions.triple.length}
+            </span>
+          )}
+        </a>
+        <a 
           className={`tab ${activeTab === 'long' ? 'tab-active' : ''}`}
           onClick={() => setActiveTab('long')}
         >
@@ -269,6 +280,21 @@ const EventForm: React.FC<EventFormProps> = ({
           {data.actions?.long && data.actions.long.length > 0 && (
             <span className="badge badge-sm badge-primary ml-2">
               {data.actions.long.length}
+            </span>
+          )}
+        </a>
+        <a 
+          className={`tab ${activeTab === 'sequences' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('sequences')}
+        >
+          {t('event_form.sequences')}
+          {((data.actions?.double_then_long && data.actions.double_then_long.length > 0) ||
+            (data.actions?.single_then_long && data.actions.single_then_long.length > 0) ||
+            (data.actions?.double_then_single && data.actions.double_then_single.length > 0)) && (
+            <span className="badge badge-sm badge-secondary ml-2">
+              {(data.actions?.double_then_long?.length || 0) + 
+               (data.actions?.single_then_long?.length || 0) + 
+               (data.actions?.double_then_single?.length || 0)}
             </span>
           )}
         </a>
@@ -426,6 +452,33 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
+      {/* Triple Press Actions Tab */}
+      {activeTab === 'triple' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">{t('event_form.triple_actions')}</h3>
+            <button
+              onClick={() => addAction('triple')}
+              className="btn btn-primary btn-sm"
+            >
+              <FaPlus className="mr-2" />
+              {t('inputs.add_action')}
+            </button>
+          </div>
+          
+          {data.actions?.triple && data.actions.triple.length > 0 ? (
+            data.actions.triple.map((action: any, index: number) => 
+              renderActionFields('triple', action, index)
+            )
+          ) : (
+            <div className="text-center py-8 text-base-content/60">
+              <p>{t('event_form.no_triple_actions')}</p>
+              <p className="text-sm">{t('event_form.click_add_action')}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Long Press Actions Tab */}
       {activeTab === 'long' && (
         <div className="space-y-4">
@@ -450,6 +503,96 @@ const EventForm: React.FC<EventFormProps> = ({
               <p className="text-sm">{t('event_form.click_add_action')}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sequences Tab */}
+      {activeTab === 'sequences' && (
+        <div className="space-y-6">
+          <div className="alert alert-info">
+            <span>{t('event_form.sequences_hint')}</span>
+          </div>
+
+          {/* Double then Long */}
+          <div className="card bg-base-200">
+            <div className="card-body">
+              <div className="flex justify-between items-center">
+                <h4 className="card-title text-base">{t('event_form.double_then_long')}</h4>
+                <button
+                  onClick={() => addAction('double_then_long')}
+                  className="btn btn-primary btn-sm"
+                >
+                  <FaPlus className="mr-2" />
+                  {t('inputs.add_action')}
+                </button>
+              </div>
+              <p className="text-sm text-base-content/60">{t('event_form.double_then_long_hint')}</p>
+              
+              {data.actions?.double_then_long && data.actions.double_then_long.length > 0 ? (
+                data.actions.double_then_long.map((action: any, index: number) => 
+                  renderActionFields('double_then_long', action, index)
+                )
+              ) : (
+                <div className="text-center py-4 text-base-content/60">
+                  <p className="text-sm">{t('event_form.no_actions_configured')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Single then Long */}
+          <div className="card bg-base-200">
+            <div className="card-body">
+              <div className="flex justify-between items-center">
+                <h4 className="card-title text-base">{t('event_form.single_then_long')}</h4>
+                <button
+                  onClick={() => addAction('single_then_long')}
+                  className="btn btn-primary btn-sm"
+                >
+                  <FaPlus className="mr-2" />
+                  {t('inputs.add_action')}
+                </button>
+              </div>
+              <p className="text-sm text-base-content/60">{t('event_form.single_then_long_hint')}</p>
+              
+              {data.actions?.single_then_long && data.actions.single_then_long.length > 0 ? (
+                data.actions.single_then_long.map((action: any, index: number) => 
+                  renderActionFields('single_then_long', action, index)
+                )
+              ) : (
+                <div className="text-center py-4 text-base-content/60">
+                  <p className="text-sm">{t('event_form.no_actions_configured')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Double then Single */}
+          <div className="card bg-base-200">
+            <div className="card-body">
+              <div className="flex justify-between items-center">
+                <h4 className="card-title text-base">{t('event_form.double_then_single')}</h4>
+                <button
+                  onClick={() => addAction('double_then_single')}
+                  className="btn btn-primary btn-sm"
+                >
+                  <FaPlus className="mr-2" />
+                  {t('inputs.add_action')}
+                </button>
+              </div>
+              <p className="text-sm text-base-content/60">{t('event_form.double_then_single_hint')}</p>
+              
+              {data.actions?.double_then_single && data.actions.double_then_single.length > 0 ? (
+                data.actions.double_then_single.map((action: any, index: number) => 
+                  renderActionFields('double_then_single', action, index)
+                )
+              ) : (
+                <div className="text-center py-4 text-base-content/60">
+                  <p className="text-sm">{t('event_form.no_actions_configured')}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
