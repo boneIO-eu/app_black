@@ -9,7 +9,6 @@ interface AutodiscoveredDevice {
   name: string;
   protocol: string;
   device_type: string;
-  topic_prefix: string;
   outputs?: { id: string; name: string }[];
   covers?: { id: string; name: string }[];
 }
@@ -129,7 +128,6 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
               <Th>{t('remote_devices.device_name')}</Th>
               <Th>{t('remote_devices.protocol')}</Th>
               <Th>{t('remote_devices.device_type')}</Th>
-              <Th>{t('remote_devices.topic_prefix')}</Th>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
@@ -150,7 +148,6 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                      item.device_type || 'generic'}
                   </span>
                 </Td>
-                <Td className="font-mono text-sm">{item.mqtt?.topic_prefix || '-'}</Td>
                 <Td>
                   <TableActions
                     onEdit={() => onEdit(index)}

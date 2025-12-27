@@ -468,16 +468,34 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               onValueChange={(value) => onUpdate('output_id', value)}
               disabled={!action.remote_device}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('event_form.select_output_id')} />
+              <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
+                <SelectValue placeholder={t('event_form.select_output_id')}>
+                  {(() => {
+                    const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
+                    const outputs = selectedDevice?.mqtt?.outputs || [];
+                    const selectedOutput = outputs.find((o: any) => o.id === action.output_id);
+                    if (selectedOutput) {
+                      return (
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{selectedOutput.name || selectedOutput.id}</span>
+                          <span className="text-xs opacity-60">ID: {selectedOutput.id}</span>
+                        </div>
+                      );
+                    }
+                    return <span className="opacity-50">{t('event_form.select_output_id')}</span>;
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(() => {
                   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
                   const outputs = selectedDevice?.mqtt?.outputs || [];
-                  return outputs.map((output) => (
+                  return outputs.map((output: any) => (
                     <SelectItem key={output.id} value={output.id}>
-                      {output.name || output.id}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{output.name || output.id}</span>
+                        <span className="text-xs opacity-60">ID: {output.id}</span>
+                      </div>
                     </SelectItem>
                   ));
                 })()}
@@ -549,16 +567,34 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               onValueChange={(value) => onUpdate('cover_id', value)}
               disabled={!action.remote_device}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('event_form.select_cover_id')} />
+              <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
+                <SelectValue placeholder={t('event_form.select_cover_id')}>
+                  {(() => {
+                    const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
+                    const covers = selectedDevice?.mqtt?.covers || [];
+                    const selectedCover = covers.find((c: any) => c.id === action.cover_id);
+                    if (selectedCover) {
+                      return (
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{selectedCover.name || selectedCover.id}</span>
+                          <span className="text-xs opacity-60">ID: {selectedCover.id}</span>
+                        </div>
+                      );
+                    }
+                    return <span className="opacity-50">{t('event_form.select_cover_id')}</span>;
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(() => {
                   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
                   const covers = selectedDevice?.mqtt?.covers || [];
-                  return covers.map((cover) => (
+                  return covers.map((cover: any) => (
                     <SelectItem key={cover.id} value={cover.id}>
-                      {cover.name || cover.id}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{cover.name || cover.id}</span>
+                        <span className="text-xs opacity-60">ID: {cover.id}</span>
+                      </div>
                     </SelectItem>
                   ));
                 })()}

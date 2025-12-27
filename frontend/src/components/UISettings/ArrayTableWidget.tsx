@@ -299,8 +299,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         }
       }
     } else if (sectionType === 'remote_devices') {
-      // Remote device requires id, name, protocol and mqtt.topic_prefix
-      isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol && !!dataToSave.mqtt?.topic_prefix;
+      // Remote device requires id, name, protocol
+      isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol;
       errorMessage = t('array_table_widget.remote_device_fields_required');
       console.log(dataToSave)
     } else {

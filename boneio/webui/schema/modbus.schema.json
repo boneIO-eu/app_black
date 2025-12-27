@@ -4,8 +4,8 @@
   "properties": {
     "modbus": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "uart": {

@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -72,8 +72,8 @@
           },
           "momentary_turn_on": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -81,8 +81,8 @@
           },
           "momentary_turn_off": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",

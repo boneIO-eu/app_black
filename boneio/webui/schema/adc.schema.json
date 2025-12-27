@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -37,8 +37,8 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -82,8 +82,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",

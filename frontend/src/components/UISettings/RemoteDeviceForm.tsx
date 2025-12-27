@@ -32,7 +32,7 @@ interface RemoteDeviceFormProps {
 
 /**
  * Custom form for Remote Device item editing.
- * Fields: id, name, protocol, device_type, mqtt settings (topic_prefix, outputs, covers)
+ * Fields: id, name, protocol, device_type, mqtt settings (outputs, covers)
  */
 const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();

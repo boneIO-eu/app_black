@@ -864,7 +864,9 @@
     "autodiscovered_title": "Wykryte urządzenia",
     "autodiscovered_hint": "Te urządzenia BoneIO zostały automatycznie wykryte w sieci. Kliknij 'Dodaj' aby skonfigurować.",
     "add_from_discovery": "Dodaj z autodiscovery",
-    "scanning": "Skanowanie sieci..."
+    "scanning": "Skanowanie sieci...",
+    "topic_prefix": "Prefiks Tematu MQTT",
+    "topic_prefix_hint": "Prefiks tematu MQTT dla tego urządzenia (np. boneio/blk123456)"
   }
 }
   

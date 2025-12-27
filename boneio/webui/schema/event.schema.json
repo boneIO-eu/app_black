@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -67,8 +67,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -297,8 +297,8 @@
           },
           "double_click_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -307,8 +307,8 @@
           },
           "long_press_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -317,8 +317,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -327,8 +327,8 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "single": {
@@ -338,8 +338,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -408,8 +408,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -482,8 +482,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -552,8 +552,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -626,8 +626,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -696,8 +696,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -770,8 +770,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -840,8 +840,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -914,8 +914,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -984,8 +984,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -1058,8 +1058,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1128,8 +1128,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
@@ -1202,8 +1202,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1272,8 +1272,8 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
