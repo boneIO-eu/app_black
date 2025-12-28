@@ -1791,19 +1791,19 @@ const SystemState: React.FC = () => {
                         className={`alert ${factoryResetResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
                       >
                         {factoryResetResult.status === 'success' ? (
-                          <FaCheck />
+                          <FaCheck className="shrink-0" />
                         ) : (
-                          <FaExclamationTriangle />
+                          <FaExclamationTriangle className="shrink-0" />
                         )}
-                        <div className="text-sm">
-                          <p>{factoryResetResult.message}</p>
+                        <div className="text-sm min-w-0 flex-1">
+                          <p className="break-words">{factoryResetResult.message}</p>
                           {factoryResetResult.backup_path && (
-                            <p className="text-xs opacity-70 mt-1">
+                            <p className="text-xs opacity-70 mt-1 break-all">
                               {t('system_update.backup_created')}: {factoryResetResult.backup_path}
                             </p>
                           )}
                           {factoryResetResult.copied_files && (
-                            <p className="text-xs opacity-70 mt-1">
+                            <p className="text-xs opacity-70 mt-1 wrap-break-word">
                               {t('system_update.copied_files')}:{' '}
                               {factoryResetResult.copied_files.join(', ')}
                             </p>

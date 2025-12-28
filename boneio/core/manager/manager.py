@@ -192,6 +192,7 @@ class Manager:
             message_bus=message_bus,
             remote_devices_config=remote_devices,
             own_serial=config_helper.serial_no,
+            name=self.config_helper.name
         )
         
         # 8. BlackDiscoveryPublisher (publishes device info for autodiscovery of neighboring BoneIO devices)
