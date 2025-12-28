@@ -77,6 +77,13 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   const availableAutodiscovered = autodiscoveredDevices.filter(
     device => !configuredIds.has(device.id)
   );
+  
+  console.log('RemoteDeviceTable debug:', {
+    autodiscoveredDevices,
+    configuredIds: Array.from(configuredIds),
+    availableAutodiscovered,
+    items
+  });
 
   return (
     <div className="space-y-6">

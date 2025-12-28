@@ -585,6 +585,11 @@ class RemoteDeviceManager:
         Returns:
             Dictionary with autodiscovered devices information
         """
+        _LOGGER.debug(
+            "autodiscovered_to_dict called, _autodiscovered_devices has %d items: %s",
+            len(self._autodiscovered_devices),
+            list(self._autodiscovered_devices.keys())
+        )
         return {
             device_id: device.to_dict()
             for device_id, device in self._autodiscovered_devices.items()

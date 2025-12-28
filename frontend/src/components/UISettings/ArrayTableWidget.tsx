@@ -898,7 +898,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </div>
       </div>
 
-      {value.length > 0 ? (
+      {value.length > 0 || sectionType === 'remote_devices' ? (
         renderTable()
       ) : (
         <div className="text-center py-8 text-base-content/60">

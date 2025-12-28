@@ -1796,7 +1796,7 @@ const SystemState: React.FC = () => {
                           <FaExclamationTriangle className="shrink-0" />
                         )}
                         <div className="text-sm min-w-0 flex-1">
-                          <p className="break-words">{factoryResetResult.message}</p>
+                          <p className="wrap-break-word">{factoryResetResult.message}</p>
                           {factoryResetResult.backup_path && (
                             <p className="text-xs opacity-70 mt-1 break-all">
                               {t('system_update.backup_created')}: {factoryResetResult.backup_path}

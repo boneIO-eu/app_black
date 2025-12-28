@@ -63,9 +63,12 @@ async def get_autodiscovered_devices(manager: Manager = Depends(get_manager)):
         List of autodiscovered device configurations with their outputs and covers.
     """
     if not manager.remote_devices:
+        _LOGGER.debug("No remote_devices manager")
         return {"devices": []}
     
-    return {"devices": list(manager.remote_devices.autodiscovered_to_dict().values())}
+    devices = manager.remote_devices.autodiscovered_to_dict()
+    _LOGGER.debug("Autodiscovered devices: %s", list(devices.keys()))
+    return {"devices": list(devices.values())}
 
 
 @router.get("/managed-by")
