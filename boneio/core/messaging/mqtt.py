@@ -13,6 +13,9 @@ from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any, override
 
+if TYPE_CHECKING:
+    from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
+
 from aiomqtt import Client as AsyncioClient
 from aiomqtt import MqttError, Will
 from paho.mqtt.properties import Properties
@@ -164,7 +167,7 @@ class MQTTClient(MessageBus):
     def send_message(
         self,
         topic: str,
-        payload: str | int | bytes | dict[str, str | float | int] | None,
+        payload: str | int | bytes | dict[str, Any] | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:

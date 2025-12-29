@@ -35,22 +35,31 @@ from boneio.const import (
     STOP,
 )
 from boneio.version import __version__
-from typing import TYPE_CHECKING
+from typing import Any, TypedDict, TYPE_CHECKING
 if TYPE_CHECKING:
     from boneio.core.config.config_helper import ConfigHelper
+
+
+# Type alias for Home Assistant MQTT discovery messages
+# Using dict[str, Any] because different entity types (sensor, light, cover, button, etc.)
+# use different subsets of fields, making a strict TypedDict impractical
+HomeAssistantDiscoveryMessage = dict[str, Any]
 
 
 def ha_availabilty_message(
     id: str,
     name: str,
+    entity_type: str,
     config_helper: ConfigHelper,
-    device_name: str = "boneIO",
+    device_name: str | None = None,
+    topic: str | None = None,
     device_type: str = INPUT,
+    manufacturer: str = "boneIO",
     model: str = "boneIO Relay Board",
     web_url: str | None = None,
     area: str | None = None,
     **kwargs,
-):
+) -> HomeAssistantDiscoveryMessage:
     """Create availability topic for HA.
     
     Args:
@@ -66,8 +75,8 @@ def ha_availabilty_message(
         **kwargs: Additional fields to include in the message
     """
     # Extract values from config_helper if provided
-    topic = config_helper.topic_prefix
-    device_name = config_helper.name
+    topic = config_helper.topic_prefix if topic is None else topic
+    device_name = config_helper.name if device_name is None else device_name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
     if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
         web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.ha_configuration_port}"
@@ -91,7 +100,7 @@ def ha_availabilty_message(
         sub_device_name = f"{device_name} - {area_name}"
         device_info = {
             "identifiers": [f"{topic}_{area}"],  # Use area ID for consistent grouping
-            "manufacturer": "boneIO",
+            "manufacturer": manufacturer,
             "model": model,
             "model_id": config_helper.serial_number,
             "name": sub_device_name,
@@ -104,7 +113,7 @@ def ha_availabilty_message(
     else:
         device_info = {
             "identifiers": [topic],
-            "manufacturer": "boneIO",
+            "manufacturer": manufacturer,
             "model": model,
             "model_id": config_helper.serial_number,
             "name": device_name,
@@ -119,6 +128,7 @@ def ha_availabilty_message(
     # Remove slashes from unique_id to avoid HA issues
     unique_id_prefix = topic.replace("/", "_") if area else topic.replace("/", "_")
     unique_id = f"{unique_id_prefix}{device_type}{id}"
+    default_entity_id = f"{entity_type}.{config_helper.serial_number}_{id}"
     
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
@@ -127,28 +137,10 @@ def ha_availabilty_message(
         "name": name,
         "state_topic": f"{topic}/{device_type}/{id}",
         "unique_id": unique_id,
+        "default_entity_id": default_entity_id,
         # "object_id": f"{topic}{device_type}{id}",
         **kwargs,
     }
-
-def ha_virtual_energy_sensor_discovery_message(
-    relay_id: str,
-    config_helper: ConfigHelper,
-    **kwargs
-) -> dict[str, str]:
-    """
-    Generate MQTT autodiscovery messages for Home Assistant for virtual power and energy sensors.
-    DEPRECATED: Use ha_virtual_energy_sensor_availabilty_message instead.
-    """
-    topic = config_helper.topic_prefix
-    # Power sensor discovery
-    msg = ha_availabilty_message(
-        entity_type=SENSOR,
-        state_topic=f"{topic}/energy/{relay_id}",
-        config_helper=config_helper,
-        **kwargs,
-    )
-    return msg
 
 
 def ha_virtual_energy_sensor_availabilty_message(
@@ -205,7 +197,7 @@ def ha_virtual_energy_sensor_availabilty_message(
 
 def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create LIGHT availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, entity_type="light", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -215,7 +207,7 @@ def ha_light_availabilty_message(id: str, config_helper: ConfigHelper, device_ty
 
 def ha_led_availabilty_message(id: str, config_helper: ConfigHelper, **kwargs):
     """Create LED availability topic for HA."""
-    msg = ha_availabilty_message(device_type=OUTPUT, config_helper=config_helper, id=id, **kwargs)
+    msg = ha_availabilty_message(device_type=OUTPUT, config_helper=config_helper, entity_type="light", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{OUTPUT}/{id}/set"
     msg["brightness_state_topic"] = f"{config_helper.topic_prefix}/{OUTPUT}/{id}"
     msg["brightness_command_topic"] = f"{config_helper.topic_prefix}/cmd/{OUTPUT}/{id}/set_brightness"
@@ -231,7 +223,7 @@ def ha_button_availabilty_message(
     id: str, config_helper: ConfigHelper, payload_press: str = "reload", **kwargs
 ):
     """Create BUTTON availability topic for HA."""
-    msg = ha_availabilty_message(device_type="button", config_helper=config_helper, id=id, **kwargs)
+    msg = ha_availabilty_message(device_type="button", config_helper=config_helper, entity_type="button", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/button/{id}/set"
     msg["payload_press"] = payload_press
     return msg
@@ -239,7 +231,7 @@ def ha_button_availabilty_message(
 
 def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create SWITCH availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, entity_type="switch", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -253,7 +245,8 @@ def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_ty
     Groups use 'group' as device_type in MQTT topics instead of 'relay'.
     """
     from boneio.const import GROUP
-    msg = ha_availabilty_message(device_type=GROUP, config_helper=config_helper, id=id, **kwargs)
+    entity_type = "light" if output_type == "light" else "switch"
+    msg = ha_availabilty_message(device_type=GROUP, config_helper=config_helper, entity_type=entity_type, id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{GROUP}/{id}/set"
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
@@ -267,7 +260,7 @@ def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_ty
 
 def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create Valve availability topic for HA."""
-    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, id=id, **kwargs)
+    msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, entity_type="valve", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/{device_type}/{id}/set"
     msg["payload_close"] = OFF
     msg["payload_open"] = ON
@@ -279,14 +272,14 @@ def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_ty
 
 
 def ha_event_availabilty_message(config_helper: ConfigHelper, **kwargs):
-    msg = ha_availabilty_message(device_type=INPUT, config_helper=config_helper, **kwargs)
+    msg = ha_availabilty_message(device_type=INPUT, config_helper=config_helper, entity_type="event", **kwargs)
     msg["icon"] = "mdi:gesture-double-tap"
     msg["event_types"] = [SINGLE, DOUBLE, LONG]
     return msg
 
 
 def ha_adc_sensor_availabilty_message(config_helper: ConfigHelper, **kwargs):
-    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, entity_type="sensor", **kwargs)
     msg["unit_of_measurement"] = "V"
     msg["device_class"] = "voltage"
     msg["state_class"] = "measurement"
@@ -302,7 +295,7 @@ def ha_binary_sensor_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    msg = ha_availabilty_message(device_type=INPUT_SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=INPUT_SENSOR, config_helper=config_helper, id=id, name=name, model=model, entity_type="binary_sensor", **kwargs)
     msg["payload_on"] = "pressed"
     msg["payload_off"] = "released"
     return msg
@@ -312,7 +305,7 @@ def ha_sensor_ina_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA INA219 power sensor (diagnostic)."""
-    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, entity_type="sensor", **kwargs)
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
     msg["entity_category"] = "diagnostic"
@@ -323,7 +316,7 @@ def ha_sensor_temp_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA board temperature sensor (diagnostic)."""
-    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, **kwargs)
+    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, id=id, name=name, model=model, entity_type="sensor", **kwargs)
     msg["device_class"] = "temperature"
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
@@ -360,6 +353,7 @@ def ha_sensor_system_availabilty_message(
         id=id,
         name=name,
         model=model,
+        entity_type="sensor",
         **kwargs
     )
     msg["state_class"] = "measurement"
@@ -401,101 +395,180 @@ def modbus_availabilty_message(
     }
 
 def modbus_sensor_availabilty_message(
-    id: str,
-    sensor_id: str,
-    name: str,
+    entity_id: str,
+    entity_name: str,
+    device_id: str,
+    device_name: str,
+    manufacturer: str,
     state_topic_base: str,
     config_helper: ConfigHelper,
     model: str,
     device_type: str = SENSOR,
     area: str | None = None,
+    has_custom_id: bool = False,
     **kwargs,
-):
-    """Create Modbus Sensor availability topic for HA."""
+) -> HomeAssistantDiscoveryMessage:
+    """Create Modbus Sensor availability topic for HA.
+    
+    Args:
+        entity_id: Unique entity identifier (e.g., "sdm630voltage_l1")
+        entity_name: Human-readable entity name (e.g., "Voltage L1")
+        device_id: Modbus device identifier (e.g., "sdm630")
+        device_name: Human-readable device name (e.g., "SDM630 Energy Meter")
+        manufacturer: Device manufacturer
+        state_topic_base: Base address for state topic
+        config_helper: Configuration helper
+        model: Device model name
+        device_type: Type of device for HA
+        area: Optional area for sub-device grouping
+        has_custom_id: True if user defined custom ID, False if auto-generated
+        **kwargs: Additional fields (unit_of_measurement, device_class, etc.)
+    """
     topic = config_helper.topic_prefix
-    device = {
-        "identifiers": [id],
-        "manufacturer": "boneIO",
-        "model": model,
-        "name": name,
-        "sw_version": __version__,
-        "via_device": topic,  # Link to main BoneIO device
-    }
-    if area:
-        device["suggested_area"] = area
-    return {
-        "availability": [{"topic": f"{topic}/modbus/{id}/{STATE}"}],
-        "device": device,
-        "name": sensor_id,
-        "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{sensor_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
+    
+    # Use base ha_availabilty_message and override modbus-specific fields
+    msg = ha_availabilty_message(
+        id=entity_id,
+        name=entity_name,
+        entity_type="sensor",
+        config_helper=config_helper,
+        device_name=device_name,
+        topic=topic,
+        device_type=device_type,
+        manufacturer=manufacturer,
+        model=model,
+        area=area,
         **kwargs,
-    }
+    )
+    
+    # Override with modbus-specific values
+    msg["availability"] = [{"topic": f"{topic}/modbus/{device_id}/{STATE}"}]
+    msg["state_topic"] = f"{topic}/modbus/{device_id}/{state_topic_base}"
+    msg["device"]["identifiers"] = [device_id]
+    msg["device"]["via_device"] = topic
+    # Use entity_id directly when user defined custom ID (entity_id already contains device_id prefix)
+    # Otherwise use serial_number (default from ha_availabilty_message)
+    if has_custom_id:
+        msg["default_entity_id"] = f"sensor.{entity_id}"
+    
+    return msg
 
 def modbus_select_availabilty_message(
-    id: str,
     entity_id: str,
-    name: str,
+    entity_name: str,
+    device_id: str,
+    device_name: str,
+    manufacturer: str,
     state_topic_base: str,
     config_helper: ConfigHelper,
     model: str,
     device_type: str = SELECT,
     area: str | None = None,
+    has_custom_id: bool = False,
     **kwargs,
-):
-    """Create Modbus Select availability topic for HA."""
+) -> HomeAssistantDiscoveryMessage:
+    """Create Modbus Select availability topic for HA.
+    
+    Args:
+        entity_id: Unique entity identifier
+        entity_name: Human-readable entity name
+        device_id: Modbus device identifier
+        device_name: Human-readable device name
+        manufacturer: Device manufacturer
+        state_topic_base: Base address for state topic
+        config_helper: Configuration helper
+        model: Device model name
+        device_type: Type of device for HA
+        area: Optional area for sub-device grouping
+        has_custom_id: True if user defined custom ID, False if auto-generated
+        **kwargs: Additional fields
+    """
     topic = config_helper.topic_prefix
-    device = {
-        "identifiers": [id],
-        "manufacturer": "boneIO",
-        "model": model,
-        "name": name,
-        "sw_version": __version__,
-        "via_device": topic,  # Link to main BoneIO device
-    }
-    if area:
-        device["suggested_area"] = area
-    return {
-        "availability": [{"topic": f"{topic}/modbus/{id}/{STATE}"}],
-        "device": device,
-        "name": entity_id,
-        "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
+    
+    # Use base ha_availabilty_message and override modbus-specific fields
+    msg = ha_availabilty_message(
+        id=entity_id,
+        name=entity_name,
+        entity_type="select",
+        config_helper=config_helper,
+        device_name=device_name,
+        topic=topic,
+        device_type=device_type,
+        manufacturer=manufacturer,
+        model=model,
+        area=area,
         **kwargs,
-    }
+    )
+    
+    # Override with modbus-specific values
+    msg["availability"] = [{"topic": f"{topic}/modbus/{device_id}/{STATE}"}]
+    msg["state_topic"] = f"{topic}/modbus/{device_id}/{state_topic_base}"
+    msg["device"]["identifiers"] = [device_id]
+    msg["device"]["via_device"] = topic
+    # Use entity_id directly when user defined custom ID (entity_id already contains device_id prefix)
+    if has_custom_id:
+        msg["default_entity_id"] = f"select.{entity_id}"
+    
+    return msg
 
 
 def modbus_numeric_availabilty_message(
-    id: str,
     entity_id: str,
-    name: str,
+    entity_name: str,
+    device_id: str,
+    device_name: str,
+    manufacturer: str,
     state_topic_base: str,
     config_helper: ConfigHelper,
     model: str,
     device_type: str = NUMERIC,
     area: str | None = None,
+    has_custom_id: bool = False,
     **kwargs,
-):
-    """Create Modbus Numeric availability topic for HA."""
+) -> HomeAssistantDiscoveryMessage:
+    """Create Modbus Numeric availability topic for HA.
+    
+    Args:
+        entity_id: Unique entity identifier
+        entity_name: Human-readable entity name
+        device_id: Modbus device identifier
+        device_name: Human-readable device name
+        manufacturer: Device manufacturer
+        state_topic_base: Base address for state topic
+        config_helper: Configuration helper
+        model: Device model name
+        device_type: Type of device for HA
+        area: Optional area for sub-device grouping
+        has_custom_id: True if user defined custom ID, False if auto-generated
+        **kwargs: Additional fields
+    """
     topic = config_helper.topic_prefix
-    device = {
-        "identifiers": [id],
-        "manufacturer": "boneIO",
-        "model": model,
-        "name": name,
-        "sw_version": __version__,
-        "via_device": topic,  # Link to main BoneIO device
-    }
-    if area:
-        device["suggested_area"] = area
-    return {
-        "availability": [{"topic": f"{topic}/modbus/{id}/{STATE}"}],
-        "device": device,
-        "name": entity_id,
-        "state_topic": f"{topic}/modbus/{id}/{state_topic_base}",
-        "unique_id": f"{topic.replace('/', '_')}{entity_id.replace('_', '').replace(' ', '').lower()}{id.lower()}",
+    
+    # Use base ha_availabilty_message and override modbus-specific fields
+    msg = ha_availabilty_message(
+        id=entity_id,
+        name=entity_name,
+        entity_type="number",
+        config_helper=config_helper,
+        device_name=device_name,
+        topic=topic,
+        device_type=device_type,
+        manufacturer=manufacturer,
+        model=model,
+        area=area,
         **kwargs,
-    }
+    )
+    
+    # Override with modbus-specific values
+    msg["availability"] = [{"topic": f"{topic}/modbus/{device_id}/{STATE}"}]
+    msg["state_topic"] = f"{topic}/modbus/{device_id}/{state_topic_base}"
+    msg["device"]["identifiers"] = [device_id]
+    msg["device"]["via_device"] = topic
+    # Use entity_id directly when user defined custom ID (entity_id already contains device_id prefix)
+    if has_custom_id:
+        msg["default_entity_id"] = f"number.{entity_id}"
+    
+    return msg
 
 
 def ha_cover_availabilty_message(

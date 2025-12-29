@@ -78,16 +78,20 @@ class ModbusTextSensor(ModbusBaseEntity):
         self._value = self._value_mapping.get(str(value), "Unknown")
 
     def discovery_message(self):
+        """Generate Home Assistant discovery message for this entity."""
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
-            "sensor_id": self.name,
         }
         return modbus_sensor_availabilty_message(
-            config_helper=self._config_helper,
-            id=self._parent[ID],
-            name=self._parent[NAME],
+            entity_id=self._id,
+            entity_name=self._name,
+            device_id=self._parent[ID],
+            device_name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
+            manufacturer=self._parent.get("manufacturer", "boneIO"),
             area=self._parent.get("area"),
+            config_helper=self._config_helper,
+            has_custom_id=self._parent.get("has_custom_id", False),
             **kwargs,
         )

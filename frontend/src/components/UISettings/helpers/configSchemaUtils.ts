@@ -231,7 +231,6 @@ export const stripHiddenAndDefaults = (
     schema: any,
     uiSchema: any = {}
   ): any => {
-    console.log("stripHiddenAndDefaults", formData, schema, uiSchema)
     
     // Handle arrays
     if (Array.isArray(formData)) {
@@ -332,7 +331,7 @@ export const stripHiddenAndDefaults = (
       const processedChild = stripHiddenAndDefaults(fieldValue, fieldSchema, fieldUiSchema);
       
       // Include field if it has meaningful content
-      if (processedChild !== undefined && processedChild !== null) {
+      if (processedChild !== undefined && processedChild !== null && processedChild !== '') {
         if (typeof processedChild === "object") {
           if (Array.isArray(processedChild)) {
             if (processedChild.length > 0) {

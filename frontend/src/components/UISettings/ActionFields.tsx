@@ -1,8 +1,10 @@
 import React from 'react';
 import { FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
+import { normalizeCovers } from './helpers/coverUtils';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { useTranslation } from '@/hooks/useTranslation';
+import type { CoverEntity, OutputEntity } from '@/types/config';
 import {
   Select,
   SelectContent,
@@ -65,9 +67,9 @@ interface ActionFieldsProps {
   index: number;
   onUpdate: (field: string, value: any) => void;
   onRemove: () => void;
-  allOutputs: any[];
+  allOutputs: OutputEntity[];
   allOutputGroups: any[];
-  allCovers: any[];
+  allCovers: CoverEntity[];
   allAreas: Area[];
   allRemoteDevices?: RemoteDevice[];
   actionTypeOptions: string[];
@@ -75,11 +77,11 @@ interface ActionFieldsProps {
   actionCoverOptions: string[];
   showValidation?: boolean; // Kontrola czy pokazywać błędy walidacji
   /** Saved (committed) outputs for comparison - items not in saved are disabled */
-  savedOutputs?: any[];
+  savedOutputs?: OutputEntity[];
   /** Saved (committed) output groups for comparison */
   savedOutputGroups?: any[];
   /** Saved (committed) covers for comparison */
-  savedCovers?: any[];
+  savedCovers?: CoverEntity[];
 }
 
 const ActionFields: React.FC<ActionFieldsProps> = ({
@@ -123,13 +125,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
    * Returns true if cover exists in saved data.
    */
   const isCoverSaved = (coverId: string): boolean => {
-    if (!savedCovers) return true; // If no saved data provided, assume all are saved
-    return savedCovers.some((c: any) => {
-      const id = c.id || (c.open_relay && c.close_relay 
-        ? `cover_${c.open_relay}_${c.close_relay}`.toLowerCase()
-        : null);
-      return id === coverId;
-    });
+    if (!savedCovers) return true;
+    const normalized = normalizeCovers(savedCovers);
+    return normalized.some(c => c.id === coverId);
   };
 
   return (
@@ -187,20 +185,14 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                 <SelectValue placeholder={t('event_form.select_cover')} />
               </SelectTrigger>
               <SelectContent>
-                {allCovers
-                  .filter((cover: any) => cover && typeof cover === 'object')
-                  .map((cover: any, index: number) => {
-                    // Cover ID can be explicit or generated from open_relay + close_relay
-                    const id = cover.id || (cover.open_relay && cover.close_relay 
-                      ? `cover_${cover.open_relay}_${cover.close_relay}`.toLowerCase()
-                      : `cover_${index}`);
-                    const name = cover.name || id;
-                    const label = name !== id ? `${name} (${id})` : id;
-                    const isSaved = isCoverSaved(id);
+                {normalizeCovers(allCovers).map((cover) => {
+                    const name = cover.name || cover.id;
+                    const label = name !== cover.id ? `${name} (${cover.id})` : cover.id;
+                    const isSaved = isCoverSaved(cover.id);
                     return (
                       <SelectItem 
-                        key={id} 
-                        value={id}
+                        key={cover.id} 
+                        value={cover.id}
                         disabled={!isSaved}
                         className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
                       >

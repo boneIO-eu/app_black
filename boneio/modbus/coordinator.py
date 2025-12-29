@@ -28,7 +28,7 @@ from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.core.utils.util import open_json
-from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity
+from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity, ModbusParentInfo
 from boneio.models.state import ModbusDeviceState
 
 if TYPE_CHECKING:
@@ -69,6 +69,7 @@ DerivedEntity = Union[
     ModbusDerivedSwitch,
 ]
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -89,11 +90,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         additional_data: dict = {},
         update_interval: TimePeriod = TimePeriod(seconds=60),
         area: str | None = None,
+        has_custom_id: bool = False,
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
         self.manager = manager
         self._area = area
+        self._has_custom_id = has_custom_id
         
         BasicMqtt.__init__(
             self,
@@ -158,16 +161,19 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             self._modbus_entities.append({})
             for register in data[REGISTERS]:
                 entity_type = register.get("entity_type", SENSOR)
+                parent: ModbusParentInfo = {
+                    "name": self._name,
+                    "id": self._id,
+                    "model": self._model,
+                    "manufacturer": self._db.get("manufacturer", "boneIO"),
+                    "area": self._area,
+                    "has_custom_id": self._has_custom_id,
+                }
                 kwargs = {
                     "name": register.get("name"),
                     "base_address": base,
                     "register_address": register[ADDRESS],
-                    "parent": {
-                        NAME: self._name,
-                        ID: self._id,
-                        MODEL: self._model,
-                        "area": self._area,
-                    },
+                    "parent": parent,
                     "unit_of_measurement": register.get("unit_of_measurement"),
                     "state_class": register.get("state_class"),
                     "device_class": register.get("device_class"),
@@ -245,9 +251,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 additional["name"],
             )
             return None
+        parent: ModbusParentInfo = {
+            "name": self._name,
+            "id": self._id,
+            "model": self._model,
+            "manufacturer": self._db.get("manufacturer", "boneIO"),
+            "area": self._area,
+        }
         single_sensor = ModbusDerivedNumericSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
+            parent=parent,
             source_sensor_base_address=source_sensor.base_address,
             source_sensor_decoded_name=source_sensor.decoded_name,
             unit_of_measurement=additional.get("unit_of_measurement", "m3"),
@@ -282,9 +295,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 additional["name"],
             )
             return None
+        parent: ModbusParentInfo = {
+            "name": self._name,
+            "id": self._id,
+            "model": self._model,
+            "manufacturer": self._db.get("manufacturer", "boneIO"),
+            "area": self._area,
+        }
         single_sensor = ModbusDerivedTextSensor(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
+            parent=parent,
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -309,9 +329,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 additional["name"],
             )
             return None
+        parent: ModbusParentInfo = {
+            "name": self._name,
+            "id": self._id,
+            "model": self._model,
+            "manufacturer": self._db.get("manufacturer", "boneIO"),
+            "area": self._area,
+        }
         single_sensor = ModbusDerivedSelect(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
+            parent=parent,
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -336,9 +363,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 additional["name"],
             )
             return None
+        parent: ModbusParentInfo = {
+            "name": self._name,
+            "id": self._id,
+            "model": self._model,
+            "manufacturer": self._db.get("manufacturer", "boneIO"),
+            "area": self._area,
+        }
         single_sensor = ModbusDerivedSwitch(
             name=additional["name"],
-            parent={NAME: self._name, ID: self._id, MODEL: self._model, "area": self._area},
+            parent=parent,
             source_sensor_base_address=source_sensor.base_address,
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -466,6 +500,36 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     def set_payload_offline(self):
         self._payload_online = OFFLINE
+
+    async def send_online_status(self):
+        """Send online status to availability topic.
+        
+        This is used when coordinator is created/recreated (e.g., after reload with ID change)
+        to immediately publish online status to the new availability topic.
+        """
+        try:
+            # Try to read first register to check if device is available
+            first_register_base = self._db["registers_base"][0]
+            register_method = first_register_base.get("register_type", "input")
+            register = await self._modbus.read_and_decode(
+                unit=self._address,
+                address=first_register_base[REGISTERS][0][ADDRESS],
+                method=register_method,
+                payload_type=first_register_base[REGISTERS][0].get("value_type", "FP32"),
+            )
+            
+            if register is not None:
+                # Device is available, send online status
+                self._payload_online = ONLINE
+                self._message_bus.send_message(
+                    topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
+                    payload=self._payload_online,
+                )
+                _LOGGER.info("Sent online status for Modbus device %s to new availability topic", self._name)
+            else:
+                _LOGGER.debug("Device %s not available, skipping online status", self._name)
+        except Exception as e:
+            _LOGGER.debug("Could not send online status for %s: %s", self._name, e)
 
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""

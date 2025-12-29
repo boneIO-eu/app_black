@@ -42,12 +42,17 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseEntity):
             "payload_on": self._payload_on,
         }
         msg = modbus_numeric_availabilty_message(
-            config_helper=self._config_helper,
-            id=self._parent[ID],
-            name=self._parent[NAME],
+            entity_id=self._id,
+            entity_name=self._name,
+            device_id=self._parent[ID],
+            device_name=self._parent[NAME],
+            manufacturer=self._parent.get("manufacturer", "boneIO"),
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
-            device_type=SENSOR, #because we send everything to boneio/sensor from modbus.
+            area=self._parent.get("area"),
+            config_helper=self._config_helper,
+            has_custom_id=self._parent.get("has_custom_id", False),
+            device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
             **kwargs,
         )
         return msg

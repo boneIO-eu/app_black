@@ -2,22 +2,37 @@ import React, { useState } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import { normalizeCovers } from '../helpers/coverUtils';
+import { normalizeOutputs } from '../helpers/outputUtils';
+import type { BinarySensorEntity, EventEntity, AreaEntity, OutputEntity, CoverEntity } from '@/types/config';
 
-interface Area {
+type BinarySensorOrEventEntity = BinarySensorEntity | EventEntity;
+
+interface RemoteDeviceEntity {
   id: string;
-  name: string;
+  name?: string;
+  mqtt?: {
+    outputs?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string }[];
+  };
 }
 
 interface BinarySensorEventTableProps {
-  items: any[];
-  allAreas: Area[];
+  items: BinarySensorOrEventEntity[];
+  allAreas: AreaEntity[];
+  allOutputs?: OutputEntity[];
+  allCovers?: CoverEntity[];
+  allRemoteDevices?: RemoteDeviceEntity[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
 
 const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({ 
   items, 
-  allAreas, 
+  allAreas,
+  allOutputs = [],
+  allCovers = [],
+  allRemoteDevices = [],
   onEdit, 
   onDelete 
 }) => {
@@ -27,14 +42,14 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   /**
    * Check if item has any actions (for binary_sensor: pressed/released, for event: single/double/long)
    */
-  const hasActions = (item: any): boolean => {
+  const hasActions = (item: BinarySensorOrEventEntity): boolean => {
     if (!item.actions || typeof item.actions !== 'object') return false;
     
     // Check all possible action types (pressed, released, single, double, triple, long, sequences)
     const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
     
     return actionTypes.some(type => {
-      const actions = item.actions[type];
+      const actions = item.actions?.[type];
       return Array.isArray(actions) && actions.length > 0;
     });
   };
@@ -55,12 +70,12 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   /**
    * Render action details for expanded row
    */
-  const renderActionDetails = (item: any) => {
+  const renderActionDetails = (item: BinarySensorOrEventEntity) => {
     if (!item.actions) return null;
 
     const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
     const availableActions = actionTypes.filter(type => {
-      const actions = item.actions[type];
+      const actions = item.actions?.[type];
       return Array.isArray(actions) && actions.length > 0;
     });
 
@@ -69,7 +84,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
     return (
       <div className="p-4 bg-base-200 space-y-3">
         {availableActions.map(type => {
-          const actions = item.actions[type];
+          const actions = item.actions?.[type];
           // Get emoji and translation key for action type
           const getActionLabel = (actionType: string) => {
             switch (actionType) {
@@ -102,14 +117,64 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                 {getActionLabel(type)}
               </div>
               <div className="flex flex-wrap gap-2">
-                {actions.map((action: any, idx: number) => (
-                  <div key={idx} className="badge badge-primary badge-sm gap-1">
-                    <span className="font-mono text-xs">{action.action}</span>
-                    {action.boneio_output && <span className="opacity-70">→ {action.boneio_output}</span>}
-                    {action.boneio_cover && <span className="opacity-70">→ {action.boneio_cover}</span>}
-                    {action.topic && <span className="opacity-70">→ {action.topic}</span>}
-                  </div>
-                ))}
+                {actions?.map((action, idx: number) => {
+                  // Build action details string
+                  const actionDetails = [];
+                  
+                  // Add target (output/cover/topic/remote device)
+                  if (action.boneio_output) {
+                    const normalizedOutputs = normalizeOutputs(allOutputs as any);
+                    const output = normalizedOutputs.find(o => o.id === action.boneio_output);
+                    const displayText = output?.name 
+                      ? `${output.name} (${action.boneio_output})` 
+                      : action.boneio_output;
+                    actionDetails.push(displayText);
+                  } else if (action.boneio_cover) {
+                    const normalizedCovers = normalizeCovers(allCovers);
+                    const cover = normalizedCovers.find(c => c.id === action.boneio_cover);
+                    const displayText = cover?.name 
+                      ? `${cover.name} (${action.boneio_cover})` 
+                      : action.boneio_cover;
+                    actionDetails.push(displayText);
+                  } else if (action.topic) {
+                    actionDetails.push(action.topic);
+                  } else if (action.remote_device) {
+                    const remoteDevice = allRemoteDevices.find(rd => rd.id === action.remote_device);
+                    const deviceName = remoteDevice?.name || action.remote_device;
+                    
+                    // Find remote output or cover name
+                    let targetName = '';
+                    if (action.output_id) {
+                      const remoteOutput = remoteDevice?.mqtt?.outputs?.find(o => o.id === action.output_id);
+                      targetName = remoteOutput?.name 
+                        ? `${remoteOutput.name} (${action.output_id})` 
+                        : action.output_id;
+                    } else if (action.cover_id) {
+                      const remoteCover = remoteDevice?.mqtt?.covers?.find(c => c.id === action.cover_id);
+                      targetName = remoteCover?.name 
+                        ? `${remoteCover.name} (${action.cover_id})` 
+                        : action.cover_id;
+                    }
+                    
+                    actionDetails.push(`${deviceName}/${targetName}`);
+                  }
+                  
+                  // Add action type (ON/OFF/TOGGLE for outputs, OPEN/CLOSE/etc for covers)
+                  if (action.action_output) {
+                    actionDetails.push(action.action_output);
+                  } else if (action.action_cover) {
+                    actionDetails.push(action.action_cover);
+                  }
+                  
+                  return (
+                    <div key={idx} className="badge badge-primary badge-sm gap-1">
+                      <span className="font-mono text-xs">{action.action}</span>
+                      {actionDetails.length > 0 && (
+                        <span className="opacity-70">→ {actionDetails.join(' ')}</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

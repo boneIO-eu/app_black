@@ -8,7 +8,7 @@ interface MqttFormProps {
 
 /**
  * Custom form for MQTT section configuration.
- * Fields: host, username, password, port, topic_prefix, ha_discovery
+ * Fields: host, username, password, port, ha_discovery
  */
 const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
@@ -92,23 +92,6 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
         />
         <label className="label">
           <span className="label-text-alt text-base-content/60">{t('mqtt_config.password_help')}</span>
-        </label>
-      </div>
-
-      {/* Topic Prefix */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('mqtt_config.topic_prefix')}</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered w-full"
-          value={data?.topic_prefix || ''}
-          onChange={(e) => handleChange('topic_prefix', e.target.value || undefined)}
-          placeholder="boneio"
-        />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.topic_prefix_help')}</span>
         </label>
       </div>
 

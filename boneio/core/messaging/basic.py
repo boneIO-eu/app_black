@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from collections.abc import Awaitable, Callable
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
+    from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class MessageBus(ABC):
     def send_message(
         self,
         topic: str,
-        payload: str | int | dict[str, str | float | int | None] | None,
+        payload: str | int | dict[str, Any] | "HomeAssistantDiscoveryMessage" | None,
         retain: bool = False,
         qos: int = 0,
     ) -> None:

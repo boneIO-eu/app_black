@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 from boneio.const import ID, MODEL, NAME, SENSOR
+
+# Type alias for parent device information passed to Modbus entities.
+# Expected keys: name (str), id (str), model (str), manufacturer (str), area (str | None)
+ModbusParentInfo = dict[str, Any]
+
 from boneio.core.config import ConfigHelper
 from boneio.core.messaging.basic import MessageBus
 from boneio.core.utils import Filter
@@ -19,7 +25,7 @@ class BaseEntity(Filter):
     def __init__(
         self,
         name: str,
-        parent: dict,
+        parent: ModbusParentInfo,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
         unit_of_measurement: str | None = None,
@@ -45,7 +51,7 @@ class BaseEntity(Filter):
         self._value_type = value_type
         self._ha_filter = ha_filter
         self._timestamp = time.time()
-        self._id = f"{self._parent[ID]}{self._decoded_name_low.replace('_', '')}"
+        self._id = f"{self._parent[ID]}_{self._decoded_name_low.replace('_', '')}"
         self._topic = (
             f"{self._config_helper.ha_discovery_prefix}/{self._entity_type}/{self._config_helper.serial_no}"
             f"/{self._id}/config"
@@ -137,23 +143,27 @@ class BaseEntity(Filter):
         return None
 
     def discovery_message(self):
+        """Generate Home Assistant discovery message for this entity."""
         value_template = f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}" if self._ha_filter else f"{{{{ value_json.{self.decoded_name} }}}}" 
         
         kwargs = {
             "unit_of_measurement": self.unit_of_measurement,
             "state_class": self._state_class,
             "value_template": value_template,
-            "sensor_id": self.name,
         }
         if self._device_class:
             kwargs["device_class"] = self._device_class
         return modbus_sensor_availabilty_message(
-            config_helper=self._config_helper,
-            id=self._parent[ID],
-            name=self._parent[NAME],
+            entity_id=self._id,
+            entity_name=self._name,
+            device_id=self._parent[ID],
+            device_name=self._parent[NAME],
             state_topic_base=str(self.base_address),
             model=self._parent[MODEL],
             area=self._parent.get("area"),
+            manufacturer=self._parent.get("manufacturer", "boneIO"),
+            config_helper=self._config_helper,
+            has_custom_id=self._parent.get("has_custom_id", False),
             **kwargs,
         )
 
@@ -162,7 +172,7 @@ class ModbusBaseEntity(BaseEntity):
     def __init__(
         self,
         name: str,
-        parent: dict,
+        parent: ModbusParentInfo,
         register_address: int,
         base_address: int,
         message_bus: MessageBus,

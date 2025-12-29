@@ -101,7 +101,9 @@ function AppContent() {
             const index = prev.findIndex(i => i.state.name === message.state.name);
             if (index >= 0) {
               const prevInput = prev[index];
-              if (prevInput.state.state === message.state.state) {
+              // Check both state and timestamp to detect duplicate events
+              if (prevInput.state.state === message.state.state && 
+                  prevInput.state.timestamp === message.state.timestamp) {
                 return prev; // No change needed
               }
               const newInputs = [...prev];

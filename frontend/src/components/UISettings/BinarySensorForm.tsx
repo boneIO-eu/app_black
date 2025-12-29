@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
+import { normalizeCovers } from './helpers/coverUtils';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
@@ -111,12 +112,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
   const isCoverSaved = (coverId: string): boolean => {
     if (!savedCovers) return true;
-    return savedCovers.some((c: any) => {
-      const id = c.id || (c.open_relay && c.close_relay 
-        ? `cover_${c.open_relay}_${c.close_relay}`.toLowerCase()
-        : null);
-      return id === coverId;
-    });
+    const normalized = normalizeCovers(savedCovers);
+    return normalized.some(c => c.id === coverId);
   };
 
   // Validate action - check if required fields are filled
@@ -320,19 +317,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                   <SelectValue placeholder={t('binary_sensor_form.select_cover')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {allCovers
-                    .filter((cover: any) => cover && typeof cover === 'object')
-                    .map((cover: any, idx: number) => {
-                      const id = cover.id || (cover.open_relay && cover.close_relay 
-                        ? `cover_${cover.open_relay}_${cover.close_relay}`.toLowerCase()
-                        : `cover_${idx}`);
-                      const name = cover.name || id;
-                      const label = name !== id ? `${name} (${id})` : id;
-                      const isSaved = isCoverSaved(id);
+                  {normalizeCovers(allCovers).map((cover) => {
+                      const name = cover.name || cover.id;
+                      const label = name !== cover.id ? `${name} (${cover.id})` : cover.id;
+                      const isSaved = isCoverSaved(cover.id);
                       return (
                         <SelectItem 
-                          key={id} 
-                          value={id}
+                          key={cover.id} 
+                          value={cover.id}
                           disabled={!isSaved}
                           className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
                         >

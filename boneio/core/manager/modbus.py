@@ -131,7 +131,8 @@ class ModbusManager:
                     model = device_config.get(MODEL, "")
                     
                     # Generate ID from address and model if not provided
-                    if device_config.get(ID):
+                    has_custom_id = bool(device_config.get(ID))
+                    if has_custom_id:
                         device_id = str(device_config[ID]).replace(" ", "").lower()
                     else:
                         device_id = f"{address}_{model}".lower().replace(" ", "_")
@@ -160,6 +161,7 @@ class ModbusManager:
                         sensors_filters=device_config.get("sensors_filters", {}),
                         additional_data=additional_data,
                         area=area,
+                        has_custom_id=has_custom_id,
                     )
                     coordinators[device_id] = coordinator
                     _LOGGER.info("Configured Modbus coordinator: %s", device_id)
@@ -358,6 +360,18 @@ class ModbusManager:
             new_coordinators = self._configure_modbus_coordinators(devices=configs_to_add)
             self._modbus_coordinators.update(new_coordinators)
             _LOGGER.info("Added/recreated %d Modbus devices", len(new_coordinators))
+            
+            # Send online status for newly created/recreated coordinators
+            # This ensures the new availability topic gets the online status immediately
+            for coordinator in new_coordinators.values():
+                try:
+                    await coordinator.send_online_status()
+                except Exception as err:
+                    _LOGGER.error(
+                        "Failed to send online status for coordinator %s: %s",
+                        coordinator.id,
+                        err
+                    )
         
         _LOGGER.info(
             "Modbus devices reload complete: %d coordinators (removed=%d, added=%d, recreated=%d)",

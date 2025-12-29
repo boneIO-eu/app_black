@@ -19,7 +19,9 @@ export type ActionType =
   | 'cover' | 'COVER' | 'Cover'
   | 'mqtt' | 'MQTT' | 'Mqtt'
   | 'output_over_mqtt' | 'OUTPUT_OVER_MQTT' | 'Output_Over_Mqtt'
-  | 'cover_over_mqtt' | 'COVER_OVER_MQTT' | 'Cover_Over_Mqtt';
+  | 'cover_over_mqtt' | 'COVER_OVER_MQTT' | 'Cover_Over_Mqtt'
+  | 'remote_output' | 'REMOTE_OUTPUT' | 'Remote_Output'
+  | 'remote_cover' | 'REMOTE_COVER' | 'Remote_Cover';
 
 /** Output action options */
 export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
@@ -65,6 +67,12 @@ export interface Action {
   action_mqtt_msg?: string;
   /** BoneIO device ID for remote actions */
   boneio_id?: string;
+  /** Remote device ID (from remote_devices section) */
+  remote_device?: string;
+  /** Remote output ID (for remote_output action) */
+  output_id?: string;
+  /** Remote cover ID (for remote_cover action) */
+  cover_id?: string;
   /** Extra data (for cover position/tilt) */
   data?: ActionData;
 }
@@ -141,6 +149,8 @@ export interface BinarySensorActions {
   pressed?: Action[];
   /** Actions triggered on release */
   released?: Action[];
+  /** Index signature for dynamic access */
+  [key: string]: Action[] | undefined;
 }
 
 /** Binary sensor entity configuration */

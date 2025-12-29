@@ -107,6 +107,43 @@ async def get_parsed_config():
         # Use load_yaml_file instead of load_config_from_file to get raw YAML data
         # without TimePeriod parsing - frontend expects strings like "220ms", not objects
         config_data = load_yaml_file(config_file)
+        
+        # Enrich output entities with generated IDs if not explicitly defined
+        # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
+        if "output" in config_data and isinstance(config_data["output"], list):
+            for output in config_data["output"]:
+                if not output.get("id"):
+                    # Use boneio_output as id if available
+                    if output.get("boneio_output"):
+                        output["id"] = output["boneio_output"]
+                    elif output.get("name"):
+                        # Slugify name as fallback
+                        import re
+                        name = output["name"].lower()
+                        name = re.sub(r'[^a-z0-9]+', '_', name)
+                        output["id"] = name.strip('_')
+        
+        # Enrich cover entities with generated IDs if not explicitly defined
+        if "cover" in config_data and isinstance(config_data["cover"], list):
+            for cover in config_data["cover"]:
+                if not cover.get("id"):
+                    # Generate ID from open_relay and close_relay (same logic as CoverManager)
+                    open_relay = cover.get("open_relay", "")
+                    close_relay = cover.get("close_relay", "")
+                    if open_relay and close_relay:
+                        cover["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
+        
+        # Enrich output_group entities with generated IDs if not explicitly defined
+        # Strategy: explicit 'id' > 'name' (slugified)
+        if "output_group" in config_data and isinstance(config_data["output_group"], list):
+            import re
+            for group in config_data["output_group"]:
+                if not group.get("id"):
+                    if group.get("name"):
+                        name = group["name"].lower()
+                        name = re.sub(r'[^a-z0-9]+', '_', name)
+                        group["id"] = name.strip('_')
+        
         elapsed = time.time() - start
         
         _config_cache["data"] = config_data
@@ -132,7 +169,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     Returns:
         Status response with optional restart_required flag.
     """
-    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus'}
+    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus', 'mcp23017'}
     
     try:
         app_state = _get_app_state()

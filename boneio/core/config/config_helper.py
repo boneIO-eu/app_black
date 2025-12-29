@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import logging
 from _collections_abc import dict_values
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
 
 from boneio.const import (
     BINARY_SENSOR,
@@ -222,7 +225,12 @@ class ConfigHelper:
     def subscribe_topic(self) -> str:
         return f"{self.cmd_topic_prefix}+/+/#"
 
-    def add_autodiscovery_msg(self, ha_type: str, topic: str, payload: str | dict | None):
+    def add_autodiscovery_msg(
+        self, 
+        ha_type: str, 
+        topic: str, 
+        payload: str | dict[str, Any] | "HomeAssistantDiscoveryMessage" | None
+    ):
         """Add autodiscovery message."""
         self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}
 

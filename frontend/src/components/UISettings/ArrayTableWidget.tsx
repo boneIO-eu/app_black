@@ -829,7 +829,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return <CoverTable {...commonProps} allAreas={allAreas} />;
       case 'binary_sensor':
       case 'event':
-        return <BinarySensorEventTable {...commonProps} allAreas={allAreas} />;
+        return <BinarySensorEventTable {...commonProps} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />;
       case 'modbus_devices':
         return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} />;
       case 'areas':

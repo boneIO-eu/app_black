@@ -58,17 +58,21 @@ export default function InputsView() {
     return saved ? saved === 'grid' : true;
   });
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
-  const prevInputsRef = useRef<Map<string, string>>(new Map());
+  const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('inputViewMode', gridView ? 'grid' : 'list');
   };
 
-  // Add toast notification
+  // Add toast notification with max 4 toasts limit
   const addToast = useCallback((message: string, type: string) => {
     const id = `${Date.now()}-${Math.random()}`;
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => {
+      const newToasts = [...prev, { id, message, type }];
+      // Keep only last 4 toasts (remove oldest if exceeding limit)
+      return newToasts.slice(-4);
+    });
     // Auto-remove after 3 seconds
     setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
@@ -88,25 +92,39 @@ export default function InputsView() {
     // On first render, just populate the ref without showing toasts
     if (!isInitializedRef.current) {
       validInputs.forEach((inputEvent: InputEvent) => {
-        prevInputsRef.current.set(inputEvent.entity_id, inputEvent.state.state);
+        prevInputsRef.current.set(inputEvent.entity_id, {
+          state: inputEvent.state.state,
+          timestamp: inputEvent.state.timestamp
+        });
       });
       isInitializedRef.current = true;
       return;
     }
     
     validInputs.forEach((inputEvent: InputEvent) => {
-      const prevState = prevInputsRef.current.get(inputEvent.entity_id);
+      const prevData = prevInputsRef.current.get(inputEvent.entity_id);
       const currentState = inputEvent.state.state;
+      const currentTimestamp = inputEvent.state.timestamp;
       
       // Only show toast for event types (not ON/OFF binary states)
-      if (prevState !== currentState && eventTypes.includes(currentState)) {
+      // Check timestamp change to detect duplicate events with same state
+      if (eventTypes.includes(currentState) && 
+          (!prevData || prevData.timestamp !== currentTimestamp)) {
+        const time = new Date(currentTimestamp * 1000).toLocaleTimeString('pl-PL', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
         addToast(
-          `${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`,
+          `[${time}] ${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`,
           currentState
         );
       }
       
-      prevInputsRef.current.set(inputEvent.entity_id, currentState);
+      prevInputsRef.current.set(inputEvent.entity_id, {
+        state: currentState,
+        timestamp: currentTimestamp
+      });
     });
   }, [validInputs, addToast, t]);
   
