@@ -171,6 +171,14 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
         <label className="label">
           <span className="label-text-alt">{t('virtual_energy_sensor.id_hint')}</span>
         </label>
+        {/* Show generated ID preview when custom ID is empty and name is provided */}
+        {!data.id && data.name?.trim() && (
+          <label className="label pt-0">
+            <span className="label-text-alt text-info">
+              {t('virtual_energy_sensor.generated_id')}: <code className="font-mono bg-base-200 px-1 rounded">{sanitizeId(data.name)}</code>
+            </span>
+          </label>
+        )}
       </div>
 
       {/* Output ID (required) */}

@@ -29,9 +29,9 @@ schema:
     protocol:
       type: string
       required: True
-      # Currently only mqtt is implemented
-      # Future: 'loxone', 'esphome_udp', 'esphome_api', 'can'
-      allowed: ['mqtt']
+      # Supported: mqtt, esphome_api
+      # Future: 'loxone', 'esphome_udp', 'can'
+      allowed: ['mqtt', 'esphome_api']
       meta:
         label: Protocol
         description: |
@@ -173,37 +173,160 @@ schema:
     #       meta:
     #         label: Port
     
-    # # ESPHome API Parameters (future)
-    # esphome_api:
-    #   type: dict
-    #   required: False
-    #   dependencies:
-    #     protocol: ['esphome_api']
-    #   meta:
-    #     label: ESPHome API Settings
-    #   schema:
-    #     host:
-    #       type: string
-    #       required: True
-    #       meta:
-    #         label: Host
-    #         description: "IP address or hostname of ESPHome device"
-    #     port:
-    #       type: integer
-    #       required: False
-    #       default: 6053
-    #       meta:
-    #         label: Port
-    #     password:
-    #       type: string
-    #       required: False
-    #       meta:
-    #         label: API Password
-    #     encryption_key:
-    #       type: string
-    #       required: False
-    #       meta:
-    #         label: Encryption Key
+    # ESPHome API Parameters
+    esphome_api:
+      type: dict
+      required: False
+      dependencies:
+        protocol: ['esphome_api']
+      meta:
+        label: ESPHome API Settings
+        description: |
+          Native ESPHome API connection settings.
+          Entities (switches, lights, covers) can be auto-discovered.
+      schema:
+        host:
+          type: string
+          required: True
+          meta:
+            label: Host
+            description: "IP address or hostname of ESPHome device"
+        port:
+          type: integer
+          required: False
+          default: 6053
+          meta:
+            label: Port
+        password:
+          type: string
+          required: False
+          meta:
+            label: API Password
+            description: "Optional API password (if configured on ESPHome device)"
+        encryption_key:
+          type: string
+          required: False
+          meta:
+            label: Encryption Key
+            description: "Optional noise encryption key (base64 encoded)"
+        switches:
+          type: list
+          required: False
+          meta:
+            label: Available Switches
+            description: "List of switches discovered or manually configured"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Switch ID (object_id)
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Switch Name
+              key:
+                type: integer
+                required: False
+                meta:
+                  label: Entity Key (from discovery)
+        lights:
+          type: list
+          required: False
+          meta:
+            label: Available Lights
+            description: "List of lights discovered or manually configured"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Light ID (object_id)
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Light Name
+              key:
+                type: integer
+                required: False
+                meta:
+                  label: Entity Key (from discovery)
+              supports_brightness:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports Brightness
+              supports_color_temp:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports Color Temperature
+              supports_rgb:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports RGB Color
+              supports_rgbw:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports RGBW Color
+              min_mireds:
+                type: float
+                required: False
+                meta:
+                  label: Min Color Temp (mireds)
+              max_mireds:
+                type: float
+                required: False
+                meta:
+                  label: Max Color Temp (mireds)
+        covers:
+          type: list
+          required: False
+          meta:
+            label: Available Covers
+            description: "List of covers discovered or manually configured"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Cover ID (object_id)
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Cover Name
+              key:
+                type: integer
+                required: False
+                meta:
+                  label: Entity Key (from discovery)
+              supports_position:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports Position
+              supports_tilt:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Supports Tilt
     
     # # Loxone Parameters (future)
     # loxone:

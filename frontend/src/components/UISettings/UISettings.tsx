@@ -504,16 +504,19 @@ export default function UISettings() {
    * Restore section to original state (before changes)
    */
   const restoreSection = (sectionName: string) => {
-    if (originalData[sectionName]) {
-      setFormData((prevFormData: Record<string, any>) => ({ 
-        ...prevFormData, 
-        [sectionName]: JSON.parse(JSON.stringify(originalData[sectionName])) // Deep copy
-      }));
-      setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({ 
-        ...prevUnsavedChanges, 
-        [sectionName]: false 
-      }));
-    }
+    // Get original value, defaulting to empty array for array sections
+    const arraySections = ['event', 'binary_sensor', 'output', 'output_group', 'cover', 'modbus_devices', 'areas', 'sensor', 'virtual_energy_sensor', 'remote_devices'];
+    const defaultValue = arraySections.includes(sectionName) ? [] : {};
+    const originalValue = originalData[sectionName] !== undefined ? originalData[sectionName] : defaultValue;
+    
+    setFormData((prevFormData: Record<string, any>) => ({ 
+      ...prevFormData, 
+      [sectionName]: JSON.parse(JSON.stringify(originalValue)) // Deep copy
+    }));
+    setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({ 
+      ...prevUnsavedChanges, 
+      [sectionName]: false 
+    }));
   };
 
   /**

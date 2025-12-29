@@ -9,6 +9,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+from boneio.core.remote.esphome import (
+    discover_esphome_entities, 
+    scan_esphome_devices,
+    ESPHOME_API_AVAILABLE,
+    ZEROCONF_AVAILABLE,
+)
 
 if TYPE_CHECKING:
     pass
@@ -103,6 +109,98 @@ async def get_all_available_devices(manager: Manager = Depends(get_manager)):
     
     all_devices = manager.remote_devices.get_all_available_devices()
     return {"devices": [device.to_dict() for device in all_devices.values()]}
+
+
+class ESPHomeDiscoverRequest(BaseModel):
+    """Model for ESPHome discovery request."""
+    
+    host: str
+    port: int = 6053
+    password: str = ""
+    encryption_key: str = ""
+
+
+@router.post("/discover-esphome")
+async def discover_esphome(request: ESPHomeDiscoverRequest):
+    """
+    Discover entities on an ESPHome device.
+    
+    Connects to the ESPHome device via native API and retrieves
+    available switches, lights, and covers with their capabilities.
+    
+    Args:
+        request: ESPHome connection parameters (host, port, password, encryption_key)
+        
+    Returns:
+        Dictionary with 'switches', 'lights', 'covers' lists.
+        Each entity includes id, name, key, and capability flags.
+        
+    Raises:
+        HTTPException: 400 if aioesphomeapi not installed, 500 if discovery fails.
+    """
+    if not ESPHOME_API_AVAILABLE:
+        raise HTTPException(
+            status_code=400, 
+            detail="aioesphomeapi not installed - ESPHome API support disabled"
+        )
+    
+    _LOGGER.info("Discovering ESPHome entities at %s:%d", request.host, request.port)
+    
+    result = await discover_esphome_entities(
+        host=request.host,
+        port=request.port,
+        password=request.password,
+        encryption_key=request.encryption_key,
+    )
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    _LOGGER.info(
+        "Discovered %d switches, %d lights, %d covers at %s",
+        len(result.get("switches", [])),
+        len(result.get("lights", [])),
+        len(result.get("covers", [])),
+        request.host
+    )
+    
+    return result
+
+
+@router.get("/scan-esphome")
+async def scan_esphome_network(timeout: float = 3.0):
+    """
+    Scan the local network for ESPHome devices using mDNS.
+    
+    Args:
+        timeout: How long to scan in seconds (default 3.0, max 10.0)
+        
+    Returns:
+        Dictionary with 'devices' list containing found devices.
+        Each device has 'name', 'host', 'ip', 'port' fields.
+        
+    Raises:
+        HTTPException: 400 if zeroconf not installed, 500 if scan fails.
+    """
+    if not ZEROCONF_AVAILABLE:
+        raise HTTPException(
+            status_code=400, 
+            detail="zeroconf not installed - mDNS discovery disabled"
+        )
+    
+    # Limit timeout to reasonable range
+    timeout = min(max(timeout, 1.0), 10.0)
+    
+    _LOGGER.info("Scanning network for ESPHome devices (timeout: %.1fs)", timeout)
+    
+    result = await scan_esphome_devices(timeout=timeout)
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    _LOGGER.info("Found %d ESPHome device(s)", len(result.get("devices", [])))
+    
+    return result
 
 
 @router.get("/{device_id}")

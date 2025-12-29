@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -26,7 +26,8 @@
           "protocol": {
             "type": "string",
             "enum": [
-              "mqtt"
+              "mqtt",
+              "esphome_api"
             ],
             "examples": [
               "mqtt"
@@ -50,8 +51,8 @@
           },
           "mqtt": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "outputs": {
@@ -61,8 +62,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -90,8 +91,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -118,6 +119,307 @@
             "x-dependencies": {
               "protocol": [
                 "mqtt"
+              ]
+            }
+          },
+          "esphome_api": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "Host",
+                "title": "Host"
+              },
+              "port": {
+                "type": [
+                  "string",
+                  "integer"
+                ],
+                "default": 6053,
+                "description": "Port",
+                "title": "Port"
+              },
+              "password": {
+                "type": "string",
+                "description": "API Password",
+                "title": "Password"
+              },
+              "encryption_key": {
+                "type": "string",
+                "description": "Encryption Key",
+                "title": "Encryption key"
+              },
+              "switches": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Switch ID (object_id)",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Switch Name",
+                      "title": "Name"
+                    },
+                    "key": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Entity Key (from discovery)",
+                      "title": "Key"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Switches",
+                "title": "Switches"
+              },
+              "lights": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Light ID (object_id)",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Light Name",
+                      "title": "Name"
+                    },
+                    "key": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Entity Key (from discovery)",
+                      "title": "Key"
+                    },
+                    "supports_brightness": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports Brightness",
+                      "title": "Supports brightness"
+                    },
+                    "supports_color_temp": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports Color Temperature",
+                      "title": "Supports color temp"
+                    },
+                    "supports_rgb": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports RGB Color",
+                      "title": "Supports rgb"
+                    },
+                    "supports_rgbw": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports RGBW Color",
+                      "title": "Supports rgbw"
+                    },
+                    "min_mireds": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "Min Color Temp (mireds)",
+                      "title": "Min mireds"
+                    },
+                    "max_mireds": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "description": "Max Color Temp (mireds)",
+                      "title": "Max mireds"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Lights",
+                "title": "Lights"
+              },
+              "covers": {
+                "type": [
+                  "string",
+                  "array"
+                ],
+                "items": {
+                  "type": [
+                    "string",
+                    "object"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Cover ID (object_id)",
+                      "title": "Id"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Cover Name",
+                      "title": "Name"
+                    },
+                    "key": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Entity Key (from discovery)",
+                      "title": "Key"
+                    },
+                    "supports_position": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports Position",
+                      "title": "Supports position"
+                    },
+                    "supports_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Supports Tilt",
+                      "title": "Supports tilt"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ]
+                },
+                "description": "Available Covers",
+                "title": "Covers"
+              }
+            },
+            "required": [
+              "host"
+            ],
+            "description": "ESPHome API Settings",
+            "title": "Esphome api",
+            "x-dependencies": {
+              "protocol": [
+                "esphome_api"
               ]
             }
           }

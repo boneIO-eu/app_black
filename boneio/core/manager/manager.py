@@ -22,6 +22,8 @@ from boneio.const import (
     ONLINE,
     OUTPUT,
     OUTPUT_OVER_MQTT,
+    REMOTE_COVER,
+    REMOTE_OUTPUT,
     SET_BRIGHTNESS,
     STATE,
     cover_actions,
@@ -208,6 +210,20 @@ class Manager:
         # (removing duplicate registration here that caused double event handling)
         
         _LOGGER.info("Manager initialization complete")
+    
+    async def stop(self) -> None:
+        """Stop manager async tasks.
+        
+        This should be called during shutdown to cleanly stop:
+        - ESPHome connections
+        - Other async tasks
+        """
+        _LOGGER.info("Stopping manager async tasks")
+        
+        # Stop ESPHome connections
+        await self.remote_devices.stop_all_connections()
+        
+        _LOGGER.info("Manager async tasks stopped")
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -522,7 +538,7 @@ class Manager:
         Args:
             actions: List of actions to execute
         """
-        from boneio.const import REMOTE_OUTPUT, REMOTE_COVER
+        
         
         start_time = time.time()
         
@@ -605,7 +621,7 @@ class Manager:
                 )
             
             elif action == REMOTE_COVER:
-                # Control cover on remote device
+                # Control cover on remote device (BoneIO MQTT or ESPHome API)
                 remote_device_id = action_definition.get("remote_device")
                 cover_id = action_definition.get("cover_id")
                 action_cover = action_definition.get("action_cover", "TOGGLE")

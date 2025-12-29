@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -327,8 +327,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "single": {
@@ -338,8 +338,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -408,8 +408,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -439,7 +439,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -471,6 +474,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -482,8 +502,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -552,8 +572,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -583,7 +603,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -615,6 +638,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -626,8 +666,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -696,8 +736,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -727,7 +767,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -759,6 +802,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -770,8 +830,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -840,8 +900,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -871,7 +931,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -903,6 +966,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -914,8 +994,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -984,8 +1064,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -1015,7 +1095,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -1047,6 +1130,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -1058,8 +1158,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1128,8 +1228,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -1159,7 +1259,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -1191,6 +1294,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }
@@ -1202,8 +1322,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -1272,8 +1392,8 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
@@ -1303,7 +1423,10 @@
                       "enum": [
                         "TOGGLE",
                         "ON",
-                        "OFF"
+                        "OFF",
+                        "BRIGHTNESS_UP",
+                        "BRIGHTNESS_DOWN",
+                        "SET_BRIGHTNESS"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -1335,6 +1458,23 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "description": "Brightness (0-255)",
+                      "title": "Brightness"
+                    },
+                    "transition": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "default": 0.0,
+                      "description": "Transition Time (seconds)",
+                      "title": "Transition"
                     }
                   }
                 }

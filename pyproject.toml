@@ -27,7 +27,9 @@ dependencies = [
     "qrcode==8.2",
     "gpiod==2.3.0",
     "requests==2.32.5",
-    "packaging==25.0"
+    "packaging==25.0",
+    "aioesphomeapi>=29.0.0",
+    "zeroconf>=0.148.0"
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }

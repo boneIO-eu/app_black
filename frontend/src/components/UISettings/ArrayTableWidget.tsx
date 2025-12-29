@@ -178,17 +178,38 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleAddFromDiscovery = (device: any) => {
     console.log('➕ ArrayTableWidget: handleAddFromDiscovery called', device);
     setEditingIndex(null);
-    // Pre-fill form with autodiscovered device data
-    setEditingItem({
-      id: device.id,
-      name: device.name || device.id,
-      protocol: 'mqtt',
-      device_type: 'boneio_black',
-      mqtt: {
-        outputs: device.outputs || [],
-        covers: device.covers || [],
-      },
-    });
+    
+    // Check if this is an ESPHome device
+    if (device.protocol === 'esphome_api' || device.esphome_api) {
+      // Pre-fill form with ESPHome device data
+      setEditingItem({
+        id: device.id,
+        name: device.name || device.id,
+        protocol: 'esphome_api',
+        device_type: 'esphome',
+        esphome_api: {
+          host: device.esphome_api?.host || '',
+          port: device.esphome_api?.port || 6053,
+          password: device.esphome_api?.password || '',
+          encryption_key: device.esphome_api?.encryption_key || '',
+          switches: device.esphome_api?.switches || [],
+          lights: device.esphome_api?.lights || [],
+          covers: device.esphome_api?.covers || [],
+        },
+      });
+    } else {
+      // Pre-fill form with MQTT/BoneIO device data
+      setEditingItem({
+        id: device.id,
+        name: device.name || device.id,
+        protocol: device.protocol || 'mqtt',
+        device_type: device.device_type || 'boneio_black',
+        mqtt: {
+          outputs: device.outputs || [],
+          covers: device.covers || [],
+        },
+      });
+    }
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
@@ -301,8 +322,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'remote_devices') {
       // Remote device requires id, name, protocol
       isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol;
-      errorMessage = t('array_table_widget.remote_device_fields_required');
-      console.log(dataToSave)
+      
+      // ESPHome API also requires host
+      if (isValid && dataToSave.protocol === 'esphome_api') {
+        isValid = !!dataToSave.esphome_api?.host;
+        if (!isValid) {
+          errorMessage = t('remote_devices.esphome_host_required') || 'ESPHome host is required';
+        }
+      }
+      
+      if (!errorMessage) {
+        errorMessage = t('array_table_widget.remote_device_fields_required');
+      }
+      console.log('Remote device validation:', dataToSave, 'isValid:', isValid);
     } else {
       // For other sections, allow saving (or add specific validation)
       isValid = true;

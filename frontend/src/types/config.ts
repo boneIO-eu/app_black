@@ -21,7 +21,15 @@ export type ActionType =
   | 'output_over_mqtt' | 'OUTPUT_OVER_MQTT' | 'Output_Over_Mqtt'
   | 'cover_over_mqtt' | 'COVER_OVER_MQTT' | 'Cover_Over_Mqtt'
   | 'remote_output' | 'REMOTE_OUTPUT' | 'Remote_Output'
-  | 'remote_cover' | 'REMOTE_COVER' | 'Remote_Cover';
+  | 'remote_cover' | 'REMOTE_COVER' | 'Remote_Cover'
+  | 'esphome_switch' | 'ESPHOME_SWITCH' | 'Esphome_Switch'
+  | 'esphome_light' | 'ESPHOME_LIGHT' | 'Esphome_Light'
+  | 'esphome_cover' | 'ESPHOME_COVER' | 'Esphome_Cover';
+
+/** ESPHome light action options */
+export type ESPHomeLightAction = 
+  | 'TOGGLE' | 'ON' | 'OFF' 
+  | 'BRIGHTNESS_UP' | 'BRIGHTNESS_DOWN' | 'SET_BRIGHTNESS';
 
 /** Output action options */
 export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
@@ -75,6 +83,26 @@ export interface Action {
   cover_id?: string;
   /** Extra data (for cover position/tilt) */
   data?: ActionData;
+  
+  // ESPHome-specific fields
+  /** ESPHome device ID (from remote_devices with protocol: esphome_api) */
+  esphome_device?: string;
+  /** ESPHome switch ID (object_id) */
+  switch_id?: string;
+  /** ESPHome light ID (object_id) */
+  light_id?: string;
+  /** ESPHome switch action */
+  action_switch?: OutputAction;
+  /** ESPHome light action */
+  action_light?: ESPHomeLightAction;
+  /** ESPHome cover action */
+  action_esphome_cover?: CoverAction;
+  /** Brightness (0-255) for light actions */
+  brightness?: number;
+  /** Color temperature in mireds */
+  color_temp?: number;
+  /** Transition time in seconds */
+  transition?: number;
 }
 
 /** Action type keys for event entity */
@@ -263,6 +291,99 @@ export interface AreaEntity {
   id: string;
   /** Display name */
   name: string;
+}
+
+// ============================================
+// ESPHome entity types
+// ============================================
+
+/** ESPHome switch entity */
+export interface ESPHomeSwitchEntity {
+  /** Switch ID (object_id) */
+  id: string;
+  /** Display name */
+  name?: string;
+  /** Entity key (from discovery) */
+  key?: number;
+}
+
+/** ESPHome light entity with capabilities */
+export interface ESPHomeLightEntity {
+  /** Light ID (object_id) */
+  id: string;
+  /** Display name */
+  name?: string;
+  /** Entity key (from discovery) */
+  key?: number;
+  /** Supports brightness control */
+  supports_brightness?: boolean;
+  /** Supports color temperature */
+  supports_color_temp?: boolean;
+  /** Supports RGB color */
+  supports_rgb?: boolean;
+  /** Supports RGBW color */
+  supports_rgbw?: boolean;
+  /** Minimum color temperature in mireds */
+  min_mireds?: number;
+  /** Maximum color temperature in mireds */
+  max_mireds?: number;
+}
+
+/** ESPHome cover entity */
+export interface ESPHomeCoverEntity {
+  /** Cover ID (object_id) */
+  id: string;
+  /** Display name */
+  name?: string;
+  /** Entity key (from discovery) */
+  key?: number;
+  /** Supports position control */
+  supports_position?: boolean;
+  /** Supports tilt control */
+  supports_tilt?: boolean;
+}
+
+/** ESPHome API configuration */
+export interface ESPHomeApiConfig {
+  /** IP address or hostname */
+  host: string;
+  /** API port (default 6053) */
+  port?: number;
+  /** API password */
+  password?: string;
+  /** Encryption key (base64) */
+  encryption_key?: string;
+  /** Discovered/configured switches */
+  switches?: ESPHomeSwitchEntity[];
+  /** Discovered/configured lights */
+  lights?: ESPHomeLightEntity[];
+  /** Discovered/configured covers */
+  covers?: ESPHomeCoverEntity[];
+}
+
+/** Remote device protocol */
+export type RemoteDeviceProtocol = 'mqtt' | 'esphome_api';
+
+/** Remote device type */
+export type RemoteDeviceType = 'boneio_black' | 'esphome' | 'generic';
+
+/** Remote device entity */
+export interface RemoteDeviceEntity {
+  /** Device ID */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Communication protocol */
+  protocol: RemoteDeviceProtocol;
+  /** Device type */
+  device_type?: RemoteDeviceType;
+  /** MQTT configuration (for protocol: mqtt) */
+  mqtt?: {
+    outputs?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string }[];
+  };
+  /** ESPHome API configuration (for protocol: esphome_api) */
+  esphome_api?: ESPHomeApiConfig;
 }
 
 // ============================================

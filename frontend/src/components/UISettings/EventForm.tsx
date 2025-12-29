@@ -117,7 +117,9 @@ const EventForm: React.FC<EventFormProps> = ({
   const boneioInputOptions = currentInput && !availableInputs.includes(currentInput)
     ? [...new Set([currentInput, ...availableInputs])].sort()
     : availableInputs;
-  const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [];
+  const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [
+    'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
+  ];
   const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum || [];
   const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum || [];
 
@@ -216,7 +218,7 @@ const EventForm: React.FC<EventFormProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 py-2">
       {/* Validation Errors - sticky at top - pokazuj tylko gdy użytkownik próbował zapisać */}
       {attemptedSubmit && validationErrors.length > 0 && (
         <div className="alert alert-error sticky top-0 z-10 shadow-lg">
@@ -231,175 +233,169 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* DaisyUI Tabs */}
-      <div className="tabs tabs-bordered tabs-lifted">
-        <a 
-          className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('basic')}
-        >
-          {t('settings.basic_settings')}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'single' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('single')}
-        >
-          {t('event_form.single_click')}
-          {data.actions?.single && data.actions.single.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.single.length}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'double' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('double')}
-        >
-          {t('event_form.double_click')}
-          {data.actions?.double && data.actions.double.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.double.length}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'triple' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('triple')}
-        >
-          {t('event_form.triple_click')}
-          {data.actions?.triple && data.actions.triple.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.triple.length}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'long' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('long')}
-        >
-          {t('event_form.long_click')}
-          {data.actions?.long && data.actions.long.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.long.length}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'sequences' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('sequences')}
-        >
-          {t('event_form.sequences')}
-          {((data.actions?.double_then_long && data.actions.double_then_long.length > 0) ||
-            (data.actions?.single_then_long && data.actions.single_then_long.length > 0) ||
-            (data.actions?.double_then_single && data.actions.double_then_single.length > 0)) && (
-            <span className="badge badge-sm badge-secondary ml-2">
-              {(data.actions?.double_then_long?.length || 0) + 
-               (data.actions?.single_then_long?.length || 0) + 
-               (data.actions?.double_then_single?.length || 0)}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('advanced')}
-        >
-          {t('settings.advanced_settings')}
-        </a>
+      {/* DaisyUI Tabs - lifted style with bordered content */}
+      <div role="tablist" className="tabs tabs-box">
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={t('settings.basic_settings')}
+          checked={activeTab === 'basic'}
+          onChange={() => setActiveTab('basic')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={`${t('event_form.single_click')}${data.actions?.single?.length ? ` (${data.actions.single.length})` : ''}`}
+          checked={activeTab === 'single'}
+          onChange={() => setActiveTab('single')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={`${t('event_form.double_click')}${data.actions?.double?.length ? ` (${data.actions.double.length})` : ''}`}
+          checked={activeTab === 'double'}
+          onChange={() => setActiveTab('double')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={`${t('event_form.triple_click')}${data.actions?.triple?.length ? ` (${data.actions.triple.length})` : ''}`}
+          checked={activeTab === 'triple'}
+          onChange={() => setActiveTab('triple')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={`${t('event_form.long_click')}${data.actions?.long?.length ? ` (${data.actions.long.length})` : ''}`}
+          checked={activeTab === 'long'}
+          onChange={() => setActiveTab('long')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={`${t('event_form.sequences')}${((data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)) > 0 ? ` (${(data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)})` : ''}`}
+          checked={activeTab === 'sequences'}
+          onChange={() => setActiveTab('sequences')}
+        />
+        <input 
+          type="radio" 
+          name="event_tabs" 
+          role="tab" 
+          className="tab" 
+          aria-label={t('settings.advanced_settings')}
+          checked={activeTab === 'advanced'}
+          onChange={() => setActiveTab('advanced')}
+        />
       </div>
 
-      {/* Basic Settings Tab */}
-      {activeTab === 'basic' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('outputs.display_name')}</span>
-              </label>
-              <input
-                type="text"
-                className="input w-full"
-                placeholder={t('sensors.name_placeholder')}
-                value={data.name || ''}
-                onChange={(e) => updateField('name', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('common.optional')}</span>
-              </label>
-            </div>
-
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">BoneIO Input</span>
-              </label>
-              <Select
-                value={data.boneio_input || ''}
-                onValueChange={(value) => updateField('boneio_input', value)}
-              >
-                <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
-                  <SelectValue placeholder="Select input..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {boneioInputOptions.map((input: string) => (
-                    <SelectItem key={input} value={input}>
-                      {input}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
-                <label className="label max-w-full">
-                  <span className="label-text-alt text-warning whitespace-normal break-all">
-                    {t('inputs.all_inputs_used')}
-                  </span>
+      {/* Tab Content with border */}
+      <div className="border border-base-300 rounded-b-box rounded-tr-box bg-base-100 p-4">
+        {/* Basic Settings Tab */}
+        {activeTab === 'basic' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('outputs.display_name')}</span>
                 </label>
-              )}
-              {usedInputs.length > 0 && (
-                <label className="label max-w-full">
-                  <span className="label-text-alt text-info whitespace-normal break-all">
-                    {t('inputs.used_inputs')}: {usedInputs.length > 5 
-                      ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
-                      : usedInputs.join(', ')
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder={t('sensors.name_placeholder')}
+                  value={data.name || ''}
+                  onChange={(e) => updateField('name', e.target.value)}
+                />
+                <label className="label">
+                  <span className="label-text-alt">{t('common.optional')}</span>
+                </label>
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">BoneIO Input</span>
+                </label>
+                <Select
+                  value={data.boneio_input || ''}
+                  onValueChange={(value) => updateField('boneio_input', value)}
+                >
+                  <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                    <SelectValue placeholder="Select input..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {boneioInputOptions.map((input: string) => (
+                      <SelectItem key={input} value={input}>
+                        {input}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
+                  <label className="label max-w-full">
+                    <span className="label-text-alt text-warning whitespace-normal break-all">
+                      {t('inputs.all_inputs_used')}
+                    </span>
+                  </label>
+                )}
+                {usedInputs.length > 0 && (
+                  <label className="label max-w-full">
+                    <span className="label-text-alt text-info whitespace-normal break-all">
+                      {t('inputs.used_inputs')}: {usedInputs.length > 5 
+                        ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
+                        : usedInputs.join(', ')
+                      }
+                    </span>
+                  </label>
+                )}
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">Area / Room</span>
+                </label>
+                <Select
+                  value={data.area || '_none_'}
+                  onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="No area (main device)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none_">No area (main device)</SelectItem>
+                    {allAreas.map((area) => (
+                      <SelectItem key={area.id} value={area.id}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <label className="label">
+                  <span className="label-text-alt">
+                    {allAreas.length === 0 
+                      ? 'Define areas in the Areas/Rooms section first'
+                      : 'Creates sub-device linked to main BoneIO device'
                     }
                   </span>
                 </label>
-              )}
-            </div>
+              </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">Area / Room</span>
-              </label>
-              <Select
-                value={data.area || '_none_'}
-                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No area (main device)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">No area (main device)</SelectItem>
-                  {allAreas.map((area) => (
-                    <SelectItem key={area.id} value={area.id}>
-                      {area.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="label">
-                <span className="label-text-alt">
-                  {allAreas.length === 0 
-                    ? 'Define areas in the Areas/Rooms section first'
-                    : 'Creates sub-device linked to main BoneIO device'
-                  }
-                </span>
-              </label>
             </div>
-
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Single Press Actions Tab */}
-      {activeTab === 'single' && (
+        {/* Single Press Actions Tab */}
+        {activeTab === 'single' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.single_actions')}</h3>
@@ -425,8 +421,8 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* Double Press Actions Tab */}
-      {activeTab === 'double' && (
+        {/* Double Press Actions Tab */}
+        {activeTab === 'double' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.double_actions')}</h3>
@@ -452,8 +448,8 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* Triple Press Actions Tab */}
-      {activeTab === 'triple' && (
+        {/* Triple Press Actions Tab */}
+        {activeTab === 'triple' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.triple_actions')}</h3>
@@ -479,8 +475,8 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* Long Press Actions Tab */}
-      {activeTab === 'long' && (
+        {/* Long Press Actions Tab */}
+        {activeTab === 'long' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.long_actions')}</h3>
@@ -506,8 +502,8 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* Sequences Tab */}
-      {activeTab === 'sequences' && (
+        {/* Sequences Tab */}
+        {activeTab === 'sequences' && (
         <div className="space-y-6">
           <div className="alert alert-info">
             <span>{t('event_form.sequences_hint')}</span>
@@ -596,8 +592,8 @@ const EventForm: React.FC<EventFormProps> = ({
         </div>
       )}
 
-      {/* Advanced Settings Tab */}
-      {activeTab === 'advanced' && (
+        {/* Advanced Settings Tab */}
+        {activeTab === 'advanced' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-control">
@@ -692,6 +688,7 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

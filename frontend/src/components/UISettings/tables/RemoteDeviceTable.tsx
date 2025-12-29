@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-import { FaPlus, FaWifi, FaLink } from 'react-icons/fa';
+import { FaPlus, FaWifi, FaLink, FaSync, FaSearch } from 'react-icons/fa';
 
 interface AutodiscoveredDevice {
   id: string;
@@ -24,13 +24,17 @@ interface RemoteDeviceTableProps {
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
   onAddFromDiscovery?: (device: AutodiscoveredDevice) => void;
+  onUpdateItem?: (index: number, updatedItem: any) => void;
 }
 
-const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, onDelete, onAddFromDiscovery }) => {
+const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, onDelete, onAddFromDiscovery, onUpdateItem }) => {
   const { t } = useTranslation();
   const [autodiscoveredDevices, setAutodiscoveredDevices] = useState<AutodiscoveredDevice[]>([]);
   const [managedByDevices, setManagedByDevices] = useState<ManagedByDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [discoveringIndex, setDiscoveringIndex] = useState<number | null>(null);
+  const [scanningNetwork, setScanningNetwork] = useState(false);
+  const [scannedEsphomeDevices, setScannedEsphomeDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
 
   // Fetch autodiscovered devices and managed_by devices
   useEffect(() => {
@@ -85,43 +89,149 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     items
   });
 
+  /**
+   * Scan network for ESPHome devices via mDNS
+   */
+  const scanEsphomeNetwork = async () => {
+    setScanningNetwork(true);
+    setScannedEsphomeDevices([]);
+    try {
+      const response = await fetch('/api/remote-devices/scan-esphome?timeout=3');
+      if (response.ok) {
+        const data = await response.json();
+        setScannedEsphomeDevices(data.devices || []);
+      }
+    } catch (error) {
+      console.error('Failed to scan ESPHome network:', error);
+    } finally {
+      setScanningNetwork(false);
+    }
+  };
+
+  /**
+   * Discover entities for an ESPHome device
+   */
+  const discoverEsphomeEntities = async (index: number, item: any) => {
+    const esphomeConfig = item?.esphome_api;
+    if (!esphomeConfig?.host) {
+      console.error('No host configured for ESPHome device');
+      return;
+    }
+
+    setDiscoveringIndex(index);
+    try {
+      const response = await fetch('/api/remote-devices/discover-esphome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: esphomeConfig.host,
+          port: esphomeConfig.port || 6053,
+          password: esphomeConfig.password || '',
+          encryption_key: esphomeConfig.encryption_key || '',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Discovery failed');
+      }
+
+      const result = await response.json();
+      
+      // Update the item with discovered entities
+      const updatedItem = {
+        ...item,
+        esphome_api: {
+          ...esphomeConfig,
+          switches: result.switches || [],
+          lights: result.lights || [],
+          covers: result.covers || [],
+        },
+      };
+      
+      onUpdateItem?.(index, updatedItem);
+    } catch (error) {
+      console.error('ESPHome discovery failed:', error);
+    } finally {
+      setDiscoveringIndex(null);
+    }
+  };
+
+  /**
+   * Get entity counts for an ESPHome device
+   */
+  const getEsphomeEntityCounts = (item: any) => {
+    const esphome = item?.esphome_api;
+    if (!esphome) return null;
+    const switches = esphome.switches?.length || 0;
+    const lights = esphome.lights?.length || 0;
+    const covers = esphome.covers?.length || 0;
+    return { switches, lights, covers, total: switches + lights + covers };
+  };
+
+  // Check if we have any discovered devices (BoneIO or ESPHome)
+  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0;
+  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length;
+
   return (
     <div className="space-y-6">
-      {/* Autodiscovered devices section */}
-      {availableAutodiscovered.length > 0 && (
-        <div className="bg-base-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <FaWifi className="text-success" />
-            <h3 className="font-semibold">{t('remote_devices.autodiscovered_title')}</h3>
-            <span className="badge badge-success badge-sm">{availableAutodiscovered.length}</span>
+      {/* Autodiscovered devices section - includes both BoneIO and ESPHome */}
+      <div className="bg-base-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <FaWifi className="text-success" />
+          <h3 className="font-semibold">{t('remote_devices.autodiscovered_title')}</h3>
+          {totalDiscovered > 0 && (
+            <span className="badge badge-success badge-sm">{totalDiscovered}</span>
+          )}
+          <div className="flex-grow" />
+          <button
+            className={`btn btn-sm btn-secondary gap-1 ${scanningNetwork ? 'loading' : ''}`}
+            onClick={scanEsphomeNetwork}
+            disabled={scanningNetwork}
+            title={t('remote_devices.scan_network') || 'Scan for ESPHome devices'}
+          >
+            <FaSearch className="w-3 h-3" />
+            {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_network') || 'Scan ESPHome')}
+          </button>
+        </div>
+        <p className="text-sm text-base-content/70 mb-3">
+          {t('remote_devices.autodiscovered_hint')}
+        </p>
+        
+        {(isLoading || scanningNetwork) && !hasDiscoveredDevices && (
+          <div className="flex items-center gap-2 text-base-content/50 py-4">
+            <span className="loading loading-spinner loading-sm"></span>
+            {t('remote_devices.scanning')}
           </div>
-          <p className="text-sm text-base-content/70 mb-3">
-            {t('remote_devices.autodiscovered_hint')}
-          </p>
+        )}
+
+        {hasDiscoveredDevices && (
           <div className="overflow-x-auto">
             <Table className="table table-zebra w-full">
               <Thead>
                 <Tr>
                   <Th>{t('remote_devices.device_id')}</Th>
                   <Th>{t('remote_devices.device_name')}</Th>
-                  <Th>{t('remote_devices.outputs')}</Th>
-                  <Th>{t('remote_devices.covers')}</Th>
+                  <Th>{t('remote_devices.protocol')}</Th>
+                  <Th>{t('remote_devices.outputs')}/{t('remote_devices.covers')}</Th>
                   <Th>{t('outputs.actions')}</Th>
                 </Tr>
               </Thead>
               <Tbody>
+                {/* BoneIO Black autodiscovered devices */}
                 {availableAutodiscovered.map((device) => (
                   <Tr key={device.id} className="hover:bg-base-300">
                     <Td className="font-mono">{device.id}</Td>
                     <Td>{device.name || device.id}</Td>
                     <Td>
-                      <span className="badge badge-outline badge-sm">
-                        {device.outputs?.length || 0}
-                      </span>
+                      <span className="badge badge-primary badge-sm">MQTT</span>
                     </Td>
                     <Td>
+                      <span className="badge badge-outline badge-sm mr-1">
+                        {device.outputs?.length || 0} out
+                      </span>
                       <span className="badge badge-outline badge-sm">
-                        {device.covers?.length || 0}
+                        {device.covers?.length || 0} cov
                       </span>
                     </Td>
                     <Td>
@@ -136,18 +246,52 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     </Td>
                   </Tr>
                 ))}
+                {/* ESPHome scanned devices */}
+                {scannedEsphomeDevices.map((device, idx) => (
+                  <Tr key={`esphome-${idx}`} className="hover:bg-base-300">
+                    <Td className="font-mono text-xs">{device.ip}</Td>
+                    <Td>{device.name}</Td>
+                    <Td>
+                      <span className="badge badge-secondary badge-sm">ESPHome</span>
+                    </Td>
+                    <Td>
+                      <span className="text-xs opacity-60">:{device.port}</span>
+                    </Td>
+                    <Td>
+                      <button
+                        className="btn btn-success btn-sm gap-1"
+                        onClick={() => onAddFromDiscovery?.({
+                          id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                          name: device.name,
+                          protocol: 'esphome_api',
+                          device_type: 'esphome',
+                          outputs: [],
+                          covers: [],
+                          // Pass ESPHome specific data
+                          esphome_api: {
+                            host: device.ip,
+                            port: device.port,
+                          }
+                        } as any)}
+                        title={t('remote_devices.add_from_discovery')}
+                      >
+                        <FaPlus className="w-3 h-3" />
+                        {t('remote_devices.add')}
+                      </button>
+                    </Td>
+                  </Tr>
+                ))}
               </Tbody>
             </Table>
           </div>
-        </div>
-      )}
+        )}
 
-      {isLoading && autodiscoveredDevices.length === 0 && (
-        <div className="flex items-center gap-2 text-base-content/50">
-          <span className="loading loading-spinner loading-sm"></span>
-          {t('remote_devices.scanning')}
-        </div>
-      )}
+        {!isLoading && !scanningNetwork && !hasDiscoveredDevices && (
+          <p className="text-sm text-base-content/50 py-2">
+            {t('remote_devices.no_discovered') || 'No devices discovered. BoneIO devices appear automatically, click "Scan ESPHome" to find ESPHome devices.'}
+          </p>
+        )}
+      </div>
 
       {/* Configured devices section */}
       <div className="overflow-x-auto">
@@ -179,12 +323,36 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                   </span>
                 </Td>
                 <Td>
-                  <TableActions
-                    onEdit={() => onEdit(index)}
-                    onDelete={() => onDelete(index)}
-                    editTitle={t('remote_devices.edit')}
-                    deleteTitle={t('remote_devices.delete')}
-                  />
+                  <div className="flex items-center gap-2">
+                    {/* Discover button for ESPHome devices */}
+                    {item.protocol === 'esphome_api' && (
+                      <button
+                        className={`btn btn-xs btn-secondary ${discoveringIndex === index ? 'loading' : ''}`}
+                        onClick={() => discoverEsphomeEntities(index, item)}
+                        disabled={discoveringIndex === index}
+                        title={t('remote_devices.discover_entities') || 'Discover Entities'}
+                      >
+                        {discoveringIndex !== index && <FaSync className="w-3 h-3" />}
+                        {(() => {
+                          const counts = getEsphomeEntityCounts(item);
+                          if (counts && counts.total > 0) {
+                            return (
+                              <span className="badge badge-xs badge-success ml-1">
+                                {counts.total}
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </button>
+                    )}
+                    <TableActions
+                      onEdit={() => onEdit(index)}
+                      onDelete={() => onDelete(index)}
+                      editTitle={t('remote_devices.edit')}
+                      deleteTitle={t('remote_devices.delete')}
+                    />
+                  </div>
                 </Td>
               </Tr>
             ))}

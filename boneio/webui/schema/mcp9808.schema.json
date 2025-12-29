@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -49,8 +49,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",

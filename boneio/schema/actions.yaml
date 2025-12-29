@@ -64,12 +64,17 @@ schema:
       action: ['output', 'output_over_mqtt', 'remote_output']
     forbidden_if:
       action: ['cover', 'mqtt', 'cover_over_mqtt', 'remote_cover']
-    allowed: ['TOGGLE', 'ON', 'OFF']
+    allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'SET_BRIGHTNESS']
     coerce: action_field
     default: TOGGLE
     case_insensitive: true
     meta:
       label: If output action chosen then what action to perform.
+      description: |
+        For ESPHome lights, additional actions are available:
+        - BRIGHTNESS_UP: Increase brightness by 10%
+        - BRIGHTNESS_DOWN: Decrease brightness by 10%
+        - SET_BRIGHTNESS: Set specific brightness (requires brightness field)
   action_mqtt_msg:
     type: string
     required_if:
@@ -87,7 +92,7 @@ schema:
     meta:
       label: boneIO id to perform action on. Use only with action type `output_over_mqtt` or `cover_over_mqtt`.
   
-  # Remote device actions - control outputs/covers on remote devices defined in remote_devices section
+  # Remote device actions - control outputs/covers on remote devices (BoneIO MQTT or ESPHome API)
   remote_device:
     type: string
     required_if:
@@ -98,6 +103,7 @@ schema:
       label: Remote Device ID
       description: |
         ID of the remote device (from remote_devices section).
+        Works with both BoneIO (MQTT) and ESPHome (native API) devices.
         Example: "salon_boneio", "garage_esp"
   output_id:
     type: string
@@ -108,8 +114,9 @@ schema:
     meta:
       label: Remote Output ID
       description: |
-        ID of the output on the remote device.
-        Example: "relay_1", "light_kitchen"
+        ID of the output/switch/light on the remote device.
+        For ESPHome: can be switch or light entity.
+        Example: "relay_1", "light_kitchen", "ceiling_light"
   cover_id:
     type: string
     required_if:
@@ -121,3 +128,22 @@ schema:
       description: |
         ID of the cover on the remote device.
         Example: "cover_living_room", "blinds_bedroom"
+  
+  # Optional fields for ESPHome lights (used with remote_output when entity is a light)
+  brightness:
+    type: integer
+    required: False
+    min: 0
+    max: 255
+    meta:
+      label: Brightness (0-255)
+      description: |
+        Brightness level for SET_BRIGHTNESS action or initial brightness for ON action.
+        Only used for ESPHome light entities. 0 = off, 255 = full brightness.
+  transition:
+    type: float
+    required: False
+    default: 0.0
+    meta:
+      label: Transition Time (seconds)
+      description: "Time in seconds to transition to the new state. Only for ESPHome lights."

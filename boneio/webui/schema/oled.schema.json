@@ -4,8 +4,8 @@
   "properties": {
     "oled": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "default": {},
       "properties": {
@@ -72,8 +72,8 @@
           ],
           "items": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "sensor_type": {

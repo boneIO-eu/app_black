@@ -56,9 +56,16 @@ interface Area {
 interface RemoteDevice {
   id: string;
   name?: string;
+  protocol?: string;
   mqtt?: {
     outputs?: { id: string; name?: string }[];
     covers?: { id: string; name?: string }[];
+  };
+  esphome_api?: {
+    host?: string;
+    switches?: { id: string; name?: string; key?: number }[];
+    lights?: { id: string; name?: string; key?: number; supports_brightness?: boolean; supports_color_temp?: boolean; supports_rgb?: boolean; min_mireds?: number; max_mireds?: number }[];
+    covers?: { id: string; name?: string; key?: number; supports_position?: boolean; supports_tilt?: boolean }[];
   };
 }
 
@@ -434,8 +441,10 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               value={action.remote_device || ''}
               onValueChange={(value) => {
                 onUpdate('remote_device', value);
-                // Clear output_id when device changes
+                // Clear output_id and brightness/transition when device changes
                 onUpdate('output_id', '');
+                onUpdate('brightness', undefined);
+                onUpdate('transition', undefined);
               }}
             >
               <SelectTrigger className="w-full">
@@ -444,7 +453,12 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <SelectContent>
                 {allRemoteDevices.map((device) => (
                   <SelectItem key={device.id} value={device.id}>
-                    {device.name || device.id}
+                    <div className="flex flex-col">
+                      <span>{device.name || device.id}</span>
+                      <span className="text-xs opacity-60">
+                        {device.protocol === 'esphome_api' ? 'ESPHome' : 'MQTT'}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -464,13 +478,25 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                 <SelectValue placeholder={t('event_form.select_output_id')}>
                   {(() => {
                     const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                    const outputs = selectedDevice?.mqtt?.outputs || [];
-                    const selectedOutput = outputs.find((o: any) => o.id === action.output_id);
-                    if (selectedOutput) {
+                    // For ESPHome: combine switches and lights
+                    // For MQTT: use outputs
+                    const isEspHome = selectedDevice?.protocol === 'esphome_api';
+                    let allEntities: any[] = [];
+                    if (isEspHome) {
+                      const switches = (selectedDevice?.esphome_api?.switches || []).map((s: any) => ({ ...s, _type: 'switch' }));
+                      const lights = (selectedDevice?.esphome_api?.lights || []).map((l: any) => ({ ...l, _type: 'light' }));
+                      allEntities = [...switches, ...lights];
+                    } else {
+                      allEntities = selectedDevice?.mqtt?.outputs || [];
+                    }
+                    const selectedEntity = allEntities.find((o: any) => o.id === action.output_id);
+                    if (selectedEntity) {
                       return (
                         <div className="flex flex-col items-start">
-                          <span className="font-medium">{selectedOutput.name || selectedOutput.id}</span>
-                          <span className="text-xs opacity-60">ID: {selectedOutput.id}</span>
+                          <span className="font-medium">{selectedEntity.name || selectedEntity.id}</span>
+                          <span className="text-xs opacity-60">
+                            {selectedEntity._type === 'light' ? '💡 Light' : selectedEntity._type === 'switch' ? '🔌 Switch' : `ID: ${selectedEntity.id}`}
+                          </span>
                         </div>
                       );
                     }
@@ -481,12 +507,28 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <SelectContent>
                 {(() => {
                   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                  const outputs = selectedDevice?.mqtt?.outputs || [];
-                  return outputs.map((output: any) => (
-                    <SelectItem key={output.id} value={output.id}>
+                  const isEspHome = selectedDevice?.protocol === 'esphome_api';
+                  let allEntities: any[] = [];
+                  if (isEspHome) {
+                    const switches = (selectedDevice?.esphome_api?.switches || []).map((s: any) => ({ ...s, _type: 'switch' }));
+                    const lights = (selectedDevice?.esphome_api?.lights || []).map((l: any) => ({ ...l, _type: 'light' }));
+                    allEntities = [...switches, ...lights];
+                  } else {
+                    allEntities = selectedDevice?.mqtt?.outputs || [];
+                  }
+                  return allEntities.map((entity: any) => (
+                    <SelectItem key={entity.id} value={entity.id}>
                       <div className="flex flex-col">
-                        <span className="font-medium">{output.name || output.id}</span>
-                        <span className="text-xs opacity-60">ID: {output.id}</span>
+                        <span className="font-medium">{entity.name || entity.id}</span>
+                        <span className="text-xs opacity-60">
+                          {entity._type === 'light' ? (
+                            <>💡 Light {entity.supports_brightness && '• Dimmable'}</>
+                          ) : entity._type === 'switch' ? (
+                            <>🔌 Switch</>
+                          ) : (
+                            <>ID: {entity.id}</>
+                          )}
+                        </span>
                       </div>
                     </SelectItem>
                   ));
@@ -514,12 +556,118 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <SelectContent>
                 {actionOutputOptions.map((option: string) => (
                   <SelectItem key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
+                    {option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Light controls - shown for ESPHome lights */}
+          {(() => {
+            const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
+            const isEspHome = selectedDevice?.protocol === 'esphome_api';
+            const lights = selectedDevice?.esphome_api?.lights || [];
+            const selectedLight = lights.find((l: any) => l.id === action.output_id);
+            const isLight = isEspHome && selectedLight;
+            
+            if (!isLight) return null;
+            
+            // Show brightness for ON, TOGGLE, SET_BRIGHTNESS if light supports it
+            const showBrightness = selectedLight?.supports_brightness && 
+              ['ON', 'TOGGLE', 'SET_BRIGHTNESS'].includes(action.action_output || '');
+            
+            // Show color temp for ON, TOGGLE if light supports it
+            const showColorTemp = selectedLight?.supports_color_temp && 
+              ['ON', 'TOGGLE'].includes(action.action_output || '');
+            
+            return (
+              <>
+                {showBrightness && (
+                  <div className="form-control mb-3">
+                    <label className="label cursor-pointer justify-start gap-2 pb-1">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm checkbox-primary"
+                        checked={action.brightness !== undefined}
+                        onChange={(e) => onUpdate('brightness', e.target.checked ? 255 : undefined)}
+                      />
+                      <span className="label-text font-medium">{t('event_form.brightness') || 'Brightness'}</span>
+                      {action.brightness !== undefined && (
+                        <span className="label-text-alt ml-auto">{Math.round((action.brightness / 255) * 100)}%</span>
+                      )}
+                    </label>
+                    {action.brightness !== undefined && (
+                      <div className="pl-7">
+                        <input
+                          type="range"
+                          min="1"
+                          max="255"
+                          value={action.brightness}
+                          onChange={(e) => onUpdate('brightness', parseInt(e.target.value))}
+                          className="range range-primary range-sm w-full"
+                        />
+                        <div className="w-full flex justify-between text-xs opacity-50">
+                          <span>1%</span>
+                          <span>50%</span>
+                          <span>100%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {showColorTemp && (
+                  <div className="form-control mb-3">
+                    <label className="label cursor-pointer justify-start gap-2 pb-1">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm checkbox-warning"
+                        checked={action.color_temp !== undefined}
+                        onChange={(e) => onUpdate('color_temp', e.target.checked ? (selectedLight?.min_mireds || 153) : undefined)}
+                      />
+                      <span className="label-text font-medium">{t('event_form.color_temp') || 'Color Temperature'}</span>
+                      {action.color_temp !== undefined && (
+                        <span className="label-text-alt ml-auto">{action.color_temp} mireds</span>
+                      )}
+                    </label>
+                    {action.color_temp !== undefined && (
+                      <div className="pl-7">
+                        <input
+                          type="range"
+                          min={selectedLight?.min_mireds || 153}
+                          max={selectedLight?.max_mireds || 500}
+                          value={action.color_temp}
+                          onChange={(e) => onUpdate('color_temp', parseInt(e.target.value))}
+                          className="range range-warning range-sm w-full"
+                        />
+                        <div className="w-full flex justify-between text-xs opacity-50">
+                          <span>{t('event_form.color_temp_cool') || 'Cool'}</span>
+                          <span>{t('event_form.color_temp_warm') || 'Warm'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="form-control mb-3">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('event_form.transition') || 'Transition (seconds)'}</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    step="0.1"
+                    className="input input-bordered w-full"
+                    value={action.transition || 0}
+                    onChange={(e) => onUpdate('transition', parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </div>
+              </>
+            );
+          })()}
         </>
       )}
 
@@ -543,7 +691,12 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <SelectContent>
                 {allRemoteDevices.map((device) => (
                   <SelectItem key={device.id} value={device.id}>
-                    {device.name || device.id}
+                    <div className="flex flex-col">
+                      <span>{device.name || device.id}</span>
+                      <span className="text-xs opacity-60">
+                        {device.protocol === 'esphome_api' ? 'ESPHome' : 'MQTT'}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -563,7 +716,11 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                 <SelectValue placeholder={t('event_form.select_cover_id')}>
                   {(() => {
                     const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                    const covers = selectedDevice?.mqtt?.covers || [];
+                    // For ESPHome: use esphome_api.covers, for MQTT: use mqtt.covers
+                    const isEspHome = selectedDevice?.protocol === 'esphome_api';
+                    const covers = isEspHome 
+                      ? (selectedDevice?.esphome_api?.covers || [])
+                      : (selectedDevice?.mqtt?.covers || []);
                     const selectedCover = covers.find((c: any) => c.id === action.cover_id);
                     if (selectedCover) {
                       return (
@@ -580,7 +737,10 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               <SelectContent>
                 {(() => {
                   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                  const covers = selectedDevice?.mqtt?.covers || [];
+                  const isEspHome = selectedDevice?.protocol === 'esphome_api';
+                  const covers = isEspHome 
+                    ? (selectedDevice?.esphome_api?.covers || [])
+                    : (selectedDevice?.mqtt?.covers || []);
                   return covers.map((cover: any) => (
                     <SelectItem key={cover.id} value={cover.id}>
                       <div className="flex flex-col">
@@ -623,6 +783,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           </div>
         </>
       )}
+
     </div>
   );
 };

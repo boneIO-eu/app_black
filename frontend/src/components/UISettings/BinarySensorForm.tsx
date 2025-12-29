@@ -3,6 +3,7 @@ import { FaPlus, FaTrash } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { normalizeCovers } from './helpers/coverUtils';
 import { useTranslation } from '@/hooks/useTranslation';
+import { TabsBox } from '@/components/ui/tabs-box';
 import {
   Select,
   SelectContent,
@@ -202,7 +203,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     : availableInputs;
 
   const actionTypeOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum || [
-    'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt'
+    'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
   ];
 
   const actionOutputOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum || [
@@ -609,280 +610,264 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         </div>
       )}
 
-      {/* DaisyUI Tabs */}
-      <div className="tabs tabs-border">
-        <a 
-          className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('basic')}
-        >
-          {t('settings.basic_settings')}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'pressed' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('pressed')}
-        >
-          {t('inputs.pressed_actions')}
-          {data.actions?.pressed && data.actions.pressed.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.pressed.length}
-            </span>
-          )}
-        </a>
-        <a 
-          className={`tab ${activeTab === 'released' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('released')}
-        >
-          {t('inputs.released_actions')}
-          {data.actions?.released && data.actions.released.length > 0 && (
-            <span className="badge badge-sm badge-primary ml-2">
-              {data.actions.released.length}
-            </span>
-          )}
-        </a>
-      </div>
+      <TabsBox
+        name="binary_sensor_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as 'basic' | 'pressed' | 'released')}
+        tabs={[
+          {
+            id: 'basic',
+            label: t('settings.basic_settings'),
+            content: (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('outputs.display_name')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      placeholder={t('sensors.name_placeholder')}
+                      value={data.name || ''}
+                      onChange={(e) => updateField('name', e.target.value)}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt">{t('common.optional')}</span>
+                    </label>
+                  </div>
 
-      {/* Basic Settings Tab */}
-      {activeTab === 'basic' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('outputs.display_name')}</span>
-              </label>
-              <input
-                type="text"
-                className="input w-full"
-                placeholder={t('sensors.name_placeholder')}
-                value={data.name || ''}
-                onChange={(e) => updateField('name', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('common.optional')}</span>
-              </label>
-            </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('inputs.boneio_input')}</span>
+                    </label>
+                    <Select
+                      value={data.boneio_input || ''}
+                      onValueChange={(value) => updateField('boneio_input', value)}
+                    >
+                      <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                        <SelectValue placeholder={t('inputs.select_input')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boneioInputOptions.map((input: string) => (
+                          <SelectItem key={input} value={input}>
+                            {input}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
+                      <label className="label max-w-full">
+                        <span className="label-text-alt text-warning whitespace-normal break-all">
+                          {t('inputs.all_inputs_used')}
+                        </span>
+                      </label>
+                    )}
+                    {usedInputs.length > 0 && (
+                      <label className="label max-w-full">
+                        <span className="label-text-alt text-info whitespace-normal break-all">
+                          {t('inputs.used_inputs')}: {usedInputs.length > 5 
+                            ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
+                            : usedInputs.join(', ')
+                          }
+                        </span>
+                      </label>
+                    )}
+                  </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('inputs.boneio_input')}</span>
-              </label>
-              <Select
-                value={data.boneio_input || ''}
-                onValueChange={(value) => updateField('boneio_input', value)}
-              >
-                <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
-                  <SelectValue placeholder={t('inputs.select_input')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {boneioInputOptions.map((input: string) => (
-                    <SelectItem key={input} value={input}>
-                      {input}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {usedInputs.length > 0 && boneioInputOptions.length === 1 && (
-                <label className="label max-w-full">
-                  <span className="label-text-alt text-warning whitespace-normal break-all">
-                    {t('inputs.all_inputs_used')}
-                  </span>
-                </label>
-              )}
-              {usedInputs.length > 0 && (
-                <label className="label max-w-full">
-                  <span className="label-text-alt text-info whitespace-normal break-all">
-                    {t('inputs.used_inputs')}: {usedInputs.length > 5 
-                      ? `${usedInputs.slice(0, 3).join(', ')}, ... (+${usedInputs.length - 3} more)`
-                      : usedInputs.join(', ')
-                    }
-                  </span>
-                </label>
-              )}
-            </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('outputs.area')}</span>
+                    </label>
+                    <Select
+                      value={data.area || '_none_'}
+                      onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('outputs.no_area')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
+                        {allAreas.map((area) => (
+                          <SelectItem key={area.id} value={area.id}>
+                            {area.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <label className="label">
+                      <span className="label-text-alt">
+                        {allAreas.length === 0 
+                          ? t('outputs.area_empty_hint')
+                          : t('outputs.area_hint')
+                        }
+                      </span>
+                    </label>
+                  </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('outputs.area')}</span>
-              </label>
-              <Select
-                value={data.area || '_none_'}
-                onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('outputs.no_area')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                  {allAreas.map((area) => (
-                    <SelectItem key={area.id} value={area.id}>
-                      {area.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <label className="label">
-                <span className="label-text-alt">
-                  {allAreas.length === 0 
-                    ? t('outputs.area_empty_hint')
-                    : t('outputs.area_hint')
-                  }
-                </span>
-              </label>
-            </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('inputs.bounce_time')} (ms)</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input w-full"
+                      placeholder="120"
+                      value={typeof data.bounce_time === 'number' ? data.bounce_time : 120}
+                      onChange={(e) => updateField('bounce_time', parseInt(e.target.value) || 120)}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
+                    </label>
+                  </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('inputs.bounce_time')} (ms)</span>
-              </label>
-              <input
-                type="number"
-                className="input  w-full"
-                placeholder="120"
-                value={typeof data.bounce_time === 'number' ? data.bounce_time : 120}
-                onChange={(e) => updateField('bounce_time', parseInt(e.target.value) || 120)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
-              </label>
-            </div>
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('inputs.device_class')}</span>
+                    </label>
+                    <Select
+                      value={data.device_class || '_none_'}
+                      onValueChange={(value) => updateField('device_class', value === '_none_' ? '' : value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('inputs.none')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('inputs.none')}</SelectItem>
+                        {deviceClassOptions.map((deviceClass: string) => (
+                          <SelectItem key={deviceClass} value={deviceClass}>
+                            {deviceClass.split('_').map(word => 
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div className="form-control">
-              <label className="label">
-                <span className="label-text font-medium">{t('inputs.device_class')}</span>
-              </label>
-              <Select
-                value={data.device_class || '_none_'}
-                onValueChange={(value) => updateField('device_class', value === '_none_' ? '' : value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('inputs.none')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none_">{t('inputs.none')}</SelectItem>
-                  {deviceClassOptions.map((deviceClass: string) => (
-                    <SelectItem key={deviceClass} value={deviceClass}>
-                      {deviceClass.split('_').map(word => 
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                      ).join(' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                <div className="divider">{t('settings.options')}</div>
 
-          <div className="divider">{t('settings.options')}</div>
+                <div className="grid grid-cols-1 gap-4">
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('inputs.show_in_ha')}</legend>
+                    <label className="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.show_in_ha !== false}
+                        onChange={(e) => updateField('show_in_ha', e.target.checked)}
+                      />
+                      <span className="label-text wrap-break-word">{t('inputs.show_in_ha_hint')}</span>
+                    </label>
+                  </fieldset>
 
-          <div className="grid grid-cols-1 gap-4">
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('inputs.show_in_ha')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.show_in_ha !== false}
-                  onChange={(e) => updateField('show_in_ha', e.target.checked)}
-                />
-                <span className="label-text wrap-break-word">{t('inputs.show_in_ha_hint')}</span>
-              </label>
-            </fieldset>
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('inputs.inverted')}</legend>
+                    <label className="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.inverted === true}
+                        onChange={(e) => updateField('inverted', e.target.checked)}
+                      />
+                      <span className="label-text">{t('inputs.inverted_hint')}</span>
+                    </label>
+                  </fieldset>
 
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('inputs.inverted')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.inverted === true}
-                  onChange={(e) => updateField('inverted', e.target.checked)}
-                />
-                <span className="label-text">{t('inputs.inverted_hint')}</span>
-              </label>
-            </fieldset>
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('inputs.initial_send')}</legend>
+                    <label className="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.initial_send === true}
+                        onChange={(e) => updateField('initial_send', e.target.checked)}
+                      />
+                      <span className="label-text">{t('inputs.initial_send_hint')}</span>
+                    </label>
+                  </fieldset>
 
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('inputs.initial_send')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.initial_send === true}
-                  onChange={(e) => updateField('initial_send', e.target.checked)}
-                />
-                <span className="label-text">{t('inputs.initial_send_hint')}</span>
-              </label>
-            </fieldset>
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
+                    <label className="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.clear_message === true}
+                        onChange={(e) => updateField('clear_message', e.target.checked)}
+                      />
+                      <span className="label-text">{t('inputs.clear_message_hint')}</span>
+                    </label>
+                  </fieldset>
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'pressed',
+            label: t('inputs.pressed_actions'),
+            badge: data.actions?.pressed?.length || undefined,
+            content: (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">{t('inputs.pressed_actions')}</h3>
+                  <button
+                    type="button"
+                    onClick={() => addAction('pressed')}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <FaPlus className="mr-2" />
+                    {t('inputs.add_action')}
+                  </button>
+                </div>
 
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.clear_message === true}
-                  onChange={(e) => updateField('clear_message', e.target.checked)}
-                />
-                <span className="label-text">{t('inputs.clear_message_hint')}</span>
-              </label>
-            </fieldset>
-          </div>
-        </div>
-      )}
+                {data.actions?.pressed && data.actions.pressed.length > 0 ? (
+                  data.actions.pressed.map((action, index) =>
+                    renderActionFields(action, 'pressed', index)
+                  )
+                ) : (
+                  <div className="text-center py-8 text-base-content/60">
+                    <p>{t('inputs.no_pressed_actions')}</p>
+                    <p className="text-sm">{t('inputs.click_add_action')}</p>
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            id: 'released',
+            label: t('inputs.released_actions'),
+            badge: data.actions?.released?.length || undefined,
+            content: (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">{t('inputs.released_actions')}</h3>
+                  <button
+                    type="button"
+                    onClick={() => addAction('released')}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <FaPlus className="mr-2" />
+                    {t('inputs.add_action')}
+                  </button>
+                </div>
 
-      {/* Pressed Actions Tab */}
-      {activeTab === 'pressed' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">{t('inputs.pressed_actions')}</h3>
-            <button
-              type="button"
-              onClick={() => addAction('pressed')}
-              className="btn btn-primary btn-sm"
-            >
-              <FaPlus className="mr-2" />
-              {t('inputs.add_action')}
-            </button>
-          </div>
-
-          {data.actions?.pressed && data.actions.pressed.length > 0 ? (
-            data.actions.pressed.map((action, index) =>
-              renderActionFields(action, 'pressed', index)
-            )
-          ) : (
-            <div className="text-center py-8 text-base-content/60">
-              <p>{t('inputs.no_pressed_actions')}</p>
-              <p className="text-sm">{t('inputs.click_add_action')}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Released Actions Tab */}
-      {activeTab === 'released' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">{t('inputs.released_actions')}</h3>
-            <button
-              type="button"
-              onClick={() => addAction('released')}
-              className="btn btn-primary btn-sm"
-            >
-              <FaPlus className="mr-2" />
-              {t('inputs.add_action')}
-            </button>
-          </div>
-
-          {data.actions?.released && data.actions.released.length > 0 ? (
-            data.actions.released.map((action, index) =>
-              renderActionFields(action, 'released', index)
-            )
-          ) : (
-            <div className="text-center py-8 text-base-content/60">
-              <p>{t('inputs.no_released_actions')}</p>
-              <p className="text-sm">{t('inputs.click_add_action')}</p>
-            </div>
-          )}
-        </div>
-      )}
+                {data.actions?.released && data.actions.released.length > 0 ? (
+                  data.actions.released.map((action, index) =>
+                    renderActionFields(action, 'released', index)
+                  )
+                ) : (
+                  <div className="text-center py-8 text-base-content/60">
+                    <p>{t('inputs.no_released_actions')}</p>
+                    <p className="text-sm">{t('inputs.click_add_action')}</p>
+                  </div>
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
 
     </div>
   );

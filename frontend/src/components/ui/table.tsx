@@ -4,8 +4,8 @@ export const Table = ({ children, className }: { children: React.ReactNode, clas
   return <table className={cn("", className)}>{children}</table>;
 };
 
-export const Td = ({ children, className }: { children: React.ReactNode, className?: string }) => {
-  return <td className={cn("", className)}>{children}</td>;
+export const Td = ({ children, className, onClick }: { children: React.ReactNode, className?: string, onClick?: () => void }) => {
+  return <td className={cn("", className)} onClick={onClick}>{children}</td>;
 };
 
 export const Th = ({ children, className }: { children: React.ReactNode, className?: string }) => {

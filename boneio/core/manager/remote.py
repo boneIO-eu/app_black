@@ -6,6 +6,7 @@ Supports autodiscovery of neighboring BoneIO Black devices via MQTT.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -16,6 +17,7 @@ from boneio.core.remote.base import (
     RemoteDeviceType,
 )
 from boneio.core.remote.mqtt import MQTTRemoteDevice
+from boneio.core.remote.esphome import ESPHomeRemoteDevice, ESPHOME_API_AVAILABLE
 
 if TYPE_CHECKING:
     from boneio.core.messaging import MessageBus
@@ -173,8 +175,7 @@ class RemoteDeviceManager:
             _LOGGER.warning("ESPHome UDP protocol not yet implemented for device '%s'", device_id)
             return None
         elif protocol == RemoteDeviceProtocol.ESPHOME_API:
-            _LOGGER.warning("ESPHome API protocol not yet implemented for device '%s'", device_id)
-            return None
+            return self._create_esphome_device(device_id, name, config)
         else:
             _LOGGER.error("Unsupported protocol '%s' for device '%s'", protocol, device_id)
             return None
@@ -209,6 +210,103 @@ class RemoteDeviceManager:
             covers=covers,
         )
     
+    def _create_esphome_device(
+        self,
+        device_id: str,
+        name: str,
+        config: dict[str, Any],
+    ) -> ESPHomeRemoteDevice | None:
+        """Create ESPHome API remote device.
+        
+        Args:
+            device_id: Device ID
+            name: Device name
+            config: Full device configuration
+            
+        Returns:
+            ESPHomeRemoteDevice instance or None if creation failed
+        """
+        if not ESPHOME_API_AVAILABLE:
+            _LOGGER.error(
+                "aioesphomeapi not installed - cannot create ESPHome device '%s'",
+                device_id
+            )
+            return None
+        
+        esphome_config = config.get("esphome_api", {})
+        host = esphome_config.get("host")
+        
+        if not host:
+            _LOGGER.error("ESPHome device '%s' missing 'host' in esphome_api config", device_id)
+            return None
+        
+        port = esphome_config.get("port", 6053)
+        password = esphome_config.get("password", "")
+        encryption_key = esphome_config.get("encryption_key", "")
+        switches = esphome_config.get("switches", [])
+        lights = esphome_config.get("lights", [])
+        covers = esphome_config.get("covers", [])
+        
+        return ESPHomeRemoteDevice(
+            id=device_id,
+            name=name,
+            host=host,
+            port=port,
+            password=password,
+            encryption_key=encryption_key,
+            switches=switches,
+            lights=lights,
+            covers=covers,
+        )
+    
+    async def start_all_connections(self, delay_seconds: float = 10.0) -> None:
+        """Start persistent connections for all ESPHome devices.
+        
+        This should be called during application startup to establish
+        connections to all ESPHome devices with ReconnectLogic.
+        
+        ESPHome connections are delayed to prioritize local device functionality
+        (GPIO, MQTT) over remote device connections.
+        
+        Args:
+            delay_seconds: Seconds to wait before starting ESPHome connections
+        """
+        esphome_devices = [
+            (device_id, device) 
+            for device_id, device in self._devices.items() 
+            if isinstance(device, ESPHomeRemoteDevice)
+        ]
+        
+        if not esphome_devices:
+            return
+        
+        _LOGGER.info(
+            "Delaying ESPHome connections by %.1f seconds (found %d devices)",
+            delay_seconds, len(esphome_devices)
+        )
+        await asyncio.sleep(delay_seconds)
+        
+        _LOGGER.info("Starting ESPHome connections...")
+        for device_id, device in esphome_devices:
+            try:
+                await device.start_connection()
+                _LOGGER.info("Started connection for ESPHome device '%s'", device_id)
+            except Exception as e:
+                _LOGGER.error("Failed to start connection for ESPHome device '%s': %s", device_id, e)
+    
+    async def stop_all_connections(self) -> None:
+        """Stop all persistent connections.
+        
+        This should be called during application shutdown.
+        """
+        for device_id, device in self._devices.items():
+            if isinstance(device, ESPHomeRemoteDevice):
+                try:
+                    await device.disconnect()
+                    _LOGGER.info("Stopped connection for ESPHome device '%s'", device_id)
+                except Exception as e:
+                    _LOGGER.error("Failed to stop connection for ESPHome device '%s': %s", device_id, e)
+    
     def get_device(self, device_id: str) -> RemoteDevice | None:
         """Get remote device by ID.
         
@@ -233,13 +331,20 @@ class RemoteDeviceManager:
         device_id: str,
         output_id: str,
         action: str,
+        brightness: int | None = None,
+        transition: float | None = None,
     ) -> bool:
-        """Control output on remote device.
+        """Control output on remote device (BoneIO MQTT or ESPHome API).
+        
+        Automatically detects device protocol and routes to appropriate method.
+        For ESPHome devices, output_id can be a switch or light entity.
         
         Args:
             device_id: ID of the remote device
-            output_id: ID of the output to control
-            action: Action to perform (ON, OFF, TOGGLE)
+            output_id: ID of the output/switch/light to control
+            action: Action to perform (ON, OFF, TOGGLE, BRIGHTNESS_UP, BRIGHTNESS_DOWN, SET_BRIGHTNESS)
+            brightness: Brightness level (0-255) - only for ESPHome lights
+            transition: Transition time in seconds - only for ESPHome lights
             
         Returns:
             True if command was sent successfully
@@ -249,6 +354,25 @@ class RemoteDeviceManager:
             _LOGGER.error("Remote device '%s' not found", device_id)
             return False
         
+        # For ESPHome devices, try to determine if it's a switch or light
+        if isinstance(device, ESPHomeRemoteDevice):
+            # Check if output_id is a light
+            if device.has_light(output_id):
+                _LOGGER.debug("Controlling ESPHome light '%s' on device '%s'", output_id, device_id)
+                return await device.control_light(
+                    light_id=output_id,
+                    action=action,
+                    brightness=brightness,
+                    transition=transition if transition is not None else 0.0,
+                )
+            # Otherwise treat as switch
+            _LOGGER.debug("Controlling ESPHome switch '%s' on device '%s'", output_id, device_id)
+            return await device.control_switch(
+                switch_id=output_id,
+                action=action,
+            )
+        
+        # For MQTT devices, use standard control_output
         return await device.control_output(
             output_id=output_id,
             action=action,
@@ -262,12 +386,14 @@ class RemoteDeviceManager:
         action: str,
         **kwargs,
     ) -> bool:
-        """Control cover on remote device.
+        """Control cover on remote device (BoneIO MQTT or ESPHome API).
+        
+        Automatically detects device protocol and routes to appropriate method.
         
         Args:
             device_id: ID of the remote device
             cover_id: ID of the cover to control
-            action: Action to perform (OPEN, CLOSE, STOP, etc.)
+            action: Action to perform (OPEN, CLOSE, STOP, TOGGLE, etc.)
             **kwargs: Additional parameters (position, tilt_position)
             
         Returns:
@@ -278,6 +404,15 @@ class RemoteDeviceManager:
             _LOGGER.error("Remote device '%s' not found", device_id)
             return False
         
+        # For ESPHome devices, use native API
+        if isinstance(device, ESPHomeRemoteDevice):
+            _LOGGER.debug("Controlling ESPHome cover '%s' on device '%s'", cover_id, device_id)
+            return await device.control_cover(
+                cover_id=cover_id,
+                action=action,
+            )
+        
+        # For MQTT devices, use standard control_cover
         return await device.control_cover(
             cover_id=cover_id,
             action=action,

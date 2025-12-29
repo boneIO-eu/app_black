@@ -172,7 +172,7 @@ async def async_run(
     manager_tasks = manager.get_tasks()
     tasks.update(manager_tasks.values())
     
-    # Start GPIO manager if inputs are configured
+    # Start GPIO manager FIRST - local hardware is more important than remote connections
     from boneio.hardware.gpio.input import get_gpio_manager
     gpio_manager = get_gpio_manager()
     if gpio_manager and gpio_manager._inputs:  # Only start if there are inputs
@@ -184,6 +184,13 @@ async def async_run(
             _LOGGER.error("If lines are busy, run: sudo pkill -9 -f boneio")
             # Don't fail the entire application, continue without GPIO
             pass
+    
+    # Start ESPHome connections as background task (non-blocking)
+    esphome_task = manager.append_task(
+        coro=manager.remote_devices.start_all_connections,
+        name="esphome_connections"
+    )
+    tasks.add(esphome_task)
 
     message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
     _LOGGER.info("Starting message bus %s.", message_bus_type)
@@ -284,6 +291,13 @@ async def async_run(
                 await gpio_manager.stop()
         except Exception as e:
             _LOGGER.error(f"Error stopping GPIO manager: {e}")
+        
+        # Stop manager async tasks (ESPHome connections, etc.)
+        try:
+            _LOGGER.info("Stopping manager async tasks...")
+            await manager.stop()
+        except Exception as e:
+            _LOGGER.error(f"Error stopping manager: {e}")
         
         # Stop the event bus (this invokes sigterm listeners which turn off Cover relays)
         await event_bus.stop()

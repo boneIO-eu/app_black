@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import { TabsBox } from '@/components/ui/tabs-box';
 import {
   Select,
   SelectContent,
@@ -62,182 +63,177 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
-      <div className="tabs tabs-boxed">
-        <button 
-          className={`tab ${activeTab === 'basic' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('basic')}
-        >
-          {t('settings.basic_settings')}
-        </button>
-        <button 
-          className={`tab ${activeTab === 'advanced' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('advanced')}
-        >
-          {t('settings.advanced_settings')}
-        </button>
-      </div>
-
-      {/* Basic Tab */}
-      {activeTab === 'basic' && (
-        <div className="space-y-4">
-          {/* ID */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('groups.id')} *</span>
-            </label>
-            <input
-              type="text"
-              className="input w-full"
-              value={data.id || ''}
-              onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-              placeholder="e.g., lights_living_room"
-            />
-            <p className="text-xs text-base-content/60 mt-1">
-              {t('groups.id_hint')}
-            </p>
-          </div>
-
-          {/* Name */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('groups.name')}</span>
-            </label>
-            <input
-              type="text"
-              className="input w-full"
-              value={data.name || ''}
-              onChange={(e) => updateField('name', e.target.value)}
-              placeholder="e.g., Living Room Lights"
-            />
-            <p className="text-xs text-base-content/60 mt-1">
-              {t('groups.name_hint')}
-            </p>
-          </div>
-
-          {/* Outputs Selection */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('groups.member_outputs')} *</span>
-            </label>
-            <div className="border border-base-300 rounded-lg p-3">
-              {availableOutputs.length === 0 ? (
-                <p className="text-warning">{t('groups.no_outputs_available')}</p>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {availableOutputs.map((output) => (
-                    <label 
-                      key={output.id} 
-                      className={`label cursor-pointer justify-start gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors ${
-                        selectedOutputs.includes(output.id) ? 'bg-primary/10' : ''
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary"
-                        checked={selectedOutputs.includes(output.id)}
-                        onChange={() => toggleOutput(output.id)}
-                      />
-                      <span className="label-text flex-1">
-                        <span className="font-medium">{output.name}</span>
-                        <span className="text-base-content/60 ml-2 uppercase text-xs">({output.id})</span>
-                      </span>
-                    </label>
-                  ))}
+      <TabsBox
+        name="output_group_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as 'basic' | 'advanced')}
+        tabs={[
+          {
+            id: 'basic',
+            label: t('settings.basic_settings'),
+            content: (
+              <div className="space-y-4">
+                {/* ID */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('groups.id')} *</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    value={data.id || ''}
+                    onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+                    placeholder="e.g., lights_living_room"
+                  />
+                  <p className="text-xs text-base-content/60 mt-1">
+                    {t('groups.id_hint')}
+                  </p>
                 </div>
-              )}
-            </div>
-            <div className="flex flex-wrap justify-between gap-2 mt-2">
-              <p className="text-xs text-base-content/60">
-                {t('groups.selected')}: {selectedOutputs.length > 0 
-                  ? selectedOutputs.map((id: string) => {
-                      const output = availableOutputs.find(o => o.id === id);
-                      return output ? output.name : id;
-                    }).join(', ') 
-                  : t('common.no')}
-              </p>
-              {selectedOutputs.length === 0 && (
-                <p className="text-xs text-error">
-                  {t('groups.at_least_one_required')}
-                </p>
-              )}
-            </div>
-          </div>
 
-          {/* Output Type */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('groups.output_type')}</span>
-            </label>
-            <Select
-              value={data.output_type || 'switch'}
-              onValueChange={(value) => updateField('output_type', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('outputs.select_type')} />
-              </SelectTrigger>
-              <SelectContent>
-                {outputTypeOptions.map((type: string) => (
-                  <SelectItem key={type} value={type}>
-                    {type.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-base-content/60 mt-1">
-              {t('groups.output_type_hint')}
-            </p>
-          </div>
+                {/* Name */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('groups.name')}</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input w-full"
+                    value={data.name || ''}
+                    onChange={(e) => updateField('name', e.target.value)}
+                    placeholder="e.g., Living Room Lights"
+                  />
+                  <p className="text-xs text-base-content/60 mt-1">
+                    {t('groups.name_hint')}
+                  </p>
+                </div>
 
-          {/* Area */}
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('outputs.area')}</span>
-            </label>
-            <Select
-              value={data.area || '_none_'}
-              onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('outputs.no_area')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                {allAreas.map((area: any) => (
-                  <SelectItem key={area.id} value={area.id}>
-                    {area.name || area.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-base-content/60 mt-1">
-              {t('groups.area_hint')}
-            </p>
-          </div>
-        </div>
-      )}
+                {/* Outputs Selection */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('groups.member_outputs')} *</span>
+                  </label>
+                  <div className="border border-base-300 rounded-lg p-3">
+                    {availableOutputs.length === 0 ? (
+                      <p className="text-warning">{t('groups.no_outputs_available')}</p>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {availableOutputs.map((output) => (
+                          <label 
+                            key={output.id} 
+                            className={`label cursor-pointer justify-start gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors ${
+                              selectedOutputs.includes(output.id) ? 'bg-primary/10' : ''
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="checkbox checkbox-sm checkbox-primary"
+                              checked={selectedOutputs.includes(output.id)}
+                              onChange={() => toggleOutput(output.id)}
+                            />
+                            <span className="label-text flex-1">
+                              <span className="font-medium">{output.name}</span>
+                              <span className="text-base-content/60 ml-2 uppercase text-xs">({output.id})</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap justify-between gap-2 mt-2">
+                    <p className="text-xs text-base-content/60">
+                      {t('groups.selected')}: {selectedOutputs.length > 0 
+                        ? selectedOutputs.map((id: string) => {
+                            const output = availableOutputs.find(o => o.id === id);
+                            return output ? output.name : id;
+                          }).join(', ') 
+                        : t('common.no')}
+                    </p>
+                    {selectedOutputs.length === 0 && (
+                      <p className="text-xs text-error">
+                        {t('groups.at_least_one_required')}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-      {/* Advanced Tab */}
-      {activeTab === 'advanced' && (
-        <div className="space-y-4">
-          {/* All On Behaviour */}
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                className="checkbox"
-                checked={data.all_on_behaviour || false}
-                onChange={(e) => updateField('all_on_behaviour', e.target.checked)}
-              />
-              <span className="label-text font-medium">{t('groups.all_on_behaviour')}</span>
-            </label>
-            <p className="text-xs text-base-content/60 ml-10">
-              {t('groups.all_on_behaviour_hint')}
-            </p>
-          </div>
-        </div>
-      )}
+                {/* Output Type */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('groups.output_type')}</span>
+                  </label>
+                  <Select
+                    value={data.output_type || 'switch'}
+                    onValueChange={(value) => updateField('output_type', value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('outputs.select_type')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {outputTypeOptions.map((type: string) => (
+                        <SelectItem key={type} value={type}>
+                          {type.toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-base-content/60 mt-1">
+                    {t('groups.output_type_hint')}
+                  </p>
+                </div>
 
+                {/* Area */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text font-medium">{t('outputs.area')}</span>
+                  </label>
+                  <Select
+                    value={data.area || '_none_'}
+                    onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('outputs.no_area')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
+                      {allAreas.map((area: any) => (
+                        <SelectItem key={area.id} value={area.id}>
+                          {area.name || area.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-base-content/60 mt-1">
+                    {t('groups.area_hint')}
+                  </p>
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'advanced',
+            label: t('settings.advanced_settings'),
+            content: (
+              <div className="space-y-4">
+                {/* All On Behaviour */}
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-4">
+                    <input
+                      type="checkbox"
+                      className="checkbox"
+                      checked={data.all_on_behaviour || false}
+                      onChange={(e) => updateField('all_on_behaviour', e.target.checked)}
+                    />
+                    <span className="label-text font-medium">{t('groups.all_on_behaviour')}</span>
+                  </label>
+                  <p className="text-xs text-base-content/60 ml-10">
+                    {t('groups.all_on_behaviour_hint')}
+                  </p>
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

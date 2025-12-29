@@ -9,7 +9,7 @@
  * Regex pattern for valid ID characters.
  * Only lowercase letters (a-z), numbers (0-9), and underscores (_) are allowed.
  */
-export const ID_PATTERN = /^[a-z0-9_]*$/;
+export const ID_PATTERN = /^[a-z0-9_-]*$/;
 
 /**
  * Check if an ID is valid.
@@ -69,8 +69,8 @@ export function sanitizeId(id: string): string {
     .replace(/ż/g, 'z')
     // Replace spaces with underscores
     .replace(/\s+/g, '_')
-    // Remove any remaining invalid characters
-    .replace(/[^a-z0-9_]/g, '');
+    // Remove any remaining invalid characters (keep alphanumeric, underscore, and hyphen)
+    .replace(/[^a-z0-9_-]/g, '');
 }
 
 /**
