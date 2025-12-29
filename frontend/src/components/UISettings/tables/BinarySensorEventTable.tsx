@@ -225,8 +225,18 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                       </button>
                     )}
                   </Td>
-                  <Td>{item.name || `${t('array_table_widget.item')} ${index + 1}`}</Td>
-                  <Td className="uppercase">{item.boneio_input || '-'}</Td>
+                  <Td 
+                    className={itemHasActions ? 'cursor-pointer' : ''}
+                    onClick={() => itemHasActions && toggleRow(index)}
+                  >
+                    {item.name || `${t('array_table_widget.item')} ${index + 1}`}
+                  </Td>
+                  <Td 
+                    className={`uppercase ${itemHasActions ? 'cursor-pointer' : ''}`}
+                    onClick={() => itemHasActions && toggleRow(index)}
+                  >
+                    {item.boneio_input || '-'}
+                  </Td>
                   <Td>{areaName}</Td>
                   <Td>
                     {itemHasActions ? (
