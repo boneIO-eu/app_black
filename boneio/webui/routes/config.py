@@ -607,7 +607,9 @@ async def validate_device_type_change(request: dict = Body(...)):
     
     # Get available example files for this device type (relative to this file: boneio/webui/routes/config.py)
     boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    example_dir = os.path.join(boneio_path, "example_config", normalized_type)
+    # Convert normalized_type back to example_config folder name format (24_16 -> 24x16)
+    example_folder_name = normalized_type.replace("_", "x")
+    example_dir = os.path.join(boneio_path, "example_config", example_folder_name)
     
     available_example_files = []
     if os.path.isdir(example_dir):

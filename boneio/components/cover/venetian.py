@@ -97,6 +97,10 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             )
             return
 
+        # Calculate actual duration based on remaining distance
+        # duration is full time for 100% movement, scale it by actual distance to travel
+        actual_duration = duration * (total_steps / 100.0)
+
         relay.turn_on()
         start_time = time.monotonic()
         progress = 0.0
@@ -116,15 +120,15 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
 
            
             if elapsed_time < needed_tilt_duration:
-                tilt_progress = elapsed_time / needed_tilt_duration
+                tilt_progress = elapsed_time / needed_tilt_duration if needed_tilt_duration > 0 else 1.0
                 progress = 0.0
             else:
                 tilt_progress = 1.0
-                progress = (elapsed_time - needed_tilt_duration) / duration
+                progress = (elapsed_time - needed_tilt_duration) / actual_duration if actual_duration > 0 else 1.0
 
             if direction == OPEN:
                 # Obliczanie _position dla kierunku OPEN
-                self._position = min(100.0, self._initial_position + progress * 100)
+                self._position = min(100.0, self._initial_position + progress * total_steps)
 
                 # Obliczanie _tilt_position dla kierunku OPEN
                 if target_tilt_position is not None:
@@ -135,7 +139,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                     )
             elif direction == CLOSE:
                 # Obliczanie _position dla kierunku CLOSE
-                self._position = max(0.0, self._initial_position - progress * 100)
+                self._position = max(0.0, self._initial_position - progress * total_steps)
 
                 # Obliczanie _tilt_position dla kierunku CLOSE
                 if target_tilt_position is not None:

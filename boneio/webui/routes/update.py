@@ -6,6 +6,7 @@ import asyncio
 import glob
 import logging
 import os
+import re
 import shutil
 import subprocess
 from datetime import datetime
@@ -465,6 +466,35 @@ async def list_backups():
 # Available device types for factory reset
 DEVICE_TYPES = ["24x16", "32x10", "cover", "cover_mix"]
 
+# Hardware version to sensor mapping
+# Different hardware versions have different temperature sensors and power monitoring
+HARDWARE_SENSORS = {
+    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False},
+    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False},
+    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+}
+
+# Available hardware versions
+HARDWARE_VERSIONS = list(HARDWARE_SENSORS.keys())
+
+
+@router.get("/factory_reset/hardware_versions")
+async def get_hardware_versions():
+    """
+    Get available hardware versions for factory reset.
+    
+    Returns:
+        List of available hardware versions with sensor info.
+    """
+    return {
+        "versions": HARDWARE_VERSIONS,
+        "sensors": HARDWARE_SENSORS,
+    }
+
 
 @router.get("/factory_reset/device_types")
 async def get_device_types():
@@ -480,6 +510,7 @@ async def get_device_types():
 class FactoryResetRequest(BaseModel):
     """Request model for factory reset endpoint."""
     device_type: str
+    version: str = "0.8"  # Hardware version, default to latest
 
 
 class PartialResetRequest(BaseModel):
@@ -627,6 +658,51 @@ async def partial_factory_reset(request: PartialResetRequest):
         }
 
 
+def _adjust_config_for_hardware_version(config_content: str, version: str, device_type: str) -> str:
+    """
+    Adjust config.yaml content for specific hardware version.
+    
+    Different hardware versions have different sensors:
+    - 0.2, 0.3: MCP9808 temperature sensor, no INA219
+    - 0.4+: LM75 temperature sensor, INA219 power monitor
+    
+    Args:
+        config_content: Original config.yaml content
+        version: Hardware version (e.g., "0.2", "0.8")
+        device_type: Device type for naming
+        
+    Returns:
+        Modified config.yaml content
+    """
+    hw_config = HARDWARE_SENSORS.get(version, HARDWARE_SENSORS["0.8"])
+    
+    # Replace temperature sensor section
+    if hw_config["temp_sensor"] == "mcp9808":
+        # Replace lm75 with mcp9808
+        config_content = re.sub(
+            r'lm75:\s*\n\s*-\s*id:.*\n\s*address:.*\n',
+            f'mcp9808:\n  - id: Board temperature\n    address: 0x{hw_config["temp_address"]:02X}\n',
+            config_content
+        )
+    
+    # Remove ina219 section if not supported
+    if not hw_config["has_ina219"]:
+        config_content = re.sub(
+            r'ina219:\s*\n\s*-\s*address:.*\n',
+            '',
+            config_content
+        )
+    
+    # Update boneio version in config
+    config_content = re.sub(
+        r'(boneio:\s*\n\s*name:.*\n\s*)version:.*\n',
+        f'\\1version: {version}\n',
+        config_content
+    )
+    
+    return config_content
+
+
 @router.post("/factory_reset")
 async def factory_reset(request: FactoryResetRequest):
     """
@@ -636,20 +712,28 @@ async def factory_reset(request: FactoryResetRequest):
     1. Create a backup of current configuration
     2. Remove old configuration files
     3. Copy example config files for the selected device type
-    4. Restart the application
+    4. Adjust config.yaml for hardware version (sensor compatibility)
+    5. Restart the application
     
     Args:
-        request: Device type to reset to (24x16, 32x10, cover, cover_mix)
+        request: Device type and hardware version to reset to
         
     Returns:
         Status response.
     """
     device_type = request.device_type.lower()
+    version = request.version
     
     if device_type not in DEVICE_TYPES:
         return {
             "status": "error",
             "message": f"Invalid device type: {device_type}. Available: {', '.join(DEVICE_TYPES)}"
+        }
+    
+    if version not in HARDWARE_VERSIONS:
+        return {
+            "status": "error",
+            "message": f"Invalid hardware version: {version}. Available: {', '.join(HARDWARE_VERSIONS)}"
         }
     
     # Find example config directory (relative to this file: boneio/webui/routes/update.py)
@@ -705,20 +789,36 @@ async def factory_reset(request: FactoryResetRequest):
             }
         
         copied_files = []
+        adjusted_files = []
         for example_file in example_files:
             filename = os.path.basename(example_file)
             dest_path = os.path.join(config_dir, filename)
-            shutil.copy2(example_file, dest_path)
+            
+            # For config.yaml, adjust sensors based on hardware version
+            if filename == "config.yaml":
+                with open(example_file, 'r') as f:
+                    content = f.read()
+                adjusted_content = _adjust_config_for_hardware_version(content, version, device_type)
+                with open(dest_path, 'w') as f:
+                    f.write(adjusted_content)
+                if content != adjusted_content:
+                    adjusted_files.append(filename)
+                    _LOGGER.info(f"Adjusted {filename} for hardware version {version}")
+            else:
+                shutil.copy2(example_file, dest_path)
+            
             copied_files.append(filename)
             _LOGGER.info(f"Copied {filename} to {config_dir}")
         
-        _LOGGER.info(f"Factory reset completed for device type: {device_type}")
+        _LOGGER.info(f"Factory reset completed for device type: {device_type}, version: {version}")
         
         return {
             "status": "success",
-            "message": f"Configuration reset to {device_type} defaults",
+            "message": f"Configuration reset to {device_type} defaults (hardware v{version})",
             "backup_path": backup_path if yaml_files else None,
             "copied_files": copied_files,
+            "adjusted_files": adjusted_files,
+            "hardware_version": version,
             "restart_required": True
         }
         

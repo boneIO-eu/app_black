@@ -428,6 +428,8 @@
     "factory_reset_warning": "To zastąpi twoją obecną konfigurację ustawieniami fabrycznymi. Kopia zapasowa zostanie utworzona automatycznie.",
     "select_device_type": "Wybierz Typ Urządzenia",
     "select_device_type_placeholder": "-- Wybierz typ urządzenia --",
+    "select_hardware_version": "Wersja Sprzętowa",
+    "hardware_version_help": "Wybierz wersję sprzętową BoneIO Black. Różne wersje mają różne czujniki.",
     "reset_to_factory": "Przywróć Ustawienia Fabryczne",
     "resetting": "Przywracanie...",
     "copied_files": "Skopiowane pliki",
@@ -478,7 +480,7 @@
       "virtual_energy_sensor": "Skonfiguruj wirtualne sensory energii i wody powiązane z wyjściami dla panelu Energia w Home Assistant.",
       "mcp23017": "Skonfiguruj adresy I2C ekspanderów MCP23017. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
       "logger": "Skonfiguruj poziomy logowania dla konkretnych modułów Python (np., boneio.modbus, pymodbus).",
-      "boneio": "Konfiguracja boneIO",
+      "boneio": "Konfiguracja boneIO. Jeśli chcesz zmienić ustawienia boneIO takie jak typ urządzenia lub wersję sprzętową i załadować domyślną konfigurację, użyj strony System!",
       "mqtt": "Konfiguracja MQTT",
       "web": "Konfiguracja Serwera Web",
       "modbus": "Konfiguracja Modbus"

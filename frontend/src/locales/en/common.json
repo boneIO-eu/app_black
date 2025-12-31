@@ -459,6 +459,8 @@
     "factory_reset_warning": "This will replace your current configuration with factory defaults. A backup will be created automatically.",
     "select_device_type": "Select Device Type",
     "select_device_type_placeholder": "-- Select device type --",
+    "select_hardware_version": "Hardware Version",
+    "hardware_version_help": "Select your BoneIO Black hardware version. Different versions have different sensors.",
     "reset_to_factory": "Reset to Factory Defaults",
     "resetting": "Resetting...",
     "copied_files": "Copied files",
@@ -509,7 +511,7 @@
       "virtual_energy_sensor": "Configure virtual energy and water sensors linked to outputs for Home Assistant Energy panel.",
       "mcp23017": "Configure I2C addresses of GPIO expanders. Default addresses are set automatically by board configuration. Change only if your board has different addresses.",
       "logger": "Configure log levels for specific Python modules (e.g., boneio.modbus, pymodbus).",
-      "boneio": "boneIO",
+      "boneio": "boneIO configuration. If you want to change boneIO settings like device type or hardware version and load default working config, use the System State page!",
       "mqtt": "MQTT",
       "web": "Web Server",
       "modbus": "Modbus"

@@ -86,7 +86,10 @@ const SystemState: React.FC = () => {
   // Factory reset state
   const [showFactoryReset, setShowFactoryReset] = useState(false);
   const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
+  const [hardwareVersions, setHardwareVersions] = useState<string[]>([]);
+  const [hardwareSensors, setHardwareSensors] = useState<Record<string, { temp_sensor: string; has_ina219: boolean }>>({});
   const [selectedDeviceType, setSelectedDeviceType] = useState<string | null>(null);
+  const [selectedHardwareVersion, setSelectedHardwareVersion] = useState<string>('0.8');
   const [isResettingFactory, setIsResettingFactory] = useState(false);
   const [factoryResetResult, setFactoryResetResult] = useState<any>(null);
   const [configBackups, setConfigBackups] = useState<any[]>([]);
@@ -309,6 +312,18 @@ const SystemState: React.FC = () => {
     }
   }, []);
 
+  // Fetch hardware versions for factory reset
+  const fetchHardwareVersions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/factory_reset/hardware_versions');
+      const data = await response.json();
+      setHardwareVersions(data.versions || []);
+      setHardwareSensors(data.sensors || {});
+    } catch (err) {
+      console.error('Error fetching hardware versions:', err);
+    }
+  }, []);
+
   // Fetch config backups
   const fetchConfigBackups = useCallback(async () => {
     try {
@@ -347,7 +362,10 @@ const SystemState: React.FC = () => {
       const response = await fetch('/api/factory_reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_type: selectedDeviceType }),
+        body: JSON.stringify({ 
+          device_type: selectedDeviceType,
+          version: selectedHardwareVersion,
+        }),
       });
       const data = await response.json();
       setFactoryResetResult(data);
@@ -618,9 +636,10 @@ const SystemState: React.FC = () => {
     fetchBackups();
     fetchHardwareErrors();
     fetchDeviceTypes();
+    fetchHardwareVersions();
     fetchConfigBackups();
     fetchHostname();
-  }, [checkForUpdates, fetchBackups, fetchHardwareErrors, fetchDeviceTypes, fetchConfigBackups, fetchHostname]);
+  }, [checkForUpdates, fetchBackups, fetchHardwareErrors, fetchDeviceTypes, fetchHardwareVersions, fetchConfigBackups, fetchHostname]);
 
   // Load SSL config when section is opened
   useEffect(() => {
@@ -1723,6 +1742,7 @@ const SystemState: React.FC = () => {
                       setShowFactoryReset(!showFactoryReset);
                       if (!showFactoryReset) {
                         fetchDeviceTypes();
+                        fetchHardwareVersions();
                         fetchConfigBackups();
                       }
                     }}
@@ -1766,6 +1786,33 @@ const SystemState: React.FC = () => {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="form-control">
+                      <label className="label">
+                        <span className="label-text font-medium">
+                          {t('system_update.select_hardware_version')}
+                        </span>
+                      </label>
+                      <select
+                        className="select select-bordered w-full max-w-xs"
+                        value={selectedHardwareVersion}
+                        onChange={e => setSelectedHardwareVersion(e.target.value)}
+                      >
+                        {hardwareVersions.map(version => (
+                          <option key={version} value={version}>
+                            v{version}
+                            {hardwareSensors[version] && (
+                              ` (${hardwareSensors[version].temp_sensor}${hardwareSensors[version].has_ina219 ? ' + INA219' : ''})`
+                            )}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="label">
+                        <span className="label-text-alt text-base-content/60">
+                          {t('system_update.hardware_version_help')}
+                        </span>
+                      </label>
                     </div>
 
                     <button

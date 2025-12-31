@@ -41,7 +41,13 @@ class TimeBasedCover(BaseCover):
 
 
     def _move_cover(self, direction: str, duration: float, target_position: int | None = None):
-        """Metoda uruchamiana w oddzielnym wątku do fizycznego ruchu rolety."""
+        """Run in sepearate thread.
+        
+        Args:
+            direction: Direction of movement (OPEN or CLOSE)
+            duration: Full time for 0-100% movement in milliseconds
+            target_position: Optional target position (0-100)
+        """
         if direction == OPEN:
             relay = self._open_relay
             total_steps = 100 - self._position
@@ -56,18 +62,22 @@ class TimeBasedCover(BaseCover):
             self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
             return
 
+        # Calculate actual duration based on remaining distance
+        # duration is full time for 100% movement, scale it by actual distance to travel
+        actual_duration = duration * (total_steps / 100.0)
+
         relay.turn_on()
         start_time = time.monotonic()
 
         while not self._stop_event.is_set():
             current_time = time.monotonic()  # Pobierz aktualny czas tylko raz na iterację
             elapsed_time = (current_time - start_time) * 1000  # Konwersja na milisekundy
-            progress = elapsed_time / duration
+            progress = elapsed_time / actual_duration if actual_duration > 0 else 1.0
 
             if direction == OPEN:
-                self._position = min(100.0, self._initial_position + progress * 100)
+                self._position = min(100.0, self._initial_position + progress * total_steps)
             elif direction == CLOSE:
-                self._position = max(0.0, self._initial_position - progress * 100)
+                self._position = max(0.0, self._initial_position - progress * total_steps)
 
             self._last_timestamp = current_time # Użyj pobranego czasu
             if current_time - self._last_update_time >= 1:

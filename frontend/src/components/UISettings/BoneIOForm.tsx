@@ -171,7 +171,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         >
           <option value="">{t('boneio_config.select_version')}</option>
           <option value="0.2">0.2</option>
-          <option value="0.3">0.3</option>
+          <option value="0.">0.3</option>
           <option value="0.4">0.4</option>
           <option value="0.5">0.5</option>
           <option value="0.6">0.6</option>
@@ -188,18 +188,23 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         <label className="label">
           <span className="label-text font-medium">{t('boneio_config.device_type')}</span>
         </label>
-        <select
-          className="select select-bordered w-full"
-          value={(data?.device_type || '').toLowerCase()}
-          onChange={(e) => validateDeviceTypeChange(e.target.value)}
-          disabled={isLoading}
-        >
-          <option value="">{t('boneio_config.select_device_type')}</option>
-          <option value="32x10a">32x10A (32 outputs, 10A each)</option>
-          <option value="24x16a">24x16A (24 outputs, 16A each)</option>
-          <option value="cover">Cover</option>
-          <option value="cover mix">Cover Mix</option>
-        </select>
+        <div className="relative">
+          <select
+            className="select select-bordered w-full"
+            value={(data?.device_type || '').toLowerCase()}
+            onChange={(e) => validateDeviceTypeChange(e.target.value)}
+            disabled={isLoading}
+          >
+            <option value="">{t('boneio_config.select_device_type')}</option>
+            <option value="32x10a">32x10A (32 outputs, 10A each)</option>
+            <option value="24x16a">24x16A (24 outputs, 16A each)</option>
+            <option value="cover">Cover</option>
+            <option value="cover mix">Cover Mix</option>
+          </select>
+          {isLoading && (
+            <span className="absolute right-10 top-1/2 -translate-y-1/2 loading loading-spinner loading-sm"></span>
+          )}
+        </div>
         <label className="label">
           <span className="label-text-alt text-base-content/60">{t('boneio_config.device_type_help')}</span>
         </label>
