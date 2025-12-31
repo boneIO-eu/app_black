@@ -190,10 +190,28 @@ class DisplayManager:
             
         except (GPIOInputException, I2CError) as err:
             _LOGGER.error("Can't configure OLED display: %s", err)
+            # Store error in manager for WebUI display
+            self._manager._hardware_errors.append({
+                'type': 'display',
+                'id': 'oled',
+                'name': 'OLED Display',
+                'address': 0x3C,
+                'error': str(err),
+                'message': f"OLED display at address 0x3C: {err}",
+            })
         except ImportError as err:
             _LOGGER.error("Failed to import OLED modules: %s", err)
         except Exception as err:
             _LOGGER.error("Unexpected error configuring OLED: %s", err)
+            # Store error in manager for WebUI display
+            self._manager._hardware_errors.append({
+                'type': 'display',
+                'id': 'oled',
+                'name': 'OLED Display',
+                'address': 0x3C,
+                'error': str(err),
+                'message': f"OLED display: {err}",
+            })
 
     def get_oled(self) -> Any | None:
         """Get OLED display instance.

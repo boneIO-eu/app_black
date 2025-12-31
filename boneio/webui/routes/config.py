@@ -16,7 +16,14 @@ if TYPE_CHECKING:
     from starlette.datastructures import State
 from fastapi.responses import StreamingResponse
 
-from boneio.core.config.yaml_util import load_config_from_file, update_config_section, load_yaml_file
+from boneio.core.config.yaml_util import (
+    load_config_from_file,
+    update_config_section,
+    load_yaml_file,
+    normalize_board_name,
+    normalize_version,
+    get_board_config_path,
+)
 from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
@@ -516,3 +523,128 @@ async def update_file_content(file_path: str, content: dict = Body(...)):
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/validate_device_type_change")
+async def validate_device_type_change(request: dict = Body(...)):
+    """
+    Validate if changing device_type will cause compatibility issues.
+    
+    Checks if current boneio_output/boneio_input references are compatible
+    with the new device type's output_mapping/input_mapping.
+    
+    Args:
+        request: Dictionary with:
+            - new_device_type: Target device type
+            - version: Hardware version (default: 0.8)
+            
+    Returns:
+        Dictionary with:
+            - compatible: True if all references are compatible
+            - incompatible_outputs: List of incompatible output references
+            - incompatible_inputs: List of incompatible input references
+            - available_example_files: List of example config files for new type
+    """
+    new_device_type = request.get("new_device_type")
+    version = request.get("version", "0.8")
+    
+    if not new_device_type:
+        raise HTTPException(status_code=400, detail="new_device_type is required")
+    
+    # Normalize names
+    normalized_type = normalize_board_name(new_device_type)
+    normalized_version = normalize_version(version)
+    
+    # Load current config
+    try:
+        config_file = _get_app_state().yaml_config_file
+        current_config = load_config_from_file(config_file)
+    except Exception as e:
+        _LOGGER.error("Failed to load current config: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to load config: {e}")
+    
+    # Load new board config
+    try:
+        board_file = get_board_config_path(f"output_{normalized_type}", normalized_version)
+        input_file = get_board_config_path("input", normalized_version)
+        board_config = load_yaml_file(board_file)
+        input_config = load_yaml_file(input_file)
+    except Exception as e:
+        _LOGGER.error("Failed to load board config for %s: %s", normalized_type, e)
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Board config not found for {new_device_type} version {version}"
+        )
+    
+    output_mapping = board_config.get("output_mapping", {})
+    input_mapping = input_config.get("input_mapping", {})
+    
+    # Check incompatible outputs
+    incompatible_outputs = []
+    for output in (current_config or {}).get("output", []):
+        boneio_output = output.get("boneio_output")
+        if boneio_output:
+            if boneio_output.lower() not in output_mapping:
+                incompatible_outputs.append({
+                    "boneio_output": boneio_output,
+                    "id": output.get("id", boneio_output),
+                    "name": output.get("name", output.get("id", boneio_output)),
+                })
+    
+    # Check incompatible inputs (events and binary_sensors)
+    incompatible_inputs = []
+    config_data = current_config or {}
+    for section in ["event", "binary_sensor"]:
+        for input_item in config_data.get(section, []):
+            boneio_input = input_item.get("boneio_input")
+            if boneio_input:
+                if boneio_input.lower() not in input_mapping:
+                    incompatible_inputs.append({
+                        "boneio_input": boneio_input,
+                        "id": input_item.get("id", boneio_input),
+                        "section": section,
+                    })
+    
+    # Get available example files for this device type (relative to this file: boneio/webui/routes/config.py)
+    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    example_dir = os.path.join(boneio_path, "example_config", normalized_type)
+    
+    available_example_files = []
+    if os.path.isdir(example_dir):
+        for filename in os.listdir(example_dir):
+            if filename.endswith(".yaml"):
+                # Categorize files
+                base_name = filename.replace(".yaml", "")
+                if "output" in base_name.lower():
+                    category = "output"
+                elif "cover" in base_name.lower() and "output" not in base_name.lower():
+                    category = "cover"
+                elif "event" in base_name.lower():
+                    category = "event"
+                elif "binary_sensor" in base_name.lower():
+                    category = "binary_sensor"
+                elif "mqtt" in base_name.lower():
+                    category = "mqtt"
+                elif "config" in base_name.lower():
+                    category = "config"
+                elif "adc" in base_name.lower():
+                    category = "adc"
+                else:
+                    category = "other"
+                
+                available_example_files.append({
+                    "filename": filename,
+                    "category": category,
+                    "path": os.path.join(example_dir, filename),
+                })
+    
+    compatible = len(incompatible_outputs) == 0 and len(incompatible_inputs) == 0
+    
+    return {
+        "compatible": compatible,
+        "incompatible_outputs": incompatible_outputs,
+        "incompatible_inputs": incompatible_inputs,
+        "available_example_files": available_example_files,
+        "new_device_type": new_device_type,
+        "normalized_type": normalized_type,
+    }

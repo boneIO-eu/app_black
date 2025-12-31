@@ -47,6 +47,7 @@ from boneio.core.messaging import MQTTClient
 from boneio.core.state import StateManager
 from boneio.core.system import get_network_info
 from boneio.exceptions import RestartRequestException
+from boneio.hardware.gpio.input import get_gpio_manager
 
 # Filter out cryptography deprecation warning
 warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
@@ -173,7 +174,6 @@ async def async_run(
     tasks.update(manager_tasks.values())
     
     # Start GPIO manager FIRST - local hardware is more important than remote connections
-    from boneio.hardware.gpio.input import get_gpio_manager
     gpio_manager = get_gpio_manager()
     if gpio_manager and gpio_manager._inputs:  # Only start if there are inputs
         _LOGGER.info("Starting GPIO manager")
@@ -285,7 +285,6 @@ async def async_run(
 
         # Stop GPIO manager
         try:
-            gpio_manager = get_gpio_manager()
             if gpio_manager:
                 _LOGGER.info("Stopping GPIO manager...")
                 await gpio_manager.stop()

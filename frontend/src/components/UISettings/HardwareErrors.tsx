@@ -5,6 +5,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 interface HardwareError {
   type: string;
   expander_type?: string;
+  sensor_type?: string;
   id: string;
   name?: string;
   address?: number;
@@ -38,6 +39,14 @@ const HardwareErrors: React.FC<HardwareErrorsProps> = ({ errors }) => {
               ) : err.type === 'output' ? (
                 <span>
                   Output {err.id} ({err.name}): {err.error}
+                </span>
+              ) : err.type === 'sensor' ? (
+                <span>
+                  {err.sensor_type?.toUpperCase()} {err.name} (0x{err.address?.toString(16)}): {err.error}
+                </span>
+              ) : err.type === 'display' ? (
+                <span>
+                  {err.name} (0x{err.address?.toString(16)}): {err.error}
                 </span>
               ) : (
                 <span>{err.message}</span>

@@ -1,5 +1,21 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { FaExclamationTriangle } from 'react-icons/fa';
+
+interface ExampleFile {
+  filename: string;
+  category: string;
+  path: string;
+}
+
+interface ValidationResult {
+  compatible: boolean;
+  incompatible_outputs: Array<{ boneio_output: string; id: string; name: string }>;
+  incompatible_inputs: Array<{ boneio_input: string; id: string; section: string }>;
+  available_example_files: ExampleFile[];
+  new_device_type: string;
+  normalized_type: string;
+}
 
 interface BoneIOFormProps {
   data: any;
@@ -12,8 +28,104 @@ interface BoneIOFormProps {
  */
 const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [pendingDeviceType, setPendingDeviceType] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [resetResult, setResetResult] = useState<any>(null);
+
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
+  };
+
+  const validateDeviceTypeChange = useCallback(async (newDeviceType: string) => {
+    if (!newDeviceType || newDeviceType === data?.device_type) {
+      handleChange('device_type', newDeviceType || undefined);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/config/validate_device_type_change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          new_device_type: newDeviceType,
+          version: data?.version || '0.8',
+        }),
+      });
+
+      const result: ValidationResult = await response.json();
+
+      if (result.compatible) {
+        // No conflicts, apply change directly
+        handleChange('device_type', newDeviceType);
+      } else {
+        // Show warning modal
+        setValidationResult(result);
+        setPendingDeviceType(newDeviceType);
+        // Pre-select categories that have example files
+        const categories = [...new Set(result.available_example_files.map(f => f.category))];
+        const relevantCategories = categories.filter(c => 
+          ['output', 'event', 'binary_sensor', 'cover'].includes(c)
+        );
+        setSelectedCategories(relevantCategories);
+        setShowWarningModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to validate device type change:', error);
+      // On error, allow the change but warn user
+      handleChange('device_type', newDeviceType);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [data, handleChange]);
+
+  const handleCancelChange = () => {
+    setShowWarningModal(false);
+    setValidationResult(null);
+    setPendingDeviceType(null);
+    setSelectedCategories([]);
+    setResetResult(null);
+  };
+
+  const handleApplyWithExampleConfig = async () => {
+    if (!pendingDeviceType || selectedCategories.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/factory_reset/partial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_type: pendingDeviceType,
+          files_to_replace: selectedCategories,
+        }),
+      });
+
+      const result = await response.json();
+      setResetResult(result);
+
+      if (result.status === 'success') {
+        // Apply device type change
+        handleChange('device_type', pendingDeviceType);
+        // Show success, user needs to restart
+      }
+    } catch (error) {
+      console.error('Failed to apply example config:', error);
+      setResetResult({ status: 'error', message: String(error) });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   // Check if name is required (when version or device_type is set)
@@ -79,7 +191,8 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         <select
           className="select select-bordered w-full"
           value={(data?.device_type || '').toLowerCase()}
-          onChange={(e) => handleChange('device_type', e.target.value || undefined)}
+          onChange={(e) => validateDeviceTypeChange(e.target.value)}
+          disabled={isLoading}
         >
           <option value="">{t('boneio_config.select_device_type')}</option>
           <option value="32x10a">32x10A (32 outputs, 10A each)</option>
@@ -91,6 +204,124 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           <span className="label-text-alt text-base-content/60">{t('boneio_config.device_type_help')}</span>
         </label>
       </div>
+
+      {/* Device Type Change Warning Modal */}
+      {showWarningModal && validationResult && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-2xl">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <FaExclamationTriangle className="text-warning" />
+              {t('boneio_config.device_type_change_warning_title')}
+            </h3>
+            
+            <div className="py-4 space-y-4">
+              <p className="text-sm">
+                {t('boneio_config.device_type_change_warning_desc')}
+              </p>
+
+              {/* Incompatible outputs */}
+              {validationResult.incompatible_outputs.length > 0 && (
+                <div className="alert alert-warning">
+                  <div>
+                    <p className="font-semibold">{t('boneio_config.incompatible_outputs')}:</p>
+                    <ul className="list-disc list-inside text-sm mt-1">
+                      {validationResult.incompatible_outputs.map((out, idx) => (
+                        <li key={idx}>
+                          <code>{out.boneio_output}</code> ({out.name})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Incompatible inputs */}
+              {validationResult.incompatible_inputs.length > 0 && (
+                <div className="alert alert-warning">
+                  <div>
+                    <p className="font-semibold">{t('boneio_config.incompatible_inputs')}:</p>
+                    <ul className="list-disc list-inside text-sm mt-1">
+                      {validationResult.incompatible_inputs.map((inp, idx) => (
+                        <li key={idx}>
+                          <code>{inp.boneio_input}</code> ({inp.section})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Example config option */}
+              <div className="divider">{t('boneio_config.load_example_config')}</div>
+              
+              <p className="text-sm">
+                {t('boneio_config.select_files_to_replace')}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {['output', 'event', 'binary_sensor', 'cover'].map(category => {
+                  const hasFile = validationResult.available_example_files.some(
+                    f => f.category === category
+                  );
+                  if (!hasFile) return null;
+                  return (
+                    <label key={category} className="label cursor-pointer gap-2">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-primary"
+                        checked={selectedCategories.includes(category)}
+                        onChange={() => toggleCategory(category)}
+                      />
+                      <span className="label-text">{category}.yaml</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Reset result */}
+              {resetResult && (
+                <div className={`alert ${resetResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
+                  <div>
+                    <p>{resetResult.message}</p>
+                    {resetResult.status === 'success' && (
+                      <p className="text-sm mt-1">
+                        {t('boneio_config.restart_required')}
+                      </p>
+                    )}
+                    {resetResult.copied_files && (
+                      <p className="text-sm mt-1">
+                        {t('boneio_config.copied_files')}: {resetResult.copied_files.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-action">
+              <button
+                className="btn"
+                onClick={handleCancelChange}
+                disabled={isLoading}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleApplyWithExampleConfig}
+                disabled={isLoading || selectedCategories.length === 0}
+              >
+                {isLoading ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  t('boneio_config.load_and_apply')
+                )}
+              </button>
+            </div>
+          </div>
+          <div className="modal-backdrop" onClick={handleCancelChange}></div>
+        </div>
+      )}
     </div>
   );
 };

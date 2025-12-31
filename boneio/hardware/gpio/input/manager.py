@@ -62,6 +62,7 @@ class GpioManager:
         self._aliases: Dict[Tuple[int, int], str] = {}
         self._detectors: Dict[Tuple[int, int], "MultiClickDetector | BinarySensorDetector"] = {}
         self._running = False
+        self._on_start_callbacks: list[Callable[[], None]] = []
 
     async def _cleanup_stale_requests(self) -> None:
         """Try to cleanup any stale GPIO line requests."""
@@ -300,6 +301,16 @@ class GpioManager:
 
         self._running = True
         _LOGGER.info("GPIO manager started monitoring %d inputs", len(self._inputs))
+        
+        # Execute on-start callbacks
+        if self._on_start_callbacks:
+            _LOGGER.debug("Executing %d on-start callbacks", len(self._on_start_callbacks))
+            for callback in self._on_start_callbacks:
+                try:
+                    callback()
+                except Exception as e:
+                    _LOGGER.error("Error in on-start callback: %s", e)
+            self._on_start_callbacks.clear()
 
     def _handle_gpiod_events(self, chip: int, request: gpiod.LineRequest) -> None:
         """Handle GPIO events from libgpiod.
@@ -374,6 +385,34 @@ class GpioManager:
         pin_info = PINS[pin]
         key = (pin_info["chip"], pin_info["line"])
         return key in self._detectors
+
+    @property
+    def is_running(self) -> bool:
+        """Check if GPIO manager is running.
+        
+        Returns:
+            True if manager is running and ready to read values
+        """
+        return self._running
+
+    def register_on_start_callback(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be executed when GPIO manager starts.
+        
+        If the manager is already running, the callback is executed immediately.
+        Otherwise, it will be executed after start() completes.
+        
+        Args:
+            callback: Function to call when GPIO manager is ready
+        """
+        if self._running:
+            # Already running, execute immediately
+            try:
+                callback()
+            except Exception as e:
+                _LOGGER.error("Error in on-start callback: %s", e)
+        else:
+            # Queue for later execution
+            self._on_start_callbacks.append(callback)
 
     async def stop(self) -> None:
         """Stop monitoring GPIO inputs and cleanup resources."""

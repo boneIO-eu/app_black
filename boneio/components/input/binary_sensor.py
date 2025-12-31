@@ -54,9 +54,9 @@ class GpioInputBinarySensor(GpioBaseClass):
         _LOGGER.debug("Configured binary sensor %s on pin %s (inverted=%s)", 
                      self._name, self._pin, inverted)
         
-        # Send initial state if requested
+        # Send initial state if requested - register callback to run after GPIO manager starts
         if kwargs.get("initial_send", False):
-            self._loop.call_soon(callback=self._send_initial_state)
+            gpio_manager.register_on_start_callback(self._send_initial_state)
 
     def _send_initial_state(self) -> None:
         """Send initial state after setup."""

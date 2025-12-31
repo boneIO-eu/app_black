@@ -108,7 +108,7 @@ class Oled:
             serial = i2c(port=2, address=0x3C)
             self._device = sh1106(serial)
             _LOGGER.debug("OLED display initialized successfully")
-        except DeviceNotFoundError as err:
+        except (DeviceNotFoundError, OSError) as err:
             raise I2CError(f"OLED display not found: {err}")
         
         # Subscribe to OLED button events

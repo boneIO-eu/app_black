@@ -101,7 +101,7 @@ class TempSensor(BaseSensor):
                     self.SensorClass.__name__,
                     address
                 )
-            except (ValueError, RuntimeError) as err:
+            except (ValueError, RuntimeError, OSError) as err:
                 raise I2CError(
                     f"Failed to initialize {self.__class__.__name__} "
                     f"at address {address}: {err}"

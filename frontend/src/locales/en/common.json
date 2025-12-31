@@ -584,7 +584,16 @@
     "hardware_version_help": "BoneIO Black Hardware version",
     "device_type": "Device Type",
     "select_device_type": "-- Select device type --",
-    "device_type_help": "Predefined device type configuration"
+    "device_type_help": "Predefined device type configuration",
+    "device_type_change_warning_title": "Device Type Change Warning",
+    "device_type_change_warning_desc": "Changing the device type will cause compatibility issues with your current configuration. The following items use boneio_output/boneio_input references that don't exist in the new device type.",
+    "incompatible_outputs": "Incompatible outputs",
+    "incompatible_inputs": "Incompatible inputs",
+    "load_example_config": "Load Example Configuration",
+    "select_files_to_replace": "Select which configuration files to replace with example configs for the new device type. Your current files will be backed up.",
+    "load_and_apply": "Load & Apply",
+    "restart_required": "Restart required to apply changes.",
+    "copied_files": "Copied files"
   },
   "mqtt_config": {
     "host": "Host",

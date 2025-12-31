@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
-from boneio.core.config.yaml_util import load_config_from_file
+from boneio.core.config.yaml_util import load_config_from_file, normalize_board_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -482,6 +482,151 @@ class FactoryResetRequest(BaseModel):
     device_type: str
 
 
+class PartialResetRequest(BaseModel):
+    """Request model for partial factory reset endpoint."""
+    device_type: str
+    files_to_replace: list[str]  # Categories: output, event, binary_sensor, cover
+
+
+@router.post("/factory_reset/partial")
+async def partial_factory_reset(request: PartialResetRequest):
+    """
+    Partially reset configuration by replacing only selected files.
+    
+    This allows replacing output/event/binary_sensor/cover configs
+    while keeping mqtt, config, adc and other files intact.
+    
+    Args:
+        request: Device type and list of file categories to replace
+        
+    Returns:
+        Status response with backup info and copied files.
+    """
+    device_type = request.device_type.lower()
+    files_to_replace = request.files_to_replace
+    
+    # Normalize device type
+    normalized_type = normalize_board_name(device_type)
+    
+    if normalized_type not in DEVICE_TYPES:
+        return {
+            "status": "error",
+            "message": f"Invalid device type: {device_type}. Available: {', '.join(DEVICE_TYPES)}"
+        }
+    
+    if not files_to_replace:
+        return {
+            "status": "error",
+            "message": "No files selected for replacement"
+        }
+    
+    # Find example config directory (relative to this file: boneio/webui/routes/update.py)
+    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    example_config_dir = os.path.join(boneio_path, "example_config", normalized_type)
+    
+    if not os.path.isdir(example_config_dir):
+        return {
+            "status": "error",
+            "message": f"Example config not found for device type: {device_type}"
+        }
+    
+    # User config directory
+    config_dir = os.path.expanduser("~/boneio")
+    
+    if not os.path.isdir(config_dir):
+        os.makedirs(config_dir, exist_ok=True)
+    
+    try:
+        # Step 1: Create backup of files that will be replaced
+        backup_dir = os.path.expanduser("~/boneio_config_backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"partial_backup_{timestamp}")
+        
+        # Map categories to file patterns
+        category_patterns = {
+            "output": ["output"],
+            "event": ["event"],
+            "binary_sensor": ["binary_sensor"],
+            "cover": ["cover"],
+        }
+        
+        # Find example files matching selected categories
+        example_files_to_copy = []
+        for filename in os.listdir(example_config_dir):
+            if not filename.endswith(".yaml"):
+                continue
+            base_name = filename.replace(".yaml", "").lower()
+            for category in files_to_replace:
+                patterns = category_patterns.get(category, [category])
+                for pattern in patterns:
+                    if pattern in base_name:
+                        example_files_to_copy.append(filename)
+                        break
+        
+        if not example_files_to_copy:
+            return {
+                "status": "error",
+                "message": f"No matching example files found for categories: {files_to_replace}"
+            }
+        
+        # Find user files that match the patterns (to backup and remove)
+        user_files_to_backup = []
+        for filename in os.listdir(config_dir):
+            if not filename.endswith(".yaml"):
+                continue
+            base_name = filename.replace(".yaml", "").lower()
+            for category in files_to_replace:
+                patterns = category_patterns.get(category, [category])
+                for pattern in patterns:
+                    if pattern in base_name:
+                        user_files_to_backup.append(filename)
+                        break
+        
+        # Backup user files
+        backed_up_files = []
+        if user_files_to_backup:
+            os.makedirs(backup_path, exist_ok=True)
+            for filename in user_files_to_backup:
+                src = os.path.join(config_dir, filename)
+                shutil.copy2(src, backup_path)
+                backed_up_files.append(filename)
+                _LOGGER.info(f"Backed up {filename}")
+        
+        # Remove old user files
+        for filename in user_files_to_backup:
+            os.remove(os.path.join(config_dir, filename))
+            _LOGGER.info(f"Removed old file: {filename}")
+        
+        # Copy example files
+        copied_files = []
+        for filename in example_files_to_copy:
+            src = os.path.join(example_config_dir, filename)
+            dest = os.path.join(config_dir, filename)
+            shutil.copy2(src, dest)
+            copied_files.append(filename)
+            _LOGGER.info(f"Copied {filename} to {config_dir}")
+        
+        _LOGGER.info(f"Partial reset completed for device type: {device_type}, categories: {files_to_replace}")
+        
+        return {
+            "status": "success",
+            "message": f"Configuration partially reset for {device_type}",
+            "backup_path": backup_path if backed_up_files else None,
+            "backed_up_files": backed_up_files,
+            "copied_files": copied_files,
+            "restart_required": True
+        }
+        
+    except Exception as e:
+        _LOGGER.exception(f"Error during partial factory reset: {e}")
+        return {
+            "status": "error",
+            "message": f"Partial reset failed: {str(e)}"
+        }
+
+
 @router.post("/factory_reset")
 async def factory_reset(request: FactoryResetRequest):
     """
@@ -507,10 +652,8 @@ async def factory_reset(request: FactoryResetRequest):
             "message": f"Invalid device type: {device_type}. Available: {', '.join(DEVICE_TYPES)}"
         }
     
-    # Find example config directory
-    # First try relative to boneio package
-    import boneio
-    boneio_path = os.path.dirname(boneio.__file__)
+    # Find example config directory (relative to this file: boneio/webui/routes/update.py)
+    boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     example_config_dir = os.path.join(boneio_path, "example_config", device_type)
     
     if not os.path.isdir(example_config_dir):

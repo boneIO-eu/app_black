@@ -183,6 +183,16 @@ class SensorManager:
             return temp_sensor
         except I2CError as err:
             _LOGGER.error("Can't configure temp sensor %s: %s", name, err)
+            # Store error in manager for WebUI display
+            self._manager._hardware_errors.append({
+                'type': 'sensor',
+                'sensor_type': 'temperature',
+                'id': id,
+                'name': name,
+                'address': config.get(ADDRESS),
+                'error': str(err),
+                'message': f"Temperature sensor {name} at address 0x{config.get(ADDRESS, 0):02X}: {err}",
+            })
             return None
 
     # -------------------------------------------------------------------------
@@ -240,6 +250,16 @@ class SensorManager:
             return ina219
         except I2CError as err:
             _LOGGER.error("Can't configure INA219 sensor: %s", err)
+            # Store error in manager for WebUI display
+            self._manager._hardware_errors.append({
+                'type': 'sensor',
+                'sensor_type': 'ina219',
+                'id': id,
+                'name': id,
+                'address': address,
+                'error': str(err),
+                'message': f"INA219 sensor at address 0x{address:02X}: {err}",
+            })
             return None
 
     # -------------------------------------------------------------------------

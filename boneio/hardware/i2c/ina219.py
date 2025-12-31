@@ -14,6 +14,7 @@ from datetime import datetime
 from boneio.const import SENSOR, STATE
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
+from boneio.exceptions import I2CError
 from boneio.hardware.i2c.ina219_driver import INA219_I2C
 from boneio.models import SensorState
 from boneio.models.events import SensorEvent
@@ -170,11 +171,20 @@ class INA219(AsyncUpdater):
     def __init__(
         self, address: int, id: str, sensors: list[dict] = [], **kwargs
     ) -> None:
-        """Initialize INA219 sensor coordinator."""
+        """Initialize INA219 sensor coordinator.
+        
+        Raises:
+            I2CError: If sensor is not found or communication fails
+        """
         self._loop = asyncio.get_event_loop()
-        self._ina_219 = INA219_I2C(address=address)
         self._sensors = {}
         self._id = id
+        
+        # Initialize hardware sensor with error handling
+        try:
+            self._ina_219 = INA219_I2C(address=address)
+        except OSError as err:
+            raise I2CError(f"Failed to initialize INA219 at address 0x{address:02X}: {err}")
         
         # Create individual sensor instances for each measurement type
         for sensor in sensors:
