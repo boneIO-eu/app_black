@@ -807,6 +807,7 @@
     "sequence_mode_exclusive_hint": "Bazowe eventy są opóźnione. Jeśli wykryto sekwencję, tylko sekwencja jest wysyłana (bez bazowych eventów).",
     "enable_triple_click": "Włącz Potrójne Kliknięcie",
     "enable_triple_click_hint": "Włącz wykrywanie potrójnego kliknięcia. Domyślnie wyłączone, aby uniknąć konfliktów z sekwencją double_then_long. Gdy wyłączone, trzy szybkie kliknięcia są wykrywane jako double + single.",
+    "triple_click_disabled_warning": "Wykrywanie potrójnego kliknięcia jest wyłączone! Przejdź do karty Zaawansowane i włącz 'Włącz Potrójne Kliknięcie', aby te akcje działały.",
     "timing_validation_error": "Czas podwójnego kliknięcia musi być mniejszy niż czas długiego naciśnięcia!",
     "restore_defaults": "Przywróć Domyślne",
     "action": "Akcja",
