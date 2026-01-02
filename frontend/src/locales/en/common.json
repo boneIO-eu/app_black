@@ -83,7 +83,9 @@
     "momentary_turn_on": "Momentary Turn On",
     "momentary_turn_off": "Momentary Turn Off",
     "hardware_errors_found": "Hardware errors found",
-    "view_details": "View Details"
+    "view_details": "View Details",
+    "sort_name": "Sort by Name",
+    "sort_recent": "Sort by Recent Event"
   },
   "inputs": {
     "title": "Inputs",
@@ -121,7 +123,11 @@
     "no_released_actions": "No released actions configured",
     "click_add_action": "Click \"Add Action\" to create one",
     "detected": "Detected",
-    "in": "in"
+    "in": "in",
+    "sort_name": "Sort by Name",
+    "sort_recent": "Sort by Recent Event",
+    "click_to_copy": "Click to copy name",
+    "copied": "Copied"
   },
   "sensors": {
     "title": "Onewire Sensors",
@@ -648,7 +654,10 @@
     "yes": "Yes",
     "no": "No",
     "language": "Language",
-    "default": "Default"
+    "default": "Default",
+    "filter_placeholder": "Filter by name or ID...",
+    "showing": "Showing",
+    "of": "of"
   },
   "validation": {
     "id_required": "ID is required",

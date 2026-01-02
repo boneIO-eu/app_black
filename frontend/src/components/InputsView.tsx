@@ -1,25 +1,38 @@
-import { useContext, memo, useState, useEffect, useRef, useCallback } from 'react';
+import { useContext, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
+import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy } from 'react-icons/fa';
 
 interface ToastNotification {
   id: string;
   message: string;
   type: string;
+  inputName?: string;
 }
 
+type SortMode = 'name' | 'recent';
+
 // Separate component for individual input
-const InputItem = memo(({ inputEvent, isGrid, t }: {
+const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy }: {
   inputEvent: InputEvent;
   isGrid: boolean;
   t: (key: string) => string;
+  isHighlighted?: boolean;
+  onCopy: (name: string) => void;
 }) => (
   <div
-    className={`bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
+    onClick={() => onCopy(inputEvent.state.name)}
+    className={clsx(
+      'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300',
+      isGrid ? 'border-l-4' : 'border-l-8',
+      'border-blue-500',
+      isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]'
+    )}
+    title={t('inputs.click_to_copy')}
   >
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
       <div>
@@ -57,19 +70,29 @@ export default function InputsView() {
     const saved = localStorage.getItem('inputViewMode');
     return saved ? saved === 'grid' : true;
   });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem('inputSortMode');
+    return (saved as SortMode) || 'name';
+  });
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
+  const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
     localStorage.setItem('inputViewMode', gridView ? 'grid' : 'list');
   };
 
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode);
+    localStorage.setItem('inputSortMode', mode);
+  };
+
   // Add toast notification with max 4 toasts limit
-  const addToast = useCallback((message: string, type: string) => {
+  const addToast = useCallback((message: string, type: string, inputName?: string) => {
     const id = `${Date.now()}-${Math.random()}`;
     setToasts(prev => {
-      const newToasts = [...prev, { id, message, type }];
+      const newToasts = [...prev, { id, message, type, inputName }];
       // Keep only last 4 toasts (remove oldest if exceeding limit)
       return newToasts.slice(-4);
     });
@@ -79,15 +102,27 @@ export default function InputsView() {
     }, 3000);
   }, []);
 
+  // Copy input name to clipboard
+  const [copiedName, setCopiedName] = useState<string | null>(null);
+  
+  const copyToClipboard = useCallback((name: string) => {
+    navigator.clipboard.writeText(name).then(() => {
+      setCopiedName(name);
+      setTimeout(() => setCopiedName(null), 1500);
+    });
+  }, []);
+
   // Filter inputs to only include InputState objects
   const validInputs = inputs.filter(isInputEvent);
 
   // Initialize prevInputsRef on first render (to avoid showing toast on page load)
   const isInitializedRef = useRef(false);
 
-  // Detect input state changes and show toast
+  // Detect input state changes, show toast and highlight
   useEffect(() => {
-    const eventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple'];
+    const toastEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple'];
+    const highlightEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple', 'ON', 'OFF'];
+    const now = Date.now() / 1000; // Current time in seconds
     
     // On first render, just populate the ref without showing toasts
     if (!isInitializedRef.current) {
@@ -106,10 +141,13 @@ export default function InputsView() {
       const currentState = inputEvent.state.state;
       const currentTimestamp = inputEvent.state.timestamp;
       
-      // Only show toast for event types (not ON/OFF binary states)
-      // Check timestamp change to detect duplicate events with same state
-      if (eventTypes.includes(currentState) && 
-          (!prevData || prevData.timestamp !== currentTimestamp)) {
+      // Only consider as changed if: we have previous data AND timestamp changed
+      // Also check if event is recent (within last 5 seconds) to avoid stale events on page load
+      const isRecent = (now - currentTimestamp) < 5;
+      const hasChanged = prevData && prevData.timestamp !== currentTimestamp && isRecent;
+      
+      // Show toast for event types (not ON/OFF binary states)
+      if (hasChanged && toastEventTypes.includes(currentState)) {
         const time = new Date(currentTimestamp * 1000).toLocaleTimeString('pl-PL', {
           hour: '2-digit',
           minute: '2-digit',
@@ -117,16 +155,41 @@ export default function InputsView() {
         });
         addToast(
           `[${time}] ${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`,
-          currentState
+          currentState,
+          inputEvent.state.name
         );
       }
       
+      // Highlight changed inputs
+      if (hasChanged && highlightEventTypes.includes(currentState)) {
+        setRecentlyChanged(prev => new Set(prev).add(inputEvent.entity_id));
+        setTimeout(() => {
+          setRecentlyChanged(prev => {
+            const next = new Set(prev);
+            next.delete(inputEvent.entity_id);
+            return next;
+          });
+        }, 2000);
+      }
+      
+      // Always update the ref (even for new items without prevData)
       prevInputsRef.current.set(inputEvent.entity_id, {
         state: currentState,
         timestamp: currentTimestamp
       });
     });
   }, [validInputs, addToast, t]);
+
+  // Sort inputs based on selected mode
+  const sortedInputs = useMemo(() => {
+    const sorted = [...validInputs];
+    if (sortMode === 'recent') {
+      sorted.sort((a, b) => b.state.timestamp - a.state.timestamp);
+    } else {
+      sorted.sort((a, b) => a.state.name.localeCompare(b.state.name));
+    }
+    return sorted;
+  }, [validInputs, sortMode]);
   
   if (validInputs.length === 0) {
     return (
@@ -144,16 +207,61 @@ export default function InputsView() {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
-        <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+        <div className="flex items-center gap-2">
+          {/* Sort dropdown */}
+          <div className="dropdown dropdown-end">
+            <label tabIndex={0} className="btn btn-sm btn-ghost gap-1">
+              {sortMode === 'recent' ? <FaClock /> : <FaSortAlphaDown />}
+              <span className="hidden sm:inline">{t(`inputs.sort_${sortMode}`)}</span>
+              <FaSortAmountDown className="w-3 h-3" />
+            </label>
+            <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li>
+                <button 
+                  onClick={() => handleSortChange('name')}
+                  className={sortMode === 'name' ? 'active' : ''}
+                >
+                  <FaSortAlphaDown /> {t('inputs.sort_name')}
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => handleSortChange('recent')}
+                  className={sortMode === 'recent' ? 'active' : ''}
+                >
+                  <FaClock /> {t('inputs.sort_recent')}
+                </button>
+              </li>
+            </ul>
+          </div>
+          <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+        </div>
       </div>
       <div className={isGrid 
         ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
         : "flex flex-col gap-4"
       }>
-        {validInputs.map((inputEvent: InputEvent) => (
-          <InputItem key={inputEvent.entity_id} inputEvent={inputEvent} isGrid={isGrid} t={t} />
+        {sortedInputs.map((inputEvent: InputEvent) => (
+          <InputItem 
+            key={inputEvent.entity_id} 
+            inputEvent={inputEvent} 
+            isGrid={isGrid} 
+            t={t}
+            isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
+            onCopy={copyToClipboard}
+          />
         ))}
       </div>
+
+      {/* Copied feedback */}
+      {copiedName && (
+        <div className="toast toast-bottom toast-center z-50">
+          <div className="alert alert-success shadow-lg">
+            <FaCopy className="w-4 h-4" />
+            <span>{t('inputs.copied')}: {copiedName}</span>
+          </div>
+        </div>
+      )}
 
       {/* Toast notifications for input events */}
       {toasts.length > 0 && (
@@ -161,8 +269,9 @@ export default function InputsView() {
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              onClick={() => toast.inputName && copyToClipboard(toast.inputName)}
               className={clsx(
-                'alert shadow-lg animate-fade-in',
+                'alert shadow-lg animate-fade-in cursor-pointer hover:opacity-80',
                 toast.type === 'single' && 'alert-success',
                 toast.type === 'double' && 'alert-warning',
                 toast.type === 'long' && 'alert-info',
@@ -171,6 +280,7 @@ export default function InputsView() {
                 toast.type === 'released' && 'alert-warning',
                 !['single', 'double', 'long', 'triple', 'pressed', 'released'].includes(toast.type) && 'alert-info'
               )}
+              title={toast.inputName ? t('inputs.click_to_copy') : undefined}
             >
               <span>{toast.message}</span>
             </div>

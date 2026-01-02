@@ -38,6 +38,7 @@ interface OutputItemProps {
   error: string | null;
   stateOnly?: boolean;
   isGroup?: boolean;
+  isHighlighted?: boolean;
 }
 
 // Returns icon component and ON color for given type
@@ -66,12 +67,13 @@ const OutputItem: React.FC<OutputItemProps> = ({
   error,
   stateOnly = false,
   isGroup = false,
+  isHighlighted = false,
 }) => { 
   const { t } = useTranslation();
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
   
   return (
-    <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
+    <div className={`bg-base-100 shadow-sm rounded-lg p-4 transition-all duration-500 ${isGrid ? '' : 'flex justify-between items-center'} ${isHighlighted ? 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]' : ''}`}>
       <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
         <Icon className={`text-xl ${output.state === 'ON' ? onColor : 'text-gray-400'}`} />
         <div className="flex flex-col">

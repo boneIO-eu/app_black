@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
+import FilterInput from './FilterInput';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -17,10 +18,33 @@ interface OutputGroupTableProps {
 
 const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
   const { t } = useTranslation();
-  console.log("all areas", items);
+  const [filter, setFilter] = useState('');
+
+  const filteredItems = useMemo(() => {
+    if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
+    const lowerFilter = filter.toLowerCase();
+    return items
+      .map((item, index) => ({ item, originalIndex: index }))
+      .filter(({ item }) => {
+        const outputs = Array.isArray(item.outputs) ? item.outputs : [];
+        return (
+          (item.name?.toLowerCase().includes(lowerFilter)) ||
+          (item.id?.toLowerCase().includes(lowerFilter)) ||
+          outputs.some((o: string) => o.toLowerCase().includes(lowerFilter))
+        );
+      });
+  }, [items, filter]);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-2">
+      <FilterInput 
+        filter={filter} 
+        setFilter={setFilter} 
+        totalCount={items.length} 
+        filteredCount={filteredItems.length} 
+      />
+
+      <div className="overflow-x-auto">
       <Table className="table table-zebra w-full">
         <Thead>
           <Tr>
@@ -33,15 +57,15 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
           </Tr>
         </Thead>
         <Tbody>
-          {items.map((item, index) => {
+          {filteredItems.map(({ item, originalIndex }) => {
             const outputs = Array.isArray(item.outputs) ? item.outputs : [];
-            const displayName = item.name || item.id || `Group ${index + 1}`;
+            const displayName = item.name || item.id || `Group ${originalIndex + 1}`;
             const areaName = item.area 
               ? allAreas.find(a => a.id === item.area)?.name || item.area 
               : '-';
 
             return (
-              <Tr key={index}>
+              <Tr key={originalIndex}>
                 <Td>
                   <div>
                     <div className="font-medium">{displayName}</div>
@@ -80,8 +104,8 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
                 </Td>
                 <Td>
                   <TableActions
-                    onEdit={() => onEdit(index)}
-                    onDelete={() => onDelete(index)}
+                    onEdit={() => onEdit(originalIndex)}
+                    onDelete={() => onDelete(originalIndex)}
                   />
                 </Td>
               </Tr>
@@ -89,6 +113,7 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
           })}
         </Tbody>
       </Table>
+      </div>
     </div>
   );
 };

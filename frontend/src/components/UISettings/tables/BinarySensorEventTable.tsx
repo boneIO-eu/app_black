@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
+import FilterInput from './FilterInput';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { normalizeCovers } from '../helpers/coverUtils';
 import { normalizeOutputs } from '../helpers/outputUtils';
@@ -38,6 +39,20 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
 }) => {
   const { t } = useTranslation();
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [filter, setFilter] = useState('');
+
+  // Filter items by name or boneio_input
+  const filteredItems = useMemo(() => {
+    if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
+    const lowerFilter = filter.toLowerCase();
+    return items
+      .map((item, index) => ({ item, originalIndex: index }))
+      .filter(({ item }) => 
+        (item.name?.toLowerCase().includes(lowerFilter)) ||
+        (item.boneio_input?.toLowerCase().includes(lowerFilter)) ||
+        (item.id?.toLowerCase().includes(lowerFilter))
+      );
+  }, [items, filter]);
 
   /**
    * Check if item has any actions (for binary_sensor: pressed/released, for event: single/double/long)
@@ -184,88 +199,97 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   };
 
   return (
-    <div className="overflow-x-auto">
-      <Table className="table table-zebra w-full">
-        <Thead>
-          <Tr>
-            <Th className="w-8"> </Th>
-            <Th>{t('inputs.id')}/{t('inputs.name')}</Th>
-            <Th>{t('inputs.boneio_input')}</Th>
-            <Th>{t('inputs.area')}</Th>
-            <Th>{t('inputs.has_actions')}</Th>
-            <Th>{t('outputs.actions')}</Th>
-          </Tr>
-        </Thead>
-        <Tbody>
-          {items.map((item, index) => {
-            const areaName = item.area 
-              ? allAreas.find(a => a.id === item.area)?.name || item.area 
-              : '-';
-            const isExpanded = expandedRows.has(index);
-            const itemHasActions = hasActions(item);
-            
-            return (
-              <React.Fragment key={index}>
-                <Tr>
-                  <Td className="w-8 p-2">
-                    {itemHasActions && (
-                      <button
-                        onClick={() => toggleRow(index)}
-                        className="btn btn-ghost btn-xs p-1 min-h-0 h-6 w-6"
-                        title={isExpanded ? 'Collapse' : 'Expand'}
-                      >
-                        <svg
-                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+    <div className="space-y-2">
+      <FilterInput 
+        filter={filter} 
+        setFilter={setFilter} 
+        totalCount={items.length} 
+        filteredCount={filteredItems.length} 
+      />
+
+      <div className="overflow-x-auto">
+        <Table className="table table-zebra w-full">
+          <Thead>
+            <Tr>
+              <Th className="w-8"> </Th>
+              <Th>{t('inputs.id')}/{t('inputs.name')}</Th>
+              <Th>{t('inputs.boneio_input')}</Th>
+              <Th>{t('inputs.area')}</Th>
+              <Th>{t('inputs.has_actions')}</Th>
+              <Th>{t('outputs.actions')}</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {filteredItems.map(({ item, originalIndex }) => {
+              const areaName = item.area 
+                ? allAreas.find(a => a.id === item.area)?.name || item.area 
+                : '-';
+              const isExpanded = expandedRows.has(originalIndex);
+              const itemHasActions = hasActions(item);
+              
+              return (
+                <React.Fragment key={originalIndex}>
+                  <Tr>
+                    <Td className="w-8 p-2">
+                      {itemHasActions && (
+                        <button
+                          onClick={() => toggleRow(originalIndex)}
+                          className="btn btn-ghost btn-xs p-1 min-h-0 h-6 w-6"
+                          title={isExpanded ? 'Collapse' : 'Expand'}
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    )}
-                  </Td>
-                  <Td 
-                    className={itemHasActions ? 'cursor-pointer' : ''}
-                    onClick={() => itemHasActions && toggleRow(index)}
-                  >
-                    {item.name || `${t('array_table_widget.item')} ${index + 1}`}
-                  </Td>
-                  <Td 
-                    className={`uppercase ${itemHasActions ? 'cursor-pointer' : ''}`}
-                    onClick={() => itemHasActions && toggleRow(index)}
-                  >
-                    {item.boneio_input || '-'}
-                  </Td>
-                  <Td>{areaName}</Td>
-                  <Td>
-                    {itemHasActions ? (
-                      <span className="badge badge-success badge-sm">{t('common.yes')}</span>
-                    ) : (
-                      <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <TableActions
-                      onEdit={() => onEdit(index)}
-                      onDelete={() => onDelete(index)}
-                      editTitle={t('array_table_widget.edit_item')}
-                      deleteTitle={t('array_table_widget.delete_item')}
-                    />
-                  </Td>
-                </Tr>
-                {isExpanded && itemHasActions && (
-                  <tr>
-                    <td colSpan={6} className="p-0">
-                      {renderActionDetails(item)}
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </Tbody>
-      </Table>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      )}
+                    </Td>
+                    <Td 
+                      className={itemHasActions ? 'cursor-pointer' : ''}
+                      onClick={() => itemHasActions && toggleRow(originalIndex)}
+                    >
+                      {item.name || `${t('array_table_widget.item')} ${originalIndex + 1}`}
+                    </Td>
+                    <Td 
+                      className={`uppercase ${itemHasActions ? 'cursor-pointer' : ''}`}
+                      onClick={() => itemHasActions && toggleRow(originalIndex)}
+                    >
+                      {item.boneio_input || '-'}
+                    </Td>
+                    <Td>{areaName}</Td>
+                    <Td>
+                      {itemHasActions ? (
+                        <span className="badge badge-success badge-sm">{t('common.yes')}</span>
+                      ) : (
+                        <span className="badge badge-ghost badge-sm">{t('common.no')}</span>
+                      )}
+                    </Td>
+                    <Td>
+                      <TableActions
+                        onEdit={() => onEdit(originalIndex)}
+                        onDelete={() => onDelete(originalIndex)}
+                        editTitle={t('array_table_widget.edit_item')}
+                        deleteTitle={t('array_table_widget.delete_item')}
+                      />
+                    </Td>
+                  </Tr>
+                  {isExpanded && itemHasActions && (
+                    <tr>
+                      <td colSpan={6} className="p-0">
+                        {renderActionDetails(item)}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </Tbody>
+        </Table>
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo, useEffect } from 'react';
+import { useState, useContext, useMemo, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
@@ -6,11 +6,12 @@ import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } fr
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock } from 'react-icons/fa';
 import { cn } from '@/lib/utils';
 
 // Output type categories
 type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
+type SortMode = 'name' | 'recent';
 
 /**
  * Categorize output by its type
@@ -35,6 +36,13 @@ export default function OutputsView({error}: {error: string | null}) {
     const saved = localStorage.getItem('outputViewMode');
     return saved ? saved === 'grid' : true;
   });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem('outputSortMode');
+    return (saved as SortMode) || 'name';
+  });
+  const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
+  const prevOutputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
+  const isInitializedRef = useRef(false);
 
   // Fetch hardware errors count
   useEffect(() => {
@@ -67,6 +75,17 @@ export default function OutputsView({error}: {error: string | null}) {
     return labels[category];
   };
 
+  // Sort function for outputs
+  const sortOutputs = (items: OutputState[]): OutputState[] => {
+    const sorted = [...items];
+    if (sortMode === 'recent') {
+      sorted.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    } else {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return sorted;
+  };
+
   // Filter and categorize outputs
   const { categorizedOutputs, stateOnlyOutputs } = useMemo(() => {
     const allOutputs = outputs
@@ -86,12 +105,17 @@ export default function OutputsView({error}: {error: string | null}) {
       const category = categorizeOutput(output.type);
       categorized[category].push(output);
     });
+
+    // Sort each category
+    Object.keys(categorized).forEach(key => {
+      categorized[key as OutputCategory] = sortOutputs(categorized[key as OutputCategory]);
+    });
     
     return {
       categorizedOutputs: categorized,
       stateOnlyOutputs: categorized.state_only,
     };
-  }, [outputs]);
+  }, [outputs, sortMode]);
 
   // Get valid groups
   const validGroups = useMemo(() => 
@@ -109,6 +133,53 @@ export default function OutputsView({error}: {error: string | null}) {
     setIsGrid(gridView);
     localStorage.setItem('outputViewMode', gridView ? 'grid' : 'list');
   };
+
+  const handleSortChange = (mode: SortMode) => {
+    setSortMode(mode);
+    localStorage.setItem('outputSortMode', mode);
+  };
+
+  // Track recently changed outputs for highlight effect
+  useEffect(() => {
+    const allOutputs = outputs.filter(isOutputEvent).map(e => e.state);
+    const now = Date.now() / 1000; // Current time in seconds
+    
+    if (!isInitializedRef.current) {
+      allOutputs.forEach(output => {
+        prevOutputsRef.current.set(output.id, {
+          state: output.state,
+          timestamp: output.timestamp || 0
+        });
+      });
+      isInitializedRef.current = true;
+      return;
+    }
+    
+    allOutputs.forEach(output => {
+      const prevData = prevOutputsRef.current.get(output.id);
+      const currentTimestamp = output.timestamp || 0;
+      // Only highlight if event is recent (within last 5 seconds) to avoid stale events on page load
+      const isRecent = currentTimestamp > 0 && (now - currentTimestamp) < 5;
+      const hasChanged = prevData && prevData.timestamp !== currentTimestamp && isRecent;
+      
+      if (hasChanged) {
+        setRecentlyChanged(prev => new Set(prev).add(output.id));
+        setTimeout(() => {
+          setRecentlyChanged(prev => {
+            const next = new Set(prev);
+            next.delete(output.id);
+            return next;
+          });
+        }, 2000);
+      }
+      
+      // Always update the ref
+      prevOutputsRef.current.set(output.id, {
+        state: output.state,
+        timestamp: currentTimestamp
+      });
+    });
+  }, [outputs]);
 
   const toggleOutput = async (id: string, name: string, type: string) => {
     try {
@@ -174,6 +245,7 @@ export default function OutputsView({error}: {error: string | null}) {
               isGrid={isGrid}
               error={error}
               stateOnly={isStateOnly}
+              isHighlighted={recentlyChanged.has(output.id)}
             />
           ))}
         </div>
@@ -187,7 +259,35 @@ export default function OutputsView({error}: {error: string | null}) {
         <div className="card-body">
           <div className="flex justify-between items-center mb-4">
             <h2 className="card-title">{t('outputs.title')}</h2>
-            <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+            <div className="flex items-center gap-2">
+              {/* Sort dropdown */}
+              <div className="dropdown dropdown-end">
+                <label tabIndex={0} className="btn btn-sm btn-ghost gap-1">
+                  {sortMode === 'recent' ? <FaClock /> : <FaSortAlphaDown />}
+                  <span className="hidden sm:inline">{t(`outputs.sort_${sortMode}`)}</span>
+                  <FaSortAmountDown className="w-3 h-3" />
+                </label>
+                <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
+                  <li>
+                    <button 
+                      onClick={() => handleSortChange('name')}
+                      className={sortMode === 'name' ? 'active' : ''}
+                    >
+                      <FaSortAlphaDown /> {t('outputs.sort_name')}
+                    </button>
+                  </li>
+                  <li>
+                    <button 
+                      onClick={() => handleSortChange('recent')}
+                      className={sortMode === 'recent' ? 'active' : ''}
+                    >
+                      <FaClock /> {t('outputs.sort_recent')}
+                    </button>
+                  </li>
+                </ul>
+              </div>
+              <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+            </div>
           </div>
 
           {/* Lights */}

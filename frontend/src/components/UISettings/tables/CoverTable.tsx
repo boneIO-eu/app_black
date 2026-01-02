@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
+import FilterInput from './FilterInput';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -17,9 +18,31 @@ interface CoverTableProps {
 
 const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
   const { t } = useTranslation();
+  const [filter, setFilter] = useState('');
+
+  const filteredItems = useMemo(() => {
+    if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
+    const lowerFilter = filter.toLowerCase();
+    return items
+      .map((item, index) => ({ item, originalIndex: index }))
+      .filter(({ item }) => 
+        (item.name?.toLowerCase().includes(lowerFilter)) ||
+        (item.id?.toLowerCase().includes(lowerFilter)) ||
+        (item.open_relay?.toLowerCase().includes(lowerFilter)) ||
+        (item.close_relay?.toLowerCase().includes(lowerFilter))
+      );
+  }, [items, filter]);
 
   return (
-    <div className="overflow-x-auto">
+    <div className="space-y-2">
+      <FilterInput 
+        filter={filter} 
+        setFilter={setFilter} 
+        totalCount={items.length} 
+        filteredCount={filteredItems.length} 
+      />
+
+      <div className="overflow-x-auto">
       <Table className="table table-zebra w-full">
         <Thead>
           <Tr>
@@ -33,16 +56,16 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
           </Tr>
         </Thead>
         <Tbody>
-          {items.map((item, index) => {
+          {filteredItems.map(({ item, originalIndex }) => {
             const displayId = item.id || (item.open_relay && item.close_relay 
               ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
-              : `Cover ${index + 1}`);
+              : `Cover ${originalIndex + 1}`);
             const areaName = item.area 
               ? allAreas.find(a => a.id === item.area)?.name || item.area 
               : '-';
 
             return (
-              <Tr key={index}>
+              <Tr key={originalIndex}>
                 <Td>
                   <div>
                     {item.name && <div className="font-medium">{item.name}</div>}
@@ -69,8 +92,8 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
                 <Td>{areaName}</Td>
                 <Td>
                   <TableActions
-                    onEdit={() => onEdit(index)}
-                    onDelete={() => onDelete(index)}
+                    onEdit={() => onEdit(originalIndex)}
+                    onDelete={() => onDelete(originalIndex)}
                     editTitle="Edit Item"
                     deleteTitle="Delete"
                   />
@@ -80,6 +103,7 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
           })}
         </Tbody>
       </Table>
+      </div>
     </div>
   );
 };

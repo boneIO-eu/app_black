@@ -83,7 +83,9 @@
     "momentary_turn_on": "Chwilowe włączenie",
     "momentary_turn_off": "Chwilowe wyłączenie",
     "hardware_errors_found": "błędów sprzętowych znaleziono",
-    "view_details": "Zobacz szczegóły"
+    "view_details": "Zobacz szczegóły",
+    "sort_name": "Sortuj wg Nazwy",
+    "sort_recent": "Sortuj wg Ostatniego Zdarzenia"
   },
   "inputs": {
     "title": "Wejścia",
@@ -121,7 +123,11 @@
     "no_released_actions": "Brak skonfigurowanych akcji puszczenia",
     "click_add_action": "Kliknij \"Dodaj Akcję\" aby utworzyć",
     "detected": "Wykryto",
-    "in": "w"
+    "in": "w",
+    "sort_name": "Sortuj wg Nazwy",
+    "sort_recent": "Sortuj wg Ostatniego Zdarzenia",
+    "click_to_copy": "Kliknij aby skopiować nazwę",
+    "copied": "Skopiowano"
   },
   "sensors": {
     "title": "Czujki Onewire",
@@ -649,7 +655,10 @@
     "yes": "Tak",
     "no": "Nie",
     "language": "Język",
-    "default": "Domyślnie"
+    "default": "Domyślnie",
+    "filter_placeholder": "Filtruj po nazwie lub ID...",
+    "showing": "Pokazuje",
+    "of": "z"
   },
   "validation": {
     "id_required": "ID jest wymagane",
