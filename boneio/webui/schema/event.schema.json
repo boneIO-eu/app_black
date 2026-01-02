@@ -4,8 +4,8 @@
   "properties": {
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -67,8 +67,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -297,8 +297,8 @@
           },
           "double_click_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -307,8 +307,8 @@
           },
           "long_press_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -317,8 +317,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -333,8 +333,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -485,8 +485,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -497,8 +497,8 @@
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -649,8 +649,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -661,8 +661,8 @@
               },
               "triple": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -813,8 +813,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -825,8 +825,8 @@
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -977,8 +977,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -989,8 +989,8 @@
               },
               "double_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1141,8 +1141,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1153,8 +1153,8 @@
               },
               "single_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1305,8 +1305,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1317,8 +1317,8 @@
               },
               "double_then_single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1469,8 +1469,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1480,6 +1480,117 @@
                 }
               }
             }
+          },
+          "sequence_mode": {
+            "type": "string",
+            "default": "immediate",
+            "enum": [
+              "immediate",
+              "exclusive"
+            ],
+            "examples": [
+              "immediate"
+            ],
+            "description": "Sequence Mode",
+            "title": "Sequence mode"
+          },
+          "enable_triple_click": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enable Triple Click",
+            "title": "Enable triple click"
+          },
+          "mqtt_sequences": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "double_then_long": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send double_then_long to MQTT",
+                "title": "Double then long"
+              },
+              "single_then_long": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send single_then_long to MQTT",
+                "title": "Single then long"
+              },
+              "double_then_single": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send double_then_single to MQTT",
+                "title": "Double then single"
+              }
+            },
+            "description": "MQTT Sequences",
+            "title": "Mqtt sequences"
           }
         }
       },

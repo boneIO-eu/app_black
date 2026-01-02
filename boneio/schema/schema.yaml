@@ -1016,6 +1016,50 @@ event:
           double_then_long: !include actions_switch.yaml
           single_then_long: !include actions_switch.yaml
           double_then_single: !include actions_switch.yaml
+      sequence_mode:
+        type: string
+        required: False
+        default: 'immediate'
+        allowed: ['immediate', 'exclusive']
+        meta:
+          label: Sequence Mode
+          description: |
+            How to handle click sequences:
+            - immediate: Base events (single, double, long) fire immediately. Sequences are additional events.
+            - exclusive: Base events are delayed by sequence_window. If sequence is detected, only sequence fires (no base events).
+      enable_triple_click:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Enable Triple Click
+          description: |
+            Enable triple click detection. Disabled by default to avoid conflicts with double_then sequence.
+      mqtt_sequences:
+        required: False
+        type: dict
+        meta:
+          label: MQTT Sequences
+          description: Which click sequences should be published to MQTT
+        schema:
+          double_then_long:
+            type: boolean
+            default: False
+            required: False
+            meta:
+              label: Send double_then_long to MQTT
+          single_then_long:
+            type: boolean
+            default: False
+            required: False
+            meta:
+              label: Send single_then_long to MQTT
+          double_then_single:
+            type: boolean
+            default: False
+            required: False
+            meta:
+              label: Send double_then_single to MQTT
 adc:
   type: list
   meta:

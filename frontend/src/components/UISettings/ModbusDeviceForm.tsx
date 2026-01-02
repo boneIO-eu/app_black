@@ -23,12 +23,13 @@ interface FilterSectionProps {
   title: string;
   filters: Filter[];
   onChange: (filters: Filter[]) => void;
+  t: (key: string) => string;
 }
 
 /**
  * FilterSection - component for managing a list of sensor filters.
  */
-const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange }) => {
+const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange, t }) => {
   const addFilter = () => {
     onChange([...filters, { round: 2 }]);
   };
@@ -90,7 +91,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange 
                 className="input input-bordered input-sm w-24"
                 value={getFilterValue(filter) ?? ''}
                 onChange={(e) => updateFilter(index, getFilterType(filter), parseFloat(e.target.value) || undefined)}
-                placeholder="Value"
+                placeholder={t('modbus.filters.value_placeholder')}
               />
               <button
                 type="button"
@@ -106,7 +107,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange 
             className="btn btn-ghost btn-sm"
             onClick={addFilter}
           >
-            <FaPlus className="mr-1" /> Add Filter
+            <FaPlus className="mr-1" /> {t('modbus.filters.add')}
           </button>
         </div>
       </div>
@@ -169,16 +170,16 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   // Determine which tabs to show
   const availableTabs = useMemo(() => {
     const tabs: Array<{ id: 'basic' | 'filters' | 'data'; label: string }> = [
-      { id: 'basic', label: 'Basic' }
+      { id: 'basic', label: t('modbus.tabs.basic') }
     ];
     if (showSensorsFilters) {
-      tabs.push({ id: 'filters', label: 'Sensor Filters' });
+      tabs.push({ id: 'filters', label: t('modbus.tabs.filters') });
     }
     if (showDataFields) {
-      tabs.push({ id: 'data', label: 'Data' });
+      tabs.push({ id: 'data', label: t('modbus.tabs.data') });
     }
     return tabs;
-  }, [showSensorsFilters, showDataFields]);
+  }, [showSensorsFilters, showDataFields, t]);
 
   // Reset to basic tab if current tab is not available
   React.useEffect(() => {
@@ -215,18 +216,18 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             {/* Display Name */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Display Name</span>
+                <span className="label-text font-medium">{t('modbus.display_name')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
                 value={data.name || ''}
                 onChange={(e) => updateField('name', e.target.value)}
-                placeholder="e.g., Energy Meter Living Room"
+                placeholder={t('modbus.display_name_placeholder')}
               />
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Friendly name for Home Assistant
+                  {t('modbus.display_name_hint')}
                 </span>
               </label>
             </div>
@@ -234,17 +235,17 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             {/* Area */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Area</span>
+                <span className="label-text font-medium">{t('modbus.area')}</span>
               </label>
               <Select
                 value={data.area || '_none_'}
                 onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No area" />
+                  <SelectValue placeholder={t('modbus.no_area')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none_">No area</SelectItem>
+                  <SelectItem value="_none_">{t('modbus.no_area')}</SelectItem>
                   {areas.map((area) => (
                     <SelectItem key={area.id} value={area.id}>
                       {area.name || area.id}
@@ -254,7 +255,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               </Select>
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Room/area for grouping in HA
+                  {t('modbus.area_hint')}
                 </span>
               </label>
             </div>
@@ -265,20 +266,20 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             {/* Address */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Address *</span>
+                <span className="label-text font-medium">{t('modbus.address_required')}</span>
               </label>
               <input
                 type="number"
                 className="input input-bordered w-full"
                 value={data.address || ''}
                 onChange={(e) => updateField('address', parseInt(e.target.value) || '')}
-                placeholder="1-247"
+                placeholder={t('modbus.address_placeholder')}
                 min={1}
                 max={247}
               />
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Modbus address (1-247)
+                  {t('modbus.address_hint')}
                 </span>
               </label>
             </div>
@@ -286,14 +287,14 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             {/* Model */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Model *</span>
+                <span className="label-text font-medium">{t('modbus.model_required')}</span>
               </label>
               <Select
                 value={data.model || ''}
                 onValueChange={(value) => updateField('model', value)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select model..." />
+                  <SelectValue placeholder={t('modbus.select_model')} />
                 </SelectTrigger>
                 <SelectContent>
                   {modelOptions.map((model: string) => (
@@ -305,7 +306,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               </Select>
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Device model
+                  {t('modbus.model_hint')}
                 </span>
               </label>
             </div>
@@ -314,14 +315,14 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
           {/* ID - optional */}
           <div className="form-control">
             <label className="label py-1">
-              <span className="label-text font-medium">ID</span>
+              <span className="label-text font-medium">{t('modbus.id')}</span>
             </label>
             <input
               type="text"
               className="input input-bordered w-full"
               value={data.id || ''}
               onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-              placeholder="Auto-generated if empty"
+              placeholder={t('modbus.id_placeholder')}
             />
             <label className="label py-0.5">
               <span className="label-text-alt text-base-content/60">
@@ -339,7 +340,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
           <SimpleTimePeriodInput
             value={data.update_interval || '30s'}
             onChange={(value: string) => updateField('update_interval', value)}
-            label="Update Interval"
+            label={t('modbus.update_interval')}
             required={true}
             minimum={1000}
           />
@@ -350,21 +351,23 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
       {activeTab === 'filters' && showSensorsFilters && (
         <div className="space-y-4">
           <div className="alert alert-info text-sm">
-            <span>Configure sensor filters for CWT temperature/humidity sensor. Filters are applied in order.</span>
+            <span>{t('modbus.filters.info')}</span>
           </div>
 
           {/* Temperature Filters */}
           <FilterSection
-            title="Temperature Filters"
+            title={t('modbus.filters.temperature')}
             filters={data.sensors_filters?.temperature || []}
             onChange={(filters) => updateNestedField('sensors_filters', 'temperature', filters)}
+            t={t}
           />
 
           {/* Humidity Filters */}
           <FilterSection
-            title="Humidity Filters"
+            title={t('modbus.filters.humidity')}
             filters={data.sensors_filters?.humidity || []}
             onChange={(filters) => updateNestedField('sensors_filters', 'humidity', filters)}
+            t={t}
           />
         </div>
       )}
@@ -373,25 +376,25 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
       {activeTab === 'data' && showDataFields && (
         <div className="space-y-4">
           <div className="alert alert-info">
-            <span>Configure dimensions for liquid level sensor calculation.</span>
+            <span>{t('modbus.data.info')}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {/* Width */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Width</span>
+                <span className="label-text font-medium">{t('modbus.data.width')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
                 value={data.data?.width || ''}
                 onChange={(e) => updateNestedField('data', 'width', e.target.value || undefined)}
-                placeholder="e.g., 50cm or 0.5"
+                placeholder={t('modbus.data.width_placeholder')}
               />
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Width in meters, cm, etc.
+                  {t('modbus.data.width_hint')}
                 </span>
               </label>
             </div>
@@ -399,18 +402,18 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             {/* Length */}
             <div className="form-control">
               <label className="label py-1">
-                <span className="label-text font-medium">Length</span>
+                <span className="label-text font-medium">{t('modbus.data.length')}</span>
               </label>
               <input
                 type="text"
                 className="input input-bordered w-full"
                 value={data.data?.length || ''}
                 onChange={(e) => updateNestedField('data', 'length', e.target.value || undefined)}
-                placeholder="e.g., 100cm or 1.0"
+                placeholder={t('modbus.data.length_placeholder')}
               />
               <label className="label py-0.5">
                 <span className="label-text-alt text-base-content/60">
-                  Length in meters, cm, etc.
+                  {t('modbus.data.length_hint')}
                 </span>
               </label>
             </div>

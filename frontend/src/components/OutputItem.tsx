@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { FaLightbulb, FaLock } from 'react-icons/fa';
 import { HiLightBulb } from 'react-icons/hi';
 import { RiOutletLine } from "react-icons/ri";
@@ -39,6 +39,7 @@ interface OutputItemProps {
   stateOnly?: boolean;
   isGroup?: boolean;
   isHighlighted?: boolean;
+  onLongPress?: (output: OutputState) => void;
 }
 
 // Returns icon component and ON color for given type
@@ -68,12 +69,39 @@ const OutputItem: React.FC<OutputItemProps> = ({
   stateOnly = false,
   isGroup = false,
   isHighlighted = false,
+  onLongPress,
 }) => { 
   const { t } = useTranslation();
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePressStart = () => {
+    if (!onLongPress) return;
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      onLongPress(output);
+    }, 500);
+  };
+
+  const handlePressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
   
   return (
-    <div className={`bg-base-100 shadow-sm rounded-lg p-4 transition-all duration-500 ${isGrid ? '' : 'flex justify-between items-center'} ${isHighlighted ? 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]' : ''}`}>
+    <div 
+      className={`bg-base-100 shadow-sm rounded-lg p-4 transition-all duration-500 select-none ${isGrid ? '' : 'flex justify-between items-center'} ${isHighlighted ? 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]' : ''} ${onLongPress ? 'cursor-pointer' : ''}`}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
+      title={onLongPress ? t('outputs.long_press_to_edit') : undefined}
+    >
       <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
         <Icon className={`text-xl ${output.state === 'ON' ? onColor : 'text-gray-400'}`} />
         <div className="flex flex-col">

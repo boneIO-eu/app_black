@@ -1,8 +1,8 @@
 mcp23017:
   - id: mcp_left
-    address: 0x20
+    address: 0x23
   - id: mcp_right
-    address: 0x21
+    address: 0x22
 
 output_mapping:
   out_01:

@@ -76,6 +76,11 @@ class GpioBaseClass:
         self._event_bus = event_bus
         self._event_lock = asyncio.Lock()
         self.area: str | None = None  # HA area/room assignment
+        # MQTT sequences configuration - which sequences to publish to MQTT
+        mqtt_seq = kwargs.get("mqtt_sequences")
+        self._mqtt_sequences: dict[str, bool] = mqtt_seq if isinstance(mqtt_seq, dict) else {}
+        # Sequence mode: 'immediate' (default) or 'exclusive'
+        self._sequence_mode: str = kwargs.get("sequence_mode", "immediate")
 
     @property
     def boneio_input(self) -> str:
@@ -222,3 +227,32 @@ class GpioBaseClass:
             Unix timestamp
         """
         return self._last_timestamp
+
+    @property
+    def mqtt_sequences(self) -> dict[str, bool]:
+        """Get MQTT sequences configuration.
+        
+        Returns:
+            Dictionary mapping sequence types to boolean (publish to MQTT or not)
+        """
+        return self._mqtt_sequences
+
+    @property
+    def sequence_mode(self) -> str:
+        """Get sequence mode.
+        
+        Returns:
+            'immediate' or 'exclusive'
+        """
+        return self._sequence_mode
+
+    def should_publish_sequence_to_mqtt(self, sequence_type: str) -> bool:
+        """Check if a sequence type should be published to MQTT.
+        
+        Args:
+            sequence_type: Type of sequence (e.g., 'double_then_long')
+            
+        Returns:
+            True if the sequence should be published to MQTT
+        """
+        return self._mqtt_sequences.get(sequence_type, False)

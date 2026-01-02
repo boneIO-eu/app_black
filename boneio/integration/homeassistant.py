@@ -33,6 +33,7 @@ from boneio.const import (
     SINGLE,
     STATE,
     STOP,
+    TRIPLE,
 )
 from boneio.version import __version__
 from typing import Any, TypedDict, TYPE_CHECKING
@@ -79,7 +80,7 @@ def ha_availabilty_message(
     device_name = config_helper.name if device_name is None else device_name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
     if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
-        web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.ha_configuration_port}"
+        web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.web_configuration_port}"
     
     web_url_dict = {
         "configuration_url": web_url
@@ -107,7 +108,7 @@ def ha_availabilty_message(
             "serial_number": config_helper.serial_number,
             "sw_version": __version__,
             "via_device": topic,  # Link to main BoneIO device
-            "suggested_area": area,  # Use area ID (lowercase) - HA converts area names to lowercase
+            "suggested_area": area_name,  # Use area ID (lowercase) - HA converts area names to lowercase
             **web_url_dict
         }
     else:
@@ -126,8 +127,8 @@ def ha_availabilty_message(
     # This allows moving entities between sub-devices by changing their area
     # Let's test topic only, don't add area into entity_id.
     # Remove slashes from unique_id to avoid HA issues
-    unique_id_prefix = topic.replace("/", "_") if area else topic.replace("/", "_")
-    unique_id = f"{unique_id_prefix}{device_type}{id}"
+    unique_id_prefix = f"{topic.replace("/", "_")}_{area}" if area else topic.replace("/", "_")
+    unique_id = f"{unique_id_prefix}_{device_type}{id}"
     default_entity_id = f"{entity_type}.{config_helper.serial_number}_{id}"
     
     return {
@@ -271,10 +272,35 @@ def ha_valve_availabilty_message(id: str, config_helper: ConfigHelper, device_ty
     return msg
 
 
-def ha_event_availabilty_message(config_helper: ConfigHelper, **kwargs):
+def ha_event_availabilty_message(config_helper: ConfigHelper, mqtt_sequences: dict | None = None, enable_triple_click: bool = False, **kwargs):
+    """Create Event availability topic for HA.
+    
+    Args:
+        config_helper: ConfigHelper instance
+        mqtt_sequences: Dict of sequence types to publish to MQTT (e.g., {"double_then_long": True})
+        enable_triple_click: Whether triple click detection is enabled
+        **kwargs: Additional arguments passed to ha_availabilty_message
+    """
     msg = ha_availabilty_message(device_type=INPUT, config_helper=config_helper, entity_type="event", **kwargs)
     msg["icon"] = "mdi:gesture-double-tap"
-    msg["event_types"] = [SINGLE, DOUBLE, LONG]
+    
+    # Base event types
+    event_types = [SINGLE, DOUBLE, LONG]
+    
+    # Add triple click if enabled
+    if enable_triple_click:
+        event_types.append(TRIPLE)
+    
+    # Add sequence event types if enabled in mqtt_sequences
+    if mqtt_sequences:
+        if mqtt_sequences.get("double_then_long"):
+            event_types.append("double_then_long")
+        if mqtt_sequences.get("single_then_long"):
+            event_types.append("single_then_long")
+        if mqtt_sequences.get("double_then_single"):
+            event_types.append("double_then_single")
+    
+    msg["event_types"] = event_types
     return msg
 
 

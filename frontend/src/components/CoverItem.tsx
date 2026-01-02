@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useCallback } from "react";
+import React, { memo, useState, useEffect, useCallback, useRef } from "react";
 import { MdBlinds, MdBlindsClosed } from "react-icons/md";
 import axios from "axios";
 import { formatTimestamp } from '../utils/formatters';
@@ -13,10 +13,31 @@ interface CoverItemProps {
   action: (id: string, name: string, action: string) => void;
   isGrid: boolean;
   error: string | null;
+  onLongPress?: (cover: CoverState) => void;
 }
 
-const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error }) => {
+const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error, onLongPress }) => {
   const { t } = useTranslation();
+  
+  // Long press handling
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePressStart = () => {
+    if (!onLongPress) return;
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      onLongPress(cover);
+    }, 500);
+  };
+
+  const handlePressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
   
   // Main position slider
   const Icon = cover.state === 'open' ? MdBlinds : MdBlindsClosed;
@@ -100,7 +121,15 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
 
   
   return (
-  <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'}`}>
+  <div 
+    className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? '' : 'flex justify-between items-center'} ${onLongPress ? 'cursor-pointer' : ''}`}
+    onMouseDown={handlePressStart}
+    onMouseUp={handlePressEnd}
+    onMouseLeave={handlePressEnd}
+    onTouchStart={handlePressStart}
+    onTouchEnd={handlePressEnd}
+    title={onLongPress ? t('outputs.long_press_to_edit') : undefined}
+  >
     <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
       <Icon className={`text-xl ${cover.state === 'open' ? 'text-yellow-400' : 'text-gray-400'}`} />
       <span className="text-lg">{cover.name}</span>

@@ -216,7 +216,7 @@ class CoverManager:
                 restored_state=restored_state,
                 tilt_duration=tilt_duration,
                 actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
-                **{k: v for k, v in config.items() if k not in ("platform", "actuator_activation_duration", "tilt_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{k: v for k, v in config.items() if k not in ("id", "platform", "actuator_activation_duration", "tilt_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_with_tilt_availabilty_message
         elif platform == "time_based":
@@ -236,7 +236,7 @@ class CoverManager:
                 event_bus=self._manager._event_bus,
                 topic_prefix=self._manager._topic_prefix,
                 restored_state=restored_state,
-                **{k: v for k, v in config.items() if k not in ("platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{k: v for k, v in config.items() if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_availabilty_message
         elif platform == "previous":
@@ -256,7 +256,7 @@ class CoverManager:
                 event_bus=self._manager._event_bus,
                 topic_prefix=self._manager._topic_prefix,
                 restored_state=restored_state,
-                **{k: v for k, v in config.items() if k not in ("platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{k: v for k, v in config.items() if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_availabilty_message
         

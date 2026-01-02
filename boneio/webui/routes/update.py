@@ -467,15 +467,15 @@ async def list_backups():
 DEVICE_TYPES = ["24x16", "32x10", "cover", "cover_mix"]
 
 # Hardware version to sensor mapping
-# Different hardware versions have different temperature sensors and power monitoring
+# Different hardware versions have different temperature sensors, power monitoring, and UART for modbus
 HARDWARE_SENSORS = {
-    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False},
-    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False},
-    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
-    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
-    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
-    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
-    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True},
+    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "modbus_uart": "uart1"},
+    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "modbus_uart": "uart1"},
+    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
+    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
+    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
+    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
+    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
 }
 
 # Available hardware versions
@@ -663,8 +663,8 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
     Adjust config.yaml content for specific hardware version.
     
     Different hardware versions have different sensors:
-    - 0.2, 0.3: MCP9808 temperature sensor, no INA219
-    - 0.4+: LM75 temperature sensor, INA219 power monitor
+    - 0.2, 0.3: MCP9808 temperature sensor, no INA219, modbus on uart1
+    - 0.4+: LM75 temperature sensor, INA219 power monitor, modbus on uart4
     
     Args:
         config_content: Original config.yaml content
@@ -690,6 +690,15 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
         config_content = re.sub(
             r'ina219:\s*\n\s*-\s*address:.*\n',
             '',
+            config_content
+        )
+    
+    # Update modbus uart if different from default (uart4)
+    modbus_uart = hw_config.get("modbus_uart", "uart4")
+    if modbus_uart != "uart4":
+        config_content = re.sub(
+            r'(modbus:\s*\n\s*)uart:\s*uart4',
+            f'\\1uart: {modbus_uart}',
             config_content
         )
     

@@ -4,8 +4,8 @@
   "properties": {
     "remote_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -57,8 +57,8 @@
             "properties": {
               "outputs": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -86,8 +86,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -154,8 +154,8 @@
               },
               "switches": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -191,8 +191,8 @@
               },
               "lights": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -308,16 +308,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
@@ -332,8 +332,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [

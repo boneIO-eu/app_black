@@ -216,10 +216,12 @@ class InputManager:
             # Reload: update existing input's actions and name
             if existing_input:
                 
-                # Check if HA-relevant fields changed (name, area)
+                # Check if HA-relevant fields changed (name, area, mqtt_sequences)
                 old_name = existing_input._name if hasattr(existing_input, '_name') else None
                 old_area = getattr(existing_input, 'area', None)
-                ha_fields_changed = (old_name != name) or (old_area != area)
+                old_mqtt_sequences = existing_input.mqtt_sequences if hasattr(existing_input, 'mqtt_sequences') else {}
+                new_mqtt_sequences = gpio.get("mqtt_sequences", {})
+                ha_fields_changed = (old_name != name) or (old_area != area) or (old_mqtt_sequences != new_mqtt_sequences)
                 
                 # Update actions (always - this is internal to the controller)
                 existing_input.set_actions(actions=actions)
@@ -231,14 +233,22 @@ class InputManager:
                 # Store area on input
                 existing_input.area = area
                 
+                # Update mqtt_sequences configuration
+                if hasattr(existing_input, '_mqtt_sequences'):
+                    existing_input._mqtt_sequences = new_mqtt_sequences
+                
                 # Update timing parameters if this is an event button
                 existing_input.update_timings(
                     double_click_duration=gpio.get('double_click_duration'),
                     long_press_duration=gpio.get('long_press_duration'),
                     sequence_window_duration=gpio.get('sequence_window_duration'),
+                    sequence_mode=gpio.get('sequence_mode'),
+                    actions=actions,
+                    mqtt_sequences=new_mqtt_sequences,
+                    enable_triple_click=gpio.get('enable_triple_click'),
                 )
                 
-                # Re-send HA discovery only if HA-relevant fields changed (name, area)
+                # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
@@ -249,6 +259,8 @@ class InputManager:
                         device_class=gpio.get(DEVICE_CLASS, None),
                         availability_msg_func=ha_event_availabilty_message,
                         area=area,
+                        mqtt_sequences=gpio.get("mqtt_sequences"),
+                        enable_triple_click=gpio.get("enable_triple_click", False),
                     )
                 return existing_input
             
@@ -275,6 +287,8 @@ class InputManager:
                     device_class=gpio.get(DEVICE_CLASS, None),
                     availability_msg_func=ha_event_availabilty_message,
                     area=area,
+                    mqtt_sequences=gpio.get("mqtt_sequences"),
+                    enable_triple_click=gpio.get("enable_triple_click", False),
                 )
             
             return input_device
@@ -566,6 +580,9 @@ class InputManager:
             # Remove from internal cache
             self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
 
+    # Sequence click types that require mqtt_sequences configuration
+    SEQUENCE_CLICK_TYPES = {"double_then_long", "single_then_long", "double_then_single"}
+
     def _publish_input_event_to_mqtt(
         self, input_instance: GpioBaseClass, event: InputEvent
     ) -> None:
@@ -573,6 +590,9 @@ class InputManager:
         
         For event buttons (input_type=INPUT): sends JSON with event_type
         For binary sensors (input_type=INPUT_SENSOR): sends pressed/released state
+        
+        Sequence events (double_then_long, single_then_long, double_then_single) are only
+        published if explicitly enabled in mqtt_sequences configuration.
         
         Args:
             input_instance: The input device instance
@@ -584,7 +604,21 @@ class InputManager:
         click_type = event.click_type
         topic = f"{topic_prefix}/input/{input_id}"
         
-        if input_type == INPUT:         
+        if input_type == INPUT:
+            # Check if this is a sequence event that requires mqtt_sequences config
+            if click_type in self.SEQUENCE_CLICK_TYPES:
+                _LOGGER.debug(
+                    "Sequence event %s on %s, mqtt_sequences=%s, should_publish=%s",
+                    click_type, input_id, input_instance.mqtt_sequences,
+                    input_instance.should_publish_sequence_to_mqtt(click_type)
+                )
+                if not input_instance.should_publish_sequence_to_mqtt(click_type):
+                    _LOGGER.debug(
+                        "Skipping MQTT publish for sequence %s on %s (not enabled in mqtt_sequences)",
+                        click_type, input_id
+                    )
+                    return
+            
             event_payload: dict[str, str | float | None] = {"event_type": click_type}
             if event.duration is not None:
                 event_payload["duration"] = round(event.duration, 3)
@@ -671,6 +705,8 @@ class InputManager:
                         device_class=getattr(input_device, '_device_class', None),
                         availability_msg_func=ha_event_availabilty_message,
                         area=input_area,
+                        mqtt_sequences=input_device.mqtt_sequences,
+                        enable_triple_click=getattr(input_device._detector, '_enable_triple_click', False),
                     )
                 elif isinstance(input_device, GpioInputBinarySensor):
                     self._manager.send_ha_autodiscovery(

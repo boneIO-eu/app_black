@@ -1,17 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
-import { FaSave, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle, FaUndo } from 'react-icons/fa';
-import ArrayTableWidget from './ArrayTableWidget';
-import { convertFormDataToOriginalTypes, stripHiddenAndDefaults, convertTimeperiodToMilliseconds, convertMillisecondsToTimeperiod } from '@/components/UISettings/helpers/configSchemaUtils';
+import { convertFormDataToOriginalTypes, convertTimeperiodToMilliseconds, stripHiddenAndDefaults, convertMillisecondsToTimeperiod } from '@/components/UISettings/helpers/configSchemaUtils';
+import { 
+  RELOAD_SECTIONS, 
+  RESTART_SECTIONS, 
+  ALL_SECTIONS,
+} from '@/components/UISettings/constants/sectionDefinitions';
 import { useTranslation } from '@/hooks/useTranslation';
-// Custom forms for simple sections (replacing RJSF)
-import BoneIOForm from './BoneIOForm';
-import MqttForm from './MqttForm';
-import WebServerForm from './WebServerForm';
-import ModbusForm from './ModbusForm';
-import LoggerForm from './LoggerForm';
-import Mcp23017Form from './Mcp23017Form';
+import { SectionContent, SettingsSidebar, SectionHeader } from './components';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -36,8 +33,19 @@ interface ConfigSection {
 
 export default function UISettings() {
   const { section } = useParams<{ section?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  
+  // Get edit item name from query param (for deep linking from InputsView/OutputsView)
+  const editItemName = searchParams.get('edit');
+  
+  // Clear edit param after it's been used
+  const clearEditParam = useCallback(() => {
+    if (editItemName) {
+      setSearchParams({});
+    }
+  }, [editItemName, setSearchParams]);
   const [sections, setSections] = useState<ConfigSection[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [originalData, setOriginalData] = useState<Record<string, any>>({});
@@ -77,42 +85,21 @@ export default function UISettings() {
     navigate(`/settings/${sectionName}`);
   };
 
-  // Sections that only require reload (hot reload supported)
-  const reloadSections = [
-    { name: 'areas', title: t('sections.areas'), icon: '🏠' },
-    { name: 'binary_sensor', title: t('sections.binary_sensor'), icon: '🔘' },
-    { name: 'event', title: t('sections.event'), icon: '⚡' },
-    { name: 'output', title: t('sections.output'), icon: '💡' },
-    { name: 'output_group', title: t('sections.output_group'), icon: '🔗' },
-    { name: 'cover', title: t('sections.cover'), icon: '🚪' },
-    { name: 'remote_devices', title: t('sections.remote_devices'), icon: '🌐' },
-    { name: 'modbus_devices', title: t('sections.modbus_devices'), icon: '📱' },
-    { name: 'sensor', title: t('sections.sensor'), icon: '🌡️' },
-    { name: 'virtual_energy_sensor', title: t('sections.virtual_energy_sensor'), icon: '⚡' },
-    { name: 'logger', title: t('sections.logger'), icon: '📝' },
-  ];
-
-  // Sections that require full restart
-  const restartSections = [
-    { name: 'boneio', title: t('sections.boneio'), icon: '🔧' },
-    { name: 'mqtt', title: t('sections.mqtt'), icon: '📡' },
-    { name: 'web', title: t('sections.web'), icon: '🌐' },
-    { name: 'modbus', title: t('sections.modbus'), icon: '🔌' },
-    { name: 'mcp23017', title: t('sections.mcp23017'), icon: '🔗' },
-    // { name: 'oled', title: 'OLED Display', icon: '📺' },
-    // { name: 'lm75', title: 'LM75 Sensors', icon: '🌡️' },
-    // { name: 'ina219', title: 'INA219 Sensors', icon: '⚡' },
-    // { name: 'mcp9808', title: 'MCP9808', icon: '🌡️' },
-    // { name: 'pcf8575', title: 'PCF8575', icon: '🔗' },
-    // { name: 'pca9685', title: 'PCA9685', icon: '📡' },
-    // { name: 'ds2482', title: 'DS2482', icon: '🔗' },
-    // { name: 'dallas', title: 'Dallas Sensors', icon: '🌡️' },
-    // { name: 'adc', title: 'ADC', icon: '📈' },
-    // { name: 'sensor', title: 'Sensors', icon: '📊' },
-  ];
-
-  // Combined for lookup
-  const configSections = [...reloadSections, ...restartSections];
+  // Use imported section definitions with translated titles
+  const reloadSections = useMemo(() => 
+    RELOAD_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
+    [t]
+  );
+  
+  const restartSections = useMemo(() => 
+    RESTART_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
+    [t]
+  );
+  
+  const configSections = useMemo(() => 
+    ALL_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
+    [t]
+  );
 
 
  
@@ -176,7 +163,6 @@ export default function UISettings() {
    */
   const loadConfiguration = useCallback(async () => {
     try {
-      console.log('Loading configuration... WYWOLANE');
       // Check restart status from backend (non-blocking)
       fetch('/api/status/restart')
         .then(r => r.ok ? r.json() : null)
@@ -988,266 +974,34 @@ export default function UISettings() {
       )}
 
       {/* Sidebar with section tabs */}
-      <div className="w-full lg:w-80 bg-base-200 border-r lg:border-r border-b lg:border-b-0 border-base-content/10 lg:min-h-0">
-        {/* Mobile accordion - only on mobile */}
-        <div className="lg:hidden">
-          <div className="collapse collapse-arrow bg-base-200 border-b border-base-content/10">
-            <input 
-              type="checkbox" 
-              checked={isSidebarOpen}
-              onChange={(e) => setIsSidebarOpen(e.target.checked)}
-            />
-            <div className="collapse-title text-lg font-bold text-base-content p-3">
-              {t('settings.configuration_sections')}
-            </div>
-            <div className="collapse-content">
-              <div className="p-3 pt-0">
-          
-          {/* Reload sections - hot reload supported */}
-          <div className="space-y-2 mb-4">
-            {sections
-              .filter(s => reloadSections.some(rs => rs.name === s.name))
-              .map((section) => {
-                const sectionConfig = configSections.find(s => s.name === section.name);
-                const status = saveStatus[section.name];
-                
-                return (
-                  <button
-                    key={section.name}
-                    onClick={() => navigateToSection(section.name)}
-                    className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
-                      activeSection === section.name
-                        ? 'bg-primary text-primary-content shadow-md'
-                        : 'bg-base-100 hover:bg-base-300 text-base-content'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-                      <div>
-                        <div className="font-medium">{sectionConfig?.title}</div>
-                        <div className="text-xs opacity-70">{section.name}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {unsavedChanges[section.name] && (
-                        <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
-                      )}
-                      {status === 'success' && (
-                        <FaCheck className="text-success" title="Saved successfully" />
-                      )}
-                      {status === 'error' && (
-                        <FaExclamationTriangle className="text-error" title="Save failed" />
-                      )}
-                      {status === 'saving' && (
-                        <div className="loading loading-spinner loading-xs"></div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-          </div>
-
-          {/* Separator */}
-          <div className="divider text-xs text-warning font-medium my-2">
-            ⚠️ {t('settings.restart_required')}
-          </div>
-
-          {/* Restart sections */}
-          <div className="space-y-2">
-            {sections
-              .filter(s => restartSections.some(rs => rs.name === s.name))
-              .map((section) => {
-                const sectionConfig = configSections.find(s => s.name === section.name);
-                const status = saveStatus[section.name];
-                
-                return (
-                  <button
-                    key={section.name}
-                    onClick={() => navigateToSection(section.name)}
-                    className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
-                      activeSection === section.name
-                        ? 'bg-primary text-primary-content shadow-md'
-                        : 'bg-base-100 hover:bg-base-300 text-base-content'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-                      <div>
-                        <div className="font-medium">{sectionConfig?.title}</div>
-                        <div className="text-xs opacity-70">{section.name}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {unsavedChanges[section.name] && (
-                        <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
-                      )}
-                      {status === 'success' && (
-                        <FaCheck className="text-success" title="Saved successfully" />
-                      )}
-                      {status === 'error' && (
-                        <FaExclamationTriangle className="text-error" title="Save failed" />
-                      )}
-                      {status === 'saving' && (
-                        <div className="loading loading-spinner loading-xs"></div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-          </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop version - always visible */}
-        <div className="hidden lg:block overflow-y-auto max-h-none">
-          <div className="p-4">
-            <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
-            
-            {/* Reload sections - hot reload supported */}
-            <div className="space-y-2 mb-4">
-              {sections
-                .filter(s => reloadSections.some(rs => rs.name === s.name))
-                .map((section) => {
-                  const sectionConfig = configSections.find(s => s.name === section.name);
-                  const status = saveStatus[section.name];
-                  
-                  return (
-                    <button
-                      key={section.name}
-                      onClick={() => navigateToSection(section.name)}
-                      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
-                        activeSection === section.name
-                          ? 'bg-primary text-primary-content shadow-md'
-                          : 'bg-base-100 hover:bg-base-300 text-base-content'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-                        <div>
-                          <div className="font-medium">{sectionConfig?.title}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {unsavedChanges[section.name] && (
-                          <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
-                        )}
-                        {status === 'success' && (
-                          <FaCheck className="text-success" title="Saved successfully" />
-                        )}
-                        {status === 'error' && (
-                          <FaExclamationTriangle className="text-error" title="Save failed" />
-                        )}
-                        {status === 'saving' && (
-                          <div className="loading loading-spinner loading-xs"></div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-
-            {/* Separator */}
-            <div className="divider text-xs text-warning font-medium my-2">
-              ⚠️ {t('settings.restart_required')}
-            </div>
-
-            {/* Restart sections */}
-            <div className="space-y-2">
-              {sections
-                .filter(s => restartSections.some(rs => rs.name === s.name))
-                .map((section) => {
-                  const sectionConfig = configSections.find(s => s.name === section.name);
-                  const status = saveStatus[section.name];
-                  
-                  return (
-                    <button
-                      key={section.name}
-                      onClick={() => navigateToSection(section.name)}
-                      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
-                        activeSection === section.name
-                          ? 'bg-primary text-primary-content shadow-md'
-                          : 'bg-base-100 hover:bg-base-300 text-base-content'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-                        <div>
-                          <div className="font-medium">{sectionConfig?.title}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {unsavedChanges[section.name] && (
-                          <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
-                        )}
-                        {status === 'success' && (
-                          <FaCheck className="text-success" title="Saved successfully" />
-                        )}
-                        {status === 'error' && (
-                          <FaExclamationTriangle className="text-error" title="Save failed" />
-                        )}
-                        {status === 'saving' && (
-                          <div className="loading loading-spinner loading-xs"></div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
-      </div>
+      <SettingsSidebar
+        sections={sections}
+        reloadSections={reloadSections}
+        restartSections={restartSections}
+        configSections={configSections}
+        activeSection={activeSection}
+        saveStatus={saveStatus}
+        unsavedChanges={unsavedChanges}
+        isSidebarOpen={isSidebarOpen}
+        onSidebarToggle={setIsSidebarOpen}
+        onNavigate={navigateToSection}
+      />
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
         {activeSection_data && (
           <>
             {/* Header */}
-            <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-bold text-base-content">
-                    {activeSection_data.name}
-                  </h1>
-                  <p className="text-sm text-base-content/70 mt-1">
-                    {t(`sections.descriptions.${activeSection}`) || t('settings.configure_settings').replace('{section}', activeSection_data.name)}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => setShowYamlPreview(!showYamlPreview)}
-                    className="btn btn-ghost btn-sm"
-                    title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
-                  >
-                    {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
-                    YAML
-                  </button>
-                  {unsavedChanges[activeSection] && (
-                    <button
-                      onClick={() => restoreSection(activeSection)}
-                      className="btn btn-warning btn-sm"
-                      title="Restore to last saved state"
-                    >
-                      <FaUndo />
-                      {t('settings.restore')}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => saveSection(activeSection)}
-                    disabled={!unsavedChanges[activeSection]}
-                    className="btn btn-primary btn-sm"
-                  >
-                    {saveStatus[activeSection] === 'saving' ? (
-                      <div className="loading loading-spinner loading-xs"></div>
-                    ) : (
-                      <FaSave />
-                    )}
-                    {t('settings.save')} {activeSection_data.name}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SectionHeader
+              sectionName={activeSection}
+              sectionTitle={activeSection_data.name}
+              showYamlPreview={showYamlPreview}
+              hasUnsavedChanges={unsavedChanges[activeSection] || false}
+              saveStatus={saveStatus[activeSection] || 'idle'}
+              onToggleYamlPreview={() => setShowYamlPreview(!showYamlPreview)}
+              onRestore={() => restoreSection(activeSection)}
+              onSave={() => saveSection(activeSection)}
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-hidden">
@@ -1255,91 +1009,17 @@ export default function UISettings() {
                 <div className="h-full flex">
                   {/* Form */}
                   <div className="flex-1 overflow-y-auto p-6">
-                    {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor' || activeSection === 'remote_devices') ? (
-                      // Array sections - wait for schema to load and data to be converted
-                      !schemaLoaded ? (
-                        <div className="flex items-center justify-center h-64">
-                          <div className="flex flex-col items-center gap-4">
-                            <span className="loading loading-spinner loading-lg text-primary"></span>
-                            <p className="text-base-content/70">{t('settings.loading_schema')}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <ArrayTableWidget
-                          value={formData[activeSection] || []}
-                          uiSchema={activeSection_data.uiSchema.items}
-                          onChange={(newData) => handleSectionChange(activeSection, newData)}
-                          schema={activeSection_data.normalizedSchema}
-                          sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other'}
-                          deviceType={formData.boneio?.device_type}
-                          allBinarySensors={formData.binary_sensor || []}
-                          allEvents={formData.event || []}
-                          allOutputs={formData.output || []}
-                          allOutputGroups={formData.output_group || []}
-                          allCovers={formData.cover || []}
-                          allAreas={formData.areas || []}
-                          allSensors={formData.sensor || []}
-                          allModbusDevices={formData.modbus_devices || []}
-                          allVirtualEnergySensors={formData.virtual_energy_sensor || []}
-                          allRemoteDevices={formData.remote_devices || []}
-                          savedOutputs={originalData.output || []}
-                          savedOutputGroups={originalData.output_group || []}
-                          savedCovers={originalData.cover || []}
-                          onUpdateEvents={(newEvents) => handleSectionChange('event', newEvents)}
-                          onUpdateBinarySensors={(newSensors) => handleSectionChange('binary_sensor', newSensors)}
-                          onSaveSection={saveSection}
-                          title={
-                            activeSection === 'binary_sensor' ? t('sections.binary_sensor') : 
-                            activeSection === 'event' ? t('sections.event') : 
-                            activeSection === 'output' ? t('sections.output') :
-                            activeSection === 'output_group' ? t('sections.output_group') :
-                            activeSection === 'cover' ? t('sections.cover') :
-                            activeSection === 'areas' ? t('sections.areas') :
-                            activeSection === 'sensor' ? t('sections.sensor') :
-                            activeSection === 'virtual_energy_sensor' ? t('sections.virtual_energy_sensor') :
-                            activeSection === 'remote_devices' ? t('sections.remote_devices') :
-                            t('sections.modbus_devices')
-                          }
-                        />
-                      )
-                    ) : (
-                      // Custom forms for simple dict sections
-                      activeSection === 'boneio' ? (
-                        <BoneIOForm
-                          data={formData[activeSection]}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : activeSection === 'mqtt' ? (
-                        <MqttForm
-                          data={formData[activeSection]}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : activeSection === 'web' ? (
-                        <WebServerForm
-                          data={formData[activeSection]}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : activeSection === 'modbus' ? (
-                        <ModbusForm
-                          data={formData[activeSection]}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : activeSection === 'logger' ? (
-                        <LoggerForm
-                          data={formData[activeSection]}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : activeSection === 'mcp23017' ? (
-                        <Mcp23017Form
-                          data={formData[activeSection] || []}
-                          onChange={(data) => handleSectionChange(activeSection, data)}
-                        />
-                      ) : (
-                        <div className="alert alert-warning">
-                          <span>No form available for section: {activeSection}</span>
-                        </div>
-                      )
-                    )}
+                    <SectionContent
+                      activeSection={activeSection}
+                      activeSectionData={activeSection_data}
+                      formData={formData}
+                      originalData={originalData}
+                      schemaLoaded={schemaLoaded}
+                      editItemName={editItemName || undefined}
+                      onEditItemOpened={clearEditParam}
+                      onSectionChange={handleSectionChange}
+                      onSaveSection={saveSection}
+                    />
                   </div>
                   
                   {/* YAML Preview */}
@@ -1356,80 +1036,17 @@ export default function UISettings() {
                 </div>
               ) : (
                 <div className="h-full overflow-y-auto p-6">
-                  {(activeSection === 'event' || activeSection === 'binary_sensor' || activeSection === 'output' || activeSection === 'output_group' || activeSection === 'cover' || activeSection === 'modbus_devices' || activeSection === 'areas' || activeSection === 'sensor' || activeSection === 'virtual_energy_sensor' || activeSection === 'remote_devices') ? (
-                    // Array sections - wait for schema to load and data to be converted
-                    !schemaLoaded ? (
-                      <div className="flex items-center justify-center h-64">
-                        <div className="flex flex-col items-center gap-4">
-                          <span className="loading loading-spinner loading-lg text-primary"></span>
-                          <p className="text-base-content/70">{t('settings.loading_schema')}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <ArrayTableWidget
-                        value={formData[activeSection] || []}
-                        uiSchema={activeSection_data.uiSchema.items}
-                        onChange={(newData) => handleSectionChange(activeSection, newData)}
-                        schema={activeSection_data.normalizedSchema}
-                        sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other'}
-                        deviceType={formData.boneio?.device_type}
-                        allBinarySensors={formData.binary_sensor || []}
-                        allEvents={formData.event || []}
-                        allOutputs={formData.output || []}
-                        allOutputGroups={formData.output_group || []}
-                        allCovers={formData.cover || []}
-                        allAreas={formData.areas || []}
-                        allSensors={formData.sensor || []}
-                        allModbusDevices={formData.modbus_devices || []}
-                        allVirtualEnergySensors={formData.virtual_energy_sensor || []}
-                        allRemoteDevices={formData.remote_devices || []}
-                        savedOutputs={originalData.output || []}
-                        savedOutputGroups={originalData.output_group || []}
-                        savedCovers={originalData.cover || []}
-                        onUpdateEvents={(newEvents) => handleSectionChange('event', newEvents)}
-                        onUpdateBinarySensors={(newSensors) => handleSectionChange('binary_sensor', newSensors)}
-                        onSaveSection={saveSection}
-                        title={t(`sections.${activeSection}`)}
-                      />
-                    )
-                  ) : (
-                    // Custom forms for simple dict sections
-                    activeSection === 'boneio' ? (
-                      <BoneIOForm
-                        data={formData[activeSection]}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : activeSection === 'mqtt' ? (
-                      <MqttForm
-                        data={formData[activeSection]}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : activeSection === 'web' ? (
-                      <WebServerForm
-                        data={formData[activeSection]}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : activeSection === 'modbus' ? (
-                      <ModbusForm
-                        data={formData[activeSection]}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : activeSection === 'logger' ? (
-                      <LoggerForm
-                        data={formData[activeSection]}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : activeSection === 'mcp23017' ? (
-                      <Mcp23017Form
-                        data={formData[activeSection] || []}
-                        onChange={(data) => handleSectionChange(activeSection, data)}
-                      />
-                    ) : (
-                      <div className="alert alert-warning">
-                        <span>No form available for section: {activeSection}</span>
-                      </div>
-                    )
-                  )}
+                  <SectionContent
+                    activeSection={activeSection}
+                    activeSectionData={activeSection_data}
+                    formData={formData}
+                    originalData={originalData}
+                    schemaLoaded={schemaLoaded}
+                    editItemName={editItemName || undefined}
+                    onEditItemOpened={clearEditParam}
+                    onSectionChange={handleSectionChange}
+                    onSaveSection={saveSection}
+                  />
                 </div>
               )}
             </div>

@@ -1,0 +1,240 @@
+/**
+ * SettingsSidebar - Sidebar navigation for configuration sections.
+ * Handles both mobile (accordion) and desktop (always visible) layouts.
+ */
+import { FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { useTranslation } from '@/hooks/useTranslation';
+
+interface SectionConfig {
+  name: string;
+  title: string;
+  icon: string;
+  translationKey: string;
+}
+
+interface ConfigSection {
+  name: string;
+  schema: any;
+  normalizedSchema: any;
+  uiSchema: any;
+  data: Record<string, any>;
+}
+
+interface SettingsSidebarProps {
+  sections: ConfigSection[];
+  reloadSections: SectionConfig[];
+  restartSections: SectionConfig[];
+  configSections: SectionConfig[];
+  activeSection: string;
+  saveStatus: Record<string, 'idle' | 'saving' | 'success' | 'error'>;
+  unsavedChanges: Record<string, boolean>;
+  isSidebarOpen: boolean;
+  onSidebarToggle: (open: boolean) => void;
+  onNavigate: (sectionName: string) => void;
+}
+
+/**
+ * Single section button component.
+ */
+function SectionButton({
+  sectionConfig,
+  isActive,
+  status,
+  hasUnsavedChanges,
+  onClick,
+}: {
+  sectionConfig: SectionConfig | undefined;
+  isActive: boolean;
+  status: 'idle' | 'saving' | 'success' | 'error' | undefined;
+  hasUnsavedChanges: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+        isActive
+          ? 'bg-primary text-primary-content shadow-md'
+          : 'bg-base-100 hover:bg-base-300 text-base-content'
+      }`}
+    >
+      <div className="flex items-center space-x-3">
+        <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
+        <div>
+          <div className="font-medium">{sectionConfig?.title}</div>
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        {hasUnsavedChanges && (
+          <div className="w-2 h-2 bg-warning rounded-full" title="Unsaved changes"></div>
+        )}
+        {status === 'success' && (
+          <FaCheck className="text-success" title="Saved successfully" />
+        )}
+        {status === 'error' && (
+          <FaExclamationTriangle className="text-error" title="Save failed" />
+        )}
+        {status === 'saving' && (
+          <div className="loading loading-spinner loading-xs"></div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+/**
+ * Section list component - renders a list of section buttons.
+ */
+function SectionList({
+  sections,
+  filterSections,
+  configSections,
+  activeSection,
+  saveStatus,
+  unsavedChanges,
+  onNavigate,
+}: {
+  sections: ConfigSection[];
+  filterSections: SectionConfig[];
+  configSections: SectionConfig[];
+  activeSection: string;
+  saveStatus: Record<string, 'idle' | 'saving' | 'success' | 'error'>;
+  unsavedChanges: Record<string, boolean>;
+  onNavigate: (sectionName: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {sections
+        .filter(s => filterSections.some(fs => fs.name === s.name))
+        .map((section) => {
+          const sectionConfig = configSections.find(s => s.name === section.name);
+          return (
+            <SectionButton
+              key={section.name}
+              sectionConfig={sectionConfig}
+              isActive={activeSection === section.name}
+              status={saveStatus[section.name]}
+              hasUnsavedChanges={unsavedChanges[section.name] || false}
+              onClick={() => onNavigate(section.name)}
+            />
+          );
+        })}
+    </div>
+  );
+}
+
+/**
+ * Sidebar content - shared between mobile and desktop.
+ */
+function SidebarContent({
+  sections,
+  reloadSections,
+  restartSections,
+  configSections,
+  activeSection,
+  saveStatus,
+  unsavedChanges,
+  onNavigate,
+}: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'>) {
+  const { t } = useTranslation();
+  
+  return (
+    <>
+      {/* Reload sections - hot reload supported */}
+      <div className="mb-4">
+        <SectionList
+          sections={sections}
+          filterSections={reloadSections}
+          configSections={configSections}
+          activeSection={activeSection}
+          saveStatus={saveStatus}
+          unsavedChanges={unsavedChanges}
+          onNavigate={onNavigate}
+        />
+      </div>
+
+      {/* Separator */}
+      <div className="divider text-xs text-warning font-medium my-2">
+        ⚠️ {t('settings.restart_required')}
+      </div>
+
+      {/* Restart sections */}
+      <SectionList
+        sections={sections}
+        filterSections={restartSections}
+        configSections={configSections}
+        activeSection={activeSection}
+        saveStatus={saveStatus}
+        unsavedChanges={unsavedChanges}
+        onNavigate={onNavigate}
+      />
+    </>
+  );
+}
+
+/**
+ * Main SettingsSidebar component.
+ */
+export default function SettingsSidebar({
+  sections,
+  reloadSections,
+  restartSections,
+  configSections,
+  activeSection,
+  saveStatus,
+  unsavedChanges,
+  isSidebarOpen,
+  onSidebarToggle,
+  onNavigate,
+}: SettingsSidebarProps) {
+  const { t } = useTranslation();
+  
+  return (
+    <div className="w-full lg:w-80 bg-base-200 border-r lg:border-r border-b lg:border-b-0 border-base-content/10 lg:min-h-0">
+      {/* Mobile accordion - only on mobile */}
+      <div className="lg:hidden">
+        <div className="collapse collapse-arrow bg-base-200 border-b border-base-content/10">
+          <input 
+            type="checkbox" 
+            checked={isSidebarOpen}
+            onChange={(e) => onSidebarToggle(e.target.checked)}
+          />
+          <div className="collapse-title text-lg font-bold text-base-content p-3">
+            {t('settings.configuration_sections')}
+          </div>
+          <div className="collapse-content">
+            <div className="p-3 pt-0">
+              <SidebarContent
+                sections={sections}
+                reloadSections={reloadSections}
+                restartSections={restartSections}
+                configSections={configSections}
+                activeSection={activeSection}
+                saveStatus={saveStatus}
+                unsavedChanges={unsavedChanges}
+                onNavigate={onNavigate}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop version - always visible */}
+      <div className="hidden lg:block overflow-y-auto max-h-none">
+        <div className="p-4">
+          <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
+          <SidebarContent
+            sections={sections}
+            reloadSections={reloadSections}
+            restartSections={restartSections}
+            configSections={configSections}
+            activeSection={activeSection}
+            saveStatus={saveStatus}
+            unsavedChanges={unsavedChanges}
+            onNavigate={onNavigate}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

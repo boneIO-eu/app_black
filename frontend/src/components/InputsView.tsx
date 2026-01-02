@@ -1,11 +1,19 @@
 import { useContext, memo, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
-import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy } from 'react-icons/fa';
+import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog } from 'react-icons/fa';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface ToastNotification {
   id: string;
@@ -17,23 +25,54 @@ interface ToastNotification {
 type SortMode = 'name' | 'recent';
 
 // Separate component for individual input
-const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy }: {
+const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPress }: {
   inputEvent: InputEvent;
   isGrid: boolean;
   t: (key: string) => string;
   isHighlighted?: boolean;
   onCopy: (name: string) => void;
-}) => (
-  <div
-    onClick={() => onCopy(inputEvent.state.name)}
-    className={clsx(
-      'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300',
-      isGrid ? 'border-l-4' : 'border-l-8',
-      'border-blue-500',
-      isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]'
-    )}
-    title={t('inputs.click_to_copy')}
-  >
+  onLongPress: (inputEvent: InputEvent) => void;
+}) => {
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePressStart = () => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      onLongPress(inputEvent);
+    }, 500);
+  };
+
+  const handlePressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleClick = () => {
+    if (!isLongPress.current) {
+      onCopy(inputEvent.state.name);
+    }
+  };
+
+  return (
+    <div
+      onClick={handleClick}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={handlePressEnd}
+      onTouchStart={handlePressStart}
+      onTouchEnd={handlePressEnd}
+      className={clsx(
+        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300 select-none',
+        isGrid ? 'border-l-4' : 'border-l-8',
+        'border-blue-500',
+        isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]'
+      )}
+      title={t('inputs.long_press_to_edit')}
+    >
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
       <div>
         <h3 className="font-semibold text-lg">{inputEvent.state.name}</h3>
@@ -61,10 +100,12 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy }: {
       </div>
     </div>
   </div>
-));
+  );
+});
 
 export default function InputsView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { inputs } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('inputViewMode');
@@ -112,6 +153,27 @@ export default function InputsView() {
     });
   }, []);
 
+  // Long press dialog state
+  const [longPressDialog, setLongPressDialog] = useState<{ open: boolean; inputEvent: InputEvent | null }>({
+    open: false,
+    inputEvent: null
+  });
+
+  const handleLongPress = useCallback((inputEvent: InputEvent) => {
+    setLongPressDialog({ open: true, inputEvent });
+  }, []);
+
+  const handleGoToSettings = useCallback(() => {
+    if (!longPressDialog.inputEvent) return;
+    // Use entity_id for filtering instead of name to avoid duplicates
+    const inputId = longPressDialog.inputEvent.entity_id;
+    const inputType = longPressDialog.inputEvent.state.type;
+    // Navigate to settings with edit query param
+    const section = inputType === 'input' ? 'event' : 'binary_sensor';
+    navigate(`/settings/${section}?edit=${encodeURIComponent(inputId)}`);
+    setLongPressDialog({ open: false, inputEvent: null });
+  }, [longPressDialog.inputEvent, navigate]);
+
   // Filter inputs to only include InputState objects
   const validInputs = inputs.filter(isInputEvent);
 
@@ -120,8 +182,8 @@ export default function InputsView() {
 
   // Detect input state changes, show toast and highlight
   useEffect(() => {
-    const toastEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple'];
-    const highlightEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'quadruple', 'ON', 'OFF'];
+    const toastEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'double_then_long', 'single_then_long', 'double_then_single'];
+    const highlightEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'double_then_long', 'single_then_long', 'double_then_single', 'ON', 'OFF'];
     const now = Date.now() / 1000; // Current time in seconds
     
     // On first render, just populate the ref without showing toasts
@@ -186,7 +248,7 @@ export default function InputsView() {
     if (sortMode === 'recent') {
       sorted.sort((a, b) => b.state.timestamp - a.state.timestamp);
     } else {
-      sorted.sort((a, b) => a.state.name.localeCompare(b.state.name));
+      sorted.sort((a, b) => (a.state.name || '').localeCompare(b.state.name || ''));
     }
     return sorted;
   }, [validInputs, sortMode]);
@@ -249,6 +311,7 @@ export default function InputsView() {
             t={t}
             isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
             onCopy={copyToClipboard}
+            onLongPress={handleLongPress}
           />
         ))}
       </div>
@@ -287,6 +350,36 @@ export default function InputsView() {
           ))}
         </div>
       )}
+
+      {/* Long press dialog - go to settings */}
+      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, inputEvent: open ? longPressDialog.inputEvent : null })}>
+        <DialogContent className="sm:max-w-md bg-base-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FaCog className="w-5 h-5" />
+              {t('inputs.go_to_settings')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>{t('inputs.go_to_settings_confirm')}</p>
+            <p className="font-semibold mt-2">{longPressDialog.inputEvent?.state.name}</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <button 
+              className="btn btn-ghost" 
+              onClick={() => setLongPressDialog({ open: false, inputEvent: null })}
+            >
+              {t('common.cancel')}
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleGoToSettings}
+            >
+              {t('inputs.go_to_settings')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

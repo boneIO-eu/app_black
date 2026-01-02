@@ -154,8 +154,18 @@ export interface EventEntity {
   long_press_duration?: number | string;
   /** Time window to detect click sequences (default: 500ms) */
   sequence_window_duration?: number | string;
+  /** Sequence mode: 'immediate' (default) or 'exclusive' */
+  sequence_mode?: 'immediate' | 'exclusive';
+  /** Enable triple click detection (default: false) */
+  enable_triple_click?: boolean;
   /** Actions configuration */
   actions?: EventActions;
+  /** MQTT sequences configuration - which sequences to publish to MQTT */
+  mqtt_sequences?: {
+    double_then_long?: boolean;
+    single_then_long?: boolean;
+    double_then_single?: boolean;
+  };
 }
 
 // ============================================

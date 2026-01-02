@@ -65,6 +65,10 @@ export interface ArrayTableWidgetProps {
    * If data is provided, it will be saved directly instead of using formData.
    */
   onSaveSection?: (sectionName: string, data?: any) => Promise<void>;
+  /** Name of item to auto-open for editing (from URL query param) */
+  editItemName?: string;
+  /** Callback when edit item has been opened (to clear URL query param) */
+  onEditItemOpened?: () => void;
 }
 
 /**
@@ -72,7 +76,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -93,6 +97,52 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [affectedActions, setAffectedActions] = useState<{type: string, name: string, actionType: string}[]>([]);
+  const editItemProcessedRef = useRef<string | null>(null);
+
+  // Auto-open edit modal when editItemName is provided (from URL query param)
+  useEffect(() => {
+    // Wait for data to load before trying to find the item
+    if (!editItemName || value.length === 0) {
+      return;
+    }
+    
+    // Don't process the same item twice
+    if (editItemProcessedRef.current === editItemName) {
+      return;
+    }
+    
+    // Find item by name, id, boneio_input, boneio_output, or auto-generated cover id
+    const index = value.findIndex((item: any) => {
+      if (item.name === editItemName) return true;
+      if (item.id === editItemName) return true;
+      if (item.boneio_input === editItemName) return true;
+      if (item.boneio_output === editItemName) return true;
+      // For covers: match auto-generated id format (cover_{open_relay}_{close_relay})
+      if (sectionType === 'cover' && item.open_relay && item.close_relay) {
+        const generatedId = `cover_${item.open_relay}_${item.close_relay}`.toLowerCase().replace(/ /g, '_');
+        if (generatedId === editItemName) return true;
+      }
+      return false;
+    });
+    
+    console.log('🔍 ArrayTableWidget: Looking for item to edit:', editItemName, 'found at index:', index, 'in', value.length, 'items');
+    
+    if (index !== -1) {
+      editItemProcessedRef.current = editItemName;
+      const item = { ...value[index] };
+      // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
+      if ((sectionType === 'binary_sensor' || sectionType === 'event') && item.id && !item.name) {
+        item.name = item.id;
+        delete item.id;
+      }
+      console.log('🔧 ArrayTableWidget: Auto-opening edit modal for:', item.name || item.id);
+      setEditingItem(item);
+      setEditingIndex(index);
+      setAttemptedSubmit(false);
+      setIsModalOpen(true);
+      onEditItemOpened?.();
+    }
+  }, [editItemName, value, sectionType, onEditItemOpened]);
 
   // Fetch interlock groups for output section
   useEffect(() => {

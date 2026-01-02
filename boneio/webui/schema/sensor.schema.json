@@ -4,8 +4,8 @@
   "properties": {
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -75,8 +75,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -94,8 +94,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",

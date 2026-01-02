@@ -1,0 +1,79 @@
+/**
+ * SectionHeader - Header component for configuration section with action buttons.
+ */
+import { FaSave, FaEye, FaEyeSlash, FaUndo } from 'react-icons/fa';
+import { useTranslation } from '@/hooks/useTranslation';
+
+interface SectionHeaderProps {
+  sectionName: string;
+  sectionTitle: string;
+  showYamlPreview: boolean;
+  hasUnsavedChanges: boolean;
+  saveStatus: 'idle' | 'saving' | 'success' | 'error';
+  onToggleYamlPreview: () => void;
+  onRestore: () => void;
+  onSave: () => void;
+}
+
+/**
+ * Header component with section title and action buttons.
+ */
+export default function SectionHeader({
+  sectionName,
+  sectionTitle,
+  showYamlPreview,
+  hasUnsavedChanges,
+  saveStatus,
+  onToggleYamlPreview,
+  onRestore,
+  onSave,
+}: SectionHeaderProps) {
+  const { t } = useTranslation();
+  
+  return (
+    <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-base-content">
+            {sectionTitle}
+          </h1>
+          <p className="text-sm text-base-content/70 mt-1">
+            {t(`sections.descriptions.${sectionName}`) || t('settings.configure_settings').replace('{section}', sectionTitle)}
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={onToggleYamlPreview}
+            className="btn btn-ghost btn-sm"
+            title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
+          >
+            {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
+            YAML
+          </button>
+          {hasUnsavedChanges && (
+            <button
+              onClick={onRestore}
+              className="btn btn-warning btn-sm"
+              title="Restore to last saved state"
+            >
+              <FaUndo />
+              {t('settings.restore')}
+            </button>
+          )}
+          <button
+            onClick={onSave}
+            disabled={!hasUnsavedChanges}
+            className="btn btn-primary btn-sm"
+          >
+            {saveStatus === 'saving' ? (
+              <div className="loading loading-spinner loading-xs"></div>
+            ) : (
+              <FaSave />
+            )}
+            {t('settings.save')} {sectionTitle}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

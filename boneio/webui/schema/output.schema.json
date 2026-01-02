@@ -4,8 +4,8 @@
   "properties": {
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -72,8 +72,8 @@
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -81,8 +81,8 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
@@ -110,8 +110,8 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"

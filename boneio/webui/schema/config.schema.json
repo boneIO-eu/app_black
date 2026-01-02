@@ -4,8 +4,8 @@
   "properties": {
     "areas": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -34,8 +34,8 @@
     },
     "remote_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -87,8 +87,8 @@
             "properties": {
               "outputs": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -116,8 +116,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -184,8 +184,8 @@
               },
               "switches": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -221,8 +221,8 @@
               },
               "lights": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -338,16 +338,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
@@ -362,8 +362,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -716,8 +716,8 @@
         },
         "screens": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "default": [
             "uptime",
@@ -750,8 +750,8 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "string",
-            "array"
+            "array",
+            "string"
           ],
           "items": {
             "type": [
@@ -788,8 +788,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "x-timeperiod": true,
           "default": "60s",
@@ -870,8 +870,8 @@
     },
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -959,8 +959,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "minimum": 1000,
@@ -976,8 +976,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -995,8 +995,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -1029,18 +1029,18 @@
             "properties": {
               "width": {
                 "type": [
-                  "number",
+                  "integer",
                   "string",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "number",
+                  "integer",
                   "string",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -1065,8 +1065,8 @@
     },
     "lm75": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1090,8 +1090,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1100,8 +1100,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -1135,8 +1135,8 @@
     },
     "ina219": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1160,8 +1160,8 @@
           },
           "sensors": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -1201,8 +1201,8 @@
                 },
                 "filters": {
                   "type": [
-                    "string",
-                    "array"
+                    "array",
+                    "string"
                   ],
                   "default": [
                     {
@@ -1223,8 +1223,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1238,8 +1238,8 @@
     },
     "virtual_energy_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1311,8 +1311,8 @@
     },
     "mcp9808": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1336,8 +1336,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1346,8 +1346,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -1381,8 +1381,8 @@
     },
     "mcp23017": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1405,8 +1405,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1423,8 +1423,8 @@
     },
     "pcf8575": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1447,8 +1447,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1465,8 +1465,8 @@
     },
     "pca9685": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1489,8 +1489,8 @@
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1507,8 +1507,8 @@
     },
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1575,8 +1575,8 @@
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -1584,8 +1584,8 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
@@ -1613,8 +1613,8 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
@@ -1662,8 +1662,8 @@
     },
     "output_group": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1683,8 +1683,8 @@
           },
           "outputs": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Output IDs",
             "title": "Outputs"
@@ -1739,8 +1739,8 @@
     },
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -1797,8 +1797,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -2078,8 +2078,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2230,8 +2230,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -2242,8 +2242,8 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2394,8 +2394,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -2413,8 +2413,8 @@
     },
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -2476,8 +2476,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -2706,8 +2706,8 @@
           },
           "double_click_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -2716,8 +2716,8 @@
           },
           "long_press_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -2726,8 +2726,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -2742,8 +2742,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -2894,8 +2894,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -2906,8 +2906,8 @@
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3058,8 +3058,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3070,8 +3070,8 @@
               },
               "triple": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3222,8 +3222,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3234,8 +3234,8 @@
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3386,8 +3386,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3398,8 +3398,8 @@
               },
               "double_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3550,8 +3550,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3562,8 +3562,8 @@
               },
               "single_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3714,8 +3714,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3726,8 +3726,8 @@
               },
               "double_then_single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -3878,8 +3878,8 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -3889,6 +3889,117 @@
                 }
               }
             }
+          },
+          "sequence_mode": {
+            "type": "string",
+            "default": "immediate",
+            "enum": [
+              "immediate",
+              "exclusive"
+            ],
+            "examples": [
+              "immediate"
+            ],
+            "description": "Sequence Mode",
+            "title": "Sequence mode"
+          },
+          "enable_triple_click": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enable Triple Click",
+            "title": "Enable triple click"
+          },
+          "mqtt_sequences": {
+            "type": [
+              "string",
+              "object"
+            ],
+            "properties": {
+              "double_then_long": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send double_then_long to MQTT",
+                "title": "Double then long"
+              },
+              "single_then_long": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send single_then_long to MQTT",
+                "title": "Single then long"
+              },
+              "double_then_single": {
+                "oneOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "yes",
+                      "no",
+                      "true",
+                      "false",
+                      "on",
+                      "off"
+                    ],
+                    "x-yaml-boolean": true
+                  }
+                ],
+                "default": false,
+                "description": "Send double_then_single to MQTT",
+                "title": "Double then single"
+              }
+            },
+            "description": "MQTT Sequences",
+            "title": "Mqtt sequences"
           }
         }
       },
@@ -3897,8 +4008,8 @@
     },
     "adc": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -3930,8 +4041,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -3962,8 +4073,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -3992,8 +4103,8 @@
     },
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -4064,8 +4175,8 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
@@ -4073,8 +4184,8 @@
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
@@ -4082,8 +4193,8 @@
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
@@ -4091,8 +4202,8 @@
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
@@ -4153,8 +4264,8 @@
     },
     "ds2482": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -4180,8 +4291,8 @@
     },
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -4251,8 +4362,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -4270,8 +4381,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -4310,8 +4421,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.4",

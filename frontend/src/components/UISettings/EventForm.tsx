@@ -193,6 +193,12 @@ const EventForm: React.FC<EventFormProps> = ({
     onChange({ ...data, actions: newActions });
   };
 
+  const updateMqttSequence = (sequenceType: 'double_then_long' | 'single_then_long' | 'double_then_single', enabled: boolean) => {
+    const newMqttSequences = { ...data.mqtt_sequences };
+    newMqttSequences[sequenceType] = enabled;
+    onChange({ ...data, mqtt_sequences: newMqttSequences });
+  };
+
   const renderActionFields = (type: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single', action: any, index: number) => {
     return (
       <ActionFields
@@ -514,13 +520,24 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="card-body">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.double_then_long')}</h4>
-                <button
-                  onClick={() => addAction('double_then_long')}
-                  className="btn btn-primary btn-sm"
-                >
-                  <FaPlus className="mr-2" />
-                  {t('inputs.add_action')}
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="label cursor-pointer gap-2">
+                    <span className="label-text text-sm">MQTT</span>
+                    <input 
+                      type="checkbox" 
+                      className="checkbox checkbox-sm checkbox-primary"
+                      checked={data.mqtt_sequences?.double_then_long || false}
+                      onChange={(e) => updateMqttSequence('double_then_long', e.target.checked)}
+                    />
+                  </label>
+                  <button
+                    onClick={() => addAction('double_then_long')}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <FaPlus className="mr-2" />
+                    {t('inputs.add_action')}
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-base-content/60">{t('event_form.double_then_long_hint')}</p>
               
@@ -541,13 +558,24 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="card-body">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.single_then_long')}</h4>
-                <button
-                  onClick={() => addAction('single_then_long')}
-                  className="btn btn-primary btn-sm"
-                >
-                  <FaPlus className="mr-2" />
-                  {t('inputs.add_action')}
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="label cursor-pointer gap-2">
+                    <span className="label-text text-sm">MQTT</span>
+                    <input 
+                      type="checkbox" 
+                      className="checkbox checkbox-sm checkbox-primary"
+                      checked={data.mqtt_sequences?.single_then_long || false}
+                      onChange={(e) => updateMqttSequence('single_then_long', e.target.checked)}
+                    />
+                  </label>
+                  <button
+                    onClick={() => addAction('single_then_long')}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <FaPlus className="mr-2" />
+                    {t('inputs.add_action')}
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-base-content/60">{t('event_form.single_then_long_hint')}</p>
               
@@ -568,13 +596,24 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="card-body">
               <div className="flex justify-between items-center">
                 <h4 className="card-title text-base">{t('event_form.double_then_single')}</h4>
-                <button
-                  onClick={() => addAction('double_then_single')}
-                  className="btn btn-primary btn-sm"
-                >
-                  <FaPlus className="mr-2" />
-                  {t('inputs.add_action')}
-                </button>
+                <div className="flex items-center gap-2">
+                  <label className="label cursor-pointer gap-2">
+                    <span className="label-text text-sm">MQTT</span>
+                    <input 
+                      type="checkbox" 
+                      className="checkbox checkbox-sm checkbox-primary"
+                      checked={data.mqtt_sequences?.double_then_single || false}
+                      onChange={(e) => updateMqttSequence('double_then_single', e.target.checked)}
+                    />
+                  </label>
+                  <button
+                    onClick={() => addAction('double_then_single')}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <FaPlus className="mr-2" />
+                    {t('inputs.add_action')}
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-base-content/60">{t('event_form.double_then_single_hint')}</p>
               
@@ -645,6 +684,46 @@ const EventForm: React.FC<EventFormProps> = ({
               />
               <label className="label">
                 <span className="label-text-alt">{t('event_form.sequence_window_duration_hint')} ({t('common.default')}: 500ms)</span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">{t('event_form.sequence_mode')}</span>
+              </label>
+              <Select
+                  value={data.sequence_mode || 'immediate'}
+                  onValueChange={(value) => updateField('sequence_mode', value)}  
+                >
+                  <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
+                    <SelectValue placeholder="Select sequence mode..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="immediate">{t('event_form.sequence_mode_immediate')}</SelectItem>
+                    <SelectItem value="exclusive">{t('event_form.sequence_mode_exclusive')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {data.sequence_mode === 'exclusive' 
+                    ? t('event_form.sequence_mode_exclusive_hint')
+                    : t('event_form.sequence_mode_immediate_hint')}
+                </span>
+              </label>
+            </div>
+
+            <div className="form-control">
+              <label className="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-primary"
+                  checked={data.enable_triple_click || false}
+                  onChange={(e) => updateField('enable_triple_click', e.target.checked)}
+                />
+                <span className="label-text font-medium">{t('event_form.enable_triple_click')}</span>
+              </label>
+              <label className="label py-0">
+                <span className="label-text-alt">{t('event_form.enable_triple_click_hint')}</span>
               </label>
             </div>
           </div>

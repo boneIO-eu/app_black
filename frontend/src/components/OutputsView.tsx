@@ -1,4 +1,5 @@
-import { useState, useContext, useMemo, useEffect, useRef } from 'react';
+import { useState, useContext, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
@@ -6,8 +7,15 @@ import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } fr
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
-import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog } from 'react-icons/fa';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 // Output type categories
 type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
@@ -28,6 +36,7 @@ function categorizeOutput(type: string | undefined): OutputCategory {
 
 export default function OutputsView({error}: {error: string | null}) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [outputError, setError] = useState<string | null>(null);
   const { outputs, covers, groups } = useContext(WebSocketContext);
   const [hardwareErrorsCount, setHardwareErrorsCount] = useState<number>(0);
@@ -139,6 +148,38 @@ export default function OutputsView({error}: {error: string | null}) {
     localStorage.setItem('outputSortMode', mode);
   };
 
+  // Long press dialog state
+  const [longPressDialog, setLongPressDialog] = useState<{ 
+    open: boolean; 
+    output: OutputState | CoverState | null;
+    type: 'output' | 'output_group' | 'cover';
+  }>({
+    open: false,
+    output: null,
+    type: 'output'
+  });
+
+  const handleLongPress = useCallback((output: OutputState) => {
+    setLongPressDialog({ open: true, output, type: 'output' });
+  }, []);
+
+  const handleGroupLongPress = useCallback((output: OutputState) => {
+    setLongPressDialog({ open: true, output, type: 'output_group' });
+  }, []);
+
+  const handleCoverLongPress = useCallback((cover: CoverState) => {
+    setLongPressDialog({ open: true, output: cover, type: 'cover' });
+  }, []);
+
+  const handleGoToSettings = useCallback(() => {
+    if (!longPressDialog.output) return;
+    // Use id for filtering instead of name to avoid duplicates
+    const outputId = longPressDialog.output.id;
+    const section = longPressDialog.type;
+    navigate(`/settings/${section}?edit=${encodeURIComponent(outputId)}`);
+    setLongPressDialog({ open: false, output: null, type: 'output' });
+  }, [longPressDialog.output, longPressDialog.type, navigate]);
+
   // Track recently changed outputs for highlight effect
   useEffect(() => {
     const allOutputs = outputs.filter(isOutputEvent).map(e => e.state);
@@ -246,6 +287,7 @@ export default function OutputsView({error}: {error: string | null}) {
               error={error}
               stateOnly={isStateOnly}
               isHighlighted={recentlyChanged.has(output.id)}
+              onLongPress={handleLongPress}
             />
           ))}
         </div>
@@ -311,6 +353,7 @@ export default function OutputsView({error}: {error: string | null}) {
                     action={actionCover}
                     isGrid={isGrid}
                     error={error}
+                    onLongPress={handleCoverLongPress}
                   />
                 ))}
               </div>
@@ -340,6 +383,7 @@ export default function OutputsView({error}: {error: string | null}) {
                     isGrid={isGrid}
                     error={error}
                     isGroup={true}
+                    onLongPress={handleGroupLongPress}
                   />
                 ))}
               </div>
@@ -370,6 +414,36 @@ export default function OutputsView({error}: {error: string | null}) {
           </div>
         </div>
       )}
+
+      {/* Long press dialog - go to settings */}
+      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, output: open ? longPressDialog.output : null, type: longPressDialog.type })}>
+        <DialogContent className="sm:max-w-md bg-base-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FaCog className="w-5 h-5" />
+              {t('outputs.go_to_settings')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>{t('outputs.go_to_settings_confirm')}</p>
+            <p className="font-semibold mt-2">{longPressDialog.output?.name}</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <button 
+              className="btn btn-ghost" 
+              onClick={() => setLongPressDialog({ open: false, output: null, type: 'output' })}
+            >
+              {t('common.cancel')}
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleGoToSettings}
+            >
+              {t('outputs.go_to_settings')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -766,6 +766,7 @@ class Manager:
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
+            "areas": lambda: None,  # Areas are already reloaded in reload_config above
         }
         
         # If specific sections requested, filter
@@ -920,6 +921,17 @@ class Manager:
                         await cover.set_cover_position(position)
                     except ValueError:
                         _LOGGER.warning("Invalid cover position value: %s", message)
+                elif command == "tilt":
+                    # Set cover tilt position (only for VenetianCover)
+                    from boneio.components.cover.venetian import VenetianCover
+                    if isinstance(cover, VenetianCover):
+                        try:
+                            tilt = int(message)
+                            await cover.set_tilt(tilt)
+                        except ValueError:
+                            _LOGGER.warning("Invalid cover tilt value: %s", message)
+                    else:
+                        _LOGGER.debug("Cover %s does not support tilt control", device_id)
                 else:
                     # Handle open/close/stop/toggle actions
                     action = cover_actions.get(message.upper())

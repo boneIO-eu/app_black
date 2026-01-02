@@ -146,7 +146,7 @@ class ConfigHelper:
         return "https" if self._proxy_port else "http"
 
     @property
-    def ha_configuration_port(self) -> int:
+    def web_configuration_port(self) -> int:
         """Get port for HA discovery URL. Uses proxy_port if set, otherwise web_port."""
         return self._proxy_port if self._proxy_port else self._web_port
 
