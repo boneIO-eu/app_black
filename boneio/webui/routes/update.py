@@ -704,7 +704,7 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
     
     # Update boneio version in config
     config_content = re.sub(
-        r'(boneio:\s*\n\s*name:.*\n\s*)version:.*\n',
+        r'(boneio:\s*\n\s*name:[^\n]*\n\s*)version:[^\n]*\n',
         f'\\1version: {version}\n',
         config_content
     )
