@@ -146,17 +146,24 @@ export function isConfigReloadEvent(data: StateUpdate): data is ConfigReloadEven
 interface WebSocketHookResult {
   error: string | null;
   addMessageListener: (callback: (message: StateUpdate) => void) => () => void;
+  isConnected: boolean;
+  addConnectionStateListener: (callback: (connected: boolean) => void) => () => void;
 }
 
 // Singleton WebSocket instance and listeners
 let globalWs: WebSocket | null = null;
 let globalMessageListeners = new Set<(message: StateUpdate) => void>();
+let globalConnectionStateListeners = new Set<(connected: boolean) => void>();
 let globalConnecting = false;
 let globalPingInterval: number | null = null;
 let globalReconnectAttempts = 0;
+let globalReconnectTimeout: number | null = null;
 const MAX_RECONNECT_ATTEMPTS = 30;
-const RECONNECT_DELAY = 5000;
+const INITIAL_RECONNECT_DELAY = 1000; // Start with 1 second
+const MAX_RECONNECT_DELAY = 30000; // Max 30 seconds
+const PING_INTERVAL = 15000; // 15 seconds - shorter for mobile browsers
 let activeConnections = 0;
+let globalIsConnected = false;
 
 export const closeWebSocket = () => {
   if (globalWs) {
@@ -167,10 +174,35 @@ export const closeWebSocket = () => {
     clearInterval(globalPingInterval);
     globalPingInterval = null;
   }
+  if (globalReconnectTimeout) {
+    clearTimeout(globalReconnectTimeout);
+    globalReconnectTimeout = null;
+  }
   globalMessageListeners.clear();
+  globalConnectionStateListeners.clear();
   globalConnecting = false;
   globalReconnectAttempts = 0;
+  globalIsConnected = false;
   activeConnections = 0;
+};
+
+const notifyConnectionState = (connected: boolean) => {
+  globalIsConnected = connected;
+  globalConnectionStateListeners.forEach((listener) => {
+    try {
+      listener(connected);
+    } catch (e) {
+      console.error('Error in connection state listener:', e);
+    }
+  });
+};
+
+// Request full state resync from server via WebSocket
+export const requestStateResync = () => {
+  if (globalWs?.readyState === WebSocket.OPEN) {
+    console.log('Requesting state resync from server...');
+    globalWs.send('request_state');
+  }
 };
 
 const setupWebSocket = async (
@@ -205,16 +237,21 @@ const setupWebSocket = async (
       setError(null);
       globalConnecting = false;
       globalReconnectAttempts = 0;
+      notifyConnectionState(true);
 
-      // Start ping interval
+      // Start ping interval with shorter interval for mobile browsers
       if (globalPingInterval) {
         clearInterval(globalPingInterval);
       }
       globalPingInterval = window.setInterval(() => {
         if (globalWs?.readyState === WebSocket.OPEN) {
-          globalWs.send('ping');
+          try {
+            globalWs.send('ping');
+          } catch (e) {
+            console.error('Error sending ping:', e);
+          }
         }
-      }, 30000);
+      }, PING_INTERVAL);
     };
 
     globalWs.onmessage = (event) => {
@@ -235,19 +272,34 @@ const setupWebSocket = async (
       }
     };
 
-    globalWs.onclose = () => {
+    globalWs.onclose = (event) => {
+      console.log(`WebSocket closed with code ${event.code}, reason: ${event.reason}`);
+      
       if (globalPingInterval) {
         clearInterval(globalPingInterval);
         globalPingInterval = null;
       }
 
+      if (globalReconnectTimeout) {
+        clearTimeout(globalReconnectTimeout);
+        globalReconnectTimeout = null;
+      }
+
       globalWs = null;
       globalConnecting = false;
+      notifyConnectionState(false);
 
       if (activeConnections > 0 && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        console.log(`WebSocket closed. Attempting to reconnect (${globalReconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+        const delay = Math.min(
+          INITIAL_RECONNECT_DELAY * Math.pow(2, globalReconnectAttempts),
+          MAX_RECONNECT_DELAY
+        );
+        console.log(`WebSocket closed. Reconnecting in ${delay}ms (attempt ${globalReconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})...`);
         globalReconnectAttempts++;
-        setTimeout(() => setupWebSocket(setError, isAuthRequired, isApiAvailable), RECONNECT_DELAY);
+        globalReconnectTimeout = window.setTimeout(() => {
+          setupWebSocket(setError, isAuthRequired, isApiAvailable);
+        }, delay);
       } else if (globalReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         setError('WebSocket connection failed after multiple attempts');
       }
@@ -265,11 +317,19 @@ const setupWebSocket = async (
 
 export function useWebSocket(): WebSocketHookResult {
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   const { isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
 
   // Track if this is the first mount
   const isFirstMount = useRef(true);
+
+  // Sync connection state
+  useEffect(() => {
+    const unsubscribe = addConnectionStateListener(setIsConnected);
+    setIsConnected(globalIsConnected);
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     // Don't attempt to connect if API is not available
@@ -321,5 +381,12 @@ export function useWebSocket(): WebSocketHookResult {
     };
   }, []);
 
-  return { error, addMessageListener };
+  const addConnectionStateListener = useCallback((callback: (connected: boolean) => void) => {
+    globalConnectionStateListeners.add(callback);
+    return () => {
+      globalConnectionStateListeners.delete(callback);
+    };
+  }, []);
+
+  return { error, addMessageListener, isConnected, addConnectionStateListener };
 }

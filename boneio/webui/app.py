@@ -243,6 +243,259 @@ def remove_all_websocket_listeners(boneio_manager: Manager):
 # WebSocket Endpoint
 # ============================================================================
 
+async def send_initial_states(
+    websocket: WebSocket,
+    boneio_manager: Manager,
+) -> bool:
+    """
+    Send initial states of all entities to WebSocket client.
+    
+    This function is called on initial connection and can be triggered
+    again by sending 'request_state' message to resync after reconnection.
+    
+    Args:
+        websocket: WebSocket connection
+        boneio_manager: BoneIO manager instance
+        
+    Returns:
+        True if all states sent successfully, False if connection lost
+    """
+    async def send_state_update(update: Event) -> bool:
+        """Send state update and return True if successful."""
+        try:
+            if websocket.application_state == WebSocketState.CONNECTED:
+                await websocket.send_json(update.model_dump())
+                return True
+        except (BrokenPipeError, ConnectionResetError):
+            _LOGGER.debug("Client disconnected during state update")
+        except Exception as e:
+            _LOGGER.error(f"Error sending state update: {type(e).__name__} - {e}")
+        return False
+
+    try:
+        # Send inputs
+        for input_ in boneio_manager.inputs.get_inputs_list():
+            try:
+                input_state = InputState(
+                    name=input_.name,
+                    state=input_.last_state,
+                    type=input_.input_type,
+                    pin=input_.pin,
+                    timestamp=input_.last_press_timestamp,
+                    boneio_input=input_.boneio_input,
+                    area=input_.area
+                )
+                update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing input state: {type(e).__name__} - {e}")
+
+        # Send outputs
+        for output in boneio_manager.outputs.get_all_outputs().values():
+            try:
+                output_state = OutputState(
+                    id=output.id,
+                    name=output.name,
+                    state=output.state,
+                    type=output.output_type,
+                    pin=getattr(output, 'pin_id', None),
+                    expander_id=output.expander_id,
+                    timestamp=output.last_timestamp,
+                    area=getattr(output, 'area', None),
+                    interlock_groups=getattr(output, '_interlock_groups', []),
+                )
+                update = OutputEvent(entity_id=output.id, state=output_state)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
+
+        # Send output groups
+        for group in boneio_manager.outputs.get_all_output_groups().values():
+            try:
+                group_state = GroupState(
+                    id=group.id,
+                    name=group.name,
+                    state=group.state,
+                    type=group.output_type,
+                    timestamp=getattr(group, 'last_timestamp', None),
+                )
+                update = GroupEvent(entity_id=group.id, state=group_state)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing group state: {type(e).__name__} - {e}")
+
+        # Send covers
+        for cover in boneio_manager.covers.get_all_covers().values():
+            try:
+                cover_state = CoverState(
+                    id=cover.id,
+                    name=cover.name,
+                    state=cover.state,
+                    position=cover.position,
+                    kind=cover.kind,
+                    timestamp=cover.last_timestamp,
+                    current_operation=cover.current_operation,
+                )
+                if getattr(cover, 'kind', None) == 'venetian':
+                    cover_state.tilt = getattr(cover, 'tilt', 0)
+                update = CoverEvent(entity_id=cover.id, state=cover_state)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing cover state: {type(e).__name__} - {e}")
+
+        # Send modbus sensor states
+        for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
+            if not modbus_coordinator:
+                continue
+            for entities in modbus_coordinator.get_all_entities():
+                for entity in entities.values():
+                    try:
+                        sensor_state = ModbusDeviceState(
+                            id=entity.id,
+                            name=entity.name,
+                            state=entity.state,
+                            entity_type=entity.entity_type,
+                            unit=entity.unit_of_measurement,
+                            timestamp=entity.last_timestamp,
+                            device_group=modbus_coordinator.name,
+                            coordinator_id=modbus_coordinator._id,
+                            step=getattr(entity, 'step', None),
+                        )
+                        update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
+                        if not await send_state_update(update):
+                            return False
+                    except Exception as e:
+                        _LOGGER.error(f"Error preparing modbus sensor state: {type(e).__name__} - {e}")
+            
+            for additional_entities in modbus_coordinator.get_all_additional_entities():
+                for entity in additional_entities.values():
+                    try:
+                        value_mapping = getattr(entity, '_value_mapping', None)
+                        payload_on = getattr(entity, '_payload_on', None)
+                        payload_off = getattr(entity, '_payload_off', None)
+                        
+                        sensor_state = ModbusDeviceState(
+                            id=entity.id,
+                            name=entity.name,
+                            state=entity.state,
+                            unit=None,
+                            timestamp=entity.last_timestamp if hasattr(entity, 'last_timestamp') else None,
+                            device_group=modbus_coordinator.name,
+                            coordinator_id=modbus_coordinator._id,
+                            entity_type=entity.entity_type,
+                            x_mapping=value_mapping,
+                            payload_on=payload_on,
+                            payload_off=payload_off,
+                            step=getattr(entity, 'step', None),
+                        )
+                        update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
+                        if not await send_state_update(update):
+                            return False
+                    except Exception as e:
+                        _LOGGER.error(f"Error preparing modbus additional entity state: {type(e).__name__} - {e}")
+
+        # Send INA219 sensor states
+        for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
+            for ina_sensor in single_ina_device.sensors.values():
+                try:
+                    sensor_state = SensorState(
+                        id=ina_sensor.id,
+                        name=ina_sensor.name,
+                        state=ina_sensor.state,
+                        unit=ina_sensor.unit_of_measurement,
+                        timestamp=ina_sensor.last_timestamp,
+                    )
+                    update = SensorEvent(entity_id=ina_sensor.id, state=sensor_state)
+                    if not await send_state_update(update):
+                        return False
+                except Exception as e:
+                    _LOGGER.error(f"Error preparing INA219 sensor state: {type(e).__name__} - {e}")
+
+        # Send temperature sensor states
+        for sensor in boneio_manager.sensors.get_all_temp_sensors():
+            try:
+                sensor_state = SensorState(
+                    id=sensor.id,
+                    name=sensor.name,
+                    state=sensor.state,
+                    unit=sensor.unit_of_measurement,
+                    timestamp=sensor.last_timestamp,
+                )
+                update = SensorEvent(entity_id=sensor.id, state=sensor_state)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing temperature sensor state: {type(e).__name__} - {e}")
+
+        # Send virtual energy sensor states
+        for ve_sensor in boneio_manager.sensors.get_virtual_energy_sensors():
+            try:
+                import time
+                # For power sensors: send current power and total energy
+                if ve_sensor.sensor_type == "power":
+                    # Current power (W)
+                    power_state = SensorState(
+                        id=f"{ve_sensor.id}_power",
+                        name=f"{ve_sensor.name} Power",
+                        state=ve_sensor.get_current_power(),
+                        unit="W",
+                        timestamp=int(time.time()),
+                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_power", state=power_state)
+                    if not await send_state_update(update):
+                        return False
+                    # Total energy (Wh)
+                    energy_state = SensorState(
+                        id=f"{ve_sensor.id}_energy",
+                        name=f"{ve_sensor.name} Energy",
+                        state=ve_sensor.get_total_energy(),
+                        unit="Wh",
+                        timestamp=int(time.time()),
+                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_energy", state=energy_state)
+                    if not await send_state_update(update):
+                        return False
+                # For water sensors: send current flow rate and total water
+                elif ve_sensor.sensor_type == "water":
+                    # Current flow rate (L/h)
+                    flow_state = SensorState(
+                        id=f"{ve_sensor.id}_flow",
+                        name=f"{ve_sensor.name} Flow Rate",
+                        state=ve_sensor.get_current_flow_rate(),
+                        unit="L/h",
+                        timestamp=int(time.time()),
+                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_flow", state=flow_state)
+                    if not await send_state_update(update):
+                        return False
+                    # Total water (L)
+                    water_state = SensorState(
+                        id=f"{ve_sensor.id}_water",
+                        name=f"{ve_sensor.name} Water",
+                        state=ve_sensor.get_total_water(),
+                        unit="L",
+                        timestamp=int(time.time()),
+                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_water", state=water_state)
+                    if not await send_state_update(update):
+                        return False
+            except Exception as e:
+                _LOGGER.error(f"Error preparing virtual energy sensor state: {type(e).__name__} - {e}")
+
+        return True
+        
+    except WebSocketDisconnect:
+        _LOGGER.info("WebSocket disconnected while sending initial states")
+        return False
+    except Exception as e:
+        _LOGGER.error(f"Error sending initial states: {type(e).__name__} - {e}")
+        return False
+
+
 @app.websocket("/ws/state")
 async def websocket_endpoint(
     websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)
@@ -253,250 +506,25 @@ async def websocket_endpoint(
         if await websocket_manager.connect(websocket):
             _LOGGER.info("New WebSocket connection established")
 
-            async def send_state_update(update: Event) -> bool:
-                """Send state update and return True if successful."""
-                try:
-                    if websocket.application_state == WebSocketState.CONNECTED:
-                        await websocket.send_json(update.model_dump())
-                        return True
-                except (BrokenPipeError, ConnectionResetError):
-                    _LOGGER.debug("Client disconnected during state update")
-                except Exception as e:
-                    _LOGGER.error(f"Error sending state update: {type(e).__name__} - {e}")
-                return False
-
             # Send initial states
-            try:
-                # Send inputs
-                for input_ in boneio_manager.inputs.get_inputs_list():
-                    try:
-                        input_state = InputState(
-                            name=input_.name,
-                            state=input_.last_state,
-                            type=input_.input_type,
-                            pin=input_.pin,
-                            timestamp=input_.last_press_timestamp,
-                            boneio_input=input_.boneio_input,
-                            area=input_.area
-                        )
-                        update = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
-                        if not await send_state_update(update):
-                            return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing input state: {type(e).__name__} - {e}")
-
-                # Send outputs
-                for output in boneio_manager.outputs.get_all_outputs().values():
-                    try:
-                        output_state = OutputState(
-                            id=output.id,
-                            name=output.name,
-                            state=output.state,
-                            type=output.output_type,
-                            pin=getattr(output, 'pin_id', None),
-                            expander_id=output.expander_id,
-                            timestamp=output.last_timestamp,
-                            area=getattr(output, 'area', None),
-                            interlock_groups=getattr(output, '_interlock_groups', []),
-                        )
-                        update = OutputEvent(entity_id=output.id, state=output_state)
-                        if not await send_state_update(update):
-                            return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing output state: {type(e).__name__} - {e}")
-
-                # Send output groups
-                for group in boneio_manager.outputs.get_all_output_groups().values():
-                    try:
-                        group_state = GroupState(
-                            id=group.id,
-                            name=group.name,
-                            state=group.state,
-                            type=group.output_type,
-                            timestamp=getattr(group, 'last_timestamp', None),
-                        )
-                        update = GroupEvent(entity_id=group.id, state=group_state)
-                        if not await send_state_update(update):
-                            return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing group state: {type(e).__name__} - {e}")
-
-                # Send covers
-                for cover in boneio_manager.covers.get_all_covers().values():
-                    try:
-                        cover_state = CoverState(
-                            id=cover.id,
-                            name=cover.name,
-                            state=cover.state,
-                            position=cover.position,
-                            kind=cover.kind,
-                            timestamp=cover.last_timestamp,
-                            current_operation=cover.current_operation,
-                        )
-                        if getattr(cover, 'kind', None) == 'venetian':
-                            cover_state.tilt = getattr(cover, 'tilt', 0)
-                        update = CoverEvent(entity_id=cover.id, state=cover_state)
-                        if not await send_state_update(update):
-                            return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing cover state: {type(e).__name__} - {e}")
-
-                # Send modbus sensor states
-                for modbus_coordinator in boneio_manager.modbus.get_all_coordinators().values():
-                    if not modbus_coordinator:
-                        continue
-                    for entities in modbus_coordinator.get_all_entities():
-                        for entity in entities.values():
-                            try:
-                                sensor_state = ModbusDeviceState(
-                                    id=entity.id,
-                                    name=entity.name,
-                                    state=entity.state,
-                                    entity_type=entity.entity_type,
-                                    unit=entity.unit_of_measurement,
-                                    timestamp=entity.last_timestamp,
-                                    device_group=modbus_coordinator.name,
-                                    coordinator_id=modbus_coordinator._id,
-                                    step=getattr(entity, 'step', None),
-                                )
-                                update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
-                                if not await send_state_update(update):
-                                    return
-                            except Exception as e:
-                                _LOGGER.error(f"Error preparing modbus sensor state: {type(e).__name__} - {e}")
-                    
-                    for additional_entities in modbus_coordinator.get_all_additional_entities():
-                        for entity in additional_entities.values():
-                            try:
-                                value_mapping = getattr(entity, '_value_mapping', None)
-                                payload_on = getattr(entity, '_payload_on', None)
-                                payload_off = getattr(entity, '_payload_off', None)
-                                
-                                sensor_state = ModbusDeviceState(
-                                    id=entity.id,
-                                    name=entity.name,
-                                    state=entity.state,
-                                    unit=None,
-                                    timestamp=entity.last_timestamp if hasattr(entity, 'last_timestamp') else None,
-                                    device_group=modbus_coordinator.name,
-                                    coordinator_id=modbus_coordinator._id,
-                                    entity_type=entity.entity_type,
-                                    x_mapping=value_mapping,
-                                    payload_on=payload_on,
-                                    payload_off=payload_off,
-                                    step=getattr(entity, 'step', None),
-                                )
-                                update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
-                                if not await send_state_update(update):
-                                    return
-                            except Exception as e:
-                                _LOGGER.error(f"Error preparing modbus additional entity state: {type(e).__name__} - {e}")
-
-                # Send INA219 sensor states
-                for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
-                    for ina_sensor in single_ina_device.sensors.values():
-                        try:
-                            sensor_state = SensorState(
-                                id=ina_sensor.id,
-                                name=ina_sensor.name,
-                                state=ina_sensor.state,
-                                unit=ina_sensor.unit_of_measurement,
-                                timestamp=ina_sensor.last_timestamp,
-                            )
-                            update = SensorEvent(entity_id=ina_sensor.id, state=sensor_state)
-                            if not await send_state_update(update):
-                                return
-                        except Exception as e:
-                            _LOGGER.error(f"Error preparing INA219 sensor state: {type(e).__name__} - {e}")
-
-                # Send temperature sensor states
-                for sensor in boneio_manager.sensors.get_all_temp_sensors():
-                    try:
-                        sensor_state = SensorState(
-                            id=sensor.id,
-                            name=sensor.name,
-                            state=sensor.state,
-                            unit=sensor.unit_of_measurement,
-                            timestamp=sensor.last_timestamp,
-                        )
-                        update = SensorEvent(entity_id=sensor.id, state=sensor_state)
-                        if not await send_state_update(update):
-                            return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing temperature sensor state: {type(e).__name__} - {e}")
-
-                # Send virtual energy sensor states
-                for ve_sensor in boneio_manager.sensors.get_virtual_energy_sensors():
-                    try:
-                        import time
-                        # For power sensors: send current power and total energy
-                        if ve_sensor.sensor_type == "power":
-                            # Current power (W)
-                            power_state = SensorState(
-                                id=f"{ve_sensor.id}_power",
-                                name=f"{ve_sensor.name} Power",
-                                state=ve_sensor.get_current_power(),
-                                unit="W",
-                                timestamp=int(time.time()),
-                            )
-                            update = SensorEvent(entity_id=f"{ve_sensor.id}_power", state=power_state)
-                            if not await send_state_update(update):
-                                return
-                            # Total energy (Wh)
-                            energy_state = SensorState(
-                                id=f"{ve_sensor.id}_energy",
-                                name=f"{ve_sensor.name} Energy",
-                                state=ve_sensor.get_total_energy(),
-                                unit="Wh",
-                                timestamp=int(time.time()),
-                            )
-                            update = SensorEvent(entity_id=f"{ve_sensor.id}_energy", state=energy_state)
-                            if not await send_state_update(update):
-                                return
-                        # For water sensors: send current flow rate and total water
-                        elif ve_sensor.sensor_type == "water":
-                            # Current flow rate (L/h)
-                            flow_state = SensorState(
-                                id=f"{ve_sensor.id}_flow",
-                                name=f"{ve_sensor.name} Flow Rate",
-                                state=ve_sensor.get_current_flow_rate(),
-                                unit="L/h",
-                                timestamp=int(time.time()),
-                            )
-                            update = SensorEvent(entity_id=f"{ve_sensor.id}_flow", state=flow_state)
-                            if not await send_state_update(update):
-                                return
-                            # Total water (L)
-                            water_state = SensorState(
-                                id=f"{ve_sensor.id}_water",
-                                name=f"{ve_sensor.name} Water",
-                                state=ve_sensor.get_total_water(),
-                                unit="L",
-                                timestamp=int(time.time()),
-                            )
-                            update = SensorEvent(entity_id=f"{ve_sensor.id}_water", state=water_state)
-                            if not await send_state_update(update):
-                                return
-                    except Exception as e:
-                        _LOGGER.error(f"Error preparing virtual energy sensor state: {type(e).__name__} - {e}")
-
-            except WebSocketDisconnect:
-                _LOGGER.info("WebSocket disconnected while sending initial states")
-                return
-            except Exception as e:
-                _LOGGER.error(f"Error sending initial states: {type(e).__name__} - {e}")
+            if not await send_initial_states(websocket, boneio_manager):
                 return
 
             if websocket.application_state == WebSocketState.CONNECTED:
                 _LOGGER.debug("Initial states sent, setting up event listeners")
                 add_all_websocket_listeners(boneio_manager=boneio_manager)
 
-                # Keep connection alive
+                # Keep connection alive and handle messages
                 while True:
                     try:
                         data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
                         if data == "ping":
                             await websocket.send_text("pong")
+                        elif data == "request_state":
+                            # Client requested full state resync (e.g., after reconnection)
+                            _LOGGER.info("Client requested state resync")
+                            if not await send_initial_states(websocket, boneio_manager):
+                                break
                     except asyncio.TimeoutError:
                         if websocket.application_state != WebSocketState.CONNECTED:
                             _LOGGER.debug("WebSocket no longer connected, exiting loop")

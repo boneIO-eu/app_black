@@ -61,7 +61,25 @@ function AppContent() {
   const [groups, setGroups] = useState<GroupEvent[]>([]);
   const { isAuthenticated, isAuthRequired } = useAuth();
   const { isApiAvailable } = useApiAvailability();
-  const { error, addMessageListener } = useWebSocket();
+  const { error, addMessageListener, addConnectionStateListener } = useWebSocket();
+
+  // Listen to WebSocket connection state changes and request state resync on reconnect
+  // Note: Initial state is sent automatically by backend on WebSocket connect
+  // This handles reconnection scenarios where we need to resync
+  useEffect(() => {
+    if (!isAuthenticated && isAuthRequired) return;
+    if (!isApiAvailable) return;
+    
+    const unsubscribe = addConnectionStateListener((connected) => {
+      if (connected) {
+        // Backend sends initial state on connect, but for reconnects we may need to request it
+        // The backend will send all states via WebSocket messages
+        console.log('WebSocket connected/reconnected');
+      }
+    });
+    
+    return unsubscribe;
+  }, [addConnectionStateListener, isAuthenticated, isAuthRequired, isApiAvailable]);
 
   useEffect(() => {
     console.log("WebSocket state:", { isAuthenticated, isAuthRequired });
