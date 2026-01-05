@@ -660,8 +660,12 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                     max="60"
                     step="0.1"
                     className="input input-bordered w-full"
-                    value={action.transition || 0}
-                    onChange={(e) => onUpdate('transition', parseFloat(e.target.value) || 0)}
+                    value={action.transition ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Set to undefined if empty or 0 (default value)
+                      onUpdate('transition', val === '' || parseFloat(val) === 0 ? undefined : parseFloat(val));
+                    }}
                     placeholder="0"
                   />
                 </div>

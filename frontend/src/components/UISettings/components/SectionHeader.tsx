@@ -34,8 +34,11 @@ export default function SectionHeader({
     <div className="bg-base-200 border-b border-base-content/10 p-3 lg:p-4">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-base-content">
+          <h1 className="text-2xl font-bold text-base-content flex items-center gap-2">
             {sectionTitle}
+            {sectionName === 'remote_devices' && (
+              <span className="badge badge-warning badge-sm">{t('navigation.experimental')}</span>
+            )}
           </h1>
           <p className="text-sm text-base-content/70 mt-1">
             {t(`sections.descriptions.${sectionName}`) || t('settings.configure_settings').replace('{section}', sectionTitle)}

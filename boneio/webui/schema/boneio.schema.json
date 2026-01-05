@@ -4,8 +4,8 @@
   "properties": {
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "name": {
@@ -19,15 +19,19 @@
             "number"
           ],
           "enum": [
+            "0.2",
+            "0.3",
             "0.4",
             "0.7",
             "0.8",
+            0.2,
+            0.3,
             0.4,
             0.7,
             0.8
           ],
           "examples": [
-            "0.4"
+            "0.2"
           ],
           "description": "BoneIO Black Hardware version",
           "title": "Version"

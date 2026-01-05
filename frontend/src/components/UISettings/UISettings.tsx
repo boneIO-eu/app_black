@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
-import { convertFormDataToOriginalTypes, convertTimeperiodToMilliseconds, stripHiddenAndDefaults, convertMillisecondsToTimeperiod } from '@/components/UISettings/helpers/configSchemaUtils';
-import { 
-  RELOAD_SECTIONS, 
-  RESTART_SECTIONS, 
+import {
+  convertFormDataToOriginalTypes,
+  convertTimeperiodToMilliseconds,
+  stripHiddenAndDefaults,
+  convertMillisecondsToTimeperiod,
+} from '@/components/UISettings/helpers/configSchemaUtils';
+import {
+  RELOAD_SECTIONS,
+  RESTART_SECTIONS,
   ALL_SECTIONS,
 } from '@/components/UISettings/constants/sectionDefinitions';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -12,11 +17,11 @@ import { SectionContent, SettingsSidebar, SectionHeader } from './components';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
- * 
+ *
  * This component provides a modern form-based interface for editing YAML configuration files.
  * Each configuration section (mqtt, web, logger, etc.) is presented as a separate tab with
  * a JSON Schema-driven form. Users can edit one section at a time and save changes individually.
- * 
+ *
  * CURRENTLY DISABLED: This component is temporarily disabled due to JSON Schema validation
  * issues and RJSFSchema compatibility problems. The routes still exist but the navigation
  * menu item is commented out. Can be re-enabled when schema issues are resolved.
@@ -30,16 +35,15 @@ interface ConfigSection {
   data: Record<string, any>;
 }
 
-
 export default function UISettings() {
   const { section } = useParams<{ section?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  
+
   // Get edit item name from query param (for deep linking from InputsView/OutputsView)
   const editItemName = searchParams.get('edit');
-  
+
   // Clear edit param after it's been used
   const clearEditParam = useCallback(() => {
     if (editItemName) {
@@ -50,7 +54,9 @@ export default function UISettings() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [originalData, setOriginalData] = useState<Record<string, any>>({});
   const [showYamlPreview, setShowYamlPreview] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<{ [key: string]: 'idle' | 'saving' | 'success' | 'error' }>({});
+  const [saveStatus, setSaveStatus] = useState<{
+    [key: string]: 'idle' | 'saving' | 'success' | 'error';
+  }>({});
   const [unsavedChanges, setUnsavedChanges] = useState<{ [key: string]: boolean }>({});
   const [isReloading, setIsReloading] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
@@ -60,15 +66,19 @@ export default function UISettings() {
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
-  
+
   /**
    * Handle application restart
    */
   const handleRestart = async () => {
-    if (!confirm('Are you sure you want to restart the application? This will briefly interrupt all connections.')) {
+    if (
+      !confirm(
+        'Are you sure you want to restart the application? This will briefly interrupt all connections.'
+      )
+    ) {
       return;
     }
-    
+
     setIsRestarting(true);
     try {
       await fetch('/api/restart', { method: 'POST' });
@@ -79,49 +89,48 @@ export default function UISettings() {
       console.log('Server is restarting...');
     }
   };
-  
+
   // Function to navigate to a section
   const navigateToSection = (sectionName: string) => {
     navigate(`/settings/${sectionName}`);
   };
 
   // Use imported section definitions with translated titles
-  const reloadSections = useMemo(() => 
-    RELOAD_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
-    [t]
-  );
-  
-  const restartSections = useMemo(() => 
-    RESTART_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
-    [t]
-  );
-  
-  const configSections = useMemo(() => 
-    ALL_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })), 
+  const reloadSections = useMemo(
+    () => RELOAD_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
     [t]
   );
 
+  const restartSections = useMemo(
+    () => RESTART_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
+    [t]
+  );
 
- 
+  const configSections = useMemo(
+    () => ALL_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
+    [t]
+  );
 
   /**
    * Convert data to match schema types (for form display)
    */
-  const convertDataToSchemaTypes = (data: Record<string, any>, schema: any): Record<string, any> => {
-    
+  const convertDataToSchemaTypes = (
+    data: Record<string, any>,
+    schema: any
+  ): Record<string, any> => {
     if (!data || !schema || typeof data !== 'object' || typeof schema !== 'object') {
       return data;
     }
 
     const converted = { ...data };
-    
+
     // Handle properties in schema
     if (schema.properties) {
       Object.keys(schema.properties).forEach(key => {
         if (key in converted && converted[key] !== null && converted[key] !== undefined) {
           const propSchema = schema.properties[key] as any;
           const currentValue = converted[key];
-          
+
           // Handle array with items schema
           if (propSchema?.items && Array.isArray(currentValue)) {
             converted[key] = currentValue.map((item: any) => {
@@ -137,7 +146,11 @@ export default function UISettings() {
             converted[key] = milliseconds;
           }
           // Convert number to string if schema expects string with enum
-          else if (propSchema?.type === 'string' && propSchema?.enum && typeof currentValue === 'number') {
+          else if (
+            propSchema?.type === 'string' &&
+            propSchema?.enum &&
+            typeof currentValue === 'number'
+          ) {
             const stringValue = String(currentValue);
             // Check if the string version exists in enum
             if (propSchema.enum.includes(stringValue)) {
@@ -154,7 +167,7 @@ export default function UISettings() {
         }
       });
     }
-    
+
     return converted;
   };
 
@@ -165,21 +178,21 @@ export default function UISettings() {
     try {
       // Check restart status from backend (non-blocking)
       fetch('/api/status/restart')
-        .then(r => r.ok ? r.json() : null)
+        .then(r => (r.ok ? r.json() : null))
         .then(status => {
           if (status?.restart_required) setRestartRequired(true);
         })
         .catch(() => {});
-      
+
       // Load parsed config from backend FIRST (fast, small)
       const configResponse = await fetch('/api/config');
       const configContent = await configResponse.json();
       const configData = configContent?.config || {};
-      
+
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
       // setFormData(configData);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
-      
+
       // Create initial sections without schema (for custom forms that don't need it)
       const initialSections: ConfigSection[] = configSections.map(sectionConfig => ({
         name: sectionConfig.name,
@@ -189,38 +202,53 @@ export default function UISettings() {
         data: configData[sectionConfig.name] || {},
       }));
       setSections(initialSections);
-      
+
       // Load schema in background (lazy) - only needed for ArrayTableWidget sections
       const isDevelopment = import.meta.env.DEV;
       const schemaUrl = isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json';
-      
+
       fetch(schemaUrl, { cache: 'no-store' })
         .then(r => r.json())
         .then(mainSchema => {
           // Debug: log all schema keys
-          console.log('📦 Schema loaded. All property keys:', Object.keys(mainSchema.properties || {}));
+          console.log(
+            '📦 Schema loaded. All property keys:',
+            Object.keys(mainSchema.properties || {})
+          );
           console.log('📦 Cover schema exists?', !!mainSchema.properties?.cover);
           if (mainSchema.properties?.cover) {
             console.log('📦 Cover schema type:', mainSchema.properties.cover.type);
           }
-          
+
           // Update sections with proper schemas
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
             let sectionSchema = mainSchema.properties?.[sectionConfig.name];
-            
+
             // Debug for cover section
             if (sectionConfig.name === 'cover') {
               console.log('🔍 Cover section lookup:', {
                 name: sectionConfig.name,
                 found: !!sectionSchema,
-                schema: sectionSchema
+                schema: sectionSchema,
               });
             }
-            
+
             // Safe fallback if schema is missing
             if (!sectionSchema) {
               console.warn(`⚠️ Missing schema for section: ${sectionConfig.name}`);
-              if (['cover', 'output', 'input', 'event', 'binary_sensor', 'modbus_devices', 'areas', 'sensor', 'output_group'].includes(sectionConfig.name)) {
+              if (
+                [
+                  'cover',
+                  'output',
+                  'input',
+                  'event',
+                  'binary_sensor',
+                  'modbus_devices',
+                  'areas',
+                  'sensor',
+                  'output_group',
+                ].includes(sectionConfig.name)
+              ) {
                 sectionSchema = { type: 'array', items: { type: 'object', properties: {} } };
               } else {
                 sectionSchema = { type: 'object', properties: {} };
@@ -236,18 +264,17 @@ export default function UISettings() {
             };
           });
           setSections(loadedSections);
-          
+
           // Now convert form data with schema types
           const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
           setFormData(convertedFormData);
           setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
-          
+
           // Mark schema as loaded AFTER data conversion is complete
           setSchemaLoaded(true);
           console.log('✅ Schema loaded and data converted', convertedFormData);
         })
         .catch(err => console.warn('Schema loading failed (non-critical):', err));
-        
     } catch (error) {
       console.error('Error loading configuration:', error);
     }
@@ -258,17 +285,17 @@ export default function UISettings() {
    */
   const filterAutoGeneratedFields = useCallback((data: any): any => {
     if (!data || typeof data !== 'object') return data;
-    
+
     // Create a deep copy to avoid mutating original
     const filtered = JSON.parse(JSON.stringify(data));
-    
+
     // Filter outputs - remove auto-generated fields if boneio_output exists
     if (Array.isArray(filtered)) {
       return filtered.map((item: any) => {
         if (item && typeof item === 'object') {
           // If boneio_output exists, remove auto-generated fields
           if (item.boneio_output) {
-            const { kind, mcp_id, pca_id, pcf_id, pin,...rest } = item;
+            const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = item;
             return rest;
           }
           // If boneio_input exists, remove auto-generated fields
@@ -280,7 +307,7 @@ export default function UISettings() {
         return item;
       });
     }
-    
+
     // Handle object with output/input arrays
     if (filtered.output && Array.isArray(filtered.output)) {
       filtered.output = filtered.output.map((output: any) => {
@@ -291,7 +318,7 @@ export default function UISettings() {
         return output;
       });
     }
-    
+
     if (filtered.input && Array.isArray(filtered.input)) {
       filtered.input = filtered.input.map((input: any) => {
         if (input.boneio_input) {
@@ -301,7 +328,7 @@ export default function UISettings() {
         return input;
       });
     }
-    
+
     // Remove empty/null values to clean up the YAML
     const removeEmptyValues = (obj: any): any => {
       if (Array.isArray(obj)) {
@@ -311,11 +338,13 @@ export default function UISettings() {
         for (const [key, value] of Object.entries(obj)) {
           const cleanedValue = removeEmptyValues(value);
           // Keep the key if value is not null/undefined/empty string/empty array/empty object
-          if (cleanedValue !== null && 
-              cleanedValue !== undefined && 
-              cleanedValue !== '' &&
-              !(Array.isArray(cleanedValue) && cleanedValue.length === 0) &&
-              !(typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)) {
+          if (
+            cleanedValue !== null &&
+            cleanedValue !== undefined &&
+            cleanedValue !== '' &&
+            !(Array.isArray(cleanedValue) && cleanedValue.length === 0) &&
+            !(typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)
+          ) {
             cleaned[key] = cleanedValue;
           }
         }
@@ -323,118 +352,124 @@ export default function UISettings() {
       }
       return obj;
     };
-    
+
     return removeEmptyValues(filtered);
   }, []);
 
   /**
    * Convert data to YAML format (with defaults stripped)
    */
-  const convertToYaml = useCallback((data: any, sectionName?: string): string => {
-    try {
-      // Filter out auto-generated fields
-      let filteredData = filterAutoGeneratedFields(data);
-      
-      // Strip default values if we have schema for this section
-      if (sectionName) {
-        const sectionInfo = sections.find(s => s.name === sectionName);
-        if (sectionInfo) {
-          filteredData = stripHiddenAndDefaults(
-            filteredData,
-            sectionInfo.normalizedSchema,
-            sectionInfo.uiSchema || {}
-          );
+  const convertToYaml = useCallback(
+    (data: any, sectionName?: string): string => {
+      try {
+        // Filter out auto-generated fields
+        let filteredData = filterAutoGeneratedFields(data);
+
+        // Strip default values if we have schema for this section
+        if (sectionName) {
+          const sectionInfo = sections.find(s => s.name === sectionName);
+          if (sectionInfo) {
+            filteredData = stripHiddenAndDefaults(
+              filteredData,
+              sectionInfo.normalizedSchema,
+              sectionInfo.uiSchema || {}
+            );
+          }
         }
-      }
-      
-      // Special handling for mcp23017 - convert addresses to hex format
-      if (sectionName === 'mcp23017' && Array.isArray(filteredData)) {
-        filteredData = filteredData.map((entry: any) => {
-          if (entry && entry.address !== undefined) {
-            let addr = entry.address;
-            // Convert number to hex string
-            if (typeof addr === 'number') {
-              addr = `0x${addr.toString(16)}`;
-            } else if (typeof addr === 'string' && !addr.startsWith('0x')) {
-              const num = parseInt(addr, 10);
-              if (!isNaN(num)) {
-                addr = `0x${num.toString(16)}`;
+
+        // Special handling for mcp23017 - convert addresses to hex format
+        if (sectionName === 'mcp23017' && Array.isArray(filteredData)) {
+          filteredData = filteredData.map((entry: any) => {
+            if (entry && entry.address !== undefined) {
+              let addr = entry.address;
+              // Convert number to hex string
+              if (typeof addr === 'number') {
+                addr = `0x${addr.toString(16)}`;
+              } else if (typeof addr === 'string' && !addr.startsWith('0x')) {
+                const num = parseInt(addr, 10);
+                if (!isNaN(num)) {
+                  addr = `0x${num.toString(16)}`;
+                }
               }
+              return { ...entry, address: addr };
             }
-            return { ...entry, address: addr };
-          }
-          return entry;
-        });
-      }
-      
-      // Convert timeperiod fields from milliseconds (number) back to string with unit
-      // This is needed because formData stores timeperiods as numbers for form inputs
-      const convertTimeperiodsForYaml = (obj: any, schema: any): any => {
-        if (!obj || typeof obj !== 'object') return obj;
-        
-        if (Array.isArray(obj)) {
-          const itemsSchema = schema?.items;
-          return obj.map((item: any) => convertTimeperiodsForYaml(item, itemsSchema));
+            return entry;
+          });
         }
-        
-        const result = { ...obj };
-        const properties = schema?.properties || {};
-        
-        Object.keys(result).forEach(key => {
-          const propSchema = properties[key];
-          const value = result[key];
-          
-          // Check if this is a timeperiod field
-          if (propSchema && propSchema['x-timeperiod'] === true && typeof value === 'number') {
-            result[key] = convertMillisecondsToTimeperiod(value);
+
+        // Convert timeperiod fields from milliseconds (number) back to string with unit
+        // This is needed because formData stores timeperiods as numbers for form inputs
+        const convertTimeperiodsForYaml = (obj: any, schema: any): any => {
+          if (!obj || typeof obj !== 'object') return obj;
+
+          if (Array.isArray(obj)) {
+            const itemsSchema = schema?.items;
+            return obj.map((item: any) => convertTimeperiodsForYaml(item, itemsSchema));
           }
-          // Recursively handle nested objects/arrays
-          else if (typeof value === 'object' && value !== null) {
-            result[key] = convertTimeperiodsForYaml(value, propSchema);
+
+          const result = { ...obj };
+          const properties = schema?.properties || {};
+
+          Object.keys(result).forEach(key => {
+            const propSchema = properties[key];
+            const value = result[key];
+
+            // Check if this is a timeperiod field
+            if (propSchema && propSchema['x-timeperiod'] === true && typeof value === 'number') {
+              result[key] = convertMillisecondsToTimeperiod(value);
+            }
+            // Recursively handle nested objects/arrays
+            else if (typeof value === 'object' && value !== null) {
+              result[key] = convertTimeperiodsForYaml(value, propSchema);
+            }
+          });
+
+          return result;
+        };
+
+        // Apply timeperiod conversion if we have schema
+        if (sectionName) {
+          const sectionInfo = sections.find(s => s.name === sectionName);
+          if (sectionInfo?.schema) {
+            filteredData = convertTimeperiodsForYaml(filteredData, sectionInfo.schema);
           }
-        });
-        
-        return result;
-      };
-      
-      // Apply timeperiod conversion if we have schema
-      if (sectionName) {
-        const sectionInfo = sections.find(s => s.name === sectionName);
-        if (sectionInfo?.schema) {
-          filteredData = convertTimeperiodsForYaml(filteredData, sectionInfo.schema);
         }
+
+        // Convert to YAML format
+        const yamlString = yaml.dump(filteredData, {
+          indent: 2,
+          lineWidth: -1, // No line wrapping
+          noRefs: true,
+          quotingType: '"',
+          forceQuotes: false,
+          sortKeys: false,
+          flowLevel: -1, // Use block style (lists with -) instead of flow style
+          styles: {
+            '!!null': 'empty', // Represent null as empty
+          },
+        });
+
+        return yamlString;
+      } catch (error) {
+        console.error('Error converting to YAML:', error);
+        // Fallback to JSON if YAML conversion fails
+        return JSON.stringify(data, null, 2);
       }
-      
-      // Convert to YAML format
-      const yamlString = yaml.dump(filteredData, {
-        indent: 2,
-        lineWidth: -1, // No line wrapping
-        noRefs: true,
-        quotingType: '"',
-        forceQuotes: false,
-        sortKeys: false,
-        flowLevel: -1, // Use block style (lists with -) instead of flow style
-        styles: {
-          '!!null': 'empty', // Represent null as empty
-        },
-      });
-      
-      return yamlString;
-    } catch (error) {
-      console.error('Error converting to YAML:', error);
-      // Fallback to JSON if YAML conversion fails
-      return JSON.stringify(data, null, 2);
-    }
-  }, [filterAutoGeneratedFields, sections]);
+    },
+    [filterAutoGeneratedFields, sections]
+  );
 
   /**
    * Handle form data change for a section
    */
   const handleSectionChange = (sectionName: string, newFormData: any) => {
-    console.log("📝 handleSectionChange called for:", sectionName);
-    
-    setFormData((prevFormData: Record<string, any>) => ({ ...prevFormData, [sectionName]: newFormData }));
-    
+    console.log('📝 handleSectionChange called for:', sectionName);
+
+    setFormData((prevFormData: Record<string, any>) => ({
+      ...prevFormData,
+      [sectionName]: newFormData,
+    }));
+
     // Normalize data before comparison - remove empty objects/arrays/nulls
     const normalizeForComparison = (obj: any): any => {
       if (obj === null || obj === undefined) return undefined;
@@ -455,7 +490,7 @@ export default function UISettings() {
       if (obj === '') return undefined;
       return obj;
     };
-    
+
     // Deep comparison using sorted JSON stringify
     const sortedStringify = (obj: any): string => {
       if (obj === null || obj === undefined) return 'null';
@@ -464,44 +499,70 @@ export default function UISettings() {
       }
       if (typeof obj === 'object') {
         const keys = Object.keys(obj).sort();
-        return '{' + keys.map(k => JSON.stringify(k) + ':' + sortedStringify(obj[k])).join(',') + '}';
+        return (
+          '{' + keys.map(k => JSON.stringify(k) + ':' + sortedStringify(obj[k])).join(',') + '}'
+        );
       }
       return JSON.stringify(obj);
     };
-    
+
     const normalizedNew = normalizeForComparison(newFormData);
     const normalizedOriginal = normalizeForComparison(originalData[sectionName]);
     const newDataStr = sortedStringify(normalizedNew);
     const originalDataStr = sortedStringify(normalizedOriginal);
     const hasChanges = newDataStr !== originalDataStr;
-    console.log("📝 hasChanges:", hasChanges, "new:", normalizedNew, "original:", normalizedOriginal);
-    
+    console.log(
+      '📝 hasChanges:',
+      hasChanges,
+      'new:',
+      normalizedNew,
+      'original:',
+      normalizedOriginal
+    );
+
     if (hasChanges) {
-      console.log("✅ Setting unsavedChanges to true for:", sectionName);
-      setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({ ...prevUnsavedChanges, [sectionName]: true }));
+      console.log('✅ Setting unsavedChanges to true for:', sectionName);
+      setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({
+        ...prevUnsavedChanges,
+        [sectionName]: true,
+      }));
     } else {
-      console.log("❌ Setting unsavedChanges to false for:", sectionName);
-      setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({ ...prevUnsavedChanges, [sectionName]: false }));
+      console.log('❌ Setting unsavedChanges to false for:', sectionName);
+      setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({
+        ...prevUnsavedChanges,
+        [sectionName]: false,
+      }));
     }
   };
-
 
   /**
    * Restore section to original state (before changes)
    */
   const restoreSection = (sectionName: string) => {
     // Get original value, defaulting to empty array for array sections
-    const arraySections = ['event', 'binary_sensor', 'output', 'output_group', 'cover', 'modbus_devices', 'areas', 'sensor', 'virtual_energy_sensor', 'remote_devices'];
+    const arraySections = [
+      'event',
+      'binary_sensor',
+      'output',
+      'output_group',
+      'cover',
+      'modbus_devices',
+      'areas',
+      'sensor',
+      'virtual_energy_sensor',
+      'remote_devices',
+    ];
     const defaultValue = arraySections.includes(sectionName) ? [] : {};
-    const originalValue = originalData[sectionName] !== undefined ? originalData[sectionName] : defaultValue;
-    
-    setFormData((prevFormData: Record<string, any>) => ({ 
-      ...prevFormData, 
-      [sectionName]: JSON.parse(JSON.stringify(originalValue)) // Deep copy
+    const originalValue =
+      originalData[sectionName] !== undefined ? originalData[sectionName] : defaultValue;
+
+    setFormData((prevFormData: Record<string, any>) => ({
+      ...prevFormData,
+      [sectionName]: JSON.parse(JSON.stringify(originalValue)), // Deep copy
     }));
-    setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({ 
-      ...prevUnsavedChanges, 
-      [sectionName]: false 
+    setUnsavedChanges((prevUnsavedChanges: Record<string, boolean>) => ({
+      ...prevUnsavedChanges,
+      [sectionName]: false,
     }));
   };
 
@@ -513,10 +574,10 @@ export default function UISettings() {
     console.log('📦 formData[sectionName]:', formData[sectionName]);
     console.log('📦 dataOverride:', dataOverride);
     console.log('📦 unsavedChanges[sectionName]:', unsavedChanges[sectionName]);
-    
+
     // Use dataOverride if provided, otherwise use formData
     const dataToUse = dataOverride !== undefined ? dataOverride : formData[sectionName];
-    
+
     // Allow saving empty arrays (e.g., when user deletes all items)
     if (dataToUse === undefined || dataToUse === null) {
       console.log('❌ data is undefined/null, returning early');
@@ -528,11 +589,14 @@ export default function UISettings() {
       const boneioData = formData[sectionName];
       const hasOtherFields = boneioData?.version || boneioData?.device_type;
       const hasName = boneioData?.name && boneioData.name.trim() !== '';
-      
+
       if (hasOtherFields && !hasName) {
         console.log('❌ boneio section has version/device_type but no name');
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
-        alert(t('boneio_config.name_required_error') || 'Name is required when version or device type is selected');
+        alert(
+          t('boneio_config.name_required_error') ||
+            'Name is required when version or device type is selected'
+        );
         setTimeout(() => {
           setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
         }, 3000);
@@ -544,10 +608,17 @@ export default function UISettings() {
     if (sectionName === 'virtual_energy_sensor' && Array.isArray(dataToUse)) {
       const ids = new Set<string>();
       const duplicates: string[] = [];
-      
+
       for (const sensor of dataToUse) {
         // Generate ID from name if not provided (same logic as backend)
-        const sensorId = sensor.id || (sensor.name ? sensor.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') : '');
+        const sensorId =
+          sensor.id ||
+          (sensor.name
+            ? sensor.name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_|_$/g, '')
+            : '');
         if (sensorId) {
           if (ids.has(sensorId)) {
             duplicates.push(sensorId);
@@ -556,11 +627,13 @@ export default function UISettings() {
           }
         }
       }
-      
+
       if (duplicates.length > 0) {
         console.log('❌ Duplicate virtual_energy_sensor IDs:', duplicates);
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
-        alert(`${t('virtual_energy_sensor.duplicate_id_error') || 'Duplicate sensor IDs detected'}: ${duplicates.join(', ')}. ${t('virtual_energy_sensor.unique_id_required') || 'Each sensor must have a unique ID or name.'}`);
+        alert(
+          `${t('virtual_energy_sensor.duplicate_id_error') || 'Duplicate sensor IDs detected'}: ${duplicates.join(', ')}. ${t('virtual_energy_sensor.unique_id_required') || 'Each sensor must have a unique ID or name.'}`
+        );
         setTimeout(() => {
           setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
         }, 3000);
@@ -574,42 +647,44 @@ export default function UISettings() {
       // Find the section schema
       const sectionInfo = sections.find(s => s.name === sectionName);
       const sectionSchema = sectionInfo?.schema;
-      
+
       // Special handling for mcp23017 - use data directly from form without transformations
       let minimalConfig;
       if (sectionName === 'mcp23017') {
         // For mcp23017, use data directly - form already provides clean data
         // Convert addresses to integers for backend
-        minimalConfig = Array.isArray(dataToUse) ? dataToUse.map((entry: any) => {
-          if (entry && entry.address !== undefined) {
-            let addr = entry.address;
-            // Convert to integer
-            if (typeof addr === 'string') {
-              if (addr.startsWith('0x') || addr.startsWith('0X')) {
-                addr = parseInt(addr, 16);
-              } else {
-                addr = parseInt(addr, 10);
+        minimalConfig = Array.isArray(dataToUse)
+          ? dataToUse.map((entry: any) => {
+              if (entry && entry.address !== undefined) {
+                let addr = entry.address;
+                // Convert to integer
+                if (typeof addr === 'string') {
+                  if (addr.startsWith('0x') || addr.startsWith('0X')) {
+                    addr = parseInt(addr, 16);
+                  } else {
+                    addr = parseInt(addr, 10);
+                  }
+                }
+                // Ensure valid number
+                if (isNaN(addr)) {
+                  addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
+                }
+                return { id: entry.id, address: addr };
               }
-            }
-            // Ensure valid number
-            if (isNaN(addr)) {
-              addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
-            }
-            return { id: entry.id, address: addr };
-          }
-          return entry;
-        }) : dataToUse;
+              return entry;
+            })
+          : dataToUse;
       } else {
         // Convert form data back to original types before sending
         const dataToSend = convertFormDataToOriginalTypes(
-          dataToUse, 
+          dataToUse,
           originalData[sectionName],
           sectionSchema
         );
-        
+
         // Filter out auto-generated fields (kind, mcp_id, pin, etc.)
         const filteredData = filterAutoGeneratedFields(dataToSend);
-        
+
         // Usuń pola ukryte i wartości domyślne
         minimalConfig = stripHiddenAndDefaults(
           filteredData,
@@ -617,14 +692,14 @@ export default function UISettings() {
           sectionInfo?.uiSchema || {}
         );
       }
-      
+
       // Send converted data to backend
-      console.log("Sending config for section:", sectionName);
-      console.log("Data:", minimalConfig);
-      
+      console.log('Sending config for section:', sectionName);
+      console.log('Data:', minimalConfig);
+
       const bodyData = JSON.stringify(minimalConfig);
-      console.log("📤 Sending to backend:", bodyData);
-      
+      console.log('📤 Sending to backend:', bodyData);
+
       const response = await fetch(`/api/config/${sectionName}`, {
         method: 'PUT',
         headers: {
@@ -632,32 +707,46 @@ export default function UISettings() {
         },
         body: bodyData,
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Backend error response:", errorText);
+        console.error('❌ Backend error response:', errorText);
         throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
-      
+
       if (response.status === 200) {
         const result = await response.json();
-        
+
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
         // Update original data to reflect the saved state (deep copy to avoid reference issues)
-        setOriginalData(prev => ({ ...prev, [sectionName]: JSON.parse(JSON.stringify(dataToUse)) }));
+        setOriginalData(prev => ({
+          ...prev,
+          [sectionName]: JSON.parse(JSON.stringify(dataToUse)),
+        }));
         // Also update formData if we used dataOverride
         if (dataOverride !== undefined) {
           setFormData(prev => ({ ...prev, [sectionName]: JSON.parse(JSON.stringify(dataToUse)) }));
         }
-        
+
         // Check if backend says restart is required
         if (result.restart_required) {
           setRestartRequired(true);
         }
-        
+
         // Trigger reload for sections that support hot-reload
-        const reloadableSections = ['output_group', 'output', 'cover', 'event', 'binary_sensor', 'modbus_devices', 'areas', 'sensor', 'virtual_energy_sensor', 'logger'];
+        const reloadableSections = [
+          'output_group',
+          'output',
+          'cover',
+          'event',
+          'binary_sensor',
+          'modbus_devices',
+          'areas',
+          'sensor',
+          'virtual_energy_sensor',
+          'logger',
+        ];
         if (reloadableSections.includes(sectionName)) {
           try {
             setIsReloading(true);
@@ -669,16 +758,19 @@ export default function UISettings() {
               },
               body: JSON.stringify([sectionName]),
             });
-            
+
             if (reloadResponse.ok) {
               console.log(`✅ Section ${sectionName} reloaded successfully`);
-              
+
               // Reload entire configuration to get fresh data
               // This ensures all dependent sections are updated (e.g., output_group depends on output)
               await loadConfiguration();
               console.log(`📥 Reloaded full configuration from backend`);
             } else {
-              console.warn(`⚠️ Failed to reload section ${sectionName}:`, await reloadResponse.text());
+              console.warn(
+                `⚠️ Failed to reload section ${sectionName}:`,
+                await reloadResponse.text()
+              );
             }
           } catch (reloadError) {
             console.warn(`⚠️ Error reloading section ${sectionName}:`, reloadError);
@@ -687,7 +779,7 @@ export default function UISettings() {
             setIsReloading(false);
           }
         }
-        
+
         // Clear success status after 3 seconds
         setTimeout(() => {
           setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -698,7 +790,7 @@ export default function UISettings() {
     } catch (error) {
       console.error('Error saving section:', error);
       setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
-      
+
       // Clear error status after 5 seconds
       setTimeout(() => {
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -706,14 +798,13 @@ export default function UISettings() {
     }
   };
 
-
   /**
    * Filter enum options to show only lowercase variants
    * while keeping all variants in the schema for validation
    */
   const filterEnumOptions = (enumValues: string[]): string[] => {
     if (!enumValues || enumValues.length === 0) return enumValues;
-    
+
     // Group values by their lowercase version
     const groups: { [key: string]: string[] } = {};
     enumValues.forEach(value => {
@@ -723,7 +814,7 @@ export default function UISettings() {
       }
       groups[lowerValue].push(value);
     });
-    
+
     // For each group, prefer lowercase variant
     const filtered: string[] = [];
     Object.values(groups).forEach(group => {
@@ -733,7 +824,7 @@ export default function UISettings() {
       } else {
         // Multiple variants, prefer lowercase
         const lowerCase = group.find(v => v === v.toLowerCase());
-        
+
         if (lowerCase) {
           filtered.push(lowerCase);
         } else {
@@ -742,7 +833,7 @@ export default function UISettings() {
         }
       }
     });
-    
+
     return filtered;
   };
 
@@ -759,10 +850,10 @@ export default function UISettings() {
       if (normalized.oneOf && Array.isArray(normalized.oneOf)) {
         // Check if this is a boolean field with string alternatives
         const hasBooleanType = normalized.oneOf.some((option: any) => option.type === 'boolean');
-        const hasYamlBooleanString = normalized.oneOf.some((option: any) => 
-          option.type === 'string' && option['x-yaml-boolean'] === true
+        const hasYamlBooleanString = normalized.oneOf.some(
+          (option: any) => option.type === 'string' && option['x-yaml-boolean'] === true
         );
-        
+
         if (hasBooleanType && hasYamlBooleanString) {
           // Convert to simple boolean type
           const booleanOption = normalized.oneOf.find((option: any) => option.type === 'boolean');
@@ -780,7 +871,7 @@ export default function UISettings() {
         // Check if enum contains numbers that should be strings
         const hasNumbers = normalized.enum.some((val: any) => typeof val === 'number');
         const hasStrings = normalized.enum.some((val: any) => typeof val === 'string');
-        
+
         if (hasNumbers && hasStrings) {
           // Convert all enum values to strings to match the string type
           normalized.enum = normalized.enum.map((val: any) => String(val));
@@ -862,14 +953,14 @@ export default function UISettings() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadConfigurationSafe = async () => {
       if (!isMounted) return;
       await loadConfiguration();
     };
-    
+
     loadConfigurationSafe();
-    
+
     return () => {
       isMounted = false;
     };
@@ -909,19 +1000,31 @@ export default function UISettings() {
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-primary"></span>
             <div className="text-center">
-              <p className="text-lg font-semibold text-base-content">{t('settings.reloading_config')}</p>
+              <p className="text-lg font-semibold text-base-content">
+                {t('settings.reloading_config')}
+              </p>
               <p className="text-sm text-base-content/70">{t('settings.wait_changes')}</p>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Unsaved changes toast - show when there are unsaved changes and no restart required */}
       {Object.values(unsavedChanges).some(Boolean) && !restartRequired && (
         <div className="toast toast-top toast-center z-50">
           <div className="alert alert-warning shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
             <div>
               <h3 className="font-bold">📝 {t('settings.unsaved_changes')}</h3>
@@ -930,19 +1033,29 @@ export default function UISettings() {
           </div>
         </div>
       )}
-      
+
       {/* Restart required toast - persistent, with restart button */}
       {restartRequired && (
         <div className="toast toast-top toast-center z-50">
           <div className="alert alert-error shadow-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="stroke-current shrink-0 h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
             <div>
               <h3 className="font-bold">⚠️ {t('settings.app_restart_required')}</h3>
               <div className="text-xs">{t('settings.config_changed')}</div>
             </div>
-            <button 
+            <button
               className="btn btn-sm btn-warning"
               onClick={handleRestart}
               disabled={isRestarting}
@@ -959,14 +1072,16 @@ export default function UISettings() {
           </div>
         </div>
       )}
-      
+
       {/* Restarting overlay */}
       {isRestarting && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-100">
           <div className="flex flex-col items-center gap-4 p-8 bg-base-200 rounded-2xl shadow-xl">
             <span className="loading loading-spinner loading-lg text-warning"></span>
             <div className="text-center">
-              <p className="text-lg font-semibold text-base-content">{t('settings.restarting_app')}</p>
+              <p className="text-lg font-semibold text-base-content">
+                {t('settings.restarting_app')}
+              </p>
               <p className="text-sm text-base-content/70">{t('settings.page_reload')}</p>
             </div>
           </div>
@@ -1021,7 +1136,7 @@ export default function UISettings() {
                       onSaveSection={saveSection}
                     />
                   </div>
-                  
+
                   {/* YAML Preview */}
                   <div className="w-1/2 border-l border-base-content/10 bg-base-300">
                     <div className="p-4 border-b border-base-content/10">

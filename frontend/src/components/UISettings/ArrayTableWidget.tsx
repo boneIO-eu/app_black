@@ -196,7 +196,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleEdit = (index: number) => {
     console.log('🔧 ArrayTableWidget: handleEdit called for index:', index);
-    const item = { ...value[index] };
+    // Deep copy to prevent mutations from affecting original data when user cancels
+    const item = JSON.parse(JSON.stringify(value[index]));
     
     // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
     // This prevents duplicate fields when user edits old config with 'id' and form uses 'name'
@@ -1031,8 +1032,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allOutputGroups={allOutputGroups}
                     allCovers={allCovers}
                     allAreas={allAreas}
+                    allRemoteDevices={allRemoteDevices}
                     editingIndex={editingIndex}
                     onValidationChange={setHasValidationErrors}
+                    attemptedSubmit={attemptedSubmit}
                     savedOutputs={savedOutputs}
                     savedOutputGroups={savedOutputGroups}
                     savedCovers={savedCovers}

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
-import { sanitizeId } from './helpers/idValidation';
-import { normalizeCovers } from './helpers/coverUtils';
+import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import ActionFields, { validateAction } from './ActionFields';
 import { TabsBox } from '@/components/ui/tabs-box';
+import type { CoverEntity, OutputEntity } from '@/types/config';
 import {
   Select,
   SelectContent,
@@ -53,6 +53,22 @@ interface Area {
   name: string;
 }
 
+interface RemoteDevice {
+  id: string;
+  name?: string;
+  protocol?: string;
+  mqtt?: {
+    outputs?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string }[];
+  };
+  esphome_api?: {
+    host?: string;
+    switches?: { id: string; name?: string; key?: number }[];
+    lights?: { id: string; name?: string; key?: number; supports_brightness?: boolean }[];
+    covers?: { id: string; name?: string; key?: number }[];
+  };
+}
+
 interface BinarySensorFormProps {
   data: BinarySensorData;
   onChange: (data: BinarySensorData) => void;
@@ -63,11 +79,14 @@ interface BinarySensorFormProps {
   allBinarySensors?: any[];
   allEvents?: any[];
   editingIndex?: number | null;
-  allOutputs?: any[];
+  allOutputs?: OutputEntity[];
   allOutputGroups?: any[];
-  allCovers?: any[];
+  allCovers?: CoverEntity[];
   allAreas?: Area[];
+  allRemoteDevices?: RemoteDevice[];
   onValidationChange?: (hasErrors: boolean) => void;
+  /** Whether user attempted to submit (shows validation errors) */
+  attemptedSubmit?: boolean;
   /** Saved (committed) outputs for comparison */
   savedOutputs?: any[];
   /** Saved (committed) output groups for comparison */
@@ -86,61 +105,16 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allOutputGroups = [],
   allCovers = [],
   allAreas = [],
+  allRemoteDevices = [],
   editingIndex,
   onValidationChange,
+  attemptedSubmit = false,
   savedOutputs,
   savedOutputGroups,
   savedCovers
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
-
-  /**
-   * Check if an output is saved (committed) by comparing with saved data.
-   */
-  const isOutputSaved = (outputId: string): boolean => {
-    if (!savedOutputs) return true;
-    return savedOutputs.some((o: any) => {
-      const id = o.id || o.boneio_output;
-      return id === outputId;
-    });
-  };
-
-  const isOutputGroupSaved = (groupId: string): boolean => {
-    if (!savedOutputGroups) return true;
-    return savedOutputGroups.some((g: any) => g.id === groupId);
-  };
-
-  const isCoverSaved = (coverId: string): boolean => {
-    if (!savedCovers) return true;
-    const normalized = normalizeCovers(savedCovers);
-    return normalized.some(c => c.id === coverId);
-  };
-
-  // Validate action - check if required fields are filled
-  const validateAction = (action: Action): string | null => {
-    if (!action.action) return t('binary_sensor_form.action_type_required');
-    
-    const actionType = action.action.toLowerCase();
-    
-    if (actionType === 'output' || actionType === 'output_over_mqtt') {
-      if (!action.boneio_output) return t('binary_sensor_form.output_required_for_output_actions');
-    }
-    
-    if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-      if (!action.boneio_cover) return t('binary_sensor_form.cover_required_for_cover_actions');
-    }
-    
-    if (actionType === 'mqtt') {
-      if (!action.topic) return t('binary_sensor_form.topic_required_for_mqtt_actions');
-    }
-    
-    if (actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') {
-      if (!action.boneio_id) return t('binary_sensor_form.boneio_id_required_for_remote_actions');
-    }
-    
-    return null;
-  };
 
   // Get all validation errors
   const getValidationErrors = (): string[] => {
@@ -149,7 +123,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     ['pressed', 'released'].forEach((type) => {
       const actions = data.actions?.[type as 'pressed' | 'released'] || [];
       actions.forEach((action: Action, index: number) => {
-        const error = validateAction(action);
+        const error = validateAction(action, t);
         if (error) {
           errors.push(`${type.charAt(0).toUpperCase() + type.slice(1)} action ${index + 1}: ${error}`);
         }
@@ -267,337 +241,33 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   };
 
   const renderActionFields = (action: Action, type: 'pressed' | 'released', index: number) => {
-    const actionType = action.action || 'output';
-
     return (
-      <div key={index} className="border border-base-300 rounded-lg p-4 mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <h4 className="font-medium">{t('binary_sensor_form.action')} {index + 1}</h4>
-          <button
-            onClick={() => removeAction(type, index)}
-            className="btn btn-ghost btn-xs text-error"
-          >
-            <FaTrash />
-          </button>
-        </div>
-
-        <div className="form-control mb-3">
-          <label className="label">
-            <span className="label-text font-medium">{t('binary_sensor_form.action_type')}</span>
-          </label>
-          <Select
-            value={actionType}
-            onValueChange={(value) => updateAction(type, index, 'action', value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t('binary_sensor_form.select_action')} />
-            </SelectTrigger>
-            <SelectContent>
-              {actionTypeOptions.map((opt: string) => (
-                <SelectItem key={opt} value={opt}>
-                  {opt.split('_').map(word =>
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ')}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {actionType === 'cover' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.cover')}</span>
-              </label>
-              <Select
-                value={action.boneio_cover || action.pin || ''}
-                onValueChange={(value) => updateAction(type, index, 'boneio_cover', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_cover')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {normalizeCovers(allCovers).map((cover) => {
-                      const name = cover.name || cover.id;
-                      const label = name !== cover.id ? `${name} (${cover.id})` : cover.id;
-                      const isSaved = isCoverSaved(cover.id);
-                      return (
-                        <SelectItem 
-                          key={cover.id} 
-                          value={cover.id}
-                          disabled={!isSaved}
-                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
-                          {label}
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.cover_action')}</span>
-              </label>
-              <Select
-                value={action.action_cover || 'TOGGLE'}
-                onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {actionCoverOptions.map((option: string) => (
-                    <SelectItem key={option} value={option}>
-                      {option.split('_').map(word => 
-                        word.charAt(0) + word.slice(1).toLowerCase()
-                      ).join(' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'output' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.output')}</span>
-              </label>
-              <Select
-                value={action.boneio_output || action.pin || ''}
-                onValueChange={(value) => updateAction(type, index, 'boneio_output', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_output')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Regular outputs */}
-                  {allOutputs
-                    .filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))
-                    .map((output: any) => {
-                      const id = output.id || output.boneio_output;
-                      const name = output.name || id;
-                      const label = name !== id ? `${name} (${id})` : id;
-                      const isSaved = isOutputSaved(id);
-                      return (
-                        <SelectItem 
-                          key={id} 
-                          value={id}
-                          disabled={!isSaved}
-                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
-                          {label}
-                        </SelectItem>
-                      );
-                    })}
-                  {/* Output groups */}
-                  {allOutputGroups
-                    .filter((group: any) => group && typeof group === 'object' && group.id)
-                    .map((group: any) => {
-                      const id = group.id;
-                      const name = group.name || id;
-                      const label = name !== id ? `${name} (${id})` : id;
-                      const isSaved = isOutputGroupSaved(id);
-                      return (
-                        <SelectItem 
-                          key={`group-${id}`} 
-                          value={id}
-                          disabled={!isSaved}
-                          className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          <span className="badge badge-xs badge-secondary mr-1">{t('binary_sensor_form.group')}</span>
-                          {!isSaved && <span className="badge badge-xs badge-warning mr-1">{t('binary_sensor_form.unsaved')}</span>}
-                          {label}
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.output_action')}</span>
-              </label>
-              <Select
-                value={action.action_output || 'TOGGLE'}
-                onValueChange={(value) => updateAction(type, index, 'action_output', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {actionOutputOptions.map((option: string) => (
-                    <SelectItem key={option} value={option}>
-                      {option.charAt(0) + option.slice(1).toLowerCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.mqtt_topic')}</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder={t('binary_sensor_form.mqtt_topic_placeholder')}
-                value={action.topic || ''}
-                onChange={(e) => updateAction(type, index, 'topic', e.target.value)}
-              />
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.mqtt_message')}</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder={t('binary_sensor_form.mqtt_message_placeholder')}
-                value={action.action_mqtt_msg || ''}
-                onChange={(e) => updateAction(type, index, 'action_mqtt_msg', e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        {actionType === 'output_over_mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">BoneIO ID</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder="e.g., boneio_12345"
-                value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
-              />
-              <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.output_id')}</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder={t('binary_sensor_form.output_id_placeholder')}
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('binary_sensor_form.output_id_hint')}</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.output_action')}</span>
-              </label>
-              <Select
-                value={action.action_output || 'TOGGLE'}
-                onValueChange={(value) => updateAction(type, index, 'action_output', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {actionOutputOptions.map((option: string) => (
-                    <SelectItem key={option} value={option}>
-                      {option.charAt(0) + option.slice(1).toLowerCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
-
-        {actionType === 'cover_over_mqtt' && (
-          <>
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">BoneIO ID</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder="e.g., boneio_12345"
-                value={action.boneio_id || ''}
-                onChange={(e) => updateAction(type, index, 'boneio_id', sanitizeId(e.target.value))}
-              />
-              <label className="label">
-                <span className="label-text-alt">ID of the remote BoneIO device. Auto-sanitized.</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.cover_id_pin')}</span>
-              </label>
-              <input
-                type="text"
-                className="input input-bordered w-full"
-                placeholder={t('binary_sensor_form.cover_id_placeholder')}
-                value={action.pin || ''}
-                onChange={(e) => updateAction(type, index, 'pin', e.target.value)}
-              />
-              <label className="label">
-                <span className="label-text-alt">{t('binary_sensor_form.cover_id_hint')}</span>
-              </label>
-            </div>
-
-            <div className="form-control mb-3">
-              <label className="label">
-                <span className="label-text font-medium">{t('binary_sensor_form.cover_action')}</span>
-              </label>
-              <Select
-                value={action.action_cover || 'TOGGLE'}
-                onValueChange={(value) => updateAction(type, index, 'action_cover', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('binary_sensor_form.select_action')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {actionCoverOptions.map((option: string) => (
-                    <SelectItem key={option} value={option}>
-                      {option.split('_').map(word => 
-                        word.charAt(0) + word.slice(1).toLowerCase()
-                      ).join(' ')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
-      </div>
+      <ActionFields
+        key={index}
+        action={action}
+        index={index}
+        onUpdate={(field, value) => updateAction(type, index, field, value)}
+        onRemove={() => removeAction(type, index)}
+        allOutputs={allOutputs}
+        allOutputGroups={allOutputGroups}
+        allCovers={allCovers}
+        allAreas={allAreas}
+        allRemoteDevices={allRemoteDevices}
+        actionTypeOptions={actionTypeOptions}
+        actionOutputOptions={actionOutputOptions}
+        actionCoverOptions={actionCoverOptions}
+        showValidation={attemptedSubmit}
+        savedOutputs={savedOutputs}
+        savedOutputGroups={savedOutputGroups}
+        savedCovers={savedCovers}
+      />
     );
   };
 
   return (
     <div className="space-y-4">
-      {/* Validation Errors - sticky at top */}
-      {validationErrors.length > 0 && (
+      {/* Validation Errors - sticky at top - pokazuj tylko gdy użytkownik próbował zapisać */}
+      {attemptedSubmit && validationErrors.length > 0 && (
         <div className="alert alert-error sticky top-0 z-10 shadow-lg">
           <div>
             <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>

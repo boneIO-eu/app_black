@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import HardwareErrors from './HardwareErrors';
+import SettingsCard from './components/SettingsCard';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -741,7 +742,7 @@ const SystemState: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="container mx-auto p-4 space-y-6 max-w-full">
       {/* Hardware Errors - Separate Container */}
       <HardwareErrors errors={hardwareErrors} />
 
@@ -750,19 +751,21 @@ const SystemState: React.FC = () => {
         <div className="card-body">
           <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
               <h2 className="text-2xl font-bold">{t('system_update.title')}</h2>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={checkForUpdates}
-                disabled={isChecking || isUpdating}
-              >
-                {isChecking ? (
-                  <FaSpinner className="animate-spin" />
-                ) : (
-                  t('system_update.check_for_updates')
-                )}
-              </button>
+              <div>
+                <button
+                  className="btn btn-sm"
+                  onClick={checkForUpdates}
+                  disabled={isChecking || isUpdating}
+                >
+                  {isChecking ? (
+                    <FaSpinner className="animate-spin" />
+                  ) : (
+                    t('system_update.check_for_updates')
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Error Alert */}
@@ -780,7 +783,7 @@ const SystemState: React.FC = () => {
             <div className="card bg-base-200">
               <div className="card-body">
                 <h3 className="card-title">{t('system_update.current_version')}</h3>
-                <div className="flex items-center gap-4">
+                <div className="flex lg:items-center gap-4 flex-col lg:flex-row">
                   <span className="text-3xl font-mono font-bold text-primary">
                     {updateInfo?.current_version || '...'}
                   </span>
@@ -1231,334 +1234,294 @@ const SystemState: React.FC = () => {
             </div>
 
             {/* Backups Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <div className="flex items-center justify-between">
-                  <h3 className="card-title">
-                    <FaHistory />
-                    {t('system_update.auto_update_backups')}
-                  </h3>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowBackups(!showBackups)}
-                  >
-                    {showBackups
-                      ? t('system_update.hide_backups').replace('{count}', String(backups.length))
-                      : t('system_update.show_backups').replace('{count}', String(backups.length))}
-                  </button>
-                </div>
-
-                {showBackups && (
-                  <div className="mt-4">
-                    {backups.length === 0 ? (
-                      <p className="text-sm opacity-70">{t('system_update.no_backups')}</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="table table-sm">
-                          <thead>
-                            <tr>
-                              <th>{t('system_update.version')}</th>
-                              <th>{t('system_update.date')}</th>
-                              <th>{t('system_update.actions')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {backups.map((backup, index) => (
-                              <tr key={backup.path}>
-                                <td className="font-mono">{backup.version}</td>
-                                <td>{backup.timestamp.replace('_', ' ')}</td>
-                                <td>
-                                  {index === 0 && (
-                                    <button
-                                      className="btn btn-warning btn-xs"
-                                      onClick={performRollback}
-                                      disabled={isUpdating}
-                                    >
-                                      <FaUndo />
-                                      {t('system_update.rollback')}
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+            <SettingsCard
+              icon={<FaHistory />}
+              title={t('system_update.auto_update_backups')}
+              toggleButtonText={t('system_update.show_backups').replace('{count}', String(backups.length))}
+              toggleButtonTextExpanded={t('system_update.hide_backups').replace('{count}', String(backups.length))}
+              isExpanded={showBackups}
+              onToggle={() => setShowBackups(!showBackups)}
+              expandableContent={
+                backups.length === 0 ? (
+                  <p className="text-sm opacity-70">{t('system_update.no_backups')}</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="table table-sm">
+                      <thead>
+                        <tr>
+                          <th>{t('system_update.version')}</th>
+                          <th>{t('system_update.date')}</th>
+                          <th>{t('system_update.actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backups.map((backup, index) => (
+                          <tr key={backup.path}>
+                            <td className="font-mono">{backup.version}</td>
+                            <td>{backup.timestamp.replace('_', ' ')}</td>
+                            <td>
+                              {index === 0 && (
+                                <button
+                                  className="btn btn-warning btn-xs"
+                                  onClick={performRollback}
+                                  disabled={isUpdating}
+                                >
+                                  <FaUndo />
+                                  {t('system_update.rollback')}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-
-                <div className="alert alert-info mt-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="stroke-current shrink-0 w-6 h-6"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    ></path>
-                  </svg>
-                  <div className="text-sm">
-                    <p>{t('system_update.backup_info_3')}</p>
-                    <p>{t('system_update.backup_info_4')}</p>
-                  </div>
+                )
+              }
+            >
+              <div className="alert alert-info">
+                <div>
+                  <p>{t('system_update.backup_info_3')}</p>
+                  <p>{t('system_update.backup_info_4')}</p>
                 </div>
               </div>
-            </div>
+            </SettingsCard>
 
             {/* Hostname Change Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <div className="flex items-center justify-between">
-                  <h3 className="card-title">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    {t('settings.hostname_title')}
-                  </h3>
+            <SettingsCard
+              icon={
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              }
+              title={t('settings.hostname_title')}
+              description={t('settings.hostname_description')}
+              toggleButtonText={t('settings.show_hostname_section')}
+              toggleButtonTextExpanded={t('common.close')}
+              isExpanded={showHostnameSection}
+              onToggle={() => setShowHostnameSection(!showHostnameSection)}
+              expandableContent={
+                <div className="space-y-4">
+                  <div>
+                    <label className="label">
+                      <span className="label-text">{t('settings.current_hostname')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      value={currentHostname}
+                      disabled
+                    />
+                  </div>
+
+                  <div>
+                    <label className="label">
+                      <span className="label-text">{t('settings.new_hostname')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      value={newHostname}
+                      onChange={e => setNewHostname(e.target.value)}
+                      placeholder={t('settings.hostname_placeholder')}
+                      disabled={isChangingHostname}
+                    />
+                    <label className="label whitespace-normal">
+                      <span className="label-text-alt wrap-break-word">{t('settings.hostname_hint')}</span>
+                    </label>
+                  </div>
+
+                  {hostnameResult && (
+                    <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
+                      {hostnameResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+                      <span>{hostnameResult.message}</span>
+                    </div>
+                  )}
+
                   <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => setShowHostnameSection(!showHostnameSection)}
+                    className="btn btn-primary"
+                    onClick={changeHostname}
+                    disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
                   >
-                    {showHostnameSection ? t('common.close') : t('settings.show_hostname_section')}
+                    {isChangingHostname ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('settings.changing_hostname')}
+                      </>
+                    ) : (
+                      <>
+                        <FaCheck />
+                        {t('settings.change_hostname')}
+                      </>
+                    )}
                   </button>
                 </div>
-                <p className="text-sm opacity-70 mt-2">{t('settings.hostname_description')}</p>
-
-                {showHostnameSection && (
-                  <div className="space-y-4 mt-4">
-                    <div>
-                      <label className="label">
-                        <span className="label-text">{t('settings.current_hostname')}</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="input input-bordered w-full"
-                        value={currentHostname}
-                        disabled
-                      />
-                    </div>
-
-                    <div>
-                      <label className="label">
-                        <span className="label-text">{t('settings.new_hostname')}</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="input input-bordered w-full"
-                        value={newHostname}
-                        onChange={e => setNewHostname(e.target.value)}
-                        placeholder={t('settings.hostname_placeholder')}
-                        disabled={isChangingHostname}
-                      />
-                      <label className="label">
-                        <span className="label-text-alt">{t('settings.hostname_hint')}</span>
-                      </label>
-                    </div>
-
-                    {hostnameResult && (
-                      <div className={`alert ${hostnameResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
-                        {hostnameResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
-                        <span>{hostnameResult.message}</span>
-                      </div>
-                    )}
-
-                    <button
-                      className="btn btn-primary"
-                      onClick={changeHostname}
-                      disabled={isChangingHostname || !newHostname.trim() || newHostname === currentHostname}
-                    >
-                      {isChangingHostname ? (
-                        <>
-                          <FaSpinner className="animate-spin" />
-                          {t('settings.changing_hostname')}
-                        </>
-                      ) : (
-                        <>
-                          <FaCheck />
-                          {t('settings.change_hostname')}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+              }
+            />
 
             {/* MQTT Passwords Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <div className="flex items-center justify-between">
-                  <h3 className="card-title">
+            <SettingsCard
+              icon={
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              }
+              title={t('mqtt_passwords.title')}
+              description={t('mqtt_passwords.description')}
+              toggleButtonText={t('mqtt_passwords.show_section')}
+              toggleButtonTextExpanded={t('common.close')}
+              isExpanded={showMqttPasswords}
+              onToggle={() => {
+                if (!showMqttPasswords) {
+                  fetchMqttUsername();
+                }
+                setShowMqttPasswords(!showMqttPasswords);
+              }}
+              expandableContent={
+                <>
+                  {/* Security warning */}
+                  <div
+                    className={`alert ${window.location.protocol === 'https:' ? 'alert-success' : 'alert-warning'}`}
+                  >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-6 w-6"
+                      className="stroke-current shrink-0 h-6 w-6"
                       fill="none"
                       viewBox="0 0 24 24"
-                      stroke="currentColor"
                     >
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        strokeWidth="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                       />
                     </svg>
-                    {t('mqtt_passwords.title')}
-                  </h3>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => {
-                      if (!showMqttPasswords) {
-                        fetchMqttUsername();
-                      }
-                      setShowMqttPasswords(!showMqttPasswords);
-                    }}
-                  >
-                    {showMqttPasswords ? t('common.close') : t('mqtt_passwords.show_section')}
-                  </button>
-                </div>
-                <p className="text-sm opacity-70 mt-2">{t('mqtt_passwords.description')}</p>
+                    <span className="text-sm">
+                      {window.location.protocol === 'https:'
+                        ? t('mqtt_passwords.https_secure')
+                        : t('mqtt_passwords.http_warning')}
+                    </span>
+                  </div>
 
-                {showMqttPasswords && (
-                  <>
-                    {/* Security warning */}
-                    <div
-                      className={`alert ${window.location.protocol === 'https:' ? 'alert-success' : 'alert-warning'} mt-4`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="stroke-current shrink-0 h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                      <span className="text-sm">
-                        {window.location.protocol === 'https:'
-                          ? t('mqtt_passwords.https_secure')
-                          : t('mqtt_passwords.http_warning')}
-                      </span>
-                    </div>
+                  <div className="space-y-6 mt-6">
+                    {['boneio', 'homeassistant', 'mqtt'].map(username => (
+                      <div key={username} className="card bg-base-100 shadow-sm">
+                        <div className="card-body p-4">
+                          <h4 className="font-semibold text-lg mb-3">
+                            {t('mqtt_passwords.username')}: {username}
+                          </h4>
 
-                    <div className="space-y-6 mt-6">
-                      {['boneio', 'homeassistant', 'mqtt'].map(username => (
-                        <div key={username} className="card bg-base-100 shadow-sm">
-                          <div className="card-body p-4">
-                            <h4 className="font-semibold text-lg mb-3">
-                              {t('mqtt_passwords.username')}: {username}
-                            </h4>
-
-                            {/* Warning for app's MQTT user */}
-                            {username === mqttAppUsername && (
-                              <div className="alert alert-warning mb-4">
-                                <FaExclamationTriangle />
-                                <span className="text-sm">{t('mqtt_passwords.boneio_user_warning')}</span>
-                              </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <fieldset className="fieldset">
-                                <legend className="fieldset-legend">
-                                  {t('mqtt_passwords.new_password')}
-                                </legend>
-                                <input
-                                  type="password"
-                                  className="input input-bordered"
-                                  value={mqttPasswords[username].password}
-                                  onChange={e =>
-                                    setMqttPasswords({
-                                      ...mqttPasswords,
-                                      [username]: {
-                                        ...mqttPasswords[username],
-                                        password: e.target.value,
-                                      },
-                                    })
-                                  }
-                                  disabled={changingPassword === username}
-                                />
-                              </fieldset>
-                              <fieldset className="fieldset">
-                                <legend className="fieldset-legend">
-                                  {t('mqtt_passwords.confirm_password')}
-                                </legend>
-                                <input
-                                  type="password"
-                                  className="input input-bordered"
-                                  value={mqttPasswords[username].confirm}
-                                  onChange={e =>
-                                    setMqttPasswords({
-                                      ...mqttPasswords,
-                                      [username]: {
-                                        ...mqttPasswords[username],
-                                        confirm: e.target.value,
-                                      },
-                                    })
-                                  }
-                                  disabled={changingPassword === username}
-                                />
-                              </fieldset>
+                          {/* Warning for app's MQTT user */}
+                          {username === mqttAppUsername && (
+                            <div className="alert alert-warning mb-4">
+                              <FaExclamationTriangle />
+                              <span className="text-sm">{t('mqtt_passwords.boneio_user_warning')}</span>
                             </div>
+                          )}
 
-                            <button
-                              className="btn btn-primary btn-sm mt-4"
-                              onClick={() => changeMqttPassword(username)}
-                              disabled={
-                                changingPassword === username ||
-                                !mqttPasswords[username].password ||
-                                !mqttPasswords[username].confirm
-                              }
-                            >
-                              {changingPassword === username ? (
-                                <>
-                                  <FaSpinner className="animate-spin mr-2" />
-                                  {t('mqtt_passwords.changing')}
-                                </>
-                              ) : (
-                                t('mqtt_passwords.change_password')
-                              )}
-                            </button>
-
-                            {passwordResults[username]?.message && (
-                              <div
-                                className={`alert ${passwordResults[username].status === 'success' ? 'alert-success' : 'alert-error'} mt-3`}
-                              >
-                                {passwordResults[username].status === 'success' ? (
-                                  <FaCheck />
-                                ) : (
-                                  <FaExclamationTriangle />
-                                )}
-                                <span className="text-sm">{passwordResults[username].message}</span>
-                              </div>
-                            )}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <fieldset className="fieldset">
+                              <legend className="fieldset-legend">
+                                {t('mqtt_passwords.new_password')}
+                              </legend>
+                              <input
+                                type="password"
+                                className="input input-bordered"
+                                value={mqttPasswords[username].password}
+                                onChange={e =>
+                                  setMqttPasswords({
+                                    ...mqttPasswords,
+                                    [username]: {
+                                      ...mqttPasswords[username],
+                                      password: e.target.value,
+                                    },
+                                  })
+                                }
+                                disabled={changingPassword === username}
+                              />
+                            </fieldset>
+                            <fieldset className="fieldset">
+                              <legend className="fieldset-legend">
+                                {t('mqtt_passwords.confirm_password')}
+                              </legend>
+                              <input
+                                type="password"
+                                className="input input-bordered"
+                                value={mqttPasswords[username].confirm}
+                                onChange={e =>
+                                  setMqttPasswords({
+                                    ...mqttPasswords,
+                                    [username]: {
+                                      ...mqttPasswords[username],
+                                      confirm: e.target.value,
+                                    },
+                                  })
+                                }
+                                disabled={changingPassword === username}
+                              />
+                            </fieldset>
                           </div>
+
+                          <button
+                            className="btn btn-primary btn-sm mt-4"
+                            onClick={() => changeMqttPassword(username)}
+                            disabled={
+                              changingPassword === username ||
+                              !mqttPasswords[username].password ||
+                              !mqttPasswords[username].confirm
+                            }
+                          >
+                            {changingPassword === username ? (
+                              <>
+                                <FaSpinner className="animate-spin mr-2" />
+                                {t('mqtt_passwords.changing')}
+                              </>
+                            ) : (
+                              t('mqtt_passwords.change_password')
+                            )}
+                          </button>
+
+                          {passwordResults[username]?.message && (
+                            <div
+                              className={`alert ${passwordResults[username].status === 'success' ? 'alert-success' : 'alert-error'} mt-3`}
+                            >
+                              {passwordResults[username].status === 'success' ? (
+                                <FaCheck />
+                              ) : (
+                                <FaExclamationTriangle />
+                              )}
+                              <span className="text-sm">{passwordResults[username].message}</span>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              }
+            />
 
             {/* SSL/TLS Certificates Section */}
             <div className="card bg-base-200 hidden">
@@ -1729,206 +1692,197 @@ const SystemState: React.FC = () => {
             </div>
 
             {/* Factory Reset Section */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <div className="flex items-center justify-between">
-                  <h3 className="card-title">
-                    <FaRedo />
-                    {t('system_update.factory_reset')}
-                  </h3>
+            <SettingsCard
+              icon={<FaRedo />}
+              title={t('system_update.factory_reset')}
+              toggleButtonText={t('system_update.show_factory_reset')}
+              toggleButtonTextExpanded={t('common.close')}
+              isExpanded={showFactoryReset}
+              onToggle={() => {
+                setShowFactoryReset(!showFactoryReset);
+                if (!showFactoryReset) {
+                  fetchDeviceTypes();
+                  fetchHardwareVersions();
+                  fetchConfigBackups();
+                }
+              }}
+              expandableContent={
+                <div className="space-y-4">
+                  <div className="alert alert-warning">
+                    <FaExclamationTriangle />
+                    <span>{t('system_update.factory_reset_warning')}</span>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">
+                        {t('system_update.select_device_type')}
+                      </span>
+                    </label>
+                    <select
+                      className="select select-bordered w-full max-w-xs"
+                      value={selectedDeviceType || ''}
+                      onChange={e => setSelectedDeviceType(e.target.value || null)}
+                    >
+                      <option value="">
+                        {t('system_update.select_device_type_placeholder')}
+                      </option>
+                      {deviceTypes.map(type => (
+                        <option key={type} value={type}>
+                          {type === '24x16'
+                            ? 'boneIO 24x16A'
+                            : type === '32x10'
+                              ? 'boneIO 32x10A'
+                              : type === 'cover'
+                                ? 'boneIO Cover'
+                                : type === 'cover_mix'
+                                  ? 'boneIO Cover Mix'
+                                  : type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">
+                        {t('system_update.select_hardware_version')}
+                      </span>
+                    </label>
+                    <select
+                      className="select select-bordered w-full max-w-xs"
+                      value={selectedHardwareVersion}
+                      onChange={e => setSelectedHardwareVersion(e.target.value)}
+                    >
+                      {hardwareVersions.map(version => (
+                        <option key={version} value={version}>
+                          v{version}
+                          {hardwareSensors[version] && (
+                            ` (${hardwareSensors[version].temp_sensor}${hardwareSensors[version].has_ina219 ? ' + INA219' : ''})`
+                          )}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="label">
+                      <span className="label-text-alt text-base-content/60">
+                        {t('system_update.hardware_version_help')}
+                      </span>
+                    </label>
+                  </div>
+
                   <button
-                    className="btn btn-outline btn-sm"
+                    className="btn btn-outline btn-error"
+                    onClick={performFactoryReset}
+                    disabled={!selectedDeviceType || isResettingFactory}
+                  >
+                    {isResettingFactory ? (
+                      <>
+                        <FaSpinner className="animate-spin mr-2" />
+                        {t('system_update.resetting')}
+                      </>
+                    ) : (
+                      <>
+                        <FaRedo className="mr-2" />
+                        {t('system_update.reset_to_factory')}
+                      </>
+                    )}
+                  </button>
+
+                  {factoryResetResult && (
+                    <div
+                      className={`alert ${factoryResetResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
+                    >
+                      {factoryResetResult.status === 'success' ? (
+                        <FaCheck className="shrink-0" />
+                      ) : (
+                        <FaExclamationTriangle className="shrink-0" />
+                      )}
+                      <div className="text-sm min-w-0 flex-1">
+                        <p className="wrap-break-word">{factoryResetResult.message}</p>
+                        {factoryResetResult.backup_path && (
+                          <p className="text-xs opacity-70 mt-1 break-all">
+                            {t('system_update.backup_created')}: {factoryResetResult.backup_path}
+                          </p>
+                        )}
+                        {factoryResetResult.copied_files && (
+                          <p className="text-xs opacity-70 mt-1 wrap-break-word">
+                            {t('system_update.copied_files')}:{' '}
+                            {factoryResetResult.copied_files.join(', ')}
+                          </p>
+                        )}
+                        {factoryResetResult.restart_required && (
+                          <p className="text-xs font-semibold mt-2">
+                            {t('system_update.restart_required')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Config Backups */}
+                  <div className="divider">{t('system_update.config_backups')}</div>
+
+                  <button
+                    className="btn btn-ghost btn-sm"
                     onClick={() => {
-                      setShowFactoryReset(!showFactoryReset);
-                      if (!showFactoryReset) {
-                        fetchDeviceTypes();
-                        fetchHardwareVersions();
-                        fetchConfigBackups();
-                      }
+                      setShowConfigBackups(!showConfigBackups);
+                      if (!showConfigBackups) fetchConfigBackups();
                     }}
                   >
-                    {showFactoryReset ? t('common.close') : t('system_update.show_factory_reset')}
+                    {showConfigBackups
+                      ? t('system_update.hide_config_backups').replace(
+                          '{count}',
+                          String(configBackups.length)
+                        )
+                      : t('system_update.show_config_backups').replace(
+                          '{count}',
+                          String(configBackups.length)
+                        )}
                   </button>
-                </div>
 
-                {showFactoryReset && (
-                  <div className="mt-4 space-y-4">
-                    <div className="alert alert-warning">
-                      <FaExclamationTriangle />
-                      <span>{t('system_update.factory_reset_warning')}</span>
-                    </div>
-
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text font-medium">
-                          {t('system_update.select_device_type')}
-                        </span>
-                      </label>
-                      <select
-                        className="select select-bordered w-full max-w-xs"
-                        value={selectedDeviceType || ''}
-                        onChange={e => setSelectedDeviceType(e.target.value || null)}
-                      >
-                        <option value="">
-                          {t('system_update.select_device_type_placeholder')}
-                        </option>
-                        {deviceTypes.map(type => (
-                          <option key={type} value={type}>
-                            {type === '24x16'
-                              ? 'boneIO 24x16A'
-                              : type === '32x10'
-                                ? 'boneIO 32x10A'
-                                : type === 'cover'
-                                  ? 'boneIO Cover'
-                                  : type === 'cover_mix'
-                                    ? 'boneIO Cover Mix'
-                                    : type}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text font-medium">
-                          {t('system_update.select_hardware_version')}
-                        </span>
-                      </label>
-                      <select
-                        className="select select-bordered w-full max-w-xs"
-                        value={selectedHardwareVersion}
-                        onChange={e => setSelectedHardwareVersion(e.target.value)}
-                      >
-                        {hardwareVersions.map(version => (
-                          <option key={version} value={version}>
-                            v{version}
-                            {hardwareSensors[version] && (
-                              ` (${hardwareSensors[version].temp_sensor}${hardwareSensors[version].has_ina219 ? ' + INA219' : ''})`
-                            )}
-                          </option>
-                        ))}
-                      </select>
-                      <label className="label">
-                        <span className="label-text-alt text-base-content/60">
-                          {t('system_update.hardware_version_help')}
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
-                      className="btn btn-outline btn-error"
-                      onClick={performFactoryReset}
-                      disabled={!selectedDeviceType || isResettingFactory}
-                    >
-                      {isResettingFactory ? (
-                        <>
-                          <FaSpinner className="animate-spin mr-2" />
-                          {t('system_update.resetting')}
-                        </>
+                  {showConfigBackups && (
+                    <div className="mt-2">
+                      {configBackups.length === 0 ? (
+                        <p className="text-sm opacity-70">
+                          {t('system_update.no_config_backups')}
+                        </p>
                       ) : (
-                        <>
-                          <FaRedo className="mr-2" />
-                          {t('system_update.reset_to_factory')}
-                        </>
-                      )}
-                    </button>
-
-                    {factoryResetResult && (
-                      <div
-                        className={`alert ${factoryResetResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
-                      >
-                        {factoryResetResult.status === 'success' ? (
-                          <FaCheck className="shrink-0" />
-                        ) : (
-                          <FaExclamationTriangle className="shrink-0" />
-                        )}
-                        <div className="text-sm min-w-0 flex-1">
-                          <p className="wrap-break-word">{factoryResetResult.message}</p>
-                          {factoryResetResult.backup_path && (
-                            <p className="text-xs opacity-70 mt-1 break-all">
-                              {t('system_update.backup_created')}: {factoryResetResult.backup_path}
-                            </p>
-                          )}
-                          {factoryResetResult.copied_files && (
-                            <p className="text-xs opacity-70 mt-1 wrap-break-word">
-                              {t('system_update.copied_files')}:{' '}
-                              {factoryResetResult.copied_files.join(', ')}
-                            </p>
-                          )}
-                          {factoryResetResult.restart_required && (
-                            <p className="text-xs font-semibold mt-2">
-                              {t('system_update.restart_required')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Config Backups */}
-                    <div className="divider">{t('system_update.config_backups')}</div>
-
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => {
-                        setShowConfigBackups(!showConfigBackups);
-                        if (!showConfigBackups) fetchConfigBackups();
-                      }}
-                    >
-                      {showConfigBackups
-                        ? t('system_update.hide_config_backups').replace(
-                            '{count}',
-                            String(configBackups.length)
-                          )
-                        : t('system_update.show_config_backups').replace(
-                            '{count}',
-                            String(configBackups.length)
-                          )}
-                    </button>
-
-                    {showConfigBackups && (
-                      <div className="mt-2">
-                        {configBackups.length === 0 ? (
-                          <p className="text-sm opacity-70">
-                            {t('system_update.no_config_backups')}
-                          </p>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="table table-sm">
-                              <thead>
-                                <tr>
-                                  <th>{t('system_update.date')}</th>
-                                  <th>{t('system_update.files')}</th>
-                                  <th>{t('system_update.actions')}</th>
+                        <div className="overflow-x-auto">
+                          <table className="table table-sm">
+                            <thead>
+                              <tr>
+                                <th>{t('system_update.date')}</th>
+                                <th>{t('system_update.files')}</th>
+                                <th>{t('system_update.actions')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {configBackups.map(backup => (
+                                <tr key={backup.path}>
+                                  <td>{backup.timestamp.replace('_', ' ')}</td>
+                                  <td>
+                                    {backup.file_count} {t('system_update.yaml_files')}
+                                  </td>
+                                  <td>
+                                    <button
+                                      className="btn btn-warning btn-xs"
+                                      onClick={() => restoreConfigBackup(backup.path)}
+                                    >
+                                      <FaUndo />
+                                      {t('system_update.restore')}
+                                    </button>
+                                  </td>
                                 </tr>
-                              </thead>
-                              <tbody>
-                                {configBackups.map(backup => (
-                                  <tr key={backup.path}>
-                                    <td>{backup.timestamp.replace('_', ' ')}</td>
-                                    <td>
-                                      {backup.file_count} {t('system_update.yaml_files')}
-                                    </td>
-                                    <td>
-                                      <button
-                                        className="btn btn-warning btn-xs"
-                                        onClick={() => restoreConfigBackup(backup.path)}
-                                      >
-                                        <FaUndo />
-                                        {t('system_update.restore')}
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              }
+            />
           </div>
         </div>
       </div>
