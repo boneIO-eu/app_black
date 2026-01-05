@@ -252,3 +252,33 @@ async def set_hostname(request: HostnameRequest):
     except Exception as e:
         _LOGGER.error(f"Error setting hostname: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reboot")
+async def reboot_device(background_tasks: BackgroundTasks):
+    """
+    Reboot the system device.
+    
+    This endpoint initiates a system reboot using sudo reboot command.
+    The reboot is executed in the background to allow the API to respond first.
+    
+    Returns:
+        Status response indicating if reboot was initiated.
+    """
+    async def execute_reboot():
+        await asyncio.sleep(1)
+        try:
+            subprocess.run(
+                ["sudo", "reboot"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            _LOGGER.error(f"Failed to reboot device: {e.stderr}")
+        except Exception as e:
+            _LOGGER.error(f"Error rebooting device: {e}")
+    
+    background_tasks.add_task(execute_reboot)
+    _LOGGER.info("System reboot initiated")
+    return {"status": "success", "message": "Device is rebooting..."}

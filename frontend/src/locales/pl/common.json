@@ -249,7 +249,14 @@
     "hostname_changed": "Hostname zmieniony pomyślnie",
     "hostname_change_failed": "Nie udało się zmienić hostname",
     "hostname_empty": "Hostname nie może być pusty",
-    "hostname_unchanged": "Nowy hostname jest taki sam jak aktualny"
+    "hostname_unchanged": "Nowy hostname jest taki sam jak aktualny",
+    "reboot_device": "Restart urządzenia",
+    "reboot_description": "Restart sterownika boneIO Black. Urządzenie będzie niedostępne przez około 30-60 sekund.",
+    "rebooting": "Restartowanie...",
+    "confirm_reboot": "Czy na pewno chcesz zrestartować urządzenie? Urządzenie będzie niedostępne przez około minutę.",
+    "reboot_failed": "Nie udało się zrestartować urządzenia",
+    "device_rebooting": "Urządzenie się restartuje...",
+    "reboot_warning": "NIGDY nie restartuj urządzenia przez wyjęcie wtyczki! Zawsze używaj tej funkcji. Nagłe odcięcie zasilania może uszkodzić system plików."
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Proszę naprawić błędy walidacji przed zapisaniem",

@@ -125,6 +125,10 @@ const SystemState: React.FC = () => {
   const [isChangingHostname, setIsChangingHostname] = useState(false);
   const [hostnameResult, setHostnameResult] = useState<{ status: string; message: string } | null>(null);
 
+  // Reboot device state
+  const [isRebooting, setIsRebooting] = useState(false);
+  const [rebootResult, setRebootResult] = useState<{ status: string; message: string } | null>(null);
+
   // SSL/TLS Certificates state
   const [showSslSettings, setShowSslSettings] = useState(false);
   const [sslConfig, setSslConfig] = useState<{
@@ -267,6 +271,33 @@ const SystemState: React.FC = () => {
       setHostnameResult({ status: 'error', message: err.message || t('settings.hostname_change_failed') });
     } finally {
       setIsChangingHostname(false);
+    }
+  };
+
+  // Reboot device
+  const rebootDevice = async () => {
+    if (!confirm(t('settings.confirm_reboot'))) {
+      return;
+    }
+
+    setIsRebooting(true);
+    setRebootResult(null);
+
+    try {
+      const response = await fetch('/api/reboot', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || t('settings.reboot_failed'));
+      }
+
+      const data = await response.json();
+      setRebootResult({ status: 'success', message: data.message || t('settings.device_rebooting') });
+    } catch (err: any) {
+      setRebootResult({ status: 'error', message: err.message || t('settings.reboot_failed') });
+      setIsRebooting(false);
     }
   };
 
@@ -1130,6 +1161,52 @@ const SystemState: React.FC = () => {
                   <div className="text-sm">
                     <p>{t('system_update.turn_off_warning_1')}</p>
                     <p>{t('system_update.turn_off_warning_2')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reboot Device Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaRedo />
+                  {t('settings.reboot_device')}
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  {t('settings.reboot_description')}
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-warning"
+                    onClick={rebootDevice}
+                    disabled={isRebooting}
+                  >
+                    {isRebooting ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('settings.rebooting')}
+                      </>
+                    ) : (
+                      <>
+                        <FaRedo />
+                        {t('settings.reboot_device')}
+                      </>
+                    )}
+                  </button>
+                </div>
+                {rebootResult && (
+                  <div
+                    className={`alert ${rebootResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
+                  >
+                    {rebootResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+                    <span>{rebootResult.message}</span>
+                  </div>
+                )}
+                <div className="alert alert-error mt-4">
+                  <FaExclamationTriangle />
+                  <div className="text-sm">
+                    <p>{t('settings.reboot_warning')}</p>
                   </div>
                 </div>
               </div>

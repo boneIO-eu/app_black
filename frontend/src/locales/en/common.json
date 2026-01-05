@@ -249,7 +249,14 @@
     "hostname_changed": "Hostname changed successfully",
     "hostname_change_failed": "Failed to change hostname",
     "hostname_empty": "Hostname cannot be empty",
-    "hostname_unchanged": "New hostname is the same as current"
+    "hostname_unchanged": "New hostname is the same as current",
+    "reboot_device": "Reboot Device",
+    "reboot_description": "Reboot the boneIO Black controller. The device will be unavailable for about 30-60 seconds.",
+    "rebooting": "Rebooting...",
+    "confirm_reboot": "Are you sure you want to reboot the device? The device will be unavailable for about a minute.",
+    "reboot_failed": "Failed to reboot device",
+    "device_rebooting": "Device is rebooting...",
+    "reboot_warning": "NEVER reboot the device by unplugging! Always use this function. Sudden power loss can damage the file system."
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",
