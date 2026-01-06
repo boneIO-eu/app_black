@@ -504,7 +504,7 @@ async def websocket_endpoint(
     try:
         websocket_manager: WebSocketManager = app.state.websocket_manager
         if await websocket_manager.connect(websocket):
-            _LOGGER.info("New WebSocket connection established")
+            _LOGGER.debug("New WebSocket connection established")
 
             # Send initial states
             if not await send_initial_states(websocket, boneio_manager):
@@ -522,7 +522,7 @@ async def websocket_endpoint(
                             await websocket.send_text("pong")
                         elif data == "request_state":
                             # Client requested full state resync (e.g., after reconnection)
-                            _LOGGER.info("Client requested state resync")
+                            _LOGGER.debug("Client requested state resync")
                             if not await send_initial_states(websocket, boneio_manager):
                                 break
                     except asyncio.TimeoutError:
@@ -531,11 +531,11 @@ async def websocket_endpoint(
                             break
                         continue
     except asyncio.CancelledError:
-        _LOGGER.info("WebSocket connection cancelled during setup")
+        _LOGGER.debug("WebSocket connection cancelled during setup")
         await websocket_manager.disconnect(websocket)
         raise
     except WebSocketDisconnect as err:
-        _LOGGER.info("WebSocket connection exiting gracefully %s", err)
+        _LOGGER.debug("WebSocket connection exiting gracefully %s", err)
         await websocket_manager.disconnect(websocket)
     except KeyboardInterrupt:
         _LOGGER.info("WebSocket connection interrupted by user.")
