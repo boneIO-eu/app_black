@@ -152,7 +152,6 @@
     "update_interval_hint": "e.g. 60s, 5min",
     "detected_sensors": "Detected Sensors",
     "select_sensor": "Select a sensor...",
-    "name_placeholder": "e.g. Living Room Temperature",
     "id_hint": "Leave empty to use address as ID",
     "address_required": "Sensor address is required",
     "address_duplicate": "This sensor is already configured",

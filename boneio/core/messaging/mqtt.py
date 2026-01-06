@@ -328,9 +328,9 @@ class MQTTClient(MessageBus):
                         )
                     break
             if message.topic.matches(f"{self._config_helper.topic_prefix}/energy/#"):
+                callback_start = False
                 for topic, listener_callback in self._mqtt_energy_listeners.items():
                     if message.topic.matches(topic):
-                        callback_start = False
                         await listener_callback(str(message.topic), payload)
                         break
             if callback_start:

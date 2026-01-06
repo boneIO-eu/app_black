@@ -22,7 +22,7 @@ jobs:
   build-legacy:
     name: Build Legacy (Python 3.7) for v0.* tags
     runs-on: ubuntu-20.04
-    if: startsWith(github.ref, 'refs/tags/v0.')
+    if: startsWith(github.ref, 'refs/tags/v0.') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v0.'))
     steps:
       - uses: actions/checkout@master
 
@@ -68,7 +68,7 @@ jobs:
   build-modern:
     name: Build Modern (Python 3.13) for v1.* tags
     runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/v1.')
+    if: startsWith(github.ref, 'refs/tags/v1.') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v1.'))
     steps:
       - uses: actions/checkout@v4
 

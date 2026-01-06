@@ -246,7 +246,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
               <input
                 type="text"
                 className="input input-bordered w-full"
-                placeholder={t('sensors.name_placeholder')}
+                placeholder={t('sensors.output_name_placeholder')}
                 value={data.name || ''}
                 onChange={(e) => updateField('name', e.target.value)}
               />
@@ -372,7 +372,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
                       <input
                         type="text"
                         className="input input-bordered w-full"
-                        placeholder={t('sensors.name_placeholder')}
+                        placeholder={t('sensors.output_name_placeholder')}
                         value={data.name || ''}
                         onChange={(e) => updateField('name', e.target.value)}
                       />

@@ -298,7 +298,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     <input
                       type="text"
                       className="input w-full"
-                      placeholder={t('sensors.name_placeholder')}
+                      placeholder={t('sensors.binary_sensor_name_placeholder')}
                       value={data.name || ''}
                       onChange={(e) => updateField('name', e.target.value)}
                     />

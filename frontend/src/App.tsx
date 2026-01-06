@@ -116,7 +116,7 @@ function AppContent() {
           });
         } else if (message.event_type === 'input') {
           setInputs(prev => {
-            const index = prev.findIndex(i => i.state.name === message.state.name);
+            const index = prev.findIndex(i => i.entity_id === message.entity_id);
             if (index >= 0) {
               const prevInput = prev[index];
               // Check both state and timestamp to detect duplicate events

@@ -86,7 +86,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
                     className="input w-full"
                     value={data.name || ''}
                     onChange={(e) => updateField('name', e.target.value)}
-                    placeholder={t('sensors.name_placeholder')}
+                    placeholder={t('sensors.cover_name_placeholder')}
                   />
                   <label className="label">
                     <span className="label-text-alt text-info">

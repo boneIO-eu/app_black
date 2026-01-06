@@ -136,8 +136,13 @@
     "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego wejścia?"
   },
   "sensors": {
-    "title": "Czujki Onewire",
+    "title": "Czujniki",
     "name": "Nazwa",
+    "name_placeholder": "Temperatura salon",
+    "binary_sensor_name_placeholder": "Czujka ruchu",
+    "event_name_placeholder": "Przycisk salon",
+    "cover_name_placeholder": "Roleta gabinet",
+    "output_name_placeholder": "Światło kuchnia",
     "id": "ID",
     "address": "Adres",
     "area": "Obszar",
@@ -152,7 +157,6 @@
     "update_interval_hint": "np. 60s, 5min",
     "detected_sensors": "Wykryte Czujniki",
     "select_sensor": "Wybierz czujnik...",
-    "name_placeholder": "np. Temperatura Salon",
     "id_hint": "Pozostaw puste, aby użyć adresu jako ID",
     "address_required": "Adres czujnika jest wymagany",
     "address_duplicate": "Ten czujnik jest już skonfigurowany",

@@ -319,7 +319,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 <input
                   type="text"
                   className="input w-full"
-                  placeholder={t('sensors.name_placeholder')}
+                  placeholder={t('sensors.event_name_placeholder')}
                   value={data.name || ''}
                   onChange={(e) => updateField('name', e.target.value)}
                 />
@@ -330,7 +330,7 @@ const EventForm: React.FC<EventFormProps> = ({
 
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">BoneIO Input</span>
+                  <span className="label-text font-medium">boneIO Input</span>
                 </label>
                 <Select
                   value={data.boneio_input || ''}
