@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 
-from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING
+from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.components.cover.cover import BaseCover, BaseVenetianCoverABC
 from boneio.core.utils import TimePeriod
 from boneio.models import PositionDict
@@ -286,6 +286,11 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         if self._movement_thread and self._movement_thread.is_alive():
             _LOGGER.warning("Cover movement is already in progress. Stopping first.")
             await self.stop()
+        
+        # If STOP was requested, don't start new movement
+        if current_operation == STOP:
+            await self.stop()
+            return
 
         self._current_operation = current_operation
         self._initial_position = self._position

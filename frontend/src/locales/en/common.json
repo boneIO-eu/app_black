@@ -256,7 +256,14 @@
     "confirm_reboot": "Are you sure you want to reboot the device? The device will be unavailable for about a minute.",
     "reboot_failed": "Failed to reboot device",
     "device_rebooting": "Device is rebooting...",
-    "reboot_warning": "NEVER reboot the device by unplugging! Always use this function. Sudden power loss can damage the file system."
+    "reboot_warning": "NEVER reboot the device by unplugging! Always use this function. Sudden power loss can damage the file system.",
+    "shutdown_device": "Shutdown Device",
+    "shutdown_description": "Safely shutdown the boneIO Black controller. After shutdown, the device must be powered on physically.",
+    "shutting_down": "Shutting down...",
+    "confirm_shutdown": "Are you sure you want to shutdown the device? After shutdown, you will need to power it on physically.",
+    "shutdown_failed": "Failed to shutdown device",
+    "device_shutting_down": "Device is shutting down...",
+    "shutdown_warning": "After shutdown, the device must be powered on physically by disconnecting and reconnecting power."
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",

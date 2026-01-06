@@ -282,3 +282,33 @@ async def reboot_device(background_tasks: BackgroundTasks):
     background_tasks.add_task(execute_reboot)
     _LOGGER.info("System reboot initiated")
     return {"status": "success", "message": "Device is rebooting..."}
+
+
+@router.post("/shutdown")
+async def shutdown_device(background_tasks: BackgroundTasks):
+    """
+    Shutdown the system device.
+    
+    This endpoint initiates a system shutdown using sudo shutdown command.
+    The shutdown is executed in the background to allow the API to respond first.
+    
+    Returns:
+        Status response indicating if shutdown was initiated.
+    """
+    async def execute_shutdown():
+        await asyncio.sleep(1)
+        try:
+            subprocess.run(
+                ["sudo", "shutdown", "-h", "now"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            _LOGGER.error(f"Failed to shutdown device: {e.stderr}")
+        except Exception as e:
+            _LOGGER.error(f"Error shutting down device: {e}")
+    
+    background_tasks.add_task(execute_shutdown)
+    _LOGGER.info("System shutdown initiated")
+    return {"status": "success", "message": "Device is shutting down..."}

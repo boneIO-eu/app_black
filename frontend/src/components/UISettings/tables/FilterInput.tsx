@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import { useTranslation } from '../../../hooks/useTranslation';
 
@@ -12,6 +12,7 @@ interface FilterInputProps {
 /**
  * Reusable filter input component for tables.
  * Shows search icon, input field, clear button, and optional results count.
+ * Press "/" to focus the input field.
  */
 const FilterInput: React.FC<FilterInputProps> = ({ 
   filter, 
@@ -20,12 +21,29 @@ const FilterInput: React.FC<FilterInputProps> = ({
   filteredCount 
 }) => {
   const { t } = useTranslation();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement;
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="space-y-2">
       <div className="relative">
         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
         <input
+          ref={inputRef}
           type="text"
           placeholder={t('common.filter_placeholder')}
           value={filter}

@@ -129,6 +129,10 @@ const SystemState: React.FC = () => {
   const [isRebooting, setIsRebooting] = useState(false);
   const [rebootResult, setRebootResult] = useState<{ status: string; message: string } | null>(null);
 
+  // Shutdown device state
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [shutdownResult, setShutdownResult] = useState<{ status: string; message: string } | null>(null);
+
   // SSL/TLS Certificates state
   const [showSslSettings, setShowSslSettings] = useState(false);
   const [sslConfig, setSslConfig] = useState<{
@@ -298,6 +302,33 @@ const SystemState: React.FC = () => {
     } catch (err: any) {
       setRebootResult({ status: 'error', message: err.message || t('settings.reboot_failed') });
       setIsRebooting(false);
+    }
+  };
+
+  // Shutdown device
+  const shutdownDevice = async () => {
+    if (!confirm(t('settings.confirm_shutdown'))) {
+      return;
+    }
+
+    setIsShuttingDown(true);
+    setShutdownResult(null);
+
+    try {
+      const response = await fetch('/api/shutdown', {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || t('settings.shutdown_failed'));
+      }
+
+      const data = await response.json();
+      setShutdownResult({ status: 'success', message: data.message || t('settings.device_shutting_down') });
+    } catch (err: any) {
+      setShutdownResult({ status: 'error', message: err.message || t('settings.shutdown_failed') });
+      setIsShuttingDown(false);
     }
   };
 
@@ -773,7 +804,7 @@ const SystemState: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6 max-w-full">
+    <div className="container mx-auto p-4 space-y-6">
       {/* Hardware Errors - Separate Container */}
       <HardwareErrors errors={hardwareErrors} />
 
@@ -1207,6 +1238,52 @@ const SystemState: React.FC = () => {
                   <FaExclamationTriangle />
                   <div className="text-sm">
                     <p>{t('settings.reboot_warning')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Shutdown Device Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaPowerOff />
+                  {t('settings.shutdown_device')}
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  {t('settings.shutdown_description')}
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-error"
+                    onClick={shutdownDevice}
+                    disabled={isShuttingDown}
+                  >
+                    {isShuttingDown ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('settings.shutting_down')}
+                      </>
+                    ) : (
+                      <>
+                        <FaPowerOff />
+                        {t('settings.shutdown_device')}
+                      </>
+                    )}
+                  </button>
+                </div>
+                {shutdownResult && (
+                  <div
+                    className={`alert ${shutdownResult.status === 'success' ? 'alert-success' : 'alert-error'} mt-4`}
+                  >
+                    {shutdownResult.status === 'success' ? <FaCheck /> : <FaExclamationTriangle />}
+                    <span>{shutdownResult.message}</span>
+                  </div>
+                )}
+                <div className="alert alert-warning mt-4">
+                  <FaExclamationTriangle />
+                  <div className="text-sm">
+                    <p>{t('settings.shutdown_warning')}</p>
                   </div>
                 </div>
               </div>

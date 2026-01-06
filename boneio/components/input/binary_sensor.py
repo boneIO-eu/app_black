@@ -76,6 +76,10 @@ class GpioInputBinarySensor(GpioBaseClass):
         is_pressed = not current_value if not self._inverted else current_value
         state_str = PRESSED if is_pressed else RELEASED
         
+        # Update internal state (for UI display via WebSocket)
+        self._state = is_pressed
+        self._last_state = state_str
+        
         _LOGGER.debug("Publishing current state for %s: %s (publish_only)", self._name, state_str)
         
         # Use publish_only=True to send to MQTT without executing actions

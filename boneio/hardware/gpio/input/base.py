@@ -67,8 +67,9 @@ class GpioBaseClass:
         self._name = name
         self._actions = actions
         self._input_type = input_type
-        self._boneio_input = boneio_input
-        self._id = id or boneio_input or pin
+        # Normalize boneio_input to lowercase for consistent ID matching
+        self._boneio_input = boneio_input.lower() if boneio_input else boneio_input
+        self._id = id or self._boneio_input or pin
         self._click_type = (PRESSED, RELEASED)
         self._state = False  # Will be updated by subclass
         self._last_state = "Unknown"
@@ -79,8 +80,8 @@ class GpioBaseClass:
         # MQTT sequences configuration - which sequences to publish to MQTT
         mqtt_seq = kwargs.get("mqtt_sequences")
         self._mqtt_sequences: dict[str, bool] = mqtt_seq if isinstance(mqtt_seq, dict) else {}
-        # Sequence mode: 'immediate' (default) or 'exclusive'
-        self._sequence_mode: str = kwargs.get("sequence_mode", "immediate")
+        # Sequence mode: 'immediate' or 'exclusive'
+        self._sequence_mode: str = kwargs.get("sequence_mode", "exclusive")
 
     @property
     def boneio_input(self) -> str:

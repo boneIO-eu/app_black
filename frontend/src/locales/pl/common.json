@@ -256,7 +256,14 @@
     "confirm_reboot": "Czy na pewno chcesz zrestartować urządzenie? Urządzenie będzie niedostępne przez około minutę.",
     "reboot_failed": "Nie udało się zrestartować urządzenia",
     "device_rebooting": "Urządzenie się restartuje...",
-    "reboot_warning": "NIGDY nie restartuj urządzenia przez wyjęcie wtyczki! Zawsze używaj tej funkcji. Nagłe odcięcie zasilania może uszkodzić system plików."
+    "reboot_warning": "NIGDY nie restartuj urządzenia przez wyjęcie wtyczki! Zawsze używaj tej funkcji. Nagłe odcięcie zasilania może uszkodzić system plików.",
+    "shutdown_device": "Wyłącz urządzenie",
+    "shutdown_description": "Bezpieczne wyłączenie sterownika boneIO Black. Po wyłączeniu urządzenie musi być włączone fizycznie.",
+    "shutting_down": "Wyłączanie...",
+    "confirm_shutdown": "Czy na pewno chcesz wyłączyć urządzenie? Po wyłączeniu będzie trzeba włączyć je fizycznie.",
+    "shutdown_failed": "Nie udało się wyłączyć urządzenia",
+    "device_shutting_down": "Urządzenie się wyłącza...",
+    "shutdown_warning": "Po wyłączeniu urządzenie musi być włączone fizycznie przez odłączenie i ponowne podłączenie zasilania."
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Proszę naprawić błędy walidacji przed zapisaniem",

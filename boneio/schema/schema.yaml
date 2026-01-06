@@ -1019,7 +1019,7 @@ event:
       sequence_mode:
         type: string
         required: False
-        default: 'immediate'
+        default: 'exclusive'
         allowed: ['immediate', 'exclusive']
         meta:
           label: Sequence Mode

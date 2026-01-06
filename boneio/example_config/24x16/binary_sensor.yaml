@@ -4,13 +4,13 @@
 # Don't duplicate PINs.
 
 - name: IN_48
-  boneio_input: IN_48
+  boneio_input: in_48
   actions:
     pressed:
       - action: output
         boneio_output: OUT_01
 - name: IN_49
-  boneio_input: IN_49
+  boneio_input: in_49
   actions:
     pressed:
       - action: output

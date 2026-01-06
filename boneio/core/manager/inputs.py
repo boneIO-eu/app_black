@@ -95,11 +95,15 @@ class InputManager:
             reload_config: If True, reload configuration from file and update existing inputs
         """
         def get_input_id_from_gpio(gpio: dict, pin: str) -> str:
-            """Get input ID from gpio config (same logic as in _configure_event_sensor)."""
+            """Get input ID from gpio config (same logic as in _configure_event_sensor).
+            
+            Note: boneio_input is normalized to lowercase to match yaml_util.py behavior.
+            """
             if ID in gpio:
                 return str(gpio.get(ID))
             elif "boneio_input" in gpio:
-                return str(gpio.get("boneio_input", pin))
+                # Normalize to lowercase (consistent with yaml_util.py input_mapping lookup)
+                return str(gpio.get("boneio_input", pin)).lower()
             return pin
         
         def check_if_input_configured(input_id: str) -> bool:
@@ -203,10 +207,11 @@ class InputManager:
                 name = pin
 
             # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
+            # Note: boneio_input is normalized to lowercase to match yaml_util.py behavior
             if ID in gpio:
                 input_id: str = str(gpio.pop(ID))
             elif "boneio_input" in gpio:
-                input_id = str(gpio.get("boneio_input", pin))
+                input_id = str(gpio.get("boneio_input", pin)).lower()
             else:
                 input_id = pin
             
@@ -327,10 +332,11 @@ class InputManager:
                 name = pin
 
             # ID strategy: explicit 'id' > 'boneio_input' > 'pin'
+            # Note: boneio_input is normalized to lowercase to match yaml_util.py behavior
             if ID in gpio:
                 input_id: str = str(gpio.pop(ID))
             else:
-                input_id = str(gpio.get("boneio_input", pin))
+                input_id = str(gpio.get("boneio_input", pin)).lower()
             
             # Get area for HA assignment
             area = gpio.pop("area", None)
@@ -450,6 +456,7 @@ class InputManager:
         config = self._manager._config_helper.reload_config()
         
         # Build map of new inputs from config (input_id -> {pin, area})
+        # Note: boneio_input is normalized to lowercase to match yaml_util.py behavior
         new_input_map: dict[str, dict] = {}
         for gpio in config.get(EVENT_ENTITY, []) + config.get(BINARY_SENSOR, []):
             pin = gpio.get("pin")
@@ -457,7 +464,7 @@ class InputManager:
             if "id" in gpio:
                 input_id = gpio["id"]
             elif "boneio_input" in gpio:
-                input_id = gpio["boneio_input"]
+                input_id = gpio["boneio_input"].lower()
             elif pin:
                 input_id = pin
             else:

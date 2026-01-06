@@ -99,9 +99,14 @@ class TimeBasedCover(BaseCover):
         self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
     async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:
-        if self._movement_thread and self._movement_thread.is_alive() or current_operation == STOP:
-            _LOGGER.warning("Ruch rolety już trwa. Najpierw zatrzymaj.")
+        if self._movement_thread and self._movement_thread.is_alive():
+            _LOGGER.warning("Cover movement already in progress. Stopping first.")
             await self.stop()
+        
+        # If STOP was requested, don't start new movement
+        if current_operation == STOP:
+            await self.stop()
+            return
 
         self._current_operation = current_operation
         self._initial_position = self._position

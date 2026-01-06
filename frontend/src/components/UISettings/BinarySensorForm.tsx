@@ -157,8 +157,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       if (editingIndex !== null && index === editingIndex) {
         return false;
       }
-      // For new items, just filter out any used inputs
-      return sensor.boneio_input && sensor !== data;
+      // For new items, filter out any used inputs
+      return sensor.boneio_input;
     })
     .map(sensor => sensor.boneio_input);
   
@@ -167,7 +167,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     .map(event => event.boneio_input);
   
   const usedInputs = [...new Set([...usedInputsFromBinarySensors, ...usedInputsFromEvents])];
-  
+
   const availableInputs = allBoneioInputs.filter((input: string) => !usedInputs.includes(input));
   
   // If current input is used by this item, include it in options

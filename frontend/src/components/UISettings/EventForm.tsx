@@ -99,8 +99,8 @@ const EventForm: React.FC<EventFormProps> = ({
       if (editingIndex !== null && index === editingIndex) {
         return false;
       }
-      // For new items, just filter out any used inputs
-      return event.boneio_input && event !== data;
+      // For new items, filter out any used inputs
+      return event.boneio_input;
     })
     .map(event => event.boneio_input);
   
@@ -700,15 +700,15 @@ const EventForm: React.FC<EventFormProps> = ({
                 <span className="label-text font-medium">{t('event_form.sequence_mode')}</span>
               </label>
               <Select
-                  value={data.sequence_mode || 'immediate'}
+                  value={data.sequence_mode || 'exclusive'}
                   onValueChange={(value) => updateField('sequence_mode', value)}  
                 >
                   <SelectTrigger className={`w-full uppercase ${usedInputs.length > 0 && boneioInputOptions.length === 0 ? 'border-warning' : ''}`}>
                     <SelectValue placeholder="Select sequence mode..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="immediate">{t('event_form.sequence_mode_immediate')}</SelectItem>
                     <SelectItem value="exclusive">{t('event_form.sequence_mode_exclusive')}</SelectItem>
+                    <SelectItem value="immediate">{t('event_form.sequence_mode_immediate')}</SelectItem>
                   </SelectContent>
                 </Select>
               <label className="label">

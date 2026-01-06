@@ -57,21 +57,28 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    handlePressStart();
+  };
+
   return (
     <div
       onClick={handleClick}
       onMouseDown={handlePressStart}
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}
-      onTouchStart={handlePressStart}
+      onTouchStart={handleTouchStart}
       onTouchEnd={handlePressEnd}
+      onContextMenu={(e) => e.preventDefault()}
       className={clsx(
-        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300 select-none',
+        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300 select-none touch-none',
         isGrid ? 'border-l-4' : 'border-l-8',
         'border-blue-500',
         isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]'
       )}
       title={t('inputs.long_press_to_edit')}
+      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
     >
     <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
       <div>
