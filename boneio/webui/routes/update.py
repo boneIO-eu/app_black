@@ -274,25 +274,10 @@ async def update_boneio(background_tasks: BackgroundTasks, request: UpdateReques
             
             _update_progress(10, "Virtual environment found", f"Using venv at {venv_path}")
             
-            _update_progress(15, "Creating backup...")
-            
-            backup_dir = os.path.expanduser("~/boneio_backups")
-            os.makedirs(backup_dir, exist_ok=True)
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = os.path.join(backup_dir, f"boneio_{current_version}_{timestamp}")
-            
-            boneio_dirs = glob.glob(f"{venv_path}/lib/python*/site-packages/boneio")
-            
-            if boneio_dirs:
-                try:
-                    shutil.copytree(boneio_dirs[0], backup_path)
-                    _update_status["backup_path"] = backup_path
-                    _update_progress(25, "Backup created", f"Backup saved to {backup_path}")
-                except Exception as e:
-                    _update_progress(25, "Backup warning", f"Could not create backup: {e}")
-            else:
-                _update_progress(25, "Backup skipped", "No existing boneio package found")
+            # Note: We don't backup the boneio package from site-packages anymore.
+            # Rollback is done via pip install boneio=={version} which is more reliable.
+            # Config backup is handled separately via /api/config/backup endpoint.
+            _update_progress(15, "Preparing update...", f"Current version: {current_version}")
             
             _update_progress(30, "Upgrading pip...")
             
@@ -348,16 +333,7 @@ async def update_boneio(background_tasks: BackgroundTasks, request: UpdateReques
             _update_status["new_version"] = new_version
             _update_progress(90, "Installation verified", f"Updated from {current_version} to {new_version}")
             
-            _update_progress(92, "Cleaning up old backups...")
-            
-            try:
-                backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")))
-                if len(backups) > 5:
-                    for old_backup in backups[:-5]:
-                        shutil.rmtree(old_backup, ignore_errors=True)
-                    _update_progress(95, "Cleanup done", f"Removed {len(backups) - 5} old backups")
-            except Exception as e:
-                _update_progress(95, "Cleanup skipped", f"Could not cleanup: {e}")
+            _update_progress(95, "Finalizing...")
             
             _update_status["status"] = "success"
             _update_progress(100, "Update complete!", f"Restarting service in 2 seconds...")
@@ -381,10 +357,19 @@ async def update_boneio(background_tasks: BackgroundTasks, request: UpdateReques
     return {"status": "started", "message": "Update process started"}
 
 
+class RollbackRequest(BaseModel):
+    """Request model for rollback."""
+    version: str
+
+
 @router.post("/update/rollback")
-async def rollback_update():
+async def rollback_update(request: RollbackRequest, background_tasks: BackgroundTasks):
     """
-    Rollback to the previous version from backup.
+    Rollback to a specific version using pip install.
+    
+    Args:
+        request: RollbackRequest with target version.
+        background_tasks: FastAPI background tasks.
     
     Returns:
         Status response.
@@ -392,13 +377,11 @@ async def rollback_update():
     if not is_running_as_service():
         return {"status": "error", "message": "Rollback is only available when running as a service"}
     
-    backup_dir = os.path.expanduser("~/boneio_backups")
-    backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")))
+    target_version = request.version
+    current_version = __version__
     
-    if not backups:
-        return {"status": "error", "message": "No backups found"}
-    
-    latest_backup = backups[-1]
+    if target_version == current_version:
+        return {"status": "error", "message": f"Already running version {current_version}"}
     
     possible_venv_paths = [
         os.path.expanduser("~/boneio/venv"),
@@ -406,61 +389,134 @@ async def rollback_update():
         "/opt/boneio/venv",
     ]
     
-    venv_path = None
+    pip_path = None
     for path in possible_venv_paths:
-        if os.path.exists(os.path.join(path, "bin", "pip")):
-            venv_path = path
+        pip_candidate = os.path.join(path, "bin", "pip")
+        if os.path.exists(pip_candidate):
+            pip_path = pip_candidate
             break
     
-    if not venv_path:
+    if not pip_path:
         return {"status": "error", "message": "Virtual environment not found"}
     
-    boneio_dirs = glob.glob(f"{venv_path}/lib/python*/site-packages/boneio")
-    
-    if not boneio_dirs:
-        return {"status": "error", "message": "Current boneio installation not found"}
-    
-    try:
-        shutil.rmtree(boneio_dirs[0])
-        shutil.copytree(latest_backup, boneio_dirs[0])
+    async def rollback_and_restart():
+        """Perform rollback in background and restart."""
+        global _update_status
+        _reset_update_status()
+        _update_status["status"] = "running"
+        _update_status["old_version"] = current_version
+        _update_status["target_version"] = target_version
         
-        _LOGGER.info(f"Rolled back to backup: {latest_backup}")
-        
-        return {
-            "status": "success", 
-            "message": f"Rolled back to {os.path.basename(latest_backup)}. Restart required.",
-            "backup_used": latest_backup
-        }
-    except Exception as e:
-        return {"status": "error", "message": f"Rollback failed: {e}"}
+        try:
+            _update_progress(10, f"Rolling back to version {target_version}...")
+            
+            result = subprocess.run(
+                [pip_path, "install", f"boneio=={target_version}"],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            
+            if result.returncode != 0:
+                _update_status["status"] = "error"
+                _update_status["error"] = f"pip install failed: {result.stderr}"
+                _update_progress(0, "Rollback failed", result.stderr)
+                return
+            
+            _update_status["status"] = "success"
+            _update_status["new_version"] = target_version
+            _update_progress(100, "Rollback complete!", f"Rolled back from {current_version} to {target_version}. Restarting...")
+            
+            _LOGGER.info(f"Rolled back from {current_version} to {target_version}")
+            
+            await asyncio.sleep(2)
+            os._exit(0)
+            
+        except subprocess.TimeoutExpired:
+            _update_status["status"] = "error"
+            _update_status["error"] = "Rollback timed out"
+            _update_progress(0, "Timeout", "Rollback process timed out")
+        except Exception as e:
+            _update_status["status"] = "error"
+            _update_status["error"] = str(e)
+            _update_progress(0, "Error", f"Unexpected error: {e}")
+            _LOGGER.error(f"Error during rollback: {e}", exc_info=True)
+    
+    background_tasks.add_task(rollback_and_restart)
+    return {"status": "started", "message": f"Rollback to {target_version} started"}
 
 
-@router.get("/update/backups")
-async def list_backups():
+@router.get("/update/available_versions")
+async def list_available_versions():
     """
-    List available backups.
+    List available BoneIO versions from GitHub releases.
+    
+    These versions can be used for rollback via pip install boneio=={version}.
     
     Returns:
-        List of backup information.
+        List of available versions.
     """
-    backup_dir = os.path.expanduser("~/boneio_backups")
-    backups = sorted(glob.glob(os.path.join(backup_dir, "boneio_*")), reverse=True)
+    current_version = __version__
     
-    backup_list = []
-    for backup in backups:
-        name = os.path.basename(backup)
-        parts = name.split('_')
-        version = parts[1] if len(parts) > 1 else "unknown"
-        timestamp = f"{parts[2]}_{parts[3]}" if len(parts) > 3 else "unknown"
+    try:
+        import requests
+    except ImportError:
+        return {
+            "status": "error",
+            "message": "Package 'requests' is not installed",
+            "current_version": current_version,
+            "versions": []
+        }
+    
+    try:
+        repo = "boneIO-eu/app_black"
+        api_url = f'https://api.github.com/repos/{repo}/releases'
+        response = requests.get(api_url, timeout=10)
         
-        backup_list.append({
-            "path": backup,
-            "name": name,
-            "version": version,
-            "timestamp": timestamp,
-        })
-    
-    return {"backups": backup_list}
+        if response.status_code != 200:
+            return {
+                "status": "error",
+                "message": f"GitHub API error: {response.status_code}",
+                "current_version": current_version,
+                "versions": []
+            }
+        
+        releases = response.json()
+        versions = []
+        
+        for release in releases:
+            tag = release.get("tag_name", "")
+            # Remove 'v' prefix if present
+            version = tag.lstrip("v") if tag.startswith("v") else tag
+            if not version:
+                continue
+            
+            # Skip versions starting with 0.x (Debian 10, incompatible)
+            if version.startswith("0."):
+                continue
+                
+            versions.append({
+                "version": version,
+                "name": release.get("name", version),
+                "published_at": release.get("published_at"),
+                "prerelease": release.get("prerelease", False),
+                "is_current": version == current_version,
+            })
+        
+        return {
+            "status": "success",
+            "current_version": current_version,
+            "versions": versions
+        }
+        
+    except Exception as e:
+        _LOGGER.error(f"Error fetching versions: {e}")
+        return {
+            "status": "error",
+            "message": str(e),
+            "current_version": current_version,
+            "versions": []
+        }
 
 
 # Available device types for factory reset

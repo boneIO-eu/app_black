@@ -25,6 +25,7 @@ from boneio.core.config.yaml_util import (
     get_board_config_path,
 )
 from boneio.core.manager import Manager
+from boneio.version import __version__
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -309,11 +310,11 @@ async def restore_config(file: UploadFile = File(...)):
         contents = await file.read()
         buffer = io.BytesIO(contents)
         
-        # Create backup
+        # Create backup with version in filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = config_dir / "backups"
         backup_dir.mkdir(exist_ok=True)
-        backup_path = backup_dir / f"config_backup_{timestamp}.tar.gz"
+        backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
         
         with tarfile.open(backup_path, mode='w:gz') as tar:
             for pattern in ["*.yaml", "*.yml"]:
@@ -650,3 +651,306 @@ async def validate_device_type_change(request: dict = Body(...)):
         "new_device_type": new_device_type,
         "normalized_type": normalized_type,
     }
+
+
+@router.get("/config/backups")
+async def list_config_backups():
+    """
+    List available configuration backups from disk.
+    
+    Returns:
+        List of backup information with timestamps and file counts.
+    """
+    config_file = _get_app_state().yaml_config_file
+    config_dir = Path(config_file).parent
+    backup_dir = config_dir / "backups"
+    
+    if not backup_dir.exists():
+        return {"backups": []}
+    
+    backups = []
+    for backup_file in sorted(backup_dir.glob("config_backup_*.tar.gz"), reverse=True):
+        try:
+            # Parse filename: config_backup_v1.0.0dev26_20260106_112345.tar.gz
+            filename_parts = backup_file.stem.replace("config_backup_", "")
+            
+            # Extract version if present
+            version = None
+            timestamp_str = filename_parts
+            if filename_parts.startswith("v"):
+                # Format: vX.X.X_YYYYMMDD_HHMMSS
+                parts = filename_parts.split("_", 1)
+                if len(parts) == 2:
+                    version = parts[0][1:]  # Remove 'v' prefix
+                    timestamp_str = parts[1]
+            
+            # Parse timestamp: YYYYMMDD_HHMMSS
+            formatted_timestamp = timestamp_str
+            if len(timestamp_str) == 15 and timestamp_str[8] == "_":
+                date_part = timestamp_str[:8]
+                time_part = timestamp_str[9:]
+                formatted_timestamp = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]} {time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+            
+            # Count files in backup
+            file_count = 0
+            try:
+                with tarfile.open(backup_file, 'r:gz') as tar:
+                    file_count = len(tar.getmembers())
+            except Exception:
+                pass
+            
+            backups.append({
+                "path": str(backup_file),
+                "filename": backup_file.name,
+                "version": version or "unknown",
+                "timestamp": formatted_timestamp,
+                "timestamp_raw": timestamp_str,
+                "size": backup_file.stat().st_size,
+                "file_count": file_count,
+            })
+        except Exception as e:
+            _LOGGER.warning(f"Error processing backup {backup_file}: {e}")
+            continue
+    
+    return {"backups": backups}
+
+
+@router.post("/config/restore_backup")
+async def restore_config_backup(backup_path: str = Body(..., embed=True)):
+    """
+    Restore configuration from a backup file on disk.
+    
+    Args:
+        backup_path: Path to the backup file to restore.
+        
+    Returns:
+        Status response with list of restored files.
+    """
+    config_file = _get_app_state().yaml_config_file
+    config_dir = Path(config_file).parent
+    backup_file = Path(backup_path)
+    
+    # Security: ensure backup is in the backups directory
+    backup_dir = config_dir / "backups"
+    try:
+        backup_file = backup_file.resolve()
+        backup_dir = backup_dir.resolve()
+        if not str(backup_file).startswith(str(backup_dir)):
+            return {"status": "error", "message": "Invalid backup path"}
+    except Exception:
+        return {"status": "error", "message": "Invalid backup path"}
+    
+    if not backup_file.exists():
+        return {"status": "error", "message": "Backup file not found"}
+    
+    try:
+        # Create a new backup before restoring
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        new_backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
+        
+        with tarfile.open(new_backup_path, mode='w:gz') as tar:
+            for pattern in ["*.yaml", "*.yml"]:
+                for yaml_file in config_dir.glob(pattern):
+                    if yaml_file.is_file():
+                        tar.add(str(yaml_file), arcname=yaml_file.name)
+            
+            for subdir in config_dir.iterdir():
+                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                    for pattern in ["*.yaml", "*.yml"]:
+                        for yaml_file in subdir.glob(pattern):
+                            if yaml_file.is_file():
+                                tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+        
+        _LOGGER.info(f"Created backup before restore: {new_backup_path}")
+        
+        # Restore from selected backup
+        restored_files = []
+        with tarfile.open(backup_file, mode='r:gz') as tar:
+            members = tar.getmembers()
+            for member in members:
+                if '..' in member.name or member.name.startswith('/'):
+                    continue
+                
+                if member.name.endswith(('.yaml', '.yml')):
+                    target_path = config_dir / member.name
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    source = tar.extractfile(member)
+                    if source is None:
+                        continue
+                    
+                    with source:
+                        with open(target_path, 'wb') as target:
+                            target.write(source.read())
+                    
+                    restored_files.append(member.name)
+                    _LOGGER.info(f"Restored: {member.name}")
+        
+        invalidate_config_cache()
+        
+        # Validate
+        try:
+            load_config_from_file(config_file=_get_app_state().yaml_config_file)
+            validation_status = "success"
+            validation_message = "Configuration is valid"
+        except Exception as e:
+            validation_status = "warning"
+            validation_message = f"Configuration restored but validation failed: {str(e)}"
+            _LOGGER.warning(f"Restored config validation failed: {e}")
+        
+        return {
+            "status": "success",
+            "message": f"Restored {len(restored_files)} files from backup",
+            "restored_files": restored_files,
+            "backup_created": str(new_backup_path),
+            "validation_status": validation_status,
+            "validation_message": validation_message,
+            "restart_required": True
+        }
+        
+    except tarfile.TarError as e:
+        _LOGGER.error(f"Failed to extract backup: {e}")
+        return {"status": "error", "message": f"Failed to extract backup: {str(e)}"}
+    except Exception as e:
+        _LOGGER.error(f"Failed to restore backup: {e}")
+        return {"status": "error", "message": f"Failed to restore backup: {str(e)}"}
+
+
+@router.post("/config/create_backup")
+async def create_config_backup():
+    """
+    Create a configuration backup on disk with version in filename.
+    Automatically removes oldest backups if more than 10 exist.
+    
+    Returns:
+        Status response with backup path.
+    """
+    config_file = _get_app_state().yaml_config_file
+    config_dir = Path(config_file).parent
+    
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = config_dir / "backups"
+        backup_dir.mkdir(exist_ok=True)
+        backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
+        
+        with tarfile.open(backup_path, mode='w:gz') as tar:
+            for pattern in ["*.yaml", "*.yml"]:
+                for yaml_file in config_dir.glob(pattern):
+                    if yaml_file.is_file():
+                        tar.add(str(yaml_file), arcname=yaml_file.name)
+            
+            for subdir in config_dir.iterdir():
+                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                    for pattern in ["*.yaml", "*.yml"]:
+                        for yaml_file in subdir.glob(pattern):
+                            if yaml_file.is_file():
+                                tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+        
+        _LOGGER.info(f"Created config backup: {backup_path}")
+        
+        # Clean up old backups - keep only 10 most recent
+        all_backups = sorted(backup_dir.glob("config_backup_*.tar.gz"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if len(all_backups) > 10:
+            for old_backup in all_backups[10:]:
+                try:
+                    old_backup.unlink()
+                    _LOGGER.info(f"Removed old backup: {old_backup.name}")
+                except Exception as e:
+                    _LOGGER.warning(f"Failed to remove old backup {old_backup.name}: {e}")
+        
+        # Count files
+        file_count = 0
+        with tarfile.open(backup_path, 'r:gz') as tar:
+            file_count = len(tar.getmembers())
+        
+        return {
+            "status": "success",
+            "message": f"Backup created with {file_count} files",
+            "backup_path": str(backup_path),
+            "filename": backup_path.name,
+            "version": __version__,
+            "file_count": file_count
+        }
+        
+    except Exception as e:
+        _LOGGER.error(f"Failed to create backup: {e}")
+        return {"status": "error", "message": f"Failed to create backup: {str(e)}"}
+
+
+@router.get("/config/download_backup")
+async def download_config_backup(backup_path: str):
+    """
+    Download a specific configuration backup from disk.
+    
+    Args:
+        backup_path: Path to the backup file.
+        
+    Returns:
+        StreamingResponse with backup file.
+    """
+    config_file = _get_app_state().yaml_config_file
+    config_dir = Path(config_file).parent
+    backup_file = Path(backup_path)
+    
+    # Security: ensure backup is in the backups directory
+    backup_dir = config_dir / "backups"
+    try:
+        backup_file = backup_file.resolve()
+        backup_dir = backup_dir.resolve()
+        if not str(backup_file).startswith(str(backup_dir)):
+            raise HTTPException(status_code=403, detail="Invalid backup path")
+    except Exception:
+        raise HTTPException(status_code=403, detail="Invalid backup path")
+    
+    if not backup_file.exists():
+        raise HTTPException(status_code=404, detail="Backup file not found")
+    
+    _LOGGER.info(f"Downloading backup: {backup_file.name}")
+    
+    return StreamingResponse(
+        open(backup_file, 'rb'),
+        media_type="application/gzip",
+        headers={"Content-Disposition": f"attachment; filename={backup_file.name}"}
+    )
+
+
+@router.delete("/config/delete_backup")
+async def delete_config_backup(backup_path: str = Body(..., embed=True)):
+    """
+    Delete a specific configuration backup from disk.
+    
+    Args:
+        backup_path: Path to the backup file to delete.
+        
+    Returns:
+        Status response.
+    """
+    config_file = _get_app_state().yaml_config_file
+    config_dir = Path(config_file).parent
+    backup_file = Path(backup_path)
+    
+    # Security: ensure backup is in the backups directory
+    backup_dir = config_dir / "backups"
+    try:
+        backup_file = backup_file.resolve()
+        backup_dir = backup_dir.resolve()
+        if not str(backup_file).startswith(str(backup_dir)):
+            return {"status": "error", "message": "Invalid backup path"}
+    except Exception:
+        return {"status": "error", "message": "Invalid backup path"}
+    
+    if not backup_file.exists():
+        return {"status": "error", "message": "Backup file not found"}
+    
+    try:
+        backup_file.unlink()
+        _LOGGER.info(f"Deleted backup: {backup_file.name}")
+        
+        return {
+            "status": "success",
+            "message": f"Backup {backup_file.name} deleted successfully"
+        }
+    except Exception as e:
+        _LOGGER.error(f"Failed to delete backup: {e}")
+        return {"status": "error", "message": f"Failed to delete backup: {str(e)}"}

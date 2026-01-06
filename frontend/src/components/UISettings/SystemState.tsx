@@ -11,6 +11,7 @@ import {
   FaPowerOff,
   FaUpload,
   FaRedo,
+  FaTrash,
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import HardwareErrors from './HardwareErrors';
@@ -53,11 +54,12 @@ interface UpdateInfo {
   available_versions?: VersionInfo[];
 }
 
-interface Backup {
-  path: string;
-  name: string;
+interface AvailableVersion {
   version: string;
-  timestamp: string;
+  name: string;
+  published_at: string;
+  prerelease: boolean;
+  is_current: boolean;
 }
 
 const SystemState: React.FC = () => {
@@ -65,10 +67,10 @@ const SystemState: React.FC = () => {
   const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
-  const [backups, setBackups] = useState<Backup[]>([]);
+  const [availableVersions, setAvailableVersions] = useState<AvailableVersion[]>([]);
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showBackups, setShowBackups] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showSelfTest, setShowSelfTest] = useState(false);
@@ -83,6 +85,8 @@ const SystemState: React.FC = () => {
   const [restoreResult, setRestoreResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [availableBackups, setAvailableBackups] = useState<any[]>([]);
+  const [showAvailableBackups, setShowAvailableBackups] = useState(false);
 
   // Factory reset state
   const [showFactoryReset, setShowFactoryReset] = useState(false);
@@ -353,14 +357,14 @@ const SystemState: React.FC = () => {
     }
   }, []);
 
-  // Fetch backups
-  const fetchBackups = useCallback(async () => {
+  // Fetch available versions for rollback
+  const fetchAvailableVersions = useCallback(async () => {
     try {
-      const response = await fetch('/api/update/backups');
+      const response = await fetch('/api/update/available_versions');
       const data = await response.json();
-      setBackups(data.backups || []);
+      setAvailableVersions(data.versions || []);
     } catch (err) {
-      console.error('Error fetching backups:', err);
+      console.error('Error fetching available versions:', err);
     }
   }, []);
 
@@ -525,28 +529,151 @@ const SystemState: React.FC = () => {
     }
   };
 
-  // Rollback
-  const performRollback = async () => {
-    if (!confirm(t('system_update.confirm_rollback'))) {
+  // Rollback to specific version
+  const performRollback = async (version: string) => {
+    if (!confirm(t('system_update.confirm_rollback') + ` (${version})`)) {
       return;
     }
 
+    setIsUpdating(true);
     try {
-      const response = await fetch('/api/update/rollback', { method: 'POST' });
+      const response = await fetch('/api/update/rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version }),
+      });
+      const data = await response.json();
+
+      if (data.status === 'started') {
+        // Start polling for status
+        pollUpdateStatus();
+      } else {
+        setError(data.message);
+        setIsUpdating(false);
+      }
+    } catch (err) {
+      setError(t('system_update.rollback_failed'));
+      setIsUpdating(false);
+    }
+  };
+
+  // Fetch available config backups from disk
+  const fetchAvailableBackups = useCallback(async () => {
+    try {
+      const response = await fetch('/api/config/backups');
+      const data = await response.json();
+      setAvailableBackups(data.backups || []);
+    } catch (err) {
+      console.error('Error fetching available backups:', err);
+    }
+  }, []);
+
+  // Create backup on disk
+  const createBackupOnDisk = async () => {
+    setIsDownloading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/config/create_backup', { method: 'POST' });
       const data = await response.json();
 
       if (data.status === 'success') {
-        alert(`${data.message}\n\nClick OK to restart the application.`);
-        // Trigger restart
-        await fetch('/api/restart', { method: 'POST' });
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
+        // Refresh backup list
+        await fetchAvailableBackups();
+        alert(data.message);
       } else {
         setError(data.message);
       }
     } catch (err) {
-      setError(t('system_update.rollback_failed'));
+      setError(t('system_update.failed_to_check_updates'));
+      console.error('Error creating backup:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Download backup from disk
+  const downloadBackupFromDisk = async (backupPath: string, filename: string) => {
+    try {
+      const response = await fetch(`/api/config/download_backup?backup_path=${encodeURIComponent(backupPath)}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to download backup');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      setError(t('system_update.failed_to_check_updates'));
+      console.error('Error downloading backup:', err);
+    }
+  };
+
+  // Delete backup from disk
+  const deleteBackup = async (backupPath: string, filename: string) => {
+    if (!confirm(`${t('system_update.confirm_delete_backup') || 'Delete backup'} ${filename}?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/config/delete_backup', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_path: backupPath }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        await fetchAvailableBackups();
+        alert(data.message);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError(t('system_update.failed_to_check_updates'));
+      console.error('Error deleting backup:', err);
+    }
+  };
+
+  // Restore config from backup on disk
+  const restoreFromBackup = async (backupPath: string) => {
+    if (!confirm(t('system_update.confirm_restore'))) {
+      return;
+    }
+
+    setIsRestoring(true);
+    setError(null);
+    setRestoreResult(null);
+
+    try {
+      const response = await fetch('/api/config/restore_backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_path: backupPath }),
+      });
+
+      const data = await response.json();
+      setRestoreResult(data);
+
+      if (data.status === 'success' && data.restart_required) {
+        if (confirm(t('system_update.restore_success_restart'))) {
+          await fetch('/api/restart', { method: 'POST' });
+          setTimeout(() => window.location.reload(), 3000);
+        }
+      }
+    } catch (err) {
+      setError(t('system_update.restore_failed'));
+      console.error('Error restoring from backup:', err);
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -696,13 +823,14 @@ const SystemState: React.FC = () => {
   // Initial load
   useEffect(() => {
     checkForUpdates();
-    fetchBackups();
+    fetchAvailableVersions();
+    fetchAvailableBackups();
     fetchHardwareErrors();
     fetchDeviceTypes();
     fetchHardwareVersions();
     fetchConfigBackups();
     fetchHostname();
-  }, [checkForUpdates, fetchBackups, fetchHardwareErrors, fetchDeviceTypes, fetchHardwareVersions, fetchConfigBackups, fetchHostname]);
+  }, [checkForUpdates, fetchAvailableVersions, fetchAvailableBackups, fetchHardwareErrors, fetchDeviceTypes, fetchHardwareVersions, fetchConfigBackups, fetchHostname]);
 
   // Load SSL config when section is opened
   useEffect(() => {
@@ -1384,20 +1512,125 @@ const SystemState: React.FC = () => {
                     <p className="mt-2 font-semibold">{t('system_update.restore_info')}</p>
                   </div>
                 </div>
+
+                {/* Available Backups on Disk */}
+                <div className="mt-4">
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={createBackupOnDisk}
+                      disabled={isDownloading || isRestoring}
+                    >
+                      {isDownloading ? (
+                        <>
+                          <FaSpinner className="animate-spin" />
+                          {t('system_update.preparing')}
+                        </>
+                      ) : (
+                        <>
+                          <FaFileArchive />
+                          {t('system_update.create_backup') || 'Create Backup'}
+                        </>
+                      )}
+                    </button>
+
+                    {availableBackups.length > 0 && (
+                      <button
+                        className="btn btn-sm"
+                        onClick={() => {
+                          setShowAvailableBackups(!showAvailableBackups);
+                          if (!showAvailableBackups) fetchAvailableBackups();
+                        }}
+                      >
+                        {showAvailableBackups
+                          ? (t('system_update.hide_backups') || 'Hide backups ({count})').replace('{count}', String(availableBackups.length))
+                          : (t('system_update.show_backups') || 'Show backups ({count})').replace('{count}', String(availableBackups.length))}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="alert alert-info text-xs mt-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      className="stroke-current shrink-0 w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      ></path>
+                    </svg>
+                    <span>{t('system_update.backup_limit_info') || 'Maximum 10 backups are kept. Oldest backups are automatically removed when creating new ones.'}</span>
+                  </div>
+
+                  {showAvailableBackups && availableBackups.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>{t('system_update.version')}</th>
+                            <th>{t('system_update.date')}</th>
+                            <th>{t('system_update.files')}</th>
+                            <th>{t('system_update.actions')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {availableBackups.map((backup: any) => (
+                            <tr key={backup.path}>
+                              <td className="font-mono">{backup.version}</td>
+                              <td className="text-xs">{backup.timestamp}</td>
+                              <td>{backup.file_count} {t('system_update.yaml_files')}</td>
+                              <td>
+                                <div className="flex gap-1">
+                                  <button
+                                    className="btn btn-warning btn-xs"
+                                    onClick={() => restoreFromBackup(backup.path)}
+                                    disabled={isRestoring}
+                                    title={t('system_update.restore')}
+                                  >
+                                    <FaUndo />
+                                    {t('system_update.restore')}
+                                  </button>
+                                  <button
+                                    className="btn btn-info btn-xs"
+                                    onClick={() => downloadBackupFromDisk(backup.path, backup.filename)}
+                                    title={t('system_update.download_config')}
+                                  >
+                                    <FaDownload />
+                                  </button>
+                                  <button
+                                    className="btn btn-error btn-xs"
+                                    onClick={() => deleteBackup(backup.path, backup.filename)}
+                                    title={t('system_update.delete') || 'Delete'}
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Backups Section */}
+            {/* Available Versions Section */}
             <SettingsCard
               icon={<FaHistory />}
-              title={t('system_update.auto_update_backups')}
-              toggleButtonText={t('system_update.show_backups').replace('{count}', String(backups.length))}
-              toggleButtonTextExpanded={t('system_update.hide_backups').replace('{count}', String(backups.length))}
-              isExpanded={showBackups}
-              onToggle={() => setShowBackups(!showBackups)}
+              title={t('system_update.available_versions') || 'Available Versions'}
+              toggleButtonText={(t('system_update.show_versions') || 'Show versions ({count})').replace('{count}', String(availableVersions.length))}
+              toggleButtonTextExpanded={(t('system_update.hide_versions') || 'Hide versions ({count})').replace('{count}', String(availableVersions.length))}
+              isExpanded={showVersions}
+              onToggle={() => setShowVersions(!showVersions)}
               expandableContent={
-                backups.length === 0 ? (
-                  <p className="text-sm opacity-70">{t('system_update.no_backups')}</p>
+                availableVersions.length === 0 ? (
+                  <p className="text-sm opacity-70">{t('system_update.no_versions') || 'No versions available'}</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="table table-sm">
@@ -1405,23 +1638,34 @@ const SystemState: React.FC = () => {
                         <tr>
                           <th>{t('system_update.version')}</th>
                           <th>{t('system_update.date')}</th>
+                          <th>{t('system_update.type') || 'Type'}</th>
                           <th>{t('system_update.actions')}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {backups.map((backup, index) => (
-                          <tr key={backup.path}>
-                            <td className="font-mono">{backup.version}</td>
-                            <td>{backup.timestamp.replace('_', ' ')}</td>
+                        {availableVersions.map((ver: AvailableVersion) => (
+                          <tr key={ver.version} className={ver.is_current ? 'bg-base-200' : ''}>
+                            <td className="font-mono">
+                              {ver.version}
+                              {ver.is_current && <span className="badge badge-success badge-sm ml-2">{t('system_update.current') || 'Current'}</span>}
+                            </td>
+                            <td>{ver.published_at ? new Date(ver.published_at).toLocaleDateString() : '-'}</td>
                             <td>
-                              {index === 0 && (
+                              {ver.prerelease ? (
+                                <span className="badge badge-warning badge-sm">Pre-release</span>
+                              ) : (
+                                <span className="badge badge-success badge-sm">Stable</span>
+                              )}
+                            </td>
+                            <td>
+                              {!ver.is_current && (
                                 <button
                                   className="btn btn-warning btn-xs"
-                                  onClick={performRollback}
+                                  onClick={() => performRollback(ver.version)}
                                   disabled={isUpdating}
                                 >
                                   <FaUndo />
-                                  {t('system_update.rollback')}
+                                  {t('system_update.install') || 'Install'}
                                 </button>
                               )}
                             </td>
@@ -1435,8 +1679,7 @@ const SystemState: React.FC = () => {
             >
               <div className="alert alert-info">
                 <div>
-                  <p>{t('system_update.backup_info_3')}</p>
-                  <p>{t('system_update.backup_info_4')}</p>
+                  <p>{t('system_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
                 </div>
               </div>
             </SettingsCard>
