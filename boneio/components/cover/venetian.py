@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -102,6 +103,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         actual_duration = duration * (total_steps / 100.0)
 
         relay.turn_on()
+        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
+        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
         start_time = time.monotonic()
         progress = 0.0
         tilt_progress = 0.0
@@ -178,6 +181,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             else:
                 time.sleep(0.05)
         relay.turn_off()
+        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
+        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
         self._current_operation = IDLE
         self._loop.call_soon_threadsafe(
             self.send_state_and_save, self.json_position

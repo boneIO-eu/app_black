@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -67,6 +68,8 @@ class TimeBasedCover(BaseCover):
         actual_duration = duration * (total_steps / 100.0)
 
         relay.turn_on()
+        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
+        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
         start_time = time.monotonic()
 
         while not self._stop_event.is_set():
@@ -94,6 +97,8 @@ class TimeBasedCover(BaseCover):
 
             time.sleep(0.05)  # Małe opóźnienie, aby nie blokować CPU
         relay.turn_off()
+        # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
+        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
         self._current_operation = IDLE
         self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
         self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu

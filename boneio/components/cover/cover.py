@@ -204,6 +204,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             self._movement_thread.join(timeout=0.5)
             self._open_relay.turn_off()
             self._close_relay.turn_off()
+            # Send relay states to WebSocket (not MQTT - that's handled by output_type check)
+            asyncio.create_task(self._open_relay.async_send_state())
+            asyncio.create_task(self._close_relay.async_send_state())
             self._current_operation = IDLE
             if not on_exit:
                 self.send_state(self.state, self.json_position)

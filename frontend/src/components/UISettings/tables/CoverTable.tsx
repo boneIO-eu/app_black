@@ -73,11 +73,9 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
                   </div>
                 </Td>
                 <Td>
-                  {item.platform ? (
-                    <span className="badge badge-info badge-sm">{item.platform}</span>
-                  ) : (
-                    '-'
-                  )}
+                  <span className="badge badge-info badge-sm">
+                    {item.platform || (item.tilt_duration ? 'venetian' : 'time_based')}
+                  </span>
                 </Td>
                 <Td className="uppercase">{item.open_relay || '-'}</Td>
                 <Td className="uppercase">{item.close_relay || '-'}</Td>
