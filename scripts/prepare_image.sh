@@ -112,18 +112,10 @@ if [ ! -d "$SOURCE_CONFIG_DIR" ]; then
     exit 1
 fi
 
-# Backup existing config
-BACKUP_DIR="$TARGET_CONFIG_DIR.backup.$(date +%Y%m%d_%H%M%S)"
-print_info "Creating backup: $BACKUP_DIR"
-cp -r "$TARGET_CONFIG_DIR" "$BACKUP_DIR"
-
 # Remove old YAML files to avoid conflicts with different device types
 print_info "Removing old configuration files"
 rm -f "$TARGET_CONFIG_DIR"/*.yaml || {
     print_error "Failed to remove old config files!"
-    print_info "Restoring backup..."
-    rm -rf "$TARGET_CONFIG_DIR"
-    mv "$BACKUP_DIR" "$TARGET_CONFIG_DIR"
     exit 1
 }
 
@@ -131,9 +123,6 @@ rm -f "$TARGET_CONFIG_DIR"/*.yaml || {
 print_info "Copying configuration files from $SOURCE_CONFIG_DIR"
 cp -v "$SOURCE_CONFIG_DIR"/*.yaml "$TARGET_CONFIG_DIR/" || {
     print_error "Failed to copy config files!"
-    print_info "Restoring backup..."
-    rm -rf "$TARGET_CONFIG_DIR"
-    mv "$BACKUP_DIR" "$TARGET_CONFIG_DIR"
     exit 1
 }
 
@@ -148,11 +137,10 @@ print_warning "Could not set file permissions"
 
 print_info "Configuration successfully updated!"
 print_info "Device type: $DEVICE_NAME"
-print_info "Backup saved to: $BACKUP_DIR"
 print_info ""
 print_info "Summary of changes:"
-echo "  - Copied config files from: $SOURCE_CONFIG_DIR"
-echo "  - Updated device type to: $DEVICE_NAME"
-echo "  - Config location: $TARGET_CONFIG_DIR"
+echo "  - Removed old config files from: $TARGET_CONFIG_DIR"
+echo "  - Copied new config files from: $SOURCE_CONFIG_DIR"
+echo "  - Device type: $DEVICE_NAME"
 print_info ""
 print_info "You can now unmount the image and flash it to the BeagleBone Black"

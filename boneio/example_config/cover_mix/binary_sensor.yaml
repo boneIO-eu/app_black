@@ -3,15 +3,15 @@
 # boneio_covers are shared between event.yaml and binary_sensor.yaml.
 # Don't duplicate boneio_covers.
 
-- name: IN_01
-  boneio_input: IN_01
+- name: IN_48
+  boneio_input: in_48
   actions:
     pressed:
       - action: cover
         action_cover: toggle_open
         boneio_cover: Cover01
-- name: IN_02
-  boneio_input: IN_02
+- name: IN_49
+  boneio_input: in_49
   actions:
     pressed:
       - action: cover
