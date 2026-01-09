@@ -37,7 +37,6 @@ class ModbusBinaryWriteableEntityDiscrete(ModbusBaseEntity):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
         kwargs = {
             "value_template": value_template,
-            "entity_id": self.name,
             "payload_off": self._payload_off,
             "payload_on": self._payload_on,
         }
