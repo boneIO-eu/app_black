@@ -4,12 +4,40 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Add project root to path for imports
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# ============================================================================
+# GPIO Mocks (for running tests without hardware)
+# ============================================================================
+
+@pytest.fixture(autouse=True)
+def mock_gpiod():
+    """Mock gpiod module for tests running without hardware."""
+    mock_chip = MagicMock()
+    mock_line = MagicMock()
+    mock_chip.get_line.return_value = mock_line
+    
+    with patch.dict("sys.modules", {
+        "gpiod": MagicMock(),
+    }):
+        yield mock_chip
+
+
+@pytest.fixture
+def mock_config_helper():
+    """Provide a mock ConfigHelper for HA integration tests."""
+    helper = MagicMock()
+    helper.topic_prefix = "boneio"
+    helper.ha_discovery = True
+    helper.ha_discovery_prefix = "homeassistant"
+    return helper
 
 
 # ============================================================================
