@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [dev-debian13]
   pull_request:
-    branches: [main, develop]
+    branches: [dev-debian13]
 
 jobs:
   test:
