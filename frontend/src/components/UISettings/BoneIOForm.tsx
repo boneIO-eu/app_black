@@ -171,7 +171,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         >
           <option value="">{t('boneio_config.select_version')}</option>
           <option value="0.2">0.2</option>
-          <option value="0.">0.3</option>
+          <option value="0.3">0.3</option>
           <option value="0.4">0.4</option>
           <option value="0.5">0.5</option>
           <option value="0.6">0.6</option>
