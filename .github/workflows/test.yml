@@ -25,9 +25,7 @@ jobs:
         run: pip install pdm
 
       - name: Install dependencies
-        run: |
-          pdm install --dev
-          pdm install -G test
+        run: pdm install --dev
 
       - name: Run unit tests
         run: |
