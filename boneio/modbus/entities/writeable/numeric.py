@@ -43,7 +43,6 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
         kwargs = {
             "value_template": value_template,
-            "entity_id": self.name,
         }
         msg = modbus_numeric_availabilty_message(
             entity_id=self._id,
@@ -70,7 +69,6 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
         value_template = f"{{{{ value_json.{self.decoded_name} }}}}"
         kwargs = {
             "value_template": value_template,
-            "entity_id": self.name,
             "mode": "box",
             "step": self.step,
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
