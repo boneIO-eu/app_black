@@ -651,6 +651,47 @@ export default function ModbusHelper() {
               <span>⚠️ {t('modbus_helper.configure_warning')}</span>
             </div>
 
+            {/* Device Model - First */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-semibold">{t('modbus_helper.device_model')}</span>
+                </label>
+                <select
+                  className="select select-bordered w-full"
+                  value={configDevice}
+                  onChange={(e) => {
+                    setConfigDevice(e.target.value);
+                    if (e.target.value === 'dyp-a12-ultrasonic') {
+                      setConfigOperation('address');
+                      setConfigCurrentBaudrate(9600);
+                    }
+                  }}
+                >
+                  <option value="cwt">CWT (Temp & Humidity)</option>
+                  <option value="sht30">SHT30 (Temp & Humidity)</option>
+                  <option value="dyp-a12-ultrasonic">DYP-A12 (Ultrasonic Distance)</option>
+                </select>
+              </div>
+
+              {/* UART */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-semibold">{t('modbus_helper.uart')}</span>
+                </label>
+                <select
+                  className="select select-bordered w-full"
+                  value={configUart}
+                  onChange={(e) => setConfigUart(e.target.value)}
+                >
+                  <option value="uart1">UART1</option>
+                  <option value="uart2">UART2</option>
+                  <option value="uart4">UART4</option>
+                  <option value="uart5">UART5</option>
+                </select>
+              </div>
+            </div>
+
             {/* Operation Type Selection */}
             <div className="form-control mb-4">
               <label className="label">
@@ -667,87 +708,62 @@ export default function ModbusHelper() {
                   />
                   <span className="label-text">{t('modbus_helper.change_address')}</span>
                 </label>
-                <label className="label cursor-pointer gap-2">
-                  <input
-                    type="radio"
-                    name="operation"
-                    className="radio radio-primary"
-                    checked={configOperation === 'baudrate'}
-                    onChange={() => setConfigOperation('baudrate')}
-                  />
-                  <span className="label-text">{t('modbus_helper.change_baudrate')}</span>
-                </label>
+                {configDevice !== 'dyp-a12-ultrasonic' && (
+                  <label className="label cursor-pointer gap-2">
+                    <input
+                      type="radio"
+                      name="operation"
+                      className="radio radio-primary"
+                      checked={configOperation === 'baudrate'}
+                      onChange={() => setConfigOperation('baudrate')}
+                    />
+                    <span className="label-text">{t('modbus_helper.change_baudrate')}</span>
+                  </label>
+                )}
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Device Model */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.device_model')}</span>
-                </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={configDevice}
-                  onChange={(e) => setConfigDevice(e.target.value)}
-                >
-                  <option value="cwt">CWT (Temp & Humidity)</option>
-                  <option value="sht30">SHT30 (Temp & Humidity)</option>
-                </select>
-              </div>
-
-              {/* UART */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.uart')}</span>
-                </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={configUart}
-                  onChange={(e) => setConfigUart(e.target.value)}
-                >
-                  <option value="uart1">UART1</option>
-                  <option value="uart2">UART2</option>
-                  <option value="uart4">UART4</option>
-                  <option value="uart5">UART5</option>
-                </select>
-              </div>
-
-              {/* Current Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.current_address')}</span>
-                </label>
-                <input
-                  type="number"
-                  className="input input-bordered w-full"
-                  value={configCurrentAddress}
-                  onChange={(e) => setConfigCurrentAddress(Number(e.target.value))}
-                  min={1}
-                  max={247}
-                />
-              </div>
-
-              {/* Current Baudrate */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
-                </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={configCurrentBaudrate}
-                  onChange={(e) => setConfigCurrentBaudrate(Number(e.target.value))}
-                >
-                  <option value={2400}>2400</option>
-                  <option value={4800}>4800</option>
-                  <option value={9600}>9600</option>
-                  <option value={19200}>19200</option>
-                </select>
-              </div>
-
-              {/* New Address - Only shown when changing address */}
-              {configOperation === 'address' && (
+            {/* Address change fields */}
+            {configOperation === 'address' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">{t('modbus_helper.current_address')}</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input input-bordered w-full"
+                    value={configCurrentAddress}
+                    onChange={(e) => setConfigCurrentAddress(Number(e.target.value))}
+                    min={1}
+                    max={247}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
+                  </label>
+                  {configDevice === 'dyp-a12-ultrasonic' ? (
+                    <input
+                      type="text"
+                      className="input input-bordered w-full"
+                      value="9600"
+                      disabled
+                    />
+                  ) : (
+                    <select
+                      className="select select-bordered w-full"
+                      value={configCurrentBaudrate}
+                      onChange={(e) => setConfigCurrentBaudrate(Number(e.target.value))}
+                    >
+                      <option value={2400}>2400</option>
+                      <option value={4800}>4800</option>
+                      <option value={9600}>9600</option>
+                      <option value={19200}>19200</option>
+                    </select>
+                  )}
+                </div>
+                <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.new_address')} *</span>
                   </label>
@@ -761,11 +777,41 @@ export default function ModbusHelper() {
                     placeholder={t('modbus_helper.new_address_placeholder')}
                   />
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* New Baudrate - Only shown when changing baudrate */}
-              {configOperation === 'baudrate' && (
+            {/* Baudrate change fields */}
+            {configOperation === 'baudrate' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">{t('modbus_helper.current_address')}</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input input-bordered w-full"
+                    value={configCurrentAddress}
+                    onChange={(e) => setConfigCurrentAddress(Number(e.target.value))}
+                    min={1}
+                    max={247}
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={configCurrentBaudrate}
+                    onChange={(e) => setConfigCurrentBaudrate(Number(e.target.value))}
+                  >
+                    <option value={2400}>2400</option>
+                    <option value={4800}>4800</option>
+                    <option value={9600}>9600</option>
+                    <option value={19200}>19200</option>
+                  </select>
+                </div>
+                <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.new_baudrate')} *</span>
                   </label>
@@ -781,8 +827,8 @@ export default function ModbusHelper() {
                     <option value={19200}>19200</option>
                   </select>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="card-actions justify-end mt-4">
               <button

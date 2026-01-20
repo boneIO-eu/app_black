@@ -1,0 +1,40 @@
+{
+  "model": "DYP-A12 Distance Ultrasonic Sensor",
+  "set_base": {
+    "set_address_address": 512
+  },
+  "registers_base": [
+    {
+      "base": 256,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Distance",
+          "address": 256,
+          "unit_of_measurement": "mm",
+          "state_class": "measurement",
+          "device_class": "distance",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "Distance Realtime",
+          "address": 257,
+          "unit_of_measurement": "mm",
+          "state_class": "measurement",
+          "device_class": "distance",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "Temperature",
+          "address": 258,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [{ "multiply": 0.1 }]
+        }
+      ]
+    }
+  ]
+}
