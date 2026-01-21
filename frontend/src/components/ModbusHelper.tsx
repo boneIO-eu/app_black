@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { FaPlay, FaSearch, FaCog } from 'react-icons/fa';
+import { FaPlay, FaSearch, FaCog, FaPlus } from 'react-icons/fa';
+import ModbusDeviceCreator from './ModbusDeviceCreator';
 
 interface ModbusConfig {
   configured: boolean;
@@ -33,7 +34,7 @@ interface ModbusResult {
  */
 export default function ModbusHelper() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'get' | 'set' | 'search' | 'configure'>('get');
+  const [activeTab, setActiveTab] = useState<'get' | 'set' | 'search' | 'configure' | 'creator'>('get');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ModbusResult | null>(null);
   const [config, setConfig] = useState<ModbusConfig | null>(null);
@@ -276,6 +277,12 @@ export default function ModbusHelper() {
           onClick={() => setActiveTab('configure')}
         >
           <FaCog className="mr-2" /> {t('modbus_helper.configure')}
+        </button>
+        <button
+          className={`tab ${activeTab === 'creator' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('creator')}
+        >
+          <FaPlus className="mr-2" /> {t('modbus_helper.creator')}
         </button>
       </div>
 
@@ -856,8 +863,18 @@ export default function ModbusHelper() {
         </div>
       )}
 
+      {/* CREATOR Tab */}
+      {activeTab === 'creator' && (
+        <div className="card bg-base-200 mb-6">
+          <div className="card-body">
+            <h2 className="card-title text-lg">{t('modbus_helper.device_creator')}</h2>
+            <ModbusDeviceCreator />
+          </div>
+        </div>
+      )}
+
       {/* Loading indicator for other operations */}
-      {loading && (activeTab !== 'search' || !result?.total) && (
+      {loading && (activeTab !== 'search' && activeTab !== 'creator' || !result?.total) && (
         <div className="flex justify-center items-center py-8">
           <span className="loading loading-spinner loading-lg"></span>
           <span className="ml-4">{t('modbus_helper.loading')}</span>
