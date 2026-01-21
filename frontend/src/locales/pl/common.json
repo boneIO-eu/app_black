@@ -835,7 +835,13 @@
     "custom_unit": "Własna...",
     "enter_custom_unit": "Wprowadź własną jednostkę:",
     "select_unit": "Wybierz jednostkę...",
-    "calculated": "Wyliczone"
+    "calculated": "Wyliczone",
+    "load_json": "Wczytaj JSON",
+    "clear_all": "Wyczyść wszystko",
+    "draft_found": "Masz niezapisany szkic z poprzedniej sesji.",
+    "restore_draft": "Przywróć",
+    "discard_draft": "Odrzuć",
+    "invalid_json_file": "Nieprawidłowy plik JSON. Wybierz poprawną konfigurację urządzenia Modbus."
   },
   "event_form": {
     "single_click": "Pojedyncze",

@@ -52,7 +52,7 @@ export default function ModbusHelper() {
   const [writeValue, setWriteValue] = useState<number | ''>('');
 
   // SEARCH parameters
-  const [searchRegisterAddress, setSearchRegisterAddress] = useState(1);
+  const [searchRegisterAddress, setSearchRegisterAddress] = useState(0);
   const [searchRegisterType, setSearchRegisterType] = useState('input');
   const [searchStartAddress, setSearchStartAddress] = useState(1);
   const [searchEndAddress, setSearchEndAddress] = useState(247);
@@ -480,7 +480,7 @@ export default function ModbusHelper() {
                   type="number"
                   className="input input-bordered"
                   value={searchRegisterAddress}
-                  onChange={(e) => setSearchRegisterAddress(parseInt(e.target.value) || 1)}
+                  onChange={(e) => setSearchRegisterAddress(parseInt(e.target.value) || 0)}
                   min={0}
                 />
               </div>

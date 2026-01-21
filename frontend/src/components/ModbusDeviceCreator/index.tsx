@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { Register, DeviceConfig, generateId, groupRegistersIntoBlocks } from './types';
+import { useState, useEffect, useRef } from 'react';
+import { Register, DeviceConfig, CreatorState, generateId, groupRegistersIntoBlocks, parseDeviceConfig, STORAGE_KEY } from './types';
+import { useTranslation } from '@/hooks/useTranslation';
+import { FaUpload, FaTrash, FaUndo } from 'react-icons/fa';
 import DeviceInfoSection from './DeviceInfoSection';
 import SetBaseSection from './SetBaseSection';
 import RegistersSection from './RegistersSection';
 import ActionsSection from './ActionsSection';
 
 export default function ModbusDeviceCreator() {
+  const { t } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [modelName, setModelName] = useState('');
   const [fileName, setFileName] = useState('');
   const [category, setCategory] = useState('sensors');
@@ -24,6 +28,100 @@ export default function ModbusDeviceCreator() {
   const [showPreview, setShowPreview] = useState(false);
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const state: CreatorState = JSON.parse(saved);
+        if (state.registers && state.registers.length > 0) {
+          setHasDraft(true);
+        }
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+  }, []);
+
+  // Auto-save to localStorage when state changes
+  useEffect(() => {
+    const state: CreatorState = {
+      modelName,
+      fileName,
+      category,
+      enableSetAddress,
+      setAddressAddress,
+      enableSetBaudrate,
+      baudrateAddress,
+      baudrateMappings,
+      registers,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [modelName, fileName, category, enableSetAddress, setAddressAddress, enableSetBaudrate, baudrateAddress, baudrateMappings, registers]);
+
+  const loadFromState = (state: Partial<CreatorState>) => {
+    if (state.modelName !== undefined) setModelName(state.modelName);
+    if (state.fileName !== undefined) setFileName(state.fileName);
+    if (state.category !== undefined) setCategory(state.category);
+    if (state.enableSetAddress !== undefined) setEnableSetAddress(state.enableSetAddress);
+    if (state.setAddressAddress !== undefined) setSetAddressAddress(state.setAddressAddress);
+    if (state.enableSetBaudrate !== undefined) setEnableSetBaudrate(state.enableSetBaudrate);
+    if (state.baudrateAddress !== undefined) setBaudrateAddress(state.baudrateAddress);
+    if (state.baudrateMappings !== undefined) setBaudrateMappings(state.baudrateMappings);
+    if (state.registers !== undefined) setRegisters(state.registers);
+    setHasDraft(false);
+  };
+
+  const loadDraft = () => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const state: CreatorState = JSON.parse(saved);
+        loadFromState(state);
+      } catch {
+        // Invalid JSON, ignore
+      }
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setHasDraft(false);
+    setModelName('');
+    setFileName('');
+    setCategory('sensors');
+    setEnableSetAddress(false);
+    setSetAddressAddress(256);
+    setEnableSetBaudrate(false);
+    setBaudrateAddress(257);
+    setBaudrateMappings({ '9600': 9600, '19200': 19200 });
+    setRegisters([]);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const config: DeviceConfig = JSON.parse(content);
+        const state = parseDeviceConfig(config);
+        loadFromState(state);
+        // Set filename from uploaded file
+        const nameWithoutExt = file.name.replace(/\.json$/, '');
+        setFileName(nameWithoutExt);
+      } catch (error) {
+        alert(t('modbus_creator.invalid_json_file'));
+      }
+    };
+    reader.readAsText(file);
+    // Reset input so same file can be selected again
+    event.target.value = '';
+  };
 
   const isValid = () => {
     if (!modelName) return false;
@@ -148,6 +246,46 @@ export default function ModbusDeviceCreator() {
 
   return (
     <div className="space-y-6">
+      {/* Draft recovery banner */}
+      {hasDraft && registers.length === 0 && (
+        <div className="alert alert-info">
+          <span>{t('modbus_creator.draft_found')}</span>
+          <div className="flex gap-2">
+            <button className="btn btn-sm btn-primary" onClick={loadDraft}>
+              <FaUndo className="mr-1" /> {t('modbus_creator.restore_draft')}
+            </button>
+            <button className="btn btn-sm btn-ghost" onClick={clearDraft}>
+              <FaTrash className="mr-1" /> {t('modbus_creator.discard_draft')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Load/Clear buttons */}
+      <div className="flex gap-2 justify-end">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+        <button
+          className="btn btn-outline btn-sm"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <FaUpload className="mr-1" /> {t('modbus_creator.load_json')}
+        </button>
+        {registers.length > 0 && (
+          <button
+            className="btn btn-outline btn-sm btn-error"
+            onClick={clearDraft}
+          >
+            <FaTrash className="mr-1" /> {t('modbus_creator.clear_all')}
+          </button>
+        )}
+      </div>
+
       <DeviceInfoSection
         modelName={modelName}
         setModelName={setModelName}

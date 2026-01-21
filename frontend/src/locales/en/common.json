@@ -828,7 +828,13 @@
     "custom_unit": "Custom...",
     "enter_custom_unit": "Enter custom unit:",
     "select_unit": "Select unit...",
-    "calculated": "Calculated"
+    "calculated": "Calculated",
+    "load_json": "Load JSON",
+    "clear_all": "Clear All",
+    "draft_found": "You have an unsaved draft from a previous session.",
+    "restore_draft": "Restore",
+    "discard_draft": "Discard",
+    "invalid_json_file": "Invalid JSON file. Please select a valid Modbus device configuration."
   },
   "event_form": {
     "single_click": "Single",

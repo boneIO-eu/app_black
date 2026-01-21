@@ -82,6 +82,65 @@ export const UNITS_OF_MEASUREMENT = [
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
+export const STORAGE_KEY = 'modbus_device_creator_draft';
+
+/**
+ * State that can be saved/loaded from localStorage or JSON file
+ */
+export interface CreatorState {
+  modelName: string;
+  fileName: string;
+  category: string;
+  enableSetAddress: boolean;
+  setAddressAddress: number;
+  enableSetBaudrate: boolean;
+  baudrateAddress: number;
+  baudrateMappings: Record<string, number>;
+  registers: Register[];
+}
+
+/**
+ * Parse a device config JSON and convert it to creator state
+ */
+export const parseDeviceConfig = (config: DeviceConfig): Partial<CreatorState> => {
+  const state: Partial<CreatorState> = {
+    modelName: config.model,
+    registers: [],
+  };
+
+  // Parse set_base
+  if (config.set_base) {
+    if (config.set_base.set_address_address !== undefined) {
+      state.enableSetAddress = true;
+      state.setAddressAddress = config.set_base.set_address_address;
+    }
+    if (config.set_base.set_baudrate) {
+      state.enableSetBaudrate = true;
+      state.baudrateAddress = config.set_base.set_baudrate.address;
+      state.baudrateMappings = config.set_base.set_baudrate.possible_baudrates;
+    }
+  }
+
+  // Parse registers from blocks
+  for (const block of config.registers_base) {
+    for (const reg of block.registers) {
+      state.registers!.push({
+        id: generateId(),
+        name: reg.name,
+        address: reg.address,
+        register_type: block.register_type,
+        unit_of_measurement: reg.unit_of_measurement,
+        state_class: reg.state_class,
+        device_class: reg.device_class || '',
+        value_type: reg.value_type,
+        filters: reg.filters || [],
+      });
+    }
+  }
+
+  return state;
+};
+
 export const getRegisterSize = (valueType: string): number => {
   if (['U_DWORD', 'S_DWORD', 'U_DWORD_R', 'S_DWORD_R', 'FP32', 'FP32_R'].includes(valueType)) return 2;
   if (['U_QWORD', 'S_QWORD', 'U_QWORD_R'].includes(valueType)) return 4;
