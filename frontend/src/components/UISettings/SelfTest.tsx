@@ -446,13 +446,13 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
                   }`}
                 >
                   {item.result === 'passed' ? (
-                    <FaCheck className="text-success flex-shrink-0" />
+                    <FaCheck className="text-success shrink-0" />
                   ) : item.result === 'skipped' ? (
-                    <FaForward className="text-warning flex-shrink-0" />
+                    <FaForward className="text-warning shrink-0" />
                   ) : item.result === 'failed' ? (
-                    <FaTimes className="text-error flex-shrink-0" />
+                    <FaTimes className="text-error shrink-0" />
                   ) : (
-                    <div className="w-4 h-4 rounded-full border-2 border-base-300 flex-shrink-0" />
+                    <div className="w-4 h-4 rounded-full border-2 border-base-300 shrink-0" />
                   )}
                   <span className="text-sm truncate">{item.name}</span>
                 </div>

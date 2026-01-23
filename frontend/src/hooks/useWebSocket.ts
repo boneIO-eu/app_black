@@ -143,13 +143,6 @@ export function isConfigReloadEvent(data: StateUpdate): data is ConfigReloadEven
   return data.event_type === 'config_reload';
 }
 
-interface WebSocketHookResult {
-  error: string | null;
-  addMessageListener: (callback: (message: StateUpdate) => void) => () => void;
-  isConnected: boolean;
-  addConnectionStateListener: (callback: (connected: boolean) => void) => () => void;
-}
-
 // Singleton WebSocket instance and listeners
 let globalWs: WebSocket | null = null;
 let globalMessageListeners = new Set<(message: StateUpdate) => void>();

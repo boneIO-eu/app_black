@@ -164,7 +164,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
           {totalDiscovered > 0 && (
             <span className="badge badge-success badge-sm">{totalDiscovered}</span>
           )}
-          <div className="flex-grow" />
+          <div className="grow" />
           <button
             className={`btn btn-sm btn-secondary gap-1 ${scanningNetwork ? 'loading' : ''}`}
             onClick={scanEsphomeNetwork}
