@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from '@/api/axios';
 import { FaPlus, FaTrash, FaSync } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -72,23 +73,12 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
     setDiscoveryError(null);
 
     try {
-      const response = await fetch('/api/remote-devices/discover-esphome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: esphomeConfig.host,
-          port: esphomeConfig.port || 6053,
-          password: esphomeConfig.password || '',
-          encryption_key: esphomeConfig.encryption_key || '',
-        }),
+      const { data: result } = await axios.post('/api/remote-devices/discover-esphome', {
+        host: esphomeConfig.host,
+        port: esphomeConfig.port || 6053,
+        password: esphomeConfig.password || '',
+        encryption_key: esphomeConfig.encryption_key || '',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Discovery failed');
-      }
-
-      const result = await response.json();
       
       // Update esphome_api config with discovered entities
       onChange({

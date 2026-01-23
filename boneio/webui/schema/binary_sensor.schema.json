@@ -4,8 +4,8 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -62,8 +62,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -343,8 +343,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -495,8 +495,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -507,8 +507,8 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -659,8 +659,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",

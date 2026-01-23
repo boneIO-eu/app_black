@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { useTheme } from '../hooks/useTheme';
 import { FaChevronRight, FaChevronDown, FaRegFolder, FaRegFolderOpen, FaRegFile } from 'react-icons/fa';
 import { GoSidebarExpand } from 'react-icons/go';
@@ -69,7 +69,8 @@ export default function ConfigEditor() {
   const handleBeforeMount: BeforeMount = async (monaco: any) => {
     if (!monacoYaml) {
       // Load all schemas
-      const mainSchema = await fetch("/schema/config.schema.json").then(r => r.json());
+      const schemaResponse = await axios.get('/schema/config.schema.json');
+      const mainSchema = schemaResponse.data;
       
       monacoYaml = await configureMonacoYaml(monaco, {
         enableSchemaRequest: true,

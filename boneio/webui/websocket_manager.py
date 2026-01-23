@@ -71,9 +71,14 @@ class WebSocketManager:
         try:
             if self._auth_required:
                 if not await self._verify_token(websocket):
+                    # Must accept before closing with custom code
+                    await websocket.accept()
                     await websocket.close(code=4001, reason="Authentication failed")
                     return False
-                await websocket.accept(subprotocol=websocket.headers.get("sec-websocket-protocol"))
+                # Accept with the token protocol as subprotocol
+                protocols = websocket.headers.get("sec-websocket-protocol", "").split(", ")
+                token_protocol = next((p for p in protocols if p.startswith("token.")), None)
+                await websocket.accept(subprotocol=token_protocol)
             else:
                 await websocket.accept()
 

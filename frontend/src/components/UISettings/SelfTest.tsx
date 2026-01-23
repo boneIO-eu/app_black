@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import axios from '@/api/axios';
 import { FaPlay, FaCheck, FaForward, FaTimes, FaSpinner, FaLightbulb, FaToggleOn, FaHandPointer } from 'react-icons/fa';
 import { WebSocketContext } from '../../App';
 import { OutputEvent, InputEvent } from '../../hooks/useWebSocket';
@@ -42,7 +43,7 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
   // Turn on output
   const turnOnOutput = async (outputId: string) => {
     try {
-      await fetch(`/api/outputs/${outputId}/turn_on`, { method: 'POST' });
+      await axios.post(`/api/outputs/${outputId}/turn_on`);
     } catch (err) {
       console.error('Error turning on output:', err);
     }
@@ -51,7 +52,7 @@ const SelfTest: React.FC<SelfTestProps> = ({ isOpen, onClose }) => {
   // Turn off output
   const turnOffOutput = async (outputId: string) => {
     try {
-      await fetch(`/api/outputs/${outputId}/turn_off`, { method: 'POST' });
+      await axios.post(`/api/outputs/${outputId}/turn_off`);
     } catch (err) {
       console.error('Error turning off output:', err);
     }

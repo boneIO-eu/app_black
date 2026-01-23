@@ -4,8 +4,8 @@
   "properties": {
     "virtual_energy_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [

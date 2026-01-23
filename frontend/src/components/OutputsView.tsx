@@ -1,6 +1,6 @@
 import { useState, useContext, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
 import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } from '../hooks/useWebSocket';
@@ -57,8 +57,7 @@ export default function OutputsView({error}: {error: string | null}) {
   useEffect(() => {
     const fetchHardwareErrors = async () => {
       try {
-        const response = await fetch('/api/hardware/errors');
-        const data = await response.json();
+        const { data } = await axios.get('/api/hardware/errors');
         setHardwareErrorsCount(data.errors?.length || 0);
       } catch (err) {
         console.error('Failed to fetch hardware errors:', err);

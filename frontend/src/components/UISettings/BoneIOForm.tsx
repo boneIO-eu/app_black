@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle } from 'react-icons/fa';
 
@@ -47,16 +48,10 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/config/validate_device_type_change', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          new_device_type: newDeviceType,
-          version: data?.version || '0.8',
-        }),
+      const { data: result } = await axios.post<ValidationResult>('/api/config/validate_device_type_change', {
+        new_device_type: newDeviceType,
+        version: data?.version || '0.8',
       });
-
-      const result: ValidationResult = await response.json();
 
       if (result.compatible) {
         // No conflicts, apply change directly
@@ -95,16 +90,10 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/factory_reset/partial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device_type: pendingDeviceType,
-          files_to_replace: selectedCategories,
-        }),
+      const { data: result } = await axios.post('/api/factory_reset/partial', {
+        device_type: pendingDeviceType,
+        files_to_replace: selectedCategories,
       });
-
-      const result = await response.json();
       setResetResult(result);
 
       if (result.status === 'success') {

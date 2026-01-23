@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from '@/api/axios';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
 import {
@@ -81,7 +82,7 @@ export default function UISettings() {
 
     setIsRestarting(true);
     try {
-      await fetch('/api/restart', { method: 'POST' });
+      await axios.post('/api/restart');
       // The server will restart, so we won't get a response
       // Show a message and wait for reconnection
     } catch (error) {
@@ -177,16 +178,14 @@ export default function UISettings() {
   const loadConfiguration = useCallback(async () => {
     try {
       // Check restart status from backend (non-blocking)
-      fetch('/api/status/restart')
-        .then(r => (r.ok ? r.json() : null))
-        .then(status => {
-          if (status?.restart_required) setRestartRequired(true);
+      axios.get('/api/status/restart')
+        .then(res => {
+          if (res.data?.restart_required) setRestartRequired(true);
         })
         .catch(() => {});
 
       // Load parsed config from backend FIRST (fast, small)
-      const configResponse = await fetch('/api/config');
-      const configContent = await configResponse.json();
+      const { data: configContent } = await axios.get('/api/config');
       const configData = configContent?.config || {};
 
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
@@ -207,8 +206,8 @@ export default function UISettings() {
       const isDevelopment = import.meta.env.DEV;
       const schemaUrl = isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json';
 
-      fetch(schemaUrl, { cache: 'no-store' })
-        .then(r => r.json())
+      axios.get(schemaUrl, { headers: { 'Cache-Control': 'no-store' } })
+        .then(res => res.data)
         .then(mainSchema => {
           // Debug: log all schema keys
           console.log(
@@ -700,22 +699,10 @@ export default function UISettings() {
       const bodyData = JSON.stringify(minimalConfig);
       console.log('📤 Sending to backend:', bodyData);
 
-      const response = await fetch(`/api/config/${sectionName}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: bodyData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Backend error response:', errorText);
-        throw new Error(`Server returned ${response.status}: ${errorText}`);
-      }
+      const response = await axios.put(`/api/config/${sectionName}`, minimalConfig);
+      const result = response.data;
 
       if (response.status === 200) {
-        const result = await response.json();
 
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
@@ -751,15 +738,9 @@ export default function UISettings() {
           try {
             setIsReloading(true);
             console.log(`🔄 Triggering reload for section: ${sectionName}`);
-            const reloadResponse = await fetch('/api/config/reload', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify([sectionName]),
-            });
+            const reloadResponse = await axios.post('/api/config/reload', [sectionName]);
 
-            if (reloadResponse.ok) {
+            if (reloadResponse.status === 200) {
               console.log(`✅ Section ${sectionName} reloaded successfully`);
 
               // Reload entire configuration to get fresh data
@@ -769,7 +750,7 @@ export default function UISettings() {
             } else {
               console.warn(
                 `⚠️ Failed to reload section ${sectionName}:`,
-                await reloadResponse.text()
+                reloadResponse.data
               );
             }
           } catch (reloadError) {

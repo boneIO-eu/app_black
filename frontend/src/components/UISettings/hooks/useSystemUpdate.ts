@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -46,8 +47,7 @@ export const useSystemUpdate = () => {
     setIsChecking(true);
     setError(null);
     try {
-      const response = await fetch('/api/check_update');
-      const data = await response.json();
+      const { data } = await axios.get('/api/check_update');
       setUpdateInfo(data);
 
       if (data.error) {
@@ -75,13 +75,7 @@ export const useSystemUpdate = () => {
     });
 
     try {
-      const response = await fetch('/api/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version }),
-      });
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/update', { version });
 
       if (data.status === 'started') {
         pollUpdateStatus();
@@ -116,8 +110,7 @@ export const useSystemUpdate = () => {
   const pollUpdateStatus = useCallback(() => {
     const interval = setInterval(async () => {
       try {
-        const response = await fetch('/api/update_status');
-        const data = await response.json();
+        const { data } = await axios.get('/api/update_status');
         setUpdateStatus(data);
 
         if (data.status === 'success' || data.status === 'error') {

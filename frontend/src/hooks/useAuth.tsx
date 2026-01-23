@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { closeWebSocket } from './useWebSocket';
 
 export interface AuthContextType {
@@ -32,14 +32,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_URL || '';
-        const response = await axios.get(`${baseUrl}/api/auth/required`);
+        const response = await axios.get('/api/auth/required');
         setIsAuthRequired(response.data.required);
         console.log("required", response.data.required);
         
         const token = localStorage.getItem('token');
         if (token) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          // Token is automatically added by axios interceptor from localStorage
           setIsAuthenticated(true);
         }
       } catch (error) {
@@ -54,11 +53,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (username: string, password: string) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
-      const response = await axios.post(`${baseUrl}/api/login`, { username, password });
+      const response = await axios.post('/api/login', { username, password });
       const { token } = response.data;
       localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // Token is automatically added by axios interceptor from localStorage
       setIsAuthenticated(true);
     } catch (error) {
       console.error('Login error:', error);
@@ -68,7 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
-    axios.defaults.headers.common['Authorization'] = '';
+    // Token removal from localStorage is enough - interceptor reads from localStorage
     closeWebSocket(); // Close WebSocket connection
     setIsAuthenticated(false);
   }, []);

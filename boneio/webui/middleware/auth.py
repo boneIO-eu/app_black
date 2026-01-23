@@ -17,10 +17,31 @@ _LOGGER = logging.getLogger(__name__)
 
 # JWT Configuration
 JWT_ALGORITHM = "HS256"
-JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
+_JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
 
 # Auth configuration - will be set by init_app
 _auth_config: dict = {}
+
+
+def set_jwt_secret(secret: str) -> None:
+    """
+    Set JWT secret for token signing and verification.
+    
+    Args:
+        secret: JWT secret string.
+    """
+    global _JWT_SECRET
+    _JWT_SECRET = secret
+
+
+def get_jwt_secret() -> str:
+    """
+    Get current JWT secret.
+    
+    Returns:
+        JWT secret string.
+    """
+    return _JWT_SECRET
 
 
 def set_auth_config(config: dict) -> None:
@@ -67,7 +88,7 @@ def create_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=7)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, _JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
 
@@ -82,7 +103,7 @@ def verify_token(token: str) -> dict | None:
         Token payload if valid, None otherwise.
     """
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, _JWT_SECRET, algorithms=[JWT_ALGORITHM])
         exp = payload.get("exp")
         if not exp or datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
             return None
@@ -118,22 +139,38 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")
-        if not auth_header:
+        
+        # For SSE endpoints, also check query params (EventSource doesn't support headers)
+        token_from_query = request.query_params.get("token")
+        
+        if not auth_header and not token_from_query:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "No authorization header"}
             )
 
         try:
-            # Check if it's a Bearer token
-            scheme, token = auth_header.split()
-            if scheme.lower() != "bearer":
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid authentication scheme"}
-                )
+            token: str | None = None
+            
+            # Try to get token from Authorization header first
+            if auth_header:
+                scheme, token = auth_header.split()
+                if scheme.lower() != "bearer":
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid authentication scheme"}
+                    )
+            # Fall back to query param token (for SSE/EventSource)
+            elif token_from_query:
+                token = token_from_query
 
             # Verify the JWT token
+            if not token:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "No token provided"}
+                )
+                
             payload = verify_token(token)
             if payload is None:
                 return JSONResponse(

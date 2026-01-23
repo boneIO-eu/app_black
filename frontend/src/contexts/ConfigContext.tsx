@@ -6,6 +6,8 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import axios from '@/api/axios';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ConfigContextType {
   /** Whether the 'boneio' section exists in config */
@@ -25,24 +27,28 @@ interface ConfigProviderProps {
 export function ConfigProvider({ children }: ConfigProviderProps) {
   const [hasBoneioSection, setHasBoneioSection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, isAuthRequired } = useAuth();
 
   const refreshConfig = useCallback(async () => {
+    // Don't fetch config if auth is required but user is not authenticated
+    if (isAuthRequired && !isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      const response = await fetch('/api/config');
-      if (response.ok) {
-        const data = await response.json();
-        // Check if 'boneio' section exists in config
-        const hasBoneio = data?.config?.boneio !== undefined;
-        setHasBoneioSection(hasBoneio);
-      }
+      const { data } = await axios.get('/api/config');
+      // Check if 'boneio' section exists in config
+      const hasBoneio = data?.config?.boneio !== undefined;
+      setHasBoneioSection(hasBoneio);
     } catch (error) {
       console.error('Failed to load config:', error);
       setHasBoneioSection(false);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated, isAuthRequired]);
 
   useEffect(() => {
     refreshConfig();

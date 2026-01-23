@@ -19,6 +19,7 @@ import SettingsCard from './components/SettingsCard';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 
 interface UpdateStatus {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -157,8 +158,7 @@ const SystemState: React.FC = () => {
   // Fetch hardware errors
   const fetchHardwareErrors = useCallback(async () => {
     try {
-      const response = await fetch('/api/hardware/errors');
-      const data = await response.json();
+      const { data } = await axios.get('/api/hardware/errors');
       setHardwareErrors(data.errors || []);
     } catch (err) {
       console.error('Failed to fetch hardware errors:', err);
@@ -168,8 +168,7 @@ const SystemState: React.FC = () => {
   // Fetch current hostname
   const fetchHostname = useCallback(async () => {
     try {
-      const response = await fetch('/api/hostname');
-      const data = await response.json();
+      const { data } = await axios.get('/api/hostname');
       setCurrentHostname(data.hostname || '');
       setNewHostname(data.hostname || '');
     } catch (err) {
@@ -180,8 +179,7 @@ const SystemState: React.FC = () => {
   // Fetch SSL/TLS configuration
   const fetchSslConfig = useCallback(async () => {
     try {
-      const response = await fetch('/api/caddy/config');
-      const data = await response.json();
+      const { data } = await axios.get('/api/caddy/config');
       if (data.status === 'success') {
         setSslConfig({
           mode: data.config?.mode || 'self_signed',
@@ -200,8 +198,7 @@ const SystemState: React.FC = () => {
   // Test Caddy connection
   const testCaddyConnection = useCallback(async () => {
     try {
-      const response = await fetch('/api/caddy/test');
-      const data = await response.json();
+      const { data } = await axios.get('/api/caddy/test');
       setCaddyRunning(data.running === true);
     } catch (err) {
       console.error('Failed to test Caddy connection:', err);
@@ -220,24 +217,14 @@ const SystemState: React.FC = () => {
     setSslResult(null);
 
     try {
-      const response = await fetch('/api/caddy/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sslConfig),
+      const { data } = await axios.post('/api/caddy/config', sslConfig);
+
+      setSslResult({ 
+        status: data.status === 'warning' ? 'warning' : 'success', 
+        message: data.message || t('ssl_certificates.config_saved') 
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSslResult({ 
-          status: data.status === 'warning' ? 'warning' : 'success', 
-          message: data.message || t('ssl_certificates.config_saved') 
-        });
-        // Refresh config
-        await fetchSslConfig();
-      } else {
-        setSslResult({ status: 'error', message: data.detail || t('ssl_certificates.config_save_failed') });
-      }
+      // Refresh config
+      await fetchSslConfig();
     } catch (err: any) {
       setSslResult({ status: 'error', message: err.message || t('ssl_certificates.config_save_failed') });
     } finally {
@@ -261,18 +248,7 @@ const SystemState: React.FC = () => {
     setHostnameResult(null);
 
     try {
-      const response = await fetch('/api/hostname', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostname: newHostname }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || t('settings.hostname_change_failed'));
-      }
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/hostname', { hostname: newHostname });
       setCurrentHostname(data.hostname);
       setHostnameResult({ status: 'success', message: t('settings.hostname_changed') });
     } catch (err: any) {
@@ -292,16 +268,7 @@ const SystemState: React.FC = () => {
     setRebootResult(null);
 
     try {
-      const response = await fetch('/api/reboot', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || t('settings.reboot_failed'));
-      }
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/reboot');
       setRebootResult({ status: 'success', message: data.message || t('settings.device_rebooting') });
     } catch (err: any) {
       setRebootResult({ status: 'error', message: err.message || t('settings.reboot_failed') });
@@ -319,16 +286,7 @@ const SystemState: React.FC = () => {
     setShutdownResult(null);
 
     try {
-      const response = await fetch('/api/shutdown', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || t('settings.shutdown_failed'));
-      }
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/shutdown');
       setShutdownResult({ status: 'success', message: data.message || t('settings.device_shutting_down') });
     } catch (err: any) {
       setShutdownResult({ status: 'error', message: err.message || t('settings.shutdown_failed') });
@@ -341,8 +299,7 @@ const SystemState: React.FC = () => {
     setIsChecking(true);
     setError(null);
     try {
-      const response = await fetch('/api/check_update');
-      const data = await response.json();
+      const { data } = await axios.get('/api/check_update');
       setUpdateInfo(data);
 
       // Check if backend returned an error
@@ -360,8 +317,7 @@ const SystemState: React.FC = () => {
   // Fetch available versions for rollback
   const fetchAvailableVersions = useCallback(async () => {
     try {
-      const response = await fetch('/api/update/available_versions');
-      const data = await response.json();
+      const { data } = await axios.get('/api/update/available_versions');
       setAvailableVersions(data.versions || []);
     } catch (err) {
       console.error('Error fetching available versions:', err);
@@ -371,8 +327,7 @@ const SystemState: React.FC = () => {
   // Fetch device types for factory reset
   const fetchDeviceTypes = useCallback(async () => {
     try {
-      const response = await fetch('/api/factory_reset/device_types');
-      const data = await response.json();
+      const { data } = await axios.get('/api/factory_reset/device_types');
       setDeviceTypes(data.device_types || []);
     } catch (err) {
       console.error('Error fetching device types:', err);
@@ -382,8 +337,7 @@ const SystemState: React.FC = () => {
   // Fetch hardware versions for factory reset
   const fetchHardwareVersions = useCallback(async () => {
     try {
-      const response = await fetch('/api/factory_reset/hardware_versions');
-      const data = await response.json();
+      const { data } = await axios.get('/api/factory_reset/hardware_versions');
       setHardwareVersions(data.versions || []);
       setHardwareSensors(data.sensors || {});
     } catch (err) {
@@ -394,8 +348,7 @@ const SystemState: React.FC = () => {
   // Fetch config backups
   const fetchConfigBackups = useCallback(async () => {
     try {
-      const response = await fetch('/api/factory_reset/config_backups');
-      const data = await response.json();
+      const { data } = await axios.get('/api/factory_reset/config_backups');
       setConfigBackups(data.backups || []);
     } catch (err) {
       console.error('Error fetching config backups:', err);
@@ -410,7 +363,7 @@ const SystemState: React.FC = () => {
 
     setIsRestarting(true);
     try {
-      await fetch('/api/restart', { method: 'POST' });
+      await axios.post('/api/restart');
       // The server will restart, so we won't get a response
     } catch (error) {
       // Expected - server is restarting
@@ -426,15 +379,10 @@ const SystemState: React.FC = () => {
     setFactoryResetResult(null);
 
     try {
-      const response = await fetch('/api/factory_reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          device_type: selectedDeviceType,
-          version: selectedHardwareVersion,
-        }),
+      const { data } = await axios.post('/api/factory_reset', { 
+        device_type: selectedDeviceType,
+        version: selectedHardwareVersion,
       });
-      const data = await response.json();
       setFactoryResetResult(data);
 
       if (data.status === 'success') {
@@ -454,12 +402,7 @@ const SystemState: React.FC = () => {
   // Restore config backup
   const restoreConfigBackup = async (backupPath: string) => {
     try {
-      const response = await fetch('/api/factory_reset/restore_backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backup_path: backupPath }),
-      });
-      const data = await response.json();
+      const { data } = await axios.post('/api/factory_reset/restore_backup', { backup_path: backupPath });
       setFactoryResetResult(data);
     } catch (err) {
       setFactoryResetResult({ status: 'error', message: 'Failed to restore backup' });
@@ -469,8 +412,7 @@ const SystemState: React.FC = () => {
   // Poll update status
   const pollUpdateStatus = useCallback(async () => {
     try {
-      const response = await fetch('/api/update/status');
-      const data = await response.json();
+      const { data } = await axios.get('/api/update/status');
       setUpdateStatus(data);
       return data;
     } catch (err) {
@@ -485,12 +427,7 @@ const SystemState: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: version || selectedVersion }),
-      });
-      const data = await response.json();
+      const { data } = await axios.post('/api/update', { version: version || selectedVersion });
 
       if (data.status === 'error') {
         setError(data.message);
@@ -537,12 +474,7 @@ const SystemState: React.FC = () => {
 
     setIsUpdating(true);
     try {
-      const response = await fetch('/api/update/rollback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version }),
-      });
-      const data = await response.json();
+      const { data } = await axios.post('/api/update/rollback', { version });
 
       if (data.status === 'started') {
         // Start polling for status
@@ -560,8 +492,7 @@ const SystemState: React.FC = () => {
   // Fetch available config backups from disk
   const fetchAvailableBackups = useCallback(async () => {
     try {
-      const response = await fetch('/api/config/backups');
-      const data = await response.json();
+      const { data } = await axios.get('/api/config/backups');
       setAvailableBackups(data.backups || []);
     } catch (err) {
       console.error('Error fetching available backups:', err);
@@ -574,8 +505,7 @@ const SystemState: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/config/create_backup', { method: 'POST' });
-      const data = await response.json();
+      const { data } = await axios.post('/api/config/create_backup');
 
       if (data.status === 'success') {
         // Refresh backup list
@@ -595,13 +525,8 @@ const SystemState: React.FC = () => {
   // Download backup from disk
   const downloadBackupFromDisk = async (backupPath: string, filename: string) => {
     try {
-      const response = await fetch(`/api/config/download_backup?backup_path=${encodeURIComponent(backupPath)}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to download backup');
-      }
-
-      const blob = await response.blob();
+      const response = await axios.get(`/api/config/download_backup?backup_path=${encodeURIComponent(backupPath)}`, { responseType: 'blob' });
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -623,13 +548,7 @@ const SystemState: React.FC = () => {
     }
 
     try {
-      const response = await fetch('/api/config/delete_backup', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backup_path: backupPath }),
-      });
-
-      const data = await response.json();
+      const { data } = await axios.delete('/api/config/delete_backup', { data: { backup_path: backupPath } });
 
       if (data.status === 'success') {
         await fetchAvailableBackups();
@@ -654,18 +573,12 @@ const SystemState: React.FC = () => {
     setRestoreResult(null);
 
     try {
-      const response = await fetch('/api/config/restore_backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backup_path: backupPath }),
-      });
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/config/restore_backup', { backup_path: backupPath });
       setRestoreResult(data);
 
       if (data.status === 'success' && data.restart_required) {
         if (confirm(t('system_update.restore_success_restart'))) {
-          await fetch('/api/restart', { method: 'POST' });
+          await axios.post('/api/restart');
           setTimeout(() => window.location.reload(), 3000);
         }
       }
@@ -683,14 +596,10 @@ const SystemState: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/config/download');
-
-      if (!response.ok) {
-        throw new Error('Failed to download configuration');
-      }
+      const response = await axios.get('/api/config/download', { responseType: 'blob' });
 
       // Get filename from Content-Disposition header or use default
-      const contentDisposition = response.headers.get('Content-Disposition');
+      const contentDisposition = response.headers['content-disposition'];
       let filename = 'boneio_config.tar.gz';
       if (contentDisposition) {
         const match = contentDisposition.match(/filename=(.+)/);
@@ -700,7 +609,7 @@ const SystemState: React.FC = () => {
       }
 
       // Create blob and download
-      const blob = await response.blob();
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -727,19 +636,16 @@ const SystemState: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/config/restore', {
-        method: 'POST',
-        body: formData,
+      const { data } = await axios.post('/api/config/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const data = await response.json();
 
       if (data.status === 'success') {
         setRestoreResult(data);
 
         // Ask user if they want to restart
         if (confirm(t('system_update.restore_success_restart'))) {
-          await fetch('/api/restart', { method: 'POST' });
+          await axios.post('/api/restart');
           setTimeout(() => {
             window.location.reload();
           }, 3000);
@@ -798,14 +704,8 @@ const SystemState: React.FC = () => {
       setTurnOffProgress({ current: i + 1, total: outputsToTurnOff.length });
 
       try {
-        const response = await fetch(`/api/outputs/${output.entity_id}/turn_off`, {
-          method: 'POST',
-        });
-        if (response.ok) {
-          count++;
-        } else {
-          errors.push(output.entity_id);
-        }
+        await axios.post(`/api/outputs/${output.entity_id}/turn_off`);
+        count++;
       } catch (err) {
         console.error(`Error turning off output ${output.entity_id}:`, err);
         errors.push(output.entity_id);
@@ -858,8 +758,7 @@ const SystemState: React.FC = () => {
   // Fetch MQTT username from config
   const fetchMqttUsername = async () => {
     try {
-      const response = await fetch('/api/mqtt/username');
-      const data = await response.json();
+      const { data } = await axios.get('/api/mqtt/username');
       if (data.status === 'success' && data.username) {
         setMqttAppUsername(data.username);
       }
@@ -894,16 +793,10 @@ const SystemState: React.FC = () => {
     setPasswordResults({ ...passwordResults, [username]: { status: '', message: '' } });
 
     try {
-      const response = await fetch('/api/mqtt/change_password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: username,
-          new_password: passwords.password,
-        }),
+      const { data } = await axios.post('/api/mqtt/change_password', {
+        username: username,
+        new_password: passwords.password,
       });
-
-      const data = await response.json();
 
       if (data.status === 'success') {
         setPasswordResults({

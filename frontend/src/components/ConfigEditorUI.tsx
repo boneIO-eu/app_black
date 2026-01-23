@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import * as yaml from 'js-yaml';
 import { FaCheck, FaTimes, FaSave, FaPlus, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 
@@ -55,7 +55,8 @@ export default function ConfigEditorUI() {
       setConfig(config);
       
       // Get the schema structure to build the UI
-      const schema = await fetch("/schema/config.schema.json").then(r => r.json());
+      const schemaResponse = await axios.get('/schema/config.schema.json');
+      const schema = schemaResponse.data;
       console.log("Schema and config loaded:", { schema: schema, config });
       
       // Build config sections from schema and config data

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from '@/api/axios';
 
 /**
  * Hook to check if Node-RED is available via nginx reverse proxy.
@@ -12,22 +13,16 @@ export function useNodeRedAvailability() {
   useEffect(() => {
     const checkNodeRedAvailability = async () => {
       try {
-        const response = await fetch('/nodered-status', {
-          method: 'GET',
-          cache: 'no-cache',
+        const response = await axios.get('/nodered-status', {
+          headers: { 'Cache-Control': 'no-cache' },
         });
         
-        if (response.ok) {
-          const header = response.headers.get('X-NodeRed-Available');
-          if (header === 'true') {
-            setIsNodeRedAvailable(true);
-          } else {
-            // Fallback: check JSON response
-            const data = await response.json();
-            setIsNodeRedAvailable(data.available === true);
-          }
+        const header = response.headers['x-nodered-available'];
+        if (header === 'true') {
+          setIsNodeRedAvailable(true);
         } else {
-          setIsNodeRedAvailable(false);
+          // Fallback: check JSON response
+          setIsNodeRedAvailable(response.data.available === true);
         }
       } catch (error) {
         // Endpoint doesn't exist - nginx proxy not configured

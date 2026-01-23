@@ -4,8 +4,8 @@
   "properties": {
     "event": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -67,8 +67,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -297,8 +297,8 @@
           },
           "double_click_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -307,8 +307,8 @@
           },
           "long_press_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -317,8 +317,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -333,8 +333,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -485,8 +485,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -497,8 +497,8 @@
               },
               "double": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -649,8 +649,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -661,8 +661,8 @@
               },
               "triple": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -813,8 +813,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -825,8 +825,8 @@
               },
               "long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -977,8 +977,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -989,8 +989,8 @@
               },
               "double_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1141,8 +1141,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1153,8 +1153,8 @@
               },
               "single_then_long": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1305,8 +1305,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1317,8 +1317,8 @@
               },
               "double_then_single": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -1469,8 +1469,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
@@ -1483,7 +1483,7 @@
           },
           "sequence_mode": {
             "type": "string",
-            "default": "immediate",
+            "default": "exclusive",
             "enum": [
               "immediate",
               "exclusive"

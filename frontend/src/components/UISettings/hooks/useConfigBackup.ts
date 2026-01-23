@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 
 interface Backup {
   filename: string;
@@ -16,8 +17,7 @@ export const useConfigBackup = () => {
 
   const fetchBackups = useCallback(async () => {
     try {
-      const response = await fetch('/api/backups');
-      const data = await response.json();
+      const { data } = await axios.get('/api/backups');
       setBackups(data.backups || []);
     } catch (err) {
       console.error('Failed to fetch backups:', err);
@@ -29,15 +29,8 @@ export const useConfigBackup = () => {
     setBackupResult(null);
 
     try {
-      const response = await fetch('/api/backup', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create backup');
-      }
-
-      const blob = await response.blob();
+      const response = await axios.post('/api/backup', null, { responseType: 'blob' });
+      const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -64,12 +57,9 @@ export const useConfigBackup = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/restore', {
-        method: 'POST',
-        body: formData,
+      const { data } = await axios.post('/api/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-
-      const data = await response.json();
 
       if (data.status === 'success') {
         setBackupResult({ status: 'success', message: data.message || t('system_update.restore_success') });

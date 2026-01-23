@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface HostnameResult {
@@ -16,8 +17,7 @@ export const useHostname = () => {
 
   const fetchCurrentHostname = useCallback(async () => {
     try {
-      const response = await fetch('/api/hostname');
-      const data = await response.json();
+      const { data } = await axios.get('/api/hostname');
       setCurrentHostname(data.hostname || '');
     } catch (err) {
       console.error('Failed to fetch hostname:', err);
@@ -39,18 +39,7 @@ export const useHostname = () => {
     setHostnameResult(null);
 
     try {
-      const response = await fetch('/api/hostname', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hostname: newHostname }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || t('settings.hostname_change_failed'));
-      }
-
-      const data = await response.json();
+      const { data } = await axios.post('/api/hostname', { hostname: newHostname });
       setHostnameResult({ status: 'success', message: data.message || t('settings.hostname_changed') });
       setCurrentHostname(newHostname);
       setNewHostname('');

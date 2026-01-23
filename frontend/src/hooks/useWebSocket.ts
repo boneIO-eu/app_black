@@ -229,6 +229,11 @@ const setupWebSocket = async (
     const token = isAuthRequired && localStorage.getItem('token') || null;
     const protocols = token ? [`token.${token}`] : undefined;
     
+    console.log('🔌 WebSocket connecting to:', wsUrl);
+    console.log('🔑 Auth required:', isAuthRequired);
+    console.log('🎫 Token present:', !!token);
+    console.log('📡 Protocols:', protocols);
+    
     // Create WebSocket with protocol
     globalWs = new WebSocket(wsUrl, protocols);
 
@@ -315,10 +320,10 @@ const setupWebSocket = async (
   }
 };
 
-export function useWebSocket(): WebSocketHookResult {
+export function useWebSocket() {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { isAuthRequired } = useAuth();
+  const { isAuthRequired, isAuthenticated } = useAuth();
   const { isApiAvailable } = useApiAvailability();
 
   // Track if this is the first mount
@@ -334,6 +339,12 @@ export function useWebSocket(): WebSocketHookResult {
   useEffect(() => {
     // Don't attempt to connect if API is not available
     if (!isApiAvailable) {
+      return;
+    }
+
+    // Don't attempt to connect if auth is required but user is not authenticated
+    if (isAuthRequired && !isAuthenticated) {
+      console.log('WebSocket: Auth required but user not authenticated, skipping connection');
       return;
     }
 
@@ -362,7 +373,7 @@ export function useWebSocket(): WebSocketHookResult {
       clearTimeout(initialConnectTimeout);
       // Don't close WebSocket on dependency changes, only on unmount
     };
-  }, [isAuthRequired, isApiAvailable]);
+  }, [isAuthRequired, isAuthenticated, isApiAvailable]);
 
   // Separate cleanup effect that only runs on unmount
   useEffect(() => {

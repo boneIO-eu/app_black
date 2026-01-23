@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaPlay, FaSearch, FaCog, FaPlus } from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
+import axios from '@/api/axios';
 
 interface ModbusConfig {
   configured: boolean;
@@ -69,9 +70,8 @@ export default function ModbusHelper() {
 
   // Load config on mount
   useEffect(() => {
-    fetch('/api/modbus/config')
-      .then(res => res.json())
-      .then(data => setConfig(data))
+    axios.get('/api/modbus/config')
+      .then(res => setConfig(res.data))
       .catch(err => console.error('Failed to load modbus config:', err));
   }, []);
 
@@ -79,17 +79,12 @@ export default function ModbusHelper() {
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch('/api/modbus/get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          register_address: registerAddress,
-          register_type: registerType,
-          value_type: valueType,
-        }),
+      const { data } = await axios.post('/api/modbus/get', {
+        address,
+        register_address: registerAddress,
+        register_type: registerType,
+        value_type: valueType,
       });
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       setResult({ success: false, error: String(err) });
@@ -106,16 +101,11 @@ export default function ModbusHelper() {
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch('/api/modbus/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          register_address: writeRegisterAddress,
-          value: writeValue,
-        }),
+      const { data } = await axios.post('/api/modbus/set', {
+        address,
+        register_address: writeRegisterAddress,
+        value: writeValue,
       });
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       setResult({ success: false, error: String(err) });
@@ -136,6 +126,12 @@ export default function ModbusHelper() {
       register_type: searchRegisterType,
       timeout: searchTimeout.toString(),
     });
+    
+    // Add token to query params for SSE (EventSource doesn't support headers)
+    const token = localStorage.getItem('token');
+    if (token) {
+      params.set('token', token);
+    }
     
     try {
       const eventSource = new EventSource(`/api/modbus/search/stream?${params}`);
@@ -205,7 +201,7 @@ export default function ModbusHelper() {
 
   const handleCancelSearch = async () => {
     try {
-      await fetch('/api/modbus/search/cancel', { method: 'POST' });
+      await axios.post('/api/modbus/search/cancel');
     } catch (err) {
       console.error('Failed to cancel search:', err);
     }
@@ -215,19 +211,14 @@ export default function ModbusHelper() {
     setLoading(true);
     setResult(null);
     try {
-      const response = await fetch('/api/modbus/configure-device', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device: configDevice,
-          uart: configUart,
-          current_address: configCurrentAddress,
-          current_baudrate: configCurrentBaudrate,
-          new_address: configOperation === 'address' ? (configNewAddress || null) : null,
-          new_baudrate: configOperation === 'baudrate' ? (configNewBaudrate || null) : null,
-        }),
+      const { data } = await axios.post('/api/modbus/configure-device', {
+        device: configDevice,
+        uart: configUart,
+        current_address: configCurrentAddress,
+        current_baudrate: configCurrentBaudrate,
+        new_address: configOperation === 'address' ? (configNewAddress || null) : null,
+        new_baudrate: configOperation === 'baudrate' ? (configNewBaudrate || null) : null,
       });
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       setResult({ success: false, error: String(err) });

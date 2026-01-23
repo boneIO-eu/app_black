@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from '@/api/axios';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
@@ -41,11 +42,8 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     const fetchAutodiscovered = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch('/api/remote-devices/autodiscovered');
-        if (response.ok) {
-          const data = await response.json();
-          setAutodiscoveredDevices(data.devices || []);
-        }
+        const { data } = await axios.get('/api/remote-devices/autodiscovered');
+        setAutodiscoveredDevices(data.devices || []);
       } catch (error) {
         console.error('Failed to fetch autodiscovered devices:', error);
       } finally {
@@ -55,11 +53,8 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
 
     const fetchManagedBy = async () => {
       try {
-        const response = await fetch('/api/remote-devices/managed-by');
-        if (response.ok) {
-          const data = await response.json();
-          setManagedByDevices(data.devices || []);
-        }
+        const { data } = await axios.get('/api/remote-devices/managed-by');
+        setManagedByDevices(data.devices || []);
       } catch (error) {
         console.error('Failed to fetch managed_by devices:', error);
       }
@@ -96,11 +91,8 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     setScanningNetwork(true);
     setScannedEsphomeDevices([]);
     try {
-      const response = await fetch('/api/remote-devices/scan-esphome?timeout=3');
-      if (response.ok) {
-        const data = await response.json();
-        setScannedEsphomeDevices(data.devices || []);
-      }
+      const { data } = await axios.get('/api/remote-devices/scan-esphome?timeout=3');
+      setScannedEsphomeDevices(data.devices || []);
     } catch (error) {
       console.error('Failed to scan ESPHome network:', error);
     } finally {
@@ -120,23 +112,12 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
 
     setDiscoveringIndex(index);
     try {
-      const response = await fetch('/api/remote-devices/discover-esphome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          host: esphomeConfig.host,
-          port: esphomeConfig.port || 6053,
-          password: esphomeConfig.password || '',
-          encryption_key: esphomeConfig.encryption_key || '',
-        }),
+      const { data: result } = await axios.post('/api/remote-devices/discover-esphome', {
+        host: esphomeConfig.host,
+        port: esphomeConfig.port || 6053,
+        password: esphomeConfig.password || '',
+        encryption_key: esphomeConfig.encryption_key || '',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Discovery failed');
-      }
-
-      const result = await response.json();
       
       // Update the item with discovered entities
       const updatedItem = {

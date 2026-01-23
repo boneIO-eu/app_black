@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import axios from '@/api/axios';
 import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
 import * as yaml from 'js-yaml';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -147,10 +148,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // Fetch interlock groups for output section
   useEffect(() => {
     if (sectionType === 'output') {
-      fetch('/api/interlock-groups')
-        .then(res => res.json())
-        .then(data => {
-          setInterlockGroups(data.groups || []);
+      axios.get('/api/interlock-groups')
+        .then(res => {
+          setInterlockGroups(res.data.groups || []);
         })
         .catch(err => {
           console.error('Failed to fetch interlock groups:', err);
@@ -171,10 +171,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // Fetch available Dallas sensors for sensor section
   useEffect(() => {
     if (sectionType === 'sensor') {
-      fetch('/api/dallas/available')
-        .then(res => res.json())
-        .then(data => {
-          setAvailableDallasSensors(data.sensors || []);
+      axios.get('/api/dallas/available')
+        .then(res => {
+          setAvailableDallasSensors(res.data.sensors || []);
         })
         .catch(err => {
           console.error('Failed to fetch Dallas sensors:', err);

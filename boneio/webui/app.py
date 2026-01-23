@@ -54,7 +54,7 @@ from boneio.webui.routes import (
 )
 from boneio.webui.routes import config as config_module
 from boneio.webui.routes import system as system_module
-from boneio.webui.middleware.auth import AuthMiddleware, set_auth_config
+from boneio.webui.middleware.auth import AuthMiddleware, set_auth_config, set_jwt_secret
 
 # Import WebSocket manager
 from boneio.webui.websocket_manager import WebSocketManager
@@ -578,6 +578,9 @@ def init_app(
     # Set JWT secret
     if not jwt_secret:
         jwt_secret = secrets.token_hex(32)
+    
+    # Set JWT secret in auth middleware so it uses the same secret as WebSocket
+    set_jwt_secret(jwt_secret)
     
     # Set app state
     app.state.manager = manager

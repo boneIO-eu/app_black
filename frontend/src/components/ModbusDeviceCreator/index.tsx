@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import axios from '@/api/axios';
 import { Register, DeviceConfig, CreatorState, generateId, groupRegistersIntoBlocks, parseDeviceConfig, STORAGE_KEY } from './types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaUpload, FaTrash, FaUndo } from 'react-icons/fa';
@@ -45,8 +46,14 @@ export default function ModbusDeviceCreator() {
     }
   }, []);
 
-  // Auto-save to localStorage when state changes
+  const isInitialMount = useRef(true);
+
+  // Auto-save to localStorage when state changes (skip initial mount)
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const state: CreatorState = {
       modelName,
       fileName,
@@ -159,18 +166,12 @@ export default function ModbusDeviceCreator() {
     setTesting(register.id);
     
     try {
-      const response = await fetch('/api/modbus/get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: testDeviceAddress,
-          register_address: register.address,
-          register_type: register.register_type,
-          value_type: register.value_type,
-        }),
+      const { data: result } = await axios.post('/api/modbus/get', {
+        address: testDeviceAddress,
+        register_address: register.address,
+        register_type: register.register_type,
+        value_type: register.value_type,
       });
-      
-      const result = await response.json();
       
       if (result.success) {
         let displayValue = result.value;
