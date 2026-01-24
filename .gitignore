@@ -133,3 +133,4 @@ dmypy.json
 boneio/webui/frontend-dist/
 
 .vscode
+.windsurf
