@@ -29,9 +29,9 @@ schema:
     protocol:
       type: string
       required: True
-      # Supported: mqtt, esphome_api
+      # Supported: mqtt, esphome_api, wled
       # Future: 'loxone', 'esphome_udp', 'can'
-      allowed: ['mqtt', 'esphome_api']
+      allowed: ['mqtt', 'esphome_api', 'wled']
       meta:
         label: Protocol
         description: |
@@ -41,7 +41,7 @@ schema:
       type: string
       required: False
       default: "boneio_black"
-      allowed: ['boneio_black', 'esphome', 'generic']
+      allowed: ['boneio_black', 'esphome', 'wled', 'generic']
       meta:
         label: Device Type
         description: |
@@ -327,6 +327,109 @@ schema:
                 default: false
                 meta:
                   label: Supports Tilt
+    
+    # WLED Protocol Parameters
+    wled:
+      type: dict
+      required: False
+      dependencies:
+        protocol: ['wled']
+      meta:
+        label: WLED Settings
+        description: |
+          WLED HTTP JSON API connection settings.
+          Segments can be auto-discovered from the device.
+      schema:
+        host:
+          type: string
+          required: True
+          meta:
+            label: Host
+            description: "IP address or hostname of WLED device (e.g. wled-salon.local)"
+        port:
+          type: integer
+          required: False
+          default: 80
+          meta:
+            label: Port
+        segments:
+          type: list
+          required: False
+          meta:
+            label: Available Segments
+            description: "List of LED segments discovered or manually configured"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: integer
+                required: True
+                meta:
+                  label: Segment ID
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Segment Name
+              start:
+                type: integer
+                required: False
+                meta:
+                  label: Start LED
+              stop:
+                type: integer
+                required: False
+                meta:
+                  label: Stop LED
+              len:
+                type: integer
+                required: False
+                meta:
+                  label: LED Count
+              supports_rgb:
+                type: boolean
+                required: False
+                default: true
+                meta:
+                  label: Supports RGB Color
+        effects:
+          type: list
+          required: False
+          meta:
+            label: Available Effects
+            description: "List of WLED effects discovered from the device"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: integer
+                required: True
+                meta:
+                  label: Effect ID
+              name:
+                type: string
+                required: True
+                meta:
+                  label: Effect Name
+        palettes:
+          type: list
+          required: False
+          meta:
+            label: Available Palettes
+            description: "List of WLED color palettes discovered from the device"
+          schema:
+            type: dict
+            schema:
+              id:
+                type: integer
+                required: True
+                meta:
+                  label: Palette ID
+              name:
+                type: string
+                required: True
+                meta:
+                  label: Palette Name
     
     # # Loxone Parameters (future)
     # loxone:

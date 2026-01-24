@@ -25,6 +25,7 @@ class RemoteDeviceProtocol(str, Enum):
     LOXONE = "loxone"
     ESPHOME_UDP = "esphome_udp"
     ESPHOME_API = "esphome_api"
+    WLED = "wled"
 
 
 class RemoteDeviceType(str, Enum):
@@ -33,6 +34,7 @@ class RemoteDeviceType(str, Enum):
     BONEIO_BLACK = "boneio_black"
     ESPHOME = "esphome"
     LOXONE_MINISERVER = "loxone_miniserver"
+    WLED = "wled"
     GENERIC = "generic"
 
 

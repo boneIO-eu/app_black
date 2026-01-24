@@ -36,6 +36,8 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   const [discoveringIndex, setDiscoveringIndex] = useState<number | null>(null);
   const [scanningNetwork, setScanningNetwork] = useState(false);
   const [scannedEsphomeDevices, setScannedEsphomeDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
+  const [scanningWled, setScanningWled] = useState(false);
+  const [scannedWledDevices, setScannedWledDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
   const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
 
   // Fetch autodiscovered devices and managed_by devices
@@ -127,6 +129,22 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   };
 
   /**
+   * Scan network for WLED devices via mDNS
+   */
+  const scanWledNetwork = async () => {
+    setScanningWled(true);
+    setScannedWledDevices([]);
+    try {
+      const { data } = await axios.get('/api/remote-devices/scan-wled?timeout=3');
+      setScannedWledDevices(data.devices || []);
+    } catch (error) {
+      console.error('Failed to scan WLED network:', error);
+    } finally {
+      setScanningWled(false);
+    }
+  };
+
+  /**
    * Discover entities for an ESPHome device
    */
   const discoverEsphomeEntities = async (index: number, item: any) => {
@@ -176,9 +194,9 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     return { switches, lights, covers, total: switches + lights + covers };
   };
 
-  // Check if we have any discovered devices (BoneIO or ESPHome)
-  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0;
-  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length;
+  // Check if we have any discovered devices (BoneIO, ESPHome, or WLED)
+  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0 || scannedWledDevices.length > 0;
+  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length + scannedWledDevices.length;
 
   return (
     <div className="space-y-6">
@@ -198,7 +216,16 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
             title={t('remote_devices.scan_network') || 'Scan for ESPHome devices'}
           >
             <FaSearch className="w-3 h-3" />
-            {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_network') || 'Scan ESPHome')}
+            {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_esphome') || 'Scan ESPHome')}
+          </button>
+          <button
+            className={`btn btn-sm btn-accent gap-1 ${scanningWled ? 'loading' : ''}`}
+            onClick={scanWledNetwork}
+            disabled={scanningWled}
+            title={t('remote_devices.scan_wled') || 'Scan for WLED devices'}
+          >
+            <FaSearch className="w-3 h-3" />
+            {scanningWled ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_wled') || 'Scan WLED')}
           </button>
         </div>
         <p className="text-sm text-base-content/70 mb-3">
@@ -305,14 +332,55 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     </Td>
                   </Tr>
                 ))}
+                {/* WLED scanned devices */}
+                {scannedWledDevices.map((device, idx) => (
+                  <Tr key={`wled-${idx}`} className="hover:bg-base-300">
+                    <Td className="font-mono text-xs">
+                      <div className="flex flex-col">
+                        <span>{device.host}</span>
+                        {device.ip && device.ip !== device.host && (
+                          <span className="text-xs opacity-50">IP: {device.ip}</span>
+                        )}
+                      </div>
+                    </Td>
+                    <Td>{device.name}</Td>
+                    <Td>
+                      <span className="badge badge-accent badge-sm">WLED</span>
+                    </Td>
+                    <Td>
+                      <span className="text-xs opacity-60">:{device.port}</span>
+                    </Td>
+                    <Td>
+                      <button
+                        className="btn btn-success btn-sm gap-1"
+                        onClick={() => onAddFromDiscovery?.({
+                          id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                          name: device.name,
+                          protocol: 'wled',
+                          device_type: 'wled',
+                          outputs: [],
+                          covers: [],
+                          wled: {
+                            host: device.host,
+                            port: device.port,
+                          }
+                        } as any)}
+                        title={t('remote_devices.add_from_discovery')}
+                      >
+                        <FaPlus className="w-3 h-3" />
+                        {t('remote_devices.add')}
+                      </button>
+                    </Td>
+                  </Tr>
+                ))}
               </Tbody>
             </Table>
           </div>
         )}
 
-        {!isLoading && !scanningNetwork && !hasDiscoveredDevices && (
+        {!isLoading && !scanningNetwork && !scanningWled && !hasDiscoveredDevices && (
           <p className="text-sm text-base-content/50 py-2">
-            {t('remote_devices.no_discovered') || 'No devices discovered. BoneIO devices appear automatically, click "Scan ESPHome" to find ESPHome devices.'}
+            {t('remote_devices.no_discovered') || 'No devices discovered. BoneIO devices appear automatically, click "Scan ESPHome" or "Scan WLED" to find devices.'}
           </p>
         )}
       </div>

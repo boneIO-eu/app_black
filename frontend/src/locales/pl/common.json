@@ -951,7 +951,11 @@
     "max_duration_ms": "Maks. Czas (ms)",
     "validation_esphome_device_required": "Urządzenie ESPHome jest wymagane",
     "validation_switch_id_required": "ID przełącznika jest wymagane",
-    "validation_light_id_required": "ID światła jest wymagane"
+    "validation_light_id_required": "ID światła jest wymagane",
+    "wled_effect": "Efekt",
+    "wled_palette": "Paleta Kolorów",
+    "effect_speed": "Prędkość Efektu",
+    "effect_intensity": "Intensywność Efektu"
   },
   "virtual_energy_sensor": {
     "name": "Nazwa",
@@ -1074,7 +1078,17 @@
     "esphome_lights": "Światła",
     "esphome_covers": "Rolety",
     "capabilities": "Możliwości",
-    "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj sieć\" aby znaleźć urządzenia ESPHome."
+    "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj ESPHome\" lub \"Skanuj WLED\" aby znaleźć urządzenia.",
+    "scan_esphome": "Skanuj ESPHome",
+    "scan_wled": "Skanuj WLED",
+    "wled_settings": "Ustawienia WLED",
+    "wled_host": "Host",
+    "wled_host_hint": "Użyj nazwy mDNS (np. wled-device.local) dla stabilności",
+    "wled_host_required": "Host jest wymagany do wykrywania WLED",
+    "wled_port": "Port",
+    "wled_segments": "Segmenty",
+    "wled_led_count": "LEDy",
+    "discover_segments": "Wykryj segmenty"
   }
 }
   

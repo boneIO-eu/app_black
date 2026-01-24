@@ -371,11 +371,57 @@ export interface ESPHomeApiConfig {
   covers?: ESPHomeCoverEntity[];
 }
 
+/** WLED segment entity */
+export interface WLEDSegmentEntity {
+  /** Segment ID */
+  id: number;
+  /** Display name */
+  name?: string;
+  /** Start LED index */
+  start?: number;
+  /** Stop LED index */
+  stop?: number;
+  /** LED count */
+  len?: number;
+  /** Supports RGB color */
+  supports_rgb?: boolean;
+}
+
+/** WLED effect entity */
+export interface WLEDEffectEntity {
+  /** Effect ID */
+  id: number;
+  /** Effect name */
+  name: string;
+}
+
+/** WLED palette entity */
+export interface WLEDPaletteEntity {
+  /** Palette ID */
+  id: number;
+  /** Palette name */
+  name: string;
+}
+
+/** WLED configuration */
+export interface WLEDConfig {
+  /** IP address or hostname */
+  host: string;
+  /** HTTP port (default 80) */
+  port?: number;
+  /** Discovered/configured segments */
+  segments?: WLEDSegmentEntity[];
+  /** Discovered effects */
+  effects?: WLEDEffectEntity[];
+  /** Discovered palettes */
+  palettes?: WLEDPaletteEntity[];
+}
+
 /** Remote device protocol */
-export type RemoteDeviceProtocol = 'mqtt' | 'esphome_api';
+export type RemoteDeviceProtocol = 'mqtt' | 'esphome_api' | 'wled';
 
 /** Remote device type */
-export type RemoteDeviceType = 'boneio_black' | 'esphome' | 'generic';
+export type RemoteDeviceType = 'boneio_black' | 'esphome' | 'wled' | 'generic';
 
 /** Remote device entity */
 export interface RemoteDeviceEntity {
@@ -394,6 +440,8 @@ export interface RemoteDeviceEntity {
   };
   /** ESPHome API configuration (for protocol: esphome_api) */
   esphome_api?: ESPHomeApiConfig;
+  /** WLED configuration (for protocol: wled) */
+  wled?: WLEDConfig;
 }
 
 // ============================================

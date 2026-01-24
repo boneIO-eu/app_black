@@ -15,6 +15,10 @@ from boneio.core.remote.esphome import (
     ESPHOME_API_AVAILABLE,
     ZEROCONF_AVAILABLE,
 )
+from boneio.core.remote.wled import (
+    scan_wled_devices,
+    discover_wled_info,
+)
 
 if TYPE_CHECKING:
     pass
@@ -233,6 +237,86 @@ async def scan_esphome_network(timeout: float = 3.0):
         raise HTTPException(status_code=500, detail=result["error"])
     
     _LOGGER.info("Found %d ESPHome device(s)", len(result.get("devices", [])))
+    
+    return result
+
+
+class WLEDDiscoverRequest(BaseModel):
+    """Model for WLED discovery request."""
+    
+    host: str
+    port: int = 80
+
+
+@router.post("/discover-wled")
+async def discover_wled(request: WLEDDiscoverRequest):
+    """
+    Discover segments on a WLED device.
+    
+    Connects to the WLED device via HTTP JSON API and retrieves
+    available segments with their configuration.
+    
+    Args:
+        request: WLED connection parameters (host, port)
+        
+    Returns:
+        Dictionary with device info and 'segments' list.
+        
+    Raises:
+        HTTPException: 500 if discovery fails.
+    """
+    _LOGGER.info("Discovering WLED segments at %s:%d", request.host, request.port)
+    
+    result = await discover_wled_info(
+        host=request.host,
+        port=request.port,
+    )
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    _LOGGER.info(
+        "Discovered WLED '%s' with %d segments at %s",
+        result.get("name", "unknown"),
+        len(result.get("segments", [])),
+        request.host
+    )
+    
+    return result
+
+
+@router.get("/scan-wled")
+async def scan_wled_network(timeout: float = 3.0):
+    """
+    Scan the local network for WLED devices using mDNS.
+    
+    Args:
+        timeout: How long to scan in seconds (default 3.0, max 10.0)
+        
+    Returns:
+        Dictionary with 'devices' list containing found devices.
+        Each device has 'name', 'host', 'ip', 'port' fields.
+        
+    Raises:
+        HTTPException: 400 if zeroconf not installed, 500 if scan fails.
+    """
+    if not ZEROCONF_AVAILABLE:
+        raise HTTPException(
+            status_code=400, 
+            detail="zeroconf not installed - mDNS discovery disabled"
+        )
+    
+    # Limit timeout to reasonable range
+    timeout = min(max(timeout, 1.0), 10.0)
+    
+    _LOGGER.info("Scanning network for WLED devices (timeout: %.1fs)", timeout)
+    
+    result = await scan_wled_devices(timeout=timeout)
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    _LOGGER.info("Found %d WLED device(s)", len(result.get("devices", [])))
     
     return result
 

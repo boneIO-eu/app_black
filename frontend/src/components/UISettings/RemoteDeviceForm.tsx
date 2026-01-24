@@ -17,9 +17,9 @@ import type {
 } from '@/types/config';
 
 // Supported protocols
-const PROTOCOLS = ['mqtt', 'esphome_api'] as const;
+const PROTOCOLS = ['mqtt', 'esphome_api', 'wled'] as const;
 
-const DEVICE_TYPES = ['boneio_black', 'esphome', 'generic'] as const;
+const DEVICE_TYPES = ['boneio_black', 'esphome', 'wled', 'generic'] as const;
 
 interface OutputItem {
   id: string;
@@ -195,8 +195,8 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
         </label>
       </div>
 
-      {/* Device Type - hidden for ESPHome API protocol */}
-      {data?.protocol !== 'esphome_api' && (
+      {/* Device Type - hidden for ESPHome API and WLED protocols */}
+      {data?.protocol !== 'esphome_api' && data?.protocol !== 'wled' && (
         <div className="form-control">
           <label className="label">
             <span className="label-text font-medium">{t('remote_devices.device_type')}</span>
@@ -211,7 +211,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             <SelectContent>
               {DEVICE_TYPES.map(type => (
                 <SelectItem key={type} value={type}>
-                  {type === 'boneio_black' ? 'boneIO Black' : type === 'esphome' ? 'ESPHome' : 'Generic'}
+                  {type === 'boneio_black' ? 'boneIO Black' : type === 'esphome' ? 'ESPHome' : type === 'wled' ? 'WLED' : 'Generic'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -406,6 +406,124 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                             {cover.supports_position && <span className="badge badge-xs badge-info mr-1">Position</span>}
                             {cover.supports_tilt && <span className="badge badge-xs badge-warning mr-1">Tilt</span>}
                           </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* WLED Settings - shown when protocol is wled */}
+      {data?.protocol === 'wled' && (
+        <div className="card bg-base-200 p-4 space-y-4">
+          <h3 className="font-medium text-lg">{t('remote_devices.wled_settings') || 'WLED Settings'}</h3>
+          
+          {/* Host */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">{t('remote_devices.wled_host') || 'Host'} <span className="text-error">*</span></span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered w-full"
+              value={data?.wled?.host || ''}
+              onChange={(e) => handleChange('wled', { ...data?.wled, host: e.target.value })}
+              placeholder="wled-device.local or 192.168.1.50"
+              required
+            />
+            <label className="label">
+              <span className="label-text-alt opacity-70">{t('remote_devices.wled_host_hint') || 'Use mDNS hostname for stability'}</span>
+            </label>
+          </div>
+
+          {/* Port */}
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text font-medium">{t('remote_devices.wled_port') || 'Port'}</span>
+            </label>
+            <input
+              type="number"
+              className="input input-bordered w-full"
+              value={data?.wled?.port || 80}
+              onChange={(e) => handleChange('wled', { ...data?.wled, port: parseInt(e.target.value) || 80 })}
+              placeholder="80"
+            />
+          </div>
+
+          {/* Discover Segments Button */}
+          <div className="form-control">
+            <button
+              type="button"
+              className={`btn btn-primary ${isDiscovering ? 'loading' : ''}`}
+              onClick={async () => {
+                const wledConfig = data?.wled || {};
+                if (!wledConfig.host) {
+                  setDiscoveryError(t('remote_devices.wled_host_required') || 'Host is required');
+                  return;
+                }
+                setIsDiscovering(true);
+                setDiscoveryError(null);
+                try {
+                  const { data: result } = await axios.post('/api/remote-devices/discover-wled', {
+                    host: wledConfig.host,
+                    port: wledConfig.port || 80,
+                  });
+                  handleChange('wled', {
+                    ...wledConfig,
+                    segments: result.segments || [],
+                    effects: result.effects || [],
+                    palettes: result.palettes || [],
+                  });
+                } catch (error: any) {
+                  setDiscoveryError(error.response?.data?.detail || error.message || 'Discovery failed');
+                } finally {
+                  setIsDiscovering(false);
+                }
+              }}
+              disabled={isDiscovering || !data?.wled?.host}
+            >
+              <FaSync className={`mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
+              {isDiscovering 
+                ? (t('remote_devices.discovering') || 'Discovering...') 
+                : (t('remote_devices.discover_segments') || 'Discover Segments')}
+            </button>
+          </div>
+
+          {/* Discovery error display */}
+          {discoveryError && (
+            <div className="alert alert-error">
+              <span>{discoveryError}</span>
+            </div>
+          )}
+
+          {/* Discovered Segments */}
+          {(data?.wled?.segments?.length > 0) && (
+            <div className="collapse collapse-arrow bg-base-300">
+              <input type="checkbox" defaultChecked />
+              <div className="collapse-title font-medium">
+                {t('remote_devices.wled_segments') || 'Segments'}
+                <span className="badge badge-sm ml-2">{data.wled.segments.length}</span>
+              </div>
+              <div className="collapse-content">
+                <div className="overflow-x-auto">
+                  <table className="table table-xs">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>{t('common.name') || 'Name'}</th>
+                        <th>{t('remote_devices.wled_led_count') || 'LEDs'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.wled.segments.map((seg: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="font-mono text-xs">{seg.id}</td>
+                          <td>{seg.name || `Segment ${seg.id}`}</td>
+                          <td>{seg.len || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

@@ -286,6 +286,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           covers: device.esphome_api?.covers || [],
         },
       });
+    } else if (device.protocol === 'wled' || device.wled) {
+      // Pre-fill form with WLED device data
+      setEditingItem({
+        id: device.id,
+        name: device.name || device.id,
+        protocol: 'wled',
+        device_type: 'wled',
+        wled: {
+          host: device.wled?.host || '',
+          port: device.wled?.port || 80,
+          segments: device.wled?.segments || [],
+        },
+      });
     } else {
       // Pre-fill form with MQTT/BoneIO device data
       setEditingItem({

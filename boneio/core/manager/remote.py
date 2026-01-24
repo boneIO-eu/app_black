@@ -18,6 +18,7 @@ from boneio.core.remote.base import (
 )
 from boneio.core.remote.mqtt import MQTTRemoteDevice
 from boneio.core.remote.esphome import ESPHomeRemoteDevice, ESPHOME_API_AVAILABLE
+from boneio.core.remote.wled import WLEDRemoteDevice
 
 if TYPE_CHECKING:
     from boneio.core.messaging import MessageBus
@@ -176,6 +177,8 @@ class RemoteDeviceManager:
             return None
         elif protocol == RemoteDeviceProtocol.ESPHOME_API:
             return self._create_esphome_device(device_id, name, config)
+        elif protocol == RemoteDeviceProtocol.WLED:
+            return self._create_wled_device(device_id, name, config)
         else:
             _LOGGER.error("Unsupported protocol '%s' for device '%s'", protocol, device_id)
             return None
@@ -259,6 +262,40 @@ class RemoteDeviceManager:
             covers=covers,
         )
     
+    def _create_wled_device(
+        self,
+        device_id: str,
+        name: str,
+        config: dict[str, Any],
+    ) -> WLEDRemoteDevice | None:
+        """Create WLED remote device.
+        
+        Args:
+            device_id: Device ID
+            name: Device name
+            config: Full device configuration
+            
+        Returns:
+            WLEDRemoteDevice instance or None if creation failed
+        """
+        wled_config = config.get("wled", {})
+        host = wled_config.get("host")
+        
+        if not host:
+            _LOGGER.error("WLED device '%s' missing 'host' in wled config", device_id)
+            return None
+        
+        port = wled_config.get("port", 80)
+        segments = wled_config.get("segments", [])
+        
+        return WLEDRemoteDevice(
+            id=device_id,
+            name=name,
+            host=host,
+            port=port,
+            segments=segments,
+        )
+    
     async def start_all_connections(self, delay_seconds: float = 10.0) -> None:
         """Start persistent connections for all ESPHome devices.
         
@@ -335,20 +372,29 @@ class RemoteDeviceManager:
         color_temp: int | None = None,
         rgb: list[int] | tuple[int, int, int] | None = None,
         transition: float | None = None,
+        effect: int | None = None,
+        palette: int | None = None,
+        effect_speed: int | None = None,
+        effect_intensity: int | None = None,
     ) -> bool:
-        """Control output on remote device (BoneIO MQTT or ESPHome API).
+        """Control output on remote device (BoneIO MQTT, ESPHome API, or WLED).
         
         Automatically detects device protocol and routes to appropriate method.
         For ESPHome devices, output_id can be a switch or light entity.
+        For WLED devices, output_id can be "main" or segment ID.
         
         Args:
             device_id: ID of the remote device
             output_id: ID of the output/switch/light to control
             action: Action to perform (ON, OFF, TOGGLE, BRIGHTNESS_UP, BRIGHTNESS_DOWN, SET_BRIGHTNESS)
-            brightness: Brightness level (0-255) - only for ESPHome lights
+            brightness: Brightness level (0-255) - for ESPHome/WLED lights
             color_temp: Color temperature in mireds - only for ESPHome lights
-            rgb: RGB color as [R, G, B] list or tuple (0-255 each) - only for ESPHome lights
-            transition: Transition time in seconds - only for ESPHome lights
+            rgb: RGB color as [R, G, B] list or tuple (0-255 each) - for ESPHome/WLED lights
+            transition: Transition time in seconds - for ESPHome/WLED lights
+            effect: WLED effect ID
+            palette: WLED color palette ID
+            effect_speed: WLED effect speed (0-255)
+            effect_intensity: WLED effect intensity (0-255)
             
         Returns:
             True if command was sent successfully
@@ -380,6 +426,27 @@ class RemoteDeviceManager:
             return await device.control_switch(
                 switch_id=output_id,
                 action=action,
+            )
+        
+        # For WLED devices, use HTTP JSON API
+        if isinstance(device, WLEDRemoteDevice):
+            _LOGGER.debug("Controlling WLED '%s' segment '%s' on device '%s'", output_id, action, device_id)
+            # Parse segment_id - "main" means whole device, otherwise it's segment ID
+            segment_id = None if output_id == "main" else int(output_id)
+            # Convert rgb list to tuple if needed
+            wled_rgb: tuple[int, int, int] | None = None
+            if rgb and len(rgb) >= 3:
+                wled_rgb = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+            return await device.control_light(
+                segment_id=segment_id,
+                action=action,
+                brightness=brightness,
+                rgb=wled_rgb,
+                transition=transition if transition is not None else 0.0,
+                effect=effect,
+                palette=palette,
+                effect_speed=effect_speed,
+                effect_intensity=effect_intensity,
             )
         
         # For MQTT devices, use standard control_output

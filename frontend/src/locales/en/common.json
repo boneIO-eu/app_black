@@ -944,7 +944,11 @@
     "min_duration_ms": "Min Duration (ms)",
     "max_duration_ms": "Max Duration (ms)",
     "validation_switch_id_required": "Switch ID is required",
-    "validation_light_id_required": "Light ID is required"
+    "validation_light_id_required": "Light ID is required",
+    "wled_effect": "Effect",
+    "wled_palette": "Color Palette",
+    "effect_speed": "Effect Speed",
+    "effect_intensity": "Effect Intensity"
   },
   "virtual_energy_sensor": {
     "name": "Name",
@@ -1067,6 +1071,18 @@
     "esphome_lights": "Lights",
     "esphome_covers": "Covers",
     "capabilities": "Capabilities",
-    "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\" to find ESPHome devices."
+    "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\" or \"Scan WLED\" to find devices.",
+    "scan_esphome": "Scan ESPHome",
+    "scan_wled": "Scan WLED",
+    "wled_settings": "WLED Settings",
+    "wled_host": "Host",
+    "wled_host_hint": "Use mDNS hostname (e.g. wled-device.local) for stability",
+    "wled_host_required": "Host is required for WLED discovery",
+    "wled_port": "Port",
+    "wled_segments": "Segments",
+    "wled_led_count": "LEDs",
+    "discover_segments": "Discover Segments",
+    "wled_effects": "Effects",
+    "wled_palettes": "Palettes"
   }
 }

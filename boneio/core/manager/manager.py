@@ -698,7 +698,7 @@ class Manager:
                 )
             
             elif action == REMOTE_OUTPUT:
-                # Control output on remote device (supports ESPHome lights with brightness/color)
+                # Control output on remote device (supports ESPHome lights with brightness/color and WLED effects)
                 remote_device_id = action_definition.get("remote_device")
                 output_id = action_definition.get("output_id")
                 action_output = action_definition.get("action_output", "TOGGLE")
@@ -710,6 +710,10 @@ class Manager:
                     color_temp=action_definition.get("color_temp"),
                     rgb=action_definition.get("rgb"),
                     transition=action_definition.get("transition"),
+                    effect=action_definition.get("effect"),
+                    palette=action_definition.get("palette"),
+                    effect_speed=action_definition.get("effect_speed"),
+                    effect_intensity=action_definition.get("effect_intensity"),
                 )
             
             elif action == REMOTE_COVER:
