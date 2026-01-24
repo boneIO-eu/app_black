@@ -200,6 +200,130 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
 
 
+async def _broadcast_states_for_sections(manager: Manager, sections: list[str]) -> None:
+    """Broadcast current states for specified sections via WebSocket.
+    
+    This is called after config reload to ensure frontend receives fresh states.
+    
+    Args:
+        manager: Manager instance
+        sections: List of section names to broadcast states for
+    """
+    import time
+    from boneio.models import InputState, OutputState, CoverState, SensorState, GroupState
+    from boneio.models.events import InputEvent, OutputEvent, CoverEvent, SensorEvent, GroupEvent
+    
+    timestamp = time.time()
+    
+    # Broadcast input states
+    if "all" in sections or "input" in sections or "event" in sections or "binary_sensor" in sections:
+        for input_ in manager.inputs.get_inputs_list():
+            try:
+                input_state = InputState(
+                    name=input_.name,
+                    state=input_.last_state,
+                    type=input_.input_type,
+                    pin=input_.pin,
+                    timestamp=timestamp,
+                    boneio_input=input_.boneio_input,
+                    area=input_.area
+                )
+                event = InputEvent(
+                    entity_id=input_.id,
+                    state=input_state,
+                    click_type=None,
+                    duration=None
+                )
+                if _websocket_manager:
+                    await _websocket_manager.broadcast(event.model_dump())
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting input state %s: %s", input_.id, e)
+    
+    # Broadcast output states
+    if "all" in sections or "output" in sections or "output_group" in sections:
+        for output in manager.outputs.get_all_outputs().values():
+            try:
+                output_state = OutputState(
+                    id=output.id,
+                    name=output.name,
+                    state="ON" if output.is_active else "OFF",
+                    type=output.output_type,
+                    expander_id=getattr(output, 'expander_id', None),
+                    pin=getattr(output, 'pin', None),
+                    timestamp=timestamp,
+                    area=getattr(output, 'area', None)
+                )
+                event = OutputEvent(
+                    entity_id=output.id,
+                    state=output_state
+                )
+                if _websocket_manager:
+                    await _websocket_manager.broadcast(event.model_dump())
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting output state %s: %s", output.id, e)
+        
+        # Broadcast group states
+        for group_id, group in manager.outputs.get_all_output_groups().items():
+            try:
+                group_state = GroupState(
+                    id=group_id,
+                    name=group.name,
+                    state="ON" if group.is_active else "OFF",
+                    type=getattr(group, 'group_type', 'group'),
+                    timestamp=timestamp
+                )
+                event = GroupEvent(
+                    entity_id=group_id,
+                    state=group_state
+                )
+                if _websocket_manager:
+                    await _websocket_manager.broadcast(event.model_dump())
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting group state %s: %s", group_id, e)
+    
+    # Broadcast cover states
+    if "all" in sections or "cover" in sections:
+        for cover in manager.covers.get_all_covers().values():
+            try:
+                cover_state = CoverState(
+                    id=cover.id,
+                    name=cover.name,
+                    state=cover.state,
+                    position=getattr(cover, 'current_position', 0),
+                    current_operation=getattr(cover, 'current_operation', 'idle'),
+                    tilt=getattr(cover, 'tilt_position', 0),
+                    kind=getattr(cover, 'kind', 'time_based')
+                )
+                event = CoverEvent(
+                    entity_id=cover.id,
+                    state=cover_state
+                )
+                if _websocket_manager:
+                    await _websocket_manager.broadcast(event.model_dump())
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting cover state %s: %s", cover.id, e)
+    
+    # Broadcast sensor states
+    if "all" in sections or "sensor" in sections or "virtual_energy_sensor" in sections or "modbus_devices" in sections:
+        for sensor in manager.sensors.get_all_temp_sensors():
+            try:
+                sensor_state = SensorState(
+                    id=sensor.id,
+                    name=sensor.name,
+                    state=sensor.state,
+                    unit=getattr(sensor, 'unit', '°C'),
+                    timestamp=timestamp
+                )
+                event = SensorEvent(
+                    entity_id=sensor.id,
+                    state=sensor_state
+                )
+                if _websocket_manager:
+                    await _websocket_manager.broadcast(event.model_dump())
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
+
+
 @router.post("/config/reload")
 async def reload_configuration(
     sections: list[str] | None = Body(None, description="Optional list of sections to reload")
@@ -218,11 +342,7 @@ async def reload_configuration(
     manager: Manager = _get_app_state().manager
     
     try:
-        from boneio.models.events import ConfigReloadEvent
-        reload_event = ConfigReloadEvent(sections=sections or ["all"])
-        if _websocket_manager:
-            await _websocket_manager.broadcast(reload_event.model_dump())
-        
+        # Execute reload first
         result = await manager.reload_config(reload_sections=sections)
         
         if result.get("status") == "error":
@@ -230,6 +350,18 @@ async def reload_configuration(
                 status_code=500,
                 detail=result.get("message", "Failed to reload configuration")
             )
+        
+        # Send ConfigReloadEvent AFTER reload completes
+        # This ensures frontend clears old states and receives fresh ones
+        from boneio.models.events import ConfigReloadEvent
+        reload_event = ConfigReloadEvent(sections=sections or ["all"])
+        if _websocket_manager:
+            await _websocket_manager.broadcast(reload_event.model_dump())
+            # Small delay to ensure frontend processes the reload event before states arrive
+            import asyncio
+            await asyncio.sleep(0.1)
+            # Re-broadcast all states for reloaded sections
+            await _broadcast_states_for_sections(manager, sections or ["all"])
         
         return result
         
