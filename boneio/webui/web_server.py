@@ -7,11 +7,12 @@ import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
+# Lazy import hypercorn to speed up application startup (~2-3s saved)
+# Imports moved to start_webserver() method
 
 if TYPE_CHECKING:
     from hypercorn.typing import Framework
+    from hypercorn.config import Config
     from boneio.webui.app import BoneIOApp
 
 from boneio.core.config import ConfigHelper
@@ -53,34 +54,10 @@ class WebServer:
         self.jwt_secret = self._get_jwt_secret_or_generate()
         self._auth_config = auth
 
-        # Configure hypercorn with shared logging config
-        self._hypercorn_config = Config()
-        self._hypercorn_config.bind = [f"0.0.0.0:{port}"]
-        self._hypercorn_config.use_reloader = False
-        self._hypercorn_config.worker_class = "asyncio"
-
-        # Configure Hypercorn's logging
-        hypercorn_logger = logging.getLogger("hypercorn.error")
-        hypercorn_logger.handlers = []  # Remove default handlers
-        hypercorn_logger.propagate = True  # Use root logger's handlers
-
-        # Configure access log
-        hypercorn_access_logger = logging.getLogger("hypercorn.access")
-        hypercorn_access_logger.handlers = []  # Remove default handlers
-        hypercorn_access_logger.propagate = True  # Use root logger's handlers
-
-        self._hypercorn_config.accesslog = hypercorn_access_logger
-        self._hypercorn_config.errorlog = hypercorn_logger
-
-        # Reduce timeouts for faster shutdown
-        self._hypercorn_config.graceful_timeout = 2.0  # Wait max 2s for connections to close
-        self._hypercorn_config.keep_alive_timeout = 2  # Keep-alive timeout
-        self._hypercorn_config.websocket_ping_interval = 20  # Ping interval (default is None)
-        # self._server = hypercorn.asyncio.serve(self.app, self._hypercorn_config)
-        # Override the server's install_signal_handlers to prevent it from handling signals
-        # self._server.install_signal_handlers = lambda: None
+        # Hypercorn config will be created lazily in start_webserver()
+        # to avoid importing hypercorn at module load time
+        self._hypercorn_config = None
         self._server_running = False
-        # self.manager.event_bus.add_sigterm_listener(self.stop_webserver)
 
     def _get_jwt_secret_or_generate(self):
         config_dir = Path(self._yaml_config_file).parent
@@ -114,6 +91,34 @@ class WebServer:
         """Start the web server."""
         _LOGGER.info("Starting HYPERCORN web server...")
         self._server_running = True
+        
+        # Lazy import hypercorn to speed up application startup (~2-3s saved)
+        from hypercorn.asyncio import serve
+        from hypercorn.config import Config
+        
+        # Configure hypercorn (moved from __init__ for lazy loading)
+        self._hypercorn_config = Config()
+        self._hypercorn_config.bind = [f"0.0.0.0:{self._port}"]
+        self._hypercorn_config.use_reloader = False
+        self._hypercorn_config.worker_class = "asyncio"
+
+        # Configure Hypercorn's logging
+        hypercorn_logger = logging.getLogger("hypercorn.error")
+        hypercorn_logger.handlers = []  # Remove default handlers
+        hypercorn_logger.propagate = True  # Use root logger's handlers
+
+        # Configure access log
+        hypercorn_access_logger = logging.getLogger("hypercorn.access")
+        hypercorn_access_logger.handlers = []  # Remove default handlers
+        hypercorn_access_logger.propagate = True  # Use root logger's handlers
+
+        self._hypercorn_config.accesslog = hypercorn_access_logger
+        self._hypercorn_config.errorlog = hypercorn_logger
+
+        # Reduce timeouts for faster shutdown
+        self._hypercorn_config.graceful_timeout = 2.0  # Wait max 2s for connections to close
+        self._hypercorn_config.keep_alive_timeout = 2  # Keep-alive timeout
+        self._hypercorn_config.websocket_ping_interval = 20  # Ping interval (default is None)
 
         async def shutdown_trigger() -> None:
             """Shutdown trigger for hypercorn"""

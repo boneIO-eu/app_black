@@ -200,8 +200,8 @@ async def async_run(
     
     # Publish discovery after message bus is started
     if isinstance(message_bus, MQTTClient):
-        # Wait a bit for MQTT connection to establish
-        await asyncio.sleep(2)
+        # Wait a bit for MQTT connection to establish (reduced from 2s to 1s for faster startup)
+        await asyncio.sleep(1)
         _LOGGER.info("Publishing device discovery information")
         await manager.publish_discovery()
     
