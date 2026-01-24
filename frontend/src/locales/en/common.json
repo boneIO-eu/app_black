@@ -721,7 +721,9 @@
     "default": "Default",
     "filter_placeholder": "Filter by name or ID...",
     "showing": "Showing",
-    "of": "of"
+    "of": "of",
+    "area": "Area",
+    "no_area": "No area"
   },
   "validation": {
     "id_required": "ID is required",
@@ -936,6 +938,10 @@
     "select_esphome_cover": "Select cover...",
     "esphome_cover_action": "Cover Action",
     "validation_esphome_device_required": "ESPHome device is required",
+    "duration_thresholds": "Duration Thresholds",
+    "duration_thresholds_hint": "Optional: Execute this action only when long press duration is within specified range (in milliseconds)",
+    "min_duration_ms": "Min Duration (ms)",
+    "max_duration_ms": "Max Duration (ms)",
     "validation_switch_id_required": "Switch ID is required",
     "validation_light_id_required": "Light ID is required"
   },
@@ -1010,6 +1016,8 @@
     "device_id": "Device ID",
     "id_hint": "Unique identifier used in actions (e.g. salon_boneio)",
     "device_name": "Device Name",
+    "remove_autodiscovered": "Remove from list",
+    "remove_autodiscovered_confirm": "This will clear MQTT retained messages for this device. Continue?",
     "protocol": "Protocol",
     "select_protocol": "Select protocol...",
     "protocol_hint": "Currently only MQTT and Esphome API is supported.",

@@ -20,18 +20,31 @@ interface ToastNotification {
   message: string;
   type: string;
   inputName?: string;
+  duration?: number;
+  entityId?: string;
 }
 
 type SortMode = 'name' | 'recent';
 
+// Separate component for duration display - updates independently without re-rendering parent
+const DurationDisplay = memo(({ duration }: { duration: number | null }) => {
+  if (duration === null || duration === undefined) return null;
+  return (
+    <span className="ml-2 text-xs opacity-80">
+      ({duration.toFixed(1)}s)
+    </span>
+  );
+});
+
 // Separate component for individual input
-const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPress }: {
+const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPress, duration }: {
   inputEvent: InputEvent;
   isGrid: boolean;
   t: (key: string) => string;
   isHighlighted?: boolean;
   onCopy: (name: string) => void;
   onLongPress: (inputEvent: InputEvent) => void;
+  duration: number | null;
 }) => {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
@@ -62,6 +75,8 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
     handlePressStart();
   };
 
+  const isLongState = inputEvent.state.state === 'long';
+
   return (
     <div
       onClick={handleClick}
@@ -72,10 +87,11 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
       onTouchEnd={handlePressEnd}
       onContextMenu={(e) => e.preventDefault()}
       className={clsx(
-        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 transition-all duration-500 cursor-pointer hover:bg-base-300 select-none touch-none',
+        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 cursor-pointer hover:bg-base-300 select-none touch-none',
         isGrid ? 'border-l-4' : 'border-l-8',
         'border-blue-500',
-        isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02]'
+        // Only apply transition when highlighted to avoid flash on duration updates
+        isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02] transition-all duration-500'
       )}
       title={t('inputs.long_press_to_edit')}
       style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
@@ -89,7 +105,7 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
       </div>
       <div className={`${isGrid ? 'text-right' : ''}`}>
         <span
-          className={clsx('px-4 py-2 rounded-lg font-semibold',
+          className={clsx('px-4 py-2 rounded-lg font-semibold inline-flex items-center',
             inputEvent.state.state === 'ON' ? 'bg-primary text-white' :
             inputEvent.state.state === 'single' ? 'bg-success text-black' :
             inputEvent.state.state === 'double' ? 'bg-warning text-black' :
@@ -100,6 +116,7 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
           )}
         >
           {inputEvent.state.state}
+          {isLongState && <DurationDisplay duration={duration} />}
         </span>
         <p className="text-gray-500 text-xs mt-2">
           {formatTimestamp(inputEvent.state.timestamp)}
@@ -107,6 +124,50 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
       </div>
     </div>
   </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison - optimized for long press to reduce re-renders
+  const prevState = prevProps.inputEvent.state;
+  const nextState = nextProps.inputEvent.state;
+  
+  // Always re-render if state type changed (e.g., from 'long' to 'released')
+  if (prevState.state !== nextState.state) {
+    return false;
+  }
+  
+  // For long press, throttle duration updates - only re-render every 500ms worth of duration change
+  // This significantly reduces CPU usage while still showing progress
+  if (nextState.state === 'long') {
+    const sameCore = (
+      prevProps.inputEvent.entity_id === nextProps.inputEvent.entity_id &&
+      prevState.name === nextState.name &&
+      prevProps.isGrid === nextProps.isGrid &&
+      prevProps.isHighlighted === nextProps.isHighlighted
+    );
+    
+    if (!sameCore) return false;
+    
+    // Throttle duration display updates - only re-render if duration changed by >= 0.5s
+    const prevDur = prevProps.duration ?? 0;
+    const nextDur = nextProps.duration ?? 0;
+    const durationDiff = Math.abs(nextDur - prevDur);
+    
+    // Skip re-render if duration change is less than 0.5s
+    if (durationDiff < 0.5) {
+      return true; // Same, skip re-render
+    }
+    
+    return false; // Re-render to update duration display
+  }
+  
+  // For other states, use standard comparison
+  return (
+    prevProps.inputEvent.entity_id === nextProps.inputEvent.entity_id &&
+    prevState.state === nextState.state &&
+    prevState.timestamp === nextState.timestamp &&
+    prevProps.isGrid === nextProps.isGrid &&
+    prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.duration === nextProps.duration
   );
 });
 
@@ -125,6 +186,10 @@ export default function InputsView() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
   const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
+  
+  // Throttle refs for long press updates (to reduce CPU usage)
+  const lastLongPressUpdateRef = useRef<Map<string, number>>(new Map());
+  const LONG_PRESS_THROTTLE_MS = 500; // Update toast max every 500ms
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -136,18 +201,44 @@ export default function InputsView() {
     localStorage.setItem('inputSortMode', mode);
   };
 
-  // Add toast notification with max 4 toasts limit
-  const addToast = useCallback((message: string, type: string, inputName?: string) => {
-    const id = `${Date.now()}-${Math.random()}`;
+  // Add or update toast notification with max 4 toasts limit
+  const addOrUpdateToast = useCallback((message: string, type: string, inputName?: string, duration?: number, entityId?: string) => {
     setToasts(prev => {
-      const newToasts = [...prev, { id, message, type, inputName }];
+      // For long press events, check if we already have a toast for this input
+      if (type === 'long' && entityId) {
+        const existingIndex = prev.findIndex(t => t.type === 'long' && t.entityId === entityId);
+        if (existingIndex !== -1) {
+          // Update existing toast
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            message,
+            duration
+          };
+          return updated;
+        }
+      }
+      
+      // Create new toast
+      const id = `${Date.now()}-${Math.random()}`;
+      const newToast = { id, message, type, inputName, duration, entityId };
+      const newToasts = [...prev, newToast];
+      
+      // Auto-remove after 3 seconds (only for non-long events)
+      if (type !== 'long') {
+        setTimeout(() => {
+          setToasts(prev => prev.filter(toast => toast.id !== id));
+        }, 3000);
+      }
+      
       // Keep only last 4 toasts (remove oldest if exceeding limit)
       return newToasts.slice(-4);
     });
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-      setToasts(prev => prev.filter(toast => toast.id !== id));
-    }, 3000);
+  }, []);
+  
+  // Remove toast by entity_id (used when long press ends)
+  const removeToastByEntity = useCallback((entityId: string) => {
+    setToasts(prev => prev.filter(toast => toast.entityId !== entityId));
   }, []);
 
   // Copy input name to clipboard
@@ -217,16 +308,43 @@ export default function InputsView() {
       
       // Show toast for event types (not ON/OFF binary states)
       if (hasChanged && toastEventTypes.includes(currentState)) {
+        // Throttle long press updates to reduce CPU usage
+        if (currentState === 'long') {
+          const lastUpdate = lastLongPressUpdateRef.current.get(inputEvent.entity_id) || 0;
+          const nowMs = Date.now();
+          if (nowMs - lastUpdate < LONG_PRESS_THROTTLE_MS) {
+            // Skip this update, too soon
+            return;
+          }
+          lastLongPressUpdateRef.current.set(inputEvent.entity_id, nowMs);
+        }
+        
         const time = new Date(currentTimestamp * 1000).toLocaleTimeString('pl-PL', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
         });
-        addToast(
-          `[${time}] ${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`,
+        
+        // For long press, include duration in message
+        let message = `[${time}] ${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`;
+        if (currentState === 'long' && inputEvent.duration !== null && inputEvent.duration !== undefined) {
+          message += ` (${inputEvent.duration.toFixed(1)}s)`;
+        }
+        
+        addOrUpdateToast(
+          message,
           currentState,
-          inputEvent.state.name
+          inputEvent.state.name,
+          inputEvent.duration ?? undefined,
+          inputEvent.entity_id
         );
+      }
+      
+      // Remove long press toast when state changes from 'long' to something else
+      if (prevData && prevData.state === 'long' && currentState !== 'long') {
+        removeToastByEntity(inputEvent.entity_id);
+        // Clean up throttle ref
+        lastLongPressUpdateRef.current.delete(inputEvent.entity_id);
       }
       
       // Highlight changed inputs
@@ -247,7 +365,7 @@ export default function InputsView() {
         timestamp: currentTimestamp
       });
     });
-  }, [validInputs, addToast, t]);
+  }, [validInputs, addOrUpdateToast, removeToastByEntity, t]);
 
   // Sort inputs based on selected mode
   const sortedInputs = useMemo(() => {
@@ -319,6 +437,7 @@ export default function InputsView() {
             isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
             onCopy={copyToClipboard}
             onLongPress={handleLongPress}
+            duration={inputEvent.duration}
           />
         ))}
       </div>

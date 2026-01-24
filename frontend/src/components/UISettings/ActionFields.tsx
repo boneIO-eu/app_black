@@ -788,6 +788,36 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         </>
       )}
 
+      {/* Duration thresholds - only for long press actions */}
+      <div className="form-control mb-3">
+        <label className="label">
+          <span className="label-text font-medium">{t('event_form.duration_thresholds')}</span>
+          <span className="label-text-alt">{t('event_form.duration_thresholds_hint')}</span>
+        </label>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <input
+              type="number"
+              placeholder={t('event_form.min_duration_ms')}
+              className="input input-bordered w-full"
+              value={action.min_duration || ''}
+              onChange={(e) => onUpdate('min_duration', e.target.value ? parseInt(e.target.value) : undefined)}
+              min="0"
+            />
+          </div>
+          <div className="flex-1">
+            <input
+              type="number"
+              placeholder={t('event_form.max_duration_ms')}
+              className="input input-bordered w-full"
+              value={action.max_duration || ''}
+              onChange={(e) => onUpdate('max_duration', e.target.value ? parseInt(e.target.value) : undefined)}
+              min="0"
+            />
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 };

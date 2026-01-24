@@ -372,17 +372,17 @@ const EventForm: React.FC<EventFormProps> = ({
 
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">Area / Room</span>
+                  <span className="label-text font-medium">{t('common.area')}</span>
                 </label>
                 <Select
                   value={data.area || '_none_'}
                   onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="No area (main device)" />
+                    <SelectValue placeholder={t('common.no_area')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none_">No area (main device)</SelectItem>
+                    <SelectItem value="_none_">{t('common.no_area')}</SelectItem>
                     {allAreas.map((area) => (
                       <SelectItem key={area.id} value={area.id}>
                         {area.name}
@@ -393,8 +393,8 @@ const EventForm: React.FC<EventFormProps> = ({
                 <label className="label">
                   <span className="label-text-alt">
                     {allAreas.length === 0 
-                      ? 'Define areas in the Areas/Rooms section first'
-                      : 'Creates sub-device linked to main BoneIO device'
+                      ? t('outputs.area_empty_hint')
+                      : t('outputs.area_hint')
                     }
                   </span>
                 </label>

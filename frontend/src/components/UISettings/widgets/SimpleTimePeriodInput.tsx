@@ -7,8 +7,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// TimePeriod object from backend
+interface TimePeriodObject {
+  milliseconds?: number;
+  seconds?: number;
+  minutes?: number;
+  hours?: number;
+  _timedelta?: number;
+  _total_in_seconds?: number;
+}
+
 interface SimpleTimePeriodInputProps {
-  value: string | number;  // Accept both string "30s" and number (ms) for backwards compat
+  value: string | number | TimePeriodObject;  // Accept string "30s", number (ms), or TimePeriod object
   onChange: (value: string) => void;  // Always output string like "30s"
   label: string;
   required?: boolean;
@@ -30,9 +40,9 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   maximum,
   allowedUnits = ['ms', 's', 'min', 'h']
 }) => {
-  // Parse value - can be string "30s" or number (ms for backwards compat)
-  const parseValue = (val: string | number): { value: number; unit: string } => {
-    if (!val) return { value: 0, unit: 's' };
+  // Parse value - can be string "30s", number (ms), or TimePeriod object from backend
+  const parseValue = (val: string | number | TimePeriodObject): { value: number; unit: string } => {
+    if (!val && val !== 0) return { value: 0, unit: 's' };
     
     // If string with unit like "30s", "1000ms", "5min"
     if (typeof val === 'string') {
@@ -54,7 +64,34 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
     }
     
     // If number, treat as milliseconds
-    return parseMilliseconds(val);
+    if (typeof val === 'number') {
+      return parseMilliseconds(val);
+    }
+    
+    // If TimePeriod object from backend
+    if (typeof val === 'object' && val !== null) {
+      // Try to extract value in order of preference: hours > minutes > seconds > milliseconds
+      if (val.hours !== undefined && val.hours > 0) {
+        return { value: val.hours, unit: 'h' };
+      }
+      if (val.minutes !== undefined && val.minutes > 0) {
+        return { value: val.minutes, unit: 'min' };
+      }
+      if (val.seconds !== undefined && val.seconds > 0) {
+        return { value: val.seconds, unit: 's' };
+      }
+      if (val.milliseconds !== undefined && val.milliseconds > 0) {
+        return { value: val.milliseconds, unit: 'ms' };
+      }
+      // Fallback: use _total_in_seconds if available
+      if (val._total_in_seconds !== undefined) {
+        const totalMs = val._total_in_seconds * 1000;
+        return parseMilliseconds(totalMs);
+      }
+      return { value: 0, unit: 's' };
+    }
+    
+    return { value: 0, unit: 's' };
   };
   
   // Convert milliseconds to best unit

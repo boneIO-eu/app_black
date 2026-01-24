@@ -181,8 +181,47 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     }
   }, [sectionType]);
 
-  // Format milliseconds to human-readable time
-  const formatTimeperiod = (ms: number): string => {
+  // Format timeperiod to human-readable time
+  // Accepts number (ms), string ("30s"), or TimePeriod object from backend
+  const formatTimeperiod = (value: number | string | { milliseconds?: number; seconds?: number; minutes?: number; hours?: number; _total_in_seconds?: number }): string => {
+    let ms: number;
+    
+    // If string with unit, return as-is
+    if (typeof value === 'string') {
+      if (/^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(value)) {
+        return value;
+      }
+      ms = parseFloat(value) || 0;
+    }
+    // If number, treat as milliseconds
+    else if (typeof value === 'number') {
+      ms = value;
+    }
+    // If TimePeriod object from backend
+    else if (typeof value === 'object' && value !== null) {
+      if (value.hours !== undefined && value.hours > 0) {
+        return `${value.hours}h`;
+      }
+      if (value.minutes !== undefined && value.minutes > 0) {
+        return `${value.minutes}min`;
+      }
+      if (value.seconds !== undefined && value.seconds > 0) {
+        return `${value.seconds}s`;
+      }
+      if (value.milliseconds !== undefined && value.milliseconds > 0) {
+        return `${value.milliseconds}ms`;
+      }
+      // Fallback: use _total_in_seconds
+      if (value._total_in_seconds !== undefined) {
+        ms = value._total_in_seconds * 1000;
+      } else {
+        return '0ms';
+      }
+    } else {
+      return '0ms';
+    }
+    
+    // Format milliseconds to best unit
     if (ms >= 60000) {
       const minutes = ms / 60000;
       return minutes % 1 === 0 ? `${minutes}min` : `${ms}ms`;

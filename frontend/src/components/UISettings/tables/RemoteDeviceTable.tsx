@@ -3,7 +3,7 @@ import axios from '@/api/axios';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-import { FaPlus, FaWifi, FaLink, FaSync, FaSearch } from 'react-icons/fa';
+import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash } from 'react-icons/fa';
 
 interface AutodiscoveredDevice {
   id: string;
@@ -36,6 +36,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   const [discoveringIndex, setDiscoveringIndex] = useState<number | null>(null);
   const [scanningNetwork, setScanningNetwork] = useState(false);
   const [scannedEsphomeDevices, setScannedEsphomeDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
+  const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
 
   // Fetch autodiscovered devices and managed_by devices
   useEffect(() => {
@@ -83,6 +84,31 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     availableAutodiscovered,
     items
   });
+
+  /**
+   * Remove an autodiscovered device and clear MQTT retained messages
+   */
+  const removeAutodiscoveredDevice = async (deviceId: string) => {
+    const confirmMessage = t('remote_devices.remove_autodiscovered_confirm') || 
+      'This will clear MQTT retained messages for this device. Continue?';
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setRemovingDeviceId(deviceId);
+    try {
+      await axios.delete(`/api/remote-devices/autodiscovered/${deviceId}`);
+      // Refresh the autodiscovered devices list
+      const { data } = await axios.get('/api/remote-devices/autodiscovered');
+      setAutodiscoveredDevices(data.devices || []);
+    } catch (error) {
+      console.error('Failed to remove autodiscovered device:', error);
+      alert('Failed to remove device. Please try again.');
+    } finally {
+      setRemovingDeviceId(null);
+    }
+  };
 
   /**
    * Scan network for ESPHome devices via mDNS
@@ -216,14 +242,24 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                       </span>
                     </Td>
                     <Td>
-                      <button
-                        className="btn btn-success btn-sm gap-1"
-                        onClick={() => onAddFromDiscovery?.(device)}
-                        title={t('remote_devices.add_from_discovery')}
-                      >
-                        <FaPlus className="w-3 h-3" />
-                        {t('remote_devices.add')}
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          className="btn btn-success btn-sm gap-1"
+                          onClick={() => onAddFromDiscovery?.(device)}
+                          title={t('remote_devices.add_from_discovery')}
+                        >
+                          <FaPlus className="w-3 h-3" />
+                          {t('remote_devices.add')}
+                        </button>
+                        <button
+                          className={`btn btn-error btn-sm gap-1 ${removingDeviceId === device.id ? 'loading' : ''}`}
+                          onClick={() => removeAutodiscoveredDevice(device.id)}
+                          disabled={removingDeviceId === device.id}
+                          title={t('remote_devices.remove_autodiscovered') || 'Remove'}
+                        >
+                          <FaTrash className="w-3 h-3" />
+                        </button>
+                      </div>
                     </Td>
                   </Tr>
                 ))}

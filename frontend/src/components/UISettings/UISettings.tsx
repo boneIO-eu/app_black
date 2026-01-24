@@ -396,8 +396,9 @@ export default function UISettings() {
           });
         }
 
-        // Convert timeperiod fields from milliseconds (number) back to string with unit
+        // Convert timeperiod fields from milliseconds (number) or TimePeriod object back to string with unit
         // This is needed because formData stores timeperiods as numbers for form inputs
+        // and backend may return TimePeriod objects
         const convertTimeperiodsForYaml = (obj: any, schema: any): any => {
           if (!obj || typeof obj !== 'object') return obj;
 
@@ -413,11 +414,36 @@ export default function UISettings() {
             const propSchema = properties[key];
             const value = result[key];
 
-            // Check if this is a timeperiod field
-            if (propSchema && propSchema['x-timeperiod'] === true && typeof value === 'number') {
-              result[key] = convertMillisecondsToTimeperiod(value);
+            // Check if this is a timeperiod field (by schema or by detecting TimePeriod object)
+            const isTimePeriodSchema = propSchema && propSchema['x-timeperiod'] === true;
+            const isTimePeriodObject = typeof value === 'object' && value !== null && 
+              ('milliseconds' in value || 'seconds' in value || 'minutes' in value || 'hours' in value || '_total_in_seconds' in value);
+            
+            if (isTimePeriodSchema || isTimePeriodObject) {
+              // Convert number (milliseconds) to string with unit
+              if (typeof value === 'number') {
+                result[key] = convertMillisecondsToTimeperiod(value);
+              }
+              // Convert TimePeriod object to string with unit
+              else if (isTimePeriodObject) {
+                // Use the most appropriate unit based on what's defined
+                if (value.hours !== undefined && value.hours > 0) {
+                  result[key] = `${value.hours}h`;
+                } else if (value.minutes !== undefined && value.minutes > 0) {
+                  result[key] = `${value.minutes}min`;
+                } else if (value.seconds !== undefined && value.seconds > 0) {
+                  result[key] = `${value.seconds}s`;
+                } else if (value.milliseconds !== undefined && value.milliseconds > 0) {
+                  result[key] = `${value.milliseconds}ms`;
+                } else if (value._total_in_seconds !== undefined) {
+                  result[key] = convertMillisecondsToTimeperiod(value._total_in_seconds * 1000);
+                } else {
+                  result[key] = '0s';
+                }
+              }
+              // String already - keep as-is
             }
-            // Recursively handle nested objects/arrays
+            // Recursively handle nested objects/arrays (but not TimePeriod objects)
             else if (typeof value === 'object' && value !== null) {
               result[key] = convertTimeperiodsForYaml(value, propSchema);
             }

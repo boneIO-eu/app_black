@@ -146,25 +146,47 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
               
               // Konwertujemy pola timeperiod ZAWSZE (dla nowych i istniejących elementów)
               const convertedItem = { ...item };
-              if (hasProperties(itemsSchema) && itemsSchema.properties) {
-                Object.keys(convertedItem).forEach(itemKey => {
-                  const itemPropSchema = itemsSchema.properties?.[itemKey];
-                  
-                  if (itemPropSchema && 
-                      typeof itemPropSchema === 'object' && 
-                      itemPropSchema['x-timeperiod'] === true) {
-                    const val = convertedItem[itemKey];
-                    // If already string with unit (from SimpleTimePeriodInput), keep it
-                    if (typeof val === 'string' && /^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(val)) {
-                      // Already has unit, keep as-is
-                    }
-                    // If number (milliseconds), convert to string with unit
-                    else if (typeof val === 'number') {
-                      convertedItem[itemKey] = convertMillisecondsToTimeperiod(val);
+              // Process all keys, not just those in schema (to catch TimePeriod objects)
+              Object.keys(convertedItem).forEach(itemKey => {
+                const itemPropSchema = hasProperties(itemsSchema) ? itemsSchema.properties?.[itemKey] : undefined;
+                const val = convertedItem[itemKey];
+                
+                // Check if this is a timeperiod field (by schema or by detecting TimePeriod object)
+                const isTimePeriodSchema = itemPropSchema && 
+                    typeof itemPropSchema === 'object' && 
+                    itemPropSchema['x-timeperiod'] === true;
+                const isTimePeriodObject = typeof val === 'object' && val !== null &&
+                    ('milliseconds' in val || 'seconds' in val || 
+                     'minutes' in val || 'hours' in val || 
+                     '_total_in_seconds' in val);
+                
+                if (isTimePeriodSchema || isTimePeriodObject) {
+                  // If already string with unit (from SimpleTimePeriodInput), keep it
+                  if (typeof val === 'string' && /^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(val)) {
+                    // Already has unit, keep as-is
+                  }
+                  // If number (milliseconds), convert to string with unit
+                  else if (typeof val === 'number') {
+                    convertedItem[itemKey] = convertMillisecondsToTimeperiod(val);
+                  }
+                  // If TimePeriod object from backend, convert to string
+                  else if (isTimePeriodObject) {
+                    if (val.hours !== undefined && val.hours > 0) {
+                      convertedItem[itemKey] = `${val.hours}h`;
+                    } else if (val.minutes !== undefined && val.minutes > 0) {
+                      convertedItem[itemKey] = `${val.minutes}min`;
+                    } else if (val.seconds !== undefined && val.seconds > 0) {
+                      convertedItem[itemKey] = `${val.seconds}s`;
+                    } else if (val.milliseconds !== undefined && val.milliseconds > 0) {
+                      convertedItem[itemKey] = `${val.milliseconds}ms`;
+                    } else if (val._total_in_seconds !== undefined) {
+                      convertedItem[itemKey] = convertMillisecondsToTimeperiod(val._total_in_seconds * 1000);
+                    } else {
+                      convertedItem[itemKey] = '0s';
                     }
                   }
-                });
-              }
+                }
+              });
               
               // Jeśli mamy oryginalny element, używamy rekurencji dla pozostałych pól
               if (originalItem && typeof originalItem === 'object') {
@@ -178,9 +200,15 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
         }
       }
       // Handle timeperiod fields - keep string values with units as-is
-      else if (propSchema && 
+      // Also detect TimePeriod objects from backend even without schema
+      else if ((propSchema && 
                typeof propSchema === 'object' && 
-               propSchema['x-timeperiod'] === true) {
+               propSchema['x-timeperiod'] === true) ||
+               // Detect TimePeriod object by its structure
+               (typeof currentValue === 'object' && currentValue !== null &&
+                ('milliseconds' in currentValue || 'seconds' in currentValue || 
+                 'minutes' in currentValue || 'hours' in currentValue || 
+                 '_total_in_seconds' in currentValue))) {
         // If value is already a string with unit (e.g., "30s"), keep it
         if (typeof currentValue === 'string' && /^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(currentValue)) {
           converted[key] = currentValue;
@@ -192,7 +220,24 @@ function asExtendedSchema(schema: any): ExtendedJSONSchema | undefined {
           const timeperiodString = convertMillisecondsToTimeperiod(currentValue);
           converted[key] = timeperiodString;
         }
-        // Otherwise keep as-is
+        // If value is a TimePeriod object from backend, convert to string
+        else if (typeof currentValue === 'object' && currentValue !== null) {
+          console.log(`Converting TimePeriod object ${key}:`, currentValue);
+          if (currentValue.hours !== undefined && currentValue.hours > 0) {
+            converted[key] = `${currentValue.hours}h`;
+          } else if (currentValue.minutes !== undefined && currentValue.minutes > 0) {
+            converted[key] = `${currentValue.minutes}min`;
+          } else if (currentValue.seconds !== undefined && currentValue.seconds > 0) {
+            converted[key] = `${currentValue.seconds}s`;
+          } else if (currentValue.milliseconds !== undefined && currentValue.milliseconds > 0) {
+            converted[key] = `${currentValue.milliseconds}ms`;
+          } else if (currentValue._total_in_seconds !== undefined) {
+            converted[key] = convertMillisecondsToTimeperiod(currentValue._total_in_seconds * 1000);
+          } else {
+            converted[key] = '0s';
+          }
+        }
+        // Otherwise keep as-is (shouldn't happen)
         else {
           converted[key] = currentValue;
         }

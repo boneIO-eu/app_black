@@ -727,7 +727,9 @@
     "default": "Domyślnie",
     "filter_placeholder": "Filtruj po nazwie lub ID...",
     "showing": "Pokazuje",
-    "of": "z"
+    "of": "z",
+    "area": "Obszar",
+    "no_area": "Brak obszaru"
   },
   "validation": {
     "id_required": "ID jest wymagane",
@@ -942,6 +944,10 @@
     "esphome_cover_id": "Roleta",
     "select_esphome_cover": "Wybierz roletę...",
     "esphome_cover_action": "Akcja Rolety",
+    "duration_thresholds": "Progi Czasowe",
+    "duration_thresholds_hint": "Opcjonalnie: Wykonaj tę akcję tylko gdy czas długiego naciśnięcia jest w określonym zakresie (w milisekundach)",
+    "min_duration_ms": "Min. Czas (ms)",
+    "max_duration_ms": "Maks. Czas (ms)",
     "validation_esphome_device_required": "Urządzenie ESPHome jest wymagane",
     "validation_switch_id_required": "ID przełącznika jest wymagane",
     "validation_light_id_required": "ID światła jest wymagane"
@@ -970,7 +976,7 @@
     "flow_rate": "Przepływ",
     "flow_rate_hint": "Przepływ wody, np. 500 L/h",
     "flow_rate_required": "Przepływ jest wymagany dla sensorów wody",
-    "area": "Obszar",
+    "area": "Obszar / Pokój",
     "area_hint": "Opcjonalne przypisanie do obszaru w Home Assistant",
     "no_area": "Brak obszaru (główne urządzenie)",
     "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia.",
@@ -1017,6 +1023,8 @@
     "device_id": "ID Urządzenia",
     "id_hint": "Unikalny identyfikator używany w akcjach (np. salon_boneio)",
     "device_name": "Nazwa Urządzenia",
+    "remove_autodiscovered": "Usuń z listy",
+    "remove_autodiscovered_confirm": "To wyczyści wiadomości MQTT retained dla tego urządzenia. Kontynuować?",
     "protocol": "Protokół",
     "select_protocol": "Wybierz protokół...",
     "protocol_hint": "Obecnie obsługiwany tylko MQTT i Esphome",
