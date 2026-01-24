@@ -77,6 +77,40 @@ async def get_autodiscovered_devices(manager: Manager = Depends(get_manager)):
     return {"devices": list(devices.values())}
 
 
+@router.delete("/autodiscovered/{device_id}")
+async def remove_autodiscovered_device(device_id: str, manager: Manager = Depends(get_manager)):
+    """
+    Remove an autodiscovered device and clear its MQTT retained messages.
+    
+    This sends empty payloads to all discovery topics for the device,
+    which clears retained messages from MQTT broker and removes the device
+    from the autodiscovered list.
+    
+    Args:
+        device_id: ID of the autodiscovered device to remove (e.g., "blk_abc123")
+        
+    Returns:
+        Status response.
+        
+    Raises:
+        HTTPException: 404 if device not found in autodiscovered list.
+    """
+    if not manager.remote_devices:
+        raise HTTPException(status_code=404, detail="Remote devices manager not initialized")
+    
+    # Check if device exists in autodiscovered list
+    device = manager.remote_devices.get_autodiscovered_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Autodiscovered device '{device_id}' not found")
+    
+    # Remove device and clear MQTT retained messages
+    manager.remote_devices.remove_autodiscovered_device_from_mqtt(device_id)
+    
+    _LOGGER.info("Removed autodiscovered device '%s' via API", device_id)
+    
+    return {"status": "success", "message": f"Device '{device_id}' removed and MQTT messages cleared"}
+
+
 @router.get("/managed-by")
 async def get_managed_by_devices(manager: Manager = Depends(get_manager)):
     """
