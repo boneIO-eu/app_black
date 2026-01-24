@@ -452,6 +452,9 @@ def modbus_sensor_availabilty_message(
     """
     topic = config_helper.topic_prefix
     
+    # Remove entity_id from kwargs to avoid conflict
+    kwargs_filtered = {k: v for k, v in kwargs.items() if k != 'entity_id'}
+    
     # Use base ha_availabilty_message and override modbus-specific fields
     msg = ha_availabilty_message(
         id=entity_id,
@@ -464,7 +467,7 @@ def modbus_sensor_availabilty_message(
         manufacturer=manufacturer,
         model=model,
         area=area,
-        **kwargs,
+        **kwargs_filtered,
     )
     
     # Override with modbus-specific values
@@ -511,6 +514,9 @@ def modbus_select_availabilty_message(
     """
     topic = config_helper.topic_prefix
     
+    # Remove entity_id from kwargs to avoid conflict
+    kwargs_filtered = {k: v for k, v in kwargs.items() if k != 'entity_id'}
+    
     # Use base ha_availabilty_message and override modbus-specific fields
     msg = ha_availabilty_message(
         id=entity_id,
@@ -523,7 +529,7 @@ def modbus_select_availabilty_message(
         manufacturer=manufacturer,
         model=model,
         area=area,
-        **kwargs,
+        **kwargs_filtered,
     )
     
     # Override with modbus-specific values
@@ -570,6 +576,9 @@ def modbus_numeric_availabilty_message(
     """
     topic = config_helper.topic_prefix
     
+    # Remove entity_id from kwargs to avoid conflict
+    kwargs_filtered = {k: v for k, v in kwargs.items() if k != 'entity_id'}
+    
     # Use base ha_availabilty_message and override modbus-specific fields
     msg = ha_availabilty_message(
         id=entity_id,
@@ -582,7 +591,7 @@ def modbus_numeric_availabilty_message(
         manufacturer=manufacturer,
         model=model,
         area=area,
-        **kwargs,
+        **kwargs_filtered,
     )
     
     # Override with modbus-specific values
