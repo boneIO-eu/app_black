@@ -237,9 +237,12 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
               className="input input-bordered w-full"
               value={data?.esphome_api?.host || ''}
               onChange={(e) => handleEsphomeApiChange('host', e.target.value)}
-              placeholder="192.168.1.50"
+              placeholder="device-name.local or 192.168.1.50"
               required
             />
+            <label className="label">
+              <span className="label-text-alt opacity-70">{t('remote_devices.esphome_host_hint') || 'Use mDNS hostname (e.g. device.local) for stability - IP may change'}</span>
+            </label>
           </div>
 
           {/* Port */}

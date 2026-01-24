@@ -223,6 +223,7 @@ const EventForm: React.FC<EventFormProps> = ({
         savedOutputs={savedOutputs}
         savedOutputGroups={savedOutputGroups}
         savedCovers={savedCovers}
+        clickType={type}
       />
     );
   };

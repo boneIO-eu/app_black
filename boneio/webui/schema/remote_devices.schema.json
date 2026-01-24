@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -51,8 +51,8 @@
           },
           "mqtt": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "outputs": {
@@ -62,8 +62,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -91,8 +91,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -124,8 +124,8 @@
           },
           "esphome_api": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "host": {
@@ -135,8 +135,8 @@
               },
               "port": {
                 "type": [
-                  "string",
-                  "integer"
+                  "integer",
+                  "string"
                 ],
                 "default": 6053,
                 "description": "Port",
@@ -159,8 +159,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -175,8 +175,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -196,8 +196,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -212,8 +212,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -337,8 +337,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -353,8 +353,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"

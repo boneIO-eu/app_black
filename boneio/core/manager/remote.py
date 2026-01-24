@@ -332,6 +332,8 @@ class RemoteDeviceManager:
         output_id: str,
         action: str,
         brightness: int | None = None,
+        color_temp: int | None = None,
+        rgb: list[int] | tuple[int, int, int] | None = None,
         transition: float | None = None,
     ) -> bool:
         """Control output on remote device (BoneIO MQTT or ESPHome API).
@@ -344,6 +346,8 @@ class RemoteDeviceManager:
             output_id: ID of the output/switch/light to control
             action: Action to perform (ON, OFF, TOGGLE, BRIGHTNESS_UP, BRIGHTNESS_DOWN, SET_BRIGHTNESS)
             brightness: Brightness level (0-255) - only for ESPHome lights
+            color_temp: Color temperature in mireds - only for ESPHome lights
+            rgb: RGB color as [R, G, B] list or tuple (0-255 each) - only for ESPHome lights
             transition: Transition time in seconds - only for ESPHome lights
             
         Returns:
@@ -359,10 +363,16 @@ class RemoteDeviceManager:
             # Check if output_id is a light
             if device.has_light(output_id):
                 _LOGGER.debug("Controlling ESPHome light '%s' on device '%s'", output_id, device_id)
+                # Convert rgb list to tuple[int, int, int] if needed
+                rgb_tuple: tuple[int, int, int] | None = None
+                if rgb and len(rgb) >= 3:
+                    rgb_tuple = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
                 return await device.control_light(
                     light_id=output_id,
                     action=action,
                     brightness=brightness,
+                    color_temp=color_temp,
+                    rgb=rgb_tuple,
                     transition=transition if transition is not None else 0.0,
                 )
             # Otherwise treat as switch
@@ -420,19 +430,51 @@ class RemoteDeviceManager:
             **kwargs,
         )
     
-    def reload(self, remote_devices_config: list[dict[str, Any]] | None = None) -> None:
+    async def reload(self, remote_devices_config: list[dict[str, Any]] | None = None) -> None:
         """Reload remote devices from config.
+        
+        Stops existing ESPHome connections, reconfigures devices,
+        and starts new ESPHome connections.
         
         Args:
             remote_devices_config: New list of remote device configurations
         """
         _LOGGER.info("Reloading remote devices configuration")
+        
+        # Stop existing ESPHome connections first
+        await self.stop_all_connections()
+        
         self._devices.clear()
         
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
         
+        # Start ESPHome connections immediately (no delay for reload)
+        await self._start_esphome_connections_immediate()
+        
         _LOGGER.info("Reloaded %d remote devices", len(self._devices))
+    
+    async def _start_esphome_connections_immediate(self) -> None:
+        """Start ESPHome connections immediately without delay.
+        
+        Used during reload when we want connections to start right away.
+        """
+        esphome_devices = [
+            (device_id, device) 
+            for device_id, device in self._devices.items() 
+            if isinstance(device, ESPHomeRemoteDevice)
+        ]
+        
+        if not esphome_devices:
+            return
+        
+        _LOGGER.info("Starting %d ESPHome connection(s)...", len(esphome_devices))
+        for device_id, device in esphome_devices:
+            try:
+                await device.start_connection()
+                _LOGGER.info("Started connection for ESPHome device '%s'", device_id)
+            except Exception as e:
+                _LOGGER.error("Failed to start connection for ESPHome device '%s': %s", device_id, e)
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.

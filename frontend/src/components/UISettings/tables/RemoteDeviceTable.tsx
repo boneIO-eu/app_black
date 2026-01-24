@@ -266,7 +266,14 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                 {/* ESPHome scanned devices */}
                 {scannedEsphomeDevices.map((device, idx) => (
                   <Tr key={`esphome-${idx}`} className="hover:bg-base-300">
-                    <Td className="font-mono text-xs">{device.ip}</Td>
+                    <Td className="font-mono text-xs">
+                      <div className="flex flex-col">
+                        <span>{device.host}</span>
+                        {device.ip && device.ip !== device.host && (
+                          <span className="text-xs opacity-50">IP: {device.ip}</span>
+                        )}
+                      </div>
+                    </Td>
                     <Td>{device.name}</Td>
                     <Td>
                       <span className="badge badge-secondary badge-sm">ESPHome</span>
@@ -284,9 +291,9 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           device_type: 'esphome',
                           outputs: [],
                           covers: [],
-                          // Pass ESPHome specific data
+                          // Pass ESPHome specific data - use hostname (mDNS) instead of IP for stability
                           esphome_api: {
-                            host: device.ip,
+                            host: device.host,
                             port: device.port,
                           }
                         } as any)}

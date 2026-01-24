@@ -260,6 +260,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         savedOutputs={savedOutputs}
         savedOutputGroups={savedOutputGroups}
         savedCovers={savedCovers}
+        clickType={type}
       />
     );
   };

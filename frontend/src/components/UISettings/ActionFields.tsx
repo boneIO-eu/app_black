@@ -89,6 +89,8 @@ interface ActionFieldsProps {
   savedOutputGroups?: any[];
   /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
+  /** Click type - used to show duration thresholds only for long press actions */
+  clickType?: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single' | 'pressed' | 'released';
 }
 
 const ActionFields: React.FC<ActionFieldsProps> = ({
@@ -108,6 +110,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   savedOutputs,
   savedOutputGroups,
   savedCovers,
+  clickType,
 }) => {
   const { t } = useTranslation();
   const actionType = action.action || 'output';
@@ -581,6 +584,25 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             const showColorTemp = selectedLight?.supports_color_temp && 
               ['ON', 'TOGGLE'].includes(action.action_output || '');
             
+            // Show RGB color picker for ON, TOGGLE if light supports RGB/RGBW
+            const showRgb = (selectedLight?.supports_rgb || (selectedLight as any)?.supports_rgbw) && 
+              ['ON', 'TOGGLE'].includes(action.action_output || '');
+            
+            // Helper functions for RGB <-> Hex conversion
+            const rgbToHex = (rgb: number[]): string => {
+              if (!rgb || rgb.length < 3) return '#ffffff';
+              return '#' + rgb.slice(0, 3).map(c => c.toString(16).padStart(2, '0')).join('');
+            };
+            
+            const hexToRgb = (hex: string): number[] => {
+              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+              return result ? [
+                parseInt(result[1], 16),
+                parseInt(result[2], 16),
+                parseInt(result[3], 16)
+              ] : [255, 255, 255];
+            };
+            
             return (
               <>
                 {showBrightness && (
@@ -645,6 +667,39 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
                           <span>{t('event_form.color_temp_cool') || 'Cool'}</span>
                           <span>{t('event_form.color_temp_warm') || 'Warm'}</span>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {showRgb && (
+                  <div className="form-control mb-3">
+                    <label className="label cursor-pointer justify-start gap-2 pb-1">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-sm checkbox-secondary"
+                        checked={action.rgb !== undefined}
+                        onChange={(e) => onUpdate('rgb', e.target.checked ? [255, 255, 255] : undefined)}
+                      />
+                      <span className="label-text font-medium">{t('event_form.rgb_color') || 'RGB Color'}</span>
+                      {action.rgb && (
+                        <span 
+                          className="w-6 h-6 rounded border border-base-300 ml-auto"
+                          style={{ backgroundColor: rgbToHex(action.rgb) }}
+                        />
+                      )}
+                    </label>
+                    {action.rgb && (
+                      <div className="pl-7 flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={rgbToHex(action.rgb)}
+                          onChange={(e) => onUpdate('rgb', hexToRgb(e.target.value))}
+                          className="w-12 h-10 cursor-pointer rounded border-0"
+                        />
+                        <span className="text-sm opacity-70">
+                          RGB({action.rgb[0]}, {action.rgb[1]}, {action.rgb[2]})
+                        </span>
                       </div>
                     )}
                   </div>
@@ -789,34 +844,36 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
       )}
 
       {/* Duration thresholds - only for long press actions */}
-      <div className="form-control mb-3">
-        <label className="label">
-          <span className="label-text font-medium">{t('event_form.duration_thresholds')}</span>
-          <span className="label-text-alt">{t('event_form.duration_thresholds_hint')}</span>
-        </label>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <input
-              type="number"
-              placeholder={t('event_form.min_duration_ms')}
-              className="input input-bordered w-full"
-              value={action.min_duration || ''}
-              onChange={(e) => onUpdate('min_duration', e.target.value ? parseInt(e.target.value) : undefined)}
-              min="0"
-            />
-          </div>
-          <div className="flex-1">
-            <input
-              type="number"
-              placeholder={t('event_form.max_duration_ms')}
-              className="input input-bordered w-full"
-              value={action.max_duration || ''}
-              onChange={(e) => onUpdate('max_duration', e.target.value ? parseInt(e.target.value) : undefined)}
-              min="0"
-            />
+      {(clickType === 'long' || clickType === 'double_then_long' || clickType === 'single_then_long') && (
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">{t('event_form.duration_thresholds')}</span>
+            <span className="label-text-alt">{t('event_form.duration_thresholds_hint')}</span>
+          </label>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="number"
+                placeholder={t('event_form.min_duration_ms')}
+                className="input input-bordered w-full"
+                value={action.min_duration || ''}
+                onChange={(e) => onUpdate('min_duration', e.target.value ? parseInt(e.target.value) : undefined)}
+                min="0"
+              />
+            </div>
+            <div className="flex-1">
+              <input
+                type="number"
+                placeholder={t('event_form.max_duration_ms')}
+                className="input input-bordered w-full"
+                value={action.max_duration || ''}
+                onChange={(e) => onUpdate('max_duration', e.target.value ? parseInt(e.target.value) : undefined)}
+                min="0"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
     </div>
   );

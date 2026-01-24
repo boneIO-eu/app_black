@@ -140,6 +140,24 @@ schema:
       description: |
         Brightness level for SET_BRIGHTNESS action or initial brightness for ON action.
         Only used for ESPHome light entities. 0 = off, 255 = full brightness.
+  color_temp:
+    type: integer
+    required: False
+    meta:
+      label: Color Temperature (mireds)
+      description: |
+        Color temperature in mireds. Only for ESPHome lights with color temperature support.
+        Lower values = cooler (bluer), higher values = warmer (yellower).
+        Typical range: 153 (6500K cool) to 500 (2000K warm).
+  rgb:
+    type: list
+    required: False
+    meta:
+      label: RGB Color [R, G, B]
+      description: |
+        RGB color as list [red, green, blue], each value 0-255.
+        Only for ESPHome lights with RGB support.
+        Example: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.
   transition:
     type: float
     required: False

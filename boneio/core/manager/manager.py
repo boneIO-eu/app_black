@@ -698,7 +698,7 @@ class Manager:
                 )
             
             elif action == REMOTE_OUTPUT:
-                # Control output on remote device
+                # Control output on remote device (supports ESPHome lights with brightness/color)
                 remote_device_id = action_definition.get("remote_device")
                 output_id = action_definition.get("output_id")
                 action_output = action_definition.get("action_output", "TOGGLE")
@@ -706,6 +706,10 @@ class Manager:
                     device_id=remote_device_id,
                     output_id=output_id,
                     action=action_output,
+                    brightness=action_definition.get("brightness"),
+                    color_temp=action_definition.get("color_temp"),
+                    rgb=action_definition.get("rgb"),
+                    transition=action_definition.get("transition"),
                 )
             
             elif action == REMOTE_COVER:
@@ -740,16 +744,17 @@ class Manager:
         configure_logger(log_config, debug=0)
         _LOGGER.info("Logger configuration reloaded successfully")
 
-    def _reload_remote_devices(self) -> None:
+    async def _reload_remote_devices(self) -> None:
         """Reload remote devices configuration from config file.
         
         This allows hot-reloading of remote devices without restarting the application.
+        Handles ESPHome connections properly (stops old, starts new).
         """
         config = self._config_helper.get_config()
         remote_devices_config = config.get("remote_devices", [])
         
         _LOGGER.info("Reloading remote devices configuration")
-        self.remote_devices.reload(remote_devices_config)
+        await self.remote_devices.reload(remote_devices_config)
         _LOGGER.info("Remote devices configuration reloaded successfully")
     
     async def publish_discovery(self) -> None:
