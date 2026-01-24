@@ -670,7 +670,10 @@ class RemoteDeviceManager:
                 )
     
     def _remove_autodiscovered_device(self, device_id: str) -> None:
-        """Remove autodiscovered device.
+        """Remove autodiscovered device from memory only.
+        
+        This is called when receiving empty discovery payload.
+        Does NOT clear MQTT retained messages.
         
         Args:
             device_id: Device ID to remove
@@ -678,6 +681,46 @@ class RemoteDeviceManager:
         if device_id in self._autodiscovered_devices:
             del self._autodiscovered_devices[device_id]
             _LOGGER.info("Removed autodiscovered device: %s", device_id)
+    
+    def remove_autodiscovered_device_from_mqtt(self, device_id: str) -> None:
+        """Remove autodiscovered device and clear MQTT retained messages.
+        
+        This sends empty payloads to all discovery topics for the device,
+        which clears retained messages from MQTT broker.
+        
+        Args:
+            device_id: Device ID to remove
+        """
+        if not self._message_bus:
+            _LOGGER.error("Cannot remove device from MQTT - message_bus not set")
+            return
+        
+        # List of all discovery subtopics
+        discovery_subtopics = [
+            "device",
+            "outputs", 
+            "covers",
+            "inputs",
+            "sensors",
+            "modbus",
+        ]
+        
+        # Send empty payload to each discovery topic to clear retained messages
+        for subtopic in discovery_subtopics:
+            topic = f"{DISCOVERY_TOPIC_PREFIX}/{device_id}/{DISCOVERY_SUBTOPIC}/{subtopic}"
+            self._message_bus.send_message(
+                topic=topic,
+                payload=None,  # Empty payload clears retained message
+                retain=True,
+            )
+            _LOGGER.debug("Cleared MQTT retained message for %s", topic)
+        
+        # Remove from memory
+        if device_id in self._autodiscovered_devices:
+            del self._autodiscovered_devices[device_id]
+            _LOGGER.info("Removed autodiscovered device from MQTT and memory: %s", device_id)
+        else:
+            _LOGGER.warning("Device %s not in autodiscovered list, but cleared MQTT messages", device_id)
     
     def get_autodiscovered_device(self, device_id: str) -> MQTTRemoteDevice | None:
         """Get autodiscovered device by ID.

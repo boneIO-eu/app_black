@@ -4,8 +4,8 @@
   "properties": {
     "mqtt": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "host": {
@@ -25,8 +25,8 @@
         },
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -34,8 +34,8 @@
         },
         "ha_discovery": {
           "type": [
-            "object",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {

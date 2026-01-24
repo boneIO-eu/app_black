@@ -26,6 +26,7 @@ from boneio.const import (
     REMOTE_OUTPUT,
     SET_BRIGHTNESS,
     STATE,
+    TOGGLE,
     cover_actions,
     output_actions,
 )
@@ -423,17 +424,28 @@ class Manager:
                     # Support both new 'boneio_output' and legacy 'pin' for backward compatibility
                     entity_id = action_definition.get("boneio_output") or action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
-                    action_output = action_definition.get("action_output")
+                    action_output = action_definition.get("action_output", TOGGLE)
                     output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(stripped_entity_id)
                     action_to_execute = output_actions.get(action_output)
                     if output and action_to_execute:
                         _f = getattr(output, action_to_execute, None)
                         if _f:
-                            parsed_actions[click_type].append({
+                            parsed_action = {
                                 "action": action,
                                 "pin": stripped_entity_id,
                                 "action_to_execute": action_to_execute,
-                            })
+                            }
+                            # Copy duration thresholds for long press actions
+                            if action_definition.get("min_duration") is not None:
+                                parsed_action["min_duration"] = action_definition["min_duration"]
+                            if action_definition.get("max_duration") is not None:
+                                parsed_action["max_duration"] = action_definition["max_duration"]
+                            _LOGGER.debug(
+                                "Parsed OUTPUT action for %s: output=%s, action=%s, min_dur=%s, max_dur=%s",
+                                pin, stripped_entity_id, action_to_execute,
+                                parsed_action.get("min_duration"), parsed_action.get("max_duration")
+                            )
+                            parsed_actions[click_type].append(parsed_action)
                             continue
                     _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
                     
@@ -441,19 +453,25 @@ class Manager:
                     # Support both new 'boneio_cover' and legacy 'pin' for backward compatibility
                     entity_id = action_definition.get("boneio_cover") or action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
-                    action_cover = action_definition.get("action_cover")
+                    action_cover = action_definition.get("action_cover", TOGGLE)
                     extra_data = action_definition.get("data", {})
                     cover = self.covers.get_cover(stripped_entity_id)
                     action_to_execute = cover_actions.get(action_cover)
                     if cover and action_to_execute:
                         _f = getattr(cover, action_to_execute, None)
                         if _f:
-                            parsed_actions[click_type].append({
+                            parsed_action = {
                                 "action": action,
                                 "pin": stripped_entity_id,
                                 "action_to_execute": action_to_execute,
                                 "extra_data": extra_data,
-                            })
+                            }
+                            # Copy duration thresholds for long press actions
+                            if action_definition.get("min_duration") is not None:
+                                parsed_action["min_duration"] = action_definition["min_duration"]
+                            if action_definition.get("max_duration") is not None:
+                                parsed_action["max_duration"] = action_definition["max_duration"]
+                            parsed_actions[click_type].append(parsed_action)
                             continue
                     _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
                     
@@ -461,11 +479,17 @@ class Manager:
                     action_mqtt_msg = action_definition.get("action_mqtt_msg")
                     action_topic = action_definition.get(TOPIC)
                     if action_topic and action_mqtt_msg:
-                        parsed_actions[click_type].append({
+                        parsed_action = {
                             "action": action,
                             "action_mqtt_msg": action_mqtt_msg,
                             "action_topic": action_topic,
-                        })
+                        }
+                        # Copy duration thresholds for long press actions
+                        if action_definition.get("min_duration") is not None:
+                            parsed_action["min_duration"] = action_definition["min_duration"]
+                        if action_definition.get("max_duration") is not None:
+                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("MQTT action missing topic or message for %s", pin)
                     
@@ -474,11 +498,17 @@ class Manager:
                     action_output = action_definition.get("action_output")
                     action_to_execute = output_actions.get(action_output.upper())
                     if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append({
+                        parsed_action = {
                             "action": action,
                             "boneio_id": boneio_id,
                             "action_output": action_output,
-                        })
+                        }
+                        # Copy duration thresholds for long press actions
+                        if action_definition.get("min_duration") is not None:
+                            parsed_action["min_duration"] = action_definition["min_duration"]
+                        if action_definition.get("max_duration") is not None:
+                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("OUTPUT_OVER_MQTT action missing data for %s", pin)
                     
@@ -487,11 +517,17 @@ class Manager:
                     action_cover = action_definition.get("action_cover")
                     action_to_execute = cover_actions.get(action_cover.upper())
                     if boneio_id and action_to_execute:
-                        parsed_actions[click_type].append({
+                        parsed_action = {
                             "action": action,
                             "boneio_id": boneio_id,
                             "action_cover": action_cover,
-                        })
+                        }
+                        # Copy duration thresholds for long press actions
+                        if action_definition.get("min_duration") is not None:
+                            parsed_action["min_duration"] = action_definition["min_duration"]
+                        if action_definition.get("max_duration") is not None:
+                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("COVER_OVER_MQTT action missing data for %s", pin)
                 
@@ -501,12 +537,18 @@ class Manager:
                     output_id = action_definition.get("output_id")
                     action_output = action_definition.get("action_output", "TOGGLE")
                     if remote_device and output_id:
-                        parsed_actions[click_type].append({
+                        parsed_action = {
                             "action": action,
                             "remote_device": remote_device,
                             "output_id": output_id,
                             "action_output": action_output,
-                        })
+                        }
+                        # Copy duration thresholds for long press actions
+                        if action_definition.get("min_duration") is not None:
+                            parsed_action["min_duration"] = action_definition["min_duration"]
+                        if action_definition.get("max_duration") is not None:
+                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_OUTPUT action missing remote_device or output_id for %s", pin)
                 
@@ -517,13 +559,19 @@ class Manager:
                     action_cover = action_definition.get("action_cover", "TOGGLE")
                     extra_data = action_definition.get("data", {})
                     if remote_device and cover_id:
-                        parsed_actions[click_type].append({
+                        parsed_action = {
                             "action": action,
                             "remote_device": remote_device,
                             "cover_id": cover_id,
                             "action_cover": action_cover,
                             "extra_data": extra_data,
-                        })
+                        }
+                        # Copy duration thresholds for long press actions
+                        if action_definition.get("min_duration") is not None:
+                            parsed_action["min_duration"] = action_definition["min_duration"]
+                        if action_definition.get("max_duration") is not None:
+                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_COVER action missing remote_device or cover_id for %s", pin)
                     
@@ -531,18 +579,58 @@ class Manager:
 
     async def execute_actions(
         self,
-        actions: list
-    ) -> None:
+        actions: list,
+        duration: float | None = None,
+        executed_actions: set[int] | None = None,
+    ) -> set[int]:
         """Execute list of actions.
         
         Args:
             actions: List of actions to execute
-        """
+            duration: Current duration in seconds (for long press threshold checking)
+            executed_actions: Set of action indices already executed (for long press)
         
+        Returns:
+            Set of action indices that were executed
+        """
+        if executed_actions is None:
+            executed_actions = set()
+        
+        duration_ms = (duration or 0) * 1000  # Convert to ms
         
         start_time = time.time()
         
-        for action_definition in actions:
+        for idx, action_definition in enumerate(actions):
+            # Skip if already executed
+            if idx in executed_actions:
+                _LOGGER.debug("Action %d already executed, skipping", idx)
+                continue
+            
+            # Check duration thresholds
+            min_dur = action_definition.get("min_duration")  # ms
+            max_dur = action_definition.get("max_duration")  # ms
+            
+            _LOGGER.debug(
+                "Checking action %d: min_dur=%s, max_dur=%s, duration_ms=%.1f, executed=%s",
+                idx, min_dur, max_dur, duration_ms, executed_actions
+            )
+            
+            if min_dur is not None or max_dur is not None:
+                # Action has duration thresholds
+                if min_dur is not None and duration_ms < min_dur:
+                    _LOGGER.debug("Action %d: duration %.1fms < min_dur %dms, skipping", idx, duration_ms, min_dur)
+                    continue  # Duration too short
+                if max_dur is not None and duration_ms >= max_dur:
+                    _LOGGER.debug("Action %d: duration %.1fms >= max_dur %dms, skipping", idx, duration_ms, max_dur)
+                    continue  # Duration too long
+                _LOGGER.debug("Action %d: duration %.1fms in range [%s, %s), executing", idx, duration_ms, min_dur, max_dur)
+            else:
+                # Action without thresholds - execute only once (on first long event)
+                # Check if THIS specific action was already executed, not just any action
+                if idx in executed_actions:
+                    _LOGGER.debug("Action %d: no thresholds, already executed, skipping", idx)
+                    continue
+                _LOGGER.debug("Action %d: no thresholds, not yet executed, executing", idx)
             action = action_definition.get("action")
             
             if action == MQTT:
@@ -632,6 +720,11 @@ class Manager:
                     action=action_cover,
                     **extra_data,
                 )
+            
+            # Mark action as executed
+            executed_actions.add(idx)
+        
+        return executed_actions
 
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.

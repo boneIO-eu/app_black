@@ -4,13 +4,13 @@
   "properties": {
     "pca9685": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -20,16 +20,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",

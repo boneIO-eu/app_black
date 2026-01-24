@@ -22,6 +22,7 @@ from boneio.const import (
     ID,
     INPUT,
     INPUT_SENSOR,
+    LONG,
     PIN,
     PRESSED,
     RELEASED,
@@ -686,8 +687,48 @@ class InputManager:
         # Send event to MQTT for Home Assistant
         self._publish_input_event_to_mqtt(input_instance, event)
         
-        # Execute actions for this input event (skip if publish_only)
-        if actions and not event.publish_only:
+        # Execute actions with duration threshold support
+        if actions and event.click_type == LONG:
+            # Get executed_actions from detector state
+            detector = getattr(input_instance, '_detector', None)
+            executed_actions = getattr(detector._state, 'executed_long_actions', set()) if detector else set()
+            
+            # Lazy evaluation: Check if there are any actions with duration thresholds
+            # or any actions without thresholds that haven't been executed yet
+            has_pending_actions = False
+            for idx, action in enumerate(actions):
+                if idx in executed_actions:
+                    continue  # Already executed
+                min_dur = action.get("min_duration")
+                max_dur = action.get("max_duration")
+                if min_dur is not None or max_dur is not None:
+                    # Has duration thresholds - might need to execute
+                    has_pending_actions = True
+                    break
+                elif not executed_actions:
+                    # No thresholds and nothing executed yet - first event
+                    has_pending_actions = True
+                    break
+            
+            # Skip execute_actions if no pending actions (optimization for periodic events)
+            if not has_pending_actions:
+                _LOGGER.debug(
+                    "Skipping execute_actions for %s - no pending actions (executed=%s)",
+                    event.entity_id, executed_actions
+                )
+            else:
+                # Execute actions with duration checking
+                new_executed = await self._manager.execute_actions(
+                    actions=actions,
+                    duration=event.duration,
+                    executed_actions=executed_actions,
+                )
+                
+                # Update detector state
+                if detector:
+                    detector._state.executed_long_actions = new_executed
+        elif actions:
+            # Non-long events - execute all actions normally
             await self._manager.execute_actions(actions=actions)
 
     async def send_ha_autodiscovery(self) -> None:

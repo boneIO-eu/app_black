@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 import gpiod
@@ -43,6 +43,9 @@ class ClickState:
     pending_click_type: str | None = None
     pending_click_duration: float | None = None
     pending_click_timer: asyncio.TimerHandle | None = None
+    # Long hold periodic events
+    long_hold_periodic_timer: asyncio.TimerHandle | None = None
+    executed_long_actions: set[int] = field(default_factory=set)  # Track which long actions already executed
 
 
 @dataclass
@@ -352,10 +355,14 @@ class MultiClickDetector:
         return None
 
     def _detect_long_press(self) -> None:
-        """Detect and report a long press."""
-        duration = None
-        if self._state.last_press_ts and self._state.last_release_ts:
-            duration = self._state.last_release_ts - self._state.last_press_ts
+        """Detect and report a long press and start periodic updates."""
+        if not self._state.last_press_ts:
+            return
+        
+        # Reset executed actions for new long press
+        self._state.executed_long_actions = set()
+        
+        duration = self._loop.time() - self._state.last_press_ts
         
         _LOGGER.info("Detected LONG press on %s (%s)", self._name, self._pin)
         
@@ -365,6 +372,36 @@ class MultiClickDetector:
         
         # Emit the long press (may also trigger sequence)
         self._emit_click(LONG, duration)
+        
+        # Start periodic timer for subsequent long events
+        self._state.long_hold_periodic_timer = self._loop.call_later(
+            0.2,  # 200ms
+            self._send_periodic_long_event
+        )
+    
+    def _send_periodic_long_event(self) -> None:
+        """Send periodic 'long' event with updated duration."""
+        if not self._state.last_press_ts or self._state.last_release_ts:
+            # Button released or invalid state
+            return
+        
+        duration = self._loop.time() - self._state.last_press_ts
+        
+        _LOGGER.debug(
+            "Periodic long event on %s (%s), duration=%.3fs",
+            self._name,
+            self._pin,
+            duration
+        )
+        
+        # Emit 'long' event with updated duration
+        self._emit_click(LONG, duration)
+        
+        # Schedule next update
+        self._state.long_hold_periodic_timer = self._loop.call_later(
+            0.2,
+            self._send_periodic_long_event
+        )
 
     def handle_event(self, event: gpiod.EdgeEvent) -> None:
         """Process a GPIO edge event and update click state.
@@ -396,6 +433,7 @@ class MultiClickDetector:
 
             _LOGGER.debug("PRESSED: %s (%s)", self._name, self._pin)
             self._state.last_press_ts = timestamp_s
+            self._state.last_release_ts = None  # Reset release timestamp for new press
 
             # Cancel any pending finalizer for a multi-click sequence
             if self._state.finalizer:
@@ -449,6 +487,33 @@ class MultiClickDetector:
                 "EXISTS" if self._state.long_press_timer else "None",
             )
 
+            # Cancel periodic timer if running
+            if self._state.long_hold_periodic_timer:
+                self._state.long_hold_periodic_timer.cancel()
+                self._state.long_hold_periodic_timer = None
+                
+                # Send final 'long' event with final duration
+                # Note: The callback creates an async task, so we need to delay
+                # the reset of executed_actions to allow the async handler to
+                # read the current state before it's cleared
+                if self._state.last_press_ts:
+                    duration = timestamp_s - self._state.last_press_ts
+                    _LOGGER.debug(
+                        "Sending final long event on release for %s, duration=%.3fs, executed_actions=%s",
+                        self._name,
+                        duration,
+                        self._state.executed_long_actions
+                    )
+                    self._emit_click(LONG, duration)
+                
+                # Reset executed actions with a small delay to allow async handler
+                # to read the current state. The handler uses create_task() so we
+                # need to give it time to start and read executed_long_actions.
+                def reset_executed_actions():
+                    self._state.executed_long_actions = set()
+                    _LOGGER.debug("Reset executed_long_actions for %s", self._name)
+                self._loop.call_later(0.05, reset_executed_actions)
+            
             # If a long press timer exists, it means it hasn't fired yet.
             # This is a short click.
             if self._state.long_press_timer:

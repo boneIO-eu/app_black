@@ -4,13 +4,13 @@
   "properties": {
     "remote_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -51,19 +51,19 @@
           },
           "mqtt": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "outputs": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -86,13 +86,13 @@
               },
               "covers": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -124,8 +124,8 @@
           },
           "esphome_api": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "host": {
@@ -135,8 +135,8 @@
               },
               "port": {
                 "type": [
-                  "integer",
-                  "string"
+                  "string",
+                  "integer"
                 ],
                 "default": 6053,
                 "description": "Port",
@@ -154,13 +154,13 @@
               },
               "switches": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -175,8 +175,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -191,13 +191,13 @@
               },
               "lights": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -212,8 +212,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -308,16 +308,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
@@ -332,13 +332,13 @@
               },
               "covers": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -353,8 +353,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
