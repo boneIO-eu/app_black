@@ -22,6 +22,7 @@ services:
       - ./caddy/502.html:/srv/502.html:ro
       - ./caddy/data:/data
       - ./caddy/config:/config
+      - /data/ssl:/data/ssl:ro  # Wildcard SSL cert for *.black.boneio.app
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

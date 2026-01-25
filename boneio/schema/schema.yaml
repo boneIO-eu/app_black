@@ -119,6 +119,27 @@ web:
       nullable: True
       meta:
         label: Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
+    cloud:
+      required: False
+      type: dict
+      nullable: True
+      default: {}
+      meta:
+        label: boneIO Cloud registration for PWA support
+        description: |
+          Register device with boneIO Cloud to enable PWA installation.
+          Creates DNS record {serial}.black.boneio.app pointing to your local IP.
+          Requires valid SSL certificate from boneIO Cloud.
+      schema:
+        enabled:
+          type: boolean
+          default: False
+          meta:
+            label: Enable cloud registration
+            description: |
+              When enabled, device registers with boneIO Cloud API and downloads
+              wildcard SSL certificate for *.black.boneio.app domain.
+              This allows PWA installation on mobile devices.
     auth:
       required: False
       type: dict

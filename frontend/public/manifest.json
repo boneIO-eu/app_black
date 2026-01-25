@@ -1,0 +1,21 @@
+{
+  "name": "boneIO Black",
+  "short_name": "boneIO",
+  "description": "boneIO Black - Smart Home Controller",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1d232a",
+  "theme_color": "#570df8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/boneio.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "lifestyle"],
+  "lang": "en",
+  "dir": "ltr"
+}

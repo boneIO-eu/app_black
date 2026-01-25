@@ -1,0 +1,118 @@
+{
+	# Global options - use wildcard certificate from boneIO Cloud
+}
+
+# HTTP - no redirect, serve directly
+:80 {
+	# Handle errors (502, 503, 504)
+	handle_errors {
+		@502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
+		handle @502-504 {
+			root * /srv
+			rewrite * /502.html
+			file_server
+		}
+	}
+
+	# Node-RED status endpoint
+	handle /nodered-status {
+		header Content-Type application/json
+		header X-NodeRed-Available "true"
+		header Access-Control-Expose-Headers "X-NodeRed-Available"
+		respond `{"available": true}` 200
+	}
+
+	# Node-RED reverse proxy
+	handle /nodered/* {
+		reverse_proxy node-red:1880 {
+			header_up X-Forwarded-Proto {scheme}
+			header_down X-NodeRed-Available "true"
+		}
+	}
+
+	# BoneIO reverse proxy (default) - handles both HTTP and WebSocket
+	handle {
+		reverse_proxy host.docker.internal:8090 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}
+
+# HTTPS with wildcard certificate for *.black.boneio.app (PWA support)
+# Certificate is fetched from boneIO Cloud API and stored in /data/ssl/
+*.black.boneio.app {
+	tls /data/ssl/fullchain.pem /data/ssl/privkey.pem
+
+	# Handle errors (502, 503, 504)
+	handle_errors {
+		@502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
+		handle @502-504 {
+			root * /srv
+			rewrite * /502.html
+			file_server
+		}
+	}
+
+	# Node-RED status endpoint
+	handle /nodered-status {
+		header Content-Type application/json
+		header X-NodeRed-Available "true"
+		header Access-Control-Expose-Headers "X-NodeRed-Available"
+		respond `{"available": true}` 200
+	}
+
+	# Node-RED reverse proxy
+	handle /nodered/* {
+		reverse_proxy node-red:1880 {
+			header_up X-Forwarded-Proto {scheme}
+			header_down X-NodeRed-Available "true"
+		}
+	}
+
+	# BoneIO reverse proxy (default) - handles both HTTP and WebSocket
+	handle {
+		reverse_proxy host.docker.internal:8090 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}
+
+# HTTPS catch-all with internal self-signed certificate (fallback for local access)
+https:// {
+	tls internal {
+		on_demand
+	}
+
+	# Handle errors (502, 503, 504)
+	handle_errors {
+		@502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
+		handle @502-504 {
+			root * /srv
+			rewrite * /502.html
+			file_server
+		}
+	}
+
+	# Node-RED status endpoint
+	handle /nodered-status {
+		header Content-Type application/json
+		header X-NodeRed-Available "true"
+		header Access-Control-Expose-Headers "X-NodeRed-Available"
+		respond `{"available": true}` 200
+	}
+
+	# Node-RED reverse proxy
+	handle /nodered/* {
+		reverse_proxy node-red:1880 {
+			header_up X-Forwarded-Proto {scheme}
+			header_down X-NodeRed-Available "true"
+		}
+	}
+
+	# BoneIO reverse proxy (default) - handles both HTTP and WebSocket
+	handle {
+		reverse_proxy host.docker.internal:8090 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+}
