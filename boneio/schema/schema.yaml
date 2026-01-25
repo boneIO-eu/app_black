@@ -87,6 +87,18 @@ mqtt:
         description: |
           When enabled, this device subscribes to BoneIO autodiscovery topics
           (boneio/+/discovery/#) and automatically discovers neighboring BoneIO devices.
+    update_channel:
+      type: string
+      default: stable
+      allowed:
+        - stable
+        - dev
+      meta:
+        label: Update channel
+        description: |
+          Which releases to show in Home Assistant Update entity:
+          - stable: Only stable releases (recommended)
+          - dev: Include development/pre-release versions
 
 web:
   type: dict

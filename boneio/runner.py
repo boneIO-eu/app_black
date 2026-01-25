@@ -120,6 +120,7 @@ async def async_run(
         config_file_path=config_file,
         send_boneio_autodiscovery=mqtt_config.get("send_boneio_autodiscovery", True),
         receive_boneio_autodiscovery=mqtt_config.get("receive_boneio_autodiscovery", True),
+        update_channel=mqtt_config.get("update_channel", "stable"),
     )
     
     # Load areas configuration

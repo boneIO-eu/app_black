@@ -39,6 +39,7 @@ from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.manager.update import UpdateManager
 from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
@@ -204,6 +205,11 @@ class Manager:
             message_bus=message_bus,
         )
         
+        # 9. UpdateManager (checks for software updates and publishes to HA)
+        self.update_manager = UpdateManager(
+            manager=self,
+        )
+        
         # Configure virtual energy sensors (must be after outputs are initialized)
         self.sensors.configure_virtual_energy_sensors()
         
@@ -323,6 +329,7 @@ class Manager:
         await self.sensors.send_ha_autodiscovery()
         await self.modbus.send_ha_autodiscovery()
         await self.display.send_ha_autodiscovery()
+        await self.update_manager.send_ha_autodiscovery()
 
     def send_ha_autodiscovery(
         self,
@@ -380,6 +387,9 @@ class Manager:
             availability_msg_func = ha_cover_availabilty_message
         elif ha_type == BUTTON:
             availability_msg_func = ha_button_availabilty_message
+        elif ha_type == "update":
+            from boneio.integration.homeassistant import ha_update_availability_message
+            availability_msg_func = ha_update_availability_message
         
         # Use availability_msg_func from kwargs if provided (for sensors)
         if 'availability_msg_func' in kwargs:
@@ -399,6 +409,16 @@ class Manager:
                 topic=topic, ha_type=ha_type, payload=payload
             )
             self.send_message(topic=topic, payload=payload, retain=True)
+
+    async def _handle_update_install_command(self, topic: str, payload: str) -> None:
+        """Handle update install command from Home Assistant.
+        
+        Args:
+            topic: MQTT topic
+            payload: MQTT payload (should be "INSTALL")
+        """
+        _LOGGER.info("Received update install command: %s", payload)
+        await self.update_manager.handle_install_command(payload)
 
     def parse_actions(self, pin: str, actions: dict) -> dict:
         """Parse actions configuration.

@@ -165,6 +165,27 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           </div>
         </label>
       </div>
+
+      {/* Update Section */}
+      <div className="divider">{t('mqtt_config.update_settings')}</div>
+
+      {/* Update Channel */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">{t('mqtt_config.update_channel')}</span>
+        </label>
+        <select
+          className="select select-bordered w-full"
+          value={data?.update_channel || 'stable'}
+          onChange={(e) => handleChange('update_channel', e.target.value)}
+        >
+          <option value="stable">{t('mqtt_config.update_channel_stable')}</option>
+          <option value="dev">{t('mqtt_config.update_channel_dev')}</option>
+        </select>
+        <label className="label">
+          <span className="label-text-alt text-base-content/60">{t('mqtt_config.update_channel_help')}</span>
+        </label>
+      </div>
     </div>
   );
 };

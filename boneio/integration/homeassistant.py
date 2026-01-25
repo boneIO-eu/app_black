@@ -661,3 +661,47 @@ def ha_cover_with_tilt_availabilty_message(
         "position_template": '{{ value_json.position }}',
         "tilt_status_template": '{{ value_json.tilt }}',
     }
+
+
+def ha_update_availability_message(
+    id: str, name: str, config_helper: ConfigHelper, **kwargs
+) -> HomeAssistantDiscoveryMessage:
+    """Create Update availability topic for HA.
+    
+    Args:
+        id: Entity ID
+        name: Entity name
+        config_helper: ConfigHelper instance
+        **kwargs: Additional fields (e.g., device_class, entity_category)
+    
+    Returns:
+        HA discovery message for Update entity
+    """
+    topic = config_helper.topic_prefix
+    
+    # Default kwargs for Update entity
+    default_kwargs = {
+        "device_class": "firmware",
+        "entity_category": "diagnostic",
+    }
+    
+    msg = ha_availabilty_message(
+        device_type="update",
+        entity_type="update",
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        **{**default_kwargs, **kwargs}
+    )
+    
+    result = {
+        **msg,
+        "state_topic": f"{topic}/update/state",
+        "command_topic": f"{topic}/update/install",
+        "payload_install": "INSTALL",
+        "icon": "mdi:update",
+    }
+    
+    _LOGGER.debug("Update HA discovery message: %s", result)
+    
+    return result

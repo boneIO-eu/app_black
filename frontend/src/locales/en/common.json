@@ -687,7 +687,12 @@
     "send_boneio_autodiscovery": "Send boneIO Autodiscovery",
     "send_boneio_autodiscovery_help": "Publish outputs, covers, inputs, and sensors to MQTT discovery topics so other boneIO devices can discover and control this device.",
     "receive_boneio_autodiscovery": "Receive boneIO Autodiscovery",
-    "receive_boneio_autodiscovery_help": "Subscribe to boneIO autodiscovery topics and automatically discover neighboring boneIO devices."
+    "receive_boneio_autodiscovery_help": "Subscribe to boneIO autodiscovery topics and automatically discover neighboring boneIO devices.",
+    "update_settings": "Update Settings",
+    "update_channel": "Update Channel",
+    "update_channel_stable": "Stable (recommended)",
+    "update_channel_dev": "Development (pre-release)",
+    "update_channel_help": "Which releases to show in Home Assistant Update entity. Stable shows only stable releases, Dev includes pre-release versions."
   },
   "webserver": {
     "port": "Port",

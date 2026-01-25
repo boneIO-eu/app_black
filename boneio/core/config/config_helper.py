@@ -45,6 +45,7 @@ class ConfigHelper:
         config_file_path: str | None = None,
         send_boneio_autodiscovery: bool = True,
         receive_boneio_autodiscovery: bool = True,
+        update_channel: str = "stable",
     ):
         self._name = name
         
@@ -63,6 +64,7 @@ class ConfigHelper:
         self._ha_discovery_prefix = ha_discovery_prefix
         self._send_boneio_autodiscovery = send_boneio_autodiscovery
         self._receive_boneio_autodiscovery = receive_boneio_autodiscovery
+        self._update_channel = update_channel
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -79,6 +81,7 @@ class ConfigHelper:
             TEXT_SENSOR: {},
             SELECT: {},
             NUMERIC: {},
+            "update": {}
         }
         self.manager_ready: bool = False
         self._network_info = network_info
@@ -180,6 +183,11 @@ class ConfigHelper:
     def receive_boneio_autodiscovery(self) -> bool:
         """Check if BoneIO autodiscovery receiving is enabled."""
         return self._receive_boneio_autodiscovery
+
+    @property
+    def update_channel(self) -> str:
+        """Get update channel (stable or dev)."""
+        return self._update_channel
 
     @property
     def device_type(self) -> str:

@@ -693,7 +693,12 @@
     "send_boneio_autodiscovery": "Wysyłaj Autodiscovery boneIO",
     "send_boneio_autodiscovery_help": "Publikuj wyjścia, rolety, wejścia i czujniki do tematów MQTT, aby inne urządzenia boneIO mogły je odkryć i sterować tym urządzeniem.",
     "receive_boneio_autodiscovery": "Odbieraj Autodiscovery boneIO",
-    "receive_boneio_autodiscovery_help": "Subskrybuj tematy autodiscovery boneIO i automatycznie odkrywaj sąsiednie urządzenia boneIO."
+    "receive_boneio_autodiscovery_help": "Subskrybuj tematy autodiscovery boneIO i automatycznie odkrywaj sąsiednie urządzenia boneIO.",
+    "update_settings": "Ustawienia aktualizacji",
+    "update_channel": "Kanał aktualizacji",
+    "update_channel_stable": "Stabilny (zalecany)",
+    "update_channel_dev": "Deweloperski (pre-release)",
+    "update_channel_help": "Które wersje pokazywać w encji Update w Home Assistant. Stabilny pokazuje tylko stabilne wersje, Deweloperski zawiera wersje pre-release."
   },
   "webserver": {
     "port": "Port",
