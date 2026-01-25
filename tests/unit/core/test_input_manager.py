@@ -2,14 +2,27 @@
 
 These tests verify that binary sensor and event button events
 are correctly published to MQTT.
+
+Note: These tests mock hardware dependencies (gpiod) to run on non-BeagleBone systems.
 """
 
 from __future__ import annotations
 
-import asyncio
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Mock gpiod before importing boneio modules
+mock_gpiod = MagicMock()
+mock_gpiod.line = MagicMock()
+mock_gpiod.line.Bias = MagicMock()
+mock_gpiod.line.Direction = MagicMock()
+mock_gpiod.line.Edge = MagicMock()
+mock_gpiod.EdgeEvent = MagicMock()
+mock_gpiod.LineRequest = MagicMock()
+sys.modules['gpiod'] = mock_gpiod
+sys.modules['gpiod.line'] = mock_gpiod.line
 
 from boneio.const import INPUT, INPUT_SENSOR, PRESSED, RELEASED
 from boneio.models import InputState
