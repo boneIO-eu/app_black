@@ -19,7 +19,6 @@ from boneio.const import (
     COVER,
     DOUBLE,
     INPUT,
-    INPUT_SENSOR,
     IP,
     LONG,
     NUMERIC,
@@ -321,7 +320,7 @@ def ha_binary_sensor_availabilty_message(
     id: str, name: str, config_helper: ConfigHelper, model: str = "boneIO Relay Board", **kwargs
 ):
     """Create availability topic for HA."""
-    msg = ha_availabilty_message(device_type=INPUT_SENSOR, config_helper=config_helper, id=id, name=name, model=model, entity_type="binary_sensor", **kwargs)
+    msg = ha_availabilty_message(device_type=INPUT, config_helper=config_helper, id=id, name=name, model=model, entity_type="binary_sensor", **kwargs)
     msg["payload_on"] = "pressed"
     msg["payload_off"] = "released"
     return msg
