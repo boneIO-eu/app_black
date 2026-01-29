@@ -24,7 +24,7 @@ jobs:
       - name: Install test dependencies
         run: |
           pip install pytest pytest-asyncio pytest-cov
-          pip install aiomqtt pydantic PyYAML colorlog Cerberus
+          pip install aiomqtt pydantic PyYAML colorlog Cerberus psutil aiohttp
 
       - name: Run unit tests
         run: pytest tests/unit -v --tb=short -m "not hardware"
