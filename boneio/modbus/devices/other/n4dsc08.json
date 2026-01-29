@@ -1,0 +1,132 @@
+{
+  "model": "N4DSC08",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 8,
+      "register_type": "input",
+      "registers": [
+        {
+          "name": "Temperature 1",
+          "address": 0,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 2",
+          "address": 1,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 3",
+          "address": 2,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 4",
+          "address": 3,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 5",
+          "address": 4,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 6",
+          "address": 5,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 7",
+          "address": 6,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperature 8",
+          "address": 7,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "set_base": {
+    "set_address_address": 253,
+    "set_baudrate": {
+      "address": 254,
+      "possible_baudrates": {
+        "1200": 0,
+        "2400": 1,
+        "4800": 2,
+        "9600": 3,
+        "19200": 4,
+        "38400": 5,
+        "57600": 6,
+        "115200": 7
+      }
+    }
+  }
+}

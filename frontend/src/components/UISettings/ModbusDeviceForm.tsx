@@ -389,7 +389,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 type="text"
                 className="input input-bordered w-full"
                 value={data.data?.width || ''}
-                onChange={(e) => updateNestedField('data', 'width', e.target.value || undefined)}
+                onChange={(e) => updateNestedField('data', 'width', e.target.value.replace(',', '.') || undefined)}
                 placeholder={t('modbus.data.width_placeholder')}
               />
               <label className="label py-0.5">
@@ -408,7 +408,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 type="text"
                 className="input input-bordered w-full"
                 value={data.data?.length || ''}
-                onChange={(e) => updateNestedField('data', 'length', e.target.value || undefined)}
+                onChange={(e) => updateNestedField('data', 'length', e.target.value.replace(',', '.') || undefined)}
                 placeholder={t('modbus.data.length_placeholder')}
               />
               <label className="label py-0.5">
