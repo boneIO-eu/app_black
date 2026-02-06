@@ -1340,3 +1340,15 @@ boneio:
         - lower
       meta:
         label: Predefined device type configuration
+    cloud_registration:
+      type: boolean
+      required: False
+      default: False
+      meta:
+        label: Enable Cloud Registration (PWA)
+        description: |
+          Registers device subdomain ({serial}.black.boneio.app) with boneIO Cloud API
+          and downloads wildcard SSL certificate for PWA access via HTTPS.
+          The DNS record points to the device's local IP address (LAN only).
+          Requires disabling DNS rebinding protection in your router settings
+          to allow DNS responses with private IP addresses.

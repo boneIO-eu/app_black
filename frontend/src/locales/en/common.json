@@ -665,7 +665,13 @@
     "select_files_to_replace": "Select which configuration files to replace with example configs for the new device type. Your current files will be backed up.",
     "load_and_apply": "Load & Apply",
     "restart_required": "Restart required to apply changes.",
-    "copied_files": "Copied files"
+    "copied_files": "Copied files",
+    "cloud_registration": "Cloud Registration (PWA)",
+    "cloud_registration_help": "Registers device subdomain ({serial}.black.boneio.app) with boneIO Cloud API and downloads wildcard SSL certificate for PWA access via HTTPS.",
+    "cloud_registration_warning_title": "DNS Rebinding Protection",
+    "cloud_registration_warning": "Your router must have DNS rebinding protection disabled for this feature to work. This protection (sometimes called DNS rebind attack prevention) blocks DNS responses that resolve to private IP addresses. Check your router settings (e.g. in OpenWrt: Network → DHCP and DNS → uncheck 'Rebind protection').",
+    "cloud_registration_domain": "Your device will be accessible at:",
+    "cloud_registration_lan_only": "DNS points to local IP — accessible only from your LAN."
   },
   "mqtt_config": {
     "host": "Host",

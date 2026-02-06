@@ -7,6 +7,8 @@ for PWA support with custom subdomains.
 
 import asyncio
 import base64
+import hashlib
+import hmac
 import logging
 import os
 import shutil
@@ -15,6 +17,8 @@ from pathlib import Path
 from typing import Optional
 
 import aiohttp
+
+from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +50,7 @@ class CloudRegistration:
         self,
         serial_number: str,
         local_ip: str,
+        master_secret: str = DEFAULT_MASTER_SECRET,
         enabled: bool = True,
     ) -> None:
         """
@@ -54,10 +59,13 @@ class CloudRegistration:
         Args:
             serial_number: Device serial number (e.g., 'blkf8dc18')
             local_ip: Local IP address of the device
+            master_secret: Shared secret for HMAC device authentication.
+                Defaults to the build-time injected secret from secrets.py.
             enabled: Whether cloud registration is enabled
         """
         self._serial = serial_number
         self._local_ip = local_ip
+        self._master_secret = master_secret
         self._enabled = enabled
         self._domain: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
@@ -100,6 +108,26 @@ class CloudRegistration:
         if self._session:
             await self._session.close()
             self._session = None
+
+    def _compute_token(self) -> str:
+        """Compute HMAC-SHA256 auth token from master secret and serial.
+        
+        Returns:
+            Hex-encoded HMAC token string
+        """
+        return hmac.new(
+            self._master_secret.encode(),
+            self._serial.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Get authorization headers for cloud API requests.
+        
+        Returns:
+            Dict with Authorization header
+        """
+        return {"Authorization": f"Bearer {self._compute_token()}"}
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -155,6 +183,7 @@ class CloudRegistration:
             async with session.post(
                 f"{CLOUD_API_URL}/register",
                 json=payload,
+                headers=self._auth_headers(),
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -189,7 +218,11 @@ class CloudRegistration:
         try:
             session = await self._get_session()
             
-            async with session.get(f"{CLOUD_API_URL}/cert") as response:
+            async with session.get(
+                f"{CLOUD_API_URL}/cert",
+                params={"serial": self._serial},
+                headers=self._auth_headers(),
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
                     

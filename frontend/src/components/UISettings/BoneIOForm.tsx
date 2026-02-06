@@ -200,6 +200,47 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         </label>
       </div>
 
+      {/* Cloud Registration (PWA) */}
+      <div className="divider"></div>
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle toggle-primary"
+            checked={data?.cloud_registration || false}
+            onChange={(e) => handleChange('cloud_registration', e.target.checked)}
+          />
+          <div>
+            <span className="label-text font-medium">{t('boneio_config.cloud_registration')}</span>
+          </div>
+        </label>
+        <label className="label pt-0">
+          <span className="label-text-alt text-base-content/60">{t('boneio_config.cloud_registration_help')}</span>
+        </label>
+      </div>
+
+      {data?.cloud_registration && (
+        <div className="space-y-3 ml-2">
+          {/* DNS Rebinding Warning */}
+          <div className="alert alert-warning text-sm">
+            <FaExclamationTriangle className="shrink-0" />
+            <div>
+              <p className="font-semibold">{t('boneio_config.cloud_registration_warning_title')}</p>
+              <p className="mt-1">{t('boneio_config.cloud_registration_warning')}</p>
+            </div>
+          </div>
+
+          {/* Domain info */}
+          <div className="alert alert-info text-sm">
+            <div>
+              <p>{t('boneio_config.cloud_registration_domain')}</p>
+              <p className="font-mono font-bold mt-1">https://{'<serial>'}.black.boneio.app</p>
+              <p className="mt-1 opacity-70">{t('boneio_config.cloud_registration_lan_only')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Device Type Change Warning Modal */}
       {showWarningModal && validationResult && (
         <div className="modal modal-open">

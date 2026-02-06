@@ -40,6 +40,7 @@ from boneio.const import (
     TOPIC_PREFIX,
     USERNAME,
 )
+from boneio.core.cloud import CloudRegistration
 from boneio.core.config import ConfigHelper
 from boneio.core.events import EventBus, GracefulExit
 from boneio.core.manager import Manager
@@ -121,6 +122,7 @@ async def async_run(
         send_boneio_autodiscovery=mqtt_config.get("send_boneio_autodiscovery", True),
         receive_boneio_autodiscovery=mqtt_config.get("receive_boneio_autodiscovery", True),
         update_channel=mqtt_config.get("update_channel", "stable"),
+        cloud_registration=main_config.get("cloud_registration", False),
     )
     
     # Load areas configuration
@@ -206,6 +208,21 @@ async def async_run(
         _LOGGER.info("Publishing device discovery information")
         await manager.publish_discovery()
     
+    # Start cloud registration if enabled
+    cloud_reg = None
+    if _config_helper.cloud_registration:
+        local_ip = network_state.get("ip", "")
+        serial = _config_helper.serial_no
+        if local_ip and serial:
+            cloud_reg = CloudRegistration(
+                serial_number=serial,
+                local_ip=local_ip,
+            )
+            await cloud_reg.start()
+            _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
+        else:
+            _LOGGER.warning("Cloud registration enabled but missing serial or IP")
+
     # Start web server if configured
     if web_active:
         _LOGGER.info("Starting Web server.")
@@ -283,6 +300,14 @@ async def async_run(
                 await web_server.trigger_shutdown()
             except Exception as e:
                 _LOGGER.error(f"Error triggering web server shutdown: {e}")
+
+        # Stop cloud registration
+        if cloud_reg:
+            try:
+                _LOGGER.info("Stopping cloud registration...")
+                await cloud_reg.stop()
+            except Exception as e:
+                _LOGGER.error(f"Error stopping cloud registration: {e}")
 
         # Stop GPIO manager
         try:

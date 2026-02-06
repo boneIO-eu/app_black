@@ -46,6 +46,7 @@ class ConfigHelper:
         send_boneio_autodiscovery: bool = True,
         receive_boneio_autodiscovery: bool = True,
         update_channel: str = "stable",
+        cloud_registration: bool = False,
     ):
         self._name = name
         
@@ -65,6 +66,7 @@ class ConfigHelper:
         self._send_boneio_autodiscovery = send_boneio_autodiscovery
         self._receive_boneio_autodiscovery = receive_boneio_autodiscovery
         self._update_channel = update_channel
+        self._cloud_registration = cloud_registration
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -188,6 +190,11 @@ class ConfigHelper:
     def update_channel(self) -> str:
         """Get update channel (stable or dev)."""
         return self._update_channel
+
+    @property
+    def cloud_registration(self) -> bool:
+        """Check if cloud registration (PWA) is enabled."""
+        return self._cloud_registration
 
     @property
     def device_type(self) -> str:
