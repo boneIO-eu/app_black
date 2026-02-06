@@ -1,4 +1,5 @@
 #!/bin/bash
+# OLD for new look at https://github.com/boneIO-eu/black_debian_images
 # Script to generate all BoneIO Black image variants from a source image
 # Usage: ./generate_all_images.sh <source_image.img> [version]
 # Example: ./generate_all_images.sh BLACK_DEBIAN13_K6.18_APK_V1.0.1_32x10A_SDCARD.img 1.0.1
