@@ -1,0 +1,80 @@
+name: Auto Release on Tag Push
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog generation
+
+      - name: Get tag info
+        id: tag_info
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check if prerelease (dev, alpha, beta, rc in version)
+          if echo "$VERSION" | grep -qiE '(dev|alpha|beta|rc)'; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Find previous tag
+        id: prev_tag
+        run: |
+          # Get the previous tag (the one before current)
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            # No previous tag, use first commit
+            PREV_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREV_TAG"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          TAG="${{ steps.tag_info.outputs.tag }}"
+
+          echo "## What's Changed" > changelog.md
+          echo "" >> changelog.md
+
+          # Group commits by type (based on common prefixes)
+          # Collect all commits
+          git log "${PREV_TAG}..${TAG}" --pretty=format:"%s|%h" --no-merges | while IFS='|' read -r msg hash; do
+            # Skip version bump commits
+            if echo "$msg" | grep -qiE '^(bump version|v[0-9])'; then
+              continue
+            fi
+            echo "- ${msg} (\`${hash}\`)" >> changelog.md
+          done
+
+          echo "" >> changelog.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}" >> changelog.md
+
+          cat changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_info.outputs.tag }}
+          name: ${{ steps.tag_info.outputs.tag }}
+          body_path: changelog.md
+          prerelease: ${{ steps.tag_info.outputs.prerelease }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
