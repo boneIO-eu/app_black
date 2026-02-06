@@ -47,9 +47,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Inject Cloud API Secret
-        run: |
-          sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/${{ secrets.BONEIO_MASTER_SECRET }}/' boneio/core/cloud/secrets.py
+      # TODO: Add 'Inject Cloud API Secret' step when cloud registration (PWA) branch is merged
+      # sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/secret/' boneio/core/cloud/secrets.py
 
       - name: Build Package
         run: |
@@ -94,9 +93,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Inject Cloud API Secret
-        run: |
-          sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/${{ secrets.BONEIO_MASTER_SECRET }}/' boneio/core/cloud/secrets.py
+      # TODO: Add 'Inject Cloud API Secret' step when cloud registration (PWA) branch is merged
+      # sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/secret/' boneio/core/cloud/secrets.py
 
       - name: Build Package
         run: |
