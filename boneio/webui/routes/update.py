@@ -183,31 +183,42 @@ async def check_update():
         current_ver_lower = current_version.lower()
         current_is_prerelease = any(x in current_ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])
         
-        if current_is_prerelease:
-            recommended = latest_prerelease or latest_stable or available_versions[0]
-        else:
-            recommended = latest_stable or latest_prerelease or available_versions[0]
-        
         is_update_available = False
         prerelease_update_available = False
         try:
             current_parsed = version.parse(current_version)
-            recommended_parsed = version.parse(recommended["version"])
-            is_update_available = recommended_parsed > current_parsed
             
-            if current_is_prerelease and latest_prerelease:
-                prerelease_parsed = version.parse(latest_prerelease["version"])
-                if prerelease_parsed > current_parsed:
-                    is_update_available = True
-                    recommended = latest_prerelease
+            # Find the best recommended version:
+            # - Always consider stable releases as potential updates
+            # - For prerelease users: also consider newer prereleases
+            # - Pick whichever is newer (stable or prerelease)
+            candidates = []
+            if latest_stable:
+                stable_parsed = version.parse(latest_stable["version"])
+                if stable_parsed > current_parsed:
+                    candidates.append((stable_parsed, latest_stable))
+            if latest_prerelease:
+                pre_parsed = version.parse(latest_prerelease["version"])
+                if pre_parsed > current_parsed:
+                    candidates.append((pre_parsed, latest_prerelease))
+                    if not current_is_prerelease:
+                        prerelease_update_available = True
             
-            if not current_is_prerelease and latest_prerelease:
-                prerelease_parsed = version.parse(latest_prerelease["version"])
-                if prerelease_parsed > current_parsed:
-                    prerelease_update_available = True
+            if candidates:
+                # Pick the newest candidate
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                recommended = candidates[0][1]
+                is_update_available = True
+            else:
+                # No update available, show current channel's latest
+                if current_is_prerelease:
+                    recommended = latest_prerelease or latest_stable or available_versions[0]
+                else:
+                    recommended = latest_stable or latest_prerelease or available_versions[0]
         except Exception as e:
             _LOGGER.warning("Error parsing versions for comparison: %s", str(e))
             is_update_available = False
+            recommended = latest_stable or latest_prerelease or available_versions[0]
         
         return {
             "status": "success",

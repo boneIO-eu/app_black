@@ -183,13 +183,45 @@ class UpdateManager(AsyncUpdater):
             
             # Determine which version to recommend based on update_channel setting
             update_channel = self._manager._config_helper.update_channel
+            current_ver_lower = current_version.lower()
+            current_is_prerelease = any(
+                x in current_ver_lower for x in ['dev', 'alpha', 'beta', 'rc']
+            )
             
-            if update_channel == "dev":
-                # Dev channel: prefer prerelease, fallback to stable
-                recommended = latest_prerelease or latest_stable
-            else:
-                # Stable channel (default): only stable releases
-                recommended = latest_stable
+            # Check if update is available
+            is_update_available = False
+            recommended = None
+            try:
+                current_parsed = version.parse(current_version)
+                
+                # Build candidate list based on update_channel
+                # - Stable channel: only stable releases
+                # - Dev channel: both stable and prerelease
+                # - Always: if currently on prerelease, stable is a valid upgrade
+                candidates = []
+                if latest_stable:
+                    stable_parsed = version.parse(latest_stable["version"])
+                    if stable_parsed > current_parsed:
+                        candidates.append((stable_parsed, latest_stable))
+                
+                if update_channel == "dev" or current_is_prerelease:
+                    if latest_prerelease:
+                        pre_parsed = version.parse(latest_prerelease["version"])
+                        if pre_parsed > current_parsed:
+                            candidates.append((pre_parsed, latest_prerelease))
+                
+                if candidates:
+                    candidates.sort(key=lambda x: x[0], reverse=True)
+                    recommended = candidates[0][1]
+                    is_update_available = True
+            except Exception as e:
+                _LOGGER.warning("Error parsing versions: %s", e)
+            
+            if recommended is None:
+                if update_channel == "dev":
+                    recommended = latest_prerelease or latest_stable
+                else:
+                    recommended = latest_stable
             
             if not recommended:
                 return {
@@ -197,15 +229,6 @@ class UpdateManager(AsyncUpdater):
                     "message": "No suitable release found",
                     "current_version": current_version
                 }
-            
-            # Check if update is available
-            is_update_available = False
-            try:
-                current_parsed = version.parse(current_version)
-                recommended_parsed = version.parse(recommended["version"])
-                is_update_available = recommended_parsed > current_parsed
-            except Exception as e:
-                _LOGGER.warning("Error parsing versions: %s", e)
             
             result = {
                 "status": "success",
