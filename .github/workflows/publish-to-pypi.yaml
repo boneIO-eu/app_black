@@ -2,16 +2,8 @@ name: Publish BoneIO 🐍 distributions 📦 to PyPI
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'dev-debian13'
-    paths:
-      - '**.py'
-      - '**.tsx'
-      - '**.ts'
-      - 'frontend/**'
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*'
   release:
     types:
       - created
