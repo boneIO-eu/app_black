@@ -14,15 +14,20 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    hostname: ${HOSTNAME}
     ports:
       - "${HTTP_PORT:-8091}:80"
       - "${HTTPS_PORT:-8443}:443"
+    environment:
+      - HOST_HOSTNAME=${HOSTNAME}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy/502.html:/srv/502.html:ro
+      - ./caddy/init-certs.sh:/init-certs.sh:ro
       - ./caddy/data:/data
       - ./caddy/config:/config
-      - /data/ssl:/data/ssl:ro  # Wildcard SSL cert for *.black.boneio.app
+      - /etc/hostname:/etc/host_hostname:ro
+    entrypoint: /bin/sh
+    command: ["/init-certs.sh"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

@@ -17,6 +17,7 @@ export default function Navigation() {
   const [version, setVersion] = useState<string>('');
   const [serialNo, setSerialNo] = useState<string>('');
   const { deviceName } = useDeviceName();
+  const [pwaName, setPwaName] = useState<string>('');
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -35,12 +36,19 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
+    axios.get('/api/pwa_name').then(({ data }) => {
+      setPwaName(data.pwa_name || '');
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (deviceName) {
       document.title = `boneIO Black - ${deviceName}`;
     }
   }, [deviceName]);
 
   return (
+    <>
     <div className="navbar bg-base-200 border-b border-base-content/10 px-4 sticky top-0 z-30">
       <div className="flex-none xl:hidden">
         <label htmlFor="my-drawer" className="btn btn-square btn-ghost">
@@ -90,6 +98,18 @@ export default function Navigation() {
         )}
       </div>
     </div>
+    {/* Mobile sub-header with device info */}
+    <div className="xl:hidden bg-base-200/80 border-b border-base-content/5 px-4 py-1 flex items-center justify-between text-xs sticky top-16 z-20">
+      <div className="flex items-center gap-3 min-w-0">
+        {deviceName && (
+          <span className="truncate"><span className="opacity-50">boneIO:</span> {deviceName}</span>
+        )}
+        {pwaName && (
+          <span className="opacity-60 shrink-0">({pwaName})</span>
+        )}
+      </div>
+    </div>
+    </>
   );
 }
 

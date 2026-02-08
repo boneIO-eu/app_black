@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import HelpLabel from './components/HelpLabel';
 
 interface MqttFormProps {
   data: any;
@@ -39,9 +40,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="192.168.1.100 or mqtt.local"
           required
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.host_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.host_help')}</HelpLabel>
       </div>
 
       {/* Port */}
@@ -56,9 +55,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('port', parseInt(e.target.value) || 1883)}
           placeholder="1883"
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.port_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.port_help')}</HelpLabel>
       </div>
 
       {/* Username */}
@@ -73,9 +70,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('username', e.target.value || undefined)}
           placeholder="mqtt_user"
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.username_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.username_help')}</HelpLabel>
       </div>
 
       {/* Password */}
@@ -90,9 +85,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('password', e.target.value || undefined)}
           placeholder="••••••••"
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.password_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.password_help')}</HelpLabel>
       </div>
 
       {/* HA Discovery Section */}
@@ -100,7 +93,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
 
       {/* HA Discovery Enabled */}
       <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
+        <label className="label cursor-pointer justify-start gap-4 whitespace-normal">
           <input
             type="checkbox"
             className="checkbox checkbox-primary"
@@ -109,7 +102,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           />
           <div className="flex flex-col">
             <span className="label-text font-medium">{t('mqtt_config.enable_ha_discovery')}</span>
-            <span className="label-text-alt text-base-content/60">{t('mqtt_config.enable_ha_discovery_help')}</span>
+            <span className="label-text-alt text-base-content/60 wrap-break-word">{t('mqtt_config.enable_ha_discovery_help')}</span>
           </div>
         </label>
       </div>
@@ -126,9 +119,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleHaDiscoveryChange('topic_prefix', e.target.value || 'homeassistant')}
           placeholder="homeassistant"
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.ha_discovery_prefix_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.ha_discovery_prefix_help')}</HelpLabel>
       </div>
 
       {/* BoneIO Autodiscovery Section */}
@@ -136,7 +127,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
 
       {/* Send BoneIO Autodiscovery */}
       <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
+        <label className="label cursor-pointer justify-start gap-4 whitespace-normal">
           <input
             type="checkbox"
             className="checkbox checkbox-primary"
@@ -145,14 +136,14 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           />
           <div className="flex flex-col">
             <span className="label-text font-medium">{t('mqtt_config.send_boneio_autodiscovery')}</span>
-            <span className="label-text-alt text-base-content/60">{t('mqtt_config.send_boneio_autodiscovery_help')}</span>
+            <span className="label-text-alt text-base-content/60 wrap-break-word">{t('mqtt_config.send_boneio_autodiscovery_help')}</span>
           </div>
         </label>
       </div>
 
       {/* Receive BoneIO Autodiscovery */}
       <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
+        <label className="label cursor-pointer justify-start gap-4 whitespace-normal">
           <input
             type="checkbox"
             className="checkbox checkbox-primary"
@@ -161,7 +152,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           />
           <div className="flex flex-col">
             <span className="label-text font-medium">{t('mqtt_config.receive_boneio_autodiscovery')}</span>
-            <span className="label-text-alt text-base-content/60">{t('mqtt_config.receive_boneio_autodiscovery_help')}</span>
+            <span className="label-text-alt text-base-content/60 wrap-break-word">{t('mqtt_config.receive_boneio_autodiscovery_help')}</span>
           </div>
         </label>
       </div>
@@ -182,9 +173,7 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           <option value="stable">{t('mqtt_config.update_channel_stable')}</option>
           <option value="dev">{t('mqtt_config.update_channel_dev')}</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('mqtt_config.update_channel_help')}</span>
-        </label>
+        <HelpLabel>{t('mqtt_config.update_channel_help')}</HelpLabel>
       </div>
     </div>
   );

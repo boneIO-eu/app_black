@@ -140,6 +140,15 @@ web:
               When enabled, device registers with boneIO Cloud API and downloads
               wildcard SSL certificate for *.black.boneio.app domain.
               This allows PWA installation on mobile devices.
+        pwa_name:
+          required: False
+          type: string
+          nullable: True
+          meta:
+            label: PWA short name
+            description: |
+              Short name displayed under the app icon on Android home screen.
+              Max 12 characters. Defaults to "bIO" + last 6 chars of serial number.
     auth:
       required: False
       type: dict
@@ -1340,15 +1349,3 @@ boneio:
         - lower
       meta:
         label: Predefined device type configuration
-    cloud_registration:
-      type: boolean
-      required: False
-      default: False
-      meta:
-        label: Enable Cloud Registration (PWA)
-        description: |
-          Registers device subdomain ({serial}.black.boneio.app) with boneIO Cloud API
-          and downloads wildcard SSL certificate for PWA access via HTTPS.
-          The DNS record points to the device's local IP address (LAN only).
-          Requires disabling DNS rebinding protection in your router settings
-          to allow DNS responses with private IP addresses.

@@ -69,7 +69,7 @@ where = ["."]
 include = ["boneio*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.json", "*.yaml", "*.yml", "*.ttf"]
+"*" = ["*.json", "*.yaml", "*.yml", "*.ttf", "*.sh"]
 "boneio.webui" = ["frontend-dist/**/*"]
 
 [tool.setuptools.dynamic]

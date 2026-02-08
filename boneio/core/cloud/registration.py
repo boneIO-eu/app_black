@@ -24,12 +24,15 @@ _LOGGER = logging.getLogger(__name__)
 
 # Cloud API configuration
 CLOUD_API_URL = "https://api.boneio.app"
-CERT_DIR = Path("/data/ssl")
+
+# SSL certificate paths (relative to home dir, writable by boneio app)
+_DOCKER_DIR = Path.home() / "docker" / "nodered"
+CERT_DIR = _DOCKER_DIR / "caddy" / "ssl"
 CERT_FILE = CERT_DIR / "fullchain.pem"
 KEY_FILE = CERT_DIR / "privkey.pem"
 
 # Caddy configuration paths
-CADDY_CONFIG_DIR = Path("/opt/boneio/docker/nodered/caddy")
+CADDY_CONFIG_DIR = _DOCKER_DIR / "caddy"
 CADDY_DEFAULT_CONFIG = CADDY_CONFIG_DIR / "Caddyfile"
 CADDY_CLOUD_CONFIG = CADDY_CONFIG_DIR / "Caddyfile.cloud"
 CADDY_ACTIVE_CONFIG = CADDY_CONFIG_DIR / "Caddyfile"
@@ -70,6 +73,7 @@ class CloudRegistration:
         self._domain: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
         self._session: Optional[aiohttp.ClientSession] = None
+        self._last_error: Optional[str] = None
 
     @property
     def domain(self) -> Optional[str]:
@@ -81,6 +85,11 @@ class CloudRegistration:
         """Check if cloud registration is enabled."""
         return self._enabled
 
+    @property
+    def last_error(self) -> Optional[str]:
+        """Get the last error message, if any."""
+        return self._last_error
+
     async def start(self) -> None:
         """Start the cloud registration service."""
         if not self._enabled:
@@ -88,6 +97,11 @@ class CloudRegistration:
             return
 
         _LOGGER.info("Starting cloud registration for %s", self._serial)
+        _LOGGER.debug(
+            "Master secret starts with: '%s...' (len=%d)",
+            self._master_secret[:4] if self._master_secret else "NONE",
+            len(self._master_secret) if self._master_secret else 0,
+        )
         
         # Create SSL directory if it doesn't exist
         CERT_DIR.mkdir(parents=True, exist_ok=True)
@@ -198,9 +212,11 @@ class CloudRegistration:
                     )
                     return False
                 else:
-                    data = await response.json()
+                    body = await response.text()
                     _LOGGER.error(
-                        "DNS registration failed: %s", data.get("error", "Unknown")
+                        "DNS registration failed (HTTP %d): %s",
+                        response.status,
+                        body,
                     )
                     return False
 
@@ -289,83 +305,150 @@ class CloudRegistration:
             _LOGGER.info("Local IP changed: %s -> %s", self._local_ip, new_ip)
             self._local_ip = new_ip
 
+    def _ensure_cloud_script(self) -> None:
+        """
+        Copy init-certs-cloud.sh from package data to the Caddy config directory.
+
+        This ensures the script is always up-to-date after a pip upgrade,
+        even if the user never re-clones the full repo.
+        """
+        dest = CADDY_CONFIG_DIR / "init-certs-cloud.sh"
+        try:
+            from importlib.resources import files
+
+            src = files("boneio.core.cloud.data").joinpath("init-certs-cloud.sh")
+            src_bytes = src.read_bytes()
+
+            # Only write if content differs or file missing
+            if not dest.exists() or dest.read_bytes() != src_bytes:
+                dest.write_bytes(src_bytes)
+                dest.chmod(0o755)
+                _LOGGER.info("Deployed init-certs-cloud.sh to %s", dest)
+        except Exception as e:
+            _LOGGER.warning("Could not deploy init-certs-cloud.sh: %s", e)
+
     async def _switch_to_cloud_config(self) -> bool:
         """
-        Switch Caddy to cloud configuration with wildcard cert.
-        
+        Switch Caddy to cloud mode by updating docker-compose.yaml.
+
+        Changes:
+        - Deploys init-certs-cloud.sh from package to caddy dir
+        - Swaps init-certs.sh for init-certs-cloud.sh in docker-compose
+        - Adds SSL volume mount for wildcard certificate
+        - Recreates Caddy container with new config
+
         Returns:
             True if switch was successful
         """
+        # Ensure cloud script is deployed from package
+        self._ensure_cloud_script()
+
+        compose_file = _DOCKER_DIR / "docker-compose.yaml"
         try:
-            if not CADDY_CLOUD_CONFIG.exists():
-                _LOGGER.error("Cloud Caddyfile not found: %s", CADDY_CLOUD_CONFIG)
+            if not compose_file.exists():
+                _LOGGER.error("docker-compose.yaml not found: %s", compose_file)
                 return False
 
-            # Backup current config
-            backup_path = CADDY_CONFIG_DIR / "Caddyfile.backup"
-            if CADDY_ACTIVE_CONFIG.exists():
-                shutil.copy2(CADDY_ACTIVE_CONFIG, backup_path)
+            content = compose_file.read_text()
 
-            # Copy cloud config to active
-            shutil.copy2(CADDY_CLOUD_CONFIG, CADDY_ACTIVE_CONFIG)
-            _LOGGER.info("Switched to cloud Caddyfile")
+            # Already switched?
+            if "init-certs-cloud.sh" in content:
+                _LOGGER.debug("Cloud config already active in docker-compose.yaml")
+                return await self._recreate_caddy()
 
-            # Restart Caddy container
-            return await self._restart_caddy()
+            # Swap init-certs.sh -> init-certs-cloud.sh
+            if "init-certs.sh" not in content:
+                _LOGGER.error("init-certs.sh not found in docker-compose.yaml")
+                return False
 
+            # Backup original
+            backup = compose_file.with_suffix(".yaml.bak")
+            if not backup.exists():
+                shutil.copy2(compose_file, backup)
+                _LOGGER.info("Backed up docker-compose.yaml to %s", backup)
+
+            new_content = content.replace("init-certs.sh", "init-certs-cloud.sh")
+
+            # Add SSL volume if not present
+            if "./caddy/ssl:/data/ssl:ro" not in new_content:
+                new_content = new_content.replace(
+                    "      - /etc/hostname:/etc/host_hostname:ro",
+                    "      - /etc/hostname:/etc/host_hostname:ro\n"
+                    "      - ./caddy/ssl:/data/ssl:ro",
+                )
+
+            compose_file.write_text(new_content)
+            _LOGGER.info("Updated docker-compose.yaml for cloud mode")
+
+            return await self._recreate_caddy()
+
+        except PermissionError as e:
+            compose_path = str(compose_file)
+            self._last_error = (
+                f"Permission denied writing {compose_path}. "
+                f"Run via SSH: sudo chown $USER {compose_path}"
+            )
+            _LOGGER.error(
+                "Permission denied for %s. Fix with: sudo chown $USER %s",
+                compose_path,
+                compose_path,
+            )
+            return False
         except Exception as e:
-            _LOGGER.error("Failed to switch Caddy config: %s", e)
+            self._last_error = str(e)
+            _LOGGER.error("Failed to switch to cloud config: %s", e)
             return False
 
-    async def _restart_caddy(self) -> bool:
+    async def _recreate_caddy(self) -> bool:
         """
-        Restart Caddy container to apply new configuration.
-        
+        Recreate Caddy container to apply new docker-compose config.
+
+        Uses 'docker compose up -d caddy' to pick up volume and entrypoint changes.
+
         Returns:
-            True if restart was successful
+            True if recreate was successful
         """
+        compose_dir = str(_DOCKER_DIR)
         try:
-            # Use docker compose to restart caddy
             result = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: subprocess.run(
-                    ["docker", "compose", "restart", "caddy"],
-                    cwd="/opt/boneio/docker/nodered",
+                    ["docker", "compose", "up", "-d", "caddy"],
+                    cwd=compose_dir,
                     capture_output=True,
-                    timeout=30,
+                    timeout=60,
                 )
             )
 
             if result.returncode == 0:
-                _LOGGER.info("Caddy container restarted successfully")
+                _LOGGER.info("Caddy container recreated successfully")
                 return True
             else:
                 _LOGGER.error(
-                    "Failed to restart Caddy: %s",
+                    "Failed to recreate Caddy: %s",
                     result.stderr.decode() if result.stderr else "Unknown error"
                 )
                 return False
 
         except subprocess.TimeoutExpired:
-            _LOGGER.error("Caddy restart timed out")
+            _LOGGER.error("Caddy recreate timed out")
             return False
         except Exception as e:
-            _LOGGER.error("Failed to restart Caddy: %s", e)
+            _LOGGER.error("Failed to recreate Caddy: %s", e)
             return False
 
     def is_cloud_config_active(self) -> bool:
         """
-        Check if cloud Caddyfile is currently active.
-        
+        Check if cloud init-certs script is active in docker-compose.
+
         Returns:
             True if cloud config is active
         """
         try:
-            if not CADDY_ACTIVE_CONFIG.exists():
+            compose_file = _DOCKER_DIR / "docker-compose.yaml"
+            if not compose_file.exists():
                 return False
-            
-            # Check if active config contains the cloud domain block
-            content = CADDY_ACTIVE_CONFIG.read_text()
-            return "*.black.boneio.app" in content
+            content = compose_file.read_text()
+            return "init-certs-cloud.sh" in content
         except Exception:
             return False

@@ -3,6 +3,7 @@ import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import HelpLabel from './components/HelpLabel';
 import {
   Select,
   SelectContent,
@@ -225,11 +226,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder={t('modbus.display_name_placeholder')}
               />
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.display_name_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.display_name_hint')}</HelpLabel>
             </div>
 
             {/* Area */}
@@ -253,11 +250,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                   ))}
                 </SelectContent>
               </Select>
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.area_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.area_hint')}</HelpLabel>
             </div>
           </div>
 
@@ -277,11 +270,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 min={1}
                 max={247}
               />
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.address_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.address_hint')}</HelpLabel>
             </div>
 
             {/* Model */}
@@ -304,11 +293,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                   ))}
                 </SelectContent>
               </Select>
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.model_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.model_hint')}</HelpLabel>
             </div>
           </div>
 
@@ -324,16 +309,14 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               onChange={(e) => updateField('id', sanitizeId(e.target.value))}
               placeholder={t('modbus.id_placeholder')}
             />
-            <label className="label py-0.5">
-              <span className="label-text-alt text-base-content/60">
-                {t('modbus.technical_id')}
-                {!data.id && data.address && data.model && (
-                  <span className="block mt-1">
-                    {t('modbus.will_be')}: <code className="bg-base-300 px-1 rounded">{data.address}_{data.model}</code>
-                  </span>
-                )}
-              </span>
-            </label>
+            <HelpLabel className="py-0.5">
+              {t('modbus.technical_id')}
+              {!data.id && data.address && data.model && (
+                <span className="block mt-1">
+                  {t('modbus.will_be')}: <code className="bg-base-300 px-1 rounded">{data.address}_{data.model}</code>
+                </span>
+              )}
+            </HelpLabel>
           </div>
 
           {/* Update Interval */}
@@ -392,11 +375,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 onChange={(e) => updateNestedField('data', 'width', e.target.value.replace(',', '.') || undefined)}
                 placeholder={t('modbus.data.width_placeholder')}
               />
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.data.width_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.data.width_hint')}</HelpLabel>
             </div>
 
             {/* Length */}
@@ -411,11 +390,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
                 onChange={(e) => updateNestedField('data', 'length', e.target.value.replace(',', '.') || undefined)}
                 placeholder={t('modbus.data.length_placeholder')}
               />
-              <label className="label py-0.5">
-                <span className="label-text-alt text-base-content/60">
-                  {t('modbus.data.length_hint')}
-                </span>
-              </label>
+              <HelpLabel className="py-0.5">{t('modbus.data.length_hint')}</HelpLabel>
             </div>
           </div>
         </div>

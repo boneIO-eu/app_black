@@ -47,6 +47,7 @@ class ConfigHelper:
         receive_boneio_autodiscovery: bool = True,
         update_channel: str = "stable",
         cloud_registration: bool = False,
+        pwa_name: str | None = None,
     ):
         self._name = name
         
@@ -61,6 +62,17 @@ class ConfigHelper:
             # Fallback if MAC not available (should rarely happen)
             self._topic_prefix = "boneio/blk_unknown"
             _LOGGER.warning("Could not determine serial number from MAC, using fallback topic prefix")
+
+        # PWA short name for Android home screen (max 12 chars)
+        if pwa_name:
+            self._pwa_name = pwa_name[:12]
+        elif self._serial_no:
+            # Default: "bIO " + last 6 chars of serial (e.g. "bIO 8c7df0")
+            suffix = self._serial_no.replace("blk_", "").replace("blk", "")
+            self._pwa_name = f"bIO {suffix}"
+        else:
+            self._pwa_name = "boneIO"
+
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._send_boneio_autodiscovery = send_boneio_autodiscovery
@@ -99,6 +111,9 @@ class ConfigHelper:
         # Restart required flag - set when config sections requiring restart are modified
         self._restart_required: bool = False
         self._restart_required_sections: set[str] = set()
+        
+        # Cloud registration instance (set from runner.py after creation)
+        self._cloud_reg: Any = None
 
     @property
     def restart_required(self) -> bool:
@@ -163,6 +178,16 @@ class ConfigHelper:
     def serial_no(self) -> str:
         """Get device serial number (e.g., 'blk_abc123')."""
         return self._serial_no or "blk_unknown"
+
+    @property
+    def pwa_name(self) -> str:
+        """Get PWA short name for Android home screen (max 12 chars)."""
+        return self._pwa_name
+
+    @pwa_name.setter
+    def pwa_name(self, value: str):
+        """Set PWA short name (truncated to 12 chars)."""
+        self._pwa_name = value[:12] if value else self._pwa_name
 
     @property
     def name(self) -> str:

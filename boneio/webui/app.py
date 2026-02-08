@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
@@ -644,10 +644,79 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
     _LOGGER.info(f"Frontend found at {FRONTEND_DIR}, mounting static files")
     app.mount("/assets", StaticFiles(directory=f"{FRONTEND_DIR}/assets"), name="assets")
     app.mount("/schema", StaticFiles(directory=f"{APP_DIR}/schema"), name="schema")
-    
-    @app.get("/{catchall:path}")
-    async def serve_react_app(catchall: str):
-        """Serve React app for client-side routing."""
+
+    @app.get("/manifest.webmanifest")
+    async def serve_manifest():
+        """Serve PWA manifest with dynamic device name.
+
+        Uses config name (e.g. 'boneIO Black 32x10A') as the app name.
+        Falls back to default 'boneIO Black'.
+        """
+        device_name = "boneIO Black"
+        pwa_short = "boneIO"
+        try:
+            config_helper = app.state.config_helper
+            if config_helper:
+                if config_helper.name and config_helper.name != "boneio":
+                    device_name = config_helper.name
+                pwa_short = config_helper.pwa_name
+        except Exception:
+            pass
+        manifest = {
+            "name": device_name,
+            "short_name": pwa_short,
+            "description": f"{device_name} - Smart Home Controller",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#1d232a",
+            "theme_color": "#570df8",
+            "orientation": "portrait-primary",
+            "icons": [
+                {
+                    "src": "/boneio-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                },
+                {
+                    "src": "/boneio-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                },
+                {
+                    "src": "/boneio-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
+                },
+            ],
+            "categories": ["utilities", "lifestyle"],
+            "lang": "en",
+            "dir": "ltr",
+        }
+        return JSONResponse(
+            content=manifest,
+            media_type="application/manifest+json",
+        )
+
+    @app.get("/sw.js")
+    async def serve_sw():
+        """Serve PWA service worker."""
+        return FileResponse(
+            f"{FRONTEND_DIR}/sw.js",
+            media_type="application/javascript",
+        )
+
+    @app.get("/{filename:path}")
+    async def serve_react_app(filename: str):
+        """Serve static files from frontend-dist, fallback to index.html for SPA routing."""
+        file_path = (FRONTEND_DIR / filename).resolve()
+        if (
+            filename
+            and file_path.is_relative_to(FRONTEND_DIR.resolve())
+            and file_path.exists()
+            and file_path.is_file()
+        ):
+            return FileResponse(str(file_path))
         return FileResponse(f"{FRONTEND_DIR}/index.html")
 else:
     _LOGGER.warning(

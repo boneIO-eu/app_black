@@ -122,7 +122,8 @@ async def async_run(
         send_boneio_autodiscovery=mqtt_config.get("send_boneio_autodiscovery", True),
         receive_boneio_autodiscovery=mqtt_config.get("receive_boneio_autodiscovery", True),
         update_channel=mqtt_config.get("update_channel", "stable"),
-        cloud_registration=main_config.get("cloud_registration", False),
+        cloud_registration=web_config.get("cloud", {}).get("enabled", False),
+        pwa_name=web_config.get("cloud", {}).get("pwa_name"),
     )
     
     # Load areas configuration
@@ -219,6 +220,7 @@ async def async_run(
                 local_ip=local_ip,
             )
             await cloud_reg.start()
+            _config_helper._cloud_reg = cloud_reg
             _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
         else:
             _LOGGER.warning("Cloud registration enabled but missing serial or IP")

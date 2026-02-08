@@ -16,6 +16,7 @@ import {
 import SelfTest from './SelfTest';
 import HardwareErrors from './HardwareErrors';
 import SettingsCard from './components/SettingsCard';
+import HelpLabel from './components/HelpLabel';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -2053,11 +2054,7 @@ const SystemState: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    <label className="label">
-                      <span className="label-text-alt text-base-content/60">
-                        {t('system_update.hardware_version_help')}
-                      </span>
-                    </label>
+                    <HelpLabel>{t('system_update.hardware_version_help')}</HelpLabel>
                   </div>
 
                   <button
