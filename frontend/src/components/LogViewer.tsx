@@ -82,6 +82,21 @@ export default function LogViewer() {
     }
   };
 
+  const getLogRowClass = (level: string) => {
+    const levelNum = parseInt(level);
+    switch (levelNum) {
+      case 0: // emerg
+      case 1: // alert
+      case 2: // crit
+      case 3: // err
+        return 'border-l-2 border-l-error bg-error/5';
+      case 4: // warning
+        return 'border-l-2 border-l-warning bg-warning/5';
+      default:
+        return 'border-l-2 border-l-transparent';
+    }
+  };
+
   const scrollToBottom = () => {
     if (logContainerRef.current && autoScroll) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
@@ -207,10 +222,10 @@ export default function LogViewer() {
           {logs.map((log, index) => (
             <div 
               key={index} 
-              className={`flex gap-4 cursor-pointer px-1 rounded transition-colors ${
+              className={`flex gap-4 cursor-pointer px-2 rounded transition-colors ${
                 selectedLogIndices.has(index)
                   ? 'bg-primary/20 hover:bg-primary/30' 
-                  : 'hover:bg-base-200'
+                  : `hover:bg-base-200 ${getLogRowClass(log.level)}`
               }`}
               onClick={(e) => {
                 handleLogSelection(index, e.shiftKey);

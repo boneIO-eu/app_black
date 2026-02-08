@@ -19,6 +19,7 @@ from typing import Optional
 import aiohttp
 
 from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
+from boneio.core.system.monitor import get_network_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -155,19 +156,29 @@ class CloudRegistration:
         """Main registration loop - registers DNS and fetches cert periodically."""
         while True:
             try:
+                # Refresh local IP in case it changed (e.g. DHCP renewal)
+                current_ip = get_network_info().get("ip", "")
+                if current_ip and current_ip != "none" and current_ip != self._local_ip:
+                    _LOGGER.info("Local IP changed: %s -> %s", self._local_ip, current_ip)
+                    self._local_ip = current_ip
+
                 # Register DNS
                 success = await self._register_dns()
                 if success:
                     _LOGGER.info("DNS registration successful: %s", self._domain)
                     
                     # Fetch certificate if not present or needs refresh
+                    cert_refreshed = False
                     if not self._cert_exists() or await self._cert_needs_refresh():
-                        cert_fetched = await self._fetch_certificate()
-                        
-                        # Switch to cloud Caddy config if cert was fetched and not already active
-                        if cert_fetched and not self.is_cloud_config_active():
-                            _LOGGER.info("Switching Caddy to cloud configuration...")
-                            await self._switch_to_cloud_config()
+                        cert_refreshed = await self._fetch_certificate()
+
+                    # Switch to cloud Caddy config if certs exist but not yet active
+                    if self._cert_exists() and not self.is_cloud_config_active():
+                        _LOGGER.info("Switching Caddy to cloud configuration...")
+                        await self._switch_to_cloud_config()
+                    elif cert_refreshed and self.is_cloud_config_active():
+                        _LOGGER.info("Certificate refreshed, restarting Caddy...")
+                        await self._recreate_caddy()
                 else:
                     _LOGGER.warning("DNS registration failed, will retry")
 
