@@ -222,8 +222,62 @@ async def get_cloud_status():
         "enabled": cloud_reg.enabled,
         "domain": cloud_reg.domain,
         "cloud_config_active": cloud_reg.is_cloud_config_active(),
+        "compose_writable": cloud_reg.is_compose_writable,
         "last_error": cloud_reg.last_error,
     }
+
+
+class SudoFixRequest(BaseModel):
+    """Request body for fixing docker-compose.yaml permissions via sudo."""
+    password: str
+
+
+@router.post("/cloud/fix-permissions")
+async def fix_compose_permissions(body: SudoFixRequest):
+    """
+    Fix docker-compose.yaml ownership using sudo chown.
+
+    Accepts the user's sudo password, runs 'sudo chown' on docker-compose.yaml,
+    and returns success/error. The password is never logged or stored.
+
+    Returns:
+        Status response with success or error message.
+    """
+    compose_path = os.path.expanduser("~/docker/nodered/docker-compose.yaml")
+    current_user = os.environ.get("USER", "boneio")
+
+    if not os.path.exists(compose_path):
+        return {"status": "error", "message": f"File not found: {compose_path}"}
+
+    if os.access(compose_path, os.W_OK):
+        return {"status": "success", "message": "File is already writable"}
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-S", "chown", current_user, compose_path,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(
+            proc.communicate(input=(body.password + "\n").encode()),
+            timeout=10,
+        )
+
+        if proc.returncode == 0:
+            _LOGGER.info("Fixed permissions for %s", compose_path)
+            return {"status": "success", "message": "Permissions fixed successfully"}
+        else:
+            err_msg = stderr.decode().strip()
+            if "incorrect password" in err_msg.lower() or "sorry" in err_msg.lower():
+                return {"status": "error", "message": "Incorrect sudo password"}
+            return {"status": "error", "message": f"sudo failed: {err_msg}"}
+
+    except asyncio.TimeoutError:
+        return {"status": "error", "message": "sudo command timed out"}
+    except Exception as e:
+        _LOGGER.error("Failed to fix permissions: %s", e)
+        return {"status": "error", "message": str(e)}
 
 
 @router.post("/cloud/disable")

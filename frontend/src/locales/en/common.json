@@ -695,7 +695,12 @@
     "cloud_disable_title": "Disable Cloud Mode",
     "cloud_disable_description": "Disabling cloud mode will restore the web server to use local self-signed certificates. The PWA subdomain will stop working.",
     "cloud_disable_confirm": "Are you sure you want to disable cloud mode? The web server will be restored to default settings with local IP access and self-signed certificates. The PWA subdomain will stop working.",
-    "cloud_disabling": "Disabling..."
+    "cloud_disabling": "Disabling...",
+    "cloud_permission_error_title": "Permission error",
+    "cloud_permission_error": "docker-compose.yaml is not writable. Run via SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml",
+    "cloud_permission_fix_hint": "Enter your system password to fix file permissions automatically:",
+    "cloud_sudo_placeholder": "System password",
+    "cloud_fix_btn": "Fix"
   },
   "mqtt_config": {
     "host": "Host",

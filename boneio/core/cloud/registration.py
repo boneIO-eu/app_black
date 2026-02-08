@@ -91,6 +91,14 @@ class CloudRegistration:
         """Get the last error message, if any."""
         return self._last_error
 
+    @property
+    def is_compose_writable(self) -> bool:
+        """Check if docker-compose.yaml is writable without side effects."""
+        compose_file = _DOCKER_DIR / "docker-compose.yaml"
+        if not compose_file.exists():
+            return False
+        return os.access(compose_file, os.W_OK)
+
     async def start(self) -> None:
         """Start the cloud registration service."""
         if not self._enabled:
@@ -338,14 +346,36 @@ class CloudRegistration:
         except Exception as e:
             _LOGGER.warning("Could not deploy init-certs-cloud.sh: %s", e)
 
+    def _check_compose_writable(self) -> bool:
+        """
+        Check if docker-compose.yaml is writable.
+
+        Returns:
+            True if file is writable, False otherwise (sets _last_error).
+        """
+        compose_file = _DOCKER_DIR / "docker-compose.yaml"
+        if compose_file.exists() and not os.access(compose_file, os.W_OK):
+            compose_path = str(compose_file)
+            self._last_error = (
+                f"Permission denied writing {compose_path}. "
+                f"Run via SSH: sudo chown $USER {compose_path}"
+            )
+            _LOGGER.error(
+                "Permission denied for %s. Fix with: sudo chown $USER %s",
+                compose_path,
+                compose_path,
+            )
+            return False
+        return True
+
     async def _switch_to_cloud_config(self) -> bool:
         """
-        Switch Caddy to cloud mode by updating docker-compose.yaml.
+        Switch Caddy to cloud mode by replacing docker-compose.yaml with
+        the bundled cloud template from boneio.core.cloud.data.
 
         Changes:
         - Deploys init-certs-cloud.sh from package to caddy dir
-        - Swaps init-certs.sh for init-certs-cloud.sh in docker-compose
-        - Adds SSL volume mount for wildcard certificate
+        - Replaces docker-compose.yaml with cloud version from package
         - Recreates Caddy container with new config
 
         Returns:
@@ -358,6 +388,10 @@ class CloudRegistration:
         try:
             if not compose_file.exists():
                 _LOGGER.error("docker-compose.yaml not found: %s", compose_file)
+                return False
+
+            # Check permissions before attempting any changes
+            if not self._check_compose_writable():
                 return False
 
             content = compose_file.read_text()
@@ -373,34 +407,19 @@ class CloudRegistration:
                 shutil.copy2(compose_file, backup)
                 _LOGGER.info("Backed up docker-compose.yaml to %s", backup)
 
-            # Swap init-certs.sh -> init-certs-cloud.sh
-            if "init-certs.sh" in content:
-                new_content = content.replace("init-certs.sh", "init-certs-cloud.sh")
-            else:
-                _LOGGER.warning(
-                    "init-certs.sh not found in docker-compose.yaml, "
-                    "adding init-certs-cloud.sh volume line"
-                )
-                new_content = content.replace(
-                    "      - /etc/hostname:/etc/host_hostname:ro",
-                    "      - /etc/hostname:/etc/host_hostname:ro\n"
-                    "      - ./caddy/init-certs-cloud.sh:/init-certs-cloud.sh:ro",
-                )
+            # Replace with bundled cloud template
+            from importlib.resources import files
 
-            # Add SSL volume if not present
-            if "./caddy/ssl:/data/ssl:ro" not in new_content:
-                new_content = new_content.replace(
-                    "      - /etc/hostname:/etc/host_hostname:ro",
-                    "      - /etc/hostname:/etc/host_hostname:ro\n"
-                    "      - ./caddy/ssl:/data/ssl:ro",
-                )
-
-            compose_file.write_text(new_content)
-            _LOGGER.info("Updated docker-compose.yaml for cloud mode")
+            cloud_src = files("boneio.core.cloud.data").joinpath(
+                "docker-compose-cloud.yaml"
+            )
+            cloud_content = cloud_src.read_text(encoding="utf-8")
+            compose_file.write_text(cloud_content)
+            _LOGGER.info("Replaced docker-compose.yaml with cloud template from package")
 
             return await self._recreate_caddy()
 
-        except PermissionError as e:
+        except PermissionError:
             compose_path = str(compose_file)
             self._last_error = (
                 f"Permission denied writing {compose_path}. "
@@ -429,6 +448,10 @@ class CloudRegistration:
         """
         compose_file = _DOCKER_DIR / "docker-compose.yaml"
         try:
+            # Check permissions before attempting any changes
+            if not self._check_compose_writable():
+                return False
+
             from importlib.resources import files
 
             src = files("boneio.core.cloud.data").joinpath("docker-compose.yaml")

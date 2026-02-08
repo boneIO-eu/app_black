@@ -24,8 +24,13 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   const [pwaNameResult, setPwaNameResult] = useState<{ status: string; message: string } | null>(null);
   const [showPwaPrivacyDialog, setShowPwaPrivacyDialog] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+  const [composeWritable, setComposeWritable] = useState(true);
   const [isDisablingCloud, setIsDisablingCloud] = useState(false);
   const [cloudActive, setCloudActive] = useState(false);
+  const [sudoPassword, setSudoPassword] = useState('');
+  const [isFixingPermissions, setIsFixingPermissions] = useState(false);
+  const [fixResult, setFixResult] = useState<{ status: string; message: string } | null>(null);
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
 
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
@@ -48,6 +53,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       axios.get('/api/cloud/status').then(({ data: res }) => {
         setCloudError(res.last_error || null);
         setCloudActive(res.cloud_config_active || false);
+        if (res.compose_writable !== undefined) setComposeWritable(res.compose_writable);
       }).catch(() => {});
     }
   }, [data?.cloud?.enabled]);
@@ -84,6 +90,23 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       onChange(rest);
     } else {
       onChange({ ...data, auth: newAuth });
+    }
+  };
+
+  const handleFixPermissions = async () => {
+    setIsFixingPermissions(true);
+    setFixResult(null);
+    try {
+      const { data: res } = await axios.post('/api/cloud/fix-permissions', { password: sudoPassword });
+      setFixResult(res);
+      if (res.status === 'success') {
+        setComposeWritable(true);
+        setSudoPassword('');
+      }
+    } catch (err: any) {
+      setFixResult({ status: 'error', message: err.message || 'Request failed' });
+    } finally {
+      setIsFixingPermissions(false);
     }
   };
 
@@ -206,8 +229,56 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
             </div>
           </div>
 
+          {/* Permission error */}
+          {!composeWritable && !isHttps && (
+            <div className="alert alert-error text-sm">
+              <FaExclamationTriangle className="shrink-0" />
+              <div>
+                <p className="font-semibold">{t('boneio_config.cloud_permission_error_title') || 'Permission error'}</p>
+                <p className="mt-1 font-mono text-xs">{t('boneio_config.cloud_permission_error') || 'docker-compose.yaml is not writable. Run via SSH: sudo chown $USER ~/docker/nodered/docker-compose.yaml'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Permission error with sudo fix (HTTPS only) */}
+          {!composeWritable && isHttps && (
+            <div className="alert alert-error text-sm">
+              <FaExclamationTriangle className="shrink-0" />
+              <div className="w-full">
+                <p className="font-semibold">{t('boneio_config.cloud_permission_error_title') || 'Permission error'}</p>
+                <p className="mt-1">{t('boneio_config.cloud_permission_fix_hint') || 'Enter your system password to fix file permissions automatically:'}</p>
+                <div className="flex gap-2 mt-2 items-center">
+                  <input
+                    type="password"
+                    className="input input-bordered input-sm flex-1"
+                    placeholder={t('boneio_config.cloud_sudo_placeholder') || 'System password'}
+                    value={sudoPassword}
+                    onChange={(e) => setSudoPassword(e.target.value)}
+                    disabled={isFixingPermissions}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && sudoPassword) handleFixPermissions();
+                    }}
+                  />
+                  <button
+                    className={`btn btn-sm btn-primary ${isFixingPermissions ? 'loading' : ''}`}
+                    onClick={handleFixPermissions}
+                    disabled={!sudoPassword || isFixingPermissions}
+                  >
+                    {isFixingPermissions ? <FaSpinner className="animate-spin" /> : t('boneio_config.cloud_fix_btn') || 'Fix'}
+                  </button>
+                </div>
+                {fixResult && (
+                  <p className={`mt-2 text-xs ${fixResult.status === 'success' ? 'text-success' : 'text-error'}`}>
+                    {fixResult.status === 'success' ? <FaCheck className="inline mr-1" /> : <FaExclamationTriangle className="inline mr-1" />}
+                    {fixResult.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Cloud error */}
-          {cloudError && (
+          {cloudError && composeWritable && (
             <div className="alert alert-error text-sm">
               <FaExclamationTriangle className="shrink-0" />
               <div>
