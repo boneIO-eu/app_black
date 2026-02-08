@@ -18,6 +18,7 @@ export default function Navigation() {
   const [serialNo, setSerialNo] = useState<string>('');
   const { deviceName } = useDeviceName();
   const [pwaName, setPwaName] = useState<string>('');
+  const [cloudDomain, setCloudDomain] = useState<string>('');
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -38,6 +39,12 @@ export default function Navigation() {
   useEffect(() => {
     axios.get('/api/pwa_name').then(({ data }) => {
       setPwaName(data.pwa_name || '');
+    }).catch(() => {});
+
+    axios.get('/api/cloud/status').then(({ data }) => {
+      if (data.domain && data.cloud_config_active) {
+        setCloudDomain(data.domain);
+      }
     }).catch(() => {});
   }, []);
 
@@ -80,6 +87,17 @@ export default function Navigation() {
           )}
           {serialNo && (
             <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+          )}
+          {cloudDomain && (
+            <a
+              href={`https://${cloudDomain}:8443`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link link-primary no-underline hover:underline truncate max-w-48"
+              title={`https://${cloudDomain}:8443`}
+            >
+              {cloudDomain}
+            </a>
           )}
         </div>
       </div>
@@ -214,6 +232,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
 export const DrawerSide = () => {
   const [version, setVersion] = useState<string>('');
   const [serialNo, setSerialNo] = useState<string>('');
+  const [cloudDomain, setCloudDomain] = useState<string>('');
   const { deviceName } = useDeviceName();
 
   useEffect(() => {
@@ -229,6 +248,12 @@ export const DrawerSide = () => {
       }
     };
     fetchVersion();
+
+    axios.get('/api/cloud/status').then(({ data }) => {
+      if (data.domain && data.cloud_config_active) {
+        setCloudDomain(data.domain);
+      }
+    }).catch(() => {});
   }, []);
 
   return (
@@ -255,6 +280,17 @@ export const DrawerSide = () => {
           )}
           {serialNo && (
             <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+          )}
+          {cloudDomain && (
+            <a
+              href={`https://${cloudDomain}:8443`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link link-primary no-underline hover:underline truncate"
+              title={`https://${cloudDomain}:8443`}
+            >
+              🌐 {cloudDomain}
+            </a>
           )}
         </div>
       </div>

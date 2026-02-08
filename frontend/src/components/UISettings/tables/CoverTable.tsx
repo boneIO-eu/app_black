@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
+import MobileCard from './MobileCard';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -42,7 +43,42 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
         filteredCount={filteredItems.length} 
       />
 
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-2">
+        {filteredItems.map(({ item, originalIndex }) => {
+          const displayId = item.id || (item.open_relay && item.close_relay 
+            ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
+            : `Cover ${originalIndex + 1}`);
+          const areaName = item.area 
+            ? allAreas.find(a => a.id === item.area)?.name || item.area 
+            : '';
+          const platform = item.platform || (item.tilt_duration ? 'venetian' : 'time_based');
+
+          return (
+            <MobileCard
+              key={originalIndex}
+              title={item.name || displayId}
+              subtitle={item.name ? displayId : undefined}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
+              fields={[
+                { label: t('covers.platform'), value: <span className="badge badge-info badge-xs">{platform}</span> },
+                { label: t('covers.open_relay'), value: item.open_relay?.toUpperCase() || '-' },
+                { label: t('covers.close_relay'), value: item.close_relay?.toUpperCase() || '-' },
+                { label: t('covers.times'), value: (
+                  <span className="text-xs">
+                    {item.open_time ? `${item.open_time}ms` : '-'} / {item.close_time ? `${item.close_time}ms` : '-'}
+                  </span>
+                )},
+                ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
+              ]}
+            />
+          );
+        })}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block overflow-x-auto">
       <Table className="table table-zebra w-full">
         <Thead>
           <Tr>
