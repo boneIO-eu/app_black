@@ -226,6 +226,32 @@ async def get_cloud_status():
     }
 
 
+@router.post("/cloud/disable")
+async def disable_cloud():
+    """
+    Disable cloud mode by restoring original docker-compose.yaml from package data.
+
+    Returns:
+        Status response with success or error message.
+    """
+    config_helper: ConfigHelper | None = getattr(_app_state, "config_helper", None)
+    if not config_helper:
+        return {"status": "error", "message": "Config helper not available"}
+
+    cloud_reg = getattr(config_helper, "_cloud_reg", None)
+    if not cloud_reg:
+        return {"status": "error", "message": "Cloud registration not initialized"}
+
+    success = await cloud_reg._restore_local_config()
+    if success:
+        return {"status": "success", "message": "Cloud mode disabled, Caddy restored to local certificates"}
+    else:
+        return {
+            "status": "error",
+            "message": cloud_reg.last_error or "Failed to restore local config",
+        }
+
+
 @router.get("/check_configuration")
 async def check_configuration():
     """

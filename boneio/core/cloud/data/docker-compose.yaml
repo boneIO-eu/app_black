@@ -1,0 +1,37 @@
+services:
+  node-red:
+    image: nodered/node-red:4.1.2-22-minimal
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Warsaw
+    volumes:
+      - ./node-red/data:/data
+      - ./node-red/settings.js:/data/settings.js:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - edge
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    hostname: ${HOSTNAME}
+    ports:
+      - "${HTTP_PORT:-8091}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    environment:
+      - HOST_HOSTNAME=${HOSTNAME}
+    volumes:
+      - ./caddy/502.html:/srv/502.html:ro
+      - ./caddy/init-certs.sh:/init-certs.sh:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+      - /etc/hostname:/etc/host_hostname:ro
+    entrypoint: /bin/sh
+    command: ["/init-certs.sh"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - edge
+
+networks:
+  edge:

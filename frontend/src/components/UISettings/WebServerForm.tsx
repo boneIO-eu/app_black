@@ -24,6 +24,8 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   const [pwaNameResult, setPwaNameResult] = useState<{ status: string; message: string } | null>(null);
   const [showPwaPrivacyDialog, setShowPwaPrivacyDialog] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+  const [isDisablingCloud, setIsDisablingCloud] = useState(false);
+  const [cloudActive, setCloudActive] = useState(false);
 
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
@@ -45,6 +47,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
 
       axios.get('/api/cloud/status').then(({ data: res }) => {
         setCloudError(res.last_error || null);
+        setCloudActive(res.cloud_config_active || false);
       }).catch(() => {});
     }
   }, [data?.cloud?.enabled]);
@@ -159,21 +162,35 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
 
       {/* Cloud Registration (PWA) */}
       <div className="divider"></div>
-      <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-3 whitespace-normal">
+      <div className="form-control flex flex-col gap-2">
+        <label className="label cursor-pointer justify-start gap-3">
           <input
             type="checkbox"
-            className="toggle toggle-primary"
+            className="toggle toggle-primary shrink-0"
             checked={data?.cloud?.enabled || false}
-            onChange={(e) => {
+            onChange={async (e) => {
               const enabled = e.target.checked;
+              if (!enabled && cloudActive) {
+                if (!confirm(t('boneio_config.cloud_disable_confirm') || 'Are you sure? This will restore Caddy to default settings with local IP access and self-signed certificates. The PWA subdomain will stop working.')) {
+                  e.preventDefault();
+                  return;
+                }
+                setIsDisablingCloud(true);
+                try {
+                  await axios.post('/api/cloud/disable');
+                  setCloudActive(false);
+                } catch (err) {
+                  // continue anyway — config change still applies
+                } finally {
+                  setIsDisablingCloud(false);
+                }
+              }
               handleCloudChange('enabled', enabled);
               if (enabled) setShowPwaPrivacyDialog(true);
             }}
+            disabled={isDisablingCloud}
           />
-          <div>
-            <span className="label-text font-medium">{t('boneio_config.cloud_registration')}</span>
-          </div>
+          <span className="label-text font-medium">{t('boneio_config.cloud_registration')}</span>
         </label>
         <HelpLabel className="pt-0">{t('boneio_config.cloud_registration_help')}</HelpLabel>
       </div>
@@ -204,7 +221,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
           <div className="alert alert-info text-sm">
             <div>
               <p>{t('boneio_config.cloud_registration_domain')}</p>
-              <p className="font-mono font-bold mt-1">https://{'<serial>'}.black.boneio.app</p>
+              <p className="font-mono font-bold mt-1">https://{'<serial>'}.black.boneio.app:8443</p>
               <p className="mt-1 opacity-70">{t('boneio_config.cloud_registration_lan_only')}</p>
             </div>
           </div>
@@ -234,7 +251,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               className="btn btn-sm btn-primary"
               onClick={changePwaName}
@@ -254,6 +271,7 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
               {t('settings.pwa_privacy_info')}
             </button>
           </div>
+
 
         </div>
       )}

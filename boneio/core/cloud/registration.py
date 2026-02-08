@@ -356,18 +356,25 @@ class CloudRegistration:
                 _LOGGER.debug("Cloud config already active in docker-compose.yaml")
                 return await self._recreate_caddy()
 
-            # Swap init-certs.sh -> init-certs-cloud.sh
-            if "init-certs.sh" not in content:
-                _LOGGER.error("init-certs.sh not found in docker-compose.yaml")
-                return False
-
             # Backup original
             backup = compose_file.with_suffix(".yaml.bak")
             if not backup.exists():
                 shutil.copy2(compose_file, backup)
                 _LOGGER.info("Backed up docker-compose.yaml to %s", backup)
 
-            new_content = content.replace("init-certs.sh", "init-certs-cloud.sh")
+            # Swap init-certs.sh -> init-certs-cloud.sh
+            if "init-certs.sh" in content:
+                new_content = content.replace("init-certs.sh", "init-certs-cloud.sh")
+            else:
+                _LOGGER.warning(
+                    "init-certs.sh not found in docker-compose.yaml, "
+                    "adding init-certs-cloud.sh volume line"
+                )
+                new_content = content.replace(
+                    "      - /etc/hostname:/etc/host_hostname:ro",
+                    "      - /etc/hostname:/etc/host_hostname:ro\n"
+                    "      - ./caddy/init-certs-cloud.sh:/init-certs-cloud.sh:ro",
+                )
 
             # Add SSL volume if not present
             if "./caddy/ssl:/data/ssl:ro" not in new_content:
@@ -397,6 +404,50 @@ class CloudRegistration:
         except Exception as e:
             self._last_error = str(e)
             _LOGGER.error("Failed to switch to cloud config: %s", e)
+            return False
+
+    async def _restore_local_config(self) -> bool:
+        """
+        Restore original docker-compose.yaml from package data and restart Caddy.
+
+        Uses the bundled docker-compose.yaml from boneio.core.cloud.data so that
+        future pip upgrades automatically bring the latest Caddy/Node-RED versions.
+
+        Returns:
+            True if restore was successful
+        """
+        compose_file = _DOCKER_DIR / "docker-compose.yaml"
+        try:
+            from importlib.resources import files
+
+            src = files("boneio.core.cloud.data").joinpath("docker-compose.yaml")
+            original_content = src.read_text(encoding="utf-8")
+
+            current_content = compose_file.read_text() if compose_file.exists() else ""
+            if current_content == original_content:
+                _LOGGER.debug("docker-compose.yaml already matches package original")
+                return await self._recreate_caddy()
+
+            compose_file.write_text(original_content)
+            _LOGGER.info("Restored original docker-compose.yaml from package data")
+
+            return await self._recreate_caddy()
+
+        except PermissionError:
+            compose_path = str(compose_file)
+            self._last_error = (
+                f"Permission denied writing {compose_path}. "
+                f"Run via SSH: sudo chown $USER {compose_path}"
+            )
+            _LOGGER.error(
+                "Permission denied for %s. Fix with: sudo chown $USER %s",
+                compose_path,
+                compose_path,
+            )
+            return False
+        except Exception as e:
+            self._last_error = str(e)
+            _LOGGER.error("Failed to restore local config: %s", e)
             return False
 
     async def _recreate_caddy(self) -> bool:

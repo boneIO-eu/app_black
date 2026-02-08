@@ -691,7 +691,11 @@
     "cloud_registration_warning": "Your router must have DNS rebinding protection disabled for this feature to work. This protection (sometimes called DNS rebind attack prevention) blocks DNS responses that resolve to private IP addresses. Check your router settings (e.g. in OpenWrt: Network → DHCP and DNS → uncheck 'Rebind protection').",
     "cloud_registration_domain": "Your device will be accessible at:",
     "cloud_registration_lan_only": "DNS points to local IP — accessible only from your LAN.",
-    "cloud_error_title": "Cloud configuration error"
+    "cloud_error_title": "Cloud configuration error",
+    "cloud_disable_title": "Disable Cloud Mode",
+    "cloud_disable_description": "Disabling cloud mode will restore the web server to use local self-signed certificates. The PWA subdomain will stop working.",
+    "cloud_disable_confirm": "Are you sure you want to disable cloud mode? The web server will be restored to default settings with local IP access and self-signed certificates. The PWA subdomain will stop working.",
+    "cloud_disabling": "Disabling..."
   },
   "mqtt_config": {
     "host": "Host",
