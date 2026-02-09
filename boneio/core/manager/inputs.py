@@ -687,6 +687,14 @@ class InputManager:
         # Send event to MQTT for Home Assistant
         self._publish_input_event_to_mqtt(input_instance, event)
         
+        # If publish_only is set, skip action execution (used for initial state sync)
+        if event.publish_only:
+            _LOGGER.debug(
+                "Skipping action execution for %s (publish_only=True)",
+                event.entity_id
+            )
+            return
+        
         # Execute actions with duration threshold support
         if actions and event.click_type == LONG:
             # Get executed_actions from detector state

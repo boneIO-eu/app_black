@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import tailwindcss from "@tailwindcss/vite";
 
@@ -7,7 +8,44 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['boneio.svg', 'boneio_fav.svg'],
+        // Manifest is served dynamically by backend (app.py) with device name
+        manifest: false,
+        workbox: {
+          // Cache app shell (Monaco editor bundle is ~4MB)
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          // Exclude manifest - it's served dynamically by backend
+          globIgnores: ['**/manifest.webmanifest'],
+          // Don't precache API calls
+          navigateFallback: '/index.html',
+          navigateFallbackDenylist: [/^\/api/, /^\/schema/, /^\/nodered/],
+          runtimeCaching: [
+            {
+              urlPattern: /^\/api\//,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /^\/schema\//,
+              handler: 'NetworkOnly',
+            },
+            {
+              // Always fetch fresh manifest (dynamic device name)
+              urlPattern: /\/manifest\.webmanifest$/,
+              handler: 'NetworkFirst',
+            },
+          ],
+        },
+        devOptions: {
+          enabled: true,
+        },
+      }),
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

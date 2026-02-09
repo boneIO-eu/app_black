@@ -4,15 +4,15 @@
   "properties": {
     "web": {
       "type": [
-        "object",
         "string",
-        "null"
+        "null",
+        "object"
       ],
       "properties": {
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -20,18 +20,18 @@
         },
         "proxy_port": {
           "type": [
-            "integer",
             "string",
-            "null"
+            "null",
+            "integer"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"
         },
         "auth": {
           "type": [
-            "object",
             "string",
-            "null"
+            "null",
+            "object"
           ],
           "default": {},
           "properties": {

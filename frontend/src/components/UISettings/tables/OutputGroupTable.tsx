@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
+import MobileCard from './MobileCard';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -44,7 +45,40 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
         filteredCount={filteredItems.length} 
       />
 
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-2">
+        {filteredItems.map(({ item, originalIndex }) => {
+          const outputs = Array.isArray(item.outputs) ? item.outputs : [];
+          const displayName = item.name || item.id || `Group ${originalIndex + 1}`;
+          const areaName = item.area 
+            ? allAreas.find(a => a.id === item.area)?.name || item.area 
+            : '';
+
+          return (
+            <MobileCard
+              key={originalIndex}
+              title={displayName}
+              subtitle={item.name && item.id ? `ID: ${item.id}` : undefined}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
+              fields={[
+                { label: t('outputs.title'), value: outputs.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {outputs.map((output: string, idx: number) => (
+                      <span key={idx} className="badge badge-primary badge-xs uppercase">{output}</span>
+                    ))}
+                  </div>
+                ) : <span className="text-warning text-xs">{t('array_table_widget.no_outputs')}</span> },
+                { label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type || 'switch'}</span> },
+                ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
+              ]}
+            />
+          );
+        })}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block overflow-x-auto">
       <Table className="table table-zebra w-full">
         <Thead>
           <Tr>

@@ -17,6 +17,8 @@ export default function Navigation() {
   const [version, setVersion] = useState<string>('');
   const [serialNo, setSerialNo] = useState<string>('');
   const { deviceName } = useDeviceName();
+  const [pwaName, setPwaName] = useState<string>('');
+  const [cloudDomain, setCloudDomain] = useState<string>('');
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -35,12 +37,25 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
+    axios.get('/api/pwa_name').then(({ data }) => {
+      setPwaName(data.pwa_name || '');
+    }).catch(() => {});
+
+    axios.get('/api/cloud/status').then(({ data }) => {
+      if (data.domain && data.cloud_config_active) {
+        setCloudDomain(data.domain);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (deviceName) {
       document.title = `boneIO Black - ${deviceName}`;
     }
   }, [deviceName]);
 
   return (
+    <>
     <div className="navbar bg-base-200 border-b border-base-content/10 px-4 sticky top-0 z-30">
       <div className="flex-none xl:hidden">
         <label htmlFor="my-drawer" className="btn btn-square btn-ghost">
@@ -73,6 +88,17 @@ export default function Navigation() {
           {serialNo && (
             <span><span className="opacity-60">S/N:</span> {serialNo}</span>
           )}
+          {cloudDomain && (
+            <a
+              href={`https://${cloudDomain}:8443`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link link-primary no-underline hover:underline truncate max-w-48"
+              title={`https://${cloudDomain}:8443`}
+            >
+              {cloudDomain}
+            </a>
+          )}
         </div>
       </div>
       <Menu />
@@ -90,6 +116,18 @@ export default function Navigation() {
         )}
       </div>
     </div>
+    {/* Mobile sub-header with device info */}
+    <div className="xl:hidden bg-base-200/80 border-b border-base-content/5 px-4 py-1 flex items-center justify-between text-xs sticky top-16 z-20">
+      <div className="flex items-center gap-3 min-w-0">
+        {deviceName && (
+          <span className="truncate"><span className="opacity-50">boneIO:</span> {deviceName}</span>
+        )}
+        {pwaName && (
+          <span className="opacity-60 shrink-0">({pwaName})</span>
+        )}
+      </div>
+    </div>
+    </>
   );
 }
 
@@ -194,6 +232,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
 export const DrawerSide = () => {
   const [version, setVersion] = useState<string>('');
   const [serialNo, setSerialNo] = useState<string>('');
+  const [cloudDomain, setCloudDomain] = useState<string>('');
   const { deviceName } = useDeviceName();
 
   useEffect(() => {
@@ -209,6 +248,12 @@ export const DrawerSide = () => {
       }
     };
     fetchVersion();
+
+    axios.get('/api/cloud/status').then(({ data }) => {
+      if (data.domain && data.cloud_config_active) {
+        setCloudDomain(data.domain);
+      }
+    }).catch(() => {});
   }, []);
 
   return (
@@ -235,6 +280,17 @@ export const DrawerSide = () => {
           )}
           {serialNo && (
             <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+          )}
+          {cloudDomain && (
+            <a
+              href={`https://${cloudDomain}:8443`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="link link-primary no-underline hover:underline truncate"
+              title={`https://${cloudDomain}:8443`}
+            >
+              🌐 {cloudDomain}
+            </a>
           )}
         </div>
       </div>

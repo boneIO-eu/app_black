@@ -1123,3 +1123,99 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
     except Exception as e:
         _LOGGER.error(f"Error saving section '{section}': {str(e)}")
         return {"status": "error", "message": f"Error saving section: {str(e)}"}
+
+
+def update_yaml_field(config_file: str, section: str, field: str, value: str) -> dict:
+    """Update a single field within a YAML section without overwriting other fields.
+
+    Supports nested sections via dot notation (e.g. 'web.cloud' to target
+    the 'cloud' subsection inside 'web').
+
+    Args:
+        config_file: Path to the main config.yaml file.
+        section: Section path, dot-separated for nesting (e.g. 'web' or 'web.cloud').
+        field: Field name to add or update.
+        value: New value for the field.
+
+    Returns:
+        dict: Status response with success/error message.
+    """
+    import re
+
+    try:
+        with open(config_file, encoding="utf-8") as f:
+            lines = f.readlines()
+
+        section_parts = section.split(".")
+        field_pattern = re.compile(rf"^(\s+){re.escape(field)}:\s*.*$")
+
+        # Track which level of nesting we've matched
+        matched_depth = 0
+        target_indent = -1
+        field_found = False
+        insert_index = -1
+        updated_lines = []
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            line_indent = len(line) - len(line.lstrip())
+
+            # Check if we left the current matched section
+            if matched_depth > 0 and stripped and line_indent <= target_indent:
+                # Dropped out of the deepest matched section
+                if matched_depth == len(section_parts):
+                    matched_depth = 0
+                    target_indent = -1
+                else:
+                    matched_depth = 0
+                    target_indent = -1
+
+            # Try to match next section part
+            if matched_depth < len(section_parts):
+                expected = section_parts[matched_depth]
+                expected_pattern = re.compile(
+                    rf"^{re.escape(expected)}:\s*(.*)?$"
+                )
+                if expected_pattern.match(stripped):
+                    expected_indent = matched_depth * 2
+                    if matched_depth == 0 or line_indent > 0:
+                        matched_depth += 1
+                        target_indent = line_indent
+                        if matched_depth == len(section_parts):
+                            insert_index = len(updated_lines) + 1
+                        updated_lines.append(line)
+                        continue
+
+            # Inside target section — look for the field
+            if matched_depth == len(section_parts):
+                expected_field_indent = target_indent + 2
+                if stripped and line_indent <= target_indent:
+                    # Left the section
+                    matched_depth = 0
+                    target_indent = -1
+                elif field_pattern.match(line) and line_indent == expected_field_indent:
+                    # Replace existing field value
+                    indent = " " * expected_field_indent
+                    updated_lines.append(f"{indent}{field}: {value}\n")
+                    field_found = True
+                    continue
+                else:
+                    if stripped:
+                        insert_index = len(updated_lines) + 1
+
+            updated_lines.append(line)
+
+        if not field_found and insert_index >= 0:
+            indent = " " * ((len(section_parts)) * 2)
+            updated_lines.insert(insert_index, f"{indent}{field}: {value}\n")
+
+        full_path = f"{section}.{field}"
+        with open(config_file, "w", encoding="utf-8") as f:
+            f.writelines(updated_lines)
+
+        _LOGGER.info("Updated field '%s' = '%s'", full_path, value)
+        return {"status": "success", "message": f"Field '{full_path}' updated"}
+
+    except Exception as e:
+        _LOGGER.error("Error updating field '%s.%s': %s", section, field, e)
+        return {"status": "error", "message": str(e)}

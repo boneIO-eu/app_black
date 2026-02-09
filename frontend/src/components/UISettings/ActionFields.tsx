@@ -1,8 +1,5 @@
 import React from 'react';
 import { FaTrash } from 'react-icons/fa';
-import { sanitizeId } from './helpers/idValidation';
-import { normalizeCovers } from './helpers/coverUtils';
-import OutputSelectDropdown from './OutputSelectDropdown';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { CoverEntity, OutputEntity } from '@/types/config';
 import {
@@ -13,68 +10,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// Export validation function for use in parent components
-export const validateAction = (action: any, t: (key: string) => string): string | null => {
-  if (!action.action) return t('event_form.validation_action_type_required');
-  
-  const actionType = action.action.toLowerCase();
-  
-  if (actionType === 'output' || actionType === 'output_over_mqtt') {
-    if (!action.boneio_output) return t('event_form.validation_output_required');
-  }
-  
-  if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
-    if (!action.boneio_cover) return t('event_form.validation_cover_required');
-  }
-  
-  if (actionType === 'mqtt') {
-    if (!action.topic) return t('event_form.validation_topic_required');
-  }
-  
-  if (actionType === 'output_over_mqtt' || actionType === 'cover_over_mqtt') {
-    if (!action.boneio_id) return t('event_form.validation_boneio_id_required');
-  }
-  
-  if (actionType === 'remote_output') {
-    if (!action.remote_device) return t('event_form.validation_remote_device_required');
-    if (!action.output_id) return t('event_form.validation_output_id_required');
-  }
-  
-  if (actionType === 'remote_cover') {
-    if (!action.remote_device) return t('event_form.validation_remote_device_required');
-    if (!action.cover_id) return t('event_form.validation_cover_id_required');
-  }
-  
-  return null;
-};
+// Import sub-components
+import {
+  validateAction as validate,
+  OutputAction,
+  CoverAction,
+  MqttAction,
+  OutputOverMqttAction,
+  CoverOverMqttAction,
+  RemoteOutputAction,
+  RemoteCoverAction,
+} from './ActionFields/index';
+import type { Area, RemoteDevice } from './ActionFields/types';
 
-interface Area {
-  id: string;
-  name: string;
-}
-
-interface RemoteDevice {
-  id: string;
-  name?: string;
-  protocol?: string;
-  mqtt?: {
-    outputs?: { id: string; name?: string }[];
-    covers?: { id: string; name?: string }[];
-  };
-  esphome_api?: {
-    host?: string;
-    switches?: { id: string; name?: string; key?: number }[];
-    lights?: { id: string; name?: string; key?: number; supports_brightness?: boolean; supports_color_temp?: boolean; supports_rgb?: boolean; min_mireds?: number; max_mireds?: number }[];
-    covers?: { id: string; name?: string; key?: number; supports_position?: boolean; supports_tilt?: boolean }[];
-  };
-  wled?: {
-    host?: string;
-    port?: number;
-    segments?: { id: number; name?: string; start?: number; stop?: number; len?: number; supports_rgb?: boolean }[];
-    effects?: { id: number; name: string }[];
-    palettes?: { id: number; name: string }[];
-  };
-}
+// Re-export validation function for use in parent components
+export const validateAction = validate;
 
 interface ActionFieldsProps {
   action: any;
@@ -89,17 +39,17 @@ interface ActionFieldsProps {
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];
-  showValidation?: boolean; // Kontrola czy pokazywać błędy walidacji
-  /** Saved (committed) outputs for comparison - items not in saved are disabled */
+  showValidation?: boolean;
   savedOutputs?: OutputEntity[];
-  /** Saved (committed) output groups for comparison */
   savedOutputGroups?: any[];
-  /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
-  /** Click type - used to show duration thresholds only for long press actions */
   clickType?: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single' | 'pressed' | 'released';
 }
 
+/**
+ * ActionFields component - renders form fields for configuring actions.
+ * Supports multiple action types: output, cover, mqtt, output_over_mqtt, cover_over_mqtt, remote_output, remote_cover.
+ */
 const ActionFields: React.FC<ActionFieldsProps> = ({
   action,
   index,
@@ -125,46 +75,33 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   const validationError = showValidation ? validateAction(action, t) : null;
 
   /**
-   * Wrapper for onUpdate that removes deprecated 'pin' field when setting new fields
-   */
-  const handleUpdate = (field: string, value: any) => {
-    if (field === 'boneio_output' || field === 'boneio_cover') {
-      // When setting new field, also remove old 'pin' field if it exists
-      if (action.pin) {
-        onUpdate('pin', undefined);
-      }
-    }
-    onUpdate(field, value);
-  };
-
-  /**
-   * Check if a cover is saved (committed) by comparing with saved data.
-   * Returns true if cover exists in saved data.
+   * Checks if a cover is saved (committed) and can be selected.
    */
   const isCoverSaved = (coverId: string): boolean => {
     if (!savedCovers) return true;
-    const normalized = normalizeCovers(savedCovers);
-    return normalized.some(c => c.id === coverId);
+    return savedCovers.some((c: any) => c.id === coverId || c === coverId);
   };
 
   return (
-    <div className="border border-base-300 rounded-lg p-4 mb-4">
+    <div className="border border-base-300 rounded-lg p-4 mb-3 bg-base-100">
       <div className="flex justify-between items-center mb-3">
-        <h4 className="font-medium">{t('event_form.action')} {index + 1}</h4>
+        <span className="font-medium">{t('event_form.action')} {index + 1}</span>
         <button
+          type="button"
+          className="btn btn-ghost btn-sm text-error"
           onClick={onRemove}
-          className="btn btn-ghost btn-xs text-error"
         >
           <FaTrash />
         </button>
       </div>
 
       {validationError && (
-        <div className="alert alert-error mb-3">
+        <div className="alert alert-error mb-3 py-2">
           <span className="text-sm">{validationError}</span>
         </div>
       )}
 
+      {/* Action Type Selection */}
       <div className="form-control mb-3">
         <label className="label">
           <span className="label-text font-medium">{t('event_form.action_type')}</span>
@@ -174,7 +111,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           onValueChange={(value) => onUpdate('action', value)}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select action..." />
+            <SelectValue placeholder={t('event_form.select_action_type')} />
           </SelectTrigger>
           <SelectContent>
             {actionTypeOptions.map((opt: string) => (
@@ -188,933 +125,87 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         </Select>
       </div>
 
-      {(actionType === 'cover' || actionType === 'cover_over_mqtt') && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover')}</span>
-            </label>
-            <Select
-              value={action.boneio_cover || action.pin || ''}
-              onValueChange={(value) => handleUpdate('boneio_cover', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('event_form.select_cover')} />
-              </SelectTrigger>
-              <SelectContent>
-                {normalizeCovers(allCovers).map((cover) => {
-                    const name = cover.name || cover.id;
-                    const label = name !== cover.id ? `${name} (${cover.id})` : cover.id;
-                    const isSaved = isCoverSaved(cover.id);
-                    return (
-                      <SelectItem 
-                        key={cover.id} 
-                        value={cover.id}
-                        disabled={!isSaved}
-                        className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
-                      >
-                        {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
-                        {label}
-                      </SelectItem>
-                    );
-                  })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover_action')}</span>
-            </label>
-            <Select
-              value={action.action_cover || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_cover', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionCoverOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
+      {/* Cover Action (local) */}
+      {actionType === 'cover' && (
+        <CoverAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allCovers={allCovers}
+          allAreas={allAreas}
+          actionCoverOptions={actionCoverOptions}
+          savedCovers={savedCovers}
+          isCoverSaved={isCoverSaved}
+        />
       )}
 
+      {/* Output Action (local) */}
       {actionType === 'output' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.output')}</span>
-            </label>
-            <OutputSelectDropdown
-              value={action.boneio_output || action.pin || ''}
-              onChange={(value: string) => handleUpdate('boneio_output', value)}
-              allOutputs={[
-                ...allOutputs.filter((output: any) => output && typeof output === 'object' && output.output_type?.toLowerCase() !== 'cover' && (output.id || output.boneio_output)),
-                ...allOutputGroups.filter((group: any) => group && typeof group === 'object' && group.id).map((group: any) => ({
-                  ...group,
-                  id: group.id,
-                  name: group.name || group.id,
-                  isGroup: true
-                }))
-              ]}
-              allAreas={allAreas}
-              placeholder={t('event_form.select_output')}
-              savedOutputs={savedOutputs}
-              savedOutputGroups={savedOutputGroups}
-            />
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.action_output')}</span>
-            </label>
-            <Select
-              value={action.action_output || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_output', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionOutputOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
+        <OutputAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allOutputs={allOutputs}
+          allOutputGroups={allOutputGroups}
+          actionOutputOptions={actionOutputOptions}
+          savedOutputs={savedOutputs}
+          savedOutputGroups={savedOutputGroups}
+        />
       )}
 
+      {/* MQTT Action */}
       {actionType === 'mqtt' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.mqtt_topic')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.mqtt_topic_placeholder')}
-              value={action.topic || ''}
-              onChange={(e) => onUpdate('topic', e.target.value)}
-            />
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.mqtt_message')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.mqtt_message_placeholder')}
-              value={action.action_mqtt_msg || ''}
-              onChange={(e) => onUpdate('action_mqtt_msg', e.target.value)}
-            />
-          </div>
-        </>
+        <MqttAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+        />
       )}
 
+      {/* Output Over MQTT Action */}
       {actionType === 'output_over_mqtt' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.boneio_id')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.boneio_id_placeholder')}
-              value={action.boneio_id || ''}
-              onChange={(e) => onUpdate('boneio_id', sanitizeId(e.target.value))}
-            />
-            <label className="label">
-              <span className="label-text-alt">{t('event_form.boneio_id_hint')}</span>
-            </label>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.output_id')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.output_id_placeholder')}
-              value={action.boneio_output || action.pin || ''}
-              onChange={(e) => handleUpdate('boneio_output', e.target.value)}
-            />
-            <label className="label">
-              <span className="label-text-alt">{t('event_form.output_id_hint')}</span>
-            </label>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.action_output')}</span>
-            </label>
-            <Select
-              value={action.action_output || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_output', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionOutputOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.charAt(0) + option.slice(1).toLowerCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
+        <OutputOverMqttAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allOutputs={allOutputs}
+          allOutputGroups={allOutputGroups}
+          actionOutputOptions={actionOutputOptions}
+        />
       )}
 
+      {/* Cover Over MQTT Action */}
       {actionType === 'cover_over_mqtt' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.boneio_id')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.boneio_id_placeholder')}
-              value={action.boneio_id || ''}
-              onChange={(e) => onUpdate('boneio_id', sanitizeId(e.target.value))}
-            />
-            <label className="label">
-              <span className="label-text-alt">{t('event_form.boneio_id_hint')}</span>
-            </label>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover_id')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              placeholder={t('event_form.cover_id_placeholder')}
-              value={action.boneio_cover || action.pin || ''}
-              onChange={(e) => handleUpdate('boneio_cover', e.target.value)}
-            />
-            <label className="label">
-              <span className="label-text-alt">{t('event_form.cover_id_hint')}</span>
-            </label>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover_action')}</span>
-            </label>
-            <Select
-              value={action.action_cover || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_cover', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionCoverOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
+        <CoverOverMqttAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allCovers={allCovers}
+          allAreas={allAreas}
+          actionCoverOptions={actionCoverOptions}
+        />
       )}
 
+      {/* Remote Output Action (ESPHome, WLED, MQTT) */}
       {actionType === 'remote_output' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.remote_device')}</span>
-            </label>
-            <Select
-              value={action.remote_device || ''}
-              onValueChange={(value) => {
-                onUpdate('remote_device', value);
-                // Clear output_id and brightness/transition when device changes
-                onUpdate('output_id', '');
-                onUpdate('brightness', undefined);
-                onUpdate('transition', undefined);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('event_form.select_remote_device')} />
-              </SelectTrigger>
-              <SelectContent>
-                {allRemoteDevices.map((device) => (
-                  <SelectItem key={device.id} value={device.id}>
-                    <div className="flex flex-col">
-                      <span>{device.name || device.id}</span>
-                      <span className="text-xs opacity-60">
-                        {device.protocol === 'esphome_api' ? 'ESPHome' : 'MQTT'}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.output_id')}</span>
-            </label>
-            <Select
-              value={action.output_id || ''}
-              onValueChange={(value) => onUpdate('output_id', value)}
-              disabled={!action.remote_device}
-            >
-              <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
-                <SelectValue placeholder={t('event_form.select_output_id')}>
-                  {(() => {
-                    const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                    // For ESPHome: combine switches and lights
-                    // For WLED: use segments + main
-                    // For MQTT: use outputs
-                    const isEspHome = selectedDevice?.protocol === 'esphome_api';
-                    const isWled = selectedDevice?.protocol === 'wled';
-                    let allEntities: any[] = [];
-                    if (isEspHome) {
-                      const switches = (selectedDevice?.esphome_api?.switches || []).map((s: any) => ({ ...s, _type: 'switch' }));
-                      const lights = (selectedDevice?.esphome_api?.lights || []).map((l: any) => ({ ...l, _type: 'light' }));
-                      allEntities = [...switches, ...lights];
-                    } else if (isWled) {
-                      // Add "main" for whole device control + individual segments
-                      allEntities = [
-                        { id: 'main', name: 'All LEDs', _type: 'wled_main' },
-                        ...(selectedDevice?.wled?.segments || []).map((s: any) => ({ 
-                          ...s, 
-                          id: String(s.id),
-                          name: s.name || `Segment ${s.id}`,
-                          _type: 'wled_segment' 
-                        }))
-                      ];
-                    } else {
-                      allEntities = selectedDevice?.mqtt?.outputs || [];
-                    }
-                    const selectedEntity = allEntities.find((o: any) => o.id === action.output_id);
-                    if (selectedEntity) {
-                      return (
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{selectedEntity.name || selectedEntity.id}</span>
-                          <span className="text-xs opacity-60">
-                            {selectedEntity._type === 'light' ? '💡 Light' : 
-                             selectedEntity._type === 'switch' ? '🔌 Switch' : 
-                             selectedEntity._type === 'wled_main' ? '🌈 WLED All' :
-                             selectedEntity._type === 'wled_segment' ? `🌈 Segment ${selectedEntity.len ? `(${selectedEntity.len} LEDs)` : ''}` :
-                             `ID: ${selectedEntity.id}`}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return <span className="opacity-50">{t('event_form.select_output_id')}</span>;
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(() => {
-                  const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                  const isEspHome = selectedDevice?.protocol === 'esphome_api';
-                  const isWled = selectedDevice?.protocol === 'wled';
-                  let allEntities: any[] = [];
-                  if (isEspHome) {
-                    const switches = (selectedDevice?.esphome_api?.switches || []).map((s: any) => ({ ...s, _type: 'switch' }));
-                    const lights = (selectedDevice?.esphome_api?.lights || []).map((l: any) => ({ ...l, _type: 'light' }));
-                    allEntities = [...switches, ...lights];
-                  } else if (isWled) {
-                    allEntities = [
-                      { id: 'main', name: 'All LEDs', _type: 'wled_main' },
-                      ...(selectedDevice?.wled?.segments || []).map((s: any) => ({ 
-                        ...s, 
-                        id: String(s.id),
-                        name: s.name || `Segment ${s.id}`,
-                        _type: 'wled_segment' 
-                      }))
-                    ];
-                  } else {
-                    allEntities = selectedDevice?.mqtt?.outputs || [];
-                  }
-                  return allEntities.map((entity: any) => (
-                    <SelectItem key={entity.id} value={entity.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{entity.name || entity.id}</span>
-                        <span className="text-xs opacity-60">
-                          {entity._type === 'light' ? (
-                            <>💡 Light {entity.supports_brightness && '• Dimmable'}</>
-                          ) : entity._type === 'switch' ? (
-                            <>🔌 Switch</>
-                          ) : entity._type === 'wled_main' ? (
-                            <>🌈 Control all LEDs</>
-                          ) : entity._type === 'wled_segment' ? (
-                            <>🌈 Segment {entity.len ? `• ${entity.len} LEDs` : ''}</>
-                          ) : (
-                            <>ID: {entity.id}</>
-                          )}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ));
-                })()}
-              </SelectContent>
-            </Select>
-            {!action.remote_device && (
-              <label className="label">
-                <span className="label-text-alt text-warning">{t('event_form.select_device_first')}</span>
-              </label>
-            )}
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.output_action')}</span>
-            </label>
-            <Select
-              value={action.action_output || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_output', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionOutputOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Light controls - shown for ESPHome lights */}
-          {(() => {
-            const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-            const isEspHome = selectedDevice?.protocol === 'esphome_api';
-            const lights = selectedDevice?.esphome_api?.lights || [];
-            const selectedLight = lights.find((l: any) => l.id === action.output_id);
-            const isLight = isEspHome && selectedLight;
-            
-            if (!isLight) return null;
-            
-            // Show brightness for ON, TOGGLE, SET_BRIGHTNESS if light supports it
-            const showBrightness = selectedLight?.supports_brightness && 
-              ['ON', 'TOGGLE', 'SET_BRIGHTNESS'].includes(action.action_output || '');
-            
-            // Show color temp for ON, TOGGLE if light supports it
-            const showColorTemp = selectedLight?.supports_color_temp && 
-              ['ON', 'TOGGLE'].includes(action.action_output || '');
-            
-            // Show RGB color picker for ON, TOGGLE if light supports RGB/RGBW
-            const showRgb = (selectedLight?.supports_rgb || (selectedLight as any)?.supports_rgbw) && 
-              ['ON', 'TOGGLE'].includes(action.action_output || '');
-            
-            // Helper functions for RGB <-> Hex conversion
-            const rgbToHex = (rgb: number[]): string => {
-              if (!rgb || rgb.length < 3) return '#ffffff';
-              return '#' + rgb.slice(0, 3).map(c => c.toString(16).padStart(2, '0')).join('');
-            };
-            
-            const hexToRgb = (hex: string): number[] => {
-              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-              return result ? [
-                parseInt(result[1], 16),
-                parseInt(result[2], 16),
-                parseInt(result[3], 16)
-              ] : [255, 255, 255];
-            };
-            
-            return (
-              <>
-                {showBrightness && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary"
-                        checked={action.brightness !== undefined}
-                        onChange={(e) => onUpdate('brightness', e.target.checked ? 255 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.brightness') || 'Brightness'}</span>
-                      {action.brightness !== undefined && (
-                        <span className="label-text-alt ml-auto">{Math.round((action.brightness / 255) * 100)}%</span>
-                      )}
-                    </label>
-                    {action.brightness !== undefined && (
-                      <div className="pl-7">
-                        <input
-                          type="range"
-                          min="1"
-                          max="255"
-                          value={action.brightness}
-                          onChange={(e) => onUpdate('brightness', parseInt(e.target.value))}
-                          className="range range-primary range-sm w-full"
-                        />
-                        <div className="w-full flex justify-between text-xs opacity-50">
-                          <span>1%</span>
-                          <span>50%</span>
-                          <span>100%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {showColorTemp && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-warning"
-                        checked={action.color_temp !== undefined}
-                        onChange={(e) => onUpdate('color_temp', e.target.checked ? (selectedLight?.min_mireds || 153) : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.color_temp') || 'Color Temperature'}</span>
-                      {action.color_temp !== undefined && (
-                        <span className="label-text-alt ml-auto">{action.color_temp} mireds</span>
-                      )}
-                    </label>
-                    {action.color_temp !== undefined && (
-                      <div className="pl-7">
-                        <input
-                          type="range"
-                          min={selectedLight?.min_mireds || 153}
-                          max={selectedLight?.max_mireds || 500}
-                          value={action.color_temp}
-                          onChange={(e) => onUpdate('color_temp', parseInt(e.target.value))}
-                          className="range range-warning range-sm w-full"
-                        />
-                        <div className="w-full flex justify-between text-xs opacity-50">
-                          <span>{t('event_form.color_temp_cool') || 'Cool'}</span>
-                          <span>{t('event_form.color_temp_warm') || 'Warm'}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {showRgb && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-secondary"
-                        checked={action.rgb !== undefined}
-                        onChange={(e) => onUpdate('rgb', e.target.checked ? [255, 255, 255] : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.rgb_color') || 'RGB Color'}</span>
-                      {action.rgb && (
-                        <span 
-                          className="w-6 h-6 rounded border border-base-300 ml-auto"
-                          style={{ backgroundColor: rgbToHex(action.rgb) }}
-                        />
-                      )}
-                    </label>
-                    {action.rgb && (
-                      <div className="pl-7 flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={rgbToHex(action.rgb)}
-                          onChange={(e) => onUpdate('rgb', hexToRgb(e.target.value))}
-                          className="w-12 h-10 cursor-pointer rounded border-0"
-                        />
-                        <span className="text-sm opacity-70">
-                          RGB({action.rgb[0]}, {action.rgb[1]}, {action.rgb[2]})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <div className="form-control mb-3">
-                  <label className="label">
-                    <span className="label-text font-medium">{t('event_form.transition') || 'Transition (seconds)'}</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    step="0.1"
-                    className="input input-bordered w-full"
-                    value={action.transition ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      // Set to undefined if empty or 0 (default value)
-                      onUpdate('transition', val === '' || parseFloat(val) === 0 ? undefined : parseFloat(val));
-                    }}
-                    placeholder="0"
-                  />
-                </div>
-              </>
-            );
-          })()}
-
-          {/* WLED light controls - shown for WLED segments */}
-          {(() => {
-            const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-            const isWled = selectedDevice?.protocol === 'wled';
-            
-            if (!isWled) return null;
-            
-            // WLED always supports brightness and RGB
-            // Default action is TOGGLE, so show controls even when action_output is undefined
-            const effectiveAction = action.action_output || 'TOGGLE';
-            const showBrightness = ['ON', 'TOGGLE', 'SET_BRIGHTNESS'].includes(effectiveAction);
-            const showRgb = ['ON', 'TOGGLE'].includes(effectiveAction);
-            
-            // Helper functions for RGB <-> Hex conversion
-            const rgbToHex = (rgb: number[]): string => {
-              if (!rgb || rgb.length < 3) return '#ffffff';
-              return '#' + rgb.slice(0, 3).map(c => c.toString(16).padStart(2, '0')).join('');
-            };
-            
-            const hexToRgb = (hex: string): number[] => {
-              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-              return result ? [
-                parseInt(result[1], 16),
-                parseInt(result[2], 16),
-                parseInt(result[3], 16)
-              ] : [255, 255, 255];
-            };
-            
-            return (
-              <>
-                {showBrightness && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-primary"
-                        checked={action.brightness !== undefined}
-                        onChange={(e) => onUpdate('brightness', e.target.checked ? 255 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.brightness') || 'Brightness'}</span>
-                      {action.brightness !== undefined && (
-                        <span className="label-text-alt ml-auto">{Math.round((action.brightness / 255) * 100)}%</span>
-                      )}
-                    </label>
-                    {action.brightness !== undefined && (
-                      <div className="pl-7">
-                        <input
-                          type="range"
-                          min="1"
-                          max="255"
-                          value={action.brightness}
-                          onChange={(e) => onUpdate('brightness', parseInt(e.target.value))}
-                          className="range range-primary range-sm w-full"
-                        />
-                        <div className="w-full flex justify-between text-xs opacity-50">
-                          <span>1%</span>
-                          <span>50%</span>
-                          <span>100%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {showRgb && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-accent"
-                        checked={action.rgb !== undefined}
-                        onChange={(e) => onUpdate('rgb', e.target.checked ? [255, 255, 255] : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.rgb_color') || 'RGB Color'}</span>
-                      {action.rgb && (
-                        <span 
-                          className="w-6 h-6 rounded border border-base-300 ml-auto"
-                          style={{ backgroundColor: rgbToHex(action.rgb) }}
-                        />
-                      )}
-                    </label>
-                    {action.rgb && (
-                      <div className="pl-7 flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={rgbToHex(action.rgb)}
-                          onChange={(e) => onUpdate('rgb', hexToRgb(e.target.value))}
-                          className="w-12 h-10 cursor-pointer rounded border-0"
-                        />
-                        <span className="text-sm opacity-70">
-                          RGB({action.rgb[0]}, {action.rgb[1]}, {action.rgb[2]})
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* WLED Effect selector */}
-                {selectedDevice?.wled?.effects && selectedDevice.wled.effects.length > 0 && ['ON', 'TOGGLE'].includes(effectiveAction) && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-secondary"
-                        checked={action.effect !== undefined}
-                        onChange={(e) => onUpdate('effect', e.target.checked ? 0 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.wled_effect') || 'Effect'}</span>
-                    </label>
-                    {action.effect !== undefined && (
-                      <div className="pl-7">
-                        <select
-                          className="select select-bordered w-full"
-                          value={action.effect ?? 0}
-                          onChange={(e) => onUpdate('effect', parseInt(e.target.value))}
-                        >
-                          {selectedDevice.wled.effects.map((fx: { id: number; name: string }) => (
-                            <option key={fx.id} value={fx.id}>{fx.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* WLED Palette selector - only show when effect is selected */}
-                {selectedDevice?.wled?.palettes && selectedDevice.wled.palettes.length > 0 && action.effect !== undefined && action.effect !== 0 && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-secondary"
-                        checked={action.palette !== undefined}
-                        onChange={(e) => onUpdate('palette', e.target.checked ? 0 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.wled_palette') || 'Color Palette'}</span>
-                    </label>
-                    {action.palette !== undefined && (
-                      <div className="pl-7">
-                        <select
-                          className="select select-bordered w-full"
-                          value={action.palette ?? 0}
-                          onChange={(e) => onUpdate('palette', parseInt(e.target.value))}
-                        >
-                          {selectedDevice.wled.palettes.map((pal: { id: number; name: string }) => (
-                            <option key={pal.id} value={pal.id}>{pal.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Effect Speed - only show when effect is selected */}
-                {action.effect !== undefined && action.effect !== 0 && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-secondary"
-                        checked={action.effect_speed !== undefined}
-                        onChange={(e) => onUpdate('effect_speed', e.target.checked ? 128 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.effect_speed') || 'Effect Speed'}</span>
-                      {action.effect_speed !== undefined && (
-                        <span className="label-text-alt ml-auto">{Math.round((action.effect_speed / 255) * 100)}%</span>
-                      )}
-                    </label>
-                    {action.effect_speed !== undefined && (
-                      <div className="pl-7">
-                        <input
-                          type="range"
-                          min="0"
-                          max="255"
-                          value={action.effect_speed}
-                          onChange={(e) => onUpdate('effect_speed', parseInt(e.target.value))}
-                          className="range range-secondary range-sm w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Effect Intensity - only show when effect is selected */}
-                {action.effect !== undefined && action.effect !== 0 && (
-                  <div className="form-control mb-3">
-                    <label className="label cursor-pointer justify-start gap-2 pb-1">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-sm checkbox-secondary"
-                        checked={action.effect_intensity !== undefined}
-                        onChange={(e) => onUpdate('effect_intensity', e.target.checked ? 128 : undefined)}
-                      />
-                      <span className="label-text font-medium">{t('event_form.effect_intensity') || 'Effect Intensity'}</span>
-                      {action.effect_intensity !== undefined && (
-                        <span className="label-text-alt ml-auto">{Math.round((action.effect_intensity / 255) * 100)}%</span>
-                      )}
-                    </label>
-                    {action.effect_intensity !== undefined && (
-                      <div className="pl-7">
-                        <input
-                          type="range"
-                          min="0"
-                          max="255"
-                          value={action.effect_intensity}
-                          onChange={(e) => onUpdate('effect_intensity', parseInt(e.target.value))}
-                          className="range range-secondary range-sm w-full"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                <div className="form-control mb-3">
-                  <label className="label">
-                    <span className="label-text font-medium">{t('event_form.transition') || 'Transition (seconds)'}</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    step="0.1"
-                    className="input input-bordered w-full"
-                    value={action.transition ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      onUpdate('transition', val === '' || parseFloat(val) === 0 ? undefined : parseFloat(val));
-                    }}
-                    placeholder="0"
-                  />
-                </div>
-              </>
-            );
-          })()}
-        </>
+        <RemoteOutputAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allRemoteDevices={allRemoteDevices}
+          actionOutputOptions={actionOutputOptions}
+        />
       )}
 
+      {/* Remote Cover Action (ESPHome, MQTT) */}
       {actionType === 'remote_cover' && (
-        <>
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.remote_device')}</span>
-            </label>
-            <Select
-              value={action.remote_device || ''}
-              onValueChange={(value) => {
-                onUpdate('remote_device', value);
-                // Clear cover_id when device changes
-                onUpdate('cover_id', '');
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('event_form.select_remote_device')} />
-              </SelectTrigger>
-              <SelectContent>
-                {allRemoteDevices.map((device) => (
-                  <SelectItem key={device.id} value={device.id}>
-                    <div className="flex flex-col">
-                      <span>{device.name || device.id}</span>
-                      <span className="text-xs opacity-60">
-                        {device.protocol === 'esphome_api' ? 'ESPHome' : 'MQTT'}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover_id')}</span>
-            </label>
-            <Select
-              value={action.cover_id || ''}
-              onValueChange={(value) => onUpdate('cover_id', value)}
-              disabled={!action.remote_device}
-            >
-              <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
-                <SelectValue placeholder={t('event_form.select_cover_id')}>
-                  {(() => {
-                    const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                    // For ESPHome: use esphome_api.covers, for MQTT: use mqtt.covers
-                    const isEspHome = selectedDevice?.protocol === 'esphome_api';
-                    const covers = isEspHome 
-                      ? (selectedDevice?.esphome_api?.covers || [])
-                      : (selectedDevice?.mqtt?.covers || []);
-                    const selectedCover = covers.find((c: any) => c.id === action.cover_id);
-                    if (selectedCover) {
-                      return (
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">{selectedCover.name || selectedCover.id}</span>
-                          <span className="text-xs opacity-60">ID: {selectedCover.id}</span>
-                        </div>
-                      );
-                    }
-                    return <span className="opacity-50">{t('event_form.select_cover_id')}</span>;
-                  })()}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(() => {
-                  const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
-                  const isEspHome = selectedDevice?.protocol === 'esphome_api';
-                  const covers = isEspHome 
-                    ? (selectedDevice?.esphome_api?.covers || [])
-                    : (selectedDevice?.mqtt?.covers || []);
-                  return covers.map((cover: any) => (
-                    <SelectItem key={cover.id} value={cover.id}>
-                      <div className="flex flex-col">
-                        <span className="font-medium">{cover.name || cover.id}</span>
-                        <span className="text-xs opacity-60">ID: {cover.id}</span>
-                      </div>
-                    </SelectItem>
-                  ));
-                })()}
-              </SelectContent>
-            </Select>
-            {!action.remote_device && (
-              <label className="label">
-                <span className="label-text-alt text-warning">{t('event_form.select_device_first')}</span>
-              </label>
-            )}
-          </div>
-
-          <div className="form-control mb-3">
-            <label className="label">
-              <span className="label-text font-medium">{t('event_form.cover_action')}</span>
-            </label>
-            <Select
-              value={action.action_cover || 'TOGGLE'}
-              onValueChange={(value) => onUpdate('action_cover', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action..." />
-              </SelectTrigger>
-              <SelectContent>
-                {actionCoverOptions.map((option: string) => (
-                  <SelectItem key={option} value={option}>
-                    {option.split('_').map(word => 
-                      word.charAt(0) + word.slice(1).toLowerCase()
-                    ).join(' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </>
+        <RemoteCoverAction
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          allRemoteDevices={allRemoteDevices}
+          actionCoverOptions={actionCoverOptions}
+        />
       )}
 
       {/* Duration thresholds - only for long press actions */}

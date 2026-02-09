@@ -4,13 +4,13 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -337,19 +337,19 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "pressed": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -418,23 +418,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -487,24 +487,24 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
                     },
                     "rgb": {
                       "type": [
-                        "string",
-                        "array"
+                        "array",
+                        "string"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -523,13 +523,13 @@
               },
               "released": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -598,23 +598,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -667,24 +667,24 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
                     },
                     "rgb": {
                       "type": [
-                        "string",
-                        "array"
+                        "array",
+                        "string"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"

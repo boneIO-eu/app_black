@@ -2,16 +2,8 @@ name: Publish BoneIO 🐍 distributions 📦 to PyPI
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'dev-debian13'
-    paths:
-      - '**.py'
-      - '**.tsx'
-      - '**.ts'
-      - 'frontend/**'
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*'
   release:
     types:
       - created
@@ -55,6 +47,10 @@ jobs:
           npm ci
           npm run build
 
+      - name: Inject MASTER_SECRET
+        run: |
+          sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/${{ secrets.BONEIO_MASTER_SECRET }}/g' boneio/core/cloud/secrets.py
+
       - name: Build Package
         run: |
           pdm build
@@ -97,6 +93,10 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      - name: Inject MASTER_SECRET
+        run: |
+          sed -i 's/__BONEIO_MASTER_SECRET_PLACEHOLDER__/${{ secrets.BONEIO_MASTER_SECRET }}/g' boneio/core/cloud/secrets.py
 
       - name: Build Package
         run: |

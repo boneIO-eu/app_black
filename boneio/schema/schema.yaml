@@ -87,6 +87,18 @@ mqtt:
         description: |
           When enabled, this device subscribes to BoneIO autodiscovery topics
           (boneio/+/discovery/#) and automatically discovers neighboring BoneIO devices.
+    update_channel:
+      type: string
+      default: stable
+      allowed:
+        - stable
+        - dev
+      meta:
+        label: Update channel
+        description: |
+          Which releases to show in Home Assistant Update entity:
+          - stable: Only stable releases (recommended)
+          - dev: Include development/pre-release versions
 
 web:
   type: dict
@@ -107,6 +119,36 @@ web:
       nullable: True
       meta:
         label: Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.
+    cloud:
+      required: False
+      type: dict
+      nullable: True
+      default: {}
+      meta:
+        label: boneIO Cloud registration for PWA support
+        description: |
+          Register device with boneIO Cloud to enable PWA installation.
+          Creates DNS record {serial}.black.boneio.app pointing to your local IP.
+          Requires valid SSL certificate from boneIO Cloud.
+      schema:
+        enabled:
+          type: boolean
+          default: False
+          meta:
+            label: Enable cloud registration
+            description: |
+              When enabled, device registers with boneIO Cloud API and downloads
+              wildcard SSL certificate for *.black.boneio.app domain.
+              This allows PWA installation on mobile devices.
+        pwa_name:
+          required: False
+          type: string
+          nullable: True
+          meta:
+            label: PWA short name
+            description: |
+              Short name displayed under the app icon on Android home screen.
+              Max 12 characters. Defaults to "bIO" + last 6 chars of serial number.
     auth:
       required: False
       type: dict
@@ -302,6 +344,9 @@ modbus_devices:
             'orno-or-we-517',
             'pt100',
             'fujitsu-ac',
+            'le-03mw',
+            'le-03mwct',
+            'n4dsc08',
             'r4dcb08',
             'sdm120',
             'sdm630',

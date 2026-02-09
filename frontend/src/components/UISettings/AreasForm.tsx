@@ -1,6 +1,7 @@
 import React from 'react';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import HelpLabel from './components/HelpLabel';
 
 interface AreasFormProps {
   data: any;
@@ -33,9 +34,7 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
           placeholder="living_room"
           required
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('areas.id_hint')}</span>
-        </label>
+        <HelpLabel>{t('areas.id_hint')}</HelpLabel>
       </div>
 
       {/* Name */}
@@ -51,9 +50,7 @@ const AreasForm: React.FC<AreasFormProps> = ({ data, onChange }) => {
           placeholder="Living Room"
           required
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('areas.name_hint')}</span>
-        </label>
+        <HelpLabel>{t('areas.name_hint')}</HelpLabel>
       </div>
     </div>
   );

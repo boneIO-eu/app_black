@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
+import MobileCard from './MobileCard';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -42,7 +43,37 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
         filteredCount={filteredItems.length} 
       />
 
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-2">
+        {filteredItems.map(({ item, originalIndex }) => {
+          const isMomentary = item.momentary_turn_on || item.momentary_turn_off;
+          const effectiveId = item.id || item.boneio_output;
+          const displayName = item.name || effectiveId || `Item ${originalIndex + 1}`;
+          const areaName = item.area 
+            ? allAreas.find(a => a.id === item.area)?.name || item.area 
+            : '';
+
+          return (
+            <MobileCard
+              key={originalIndex}
+              title={displayName}
+              subtitle={item.boneio_output ? item.boneio_output.toUpperCase() : undefined}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
+              fields={[
+                ...(item.output_type ? [{ label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type}</span> }] : []),
+                ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
+                ...(item.interlock_group ? [{ label: t('outputs.interlock_group'), value: <span className="badge badge-error badge-xs">{item.interlock_group}</span> }] : []),
+                { label: t('outputs.restore_state'), value: item.restore_state ? <span className="badge badge-success badge-xs">{t('common.yes')}</span> : <span className="badge badge-ghost badge-xs">{t('common.no')}</span> },
+                ...(isMomentary ? [{ label: t('outputs.momentary'), value: <span className="badge badge-warning badge-xs">{t('common.yes')}</span> }] : []),
+              ]}
+            />
+          );
+        })}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block overflow-x-auto">
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>

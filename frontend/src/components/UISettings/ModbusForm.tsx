@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import HelpLabel from './components/HelpLabel';
 
 interface ModbusFormProps {
   data: any;
@@ -41,9 +42,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value="uart4">UART4 (current BoneIO)</option>
           <option value="uart5">UART5</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('modbus_config.uart_help')}</span>
-        </label>
+        <HelpLabel>{t('modbus_config.uart_help')}</HelpLabel>
       </div>
 
       {/* Baudrate */}
@@ -65,9 +64,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={57600}>57600</option>
           <option value={115200}>115200</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('modbus_config.baudrate_help')}</span>
-        </label>
+        <HelpLabel>{t('modbus_config.baudrate_help')}</HelpLabel>
       </div>
 
       {/* Bytesize */}
@@ -83,9 +80,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={7}>7</option>
           <option value={8}>8</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('modbus_config.data_bits_help')}</span>
-        </label>
+        <HelpLabel>{t('modbus_config.data_bits_help')}</HelpLabel>
       </div>
 
       {/* Parity */}
@@ -102,9 +97,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value="E">Even (E)</option>
           <option value="O">Odd (O)</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('modbus_config.parity_help')}</span>
-        </label>
+        <HelpLabel>{t('modbus_config.parity_help')}</HelpLabel>
       </div>
 
       {/* Stopbits */}
@@ -120,9 +113,7 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
           <option value={1}>1</option>
           <option value={2}>2</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('modbus_config.stop_bits_help')}</span>
-        </label>
+        <HelpLabel>{t('modbus_config.stop_bits_help')}</HelpLabel>
       </div>
     </div>
   );

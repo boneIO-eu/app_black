@@ -4,13 +4,13 @@
   "properties": {
     "ina219": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -20,8 +20,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -29,8 +29,8 @@
           },
           "sensors": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {
@@ -48,8 +48,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ],
               "properties": {
                 "id": {
@@ -70,8 +70,8 @@
                 },
                 "filters": {
                   "type": [
-                    "string",
-                    "array"
+                    "array",
+                    "string"
                   ],
                   "default": [
                     {
@@ -80,8 +80,8 @@
                   ],
                   "items": {
                     "type": [
-                      "object",
-                      "string"
+                      "string",
+                      "object"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
+import MobileCard from './MobileCard';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { normalizeCovers } from '../helpers/coverUtils';
 import { normalizeOutputs } from '../helpers/outputUtils';
@@ -207,7 +208,39 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
         filteredCount={filteredItems.length} 
       />
 
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-2">
+        {filteredItems.map(({ item, originalIndex }) => {
+          const areaName = item.area 
+            ? allAreas.find(a => a.id === item.area)?.name || item.area 
+            : '';
+          const isExpanded = expandedRows.has(originalIndex);
+          const itemHasActions = hasActions(item);
+
+          return (
+            <MobileCard
+              key={originalIndex}
+              title={item.name || `${t('array_table_widget.item')} ${originalIndex + 1}`}
+              subtitle={item.boneio_input ? item.boneio_input.toUpperCase() : undefined}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
+              onClick={itemHasActions ? () => toggleRow(originalIndex) : undefined}
+              fields={[
+                ...(areaName ? [{ label: t('inputs.area'), value: areaName }] : []),
+                { label: t('inputs.has_actions'), value: itemHasActions
+                  ? <span className="badge badge-success badge-xs">{t('common.yes')}</span>
+                  : <span className="badge badge-ghost badge-xs">{t('common.no')}</span>
+                },
+              ]}
+            >
+              {isExpanded && itemHasActions && renderActionDetails(item)}
+            </MobileCard>
+          );
+        })}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block overflow-x-auto">
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>

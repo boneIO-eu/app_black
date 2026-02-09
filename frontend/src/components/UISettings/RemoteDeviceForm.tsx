@@ -3,6 +3,7 @@ import axios from '@/api/axios';
 import { FaPlus, FaTrash, FaSync } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import HelpLabel from './components/HelpLabel';
 import {
   Select,
   SelectContent,
@@ -150,9 +151,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           placeholder="salon_boneio"
           required
         />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('remote_devices.id_hint')}</span>
-        </label>
+        <HelpLabel>{t('remote_devices.id_hint')}</HelpLabel>
       </div>
 
       {/* Name */}
@@ -190,9 +189,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             ))}
           </SelectContent>
         </Select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('remote_devices.protocol_hint')}</span>
-        </label>
+        <HelpLabel>{t('remote_devices.protocol_hint')}</HelpLabel>
       </div>
 
       {/* Device Type - hidden for ESPHome API and WLED protocols */}
@@ -216,9 +213,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
               ))}
             </SelectContent>
           </Select>
-          <label className="label">
-            <span className="label-text-alt text-base-content/60">{t('remote_devices.device_type_hint')}</span>
-          </label>
+          <HelpLabel>{t('remote_devices.device_type_hint')}</HelpLabel>
         </div>
       )}
 

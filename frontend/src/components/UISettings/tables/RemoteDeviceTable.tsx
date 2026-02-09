@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '@/api/axios';
 import { useTranslation } from '../../../hooks/useTranslation';
 import TableActions from './TableActions';
+import MobileCard from './MobileCard';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash } from 'react-icons/fa';
 
@@ -386,7 +387,48 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
       </div>
 
       {/* Configured devices section */}
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden space-y-2">
+        {items.map((item, index) => {
+          const deviceTypeLabel = item.device_type === 'boneio_black' ? 'boneIO Black' : 
+            item.device_type === 'esphome' ? 'ESPHome' : 
+            item.device_type || 'generic';
+
+          return (
+            <MobileCard
+              key={index}
+              title={item.name || item.id || '-'}
+              subtitle={item.id || undefined}
+              onEdit={() => onEdit(index)}
+              onDelete={() => onDelete(index)}
+              extraActions={item.protocol === 'esphome_api' ? (
+                <button
+                  className={`btn btn-xs btn-secondary ${discoveringIndex === index ? 'loading' : ''}`}
+                  onClick={() => discoverEsphomeEntities(index, item)}
+                  disabled={discoveringIndex === index}
+                  title={t('remote_devices.discover_entities') || 'Discover Entities'}
+                >
+                  {discoveringIndex !== index && <FaSync className="w-3 h-3" />}
+                  {(() => {
+                    const counts = getEsphomeEntityCounts(item);
+                    if (counts && counts.total > 0) {
+                      return <span className="badge badge-xs badge-success ml-1">{counts.total}</span>;
+                    }
+                    return null;
+                  })()}
+                </button>
+              ) : undefined}
+              fields={[
+                { label: t('remote_devices.protocol'), value: <span className="badge badge-primary badge-xs">{item.protocol?.toUpperCase() || 'MQTT'}</span> },
+                { label: t('remote_devices.device_type'), value: <span className="badge badge-outline badge-xs">{deviceTypeLabel}</span> },
+              ]}
+            />
+          );
+        })}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden sm:block overflow-x-auto">
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>

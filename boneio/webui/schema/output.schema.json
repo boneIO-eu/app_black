@@ -4,13 +4,13 @@
   "properties": {
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -64,8 +64,8 @@
           },
           "pin": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Pin number",
             "title": "Pin"
@@ -110,16 +110,16 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
           },
           "percentage_default_brightness": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"

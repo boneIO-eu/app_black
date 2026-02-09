@@ -45,6 +45,9 @@ class ConfigHelper:
         config_file_path: str | None = None,
         send_boneio_autodiscovery: bool = True,
         receive_boneio_autodiscovery: bool = True,
+        update_channel: str = "stable",
+        cloud_registration: bool = False,
+        pwa_name: str | None = None,
     ):
         self._name = name
         
@@ -59,10 +62,23 @@ class ConfigHelper:
             # Fallback if MAC not available (should rarely happen)
             self._topic_prefix = "boneio/blk_unknown"
             _LOGGER.warning("Could not determine serial number from MAC, using fallback topic prefix")
+
+        # PWA short name for Android home screen (max 12 chars)
+        if pwa_name:
+            self._pwa_name = pwa_name[:12]
+        elif self._serial_no:
+            # Default: "bIO " + last 6 chars of serial (e.g. "bIO 8c7df0")
+            suffix = self._serial_no.replace("blk_", "").replace("blk", "")
+            self._pwa_name = f"bIO {suffix}"
+        else:
+            self._pwa_name = "boneIO"
+
         self._ha_discovery = ha_discovery
         self._ha_discovery_prefix = ha_discovery_prefix
         self._send_boneio_autodiscovery = send_boneio_autodiscovery
         self._receive_boneio_autodiscovery = receive_boneio_autodiscovery
+        self._update_channel = update_channel
+        self._cloud_registration = cloud_registration
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -79,6 +95,7 @@ class ConfigHelper:
             TEXT_SENSOR: {},
             SELECT: {},
             NUMERIC: {},
+            "update": {}
         }
         self.manager_ready: bool = False
         self._network_info = network_info
@@ -94,6 +111,9 @@ class ConfigHelper:
         # Restart required flag - set when config sections requiring restart are modified
         self._restart_required: bool = False
         self._restart_required_sections: set[str] = set()
+        
+        # Cloud registration instance (set from runner.py after creation)
+        self._cloud_reg: Any = None
 
     @property
     def restart_required(self) -> bool:
@@ -160,6 +180,16 @@ class ConfigHelper:
         return self._serial_no or "blk_unknown"
 
     @property
+    def pwa_name(self) -> str:
+        """Get PWA short name for Android home screen (max 12 chars)."""
+        return self._pwa_name
+
+    @pwa_name.setter
+    def pwa_name(self, value: str):
+        """Set PWA short name (truncated to 12 chars)."""
+        self._pwa_name = value[:12] if value else self._pwa_name
+
+    @property
     def name(self) -> str:
         return self._name
 
@@ -180,6 +210,16 @@ class ConfigHelper:
     def receive_boneio_autodiscovery(self) -> bool:
         """Check if BoneIO autodiscovery receiving is enabled."""
         return self._receive_boneio_autodiscovery
+
+    @property
+    def update_channel(self) -> str:
+        """Get update channel (stable or dev)."""
+        return self._update_channel
+
+    @property
+    def cloud_registration(self) -> bool:
+        """Check if cloud registration (PWA) is enabled."""
+        return self._cloud_registration
 
     @property
     def device_type(self) -> str:

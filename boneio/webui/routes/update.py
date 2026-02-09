@@ -10,17 +10,26 @@ import re
 import shutil
 import subprocess
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
 from boneio.core.config.yaml_util import load_config_from_file, normalize_board_name
 
+if TYPE_CHECKING:
+    from boneio.core.manager import Manager
+
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["update"])
+
+
+def get_manager():
+    """Get manager instance - will be overridden by app initialization."""
+    raise NotImplementedError("Manager not initialized")
 
 # Update status tracking
 _update_status: dict = {
@@ -58,6 +67,38 @@ def _update_progress(progress: int, step: str, log_msg: str | None = None):
     if log_msg:
         _update_status["log"].append(log_msg)
         _LOGGER.info(f"Update: {log_msg}")
+
+
+@router.post("/check_update_now")
+async def check_update_now(manager: "Manager" = Depends(get_manager)):
+    """
+    Force immediate update check and publish to MQTT.
+    
+    This endpoint triggers the UpdateManager to check for updates immediately
+    instead of waiting for the next periodic check.
+    
+    Returns:
+        Status response.
+    """
+    try:
+        if manager and hasattr(manager, 'update_manager'):
+            # Request immediate update check (0 seconds delay)
+            manager.update_manager.request_update(seconds=0)
+            return {
+                "status": "success",
+                "message": "Update check triggered, results will be published to MQTT shortly"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "UpdateManager not available"
+            }
+    except Exception as e:
+        _LOGGER.error("Error triggering update check: %s", e)
+        return {
+            "status": "error",
+            "message": f"Error: {str(e)}"
+        }
 
 
 @router.get("/check_update")
@@ -142,31 +183,42 @@ async def check_update():
         current_ver_lower = current_version.lower()
         current_is_prerelease = any(x in current_ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])
         
-        if current_is_prerelease:
-            recommended = latest_prerelease or latest_stable or available_versions[0]
-        else:
-            recommended = latest_stable or latest_prerelease or available_versions[0]
-        
         is_update_available = False
         prerelease_update_available = False
         try:
             current_parsed = version.parse(current_version)
-            recommended_parsed = version.parse(recommended["version"])
-            is_update_available = recommended_parsed > current_parsed
             
-            if current_is_prerelease and latest_prerelease:
-                prerelease_parsed = version.parse(latest_prerelease["version"])
-                if prerelease_parsed > current_parsed:
-                    is_update_available = True
-                    recommended = latest_prerelease
+            # Find the best recommended version:
+            # - Always consider stable releases as potential updates
+            # - For prerelease users: also consider newer prereleases
+            # - Pick whichever is newer (stable or prerelease)
+            candidates = []
+            if latest_stable:
+                stable_parsed = version.parse(latest_stable["version"])
+                if stable_parsed > current_parsed:
+                    candidates.append((stable_parsed, latest_stable))
+            if latest_prerelease:
+                pre_parsed = version.parse(latest_prerelease["version"])
+                if pre_parsed > current_parsed:
+                    candidates.append((pre_parsed, latest_prerelease))
+                    if not current_is_prerelease:
+                        prerelease_update_available = True
             
-            if not current_is_prerelease and latest_prerelease:
-                prerelease_parsed = version.parse(latest_prerelease["version"])
-                if prerelease_parsed > current_parsed:
-                    prerelease_update_available = True
+            if candidates:
+                # Pick the newest candidate
+                candidates.sort(key=lambda x: x[0], reverse=True)
+                recommended = candidates[0][1]
+                is_update_available = True
+            else:
+                # No update available, show current channel's latest
+                if current_is_prerelease:
+                    recommended = latest_prerelease or latest_stable or available_versions[0]
+                else:
+                    recommended = latest_stable or latest_prerelease or available_versions[0]
         except Exception as e:
             _LOGGER.warning("Error parsing versions for comparison: %s", str(e))
             is_update_available = False
+            recommended = latest_stable or latest_prerelease or available_versions[0]
         
         return {
             "status": "success",

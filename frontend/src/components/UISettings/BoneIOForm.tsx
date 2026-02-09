@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import HelpLabel from './components/HelpLabel';
 
 interface ExampleFile {
   filename: string;
@@ -139,13 +140,11 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           onChange={(e) => handleChange('name', e.target.value)}
           placeholder={t('boneio_config.name_placeholder')}
         />
-        <label className="label">
-          {nameError ? (
-            <span className="label-text-alt text-error">{t('boneio_config.name_required_error')}</span>
-          ) : (
-            <span className="label-text-alt text-base-content/60">{t('boneio_config.name_help')}</span>
-          )}
-        </label>
+        {nameError ? (
+          <label className="label whitespace-normal"><span className="label-text-alt text-error wrap-break-word">{t('boneio_config.name_required_error')}</span></label>
+        ) : (
+          <HelpLabel>{t('boneio_config.name_help')}</HelpLabel>
+        )}
       </div>
 
       {/* Version */}
@@ -167,9 +166,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           <option value="0.7">0.7</option>
           <option value="0.8">0.8</option>
         </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('boneio_config.hardware_version_help')}</span>
-        </label>
+        <HelpLabel>{t('boneio_config.hardware_version_help')}</HelpLabel>
       </div>
 
       {/* Device Type */}
@@ -186,6 +183,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           >
             <option value="">{t('boneio_config.select_device_type')}</option>
             <option value="32x10a">32x10A (32 outputs, 10A each)</option>
+            <option value="32x5a">32x5A (32 outputs, 5A each)</option>
             <option value="24x16a">24x16A (24 outputs, 16A each)</option>
             <option value="cover">Cover</option>
             <option value="cover mix">Cover Mix</option>
@@ -194,9 +192,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
             <span className="absolute right-10 top-1/2 -translate-y-1/2 loading loading-spinner loading-sm"></span>
           )}
         </div>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('boneio_config.device_type_help')}</span>
-        </label>
+        <HelpLabel>{t('boneio_config.device_type_help')}</HelpLabel>
       </div>
 
       {/* Device Type Change Warning Modal */}

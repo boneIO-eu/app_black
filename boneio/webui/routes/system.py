@@ -12,7 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from boneio.core.config import ConfigHelper
-from boneio.core.config.yaml_util import load_config_from_file
+from boneio.core.config.yaml_util import load_config_from_file, update_yaml_field
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
@@ -133,6 +133,177 @@ async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):
         Dictionary with name string.
     """
     return {"name": config_helper.name}
+
+
+class PwaNameRequest(BaseModel):
+    """Request model for PWA name change."""
+    pwa_name: str
+
+
+@router.get("/pwa_name")
+async def get_pwa_name(config_helper: ConfigHelper = Depends(get_config_helper)):
+    """Get PWA short name for Android home screen.
+
+    Returns:
+        Dictionary with pwa_name string and max_length.
+    """
+    serial_suffix = config_helper.serial_no.replace("blk_", "").replace("blk", "")
+    return {
+        "pwa_name": config_helper.pwa_name,
+        "default": f"bIO {serial_suffix}",
+        "max_length": 12,
+    }
+
+
+@router.post("/pwa_name")
+async def set_pwa_name(
+    request: PwaNameRequest,
+    config_helper: ConfigHelper = Depends(get_config_helper),
+):
+    """Set PWA short name (max 12 chars). Saved to YAML config.
+
+    Args:
+        request: PwaNameRequest with new pwa_name.
+
+    Returns:
+        Status response with saved pwa_name.
+    """
+    pwa_name = request.pwa_name.strip()
+
+    if not pwa_name:
+        raise HTTPException(status_code=400, detail="PWA name cannot be empty")
+
+    if len(pwa_name) > 12:
+        raise HTTPException(status_code=400, detail="PWA name too long (max 12 characters)")
+
+    # Update in-memory
+    config_helper.pwa_name = pwa_name
+
+    # Persist to YAML config
+    try:
+        if _app_state and _app_state.yaml_config_file:
+            result = update_yaml_field(
+                _app_state.yaml_config_file,
+                "web.cloud",
+                "pwa_name",
+                pwa_name,
+            )
+            if result.get("status") == "error":
+                _LOGGER.error("Failed to save pwa_name to config: %s", result.get("message"))
+    except Exception as e:
+        _LOGGER.error("Error saving pwa_name to config: %s", e)
+
+    _LOGGER.info("PWA name changed to: %s", pwa_name)
+    return {"status": "success", "pwa_name": pwa_name}
+
+
+@router.get("/cloud/status")
+async def get_cloud_status():
+    """
+    Get cloud registration status including domain and last error.
+
+    Returns:
+        Dict with enabled, domain, cloud_config_active, and last_error fields.
+    """
+    config_helper: ConfigHelper | None = getattr(_app_state, "config_helper", None)
+    if not config_helper:
+        return {"enabled": False}
+
+    cloud_reg = getattr(config_helper, "_cloud_reg", None)
+    if not cloud_reg:
+        return {
+            "enabled": config_helper.cloud_registration,
+            "domain": None,
+            "cloud_config_active": False,
+            "last_error": None,
+        }
+
+    return {
+        "enabled": cloud_reg.enabled,
+        "domain": cloud_reg.domain,
+        "cloud_config_active": cloud_reg.is_cloud_config_active(),
+        "compose_writable": cloud_reg.is_compose_writable,
+        "last_error": cloud_reg.last_error,
+    }
+
+
+class SudoFixRequest(BaseModel):
+    """Request body for fixing docker-compose.yaml permissions via sudo."""
+    password: str
+
+
+@router.post("/cloud/fix-permissions")
+async def fix_compose_permissions(body: SudoFixRequest):
+    """
+    Fix docker-compose.yaml ownership using sudo chown.
+
+    Accepts the user's sudo password, runs 'sudo chown' on docker-compose.yaml,
+    and returns success/error. The password is never logged or stored.
+
+    Returns:
+        Status response with success or error message.
+    """
+    compose_path = os.path.expanduser("~/docker/nodered/docker-compose.yaml")
+    current_user = os.environ.get("USER", "boneio")
+
+    if not os.path.exists(compose_path):
+        return {"status": "error", "message": f"File not found: {compose_path}"}
+
+    if os.access(compose_path, os.W_OK):
+        return {"status": "success", "message": "File is already writable"}
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "sudo", "-S", "chown", current_user, compose_path,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await asyncio.wait_for(
+            proc.communicate(input=(body.password + "\n").encode()),
+            timeout=10,
+        )
+
+        if proc.returncode == 0:
+            _LOGGER.info("Fixed permissions for %s", compose_path)
+            return {"status": "success", "message": "Permissions fixed successfully"}
+        else:
+            err_msg = stderr.decode().strip()
+            if "incorrect password" in err_msg.lower() or "sorry" in err_msg.lower():
+                return {"status": "error", "message": "Incorrect sudo password"}
+            return {"status": "error", "message": f"sudo failed: {err_msg}"}
+
+    except asyncio.TimeoutError:
+        return {"status": "error", "message": "sudo command timed out"}
+    except Exception as e:
+        _LOGGER.error("Failed to fix permissions: %s", e)
+        return {"status": "error", "message": str(e)}
+
+
+@router.post("/cloud/disable")
+async def disable_cloud():
+    """
+    Disable cloud mode by restoring original docker-compose.yaml from package data.
+
+    Returns:
+        Status response with success or error message.
+    """
+    config_helper: ConfigHelper | None = getattr(_app_state, "config_helper", None)
+    if not config_helper:
+        return {"status": "error", "message": "Config helper not available"}
+
+    cloud_reg = getattr(config_helper, "_cloud_reg", None)
+    if not cloud_reg:
+        return {"status": "error", "message": "Cloud registration not initialized"}
+
+    success = await cloud_reg._restore_local_config()
+    if success:
+        return {"status": "success", "message": "Cloud mode disabled, Caddy restored to local certificates"}
+    else:
+        return {
+            "status": "error",
+            "message": cloud_reg.last_error or "Failed to restore local config",
+        }
 
 
 @router.get("/check_configuration")
