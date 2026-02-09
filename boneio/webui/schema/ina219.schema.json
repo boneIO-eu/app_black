@@ -4,8 +4,8 @@
   "properties": {
     "ina219": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -29,8 +29,8 @@
           },
           "sensors": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -70,8 +70,8 @@
                 },
                 "filters": {
                   "type": [
-                    "array",
-                    "string"
+                    "string",
+                    "array"
                   ],
                   "default": [
                     {

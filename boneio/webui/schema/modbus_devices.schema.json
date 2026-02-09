@@ -4,8 +4,8 @@
   "properties": {
     "modbus_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -45,8 +45,14 @@
               "Dts1964_3F",
               "FUJITSU-AC",
               "Fujitsu-Ac",
+              "LE-03MW",
+              "LE-03MWCT",
               "LIQUID-SENSOR",
+              "Le-03Mw",
+              "Le-03Mwct",
               "Liquid-Sensor",
+              "N4DSC08",
+              "N4Dsc08",
               "ORNO-OR-WE-517",
               "Orno-Or-We-517",
               "PT100",
@@ -72,7 +78,10 @@
               "cwt",
               "dts1964_3f",
               "fujitsu-ac",
+              "le-03mw",
+              "le-03mwct",
               "liquid-sensor",
+              "n4dsc08",
               "orno-or-we-517",
               "pt100",
               "r4dcb08",
@@ -110,8 +119,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -129,8 +138,8 @@
               },
               "humidity": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {

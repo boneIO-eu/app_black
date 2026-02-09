@@ -13,6 +13,7 @@ from boneio.const import (
     ADC,
     BINARY_SENSOR,
     BONEIO,
+    CAN,
     COVER,
     DALLAS,
     DS2482,
@@ -129,8 +130,12 @@ async def async_run(
     # Load areas configuration
     _config_helper.set_areas(areas_config=config.get("areas", []))
 
+    # Determine CAN slave mode (slave devices don't need MQTT)
+    can_config = config.get(CAN, {})
+    is_can_slave = can_config.get(ENABLED, False) and can_config.get("mode", "master") == "slave"
+
     # Initialize message bus based on config
-    if MQTT in config:
+    if MQTT in config and not is_can_slave:
         message_bus = MQTTClient(
             host=config[MQTT][HOST],
             username=config[MQTT].get(USERNAME, mqttusername),
@@ -141,6 +146,8 @@ async def async_run(
     else:
         from boneio.core.messaging import LocalMessageBus
         message_bus = LocalMessageBus()
+        if is_can_slave:
+            _LOGGER.info("CAN slave mode: using LocalMessageBus (no MQTT required)")
 
     manager_kwargs = {
         item["name"]: config.get(item["name"], item["default"])
@@ -167,6 +174,7 @@ async def async_run(
             VIRTUAL_ENERGY_SENSOR: config.get(VIRTUAL_ENERGY_SENSOR, []),
         },
         modbus_devices=config.get("modbus_devices", []),
+        can=config.get(CAN, {}),
         web_active=web_active,
         web_port=web_config.get("port", 8090),
         **manager_kwargs,
@@ -189,6 +197,12 @@ async def async_run(
             # Don't fail the entire application, continue without GPIO
             pass
     
+    # Start CAN bus if configured (non-blocking)
+    if manager.canopen is not None:
+        can_task = asyncio.create_task(manager.start_canopen())
+        tasks.add(can_task)
+        can_task.add_done_callback(tasks.discard)
+
     # Start ESPHome connections as background task (non-blocking)
     esphome_task = manager.append_task(
         coro=manager.remote_devices.start_all_connections,
@@ -318,8 +332,8 @@ async def async_run(
                 await gpio_manager.stop()
         except Exception as e:
             _LOGGER.error(f"Error stopping GPIO manager: {e}")
-        
-        # Stop manager async tasks (ESPHome connections, etc.)
+
+        # Stop manager async tasks (ESPHome connections, CANopen, etc.)
         try:
             _LOGGER.info("Stopping manager async tasks...")
             await manager.stop()

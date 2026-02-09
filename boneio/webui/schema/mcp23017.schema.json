@@ -4,8 +4,8 @@
   "properties": {
     "mcp23017": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [

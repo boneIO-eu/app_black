@@ -68,6 +68,21 @@ class RemoteDeviceManager:
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
     
+    def add_device(self, device: RemoteDevice) -> None:
+        """Dynamically add a remote device (e.g., from CAN autodiscovery).
+
+        Args:
+            device: RemoteDevice instance to register.
+        """
+        if device.id in self._devices:
+            _LOGGER.debug("Remote device '%s' already registered, skipping", device.id)
+            return
+        self._devices[device.id] = device
+        _LOGGER.info(
+            "Registered remote device '%s' (protocol=%s)",
+            device.name, device.protocol.value,
+        )
+
     def _configure_devices(self, config: list[dict[str, Any]]) -> None:
         """Configure remote devices from config.
         

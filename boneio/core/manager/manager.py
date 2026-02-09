@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any
 
 from boneio.const import (
     BUTTON,
+    CAN,
     COVER,
     COVER_OVER_MQTT,
+    ENABLED,
     MQTT,
     NONE,
     ONLINE,
@@ -113,6 +115,7 @@ class Manager:
         adc: list[dict] | None = None,
         cover: list[dict] = [],
         remote_devices: list[dict] = [],
+        can: dict[str, Any] = {},
         web_active: bool = False,
         web_port: int = 8090,
     ) -> None:
@@ -210,6 +213,15 @@ class Manager:
             manager=self,
         )
         
+        # 10. CANopenManager (optional - CAN bus communication)
+        self.canopen = None
+        if can.get(ENABLED, False):
+            from boneio.core.manager.canopen import CANopenManager
+            self.canopen = CANopenManager(
+                manager=self,
+                config=can,
+            )
+        
         # Configure virtual energy sensors (must be after outputs are initialized)
         self.sensors.configure_virtual_energy_sensors()
         
@@ -218,14 +230,32 @@ class Manager:
         
         _LOGGER.info("Manager initialization complete")
     
+    async def start_canopen(self) -> None:
+        """Start CANopen manager if configured."""
+        if self.canopen is not None:
+            can_started = await self.canopen.start()
+            if can_started:
+                _LOGGER.info("CANopen manager started successfully")
+            else:
+                _LOGGER.warning("CANopen manager failed to start")
+                self.canopen = None
+
     async def stop(self) -> None:
         """Stop manager async tasks.
         
         This should be called during shutdown to cleanly stop:
+        - CANopen manager
         - ESPHome connections
         - Other async tasks
         """
         _LOGGER.info("Stopping manager async tasks")
+        
+        # Stop CANopen manager
+        if self.canopen is not None:
+            try:
+                await self.canopen.stop()
+            except Exception as e:
+                _LOGGER.error("Error stopping CANopen manager: %s", e)
         
         # Stop ESPHome connections
         await self.remote_devices.stop_all_connections()

@@ -1,0 +1,74 @@
+# boneIO CAN Master - config.yaml
+# Ten config wgraj na urządzenie MASTER (podłączone do MQTT/HA)
+# Master relay'uje stany slave'ów do MQTT i wysyła komendy CAN do slave'ów
+
+mqtt: !include 24x16/mqtt.yaml
+
+boneio:
+  name: "boneIO Master"
+  version: 0.8
+  device_type: "24x16A"
+
+can:
+  enabled: true
+  channel: can0
+  bitrate: 125000
+  node_id: 1
+  mode: master
+  auto_setup: true
+  restart_on_error: true
+
+lm75:
+  - id: Board temperature
+    address: 0x48
+
+oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - outputs
+    - inputs
+
+# Lokalne outputy mastera (opcjonalne)
+# output: !include 24x16/output24x16A.yaml
+
+# Lokalne inputy mastera - przykład akcji CAN
+event:
+  - id: IN_01
+    pin: P9_23
+    actions:
+      single:
+        # Naciśnij IN_01 na masterze → toggle OUT_01 na SLAVE (node_id=5)
+        - action: remote_output
+          remote_device: can_5
+          output_id: "0"
+          action_output: TOGGLE
+      double:
+        # Podwójne kliknięcie → toggle OUT_02 na SLAVE
+        - action: remote_output
+          remote_device: can_5
+          output_id: "1"
+          action_output: TOGGLE
+
+  - id: IN_02
+    pin: P9_25
+    actions:
+      single:
+        # IN_02 na masterze → wyłącz OUT_01 na SLAVE
+        - action: remote_output
+          remote_device: can_5
+          output_id: "0"
+          action_output: "OFF"
+
+logger:
+  default: info
+  logs:
+    boneio.hardware.can: debug
+    boneio.core.manager.canopen: debug
+    boneio.core.remote.can: debug
+    boneio.hardware.can.bridge: debug
+
+web:
+  port: 8090
+  proxy_port: 8443

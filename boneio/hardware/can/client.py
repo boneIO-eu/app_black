@@ -242,6 +242,53 @@ class CANopenClient:
         
         return await self.send_pdo(1, data)
     
+    async def send_command_to_node(
+        self,
+        target_node_id: int,
+        output_index: int,
+        state: int,
+        brightness: int = 0,
+    ) -> bool:
+        """Send output command to a specific node via RPDO1.
+
+        Uses COB-ID 0x200 + target_node_id (RPDO1) to address
+        a specific slave device on the CAN bus.
+
+        Args:
+            target_node_id: Node ID of the target device (1-127).
+            output_index: Output index on the target device (0-47).
+            state: Desired state (0=OFF, 1=ON).
+            brightness: Brightness level (0-255, for dimmers).
+
+        Returns:
+            True if sent successfully.
+        """
+        if not self.is_connected:
+            _LOGGER.warning("Cannot send command: not connected")
+            return False
+
+        try:
+            # RPDO1 COB-ID: 0x200 + target_node_id
+            cob_id = 0x200 + target_node_id
+            data = bytes([
+                output_index & 0xFF,
+                state & 0x01,
+                brightness & 0xFF,
+                self._node_id & 0xFF,  # sender node_id for traceability
+                0, 0, 0, 0,  # Reserved
+            ])
+
+            self._network.send_message(cob_id, data)
+            _LOGGER.debug(
+                "Sent command to node %d: RPDO1 cob_id=0x%03X, output=%d, state=%d",
+                target_node_id, cob_id, output_index, state,
+            )
+            return True
+
+        except Exception as e:
+            _LOGGER.error("Failed to send command to node %d: %s", target_node_id, e)
+            return False
+
     def add_heartbeat_callback(
         self,
         callback: Callable[[int, str], None],

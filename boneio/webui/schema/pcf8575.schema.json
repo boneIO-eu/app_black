@@ -4,8 +4,8 @@
   "properties": {
     "pcf8575": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [

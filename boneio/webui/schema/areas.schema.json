@@ -4,8 +4,8 @@
   "properties": {
     "areas": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
