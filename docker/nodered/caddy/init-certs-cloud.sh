@@ -78,7 +78,7 @@ fi
 # Generate Caddyfile
 cat > /tmp/Caddyfile << EOF
 {
-        # Global options
+        # Global options - empty for internal issuer
 }
 
 # HTTP - serve directly
@@ -113,9 +113,14 @@ cat > /tmp/Caddyfile << EOF
         }
 }
 
-# HTTPS with hostname-based self-signed certificate (always available)
-https://, ${CURRENT_HOSTNAME} {
-        tls internal
+${CLOUD_BLOCK}
+
+# HTTPS with self-signed certificate (catch-all for hostname and IP access)
+https:// {
+        # Wlaczenie on_demand dla wewnetrznego wystawcy pozwala na dynamiczne generowanie certyfikatow dla IP
+        tls internal {
+                on_demand
+        }
 
         handle_errors {
                 @502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
@@ -146,8 +151,6 @@ https://, ${CURRENT_HOSTNAME} {
                 }
         }
 }
-
-${CLOUD_BLOCK}
 EOF
 
 # Start Caddy with generated config

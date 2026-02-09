@@ -31,7 +31,7 @@ echo "$CURRENT_HOSTNAME" > "$HOSTNAME_FILE"
 # Generate Caddyfile with actual hostname
 cat > /tmp/Caddyfile << EOF
 {
-        # Global options
+        # Global options - empty for internal issuer
 }
 
 # HTTP - serve directly
@@ -66,9 +66,11 @@ cat > /tmp/Caddyfile << EOF
         }
 }
 
-# HTTPS with hostname-based certificate
-https://, ${CURRENT_HOSTNAME} {
-        tls internal
+# HTTPS with self-signed certificate (catch-all for hostname and IP access)
+https:// {
+        tls internal {
+                on_demand
+        }
 
         handle_errors {
                 @502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504

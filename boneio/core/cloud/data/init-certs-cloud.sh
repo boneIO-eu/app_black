@@ -1,10 +1,6 @@
 #!/bin/sh
 # Script for Caddy with cloud wildcard SSL certificate (PWA mode)
-# This version adds a *.black.boneio.app HTTPS block using the wildcard cert
-# downloaded by boneIO Cloud Registration.
-#
-# Used when cloud_registration is enabled in boneio config.
-# Falls back to self-signed cert for hostname-based access.
+# FIXED: Removed deprecated 'burst'/'interval' options for newer Caddy versions.
 
 HOSTNAME_FILE="/data/last_hostname"
 CURRENT_HOSTNAME="${HOST_HOSTNAME:-$(cat /etc/host_hostname 2>/dev/null || hostname)}"
@@ -78,7 +74,7 @@ fi
 # Generate Caddyfile
 cat > /tmp/Caddyfile << EOF
 {
-        # Global options
+        # Global options - empty for internal issuer
 }
 
 # HTTP - serve directly
@@ -113,9 +109,14 @@ cat > /tmp/Caddyfile << EOF
         }
 }
 
-# HTTPS with hostname-based self-signed certificate (always available)
-https://, ${CURRENT_HOSTNAME} {
-        tls internal
+${CLOUD_BLOCK}
+
+# HTTPS with self-signed certificate (catch-all for hostname and IP access)
+https:// {
+        # Wlaczenie on_demand dla wewnetrznego wystawcy pozwala na dynamiczne generowanie certyfikatow dla IP
+        tls internal {
+                on_demand
+        }
 
         handle_errors {
                 @502-504 expression {err.status_code} >= 502 && {err.status_code} <= 504
@@ -146,8 +147,6 @@ https://, ${CURRENT_HOSTNAME} {
                 }
         }
 }
-
-${CLOUD_BLOCK}
 EOF
 
 # Start Caddy with generated config
