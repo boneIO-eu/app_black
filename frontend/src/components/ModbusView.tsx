@@ -1,5 +1,5 @@
 import { useContext, memo, useState, useMemo, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { WebSocketContext } from '../App';
 import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';

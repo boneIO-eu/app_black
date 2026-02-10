@@ -46,6 +46,7 @@ class ClickState:
     # Long hold periodic events
     long_hold_periodic_timer: asyncio.TimerHandle | None = None
     executed_long_actions: set[int] = field(default_factory=set)  # Track which long actions already executed
+    last_repeat_times: dict[int, float] = field(default_factory=dict)  # Track last execution time per repeat action index
 
 
 @dataclass
@@ -361,6 +362,7 @@ class MultiClickDetector:
         
         # Reset executed actions for new long press
         self._state.executed_long_actions = set()
+        self._state.last_repeat_times = {}
         
         duration = self._loop.time() - self._state.last_press_ts
         
@@ -511,6 +513,7 @@ class MultiClickDetector:
                 # need to give it time to start and read executed_long_actions.
                 def reset_executed_actions():
                     self._state.executed_long_actions = set()
+                    self._state.last_repeat_times = {}
                     _LOGGER.debug("Reset executed_long_actions for %s", self._name)
                 self._loop.call_later(0.05, reset_executed_actions)
             

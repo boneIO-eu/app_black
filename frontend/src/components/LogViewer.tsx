@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { FaSync, FaArrowUp, FaArrowDown, FaCopy } from 'react-icons/fa';
 
 // Create formatter once, not on every function call

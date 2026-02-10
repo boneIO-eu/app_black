@@ -331,6 +331,8 @@ export const stripHiddenAndDefaults = (
                 if (actionKey === 'action_output' && actionValue === 'TOGGLE') continue;
                 if (actionKey === 'transition' && (actionValue === 0 || actionValue === 0.0)) continue;
                 if (actionKey === 'data' && typeof actionValue === 'object' && Object.keys(actionValue as object).length === 0) continue;
+                if (actionKey === 'repeat' && !actionValue) continue;
+                if (actionKey === 'repeat_interval' && !actionItem.repeat) continue;
                 
                 cleanedAction[actionKey] = actionValue;
               }

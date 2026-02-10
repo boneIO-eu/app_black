@@ -697,14 +697,24 @@ class InputManager:
         
         # Execute actions with duration threshold support
         if actions and event.click_type == LONG:
-            # Get executed_actions from detector state
+            # Get executed_actions and repeat times from detector state
             detector = getattr(input_instance, '_detector', None)
             executed_actions = getattr(detector._state, 'executed_long_actions', set()) if detector else set()
+            last_repeat_times = getattr(detector._state, 'last_repeat_times', {}) if detector else {}
             
-            # Lazy evaluation: Check if there are any actions with duration thresholds
-            # or any actions without thresholds that haven't been executed yet
+            # Lazy evaluation: Check if there are any pending actions
+            duration_ms = (event.duration or 0) * 1000
             has_pending_actions = False
             for idx, action in enumerate(actions):
+                is_repeat = action.get("repeat", False)
+                if is_repeat:
+                    # Repeat actions are always potentially pending (throttled in execute_actions)
+                    repeat_interval_ms = action.get("repeat_interval", 1000)
+                    last_time = last_repeat_times.get(idx, 0.0)
+                    if last_time == 0 or (duration_ms - last_time) >= repeat_interval_ms:
+                        has_pending_actions = True
+                        break
+                    continue
                 if idx in executed_actions:
                     continue  # Already executed
                 min_dur = action.get("min_duration")
@@ -730,11 +740,13 @@ class InputManager:
                     actions=actions,
                     duration=event.duration,
                     executed_actions=executed_actions,
+                    last_repeat_times=last_repeat_times,
                 )
                 
                 # Update detector state
                 if detector:
                     detector._state.executed_long_actions = new_executed
+                    detector._state.last_repeat_times = last_repeat_times
         elif actions:
             # Non-long events - execute all actions normally
             await self._manager.execute_actions(actions=actions)

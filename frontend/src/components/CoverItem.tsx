@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useCallback, useRef } from "react";
 import { MdBlinds, MdBlindsClosed } from "react-icons/md";
-import axios from "axios";
+import axios from "@/api/axios";
 import { formatTimestamp } from '../utils/formatters';
 import { FaStop } from 'react-icons/fa';
 import { LuArrowDownNarrowWide, LuArrowUpNarrowWide, LuArrowDownLeft, LuArrowUpRight } from "react-icons/lu";

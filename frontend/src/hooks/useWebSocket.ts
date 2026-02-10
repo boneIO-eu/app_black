@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { useApiAvailability } from './useApiAvailability';
+import { getBasePath } from '../api/basePath';
 
 // State models matching Python Pydantic models
 
@@ -215,7 +216,7 @@ const setupWebSocket = async (
 
   globalConnecting = true;
   try {
-    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const baseUrl = getBasePath();
     const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws/state`;
     
     // Get token if authentication is required

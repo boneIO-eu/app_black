@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FaExternalLinkAlt, FaExpand, FaCompress } from 'react-icons/fa';
+import { getBasePath } from '../api/basePath';
 
 /**
  * Component that displays Node-RED editor in an iframe.
@@ -7,13 +8,14 @@ import { FaExternalLinkAlt, FaExpand, FaCompress } from 'react-icons/fa';
  */
 export default function NodeRedView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const basePath = getBasePath();
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
 
   const openInNewTab = () => {
-    window.open('/nodered/', '_blank');
+    window.open(`${basePath}/nodered/`, '_blank');
   };
 
   return (
@@ -42,7 +44,7 @@ export default function NodeRedView() {
         </div>
       </div>
       <iframe
-        src="/nodered/"
+        src={`${basePath}/nodered/`}
         className="flex-1 w-full border-0"
         style={{ minHeight: isFullscreen ? 'calc(100vh - 48px)' : 'calc(100vh - 150px)' }}
         title="Node-RED Editor"

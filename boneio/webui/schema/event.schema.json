@@ -507,6 +507,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -687,6 +702,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -867,6 +897,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -1047,6 +1092,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -1227,6 +1287,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -1407,6 +1482,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }
@@ -1587,6 +1677,21 @@
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
+                    },
+                    "repeat": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
+                      "title": "Repeat on Hold"
+                    },
+                    "repeat_interval": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "default": 1000,
+                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
+                      "title": "Repeat Interval (ms)"
                     }
                   }
                 }

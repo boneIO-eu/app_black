@@ -165,3 +165,26 @@ schema:
     meta:
       label: Transition Time (seconds)
       description: "Time in seconds to transition to the new state. Only for ESPHome lights."
+  
+  # Repeat support for long press actions
+  repeat:
+    type: boolean
+    required: False
+    default: false
+    meta:
+      label: Repeat on Hold
+      description: |
+        When true, this action will be executed repeatedly while the button is held (long press).
+        Only effective for actions under the 'long' click type.
+        Example: brightness_up with repeat will increase brightness continuously while holding.
+  repeat_interval:
+    type: integer
+    required: False
+    default: 1000
+    min: 200
+    meta:
+      label: Repeat Interval (ms)
+      description: |
+        Minimum interval in milliseconds between repeated executions.
+        Only used when repeat is true. Default: 1000ms (1 second).
+        Minimum: 200ms (matches periodic event interval).

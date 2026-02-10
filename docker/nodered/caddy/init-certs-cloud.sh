@@ -117,7 +117,6 @@ ${CLOUD_BLOCK}
 
 # HTTPS with self-signed certificate (catch-all for hostname and IP access)
 https:// {
-        # Wlaczenie on_demand dla wewnetrznego wystawcy pozwala na dynamiczne generowanie certyfikatow dla IP
         tls internal {
                 on_demand
         }

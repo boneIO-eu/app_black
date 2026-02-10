@@ -71,6 +71,9 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
 }) => {
   const { t } = useTranslation();
   const actionType = action.action || 'output';
+  const isLongPress = clickType === 'long' || clickType === 'double_then_long' || clickType === 'single_then_long';
+  const hasDurationThresholds = !!(action.min_duration || action.max_duration);
+  const hasRepeat = !!action.repeat;
 
   const validationError = showValidation ? validateAction(action, t) : null;
 
@@ -208,8 +211,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         />
       )}
 
-      {/* Duration thresholds - only for long press actions */}
-      {(clickType === 'long' || clickType === 'double_then_long' || clickType === 'single_then_long') && (
+      {/* Duration thresholds - only for long press actions, hidden when repeat is enabled */}
+      {isLongPress && !hasRepeat && (
         <div className="form-control mb-3">
           <label className="label">
             <span className="label-text font-medium">{t('event_form.duration_thresholds')}</span>
@@ -237,6 +240,49 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Repeat on hold - only for long press actions, hidden when duration thresholds are set */}
+      {isLongPress && !hasDurationThresholds && (
+        <div className="form-control mb-3">
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-primary"
+              checked={action.repeat || false}
+              onChange={(e) => {
+                onUpdate('repeat', e.target.checked || undefined);
+                if (!e.target.checked) {
+                  onUpdate('repeat_interval', undefined);
+                }
+              }}
+            />
+            <div>
+              <span className="label-text font-medium">{t('event_form.repeat_on_hold')}</span>
+              <p className="label-text-alt text-xs opacity-70">{t('event_form.repeat_on_hold_hint')}</p>
+            </div>
+          </label>
+          {action.repeat && (
+            <div className="mt-2">
+              <label className="label">
+                <span className="label-text text-sm">{t('event_form.repeat_interval_ms')}</span>
+                <span className="label-text-alt text-xs">{t('event_form.repeat_interval_hint')}</span>
+              </label>
+              <input
+                type="number"
+                className="input input-bordered w-full"
+                value={action.repeat_interval ?? 1000}
+                onChange={(e) => {
+                  const val = e.target.value ? parseInt(e.target.value) : 1000;
+                  onUpdate('repeat_interval', val < 200 ? 200 : val);
+                }}
+                min="200"
+                step="100"
+                placeholder="1000"
+              />
+            </div>
+          )}
         </div>
       )}
 

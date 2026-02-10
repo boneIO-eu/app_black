@@ -433,6 +433,15 @@ class Manager:
         from boneio.const import TOPIC, REMOTE_OUTPUT, REMOTE_COVER
         from boneio.core.utils import strip_accents
         
+        def _copy_long_press_meta(parsed_action: dict, action_definition: dict) -> None:
+            """Copy long press meta fields (duration thresholds, repeat) to parsed action."""
+            for key in ("min_duration", "max_duration"):
+                if action_definition.get(key) is not None:
+                    parsed_action[key] = action_definition[key]
+            if action_definition.get("repeat"):
+                parsed_action["repeat"] = True
+                parsed_action["repeat_interval"] = action_definition.get("repeat_interval", 1000)
+        
         parsed_actions = {}
         for click_type in actions:
             if click_type not in parsed_actions:
@@ -455,11 +464,7 @@ class Manager:
                                 "pin": stripped_entity_id,
                                 "action_to_execute": action_to_execute,
                             }
-                            # Copy duration thresholds for long press actions
-                            if action_definition.get("min_duration") is not None:
-                                parsed_action["min_duration"] = action_definition["min_duration"]
-                            if action_definition.get("max_duration") is not None:
-                                parsed_action["max_duration"] = action_definition["max_duration"]
+                            _copy_long_press_meta(parsed_action, action_definition)
                             _LOGGER.debug(
                                 "Parsed OUTPUT action for %s: output=%s, action=%s, min_dur=%s, max_dur=%s",
                                 pin, stripped_entity_id, action_to_execute,
@@ -486,11 +491,7 @@ class Manager:
                                 "action_to_execute": action_to_execute,
                                 "extra_data": extra_data,
                             }
-                            # Copy duration thresholds for long press actions
-                            if action_definition.get("min_duration") is not None:
-                                parsed_action["min_duration"] = action_definition["min_duration"]
-                            if action_definition.get("max_duration") is not None:
-                                parsed_action["max_duration"] = action_definition["max_duration"]
+                            _copy_long_press_meta(parsed_action, action_definition)
                             parsed_actions[click_type].append(parsed_action)
                             continue
                     _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
@@ -504,11 +505,7 @@ class Manager:
                             "action_mqtt_msg": action_mqtt_msg,
                             "action_topic": action_topic,
                         }
-                        # Copy duration thresholds for long press actions
-                        if action_definition.get("min_duration") is not None:
-                            parsed_action["min_duration"] = action_definition["min_duration"]
-                        if action_definition.get("max_duration") is not None:
-                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("MQTT action missing topic or message for %s", pin)
@@ -523,11 +520,7 @@ class Manager:
                             "boneio_id": boneio_id,
                             "action_output": action_output,
                         }
-                        # Copy duration thresholds for long press actions
-                        if action_definition.get("min_duration") is not None:
-                            parsed_action["min_duration"] = action_definition["min_duration"]
-                        if action_definition.get("max_duration") is not None:
-                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("OUTPUT_OVER_MQTT action missing data for %s", pin)
@@ -542,11 +535,7 @@ class Manager:
                             "boneio_id": boneio_id,
                             "action_cover": action_cover,
                         }
-                        # Copy duration thresholds for long press actions
-                        if action_definition.get("min_duration") is not None:
-                            parsed_action["min_duration"] = action_definition["min_duration"]
-                        if action_definition.get("max_duration") is not None:
-                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("COVER_OVER_MQTT action missing data for %s", pin)
@@ -563,11 +552,7 @@ class Manager:
                             "output_id": output_id,
                             "action_output": action_output,
                         }
-                        # Copy duration thresholds for long press actions
-                        if action_definition.get("min_duration") is not None:
-                            parsed_action["min_duration"] = action_definition["min_duration"]
-                        if action_definition.get("max_duration") is not None:
-                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_OUTPUT action missing remote_device or output_id for %s", pin)
@@ -586,11 +571,7 @@ class Manager:
                             "action_cover": action_cover,
                             "extra_data": extra_data,
                         }
-                        # Copy duration thresholds for long press actions
-                        if action_definition.get("min_duration") is not None:
-                            parsed_action["min_duration"] = action_definition["min_duration"]
-                        if action_definition.get("max_duration") is not None:
-                            parsed_action["max_duration"] = action_definition["max_duration"]
+                        _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_COVER action missing remote_device or cover_id for %s", pin)
@@ -602,6 +583,7 @@ class Manager:
         actions: list,
         duration: float | None = None,
         executed_actions: set[int] | None = None,
+        last_repeat_times: dict[int, float] | None = None,
     ) -> set[int]:
         """Execute list of actions.
         
@@ -609,20 +591,26 @@ class Manager:
             actions: List of actions to execute
             duration: Current duration in seconds (for long press threshold checking)
             executed_actions: Set of action indices already executed (for long press)
+            last_repeat_times: Dict mapping action index to last execution duration_ms (for repeat throttling)
         
         Returns:
             Set of action indices that were executed
         """
         if executed_actions is None:
             executed_actions = set()
+        if last_repeat_times is None:
+            last_repeat_times = {}
         
         duration_ms = (duration or 0) * 1000  # Convert to ms
         
         start_time = time.time()
         
         for idx, action_definition in enumerate(actions):
-            # Skip if already executed
-            if idx in executed_actions:
+            is_repeat = action_definition.get("repeat", False)
+            repeat_interval_ms = action_definition.get("repeat_interval", 1000)
+            
+            # Skip if already executed (unless it's a repeat action)
+            if idx in executed_actions and not is_repeat:
                 _LOGGER.debug("Action %d already executed, skipping", idx)
                 continue
             
@@ -631,8 +619,8 @@ class Manager:
             max_dur = action_definition.get("max_duration")  # ms
             
             _LOGGER.debug(
-                "Checking action %d: min_dur=%s, max_dur=%s, duration_ms=%.1f, executed=%s",
-                idx, min_dur, max_dur, duration_ms, executed_actions
+                "Checking action %d: min_dur=%s, max_dur=%s, duration_ms=%.1f, repeat=%s, executed=%s",
+                idx, min_dur, max_dur, duration_ms, is_repeat, executed_actions
             )
             
             if min_dur is not None or max_dur is not None:
@@ -645,12 +633,26 @@ class Manager:
                     continue  # Duration too long
                 _LOGGER.debug("Action %d: duration %.1fms in range [%s, %s), executing", idx, duration_ms, min_dur, max_dur)
             else:
-                # Action without thresholds - execute only once (on first long event)
-                # Check if THIS specific action was already executed, not just any action
-                if idx in executed_actions:
-                    _LOGGER.debug("Action %d: no thresholds, already executed, skipping", idx)
-                    continue
-                _LOGGER.debug("Action %d: no thresholds, not yet executed, executing", idx)
+                if is_repeat:
+                    # Repeat action - check interval throttling
+                    now_ms = duration_ms
+                    last_time = last_repeat_times.get(idx, 0.0)
+                    if last_time > 0 and (now_ms - last_time) < repeat_interval_ms:
+                        _LOGGER.debug(
+                            "Action %d: repeat throttled (%.1fms since last, interval=%dms)",
+                            idx, now_ms - last_time, repeat_interval_ms
+                        )
+                        continue
+                    _LOGGER.debug(
+                        "Action %d: repeat action, interval ok (%.1fms since last, interval=%dms)",
+                        idx, now_ms - last_time, repeat_interval_ms
+                    )
+                else:
+                    # Action without thresholds - execute only once (on first long event)
+                    if idx in executed_actions:
+                        _LOGGER.debug("Action %d: no thresholds, already executed, skipping", idx)
+                        continue
+                    _LOGGER.debug("Action %d: no thresholds, not yet executed, executing", idx)
             action = action_definition.get("action")
             
             if action == MQTT:
@@ -750,6 +752,9 @@ class Manager:
                 )
             
             # Mark action as executed
+            if is_repeat:
+                # For repeat actions, track timing instead of marking as permanently executed
+                last_repeat_times[idx] = duration_ms
             executed_actions.add(idx)
         
         return executed_actions

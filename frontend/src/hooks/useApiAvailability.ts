@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 
 const CHECK_INTERVAL = 30000; // 30 seconds
 const MAX_RETRIES = 2; // retry up to 2 times before marking unavailable

@@ -4,7 +4,7 @@ import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useState, useEffect } from 'react';
 import clsx from 'clsx';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useDeviceName } from '../hooks/useDeviceName';
 import { useConfig } from '../contexts/ConfigContext';

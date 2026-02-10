@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '@/api/axios';
 import { useTranslation } from '../hooks/useTranslation';
 
 export default function HelpView() {

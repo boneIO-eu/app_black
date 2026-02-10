@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { createContext, useEffect, useState } from 'react';
+import { getBasePath } from './api/basePath';
 import ConfigEditor from './components/ConfigEditor';
 import LogViewer from './components/LogViewer';
 import OutputsView from './components/OutputsView';
@@ -327,7 +328,7 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
+    <Router basename={getBasePath() || '/'}>
       <AuthProvider>
         <ConfigProvider>
           <TranslationProvider>
