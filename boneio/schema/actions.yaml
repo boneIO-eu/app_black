@@ -178,13 +178,13 @@ schema:
         Only effective for actions under the 'long' click type.
         Example: brightness_up with repeat will increase brightness continuously while holding.
   repeat_interval:
-    type: integer
+    type: timeperiod
+    coerce: positive_time_period
     required: False
-    default: 1000
-    min: 200
+    default: 800ms
     meta:
-      label: Repeat Interval (ms)
+      label: Repeat Interval
       description: |
-        Minimum interval in milliseconds between repeated executions.
-        Only used when repeat is true. Default: 1000ms (1 second).
+        Minimum interval between repeated executions.
+        Only used when repeat is true. Default: 800ms.
         Minimum: 200ms (matches periodic event interval).

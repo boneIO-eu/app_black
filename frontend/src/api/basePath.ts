@@ -28,3 +28,19 @@ export function getBasePath(): string {
   // Direct access: empty base path (same origin)
   return '';
 }
+
+/**
+ * Returns the base path suitable for React Router's basename prop.
+ *
+ * Unlike getBasePath(), this always returns a path (not a full URL).
+ * - Dev mode (VITE_API_URL=http://...): returns '/'
+ * - Ingress proxy (__BONEIO_BASE_PATH__=/api/hassio/.../proxy/0): returns that path
+ * - Direct access: returns '/'
+ */
+export function getRouterBasename(): string {
+  const bp = getBasePath();
+  if (!bp || bp.startsWith('http')) {
+    return '/';
+  }
+  return bp;
+}

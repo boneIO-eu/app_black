@@ -232,10 +232,58 @@ class SudoFixRequest(BaseModel):
     password: str
 
 
+def _get_compose_info() -> dict:
+    """Get detailed info about docker-compose.yaml file.
+
+    Returns:
+        Dictionary with file path, existence, owner, permissions, etc.
+    """
+    import pwd
+    import stat
+
+    compose_path = os.path.expanduser("~/docker/nodered/docker-compose.yaml")
+    current_user = os.environ.get("USER", "boneio")
+    current_uid = os.getuid()
+
+    info = {
+        "compose_path": compose_path,
+        "current_user": current_user,
+        "current_uid": current_uid,
+        "file_exists": os.path.exists(compose_path),
+    }
+
+    if info["file_exists"]:
+        st = os.stat(compose_path)
+        try:
+            file_owner = pwd.getpwuid(st.st_uid).pw_name
+        except KeyError:
+            file_owner = str(st.st_uid)
+        info.update({
+            "file_owner": file_owner,
+            "file_uid": st.st_uid,
+            "file_gid": st.st_gid,
+            "file_mode": stat.filemode(st.st_mode),
+            "writable": os.access(compose_path, os.W_OK),
+            "readable": os.access(compose_path, os.R_OK),
+        })
+    return info
+
+
+@router.get("/cloud/test-permissions")
+async def test_compose_permissions():
+    """Diagnostic endpoint: check docker-compose.yaml file permissions.
+
+    Returns:
+        Detailed file info including path, owner, permissions, writability.
+    """
+    info = _get_compose_info()
+    _LOGGER.info("Permission test: %s", info)
+    return info
+
+
 @router.post("/cloud/fix-permissions")
 async def fix_compose_permissions(body: SudoFixRequest):
-    """
-    Fix docker-compose.yaml ownership using sudo chown.
+    """Fix docker-compose.yaml ownership using sudo chown.
 
     Accepts the user's sudo password, runs 'sudo chown' on docker-compose.yaml,
     and returns success/error. The password is never logged or stored.
@@ -243,37 +291,63 @@ async def fix_compose_permissions(body: SudoFixRequest):
     Returns:
         Status response with success or error message.
     """
-    compose_path = os.path.expanduser("~/docker/nodered/docker-compose.yaml")
-    current_user = os.environ.get("USER", "boneio")
+    info = _get_compose_info()
+    compose_path = info["compose_path"]
+    current_user = info["current_user"]
 
-    if not os.path.exists(compose_path):
+    _LOGGER.info(
+        "Fix permissions requested. File: %s, exists: %s, writable: %s, owner: %s, current_user: %s",
+        compose_path,
+        info.get("file_exists"),
+        info.get("writable"),
+        info.get("file_owner"),
+        current_user,
+    )
+
+    if not info["file_exists"]:
         return {"status": "error", "message": f"File not found: {compose_path}"}
 
-    if os.access(compose_path, os.W_OK):
+    if info.get("writable"):
         return {"status": "success", "message": "File is already writable"}
 
     try:
+        cmd = ["sudo", "-S", "chown", f"{current_user}:{current_user}", compose_path]
+        _LOGGER.info("Running: %s", " ".join(cmd))
+
         proc = await asyncio.create_subprocess_exec(
-            "sudo", "-S", "chown", current_user, compose_path,
+            *cmd,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        _, stderr = await asyncio.wait_for(
+        stdout, stderr = await asyncio.wait_for(
             proc.communicate(input=(body.password + "\n").encode()),
             timeout=10,
         )
 
+        stdout_str = stdout.decode().strip()
+        stderr_str = stderr.decode().strip()
+        _LOGGER.info(
+            "sudo chown result: returncode=%s, stdout=%r, stderr=%r",
+            proc.returncode, stdout_str, stderr_str,
+        )
+
         if proc.returncode == 0:
-            _LOGGER.info("Fixed permissions for %s", compose_path)
-            return {"status": "success", "message": "Permissions fixed successfully"}
+            after = _get_compose_info()
+            _LOGGER.info("After fix: %s", after)
+            return {
+                "status": "success",
+                "message": "Permissions fixed successfully",
+                "before": info,
+                "after": after,
+            }
         else:
-            err_msg = stderr.decode().strip()
-            if "incorrect password" in err_msg.lower() or "sorry" in err_msg.lower():
+            if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
                 return {"status": "error", "message": "Incorrect sudo password"}
-            return {"status": "error", "message": f"sudo failed: {err_msg}"}
+            return {"status": "error", "message": f"sudo failed: {stderr_str}"}
 
     except asyncio.TimeoutError:
+        _LOGGER.error("sudo chown timed out for %s", compose_path)
         return {"status": "error", "message": "sudo command timed out"}
     except Exception as e:
         _LOGGER.error("Failed to fix permissions: %s", e)

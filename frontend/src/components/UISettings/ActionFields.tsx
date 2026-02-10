@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
 // Import sub-components
 import {
@@ -265,22 +266,16 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           </label>
           {action.repeat && (
             <div className="mt-2">
+              <SimpleTimePeriodInput
+                value={action.repeat_interval ?? '800ms'}
+                onChange={(val) => onUpdate('repeat_interval', val)}
+                label={t('event_form.repeat_interval_ms')}
+                minimum={200}
+                allowedUnits={['ms', 's']}
+              />
               <label className="label">
-                <span className="label-text text-sm">{t('event_form.repeat_interval_ms')}</span>
                 <span className="label-text-alt text-xs">{t('event_form.repeat_interval_hint')}</span>
               </label>
-              <input
-                type="number"
-                className="input input-bordered w-full"
-                value={action.repeat_interval ?? 1000}
-                onChange={(e) => {
-                  const val = e.target.value ? parseInt(e.target.value) : 1000;
-                  onUpdate('repeat_interval', val < 200 ? 200 : val);
-                }}
-                min="200"
-                step="100"
-                placeholder="1000"
-              />
             </div>
           )}
         </div>

@@ -440,7 +440,12 @@ class Manager:
                     parsed_action[key] = action_definition[key]
             if action_definition.get("repeat"):
                 parsed_action["repeat"] = True
-                parsed_action["repeat_interval"] = action_definition.get("repeat_interval", 1000)
+                ri = action_definition.get("repeat_interval", 1000)
+                # TimePeriod object from schema validation -> convert to ms
+                if hasattr(ri, "total_milliseconds"):
+                    parsed_action["repeat_interval"] = ri.total_milliseconds
+                else:
+                    parsed_action["repeat_interval"] = ri
         
         parsed_actions = {}
         for click_type in actions:
