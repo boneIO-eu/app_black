@@ -81,7 +81,7 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
               <SelectItem key={device.id} value={device.id}>
                 <div className="flex flex-col">
                   <span>{device.name || device.id}</span>
-                  <span className="text-xs opacity-60">
+                  <span className="text-xs opacity-60 protocol text-left">
                     {device.protocol === 'esphome_api' ? 'ESPHome' : device.protocol === 'wled' ? 'WLED' : 'MQTT'}
                   </span>
                 </div>
