@@ -505,6 +505,9 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         if (mode & LightColorCapability.RGB) and (mode & LightColorCapability.WHITE):
                             supports_rgbw = True
                     
+                    # Get effects list from LightInfo
+                    effects_list = list(getattr(entity, 'effects', []))
+                    
                     light_data = {
                         "id": entity.object_id,
                         "name": entity.name,
@@ -515,6 +518,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         "supports_rgbw": supports_rgbw,
                         "min_mireds": getattr(entity, 'min_mireds', None),
                         "max_mireds": getattr(entity, 'max_mireds', None),
+                        "effects": effects_list,
                     }
                     
                     result["lights"].append(light_data)
@@ -625,6 +629,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         color_temp: int | None = None,
         rgb: tuple[int, int, int] | None = None,
         transition: float = 0.0,
+        effect: str | None = None,
     ) -> bool:
         """Control a light on the ESPHome device.
         
@@ -635,6 +640,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
             color_temp: Color temperature in mireds
             rgb: RGB color tuple (0-255 each)
             transition: Transition time in seconds
+            effect: Effect name string (e.g. "Rainbow", "Strobe")
             
         Returns:
             True if command was sent successfully
@@ -669,6 +675,8 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     cmd_kwargs["color_temperature"] = color_temp
                 if rgb is not None:
                     cmd_kwargs["rgb"] = tuple(c / 255.0 for c in rgb)
+                if effect is not None:
+                    cmd_kwargs["effect"] = effect
                 self._client.light_command(light_key, **cmd_kwargs)
                 
             elif action_upper == "TOGGLE":

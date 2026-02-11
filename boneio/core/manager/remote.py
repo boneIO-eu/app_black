@@ -64,6 +64,9 @@ class RemoteDeviceManager:
         self._autodiscovered_devices: dict[str, MQTTRemoteDevice] = {}
         # Track devices that manage this boneIO (received via discovery/managed_by topic)
         self._managed_by_devices: dict[str, dict[str, Any]] = {}
+        # Cycle state for CYCLE_COLOR and CYCLE_PRESET actions
+        # Key: "device_id:output_id:type:action_idx", Value: current index
+        self._cycle_state: dict[str, int] = {}
         
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
@@ -335,14 +338,18 @@ class RemoteDeviceManager:
         """Stop all persistent connections.
         
         This should be called during application shutdown.
+        Closes ESPHome connections and WLED aiohttp sessions.
         """
         for device_id, device in self._devices.items():
-            if isinstance(device, ESPHomeRemoteDevice):
-                try:
+            try:
+                if isinstance(device, ESPHomeRemoteDevice):
                     await device.disconnect()
                     _LOGGER.info("Stopped connection for ESPHome device '%s'", device_id)
-                except Exception as e:
-                    _LOGGER.error("Failed to stop connection for ESPHome device '%s': %s", device_id, e)
+                elif isinstance(device, WLEDRemoteDevice):
+                    await device.close()
+                    _LOGGER.info("Closed session for WLED device '%s'", device_id)
+            except Exception as e:
+                _LOGGER.error("Failed to stop connection for device '%s': %s", device_id, e)
     
     def get_device(self, device_id: str) -> RemoteDevice | None:
         """Get remote device by ID.
@@ -372,7 +379,7 @@ class RemoteDeviceManager:
         color_temp: int | None = None,
         rgb: list[int] | tuple[int, int, int] | None = None,
         transition: float | None = None,
-        effect: int | None = None,
+        effect: int | str | None = None,
         palette: int | None = None,
         effect_speed: int | None = None,
         effect_intensity: int | None = None,
@@ -391,7 +398,7 @@ class RemoteDeviceManager:
             color_temp: Color temperature in mireds - only for ESPHome lights
             rgb: RGB color as [R, G, B] list or tuple (0-255 each) - for ESPHome/WLED lights
             transition: Transition time in seconds - for ESPHome/WLED lights
-            effect: WLED effect ID
+            effect: Effect name (str for ESPHome) or effect ID (int for WLED)
             palette: WLED color palette ID
             effect_speed: WLED effect speed (0-255)
             effect_intensity: WLED effect intensity (0-255)
@@ -413,6 +420,8 @@ class RemoteDeviceManager:
                 rgb_tuple: tuple[int, int, int] | None = None
                 if rgb and len(rgb) >= 3:
                     rgb_tuple = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+                # For ESPHome, effect must be a string
+                esphome_effect = str(effect) if effect is not None else None
                 return await device.control_light(
                     light_id=output_id,
                     action=action,
@@ -420,6 +429,7 @@ class RemoteDeviceManager:
                     color_temp=color_temp,
                     rgb=rgb_tuple,
                     transition=transition if transition is not None else 0.0,
+                    effect=esphome_effect,
                 )
             # Otherwise treat as switch
             _LOGGER.debug("Controlling ESPHome switch '%s' on device '%s'", output_id, device_id)
@@ -454,6 +464,96 @@ class RemoteDeviceManager:
             output_id=output_id,
             action=action,
             message_bus=self._message_bus,
+        )
+    
+    async def cycle_color(
+        self,
+        device_id: str,
+        output_id: str,
+        colors: list[list[int]],
+        action_idx: int = 0,
+        transition: float | None = None,
+    ) -> bool:
+        """Cycle through a list of RGB colors on a remote device light.
+        
+        Each call advances to the next color in the list, wrapping around.
+        
+        Args:
+            device_id: ID of the remote device
+            output_id: ID of the light to control
+            colors: List of RGB colors, each as [R, G, B] (0-255)
+            action_idx: Action index for unique cycle state tracking
+            transition: Transition time in seconds
+            
+        Returns:
+            True if command was sent successfully
+        """
+        if not colors:
+            _LOGGER.warning("CYCLE_COLOR: no colors defined for %s:%s", device_id, output_id)
+            return False
+        
+        cycle_key = f"{device_id}:{output_id}:color:{action_idx}"
+        cycle_idx = self._cycle_state.get(cycle_key, 0) % len(colors)
+        rgb = colors[cycle_idx]
+        self._cycle_state[cycle_key] = cycle_idx + 1
+        
+        _LOGGER.debug(
+            "CYCLE_COLOR: %s:%s -> color %d/%d = %s",
+            device_id, output_id, cycle_idx + 1, len(colors), rgb
+        )
+        
+        return await self.control_output(
+            device_id=device_id,
+            output_id=output_id,
+            action="ON",
+            rgb=rgb,
+            transition=transition,
+        )
+    
+    async def cycle_preset(
+        self,
+        device_id: str,
+        output_id: str,
+        presets: list[str | int],
+        action_idx: int = 0,
+        transition: float | None = None,
+    ) -> bool:
+        """Cycle through a list of effects/presets on a remote device light.
+        
+        Each call advances to the next preset in the list, wrapping around.
+        For ESPHome: presets are effect name strings.
+        For WLED: presets are effect IDs (integers).
+        
+        Args:
+            device_id: ID of the remote device
+            output_id: ID of the light to control
+            presets: List of effect names (str) or effect IDs (int)
+            action_idx: Action index for unique cycle state tracking
+            transition: Transition time in seconds
+            
+        Returns:
+            True if command was sent successfully
+        """
+        if not presets:
+            _LOGGER.warning("CYCLE_PRESET: no presets defined for %s:%s", device_id, output_id)
+            return False
+        
+        cycle_key = f"{device_id}:{output_id}:preset:{action_idx}"
+        cycle_idx = self._cycle_state.get(cycle_key, 0) % len(presets)
+        preset = presets[cycle_idx]
+        self._cycle_state[cycle_key] = cycle_idx + 1
+        
+        _LOGGER.debug(
+            "CYCLE_PRESET: %s:%s -> preset %d/%d = %s",
+            device_id, output_id, cycle_idx + 1, len(presets), preset
+        )
+        
+        return await self.control_output(
+            device_id=device_id,
+            output_id=output_id,
+            action="ON",
+            effect=preset,
+            transition=transition,
         )
     
     async def control_cover(

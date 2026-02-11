@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -62,8 +62,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -337,8 +337,8 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
@@ -348,8 +348,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -418,23 +418,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -452,7 +452,9 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
-                        "SET_BRIGHTNESS"
+                        "SET_BRIGHTNESS",
+                        "CYCLE_COLOR",
+                        "CYCLE_PRESET"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -487,16 +489,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -511,27 +513,60 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
                     },
+                    "colors": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Color List for CYCLE_COLOR",
+                      "title": "Colors"
+                    },
+                    "presets": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Preset/Effect List for CYCLE_PRESET",
+                      "title": "Presets"
+                    },
                     "repeat": {
-                      "type": "boolean",
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
                       "default": false,
-                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
-                      "title": "Repeat on Hold"
+                      "description": "Repeat on Hold",
+                      "title": "Repeat"
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "integer"
+                        "number",
+                        "string"
                       ],
-                      "default": 1000,
-                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
-                      "title": "Repeat Interval (ms)"
+                      "x-timeperiod": true,
+                      "default": "800ms",
+                      "description": "Repeat Interval",
+                      "title": "Repeat interval"
                     }
                   }
                 }
@@ -543,8 +578,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -613,23 +648,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -647,7 +682,9 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
-                        "SET_BRIGHTNESS"
+                        "SET_BRIGHTNESS",
+                        "CYCLE_COLOR",
+                        "CYCLE_PRESET"
                       ],
                       "examples": [
                         "TOGGLE"
@@ -682,16 +719,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -706,27 +743,60 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "default": 0.0,
                       "description": "Transition Time (seconds)",
                       "title": "Transition"
                     },
+                    "colors": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Color List for CYCLE_COLOR",
+                      "title": "Colors"
+                    },
+                    "presets": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "description": "Preset/Effect List for CYCLE_PRESET",
+                      "title": "Presets"
+                    },
                     "repeat": {
-                      "type": "boolean",
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
                       "default": false,
-                      "description": "When true, this action will be executed repeatedly while the button is held (long press).",
-                      "title": "Repeat on Hold"
+                      "description": "Repeat on Hold",
+                      "title": "Repeat"
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "integer"
+                        "number",
+                        "string"
                       ],
-                      "default": 1000,
-                      "description": "Minimum interval in milliseconds between repeated executions. Only used when repeat is true.",
-                      "title": "Repeat Interval (ms)"
+                      "x-timeperiod": true,
+                      "default": "800ms",
+                      "description": "Repeat Interval",
+                      "title": "Repeat interval"
                     }
                   }
                 }

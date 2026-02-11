@@ -28,6 +28,12 @@ export const validateAction = (action: any, t: (key: string) => string): string 
   if (actionType === 'remote_output') {
     if (!action.remote_device) return t('event_form.validation_remote_device_required');
     if (!action.output_id) return t('event_form.validation_output_id_required');
+    if (action.action_output === 'CYCLE_COLOR' && (!action.colors || action.colors.length === 0)) {
+      return t('event_form.validation_colors_required');
+    }
+    if (action.action_output === 'CYCLE_PRESET' && (!action.presets || action.presets.length === 0)) {
+      return t('event_form.validation_presets_required');
+    }
   }
   
   if (actionType === 'remote_cover') {

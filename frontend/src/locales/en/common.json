@@ -992,7 +992,19 @@
     "wled_effect": "Effect",
     "wled_palette": "Color Palette",
     "effect_speed": "Effect Speed",
-    "effect_intensity": "Effect Intensity"
+    "effect_intensity": "Effect Intensity",
+    "cycle_colors": "Colors to Cycle",
+    "cycle_colors_hint": "Add RGB colors to cycle through on each press",
+    "cycle_add_color": "Add Color",
+    "cycle_presets": "Effects/Presets to Cycle",
+    "cycle_presets_hint": "Select effects to cycle through on each press",
+    "cycle_add_preset": "Add Effect",
+    "cycle_no_colors": "Add at least one color to cycle through",
+    "cycle_no_presets": "Add at least one effect/preset to cycle through",
+    "esphome_effect": "Effect",
+    "static_color": "Static",
+    "validation_colors_required": "At least one color is required for CYCLE_COLOR",
+    "validation_presets_required": "At least one preset is required for CYCLE_PRESET"
   },
   "virtual_energy_sensor": {
     "name": "Name",

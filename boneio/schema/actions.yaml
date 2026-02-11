@@ -64,7 +64,7 @@ schema:
       action: ['output', 'output_over_mqtt', 'remote_output']
     forbidden_if:
       action: ['cover', 'mqtt', 'cover_over_mqtt', 'remote_cover']
-    allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'SET_BRIGHTNESS']
+    allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET']
     coerce: action_field
     default: TOGGLE
     case_insensitive: true
@@ -75,6 +75,8 @@ schema:
         - BRIGHTNESS_UP: Increase brightness by 10%
         - BRIGHTNESS_DOWN: Decrease brightness by 10%
         - SET_BRIGHTNESS: Set specific brightness (requires brightness field)
+        - CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)
+        - CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)
   action_mqtt_msg:
     type: string
     required_if:
@@ -165,6 +167,28 @@ schema:
     meta:
       label: Transition Time (seconds)
       description: "Time in seconds to transition to the new state. Only for ESPHome lights."
+  
+  # Cycle color/preset support
+  colors:
+    type: list
+    required: False
+    meta:
+      label: Color List for CYCLE_COLOR
+      description: |
+        List of RGB colors to cycle through on each press.
+        Each color is a list of [R, G, B] values (0-255).
+        Only used when action_output is CYCLE_COLOR.
+        Example: [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+  presets:
+    type: list
+    required: False
+    meta:
+      label: Preset/Effect List for CYCLE_PRESET
+      description: |
+        List of effect names (ESPHome) or effect IDs (WLED) to cycle through on each press.
+        For ESPHome: list of effect name strings, e.g. ["Rainbow", "Strobe", "Color Wipe"]
+        For WLED: list of effect IDs (integers), e.g. [0, 9, 47]
+        Only used when action_output is CYCLE_PRESET.
   
   # Repeat support for long press actions
   repeat:

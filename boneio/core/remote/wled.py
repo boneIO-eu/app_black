@@ -135,6 +135,13 @@ class WLEDRemoteDevice(RemoteDevice):
                 return seg
         return None
     
+    async def close(self) -> None:
+        """Close aiohttp session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
+            _LOGGER.debug("Closed aiohttp session for WLED '%s'", self._name)
+    
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
         if self._session is None or self._session.closed:
@@ -424,12 +431,6 @@ class WLEDRemoteDevice(RemoteDevice):
         except Exception as e:
             _LOGGER.error("WLED discovery unexpected error for %s: %s", self._host, e)
             return {"error": str(e)}
-    
-    async def close(self) -> None:
-        """Close HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.

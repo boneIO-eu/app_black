@@ -4,8 +4,8 @@
   "properties": {
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "name": {
@@ -15,8 +15,8 @@
         },
         "version": {
           "type": [
-            "string",
-            "number"
+            "number",
+            "string"
           ],
           "enum": [
             "0.2",

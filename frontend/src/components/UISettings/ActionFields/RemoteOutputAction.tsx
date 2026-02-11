@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaPlus, FaTrash } from 'react-icons/fa';
 import {
   Select,
   SelectContent,
@@ -71,7 +72,12 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
         </label>
         <Select
           value={action.remote_device || ''}
-          onValueChange={(value) => onUpdate('remote_device', value)}
+          onValueChange={(value) => {
+            onUpdate('remote_device', value);
+            onUpdate('output_id', undefined);
+            onUpdate('presets', undefined);
+            onUpdate('colors', undefined);
+          }}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder={t('event_form.select_remote_device')} />
@@ -98,7 +104,11 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
         </label>
         <Select
           value={action.output_id || ''}
-          onValueChange={(value) => onUpdate('output_id', value)}
+          onValueChange={(value) => {
+            onUpdate('output_id', value);
+            onUpdate('presets', undefined);
+            onUpdate('colors', undefined);
+          }}
           disabled={!action.remote_device}
         >
           <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
@@ -171,8 +181,8 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
         </Select>
       </div>
 
-      {/* ESPHome Light Controls */}
-      {isLight && (
+      {/* ESPHome Light Controls (for non-cycle actions) */}
+      {isLight && !['CYCLE_COLOR', 'CYCLE_PRESET'].includes(effectiveAction) && (
         <EspHomeLightControls
           action={action}
           onUpdate={onUpdate}
@@ -182,8 +192,8 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
         />
       )}
 
-      {/* WLED Controls */}
-      {isWled && (
+      {/* WLED Controls (for non-cycle actions) */}
+      {isWled && !['CYCLE_COLOR', 'CYCLE_PRESET'].includes(effectiveAction) && (
         <WledControls
           action={action}
           onUpdate={onUpdate}
@@ -191,6 +201,29 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           selectedDevice={selectedDevice}
           effectiveAction={effectiveAction}
         />
+      )}
+
+      {/* Cycle Color Control */}
+      {effectiveAction === 'CYCLE_COLOR' && (isLight || isWled) && (
+        <CycleColorControl action={action} onUpdate={onUpdate} t={t} />
+      )}
+
+      {/* Cycle Preset Control */}
+      {effectiveAction === 'CYCLE_PRESET' && (isLight || isWled) && (
+        <CyclePresetControl
+          action={action}
+          onUpdate={onUpdate}
+          t={t}
+          selectedLight={selectedLight}
+          selectedDevice={selectedDevice}
+          isEspHome={!!isEspHome}
+          isWled={!!isWled}
+        />
+      )}
+
+      {/* Transition for cycle actions */}
+      {['CYCLE_COLOR', 'CYCLE_PRESET'].includes(effectiveAction) && (isLight || isWled) && (
+        <TransitionControl action={action} onUpdate={onUpdate} t={t} />
       )}
     </>
   );
@@ -556,5 +589,220 @@ const TransitionControl: React.FC<TransitionControlProps> = ({ action, onUpdate,
     />
   </div>
 );
+
+/**
+ * Cycle Color Control - manage a list of RGB colors to cycle through.
+ */
+interface CycleColorControlProps {
+  action: any;
+  onUpdate: (field: string, value: any) => void;
+  t: (key: string) => string;
+}
+
+const CycleColorControl: React.FC<CycleColorControlProps> = ({ action, onUpdate, t }) => {
+  const colors: number[][] = action.colors || [];
+
+  const addColor = () => {
+    const defaultColors = [
+      [255, 0, 0], [0, 255, 0], [0, 0, 255],
+      [255, 255, 0], [255, 0, 255], [0, 255, 255],
+      [255, 128, 0], [128, 0, 255], [255, 255, 255],
+    ];
+    const newColor = defaultColors[colors.length % defaultColors.length];
+    onUpdate('colors', [...colors, newColor]);
+  };
+
+  const updateColor = (index: number, rgb: number[]) => {
+    const updated = [...colors];
+    updated[index] = rgb;
+    onUpdate('colors', updated);
+  };
+
+  const removeColor = (index: number) => {
+    onUpdate('colors', colors.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="form-control mb-3">
+      <label className="label">
+        <span className="label-text font-medium">{t('event_form.cycle_colors')}</span>
+      </label>
+      <p className="text-xs opacity-60 mb-2">{t('event_form.cycle_colors_hint')}</p>
+
+      {colors.length === 0 && (
+        <div className="text-sm opacity-50 italic mb-2">{t('event_form.cycle_no_colors')}</div>
+      )}
+
+      <div className="flex flex-wrap gap-2 mb-2">
+        {colors.map((color, idx) => (
+          <div key={idx} className="flex items-center gap-1 bg-base-200 rounded-lg px-2 py-1">
+            <span className="text-xs font-mono opacity-60 mr-1">{idx + 1}</span>
+            <input
+              type="color"
+              value={rgbToHex(color)}
+              onChange={(e) => updateColor(idx, hexToRgb(e.target.value))}
+              className="w-8 h-8 cursor-pointer rounded border-0 p-0"
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs text-error"
+              onClick={() => removeColor(idx)}
+            >
+              <FaTrash size={10} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="btn btn-outline btn-sm gap-1"
+        onClick={addColor}
+      >
+        <FaPlus size={10} />
+        {t('event_form.cycle_add_color')}
+      </button>
+    </div>
+  );
+};
+
+/**
+ * Cycle Preset Control - manage a list of effects/presets to cycle through.
+ * For ESPHome: effect names (strings) from discovered light effects.
+ * For WLED: effect IDs (numbers) from discovered WLED effects.
+ */
+interface CyclePresetControlProps {
+  action: any;
+  onUpdate: (field: string, value: any) => void;
+  t: (key: string) => string;
+  selectedLight: any;
+  selectedDevice: RemoteDevice | undefined;
+  isEspHome: boolean;
+  isWled: boolean;
+}
+
+const CyclePresetControl: React.FC<CyclePresetControlProps> = ({
+  action, onUpdate, t, selectedLight, selectedDevice, isEspHome, isWled,
+}) => {
+  const presets: (string | number)[] = action.presets || [];
+
+  // Get available effects based on device type
+  const availableEffects: { id: string | number; name: string }[] = React.useMemo(() => {
+    if (isEspHome && selectedLight?.effects) {
+      return selectedLight.effects
+        .filter((e: string) => e)
+        .map((e: string) => ({ id: e, name: e === 'None' ? `None (${t('event_form.static_color') || 'Static'})` : e }));
+    }
+    if (isWled && selectedDevice?.wled?.effects) {
+      return selectedDevice.wled.effects.map((fx: { id: number; name: string }) => ({
+        id: fx.id,
+        name: fx.name,
+      }));
+    }
+    return [];
+  }, [isEspHome, isWled, selectedLight, selectedDevice]);
+
+  const addPreset = (value: string | number) => {
+    if (!presets.includes(value)) {
+      onUpdate('presets', [...presets, value]);
+    }
+  };
+
+  const removePreset = (index: number) => {
+    onUpdate('presets', presets.filter((_, i) => i !== index));
+  };
+
+  const movePreset = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= presets.length) return;
+    const updated = [...presets];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    onUpdate('presets', updated);
+  };
+
+  const getPresetName = (preset: string | number): string => {
+    const found = availableEffects.find(e => e.id === preset);
+    return found ? found.name : String(preset);
+  };
+
+  return (
+    <div className="form-control mb-3">
+      <label className="label">
+        <span className="label-text font-medium">{t('event_form.cycle_presets')}</span>
+      </label>
+      <p className="text-xs opacity-60 mb-2">{t('event_form.cycle_presets_hint')}</p>
+
+      {presets.length === 0 && (
+        <div className="text-sm opacity-50 italic mb-2">{t('event_form.cycle_no_presets')}</div>
+      )}
+
+      {presets.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {presets.map((preset, idx) => (
+            <div key={idx} className="flex items-center gap-2 bg-base-200 rounded-lg px-3 py-1.5">
+              <span className="text-xs font-mono opacity-60 w-5">{idx + 1}.</span>
+              <span className="text-sm flex-1">{getPresetName(preset)}</span>
+              <div className="flex gap-0.5">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => movePreset(idx, -1)}
+                  disabled={idx === 0}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => movePreset(idx, 1)}
+                  disabled={idx === presets.length - 1}
+                >
+                  ▼
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs text-error"
+                  onClick={() => removePreset(idx)}
+                >
+                  <FaTrash size={10} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {availableEffects.length > 0 ? (
+        <div className="flex gap-2">
+          <select
+            className="select select-bordered select-sm flex-1"
+            defaultValue=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) return;
+              // WLED effects are numeric IDs
+              const parsed = isWled ? parseInt(val) : val;
+              addPreset(parsed);
+              e.target.value = '';
+            }}
+          >
+            <option value="">{t('event_form.cycle_add_preset')}</option>
+            {availableEffects
+              .filter(fx => !presets.includes(fx.id))
+              .map((fx) => (
+                <option key={String(fx.id)} value={String(fx.id)}>{fx.name}</option>
+              ))}
+          </select>
+        </div>
+      ) : (
+        <div className="text-xs text-warning">
+          {isEspHome
+            ? 'No effects found on this light. Re-discover the device to load effects.'
+            : 'No effects available. Re-discover the device to load effects.'}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default RemoteOutputAction;

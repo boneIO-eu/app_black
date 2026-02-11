@@ -333,6 +333,8 @@ export const stripHiddenAndDefaults = (
                 if (actionKey === 'data' && typeof actionValue === 'object' && Object.keys(actionValue as object).length === 0) continue;
                 if (actionKey === 'repeat' && !actionValue) continue;
                 if (actionKey === 'repeat_interval' && !actionItem.repeat) continue;
+                if (actionKey === 'colors' && actionItem.action_output !== 'CYCLE_COLOR') continue;
+                if (actionKey === 'presets' && actionItem.action_output !== 'CYCLE_PRESET') continue;
                 
                 cleanedAction[actionKey] = actionValue;
               }

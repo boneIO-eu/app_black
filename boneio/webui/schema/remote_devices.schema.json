@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -53,8 +53,8 @@
           },
           "mqtt": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "outputs": {
@@ -64,8 +64,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -93,8 +93,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -126,8 +126,8 @@
           },
           "esphome_api": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "host": {
@@ -137,8 +137,8 @@
               },
               "port": {
                 "type": [
-                  "string",
-                  "integer"
+                  "integer",
+                  "string"
                 ],
                 "default": 6053,
                 "description": "Port",
@@ -161,8 +161,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -177,8 +177,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -198,8 +198,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -214,8 +214,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -310,16 +310,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
@@ -339,8 +339,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -355,8 +355,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -427,8 +427,8 @@
           },
           "wled": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "host": {
@@ -438,8 +438,8 @@
               },
               "port": {
                 "type": [
-                  "string",
-                  "integer"
+                  "integer",
+                  "string"
                 ],
                 "default": 80,
                 "description": "Port",
@@ -452,14 +452,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Segment ID",
                       "title": "Id"
@@ -471,24 +471,24 @@
                     },
                     "start": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Start LED",
                       "title": "Start"
                     },
                     "stop": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Stop LED",
                       "title": "Stop"
                     },
                     "len": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "LED Count",
                       "title": "Len"
@@ -530,14 +530,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Effect ID",
                       "title": "Id"
@@ -563,14 +563,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Palette ID",
                       "title": "Id"

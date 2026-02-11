@@ -23,8 +23,10 @@ export interface RemoteDevice {
       supports_brightness?: boolean; 
       supports_color_temp?: boolean; 
       supports_rgb?: boolean; 
+      supports_rgbw?: boolean;
       min_mireds?: number; 
-      max_mireds?: number 
+      max_mireds?: number;
+      effects?: string[];
     }[];
     covers?: { 
       id: string; 

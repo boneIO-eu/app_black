@@ -470,7 +470,7 @@ class MultiClickDetector:
         elif event.event_type is event.Type.RISING_EDGE:
             # Button released (RISING_EDGE on BeagleBone with pull-up)
             
-            # Software debounce
+            # Software debounce (release-vs-release)
             if self._state.last_release_ts and (timestamp_s - self._state.last_release_ts) < self._debounce_seconds:
                 delta_ms = (timestamp_s - self._state.last_release_ts) * 1000
                 _LOGGER.debug(
@@ -479,8 +479,20 @@ class MultiClickDetector:
                     delta_ms,
                 )
                 return
+            
+            # Cross-debounce: ignore release too close to press (bounce on rising edge)
+            if self._state.last_press_ts and (timestamp_s - self._state.last_press_ts) < self._debounce_seconds:
+                delta_ms = (timestamp_s - self._state.last_press_ts) * 1000
+                _LOGGER.debug(
+                    "Ignoring bounced release on %s (%.3f ms since press, debounce %.3f ms)",
+                    self._name,
+                    delta_ms,
+                    self._debounce_seconds * 1000,
+                )
+                return
 
-            _LOGGER.debug("RELEASED: %s (%s)", self._name, self._pin)
+            press_duration_ms = (timestamp_s - self._state.last_press_ts) * 1000 if self._state.last_press_ts else 0
+            _LOGGER.debug("RELEASED: %s (%s) after %.1f ms", self._name, self._pin, press_duration_ms)
             self._state.last_release_ts = timestamp_s
             
             _LOGGER.debug(

@@ -557,6 +557,15 @@ class Manager:
                             "output_id": output_id,
                             "action_output": action_output,
                         }
+                        # Copy optional light/WLED parameters
+                        for opt_key in (
+                            "brightness", "color_temp", "rgb", "transition",
+                            "effect", "palette", "effect_speed", "effect_intensity",
+                            "colors", "presets",
+                        ):
+                            val = action_definition.get(opt_key)
+                            if val is not None:
+                                parsed_action[opt_key] = val
                         _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
@@ -729,19 +738,39 @@ class Manager:
                 remote_device_id = action_definition.get("remote_device")
                 output_id = action_definition.get("output_id")
                 action_output = action_definition.get("action_output", "TOGGLE")
-                await self.remote_devices.control_output(
-                    device_id=remote_device_id,
-                    output_id=output_id,
-                    action=action_output,
-                    brightness=action_definition.get("brightness"),
-                    color_temp=action_definition.get("color_temp"),
-                    rgb=action_definition.get("rgb"),
-                    transition=action_definition.get("transition"),
-                    effect=action_definition.get("effect"),
-                    palette=action_definition.get("palette"),
-                    effect_speed=action_definition.get("effect_speed"),
-                    effect_intensity=action_definition.get("effect_intensity"),
-                )
+                
+                if action_output == "CYCLE_COLOR":
+                    await self.remote_devices.cycle_color(
+                        device_id=remote_device_id,
+                        output_id=output_id,
+                        colors=action_definition.get("colors", []),
+                        action_idx=idx,
+                        transition=action_definition.get("transition"),
+                    )
+                
+                elif action_output == "CYCLE_PRESET":
+                    await self.remote_devices.cycle_preset(
+                        device_id=remote_device_id,
+                        output_id=output_id,
+                        presets=action_definition.get("presets", []),
+                        action_idx=idx,
+                        transition=action_definition.get("transition"),
+                    )
+                
+                else:
+                    await self.remote_devices.control_output(
+                        device_id=remote_device_id,
+                        output_id=output_id,
+                        action=action_output,
+                        brightness=action_definition.get("brightness"),
+                        color_temp=action_definition.get("color_temp"),
+                        rgb=action_definition.get("rgb"),
+                        transition=action_definition.get("transition"),
+                        effect=action_definition.get("effect"),
+                        palette=action_definition.get("palette"),
+                        effect_speed=action_definition.get("effect_speed"),
+                        effect_intensity=action_definition.get("effect_intensity"),
+                    )
             
             elif action == REMOTE_COVER:
                 # Control cover on remote device (BoneIO MQTT or ESPHome API)
