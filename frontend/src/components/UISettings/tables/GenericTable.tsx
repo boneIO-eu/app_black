@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface GenericTableProps {
@@ -15,17 +17,34 @@ interface GenericTableProps {
  */
 const GenericTable: React.FC<GenericTableProps> = ({ items, onEdit, onDelete }) => {
   const { t } = useTranslation();
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('generic');
+
+  const indexedItems = useMemo(() =>
+    items.map((item, index) => ({ item, originalIndex: index })),
+    [items]
+  );
+
+  const sortedItems = useMemo(() => {
+    return sortItems(indexedItems, {
+      name: (item: any) => (item.id || item.name || '').toLowerCase(),
+    });
+  }, [indexedItems, sortItems]);
 
   return (
-    <div>
+    <div className="space-y-2">
+      {isSorted && (
+        <div className="flex justify-end">
+          <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+        </div>
+      )}
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {items.map((item, index) => (
+        {sortedItems.map(({ item, originalIndex }) => (
           <MobileCard
-            key={index}
-            title={item.id || item.name || `Item ${index + 1}`}
-            onEdit={() => onEdit(index)}
-            onDelete={() => onDelete(index)}
+            key={originalIndex}
+            title={item.id || item.name || `Item ${originalIndex + 1}`}
+            onEdit={() => onEdit(originalIndex)}
+            onDelete={() => onDelete(originalIndex)}
             fields={Object.entries(item)
               .filter(([key]) => key !== 'id' && key !== 'name')
               .slice(0, 4)
@@ -42,22 +61,22 @@ const GenericTable: React.FC<GenericTableProps> = ({ items, onEdit, onDelete }) 
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>
-              <Th>{t('outputs.id')}/{t('outputs.name')}</Th>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.id')}/{t('outputs.name')}</SortableHeader>
               <Th>{t('array_table_widget.details')}</Th>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {items.map((item, index) => (
-              <Tr key={index}>
-                <Td>{item.id || item.name || `Item ${index + 1}`}</Td>
+            {sortedItems.map(({ item, originalIndex }) => (
+              <Tr key={originalIndex}>
+                <Td>{item.id || item.name || `Item ${originalIndex + 1}`}</Td>
                 <Td>
                   <pre className="text-xs">{JSON.stringify(item, null, 2)}</pre>
                 </Td>
                 <Td>
                   <TableActions
-                    onEdit={() => onEdit(index)}
-                    onDelete={() => onDelete(index)}
+                    onEdit={() => onEdit(originalIndex)}
+                    onDelete={() => onDelete(originalIndex)}
                   />
                 </Td>
               </Tr>

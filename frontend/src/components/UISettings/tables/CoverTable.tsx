@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -20,6 +22,7 @@ interface CoverTableProps {
 const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('cover');
 
   const filteredItems = useMemo(() => {
     if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
@@ -34,18 +37,37 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
       );
   }, [items, filter]);
 
+  // Sort filtered items
+  const sortedItems = useMemo(() => {
+    return sortItems(filteredItems, {
+      name: (item: any) => (item.name || item.id || '').toLowerCase(),
+      platform: (item: any) => (item.platform || (item.tilt_duration ? 'venetian' : 'time_based')).toLowerCase(),
+      open_relay: (item: any) => (item.open_relay || '').toLowerCase(),
+      close_relay: (item: any) => (item.close_relay || '').toLowerCase(),
+      area: (item: any) => {
+        const area = allAreas.find(a => a.id === item.area);
+        return (area?.name || item.area || '').toLowerCase();
+      },
+    });
+  }, [filteredItems, sortItems, allAreas]);
+
   return (
     <div className="space-y-2">
-      <FilterInput 
-        filter={filter} 
-        setFilter={setFilter} 
-        totalCount={items.length} 
-        filteredCount={filteredItems.length} 
-      />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <FilterInput 
+            filter={filter} 
+            setFilter={setFilter} 
+            totalCount={items.length} 
+            filteredCount={sortedItems.length} 
+          />
+        </div>
+        <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+      </div>
 
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {filteredItems.map(({ item, originalIndex }) => {
+        {sortedItems.map(({ item, originalIndex }) => {
           const displayId = item.id || (item.open_relay && item.close_relay 
             ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
             : `Cover ${originalIndex + 1}`);
@@ -82,17 +104,17 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
       <Table className="table table-zebra w-full">
         <Thead>
           <Tr>
-            <Th>{t('outputs.name')} / {t('outputs.id')}</Th>
-            <Th>{t('covers.platform')}</Th>
-            <Th>{t('covers.open_relay')}</Th>
-            <Th>{t('covers.close_relay')}</Th>
+            <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.name')} / {t('outputs.id')}</SortableHeader>
+            <SortableHeader column="platform" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('covers.platform')}</SortableHeader>
+            <SortableHeader column="open_relay" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('covers.open_relay')}</SortableHeader>
+            <SortableHeader column="close_relay" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('covers.close_relay')}</SortableHeader>
             <Th>{t('covers.times')}</Th>
-            <Th>{t('outputs.area')}</Th>
+            <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.area')}</SortableHeader>
             <Th>{t('outputs.actions')}</Th>
           </Tr>
         </Thead>
         <Tbody>
-          {filteredItems.map(({ item, originalIndex }) => {
+          {sortedItems.map(({ item, originalIndex }) => {
             const displayId = item.id || (item.open_relay && item.close_relay 
               ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() 
               : `Cover ${originalIndex + 1}`);

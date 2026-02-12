@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -23,23 +25,46 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
   onDelete 
 }) => {
   const { t } = useTranslation();
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('virtual_energy_sensor');
+
+  const indexedItems = useMemo(() =>
+    items.map((item, index) => ({ item, originalIndex: index })),
+    [items]
+  );
+
+  const sortedItems = useMemo(() => {
+    return sortItems(indexedItems, {
+      name: (item: any) => (item.name || '').toLowerCase(),
+      output_id: (item: any) => (item.output_id || '').toLowerCase(),
+      sensor_type: (item: any) => (item.sensor_type || '').toLowerCase(),
+      area: (item: any) => {
+        const area = allAreas.find(a => a.id === item.area);
+        return (area?.name || item.area || '').toLowerCase();
+      },
+    });
+  }, [indexedItems, sortItems, allAreas]);
 
   return (
-    <div>
+    <div className="space-y-2">
+      {isSorted && (
+        <div className="flex justify-end">
+          <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+        </div>
+      )}
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {items.map((item, index) => {
+        {sortedItems.map(({ item, originalIndex }) => {
           const areaName = item.area 
             ? allAreas.find(a => a.id === item.area)?.name || item.area 
             : '';
 
           return (
             <MobileCard
-              key={index}
-              title={item.name || `Sensor ${index + 1}`}
+              key={originalIndex}
+              title={item.name || `Sensor ${originalIndex + 1}`}
               subtitle={item.output_id ? item.output_id.toUpperCase() : undefined}
-              onEdit={() => onEdit(index)}
-              onDelete={() => onDelete(index)}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
               fields={[
                 ...(item.sensor_type ? [{ label: t('virtual_energy_sensor.sensor_type'), value: <span className="badge badge-info badge-xs">{item.sensor_type}</span> }] : []),
                 ...(areaName ? [{ label: t('virtual_energy_sensor.area'), value: areaName }] : []),
@@ -54,22 +79,22 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>
-              <Th>{t('virtual_energy_sensor.name')}</Th>
-              <Th>{t('virtual_energy_sensor.output_id')}</Th>
-              <Th>{t('virtual_energy_sensor.sensor_type')}</Th>
-              <Th>{t('virtual_energy_sensor.area')}</Th>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('virtual_energy_sensor.name')}</SortableHeader>
+              <SortableHeader column="output_id" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('virtual_energy_sensor.output_id')}</SortableHeader>
+              <SortableHeader column="sensor_type" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('virtual_energy_sensor.sensor_type')}</SortableHeader>
+              <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('virtual_energy_sensor.area')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {items.map((item, index) => {
+            {sortedItems.map(({ item, originalIndex }) => {
               const areaName = item.area 
                 ? allAreas.find(a => a.id === item.area)?.name || item.area 
                 : '-';
               
               return (
-                <Tr key={index}>
-                  <Td>{item.name || `Sensor ${index + 1}`}</Td>
+                <Tr key={originalIndex}>
+                  <Td>{item.name || `Sensor ${originalIndex + 1}`}</Td>
                   <Td className="uppercase">{item.output_id || '-'}</Td>
                   <Td>
                     {item.sensor_type ? (
@@ -81,8 +106,8 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
                   <Td>{areaName}</Td>
                   <Td>
                     <TableActions
-                      onEdit={() => onEdit(index)}
-                      onDelete={() => onDelete(index)}
+                      onEdit={() => onEdit(originalIndex)}
+                      onDelete={() => onDelete(originalIndex)}
                       editTitle={t('array_table_widget.edit_item')}
                       deleteTitle={t('array_table_widget.delete_item')}
                     />

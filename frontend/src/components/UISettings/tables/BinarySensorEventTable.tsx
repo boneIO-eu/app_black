@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { normalizeCovers } from '../helpers/coverUtils';
 import { normalizeOutputs } from '../helpers/outputUtils';
@@ -41,19 +43,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   const { t } = useTranslation();
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState('');
-
-  // Filter items by name or boneio_input
-  const filteredItems = useMemo(() => {
-    if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
-    const lowerFilter = filter.toLowerCase();
-    return items
-      .map((item, index) => ({ item, originalIndex: index }))
-      .filter(({ item }) => 
-        (item.name?.toLowerCase().includes(lowerFilter)) ||
-        (item.boneio_input?.toLowerCase().includes(lowerFilter)) ||
-        (item.id?.toLowerCase().includes(lowerFilter))
-      );
-  }, [items, filter]);
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('binary_sensor_event');
 
   /**
    * Check if item has any actions (for binary_sensor: pressed/released, for event: single/double/long)
@@ -70,6 +60,32 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
     });
   };
 
+  // Filter items by name or boneio_input
+  const filteredItems = useMemo(() => {
+    if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
+    const lowerFilter = filter.toLowerCase();
+    return items
+      .map((item, index) => ({ item, originalIndex: index }))
+      .filter(({ item }) => 
+        (item.name?.toLowerCase().includes(lowerFilter)) ||
+        (item.boneio_input?.toLowerCase().includes(lowerFilter)) ||
+        (item.id?.toLowerCase().includes(lowerFilter))
+      );
+  }, [items, filter]);
+
+  // Sort filtered items
+  const sortedItems = useMemo(() => {
+    return sortItems(filteredItems, {
+      name: (item: any) => (item.name || '').toLowerCase(),
+      boneio_input: (item: any) => (item.boneio_input || '').toLowerCase(),
+      area: (item: any) => {
+        const area = allAreas.find(a => a.id === item.area);
+        return (area?.name || item.area || '').toLowerCase();
+      },
+      has_actions: (item: any) => hasActions(item),
+    });
+  }, [filteredItems, sortItems, allAreas]);
+
   /**
    * Toggle row expansion
    */
@@ -82,6 +98,30 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
     }
     setExpandedRows(newExpanded);
   };
+
+  /**
+   * Expand or collapse all rows that have actions
+   */
+  const toggleExpandAll = () => {
+    const indicesWithActions = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => hasActions(item))
+      .map(({ index }) => index);
+
+    if (expandedRows.size >= indicesWithActions.length && indicesWithActions.every(i => expandedRows.has(i))) {
+      setExpandedRows(new Set());
+    } else {
+      setExpandedRows(new Set(indicesWithActions));
+    }
+  };
+
+  const allExpanded = (() => {
+    const indicesWithActions = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => hasActions(item))
+      .map(({ index }) => index);
+    return indicesWithActions.length > 0 && indicesWithActions.every(i => expandedRows.has(i));
+  })();
 
   /**
    * Render action details for expanded row
@@ -138,6 +178,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                   const actionDetails = [];
                   
                   // Add target (output/cover/topic/remote device)
+                  let targetAreaName = '';
                   if (action.boneio_output) {
                     const normalizedOutputs = normalizeOutputs(allOutputs as any);
                     const output = normalizedOutputs.find(o => o.id === action.boneio_output);
@@ -145,6 +186,10 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                       ? `${output.name} (${action.boneio_output})` 
                       : action.boneio_output;
                     actionDetails.push(displayText);
+                    if (output?.area) {
+                      const area = allAreas.find(a => a.id === output.area);
+                      targetAreaName = area?.name || output.area;
+                    }
                   } else if (action.boneio_cover) {
                     const normalizedCovers = normalizeCovers(allCovers);
                     const cover = normalizedCovers.find(c => c.id === action.boneio_cover);
@@ -152,6 +197,10 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                       ? `${cover.name} (${action.boneio_cover})` 
                       : action.boneio_cover;
                     actionDetails.push(displayText);
+                    if (cover?.area) {
+                      const area = allAreas.find(a => a.id === cover.area);
+                      targetAreaName = area?.name || cover.area;
+                    }
                   } else if (action.topic) {
                     actionDetails.push(action.topic);
                   } else if (action.remote_device) {
@@ -188,6 +237,9 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                       {actionDetails.length > 0 && (
                         <span className="opacity-70">→ {actionDetails.join(' ')}</span>
                       )}
+                      {targetAreaName && (
+                        <span className="opacity-50">[{targetAreaName}]</span>
+                      )}
                     </div>
                   );
                 })}
@@ -201,16 +253,31 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
 
   return (
     <div className="space-y-2">
-      <FilterInput 
-        filter={filter} 
-        setFilter={setFilter} 
-        totalCount={items.length} 
-        filteredCount={filteredItems.length} 
-      />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <FilterInput 
+            filter={filter} 
+            setFilter={setFilter} 
+            totalCount={items.length} 
+            filteredCount={sortedItems.length} 
+          />
+        </div>
+        <button
+          onClick={toggleExpandAll}
+          className="btn btn-ghost btn-xs gap-1 text-base-content/60 hover:text-base-content"
+          title={allExpanded ? t('inputs.collapse_all') : t('inputs.expand_all')}
+        >
+          <svg className={`w-3 h-3 transition-transform ${allExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          {allExpanded ? t('inputs.collapse_all') : t('inputs.expand_all')}
+        </button>
+        <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+      </div>
 
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {filteredItems.map(({ item, originalIndex }) => {
+        {sortedItems.map(({ item, originalIndex }) => {
           const areaName = item.area 
             ? allAreas.find(a => a.id === item.area)?.name || item.area 
             : '';
@@ -245,15 +312,15 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
           <Thead>
             <Tr>
               <Th className="w-8"> </Th>
-              <Th>{t('inputs.id')}/{t('inputs.name')}</Th>
-              <Th>{t('inputs.boneio_input')}</Th>
-              <Th>{t('inputs.area')}</Th>
-              <Th>{t('inputs.has_actions')}</Th>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.id')}/{t('inputs.name')}</SortableHeader>
+              <SortableHeader column="boneio_input" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.boneio_input')}</SortableHeader>
+              <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.area')}</SortableHeader>
+              <SortableHeader column="has_actions" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.has_actions')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {filteredItems.map(({ item, originalIndex }) => {
+            {sortedItems.map(({ item, originalIndex }) => {
               const areaName = item.area 
                 ? allAreas.find(a => a.id === item.area)?.name || item.area 
                 : '-';

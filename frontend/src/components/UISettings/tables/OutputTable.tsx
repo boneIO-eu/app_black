@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -20,6 +22,7 @@ interface OutputTableProps {
 const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('output');
 
   // Filter items by name, id or boneio_output
   const filteredItems = useMemo(() => {
@@ -34,18 +37,39 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
       );
   }, [items, filter]);
 
+  // Sort filtered items
+  const sortedItems = useMemo(() => {
+    return sortItems(filteredItems, {
+      name: (item: any) => (item.name || item.id || item.boneio_output || '').toLowerCase(),
+      boneio_output: (item: any) => (item.boneio_output || '').toLowerCase(),
+      output_type: (item: any) => (item.output_type || '').toLowerCase(),
+      area: (item: any) => {
+        const area = allAreas.find(a => a.id === item.area);
+        return (area?.name || item.area || '').toLowerCase();
+      },
+      interlock_group: (item: any) => (item.interlock_group || '').toLowerCase(),
+      restore_state: (item: any) => !!item.restore_state,
+      momentary: (item: any) => !!(item.momentary_turn_on || item.momentary_turn_off),
+    });
+  }, [filteredItems, sortItems, allAreas]);
+
   return (
     <div className="space-y-2">
-      <FilterInput 
-        filter={filter} 
-        setFilter={setFilter} 
-        totalCount={items.length} 
-        filteredCount={filteredItems.length} 
-      />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <FilterInput 
+            filter={filter} 
+            setFilter={setFilter} 
+            totalCount={items.length} 
+            filteredCount={sortedItems.length} 
+          />
+        </div>
+        <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+      </div>
 
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {filteredItems.map(({ item, originalIndex }) => {
+        {sortedItems.map(({ item, originalIndex }) => {
           const isMomentary = item.momentary_turn_on || item.momentary_turn_off;
           const effectiveId = item.id || item.boneio_output;
           const displayName = item.name || effectiveId || `Item ${originalIndex + 1}`;
@@ -77,18 +101,18 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>
-              <Th>{t('outputs.name')} / {t('outputs.id')}</Th>
-              <Th>{t('outputs.boneio_output')}</Th>
-              <Th>{t('outputs.output_type')}</Th>
-              <Th>{t('outputs.area')}</Th>
-              <Th>{t('outputs.interlock_group')}</Th>
-              <Th>{t('outputs.restore_state')}</Th>
-              <Th>{t('outputs.momentary')}</Th>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.name')} / {t('outputs.id')}</SortableHeader>
+              <SortableHeader column="boneio_output" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.boneio_output')}</SortableHeader>
+              <SortableHeader column="output_type" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.output_type')}</SortableHeader>
+              <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.area')}</SortableHeader>
+              <SortableHeader column="interlock_group" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.interlock_group')}</SortableHeader>
+              <SortableHeader column="restore_state" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.restore_state')}</SortableHeader>
+              <SortableHeader column="momentary" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.momentary')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {filteredItems.map(({ item, originalIndex }) => {
+            {sortedItems.map(({ item, originalIndex }) => {
               const isMomentary = item.momentary_turn_on || item.momentary_turn_off;
               const effectiveId = item.id || item.boneio_output;
               const displayName = item.name || effectiveId || `Item ${originalIndex + 1}`;

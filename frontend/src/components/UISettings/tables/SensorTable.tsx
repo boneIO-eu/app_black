@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 
 interface Area {
@@ -18,25 +20,48 @@ interface SensorTableProps {
 
 const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
   const { t } = useTranslation();
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('sensor');
+
+  const indexedItems = useMemo(() =>
+    items.map((item, index) => ({ item, originalIndex: index })),
+    [items]
+  );
+
+  const sortedItems = useMemo(() => {
+    return sortItems(indexedItems, {
+      name: (item: any) => (item.name || item.id || item.address || '').toLowerCase(),
+      address: (item: any) => (item.address || '').toLowerCase(),
+      area: (item: any) => {
+        const area = allAreas.find(a => a.id === item.area);
+        return (area?.name || item.area || '').toLowerCase();
+      },
+      platform: (item: any) => (item.platform || 'gpio_onewire').toLowerCase(),
+    });
+  }, [indexedItems, sortItems, allAreas]);
 
   return (
-    <div>
+    <div className="space-y-2">
+      {isSorted && (
+        <div className="flex justify-end">
+          <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+        </div>
+      )}
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {items.map((item, index) => {
+        {sortedItems.map(({ item, originalIndex }) => {
           const areaName = item.area 
             ? allAreas.find(a => a.id === item.area)?.name || item.area 
             : '';
           const effectiveId = item.id || item.address;
-          const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${index + 1}`;
+          const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${originalIndex + 1}`;
 
           return (
             <MobileCard
-              key={index}
+              key={originalIndex}
               title={displayName}
               subtitle={item.name && effectiveId ? `ID: ${effectiveId}` : undefined}
-              onEdit={() => onEdit(index)}
-              onDelete={() => onDelete(index)}
+              onEdit={() => onEdit(originalIndex)}
+              onDelete={() => onDelete(originalIndex)}
               fields={[
                 ...(item.address ? [{ label: t('sensors.address'), value: <span className="font-mono text-xs">{item.address}</span> }] : []),
                 { label: t('sensors.platform'), value: <span className="badge badge-info badge-xs">{item.platform || 'gpio_onewire'}</span> },
@@ -52,23 +77,23 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>
-              <Th>{t('sensors.name')} / {t('sensors.id')}</Th>
-              <Th>{t('sensors.address')}</Th>
-              <Th>{t('sensors.area')}</Th>
-              <Th>{t('sensors.platform')}</Th>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.name')} / {t('sensors.id')}</SortableHeader>
+              <SortableHeader column="address" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.address')}</SortableHeader>
+              <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.area')}</SortableHeader>
+              <SortableHeader column="platform" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.platform')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {items.map((item, index) => {
+            {sortedItems.map(({ item, originalIndex }) => {
               const areaName = item.area 
                 ? allAreas.find(a => a.id === item.area)?.name || item.area 
                 : '-';
               const effectiveId = item.id || item.address;
-              const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${index + 1}`;
+              const displayName = item.name || effectiveId || `${t('array_table_widget.sensor')} ${originalIndex + 1}`;
               
               return (
-                <Tr key={index}>
+                <Tr key={originalIndex}>
                   <Td>
                     <div>
                       <div className="font-medium">{displayName}</div>
@@ -84,8 +109,8 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
                   </Td>
                   <Td>
                     <TableActions
-                      onEdit={() => onEdit(index)}
-                      onDelete={() => onDelete(index)}
+                      onEdit={() => onEdit(originalIndex)}
+                      onDelete={() => onDelete(originalIndex)}
                       editTitle={t('array_table_widget.edit_item')}
                       deleteTitle={t('array_table_widget.delete_item')}
                     />

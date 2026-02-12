@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from '@/api/axios';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
 import MobileCard from './MobileCard';
+import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash } from 'react-icons/fa';
 
@@ -31,6 +33,7 @@ interface RemoteDeviceTableProps {
 
 const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, onDelete, onAddFromDiscovery, onUpdateItem }) => {
   const { t } = useTranslation();
+  const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('remote_devices');
   const [autodiscoveredDevices, setAutodiscoveredDevices] = useState<AutodiscoveredDevice[]>([]);
   const [managedByDevices, setManagedByDevices] = useState<ManagedByDevice[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -198,6 +201,21 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   // Check if we have any discovered devices (BoneIO, ESPHome, or WLED)
   const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0 || scannedWledDevices.length > 0;
   const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length + scannedWledDevices.length;
+
+  // Sort configured devices
+  const indexedItems = useMemo(() =>
+    items.map((item, index) => ({ item, originalIndex: index })),
+    [items]
+  );
+
+  const sortedItems = useMemo(() => {
+    return sortItems(indexedItems, {
+      id: (item: any) => (item.id || '').toLowerCase(),
+      name: (item: any) => (item.name || '').toLowerCase(),
+      protocol: (item: any) => (item.protocol || 'mqtt').toLowerCase(),
+      device_type: (item: any) => (item.device_type || '').toLowerCase(),
+    });
+  }, [indexedItems, sortItems]);
 
   return (
     <div className="space-y-6">
@@ -387,9 +405,14 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
       </div>
 
       {/* Configured devices section */}
+      {isSorted && (
+        <div className="flex justify-end">
+          <ResetSortButton isSorted={isSorted} onReset={resetSort} />
+        </div>
+      )}
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
-        {items.map((item, index) => {
+        {sortedItems.map(({ item, originalIndex: index }) => {
           const deviceTypeLabel = item.device_type === 'boneio_black' ? 'boneIO Black' : 
             item.device_type === 'esphome' ? 'ESPHome' : 
             item.device_type || 'generic';
@@ -432,15 +455,15 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
         <Table className="table table-zebra w-full">
           <Thead>
             <Tr>
-              <Th>{t('remote_devices.device_id')}</Th>
-              <Th>{t('remote_devices.device_name')}</Th>
-              <Th>{t('remote_devices.protocol')}</Th>
-              <Th>{t('remote_devices.device_type')}</Th>
+              <SortableHeader column="id" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_devices.device_id')}</SortableHeader>
+              <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_devices.device_name')}</SortableHeader>
+              <SortableHeader column="protocol" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_devices.protocol')}</SortableHeader>
+              <SortableHeader column="device_type" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_devices.device_type')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
           <Tbody>
-            {items.map((item, index) => (
+            {sortedItems.map(({ item, originalIndex: index }) => (
               <Tr key={index}>
                 <Td className="font-mono">{item.id || '-'}</Td>
                 <Td>{item.name || '-'}</Td>
