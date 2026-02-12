@@ -269,9 +269,12 @@ class UpdateRequest(BaseModel):
 
 
 @router.post("/update")
-async def update_boneio(background_tasks: BackgroundTasks, request: UpdateRequest = UpdateRequest()):
+async def update_boneio(background_tasks: BackgroundTasks, request: UpdateRequest = UpdateRequest(), manager: "Manager" = Depends(get_manager)):
     """
     Update the BoneIO package with backup and restart the service.
+    
+    Uses UpdateManager.perform_update as the single update algorithm,
+    with an on_progress callback to track status for the WebUI.
     
     Args:
         request: Optional version to install.
@@ -287,125 +290,46 @@ async def update_boneio(background_tasks: BackgroundTasks, request: UpdateReques
     if _update_status["status"] == "running":
         return {"status": "error", "message": "Update already in progress"}
     
+    if not manager or not hasattr(manager, 'update_manager'):
+        return {"status": "error", "message": "UpdateManager not available"}
+    
+    if manager.update_manager.update_running:
+        return {"status": "error", "message": "Update already in progress"}
+    
     target_version = request.version
+    current_version = __version__
+    
+    _reset_update_status()
+    _update_status["status"] = "running"
+    _update_status["old_version"] = current_version
+    _update_status["target_version"] = target_version
 
-    async def update_and_restart():
-        global _update_status
-        current_version = __version__
-        
-        _reset_update_status()
-        _update_status["status"] = "running"
-        _update_status["old_version"] = current_version
-        _update_status["target_version"] = target_version
-        
-        try:
-            await asyncio.sleep(0.3)
-            
-            _update_progress(5, "Finding virtual environment...")
-            
-            possible_venv_paths = [
-                os.path.expanduser("~/boneio/venv"),
-                os.path.expanduser("~/venv"),
-                "/opt/boneio/venv",
-            ]
-            
-            venv_path = None
-            pip_path = None
-            for path in possible_venv_paths:
-                pip_candidate = os.path.join(path, "bin", "pip")
-                if os.path.exists(pip_candidate):
-                    venv_path = path
-                    pip_path = pip_candidate
-                    break
-            
-            if not pip_path:
+    def _on_progress(progress: int, step: str, log_msg: str | None = None) -> None:
+        """Callback from UpdateManager to track progress for WebUI."""
+        _update_status["progress"] = progress
+        _update_status["step"] = step
+        if log_msg:
+            _update_status["log"].append(log_msg)
+        if progress == 0 and step not in ("Finding virtual environment...",):
+            # Error or completion with progress=0 means failure
+            if _update_status["status"] == "running":
                 _update_status["status"] = "error"
-                _update_status["error"] = "Virtual environment not found"
-                _update_progress(0, "Failed", "Could not find virtual environment")
-                return
-            
-            _update_progress(10, "Virtual environment found", f"Using venv at {venv_path}")
-            
-            # Note: We don't backup the boneio package from site-packages anymore.
-            # Rollback is done via pip install boneio=={version} which is more reliable.
-            # Config backup is handled separately via /api/config/backup endpoint.
-            _update_progress(15, "Preparing update...", f"Current version: {current_version}")
-            
-            _update_progress(30, "Upgrading pip...")
-            
-            pip_upgrade = subprocess.run(
-                [pip_path, "install", "--upgrade", "pip"],
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
-            
-            if pip_upgrade.returncode == 0:
-                _update_progress(40, "Pip upgraded", "pip upgraded successfully")
-            else:
-                _update_progress(40, "Pip upgrade skipped", "pip upgrade failed, continuing...")
-            
-            if target_version:
-                _update_progress(45, f"Downloading and installing BoneIO {target_version}...")
-                pip_package = f"boneio=={target_version}"
-            else:
-                _update_progress(45, "Downloading and installing latest BoneIO...")
-                pip_package = "boneio"
-            
-            result = subprocess.run(
-                [pip_path, "install", "--upgrade", pip_package],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            
-            if result.returncode != 0:
-                _update_status["status"] = "error"
-                _update_status["error"] = f"pip install failed: {result.stderr}"
-                _update_progress(45, "Update failed", result.stderr)
-                return
-            
-            _update_progress(80, "BoneIO updated", "Package installed successfully")
-            
-            _update_progress(85, "Verifying installation...")
-            
-            version_result = subprocess.run(
-                [pip_path, "show", "boneio"],
-                capture_output=True,
-                text=True
-            )
-            
-            new_version = current_version
-            if version_result.returncode == 0:
-                for line in version_result.stdout.split('\n'):
-                    if line.startswith('Version:'):
-                        new_version = line.split(':')[1].strip()
-                        break
-            
-            _update_status["new_version"] = new_version
-            _update_progress(90, "Installation verified", f"Updated from {current_version} to {new_version}")
-            
-            _update_progress(95, "Finalizing...")
-            
+                _update_status["error"] = log_msg or step
+        elif progress == 100:
             _update_status["status"] = "success"
-            _update_progress(100, "Update complete!", f"Restarting service in 2 seconds...")
-            
-            await asyncio.sleep(2)
-            
-            _LOGGER.info("Restarting BoneIO service after update...")
-            os._exit(0)
-            
-        except subprocess.TimeoutExpired:
-            _update_status["status"] = "error"
-            _update_status["error"] = "Update timed out"
-            _update_progress(0, "Timeout", "Update process timed out")
+
+    async def _run_update():
+        try:
+            await manager.update_manager.perform_update(
+                target_version=target_version,
+                on_progress=_on_progress,
+            )
         except Exception as e:
             _update_status["status"] = "error"
             _update_status["error"] = str(e)
-            _update_progress(0, "Error", f"Unexpected error: {e}")
-            _LOGGER.error(f"Error during update process: {e}", exc_info=True)
+            _LOGGER.error("Error during update process: %s", e, exc_info=True)
     
-    background_tasks.add_task(update_and_restart)
+    background_tasks.add_task(_run_update)
     return {"status": "started", "message": "Update process started"}
 
 
@@ -462,8 +386,15 @@ async def rollback_update(request: RollbackRequest, background_tasks: Background
         try:
             _update_progress(10, f"Rolling back to version {target_version}...")
             
+            pip_cmd = [pip_path, "install"]
+            # Add --pre flag for pre-release versions (dev, alpha, beta, rc)
+            ver_lower = target_version.lower()
+            if any(x in ver_lower for x in ['dev', 'alpha', 'beta', 'rc']):
+                pip_cmd.append("--pre")
+            pip_cmd.append(f"boneio=={target_version}")
+            
             result = subprocess.run(
-                [pip_path, "install", f"boneio=={target_version}"],
+                pip_cmd,
                 capture_output=True,
                 text=True,
                 timeout=300

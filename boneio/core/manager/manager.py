@@ -566,6 +566,13 @@ class Manager:
                             val = action_definition.get(opt_key)
                             if val is not None:
                                 parsed_action[opt_key] = val
+                        # Convert transition TimePeriod to float seconds
+                        if "transition" in parsed_action:
+                            t_val = parsed_action["transition"]
+                            if hasattr(t_val, "total_in_seconds"):
+                                parsed_action["transition"] = t_val.total_in_seconds
+                            elif not isinstance(t_val, (int, float)):
+                                parsed_action["transition"] = 0.0
                         _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
@@ -738,6 +745,20 @@ class Manager:
                 remote_device_id = action_definition.get("remote_device")
                 output_id = action_definition.get("output_id")
                 action_output = action_definition.get("action_output", "TOGGLE")
+                
+                # Clamp transition to repeat_interval to avoid overlapping animations
+                transition_val = action_definition.get("transition")
+                if transition_val and action_definition.get("repeat"):
+                    repeat_interval = action_definition.get("repeat_interval")
+                    if repeat_interval:
+                        ri_seconds = repeat_interval.total_in_seconds if hasattr(repeat_interval, "total_in_seconds") else repeat_interval / 1000.0
+                        if transition_val > ri_seconds:
+                            _LOGGER.debug(
+                                "Clamping transition %.3fs to repeat_interval %.3fs",
+                                transition_val, ri_seconds,
+                            )
+                            transition_val = ri_seconds
+                    action_definition = {**action_definition, "transition": transition_val}
                 
                 if action_output == "CYCLE_COLOR":
                     await self.remote_devices.cycle_color(

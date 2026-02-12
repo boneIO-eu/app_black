@@ -144,6 +144,9 @@ class MQTTClient(MessageBus):
     @override
     async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Awaitable[None]]) -> None:
         self._mqtt_energy_listeners[topic] = callback
+        # Subscribe immediately if already connected
+        if self._connection_established:
+            await self.subscribe(topics=[topic])
 
     @override
     async def unsubscribe_and_stop_listen(self, topic: str) -> None:
@@ -327,12 +330,11 @@ class MQTTClient(MessageBus):
                             topic=topic, payload=None, retain=True
                         )
                     break
-            if message.topic.matches(f"{self._config_helper.topic_prefix}/energy/#"):
-                callback_start = False
-                for topic, listener_callback in self._mqtt_energy_listeners.items():
-                    if message.topic.matches(topic):
-                        await listener_callback(str(message.topic), payload)
-                        break
+            for topic, listener_callback in self._mqtt_energy_listeners.items():
+                if message.topic.matches(topic):
+                    callback_start = False
+                    await listener_callback(str(message.topic), payload)
+                    break
             if callback_start:
                 _LOGGER.debug(
                     "Received message topic: %s, payload: %s",

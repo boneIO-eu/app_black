@@ -35,7 +35,7 @@ from boneio.const import (
     TRIPLE,
 )
 from boneio.version import __version__
-from typing import Any, TypedDict, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from boneio.core.config.config_helper import ConfigHelper
 
