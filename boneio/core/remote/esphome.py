@@ -711,18 +711,32 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 
             elif action_upper == "BRIGHTNESS_UP":
                 # Increase brightness by 10%
-                current_brightness = self._light_states.get(light_id, {}).get("brightness", 0.5)
-                new_brightness = min(1.0, current_brightness + 0.1)
-                self._client.light_command(
-                    light_key, 
-                    state=True, 
-                    brightness=new_brightness,
-                    transition_length=transition
-                )
+                light_state = self._light_states.get(light_id, {})
+                is_on = light_state.get("state", False)
+                if not is_on:
+                    # Light is OFF — just turn it on (restores last brightness)
+                    self._client.light_command(
+                        light_key, state=True, transition_length=transition
+                    )
+                else:
+                    current_brightness = light_state.get("brightness", 0.5)
+                    new_brightness = min(1.0, current_brightness + 0.1)
+                    self._client.light_command(
+                        light_key, 
+                        state=True, 
+                        brightness=new_brightness,
+                        transition_length=transition
+                    )
                 
             elif action_upper == "BRIGHTNESS_DOWN":
                 # Decrease brightness by 10%
-                current_brightness = self._light_states.get(light_id, {}).get("brightness", 0.5)
+                light_state = self._light_states.get(light_id, {})
+                is_on = light_state.get("state", False)
+                if not is_on:
+                    # Light is OFF — nothing to dim
+                    _LOGGER.debug("Light '%s' is OFF, ignoring BRIGHTNESS_DOWN", light_id)
+                    return True
+                current_brightness = light_state.get("brightness", 0.5)
                 new_brightness = max(0.01, current_brightness - 0.1)
                 self._client.light_command(
                     light_key, 
