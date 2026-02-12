@@ -529,6 +529,80 @@ async def reboot_device(background_tasks: BackgroundTasks):
     return {"status": "success", "message": "Device is rebooting..."}
 
 
+class LogLevelRequest(BaseModel):
+    """Request model for temporary log level change."""
+    level: str
+
+
+# Store the original log level so we can restore it
+_original_log_level: int | None = None
+
+
+@router.get("/log-level")
+async def get_log_level():
+    """
+    Get current root logger level and whether debug mode is temporarily active.
+
+    Returns:
+        Dictionary with current level name and debug_active flag.
+    """
+    root = logging.getLogger()
+    current = root.level
+    return {
+        "level": logging.getLevelName(current),
+        "debug_active": current <= logging.DEBUG and _original_log_level is not None,
+    }
+
+
+@router.post("/log-level")
+async def set_log_level(request: LogLevelRequest):
+    """
+    Temporarily change root logger level at runtime (not persisted to YAML).
+
+    Supports 'DEBUG', 'INFO', 'WARNING', 'ERROR'.
+    Use 'RESTORE' to revert to the original level.
+
+    Args:
+        request: LogLevelRequest with desired level string.
+
+    Returns:
+        Status response with new level name.
+    """
+    global _original_log_level
+    root = logging.getLogger()
+    level_name = request.level.upper()
+
+    if level_name == "RESTORE":
+        if _original_log_level is not None:
+            root.setLevel(_original_log_level)
+            restored = logging.getLevelName(_original_log_level)
+            _original_log_level = None
+            _LOGGER.info("Log level restored to %s", restored)
+            return {"status": "success", "level": restored}
+        return {"status": "success", "level": logging.getLevelName(root.level)}
+
+    level_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }
+
+    if level_name not in level_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid level: {request.level}. Use DEBUG, INFO, WARNING, ERROR, or RESTORE.",
+        )
+
+    # Save original level before first temporary change
+    if _original_log_level is None:
+        _original_log_level = root.level
+
+    root.setLevel(level_map[level_name])
+    _LOGGER.info("Log level temporarily changed to %s", level_name)
+    return {"status": "success", "level": level_name}
+
+
 @router.post("/shutdown")
 async def shutdown_device(background_tasks: BackgroundTasks):
     """
