@@ -696,6 +696,7 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         return JSONResponse(
             content=manifest,
             media_type="application/manifest+json",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 
     @app.get("/sw.js")
@@ -704,11 +705,17 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         return FileResponse(
             f"{FRONTEND_DIR}/sw.js",
             media_type="application/javascript",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
         )
 
     @app.get("/{filename:path}")
     async def serve_react_app(filename: str):
-        """Serve static files from frontend-dist, fallback to index.html for SPA routing."""
+        """Serve static files from frontend-dist, fallback to index.html for SPA routing.
+
+        Hashed assets (in /assets/) are immutable and cached long-term.
+        index.html (SPA fallback) is never cached to prevent stale versions
+        being served through Cloudflare Tunnel or other caching proxies.
+        """
         file_path = (FRONTEND_DIR / filename).resolve()
         if (
             filename
@@ -716,8 +723,18 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
             and file_path.exists()
             and file_path.is_file()
         ):
+            # Hashed assets can be cached forever
+            if filename.startswith("assets/"):
+                return FileResponse(
+                    str(file_path),
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"},
+                )
             return FileResponse(str(file_path))
-        return FileResponse(f"{FRONTEND_DIR}/index.html")
+        # SPA fallback — never cache index.html
+        return FileResponse(
+            f"{FRONTEND_DIR}/index.html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
 else:
     _LOGGER.warning(
         f"Frontend not found at {FRONTEND_DIR}. "

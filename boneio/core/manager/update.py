@@ -585,8 +585,10 @@ class UpdateManager(AsyncUpdater):
             target_version: Version being installed (None if not updating)
             progress: Update progress percentage (0 = not updating, 1-100 = in progress)
         """
-        # HA interprets 0/false as "not updating", 1-100 as "updating with progress"
-        in_progress_value: int | bool = progress if progress > 0 else False
+        # HA update entity progress:
+        # - in_progress: boolean (true = updating, false = idle)
+        # - update_percentage: float 0-100 (shows progress bar in HA UI)
+        is_updating = progress > 0
         
         state_payload = {
             "installed_version": current_version,
@@ -595,7 +597,8 @@ class UpdateManager(AsyncUpdater):
             "release_url": self._last_check_result.get("release_url", "") if self._last_check_result else "",
             "release_summary": self._last_check_result.get("release_notes", "") if self._last_check_result else "",
             "entity_picture": "http://boneio.eu/logo_fb_circle.png",
-            "in_progress": in_progress_value,
+            "in_progress": is_updating,
+            "update_percentage": float(progress) if is_updating else None,
         }
         
         topic_prefix = self._manager._config_helper.topic_prefix
