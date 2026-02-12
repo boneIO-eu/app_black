@@ -120,10 +120,49 @@ body {
   :root {
     /* DaisyUI-compatible border color for shadcn components */
     --input-border: color-mix(in oklab, var(--color-base-content) 20%, #0000);
+
+    /* LogViewer log level text colors */
+    --log-error: #b91c1c;       /* red-700 */
+    --log-warning: #b45309;     /* amber-700 */
+    --log-info: #0369a1;        /* sky-700 */
+    --log-debug: #047857;       /* emerald-700 */
+    --log-timestamp: #57534e;   /* stone-600 */
+
+    /* LogViewer log level row backgrounds */
+    --log-error-bg: #fef2f2;    /* red-50 */
+    --log-warning-bg: #fffbeb;  /* amber-50 */
+    --log-error-border: #dc2626;  /* red-600 */
+    --log-warning-border: #d97706; /* amber-600 */
+
+    /* LogViewer selected row */
+    --log-selected-bg: oklch(66.73% 0.1265 238.79 / 0.15);
+    --log-selected-bg-hover: oklch(66.73% 0.1265 238.79 / 0.25);
+    --log-selected-text: #1c1917;     /* stone-900 */
+    --log-selected-timestamp: #57534e; /* stone-600 */
   }
   
-  .dark {
+  .dark,
+  [data-theme="dark"] {
     --input-border: color-mix(in oklab, var(--color-base-content) 20%, #0000);
+
+    /* LogViewer log level text colors */
+    --log-error: #fca5a5;       /* red-300 */
+    --log-warning: #fcd34d;     /* amber-300 */
+    --log-info: #7dd3fc;        /* sky-300 */
+    --log-debug: #6ee7b7;       /* emerald-300 */
+    --log-timestamp: #d6d3d1;   /* stone-300 */
+
+    /* LogViewer log level row backgrounds */
+    --log-error-bg: rgba(127, 29, 29, 0.2);    /* red-900/20 */
+    --log-warning-bg: rgba(120, 53, 15, 0.2);  /* amber-900/20 */
+    --log-error-border: #fca5a5;  /* red-300 */
+    --log-warning-border: #fcd34d; /* amber-300 */
+
+    /* LogViewer selected row */
+    --log-selected-bg: oklch(66.73% 0.1265 238.79 / 0.2);
+    --log-selected-bg-hover: oklch(66.73% 0.1265 238.79 / 0.3);
+    --log-selected-text: #ffffff;      /* white */
+    --log-selected-timestamp: #e7e5e4; /* stone-200 */
   }
 }
 
