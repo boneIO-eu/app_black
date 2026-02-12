@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -261,13 +262,12 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
 
 def is_running_as_service() -> bool:
     """
-    Check if running as a systemd service.
+    Check if the current process is running as a systemd service.
+
+    Uses the INVOCATION_ID environment variable which systemd sets
+    for processes it manages.
     
     Returns:
-        True if running under systemd.
+        True if running as a systemd service.
     """
-    try:
-        with open("/proc/1/comm") as f:
-            return "systemd" in f.read()
-    except Exception:
-        return False
+    return bool(os.environ.get("INVOCATION_ID"))
