@@ -97,6 +97,8 @@
     "boneio_input": "Wejście boneIO",
     "area": "Obszar",
     "has_actions": "Ma Akcje",
+    "expand_all": "Rozwiń wszystko",
+    "collapse_all": "Zwiń wszystko",
     "add": "Dodaj Wejście",
     "edit": "Edytuj",
     "delete": "Usuń",
@@ -1146,6 +1148,40 @@
     "wled_segments": "Segmenty",
     "wled_led_count": "LEDy",
     "discover_segments": "Wykryj segmenty"
+  },
+  "table_sort": {
+    "click_to_sort": "Kliknij aby posortować",
+    "sorted_asc": "Posortowano rosnąco",
+    "sorted_desc": "Posortowano malejąco",
+    "reset": "Resetuj sortowanie"
+  },
+  "log_viewer": {
+    "last_15_minutes": "Ostatnie 15 minut",
+    "last_hour": "Ostatnia godzina",
+    "last_6_hours": "Ostatnie 6 godzin",
+    "last_12_hours": "Ostatnie 12 godzin",
+    "last_day": "Ostatni dzień",
+    "last_week": "Ostatni tydzień",
+    "auto_refresh": "Auto-odświeżanie",
+    "auto_scroll_on": "Auto-scroll WŁ",
+    "auto_scroll_off": "Auto-scroll WYŁ",
+    "modules": "Moduły",
+    "modules_count_one": "{{count}} moduł",
+    "modules_count_other": "{{count}} moduły",
+    "select_all": "Zaznacz wszystko",
+    "clear": "Wyczyść",
+    "no_modules_found": "Nie znaleziono modułów",
+    "copy_selected": "Kopiuj zaznaczone logi",
+    "copied_clipboard": "Skopiowano do schowka!",
+    "copied_discord": "Skopiowano dla Discord!",
+    "share_discord": "Udostępnij na Discord",
+    "discord_max_chars": "Max {{max}} znaków w Discord ({{current}}). Zmniejsz zaznaczenie.",
+    "scroll_to_bottom": "Przewiń na dół",
+    "scroll_to_top": "Przewiń na górę",
+    "debug_enable": "Włącz logi debug tymczasowo",
+    "debug_disable": "Wyłącz logi debug (przywróć oryginalny poziom)",
+    "debug_on": "DEBUG WŁ",
+    "debug_off": "DEBUG"
   }
 }
   

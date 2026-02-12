@@ -97,6 +97,8 @@
     "boneio_input": "boneIO Input",
     "area": "Area",
     "has_actions": "Has Actions",
+    "expand_all": "Expand All",
+    "collapse_all": "Collapse All",
     "add": "Add Input",
     "edit": "Edit",
     "delete": "Delete",
@@ -1141,5 +1143,39 @@
     "discover_segments": "Discover Segments",
     "wled_effects": "Effects",
     "wled_palettes": "Palettes"
+  },
+  "table_sort": {
+    "click_to_sort": "Click to sort",
+    "sorted_asc": "Sorted ascending",
+    "sorted_desc": "Sorted descending",
+    "reset": "Reset sorting"
+  },
+  "log_viewer": {
+    "last_15_minutes": "Last 15 minutes",
+    "last_hour": "Last hour",
+    "last_6_hours": "Last 6 hours",
+    "last_12_hours": "Last 12 hours",
+    "last_day": "Last day",
+    "last_week": "Last week",
+    "auto_refresh": "Auto-refresh",
+    "auto_scroll_on": "Auto-scroll ON",
+    "auto_scroll_off": "Auto-scroll OFF",
+    "modules": "Modules",
+    "modules_count_one": "{{count}} module",
+    "modules_count_other": "{{count}} modules",
+    "select_all": "Select all",
+    "clear": "Clear",
+    "no_modules_found": "No modules found",
+    "copy_selected": "Copy selected logs",
+    "copied_clipboard": "Copied to clipboard!",
+    "copied_discord": "Copied for Discord!",
+    "share_discord": "Share to Discord",
+    "discord_max_chars": "Max {{max}} chars in Discord ({{current}}). Reduce selection.",
+    "scroll_to_bottom": "Scroll to bottom",
+    "scroll_to_top": "Scroll to top",
+    "debug_enable": "Enable debug logs temporarily",
+    "debug_disable": "Disable debug logs (restore original level)",
+    "debug_on": "DEBUG ON",
+    "debug_off": "DEBUG"
   }
 }
