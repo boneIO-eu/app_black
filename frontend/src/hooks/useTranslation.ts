@@ -12,10 +12,13 @@ export const useTranslation = () => {
   }
 
   /**
-   * Get translated text by key
-   * Supports nested keys like 'outputs.title'
+   * Get translated text by key.
+   * Supports nested keys like 'outputs.title' and interpolation with {{param}} syntax.
+   *
+   * @param key - Dot-separated translation key
+   * @param params - Optional object with values to interpolate into {{placeholders}}
    */
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
     let value: any = context.translations;
     
@@ -23,7 +26,15 @@ export const useTranslation = () => {
       value = value?.[k];
     }
     
-    return value || key; // Return key if translation not found
+    let result: string = value || key;
+
+    if (params) {
+      for (const [param, val] of Object.entries(params)) {
+        result = result.replace(new RegExp(`\\{\\{${param}\\}\\}`, 'g'), String(val));
+      }
+    }
+
+    return result;
   };
 
   return {
