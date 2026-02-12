@@ -1,3 +1,5 @@
+import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
+
 /**
  * Validates an action and returns an error message if invalid.
  * @param action - The action object to validate
@@ -39,6 +41,15 @@ export const validateAction = (action: any, t: (key: string) => string): string 
   if (actionType === 'remote_cover') {
     if (!action.remote_device) return t('event_form.validation_remote_device_required');
     if (!action.cover_id) return t('event_form.validation_cover_id_required');
+  }
+  
+  // Transition must not exceed repeat_interval when repeat is enabled
+  if (action.repeat && action.transition) {
+    const transitionMs = convertTimeperiodToMilliseconds(action.transition);
+    const repeatMs = convertTimeperiodToMilliseconds(action.repeat_interval || '800ms');
+    if (transitionMs > repeatMs) {
+      return t('event_form.validation_transition_exceeds_repeat');
+    }
   }
   
   return null;

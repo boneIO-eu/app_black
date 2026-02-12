@@ -230,9 +230,9 @@ const EventForm: React.FC<EventFormProps> = ({
 
   return (
     <div className="space-y-4 py-2">
-      {/* Validation Errors - sticky at top - pokazuj tylko gdy użytkownik próbował zapisać */}
-      {attemptedSubmit && validationErrors.length > 0 && (
-        <div className="alert alert-error sticky top-0 z-10 shadow-lg">
+      {/* Validation Errors - sticky at top */}
+      {validationErrors.length > 0 && (
+        <div className="alert alert-warning sticky top-0 z-10 shadow-lg">
           <div>
             <h3 className="font-bold">{t('validation.errors')} ({validationErrors.length}):</h3>
             <ul className="list-disc list-inside max-h-24 overflow-y-auto">

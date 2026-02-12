@@ -1004,7 +1004,8 @@
     "esphome_effect": "Effect",
     "static_color": "Static",
     "validation_colors_required": "At least one color is required for CYCLE_COLOR",
-    "validation_presets_required": "At least one preset is required for CYCLE_PRESET"
+    "validation_presets_required": "At least one preset is required for CYCLE_PRESET",
+    "validation_transition_exceeds_repeat": "Transition time must not exceed repeat interval"
   },
   "virtual_energy_sensor": {
     "name": "Name",

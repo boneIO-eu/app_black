@@ -161,12 +161,12 @@ schema:
         Only for ESPHome lights with RGB support.
         Example: [255, 0, 0] for red, [0, 255, 0] for green, [0, 0, 255] for blue.
   transition:
-    type: float
+    type: timeperiod
+    coerce: positive_time_period
     required: False
-    default: 0.0
     meta:
-      label: Transition Time (seconds)
-      description: "Time in seconds to transition to the new state. Only for ESPHome lights."
+      label: Transition Time
+      description: "Time to transition to the new state. Only for ESPHome/WLED lights. Example: 500ms, 1s"
   
   # Cycle color/preset support
   colors:

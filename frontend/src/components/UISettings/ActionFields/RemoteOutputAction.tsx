@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { rgbToHex, hexToRgb } from './helpers';
+import SimpleTimePeriodInput from '../widgets/SimpleTimePeriodInput';
 import type { RemoteOutputActionProps, RemoteDevice } from './types';
 
 /**
@@ -561,7 +562,7 @@ const RgbControl: React.FC<RgbControlProps> = ({ action, onUpdate, t }) => (
 );
 
 /**
- * Reusable Transition Control component.
+ * Reusable Transition Control component using SimpleTimePeriodInput.
  */
 interface TransitionControlProps {
   action: any;
@@ -569,26 +570,27 @@ interface TransitionControlProps {
   t: (key: string) => string;
 }
 
-const TransitionControl: React.FC<TransitionControlProps> = ({ action, onUpdate, t }) => (
-  <div className="form-control mb-3">
-    <label className="label">
-      <span className="label-text font-medium">{t('event_form.transition') || 'Transition (seconds)'}</span>
-    </label>
-    <input
-      type="number"
-      min="0"
-      max="60"
-      step="0.1"
-      className="input input-bordered w-full"
-      value={action.transition ?? ''}
-      onChange={(e) => {
-        const val = e.target.value;
-        onUpdate('transition', val === '' || parseFloat(val) === 0 ? undefined : parseFloat(val));
-      }}
-      placeholder="0"
-    />
-  </div>
-);
+const TransitionControl: React.FC<TransitionControlProps> = ({ action, onUpdate, t }) => {
+  // Convert legacy float (seconds) to timeperiod string for backward compat
+  const transitionValue = React.useMemo(() => {
+    const val = action.transition;
+    if (val === undefined || val === null) return '';
+    if (typeof val === 'number') return val === 0 ? '' : `${val}s`;
+    return val;
+  }, [action.transition]);
+
+  return (
+    <div className="form-control mb-3">
+      <SimpleTimePeriodInput
+        label={t('event_form.transition') || 'Transition Time'}
+        value={transitionValue}
+        onChange={(val) => onUpdate('transition', val === '' || val === '0ms' || val === '0s' ? undefined : val)}
+        maximum={60000}
+        allowedUnits={['ms', 's']}
+      />
+    </div>
+  );
+};
 
 /**
  * Cycle Color Control - manage a list of RGB colors to cycle through.

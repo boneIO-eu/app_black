@@ -981,7 +981,7 @@
     "color_temp_cool": "Zimna",
     "color_temp_warm": "Ciepła",
     "rgb_color": "Kolor RGB",
-    "transition": "Przejście (sekundy)",
+    "transition": "Czas przejścia (sekundy)",
     "esphome_cover_id": "Roleta",
     "select_esphome_cover": "Wybierz roletę...",
     "esphome_cover_action": "Akcja Rolety",
@@ -1011,7 +1011,8 @@
     "esphome_effect": "Efekt",
     "static_color": "Kolor statyczny",
     "validation_colors_required": "CYCLE_COLOR wymaga co najmniej jednego koloru",
-    "validation_presets_required": "CYCLE_PRESET wymaga co najmniej jednego presetu"
+    "validation_presets_required": "CYCLE_PRESET wymaga co najmniej jednego presetu",
+    "validation_transition_exceeds_repeat": "Czas przejścia nie może być dłuższy niż interwał powtarzania"
   },
   "virtual_energy_sensor": {
     "name": "Nazwa",
