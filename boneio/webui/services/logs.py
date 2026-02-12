@@ -99,9 +99,48 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
+async def _run_journalctl(service_name: str, since: str) -> bytes | None:
+    """Run journalctl for a specific service name.
+    
+    Args:
+        service_name: Systemd unit name (e.g., 'BoneIO', 'boneio').
+        since: Time specification for --since flag.
+        
+    Returns:
+        stdout bytes if logs found, None otherwise.
+    """
+    cmd = [
+        "journalctl",
+        "-u", service_name,
+        "--no-pager",
+        "--no-hostname",
+        "--output=json",
+        "--output-fields=MESSAGE,__REALTIME_TIMESTAMP,PRIORITY",
+        "--no-tail",
+        "--since", since,
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await process.communicate()
+        if stderr:
+            _LOGGER.debug("journalctl stderr for %s: %s", service_name, stderr.decode().strip())
+        if stdout and stdout.strip():
+            return stdout
+    except Exception as e:
+        _LOGGER.debug("Error running journalctl for %s: %s", service_name, e)
+    return None
+
+
 async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
     """
     Get logs from journalctl for boneio service.
+    
+    Tries multiple service name variants (BoneIO, boneio) since
+    the systemd unit name is case-sensitive.
     
     Args:
         since: Time specification for log retrieval (e.g., "-15m", "-1h").
@@ -109,26 +148,18 @@ async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
     Returns:
         List of LogEntry objects.
     """
-    cmd = [
-        "journalctl",
-        "-u", "boneio",
-        "--no-pager",
-        "--no-hostname",
-        "--output=json",
-        "--output-fields=MESSAGE,__REALTIME_TIMESTAMP,PRIORITY",
-        "--no-tail",
-        "--since", since
-    ]
-    process = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-
-    stdout, stderr = await process.communicate()
-    if stderr:
-        _LOGGER.error(f"Error getting systemd logs: {stderr.decode()}")
-    if not stdout.strip():
+    if not since:
+        since = "-15m"
+    
+    # Try multiple service names — systemd unit name is case-sensitive
+    service_names = ["BoneIO", "boneio"]
+    
+    for service_name in service_names:
+        stdout = await _run_journalctl(service_name, since)
+        if stdout:
+            break
+    else:
+        _LOGGER.warning("No logs found for any boneio service variant: %s", service_names)
         return []
     raw_log = json.loads(b'[' + stdout.replace(b'\n', b',')[:-1] + b']')
 
