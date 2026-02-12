@@ -153,8 +153,11 @@ class UpdateManager(AsyncUpdater):
                 }
             
             # Find latest stable and prerelease versions
+            # GitHub API does NOT guarantee ordering by version — must compare
             latest_stable = None
+            latest_stable_parsed = None
             latest_prerelease = None
+            latest_prerelease_parsed = None
             
             for release in releases:
                 tag = release['tag_name']
@@ -170,6 +173,11 @@ class UpdateManager(AsyncUpdater):
                     ver_lower = ver_str.lower()
                     is_prerelease = any(x in ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])
                 
+                try:
+                    parsed = version.parse(ver_str)
+                except Exception:
+                    continue
+                
                 ver_info = {
                     "version": ver_str,
                     "is_prerelease": is_prerelease,
@@ -178,14 +186,14 @@ class UpdateManager(AsyncUpdater):
                     "release_notes": release.get('body', '')[:255],  # Max 255 chars for HA
                 }
                 
-                if not is_prerelease and latest_stable is None:
-                    latest_stable = ver_info
-                if is_prerelease and latest_prerelease is None:
-                    latest_prerelease = ver_info
-                
-                # Stop after finding both
-                if latest_stable and latest_prerelease:
-                    break
+                if not is_prerelease:
+                    if latest_stable_parsed is None or parsed > latest_stable_parsed:
+                        latest_stable = ver_info
+                        latest_stable_parsed = parsed
+                else:
+                    if latest_prerelease_parsed is None or parsed > latest_prerelease_parsed:
+                        latest_prerelease = ver_info
+                        latest_prerelease_parsed = parsed
             
             # Determine which version to recommend based on update_channel setting
             update_channel = self._manager._config_helper.update_channel

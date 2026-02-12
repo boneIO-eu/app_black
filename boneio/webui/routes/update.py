@@ -153,8 +153,11 @@ async def check_update():
             }
         
         available_versions = []
+        # GitHub API does NOT guarantee ordering by version — must compare
         latest_stable = None
+        latest_stable_parsed = None
         latest_prerelease = None
+        latest_prerelease_parsed = None
         
         for release in releases:
             tag = release['tag_name']
@@ -175,10 +178,19 @@ async def check_update():
                 continue
             available_versions.append(ver_info)
             
-            if not is_prerelease and latest_stable is None:
-                latest_stable = ver_info
-            if is_prerelease and latest_prerelease is None:
-                latest_prerelease = ver_info
+            try:
+                parsed = version.parse(ver_str)
+            except Exception:
+                continue
+            
+            if not is_prerelease:
+                if latest_stable_parsed is None or parsed > latest_stable_parsed:
+                    latest_stable = ver_info
+                    latest_stable_parsed = parsed
+            else:
+                if latest_prerelease_parsed is None or parsed > latest_prerelease_parsed:
+                    latest_prerelease = ver_info
+                    latest_prerelease_parsed = parsed
         
         current_ver_lower = current_version.lower()
         current_is_prerelease = any(x in current_ver_lower for x in ['dev', 'alpha', 'beta', 'rc'])

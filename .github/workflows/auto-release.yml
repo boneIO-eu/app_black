@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: create-release
+  cancel-in-progress: false
+
 jobs:
   create-release:
     name: Create GitHub Release
