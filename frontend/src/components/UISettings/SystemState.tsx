@@ -117,6 +117,9 @@ const SystemState: React.FC = () => {
       if (data.status === 'error') {
         setError(data.message || t('system_update.failed_to_check_updates_backend'));
       }
+
+      // Also publish update state to MQTT so HA sees the result
+      await axios.post('/api/check_update_now').catch(() => {});
     } catch (err) {
       setError(t('system_update.failed_to_check_updates'));
       console.error('Error checking for updates:', err);

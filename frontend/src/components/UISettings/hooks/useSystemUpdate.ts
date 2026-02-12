@@ -53,6 +53,9 @@ export const useSystemUpdate = () => {
       if (data.error) {
         setError(data.error);
       }
+
+      // Also publish update state to MQTT so HA sees the result
+      await axios.post('/api/check_update_now').catch(() => {});
     } catch (err) {
       setError(t('system_update.check_failed'));
       console.error('Failed to check for updates:', err);
