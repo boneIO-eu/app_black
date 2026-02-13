@@ -81,7 +81,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
 
     return (
       <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
+        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
@@ -113,7 +113,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
   if (isSwitch) {
     return (
       <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
+        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
@@ -179,7 +179,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
 
     return (
       <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-green-500`}
+        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-green-500 transition-all duration-300`}
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
@@ -220,9 +220,11 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
   }
 
   // Render regular sensor (numeric/text display)
+  const isLoading = device.state === null;
+
   return (
     <div
-      className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-blue-500`}
+      className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
     >
       <div className={`flex ${isGrid ? 'justify-between items-start' : 'justify-between items-start'}`}>
         <div>
@@ -231,13 +233,15 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
         </div>
         <div className='text-right'>
           <div className="flex items-baseline gap-2 justify-end">
-            <span className="text-2xl font-mono">
-              {device.state !== null 
-                ? typeof device.state === 'number' 
+            {isLoading ? (
+              <span className="inline-block h-8 w-20 bg-base-300 rounded animate-pulse" />
+            ) : (
+              <span className="text-2xl font-mono">
+                {typeof device.state === 'number' 
                   ? device.state.toFixed(2) 
-                  : device.state 
-                : 'N/A'}
-            </span>
+                  : device.state}
+              </span>
+            )}
             {device.unit && (
               <span className="text-base-content/70">
                 {device.unit}
@@ -245,7 +249,11 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
             )}
           </div>
           <p className="text-gray-500 text-xs mt-2">
-            {formatTimestamp(device?.timestamp ?? null)}
+            {isLoading ? (
+              <span className="inline-block h-3 w-12 bg-base-300 rounded animate-pulse" />
+            ) : (
+              formatTimestamp(device?.timestamp ?? null)
+            )}
           </p>
         </div>
       </div>
@@ -287,18 +295,17 @@ export default function ModbusView() {
       return groups;
     }, {} as Record<string, ModbusDeviceState[]>);
 
-    // Sort each group: read-only devices first, writeable devices last
+    // Sort each group: read-only first, writeable last, stable by id
     Object.keys(groups).forEach(groupName => {
       groups[groupName].sort((a, b) => {
-        // Check if device is writeable (has writeable in entity_type or is a writeable sensor)
         const isAWritable = a.entity_type?.includes('select') || a.entity_type === 'switch' || a.entity_type === 'number';
         const isBWritable = b.entity_type?.includes('select') || b.entity_type === 'switch' || b.entity_type === 'number';
         
-        // If both are writeable or both are read-only, maintain original order
-        if (isAWritable === isBWritable) return 0;
-        
         // Writeable devices should come after read-only devices
-        return isAWritable ? 1 : -1;
+        if (isAWritable !== isBWritable) return isAWritable ? 1 : -1;
+        
+        // Stable sort by id within same category
+        return a.id.localeCompare(b.id);
       });
     });
 
