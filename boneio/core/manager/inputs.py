@@ -258,15 +258,17 @@ class InputManager:
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
-                    self._manager.send_ha_autodiscovery(
+                    payload = ha_event_availabilty_message(
                         id=input_id,
                         name=name,
-                        ha_type=EVENT_ENTITY,
+                        config_helper=self._manager._config_helper,
                         device_class=gpio.get(DEVICE_CLASS, None),
-                        availability_msg_func=ha_event_availabilty_message,
                         area=area,
                         mqtt_sequences=gpio.get("mqtt_sequences"),
                         enable_triple_click=gpio.get("enable_triple_click", False),
+                    )
+                    self._manager.publish_ha_discovery(
+                        id=input_id, ha_type=EVENT_ENTITY, payload=payload,
                     )
                 return existing_input
             
@@ -286,15 +288,17 @@ class InputManager:
             
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
-                self._manager.send_ha_autodiscovery(
+                payload = ha_event_availabilty_message(
                     id=input_id,
                     name=name,
-                    ha_type=EVENT_ENTITY,
+                    config_helper=self._manager._config_helper,
                     device_class=gpio.get(DEVICE_CLASS, None),
-                    availability_msg_func=ha_event_availabilty_message,
                     area=area,
                     mqtt_sequences=gpio.get("mqtt_sequences"),
                     enable_triple_click=gpio.get("enable_triple_click", False),
+                )
+                self._manager.publish_ha_discovery(
+                    id=input_id, ha_type=EVENT_ENTITY, payload=payload,
                 )
             
             return input_device
@@ -369,13 +373,15 @@ class InputManager:
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
-                    self._manager.send_ha_autodiscovery(
+                    payload = ha_binary_sensor_availabilty_message(
                         id=input_id,
                         name=name,
-                        ha_type=BINARY_SENSOR,
+                        config_helper=self._manager._config_helper,
                         device_class=gpio.get(DEVICE_CLASS, None),
-                        availability_msg_func=ha_binary_sensor_availabilty_message,
                         area=area,
+                    )
+                    self._manager.publish_ha_discovery(
+                        id=input_id, ha_type=BINARY_SENSOR, payload=payload,
                     )
                 
                 # Send current state if initial_send is enabled (so user doesn't need to restart)
@@ -401,13 +407,15 @@ class InputManager:
             
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
-                self._manager.send_ha_autodiscovery(
+                payload = ha_binary_sensor_availabilty_message(
                     id=input_id,
                     name=name,
-                    ha_type=BINARY_SENSOR,
+                    config_helper=self._manager._config_helper,
                     device_class=gpio.get(DEVICE_CLASS, None),
-                    availability_msg_func=ha_binary_sensor_availabilty_message,
                     area=area,
+                )
+                self._manager.publish_ha_discovery(
+                    id=input_id, ha_type=BINARY_SENSOR, payload=payload,
                 )
             
             return input_device
@@ -766,24 +774,28 @@ class InputManager:
                 
                 # Determine input type and send appropriate autodiscovery
                 if isinstance(input_device, GpioEventButton):
-                    self._manager.send_ha_autodiscovery(
+                    payload = ha_event_availabilty_message(
                         id=input_id,
                         name=input_name,
-                        ha_type=EVENT_ENTITY,
+                        config_helper=self._manager._config_helper,
                         device_class=getattr(input_device, '_device_class', None),
-                        availability_msg_func=ha_event_availabilty_message,
                         area=input_area,
                         mqtt_sequences=input_device.mqtt_sequences,
                         enable_triple_click=getattr(input_device._detector, '_enable_triple_click', False),
                     )
+                    self._manager.publish_ha_discovery(
+                        id=input_id, ha_type=EVENT_ENTITY, payload=payload,
+                    )
                 elif isinstance(input_device, GpioInputBinarySensor):
-                    self._manager.send_ha_autodiscovery(
+                    payload = ha_binary_sensor_availabilty_message(
                         id=input_id,
                         name=input_name,
-                        ha_type=BINARY_SENSOR,
+                        config_helper=self._manager._config_helper,
                         device_class=getattr(input_device, '_device_class', None),
-                        availability_msg_func=ha_binary_sensor_availabilty_message,
                         area=input_area,
+                    )
+                    self._manager.publish_ha_discovery(
+                        id=input_id, ha_type=BINARY_SENSOR, payload=payload,
                     )
             except Exception as err:
                 _LOGGER.error(

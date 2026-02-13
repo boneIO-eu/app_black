@@ -138,13 +138,15 @@ class CoverManager:
                                 availability_msg_func = ha_cover_with_tilt_availabilty_message
                             else:
                                 availability_msg_func = ha_cover_availabilty_message
-                            self._manager.send_ha_autodiscovery(
+                            payload = availability_msg_func(
                                 id=_cover.id,
                                 name=_cover.name,
-                                ha_type=COVER,
+                                config_helper=self._manager._config_helper,
                                 device_class=_config.get(DEVICE_CLASS),
                                 area=_config.get("area"),
-                                availability_msg_func=availability_msg_func,
+                            )
+                            self._manager.publish_ha_discovery(
+                                id=_cover.id, ha_type=COVER, payload=payload,
                             )
                         continue
                 
@@ -262,13 +264,15 @@ class CoverManager:
         
         # Send HA autodiscovery
         if config.get(SHOW_HA, True):
-            self._manager.send_ha_autodiscovery(
+            payload = availability_msg_func(
                 id=cover.id,
                 name=cover.name,
-                ha_type=COVER,
+                config_helper=self._manager._config_helper,
                 device_class=config.get(DEVICE_CLASS),
                 area=config.get("area"),
-                availability_msg_func=availability_msg_func,
+            )
+            self._manager.publish_ha_discovery(
+                id=cover.id, ha_type=COVER, payload=payload,
             )
         
         _LOGGER.debug("Configured cover %s", cover_id)
@@ -407,9 +411,18 @@ class CoverManager:
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all covers."""
         for cover_id, cover in self._covers.items():
-            self._manager.send_ha_autodiscovery(
+            # Use tilt variant if cover supports tilt
+            if hasattr(cover, 'tilt_position'):
+                msg_func = ha_cover_with_tilt_availabilty_message
+            else:
+                msg_func = ha_cover_availabilty_message
+            payload = msg_func(
                 id=cover_id,
                 name=cover.name if hasattr(cover, 'name') else cover_id,
-                ha_type=COVER,
-                output_type=COVER,
+                config_helper=self._manager._config_helper,
+                device_class=getattr(cover, 'device_class', None),
+                area=getattr(cover, 'area', None),
+            )
+            self._manager.publish_ha_discovery(
+                id=cover_id, ha_type=COVER, payload=payload,
             )

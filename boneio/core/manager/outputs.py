@@ -45,6 +45,13 @@ from boneio.const import (
 from boneio.core.utils import TimePeriod, strip_accents
 from boneio.core.utils.util import sanitize_string
 from boneio.hardware.gpio.expanders import MCP23017, PCA9685, PCF8575
+from boneio.integration.homeassistant import (
+    ha_group_availabilty_message,
+    ha_led_availabilty_message,
+    ha_light_availabilty_message,
+    ha_switch_availabilty_message,
+    ha_valve_availabilty_message,
+)
 from boneio.integration.interlock import SoftwareInterlockManager
 
 if TYPE_CHECKING:
@@ -54,6 +61,15 @@ _LOGGER = logging.getLogger(__name__)
 
 # Expander class mapping
 _EXPANDER_CLASS = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
+
+
+# Map output_type -> HA availability message builder
+_OUTPUT_HA_FUNC = {
+    "light": ha_light_availabilty_message,
+    "led": ha_led_availabilty_message,
+    "switch": ha_switch_availabilty_message,
+    "valve": ha_valve_availabilty_message,
+}
 
 
 class OutputManager:
@@ -244,14 +260,16 @@ class OutputManager:
             self._configured_output_groups[_id] = output_group
             _LOGGER.info("Created output group '%s' with %d members, area='%s'", _id, len(members), area)
             
-            # Send HA autodiscovery for group (use is_group=True to use 'group' device_type)
-            self._manager.send_ha_autodiscovery(
+            # Send HA autodiscovery for group
+            payload = ha_group_availabilty_message(
                 id=_id,
                 name=_name,
-                ha_type=output_group.output_type,
+                config_helper=self._manager._config_helper,
                 output_type=output_group.output_type,
-                is_group=True,
                 area=area,
+            )
+            self._manager.publish_ha_discovery(
+                id=_id, ha_type=output_group.output_type, payload=payload,
             )
             
             # Send initial state to WebSocket
@@ -623,12 +641,15 @@ class OutputManager:
             
             # Send HA autodiscovery
             if out.output_type not in (NONE, COVER):
-                self._manager.send_ha_autodiscovery(
+                ha_func = _OUTPUT_HA_FUNC.get(out.output_type, ha_switch_availabilty_message)
+                payload = ha_func(
                     id=_id,
                     name=_name,
-                    ha_type=out.output_type,
-                    output_type=out.output_type,
+                    config_helper=self._manager._config_helper,
                     area=area,
+                )
+                self._manager.publish_ha_discovery(
+                    id=_id, ha_type=out.output_type, payload=payload,
                 )
             
             # Delayed state send
@@ -822,26 +843,29 @@ class OutputManager:
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all outputs and groups."""
-        from boneio.const import COVER, NONE
-        
         # Send autodiscovery for outputs
         for output_id, output in self._outputs.items():
             if output.output_type not in (NONE, COVER):
-                self._manager.send_ha_autodiscovery(
+                ha_func = _OUTPUT_HA_FUNC.get(output.output_type, ha_switch_availabilty_message)
+                payload = ha_func(
                     id=output_id,
                     name=output.name if hasattr(output, 'name') else output_id,
-                    ha_type=output.output_type,
-                    output_type=output.output_type,
+                    config_helper=self._manager._config_helper,
                     area=getattr(output, 'area', None),
+                )
+                self._manager.publish_ha_discovery(
+                    id=output_id, ha_type=output.output_type, payload=payload,
                 )
         
         # Send autodiscovery for groups
         for group_id, group in self._configured_output_groups.items():
-            self._manager.send_ha_autodiscovery(
+            payload = ha_group_availabilty_message(
                 id=group_id,
                 name=group.name if hasattr(group, 'name') else group_id,
-                ha_type=group.output_type,
+                config_helper=self._manager._config_helper,
                 output_type=group.output_type,
-                is_group=True,
+            )
+            self._manager.publish_ha_discovery(
+                id=group_id, ha_type=group.output_type, payload=payload,
             )
 

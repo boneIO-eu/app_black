@@ -331,84 +331,33 @@ class Manager:
         await self.display.send_ha_autodiscovery()
         await self.update_manager.send_ha_autodiscovery()
 
-    def send_ha_autodiscovery(
+    def publish_ha_discovery(
         self,
         id: str,
-        name: str,
         ha_type: str,
-        output_type: str | None = None,
-        **kwargs
+        payload: dict,
     ) -> None:
-        """Send HA autodiscovery message for a single entity.
-        
-        This is a compatibility method for subsystems that need
-        to send individual discovery messages.
-        
+        """Publish a pre-built HA autodiscovery payload.
+
+        This is a thin helper that handles topic construction, caching
+        and MQTT publishing.  Each subsystem is responsible for building
+        its own *payload* via the appropriate ``ha_*_availabilty_message``
+        function.
+
         Args:
-            id: Entity identifier
-            name: Entity name
-            ha_type: Home Assistant entity type
-            output_type: Output type (optional, used for outputs like LIGHT, LED, SWITCH, VALVE)
-            **kwargs: Additional parameters
+            id: Entity identifier (used in the MQTT topic).
+            ha_type: Home Assistant entity type (sensor, light, cover …).
+            payload: Ready-to-publish discovery payload dict.
         """
-        from boneio.const import BUTTON, LED, LIGHT, SWITCH, VALVE
-        from boneio.integration.homeassistant import (
-            ha_button_availabilty_message,
-            ha_group_availabilty_message,
-            ha_led_availabilty_message,
-            ha_light_availabilty_message,
-            ha_switch_availabilty_message,
-            ha_valve_availabilty_message,
+        topic = (
+            f"{self._config_helper.ha_discovery_prefix}/{ha_type}"
+            f"/{self._config_helper.serial_no}/{id}/config"
         )
-        
-        # Check if this is a group (passed via kwargs)
-        is_group = kwargs.pop('is_group', False)
-        
-        # Determine availability function based on output_type (for outputs)
-        availability_msg_func = None
-        if is_group:
-            # Groups use special availability function with 'group' device_type
-            availability_msg_func = ha_group_availabilty_message
-            kwargs = {**kwargs, "output_type": output_type}
-        elif output_type:
-            availability_function_chooser = {
-                LIGHT: ha_light_availabilty_message,
-                LED: ha_led_availabilty_message,
-                SWITCH: ha_switch_availabilty_message,
-                VALVE: ha_valve_availabilty_message,
-            }
-            availability_msg_func = availability_function_chooser.get(
-                output_type, ha_switch_availabilty_message
-            )
-        
-        # Override with specific ha_type functions
-        if ha_type == COVER:
-            from boneio.integration.homeassistant import ha_cover_availabilty_message
-            availability_msg_func = ha_cover_availabilty_message
-        elif ha_type == BUTTON:
-            availability_msg_func = ha_button_availabilty_message
-        elif ha_type == "update":
-            from boneio.integration.homeassistant import ha_update_availability_message
-            availability_msg_func = ha_update_availability_message
-        
-        # Use availability_msg_func from kwargs if provided (for sensors)
-        if 'availability_msg_func' in kwargs:
-            availability_msg_func = kwargs.pop('availability_msg_func')
-        
-        # Call availability function if defined
-        if availability_msg_func:
-            payload = availability_msg_func(
-                id=id,
-                name=name,
-                config_helper=self._config_helper,
-                **kwargs
-            )
-            topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_no}/{id}/config"
-            _LOGGER.debug("Sending HA discovery for %s entity, %s.", ha_type, name)
-            self._config_helper.add_autodiscovery_msg(
-                topic=topic, ha_type=ha_type, payload=payload
-            )
-            self.send_message(topic=topic, payload=payload, retain=True)
+        _LOGGER.debug("Sending HA discovery for %s entity %s.", ha_type, id)
+        self._config_helper.add_autodiscovery_msg(
+            topic=topic, ha_type=ha_type, payload=payload
+        )
+        self.send_message(topic=topic, payload=payload, retain=True)
 
     async def _handle_update_install_command(self, topic: str, payload: str) -> None:
         """Handle update install command from Home Assistant.

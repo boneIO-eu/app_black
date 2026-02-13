@@ -173,13 +173,13 @@ class SensorManager:
                 filters=config.get(FILTERS, []),
                 unit_of_measurement=config.get("unit_of_measurement", "°C"),
             )
-            self._manager.send_ha_autodiscovery(
+            payload = ha_sensor_temp_availabilty_message(
                 id=id,
                 name=name,
-                ha_type=SENSOR,
-                availability_msg_func=ha_sensor_temp_availabilty_message,
+                config_helper=self._manager._config_helper,
                 unit_of_measurement=temp_sensor.unit_of_measurement,
             )
+            self._manager.publish_ha_discovery(id=id, ha_type=SENSOR, payload=payload)
             return temp_sensor
         except I2CError as err:
             _LOGGER.error("Can't configure temp sensor %s: %s", name, err)
@@ -239,14 +239,14 @@ class SensorManager:
             )
             # Send HA autodiscovery for each sub-sensor
             for sensor in ina219.sensors.values():
-                self._manager.send_ha_autodiscovery(
+                payload = ha_sensor_ina_availabilty_message(
                     id=sensor.id,
                     name=sensor.name,
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_sensor_ina_availabilty_message,
+                    config_helper=self._manager._config_helper,
                     unit_of_measurement=sensor.unit_of_measurement,
                     device_class=sensor.device_class,
                 )
+                self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
             return ina219
         except I2CError as err:
             _LOGGER.error("Can't configure INA219 sensor: %s", err)
@@ -431,14 +431,14 @@ class SensorManager:
                 filters=sensor_config.get(FILTERS, []),
             )
             if sensor_config.get(SHOW_HA, True):
-                self._manager.send_ha_autodiscovery(
+                payload = ha_sensor_temp_availabilty_message(
                     id=sensor.id,
                     name=sensor.name,
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_sensor_temp_availabilty_message,
+                    config_helper=self._manager._config_helper,
                     unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
                     area=sensor_config.get("area"),
                 )
+                self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
             return sensor
         except Exception as err:
             _LOGGER.error("Failed to create Dallas sensor %s: %s", address, err)
@@ -496,12 +496,12 @@ class SensorManager:
                 filters=gpio.get(FILTERS, []),
             )
             if gpio.get(SHOW_HA, True):
-                self._manager.send_ha_autodiscovery(
+                payload = ha_adc_sensor_availabilty_message(
                     id=id,
                     name=name,
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_adc_sensor_availabilty_message,
+                    config_helper=self._manager._config_helper,
                 )
+                self._manager.publish_ha_discovery(id=id, ha_type=SENSOR, payload=payload)
             return sensor
         except I2CError as err:
             _LOGGER.error("Can't configure ADC sensor %s: %s", id, err)
@@ -627,14 +627,14 @@ class SensorManager:
                         
                         # Resend HA autodiscovery with updated info
                         if sensor_config.get(SHOW_HA, True):
-                            self._manager.send_ha_autodiscovery(
+                            payload = ha_sensor_temp_availabilty_message(
                                 id=sensor.id,
                                 name=sensor.name,
-                                ha_type=SENSOR,
-                                availability_msg_func=ha_sensor_temp_availabilty_message,
+                                config_helper=self._manager._config_helper,
                                 unit_of_measurement=sensor_config.get("unit_of_measurement", "°C"),
                                 area=sensor_config.get("area"),
                             )
+                            self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
                         break
         
         _LOGGER.info("Dallas sensors reload complete. Total: %d", len(self._dallas_sensors))
@@ -714,14 +714,14 @@ class SensorManager:
             topic_prefix=self._manager._topic_prefix,
         )
         self._system_sensors.append(disk_sensor)
-        self._manager.send_ha_autodiscovery(
+        payload = ha_sensor_system_availabilty_message(
             id=disk_sensor.id,
             name=disk_sensor.name,
-            ha_type=SENSOR,
-            availability_msg_func=ha_sensor_system_availabilty_message,
+            config_helper=self._manager._config_helper,
             unit_of_measurement="%",
             icon="mdi:harddisk",
         )
+        self._manager.publish_ha_discovery(id=disk_sensor.id, ha_type=SENSOR, payload=payload)
         
         # Memory Usage Sensor
         memory_sensor = MemoryUsageSensor(
@@ -730,14 +730,14 @@ class SensorManager:
             topic_prefix=self._manager._topic_prefix,
         )
         self._system_sensors.append(memory_sensor)
-        self._manager.send_ha_autodiscovery(
+        payload = ha_sensor_system_availabilty_message(
             id=memory_sensor.id,
             name=memory_sensor.name,
-            ha_type=SENSOR,
-            availability_msg_func=ha_sensor_system_availabilty_message,
+            config_helper=self._manager._config_helper,
             unit_of_measurement="%",
             icon="mdi:memory",
         )
+        self._manager.publish_ha_discovery(id=memory_sensor.id, ha_type=SENSOR, payload=payload)
         
         # CPU Usage Sensor
         cpu_sensor = CpuUsageSensor(
@@ -746,14 +746,14 @@ class SensorManager:
             topic_prefix=self._manager._topic_prefix,
         )
         self._system_sensors.append(cpu_sensor)
-        self._manager.send_ha_autodiscovery(
+        payload = ha_sensor_system_availabilty_message(
             id=cpu_sensor.id,
             name=cpu_sensor.name,
-            ha_type=SENSOR,
-            availability_msg_func=ha_sensor_system_availabilty_message,
+            config_helper=self._manager._config_helper,
             unit_of_measurement="%",
             icon="mdi:cpu-64-bit",
         )
+        self._manager.publish_ha_discovery(id=cpu_sensor.id, ha_type=SENSOR, payload=payload)
         
         _LOGGER.info(
             "Configured %d system sensors: %s",
@@ -851,52 +851,9 @@ class SensorManager:
             )
             
             # Send HA autodiscovery
-            if sensor_type == "power":
-                # Power sensor (W)
-                self._manager.send_ha_autodiscovery(
-                    id=f"{sensor_id}_power",
-                    name=f"{name} Power",
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                    unit_of_measurement="W",
-                    device_class="power",
-                    state_class="measurement",
-                    area=area,
-                )
-                # Energy sensor (Wh)
-                self._manager.send_ha_autodiscovery(
-                    id=f"{sensor_id}_energy",
-                    name=f"{name} Energy",
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                    unit_of_measurement="Wh",
-                    device_class="energy",
-                    state_class="total_increasing",
-                    area=area,
-                )
-            elif sensor_type == "water":
-                # Flow rate sensor (L/h)
-                self._manager.send_ha_autodiscovery(
-                    id=f"{sensor_id}_flow",
-                    name=f"{name} Flow Rate",
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                    unit_of_measurement="L/h",
-                    device_class="volume_flow_rate",
-                    state_class="measurement",
-                    area=area,
-                )
-                # Water consumption sensor (L)
-                self._manager.send_ha_autodiscovery(
-                    id=f"{sensor_id}_water",
-                    name=f"{name} Water",
-                    ha_type=SENSOR,
-                    availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                    unit_of_measurement="L",
-                    device_class="water",
-                    state_class="total_increasing",
-                    area=area,
-                )
+            self._publish_virtual_energy_discovery(
+                sensor_id=sensor_id, name=name, sensor_type=sensor_type, area=area,
+            )
             
             # Start tracking if output is already ON
             if output.state == ON:
@@ -1031,48 +988,9 @@ class SensorManager:
                         
                         # Resend HA autodiscovery with updated info
                         area = cfg.get("area")
-                        if sensor_type == "power":
-                            self._manager.send_ha_autodiscovery(
-                                id=f"{sensor_id}_power",
-                                name=f"{new_name} Power",
-                                ha_type=SENSOR,
-                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                                unit_of_measurement="W",
-                                device_class="power",
-                                state_class="measurement",
-                                area=area,
-                            )
-                            self._manager.send_ha_autodiscovery(
-                                id=f"{sensor_id}_energy",
-                                name=f"{new_name} Energy",
-                                ha_type=SENSOR,
-                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                                unit_of_measurement="Wh",
-                                device_class="energy",
-                                state_class="total_increasing",
-                                area=area,
-                            )
-                        elif sensor_type == "water":
-                            self._manager.send_ha_autodiscovery(
-                                id=f"{sensor_id}_flow",
-                                name=f"{new_name} Flow Rate",
-                                ha_type=SENSOR,
-                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                                unit_of_measurement="L/h",
-                                device_class="volume_flow_rate",
-                                state_class="measurement",
-                                area=area,
-                            )
-                            self._manager.send_ha_autodiscovery(
-                                id=f"{sensor_id}_water",
-                                name=f"{new_name} Water",
-                                ha_type=SENSOR,
-                                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                                unit_of_measurement="L",
-                                device_class="water",
-                                state_class="total_increasing",
-                                area=area,
-                            )
+                        self._publish_virtual_energy_discovery(
+                            sensor_id=sensor_id, name=new_name, sensor_type=sensor_type, area=area,
+                        )
                         break
         
         # Update internal config cache
@@ -1159,48 +1077,9 @@ class SensorManager:
         )
         
         # Send HA autodiscovery
-        if sensor_type == "power":
-            self._manager.send_ha_autodiscovery(
-                id=f"{sensor_id}_power",
-                name=f"{name} Power",
-                ha_type=SENSOR,
-                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                unit_of_measurement="W",
-                device_class="power",
-                state_class="measurement",
-                area=area,
-            )
-            self._manager.send_ha_autodiscovery(
-                id=f"{sensor_id}_energy",
-                name=f"{name} Energy",
-                ha_type=SENSOR,
-                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                unit_of_measurement="Wh",
-                device_class="energy",
-                state_class="total_increasing",
-                area=area,
-            )
-        elif sensor_type == "water":
-            self._manager.send_ha_autodiscovery(
-                id=f"{sensor_id}_flow",
-                name=f"{name} Flow Rate",
-                ha_type=SENSOR,
-                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                unit_of_measurement="L/h",
-                device_class="volume_flow_rate",
-                state_class="measurement",
-                area=area,
-            )
-            self._manager.send_ha_autodiscovery(
-                id=f"{sensor_id}_water",
-                name=f"{name} Water",
-                ha_type=SENSOR,
-                availability_msg_func=ha_virtual_energy_sensor_availabilty_message,
-                unit_of_measurement="L",
-                device_class="water",
-                state_class="total_increasing",
-                area=area,
-            )
+        self._publish_virtual_energy_discovery(
+            sensor_id=sensor_id, name=name, sensor_type=sensor_type, area=area,
+        )
         
         # Start tracking if output is already ON
         if output.state == ON:
@@ -1219,12 +1098,113 @@ class SensorManager:
             except Exception as e:
                 _LOGGER.debug("Error broadcasting virtual energy sensor state %s: %s", sensor.id, e)
 
+    def _publish_virtual_energy_discovery(
+        self,
+        sensor_id: str,
+        name: str,
+        sensor_type: str,
+        area: str | None = None,
+    ) -> None:
+        """Publish HA autodiscovery for a virtual energy sensor pair.
+
+        Args:
+            sensor_id: Base sensor identifier.
+            name: Human-readable sensor name.
+            sensor_type: Either 'power' or 'water'.
+            area: Optional area/room.
+        """
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
+
+        cfg = self._manager._config_helper
+        if sensor_type == "power":
+            pairs = [
+                (f"{sensor_id}_power", f"{name} Power", "W", "power", "measurement"),
+                (f"{sensor_id}_energy", f"{name} Energy", "Wh", "energy", "total_increasing"),
+            ]
+        elif sensor_type == "water":
+            pairs = [
+                (f"{sensor_id}_flow", f"{name} Flow Rate", "L/h", "volume_flow_rate", "measurement"),
+                (f"{sensor_id}_water", f"{name} Water", "L", "water", "total_increasing"),
+            ]
+        else:
+            return
+
+        for _id, _name, unit, dev_cls, state_cls in pairs:
+            payload = ha_virtual_energy_sensor_availabilty_message(
+                id=_id,
+                name=_name,
+                config_helper=cfg,
+                unit_of_measurement=unit,
+                device_class=dev_cls,
+                state_class=state_cls,
+                area=area,
+            )
+            self._manager.publish_ha_discovery(id=_id, ha_type=SENSOR, payload=payload)
+
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all sensors.
-        
-        Note: Most sensors send their autodiscovery during initialization.
-        This method can be used to resend all autodiscovery messages.
+
+        Resends discovery messages for every sensor managed by this subsystem.
         """
-        # Sensors typically send autodiscovery during configuration
-        # This is a placeholder for any sensors that need manual resend
-        pass
+        # Temperature sensors (I2C)
+        for sensor in self._temp_sensors:
+            payload = ha_sensor_temp_availabilty_message(
+                id=sensor.id,
+                name=sensor.name,
+                config_helper=self._manager._config_helper,
+                unit_of_measurement=getattr(sensor, 'unit_of_measurement', '°C'),
+            )
+            self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+
+        # INA219 power sensors
+        for ina in self._ina219_sensors:
+            for sub in ina.sensors.values():
+                payload = ha_sensor_ina_availabilty_message(
+                    id=sub.id,
+                    name=sub.name,
+                    config_helper=self._manager._config_helper,
+                    unit_of_measurement=sub.unit_of_measurement,
+                    device_class=sub.device_class,
+                )
+                self._manager.publish_ha_discovery(id=sub.id, ha_type=SENSOR, payload=payload)
+
+        # Dallas 1-Wire sensors
+        for sensor in self._dallas_sensors:
+            payload = ha_sensor_temp_availabilty_message(
+                id=sensor.id,
+                name=sensor.name,
+                config_helper=self._manager._config_helper,
+                unit_of_measurement=getattr(sensor, 'unit_of_measurement', '°C'),
+            )
+            self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+
+        # ADC sensors
+        for sensor in self._adc_sensors:
+            payload = ha_adc_sensor_availabilty_message(
+                id=sensor.id,
+                name=sensor.name,
+                config_helper=self._manager._config_helper,
+            )
+            self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+
+        # System sensors
+        from boneio.integration.homeassistant import ha_sensor_system_availabilty_message
+        _icon_map = {'disk_usage': 'mdi:harddisk', 'memory_usage': 'mdi:memory', 'cpu_usage': 'mdi:cpu-64-bit'}
+        for sensor in self._system_sensors:
+            payload = ha_sensor_system_availabilty_message(
+                id=sensor.id,
+                name=sensor.name,
+                config_helper=self._manager._config_helper,
+                unit_of_measurement='%',
+                icon=_icon_map.get(sensor.id, 'mdi:chip'),
+            )
+            self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+
+        # Virtual energy sensors
+        for sensor in self._virtual_energy_sensors:
+            self._publish_virtual_energy_discovery(
+                sensor_id=sensor.id,
+                name=sensor.name,
+                sensor_type=sensor._sensor_type,
+                area=getattr(sensor, 'area', None),
+            )

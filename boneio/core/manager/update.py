@@ -620,12 +620,16 @@ class UpdateManager(AsyncUpdater):
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for Update entity."""
+        from boneio.integration.homeassistant import ha_update_availability_message
+
         _LOGGER.debug("Sending HA autodiscovery for Update entity")
-        
-        self._manager.send_ha_autodiscovery(
+        payload = ha_update_availability_message(
             id="firmware",
             name="Update",
-            ha_type="update",
+            config_helper=self._manager._config_helper,
+        )
+        self._manager.publish_ha_discovery(
+            id="firmware", ha_type="update", payload=payload,
         )
         
         # Subscribe to command topic for install commands
