@@ -393,7 +393,7 @@ class RemoteDeviceManager:
         Args:
             device_id: ID of the remote device
             output_id: ID of the output/switch/light to control
-            action: Action to perform (ON, OFF, TOGGLE, BRIGHTNESS_UP, BRIGHTNESS_DOWN, SET_BRIGHTNESS)
+            action: Action to perform (ON, OFF, TOGGLE, BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE, BRIGHTNESS_DOWN_CYCLE, SET_BRIGHTNESS)
             brightness: Brightness level (0-255) - for ESPHome/WLED lights
             color_temp: Color temperature in mireds - only for ESPHome lights
             rgb: RGB color as [R, G, B] list or tuple (0-255 each) - for ESPHome/WLED lights

@@ -64,7 +64,7 @@ schema:
       action: ['output', 'output_over_mqtt', 'remote_output']
     forbidden_if:
       action: ['cover', 'mqtt', 'cover_over_mqtt', 'remote_cover']
-    allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET']
+    allowed: ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET']
     coerce: action_field
     default: TOGGLE
     case_insensitive: true
@@ -72,8 +72,10 @@ schema:
       label: If output action chosen then what action to perform.
       description: |
         For ESPHome lights, additional actions are available:
-        - BRIGHTNESS_UP: Increase brightness by 10%
-        - BRIGHTNESS_DOWN: Decrease brightness by 10%
+        - BRIGHTNESS_UP: Increase brightness by 10% (turns on at 10% if OFF)
+        - BRIGHTNESS_DOWN: Decrease brightness by 10% (turns off at 10%)
+        - BRIGHTNESS_UP_CYCLE: Like BRIGHTNESS_UP but wraps from 100% to 10%
+        - BRIGHTNESS_DOWN_CYCLE: Like BRIGHTNESS_DOWN but wraps from 10% to 100%
         - SET_BRIGHTNESS: Set specific brightness (requires brightness field)
         - CYCLE_COLOR: Cycle through a list of RGB colors on each press (requires colors field)
         - CYCLE_PRESET: Cycle through a list of effects/presets on each press (requires presets field)
