@@ -1,0 +1,37 @@
+/**
+ * Shared types for template configuration forms.
+ */
+
+export interface Area {
+  id: string;
+  name: string;
+}
+
+export interface AlarmZone {
+  name: string;
+  inputs: string[];
+  arm_modes: string[];
+  entry_delay: boolean;
+}
+
+export interface AlarmOutput {
+  id: string;
+  type: string;
+}
+
+export interface TemplateSubFormProps {
+  data: any;
+  onChange: (data: any) => void;
+  allOutputs: any[];
+  allAreas: Area[];
+  allSensors: any[];
+  allInputs: any[];
+}
+
+export interface TemplateFormProps extends TemplateSubFormProps {
+  schema?: any;
+}
+
+export const PLATFORM_OPTIONS = ['thermostat', 'alarm_control_panel'] as const;
+export const ARM_MODE_OPTIONS = ['armed_away', 'armed_home', 'armed_night'] as const;
+export const OUTPUT_TYPE_OPTIONS = ['siren', 'notification', 'light', 'custom'] as const;
