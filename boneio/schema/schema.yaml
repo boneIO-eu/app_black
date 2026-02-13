@@ -1252,6 +1252,166 @@ cover:
         meta:
           label: If you want you can disable discovering this input in HA.
 
+template:
+  type: list
+  required: False
+  meta:
+    label: "Template entities — composite virtual entities like thermostats and alarm panels."
+  schema:
+    type: dict
+    schema:
+      id: !include id.yaml
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name for the entity in Home Assistant.
+      platform:
+        type: string
+        required: True
+        allowed: ['thermostat', 'alarm_control_panel']
+        meta:
+          label: Template platform type.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/room for HA device grouping.
+      # --- Thermostat fields ---
+      sensor_id:
+        type: string
+        required: False
+        meta:
+          label: ID of the temperature sensor to read (thermostat only).
+      output_id:
+        type: string
+        required: False
+        meta:
+          label: ID of the output (relay) to control (thermostat only).
+      mode:
+        type: string
+        required: False
+        default: heat
+        allowed: ['heat', 'off']
+        meta:
+          label: Initial climate mode (thermostat only).
+      target_temperature:
+        type: float
+        required: False
+        default: 21.0
+        meta:
+          label: Initial target temperature in °C (thermostat only).
+      hysteresis:
+        type: float
+        required: False
+        default: 0.5
+        meta:
+          label: Temperature hysteresis in °C (thermostat only).
+      min_temperature:
+        type: float
+        required: False
+        default: 5.0
+        meta:
+          label: Minimum settable temperature (thermostat only).
+      max_temperature:
+        type: float
+        required: False
+        default: 35.0
+        meta:
+          label: Maximum settable temperature (thermostat only).
+      # --- Alarm panel fields ---
+      code:
+        type: string
+        required: False
+        default: REMOTE_CODE
+        meta:
+          label: Code type for alarm panel. Use REMOTE_CODE for HA-managed codes.
+      code_arm_required:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Whether code is required to arm the alarm.
+      arming_time:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Time before alarm is armed after arming command. Example 30s.
+      delay_time:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Entry delay time before alarm triggers. Example 30s.
+      trigger_time:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Duration the alarm stays triggered. Example 5min.
+      outputs:
+        type: list
+        required: False
+        meta:
+          label: List of outputs activated when alarm triggers.
+        schema:
+          type: dict
+          schema:
+            id:
+              type: string
+              required: True
+              meta:
+                label: Output relay ID.
+            type:
+              type: string
+              required: False
+              default: siren
+              allowed: ['siren', 'notification', 'light', 'custom']
+              meta:
+                label: Output type (siren, notification, light, custom).
+      zones:
+        type: list
+        required: False
+        meta:
+          label: Alarm zones — groups of inputs with arm mode assignments.
+        schema:
+          type: dict
+          schema:
+            name:
+              type: string
+              required: True
+              meta:
+                label: Zone name.
+            inputs:
+              type: list
+              required: True
+              meta:
+                label: List of input IDs monitored in this zone.
+            arm_modes:
+              type: list
+              required: True
+              meta:
+                label: Arm modes where this zone is active (armed_away, armed_home, armed_night).
+            entry_delay:
+              type: boolean
+              required: False
+              default: False
+              meta:
+                label: Whether this zone uses entry delay before triggering.
+
 ds2482:
   type: list
   required: False

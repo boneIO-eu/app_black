@@ -705,3 +705,127 @@ def ha_update_availability_message(
     _LOGGER.debug("Update HA discovery message: %s", result)
     
     return result
+
+
+def ha_climate_availability_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    modes: list[str] | None = None,
+    min_temp: float = 5.0,
+    max_temp: float = 35.0,
+    temp_step: float = 0.5,
+    area: str | None = None,
+    **kwargs,
+) -> HomeAssistantDiscoveryMessage:
+    """Create Climate (thermostat) availability topic for HA.
+
+    Args:
+        id: Entity ID.
+        name: Entity name.
+        config_helper: ConfigHelper instance.
+        modes: Supported HVAC modes (default: ["off", "heat"]).
+        min_temp: Minimum target temperature.
+        max_temp: Maximum target temperature.
+        temp_step: Temperature step size.
+        area: Optional area for sub-device grouping.
+        **kwargs: Additional fields.
+
+    Returns:
+        HA discovery message for Climate entity.
+    """
+    from boneio.const import CLIMATE
+
+    topic = config_helper.topic_prefix
+    if modes is None:
+        modes = ["off", "heat"]
+
+    msg = ha_availabilty_message(
+        device_type=CLIMATE,
+        entity_type="climate",
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        area=area,
+        **kwargs,
+    )
+
+    return {
+        **msg,
+        # State topics (JSON payload)
+        "mode_state_topic": f"{topic}/{CLIMATE}/{id}",
+        "mode_state_template": "{{ value_json.mode }}",
+        "current_temperature_topic": f"{topic}/{CLIMATE}/{id}",
+        "current_temperature_template": "{{ value_json.current_temperature }}",
+        "temperature_state_topic": f"{topic}/{CLIMATE}/{id}",
+        "temperature_state_template": "{{ value_json.target_temperature }}",
+        "action_topic": f"{topic}/{CLIMATE}/{id}",
+        "action_template": "{{ value_json.action }}",
+        # Command topics
+        "mode_command_topic": f"{topic}/cmd/{CLIMATE}/{id}/mode/set",
+        "temperature_command_topic": f"{topic}/cmd/{CLIMATE}/{id}/temperature/set",
+        # Configuration
+        "modes": modes,
+        "min_temp": min_temp,
+        "max_temp": max_temp,
+        "temp_step": temp_step,
+        "temperature_unit": "C",
+        "precision": 0.1,
+    }
+
+
+def ha_alarm_panel_availability_message(
+    id: str,
+    name: str,
+    config_helper: ConfigHelper,
+    supported_features: list[str] | None = None,
+    code: str = "REMOTE_CODE",
+    code_arm_required: bool = False,
+    area: str | None = None,
+    **kwargs,
+) -> HomeAssistantDiscoveryMessage:
+    """Create Alarm Control Panel availability topic for HA.
+
+    Args:
+        id: Entity ID.
+        name: Entity name.
+        config_helper: ConfigHelper instance.
+        supported_features: List of supported features.
+        code: Code type — 'REMOTE_CODE' for HA-managed codes.
+        code_arm_required: Whether code is required to arm.
+        area: Optional area for sub-device grouping.
+        **kwargs: Additional fields.
+
+    Returns:
+        HA discovery message for Alarm Control Panel entity.
+    """
+    from boneio.const import ALARM_CONTROL_PANEL
+
+    topic = config_helper.topic_prefix
+    if supported_features is None:
+        supported_features = ["arm_home", "arm_away", "arm_night", "trigger"]
+
+    msg = ha_availabilty_message(
+        device_type=ALARM_CONTROL_PANEL,
+        entity_type="alarm_control_panel",
+        config_helper=config_helper,
+        id=id,
+        name=name,
+        area=area,
+        **kwargs,
+    )
+
+    result: dict[str, Any] = {
+        **msg,
+        "state_topic": f"{topic}/alarm/{id}/state",
+        "command_topic": f"{topic}/cmd/alarm/{id}/set",
+        "supported_features": supported_features,
+        "code_arm_required": code_arm_required,
+        "code_disarm_required": True,
+        "code_trigger_required": False,
+    }
+
+    if code:
+        result["code"] = code
+
+    return result

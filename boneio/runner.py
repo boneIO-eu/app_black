@@ -37,6 +37,7 @@ from boneio.const import (
     PCF8575,
     PORT,
     SENSOR,
+    TEMPLATE,
     TOPIC_PREFIX,
     USERNAME,
 )
@@ -66,6 +67,7 @@ config_modules = [
     {"name": OLED, "default": {}},
     {"name": DALLAS, "default": None},
     {"name": OUTPUT_GROUP, "default": []},
+    {"name": TEMPLATE, "default": []},
 ]
 
 

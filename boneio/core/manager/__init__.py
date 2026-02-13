@@ -7,6 +7,7 @@ This module provides the main Manager class that coordinates:
 - Sensors (temperature, power, analog)
 - Modbus (RTU/TCP devices)
 - Display (OLED)
+- Templates (thermostat, alarm panel)
 """
 
 from boneio.core.manager.covers import CoverManager
@@ -15,6 +16,7 @@ from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
+from boneio.core.manager.templates import TemplateManager
 
 __all__ = [
     "Manager",
@@ -24,6 +26,7 @@ __all__ = [
     "SensorManager",
     "ModbusManager",
     "DisplayManager",
+    "TemplateManager",
 ]
 
 # Import Manager from separate file to avoid circular imports

@@ -39,6 +39,7 @@ from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
@@ -112,6 +113,7 @@ class Manager:
         oled: dict[str, Any] = {},
         adc: list[dict] | None = None,
         cover: list[dict] = [],
+        template: list[dict] = [],
         remote_devices: list[dict] = [],
         web_active: bool = False,
         web_port: int = 8090,
@@ -208,6 +210,12 @@ class Manager:
         # 9. UpdateManager (checks for software updates and publishes to HA)
         self.update_manager = UpdateManager(
             manager=self,
+        )
+        
+        # 10. TemplateManager (thermostats, alarm panels, etc.)
+        self.templates = TemplateManager(
+            manager=self,
+            template_config=template,
         )
         
         # Configure virtual energy sensors (must be after outputs are initialized)
@@ -330,6 +338,7 @@ class Manager:
         await self.modbus.send_ha_autodiscovery()
         await self.display.send_ha_autodiscovery()
         await self.update_manager.send_ha_autodiscovery()
+        await self.templates.send_ha_autodiscovery()
 
     def publish_ha_discovery(
         self,
@@ -964,11 +973,14 @@ class Manager:
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established.
         
-        Sends online status to MQTT.
+        Sends online status to MQTT and starts template MQTT subscriptions.
         """
         _LOGGER.info("Sending online state.")
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
+        
+        # Start template entities (subscribe to MQTT command topics)
+        await self.templates.start()
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving MQTT messages.
