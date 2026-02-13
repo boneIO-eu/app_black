@@ -9,3 +9,5 @@ class LogEntry(BaseModel):
 
 class LogsResponse(BaseModel):
     logs: list[LogEntry]
+    has_more: bool = False
+    source: str = "standalone"

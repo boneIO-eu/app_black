@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from '@/api/axios';
-import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaDiscord, FaBug } from 'react-icons/fa';
+import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
 import { useTranslation } from '../hooks/useTranslation';
 
 // Create formatter once, not on every function call
@@ -38,12 +38,15 @@ const LOG_LEVELS: { value: string; label: string; color: string; activeColor: st
   { value: '7', label: 'DEBUG', color: 'var(--log-debug)', activeColor: 'transparent' },
 ];
 
+const LOGS_PAGE_SIZE = 200;
+
 export default function LogViewer() {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [timeRange, setTimeRange] = useState('-15m');
   const [isLoading, setIsLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [isTopHalf, setIsTopHalf] = useState(true);
@@ -56,18 +59,76 @@ export default function LogViewer() {
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
   const [debugActive, setDebugActive] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
+  const [logSource, setLogSource] = useState<'systemd' | 'standalone' | null>(null);
+  const [serverPriority, setServerPriority] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [dateFilterOpen, setDateFilterOpen] = useState(false);
+  const dateFilterRef = useRef<HTMLDivElement>(null);
+  const isSystemd = logSource === 'systemd';
+
+  /**
+   * Build query string for log API requests with current filter state.
+   */
+  const buildLogParams = useCallback((extra: Record<string, string> = {}) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(LOGS_PAGE_SIZE));
+    if (serverPriority) params.set('priority', serverPriority);
+    if (dateFrom) params.set('since', dateFrom);
+    if (dateTo) params.set('until', dateTo);
+    for (const [k, v] of Object.entries(extra)) {
+      if (v) params.set(k, v);
+    }
+    return params.toString();
+  }, [serverPriority, dateFrom, dateTo]);
 
   const fetchLogs = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`/api/logs?since=${timeRange}`);
+      const response = await axios.get(`/api/logs?${buildLogParams()}`, { timeout: 30000 });
       setLogs(response.data.logs);
+      setHasMore(response.data.has_more);
+      setLogSource(response.data.source || 'standalone');
     } catch (error) {
       console.error('Error fetching logs:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [timeRange]);
+  }, [buildLogParams]);
+
+  const fetchOlderLogs = useCallback(async () => {
+    if (isLoadingMore || !hasMore || logs.length === 0) return;
+    const oldestTimestamp = logs[0]?.timestamp;
+    if (!oldestTimestamp) return;
+
+    try {
+      setIsLoadingMore(true);
+      const container = logContainerRef.current;
+      const prevScrollHeight = container?.scrollHeight || 0;
+
+      const response = await axios.get(
+        `/api/logs?${buildLogParams({ before: oldestTimestamp })}`,
+        { timeout: 30000 }
+      );
+      const olderLogs: LogEntry[] = response.data.logs;
+      setHasMore(response.data.has_more);
+
+      if (olderLogs.length > 0) {
+        setLogs(prev => [...olderLogs, ...prev]);
+        // Preserve scroll position after prepending
+        requestAnimationFrame(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop += newScrollHeight - prevScrollHeight;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching older logs:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, logs, buildLogParams]);
 
   const fetchLogLevel = useCallback(async () => {
     try {
@@ -94,18 +155,23 @@ export default function LogViewer() {
   useEffect(() => {
     fetchLogs();
     fetchLogLevel();
-    
+  }, []);
+
+  useEffect(() => {
     if (autoRefresh) {
       const interval = setInterval(fetchLogs, 5000);
       return () => clearInterval(interval);
     }
-  }, [fetchLogs, fetchLogLevel, autoRefresh]);
+  }, [fetchLogs, autoRefresh]);
 
-  // Close module dropdown when clicking outside + stop drag selection on global mouseup
+  // Close dropdowns when clicking outside + stop drag selection on global mouseup
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(e.target as Node)) {
         setModuleDropdownOpen(false);
+      }
+      if (dateFilterRef.current && !dateFilterRef.current.contains(e.target as Node)) {
+        setDateFilterOpen(false);
       }
     };
     const handleGlobalMouseUp = () => setIsSelecting(false);
@@ -162,17 +228,38 @@ export default function LogViewer() {
     });
   }, [logs, selectedModules, selectedLevels]);
 
+  // Clear selection when filters change (indices become stale)
+  useEffect(() => {
+    setSelectedLogIndices(new Set());
+    setSelectionStart(null);
+  }, [filteredLogs]);
+
   const toggleLevel = (level: string) => {
-    setSelectedLevels(prev => {
-      const next = new Set(prev);
-      if (next.has(level)) {
-        next.delete(level);
-      } else {
-        next.add(level);
-      }
-      return next;
-    });
+    if (isSystemd) {
+      // Server-side: toggle priority filter and re-fetch
+      // journalctl --priority shows entries at that level and above (more critical)
+      // Map: '3' = err+crit+alert+emerg, '4' = warning+above, '6' = info+above, '7' = debug+above (all)
+      setServerPriority(prev => prev === level ? null : level);
+    } else {
+      // Client-side: toggle local filter
+      setSelectedLevels(prev => {
+        const next = new Set(prev);
+        if (next.has(level)) {
+          next.delete(level);
+        } else {
+          next.add(level);
+        }
+        return next;
+      });
+    }
   };
+
+  // Re-fetch when server-side priority filter changes
+  useEffect(() => {
+    if (logSource !== null) {
+      fetchLogs();
+    }
+  }, [serverPriority]);
 
   const toggleModule = (mod: string) => {
     setSelectedModules(prev => {
@@ -235,6 +322,11 @@ export default function LogViewer() {
       
       // Check if we're in the top half of the content
       setIsTopHalf(scrollTop < (scrollHeight - clientHeight) / 2);
+
+      // Load older logs when scrolled near top
+      if (scrollTop < 200 && hasMore && !isLoadingMore) {
+        fetchOlderLogs();
+      }
     }
   };
 
@@ -282,6 +374,7 @@ export default function LogViewer() {
   const getSelectedLogsText = () => {
     return Array.from(selectedLogIndices)
       .sort((a, b) => a - b)
+      .filter(index => index < filteredLogs.length)
       .map(index => {
         const log = filteredLogs[index];
         return `${formatTimestamp(log.timestamp)} ${log.message}`;
@@ -332,19 +425,6 @@ export default function LogViewer() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100">
       <div className="bg-base-200 p-4 border-b border-base-content/10 flex items-center gap-4">
-        <select 
-          value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value)}
-          className="select select-sm"
-        >
-          <option value="-15m">{t('log_viewer.last_15_minutes')}</option>
-          <option value="-1h">{t('log_viewer.last_hour')}</option>
-          <option value="-6h">{t('log_viewer.last_6_hours')}</option>
-          <option value="-12h">{t('log_viewer.last_12_hours')}</option>
-          <option value="-1d">{t('log_viewer.last_day')}</option>
-          <option value="-7d">{t('log_viewer.last_week')}</option>
-        </select>
-        
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -362,22 +442,75 @@ export default function LogViewer() {
             {autoScroll ? t('log_viewer.auto_scroll_on') : t('log_viewer.auto_scroll_off')}
           </button>
 
-        <div className="flex items-center gap-1">
-          {LOG_LEVELS.map(level => (
-            <button
-              key={level.value}
-              onClick={() => toggleLevel(level.value)}
-              className={`btn btn-xs font-mono ${selectedLevels.has(level.value) ? '' : 'btn-ghost opacity-50'}`}
-              style={selectedLevels.has(level.value) ? {
-                color: level.color,
-                borderColor: level.color,
-                backgroundColor: level.activeColor,
-              } : {}}
-              title={level.label}
-            >
-              {level.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-1" title={!isSystemd && logSource !== null ? t('log_viewer.filter_client_only') : ''}>
+          {LOG_LEVELS.map(level => {
+            const isActive = isSystemd
+              ? serverPriority === level.value
+              : selectedLevels.has(level.value);
+            return (
+              <button
+                key={level.value}
+                onClick={() => toggleLevel(level.value)}
+                className={`btn btn-xs font-mono ${isActive ? '' : 'btn-ghost opacity-50'}`}
+                style={isActive ? {
+                  color: level.color,
+                  borderColor: level.color,
+                  backgroundColor: level.activeColor,
+                } : {}}
+                title={isSystemd
+                  ? `${level.label} (${t('log_viewer.filter_server')})`
+                  : logSource === null
+                    ? level.label
+                    : `${level.label} (${t('log_viewer.filter_client_only')})`
+                }
+              >
+                {level.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative" ref={dateFilterRef}>
+          <button
+            onClick={() => setDateFilterOpen(!dateFilterOpen)}
+            className={`btn btn-sm gap-1 ${dateFrom || dateTo ? 'btn-primary' : 'btn-ghost'}`}
+            title={t('log_viewer.date_range')}
+          >
+            <FaCalendarAlt className="w-3 h-3" />
+            {dateFrom || dateTo ? t('log_viewer.date_active') : t('log_viewer.date_range')}
+          </button>
+          {dateFilterOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-base-100 border border-base-content/20 rounded-lg shadow-xl p-3 w-72 flex flex-col gap-2">
+              <label className="text-xs font-semibold text-base-content/70">{t('log_viewer.date_from')}</label>
+              <input
+                type="datetime-local"
+                className="input input-sm input-bordered w-full"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+              <label className="text-xs font-semibold text-base-content/70">{t('log_viewer.date_to')}</label>
+              <input
+                type="datetime-local"
+                className="input input-sm input-bordered w-full"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+              <div className="flex gap-1 mt-1">
+                <button
+                  onClick={() => { fetchLogs(); setDateFilterOpen(false); }}
+                  className="btn btn-sm btn-primary flex-1"
+                >
+                  {t('log_viewer.date_apply')}
+                </button>
+                <button
+                  onClick={() => { setDateFrom(''); setDateTo(''); }}
+                  className="btn btn-sm btn-ghost flex-1"
+                >
+                  {t('log_viewer.clear')}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="relative" ref={moduleDropdownRef}>
@@ -427,15 +560,26 @@ export default function LogViewer() {
           )}
         </div>
 
-        <button
-          onClick={toggleDebug}
-          disabled={debugLoading}
-          className={`btn btn-sm gap-1 ${debugActive ? 'btn-warning' : 'btn-ghost'}`}
-          title={debugActive ? t('log_viewer.debug_disable') : t('log_viewer.debug_enable')}
-        >
-          <FaBug className={`w-3 h-3 ${debugLoading ? 'animate-pulse' : ''}`} />
-          {debugActive ? t('log_viewer.debug_on') : t('log_viewer.debug_off')}
-        </button>
+        <div className="relative group">
+          <button
+            onClick={toggleDebug}
+            disabled={debugLoading}
+            className={`btn btn-sm gap-1 ${debugActive ? 'btn-warning' : 'btn-ghost'}`}
+            title={debugActive ? t('log_viewer.debug_disable') : t('log_viewer.debug_enable')}
+          >
+            <FaBug className={`w-3 h-3 ${debugLoading ? 'animate-pulse' : ''}`} />
+            {debugActive ? t('log_viewer.debug_on') : t('log_viewer.debug_off')}
+          </button>
+          {debugActive && (
+            <div className="absolute top-full left-0 mt-1 z-50 hidden group-hover:block bg-warning text-warning-content text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap">
+              {t('log_viewer.debug_warning')}
+            </div>
+          )}
+        </div>
+
+        <span className="text-xs text-base-content/50 ml-auto">
+          {t('log_viewer.log_count', { count: logs.length })}
+        </span>
 
         <button
           onClick={fetchLogs}
@@ -451,6 +595,28 @@ export default function LogViewer() {
         onScroll={handleScroll}
         className="flex-1 overflow-auto p-4 font-mono text-sm relative"
       >
+        {isLoading && logs.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <span className="loading loading-spinner loading-lg text-primary"></span>
+            <span className="text-sm text-base-content/50">{t('log_viewer.loading')}</span>
+          </div>
+        )}
+        {isLoadingMore && (
+          <div className="flex justify-center py-2">
+            <span className="loading loading-spinner loading-sm"></span>
+            <span className="ml-2 text-sm text-base-content/50">{t('log_viewer.loading_older')}</span>
+          </div>
+        )}
+        {hasMore && !isLoadingMore && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={fetchOlderLogs}
+              className="btn btn-ghost btn-xs text-base-content/50"
+            >
+              {t('log_viewer.load_more')}
+            </button>
+          </div>
+        )}
         <div className="space-y-1">
           {filteredLogs.map((log, index) => (
             <div 

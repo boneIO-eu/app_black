@@ -1156,16 +1156,13 @@
     "reset": "Resetuj sortowanie"
   },
   "log_viewer": {
-    "last_15_minutes": "Ostatnie 15 minut",
-    "last_hour": "Ostatnia godzina",
-    "last_6_hours": "Ostatnie 6 godzin",
-    "last_12_hours": "Ostatnie 12 godzin",
-    "last_day": "Ostatni dzień",
-    "last_week": "Ostatni tydzień",
     "auto_refresh": "Auto-odświeżanie",
+    "loading": "Ładowanie logów...",
+    "loading_older": "Ładowanie starszych logów...",
+    "load_more": "Załaduj starsze logi",
     "auto_scroll_on": "Auto-scroll WŁ",
     "auto_scroll_off": "Auto-scroll WYŁ",
-    "modules": "Moduły",
+    "modules": "Filtr modułów",
     "modules_count_one": "{{count}} moduł",
     "modules_count_other": "{{count}} moduły",
     "select_all": "Zaznacz wszystko",
@@ -1181,7 +1178,16 @@
     "debug_enable": "Włącz logi debug tymczasowo",
     "debug_disable": "Wyłącz logi debug (przywróć oryginalny poziom)",
     "debug_on": "DEBUG WŁ",
-    "debug_off": "DEBUG"
+    "debug_off": "DEBUG",
+    "debug_warning": "Zalecamy nie zostawiać włączonych DEBUG logów na dłuższy czas",
+    "log_count": "{{count}} logów",
+    "filter_server": "filtr po stronie serwera",
+    "filter_client_only": "tylko filtr lokalny",
+    "date_range": "Zakres dat",
+    "date_active": "Filtr dat",
+    "date_from": "Od",
+    "date_to": "Do",
+    "date_apply": "Zastosuj"
   }
 }
   

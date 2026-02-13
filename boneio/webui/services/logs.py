@@ -100,12 +100,39 @@ def strip_ansi_codes(text: str) -> str:
     return ansi_escape.sub('', text)
 
 
-async def _run_journalctl(service_name: str, since: str) -> bytes | None:
-    """Run journalctl for a specific service name.
+def _timestamp_to_journalctl(ts: str) -> str:
+    """Convert a microsecond or ISO timestamp to journalctl-compatible format.
+    
+    Args:
+        ts: Timestamp string (microseconds or ISO format).
+        
+    Returns:
+        Date string in 'YYYY-MM-DD HH:MM:SS' format.
+    """
+    try:
+        us = int(ts)
+        return datetime.fromtimestamp(us / 1_000_000).strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError, OSError):
+        return ts
+
+
+async def _run_journalctl(
+    service_name: str,
+    limit: int = 200,
+    before: str | None = None,
+    priority: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> bytes | None:
+    """Run journalctl for a specific service name with cursor-based pagination.
     
     Args:
         service_name: Systemd unit name (e.g., 'BoneIO', 'boneio').
-        since: Time specification for --since flag.
+        limit: Maximum number of entries to return.
+        before: Microsecond timestamp cursor — return entries older than this.
+        priority: journalctl priority filter (e.g. '3' for err, '0..4' for range).
+        since: Start of date range filter (ISO or microsecond timestamp).
+        until: End of date range filter (ISO or microsecond timestamp).
         
     Returns:
         stdout bytes if logs found, None otherwise.
@@ -117,9 +144,25 @@ async def _run_journalctl(service_name: str, since: str) -> bytes | None:
         "--no-hostname",
         "--output=json",
         "--output-fields=MESSAGE,__REALTIME_TIMESTAMP,PRIORITY",
-        "--no-tail",
-        "--since", since,
+        "--reverse",
+        "-n", str(limit),
     ]
+    if priority:
+        cmd.extend(["--priority", priority])
+    # Date range takes precedence over cursor-based 'before'
+    if since:
+        cmd.extend(["--since", _timestamp_to_journalctl(since)])
+    if until:
+        cmd.extend(["--until", _timestamp_to_journalctl(until)])
+    elif before:
+        # Subtract 1 second to avoid returning the same boundary entry
+        try:
+            before_us = int(before)
+            before_dt = datetime.fromtimestamp(before_us / 1_000_000) - timedelta(seconds=1)
+            before_str = before_dt.strftime("%Y-%m-%d %H:%M:%S")
+        except (ValueError, TypeError, OSError):
+            before_str = before
+        cmd.extend(["--until", before_str])
     try:
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -136,32 +179,44 @@ async def _run_journalctl(service_name: str, since: str) -> bytes | None:
     return None
 
 
-async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
+async def get_systemd_logs(
+    limit: int = 200,
+    before: str | None = None,
+    priority: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> tuple[list[LogEntry], bool]:
     """
-    Get logs from journalctl for boneio service.
+    Get logs from journalctl for boneio service with cursor-based pagination.
     
     Tries multiple service name variants (BoneIO, boneio) since
     the systemd unit name is case-sensitive.
     
     Args:
-        since: Time specification for log retrieval (e.g., "-15m", "-1h").
+        limit: Maximum number of entries to return.
+        before: Microsecond timestamp cursor — return entries older than this.
+        priority: journalctl priority filter (e.g. '3' for err, '0..4' for range).
+        since: Start of date range filter.
+        until: End of date range filter.
         
     Returns:
-        List of LogEntry objects.
+        Tuple of (list of LogEntry objects, has_more flag).
     """
-    if not since:
-        since = "-15m"
+    # Fetch one extra to detect if there are more entries
+    fetch_limit = limit + 1
     
     # Try multiple service names — systemd unit name is case-sensitive
     service_names = ["BoneIO", "boneio"]
     
     for service_name in service_names:
-        stdout = await _run_journalctl(service_name, since)
+        stdout = await _run_journalctl(
+            service_name, fetch_limit, before, priority, since, until
+        )
         if stdout:
             break
     else:
         _LOGGER.warning("No logs found for any boneio service variant: %s", service_names)
-        return []
+        return [], False
     raw_log = json.loads(b'[' + stdout.replace(b'\n', b',')[:-1] + b']')
 
     log_entries = []
@@ -183,42 +238,77 @@ async def get_systemd_logs(since: str = "-15m") -> list[LogEntry]:
             )
         )
 
-    return log_entries
+    # --reverse gives newest first, we want chronological order
+    log_entries.reverse()
+
+    has_more = len(log_entries) > limit
+    if has_more:
+        # Remove the extra entry (oldest one, now first after reverse)
+        log_entries = log_entries[1:]
+
+    return log_entries, has_more
 
 
-def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
+def _parse_standalone_timestamp(ts: str) -> datetime | None:
+    """Parse a timestamp string from standalone log file or API parameter.
+    
+    Args:
+        ts: Timestamp string in ISO or 'YYYY-MM-DD HH:MM:SS' format.
+        
+    Returns:
+        datetime object or None if parsing fails.
+    """
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def get_standalone_logs(
+    limit: int = 200,
+    before: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> tuple[list[LogEntry], bool]:
     """
     Get logs from log file when running standalone (not as systemd service).
     
+    Uses cursor-based pagination. Returns the last `limit` entries
+    that are older than `before` timestamp, optionally filtered by date range.
+    
     Args:
-        since: Time specification for filtering logs.
         limit: Maximum number of log entries to return.
+        before: Timestamp cursor — return entries older than this.
+        since: Start of date range filter.
+        until: End of date range filter.
         
     Returns:
-        List of LogEntry objects.
+        Tuple of (list of LogEntry objects, has_more flag).
     """
     log_file = Path("/tmp/boneio.log")
     if not log_file.exists():
-        return []
+        return [], False
 
-    since_time = None
-    if since:
-        if since[-1] in ["h", "d"]:
-            amount = int(since[:-1])
-            unit = since[-1]
-            delta = timedelta(hours=amount) if unit == "h" else timedelta(days=amount)
-            since_time = datetime.now() - delta
-        else:
-            try:
-                since_time = datetime.fromisoformat(since)
-            except ValueError:
-                since_time = None
+    before_time = _parse_standalone_timestamp(before) if before else None
+    since_time = _parse_standalone_timestamp(since) if since else None
+    until_time = _parse_standalone_timestamp(until) if until else None
 
-    log_entries = []
+    level_map = {
+        "DEBUG": "7",
+        "INFO": "6",
+        "WARNING": "4",
+        "ERROR": "3",
+        "CRITICAL": "2",
+    }
+
+    all_entries = []
     try:
         with open(log_file) as f:
-            lines = f.readlines()[-limit:]
-            for line in lines:
+            for line in f:
                 try:
                     parts = line.split(" ", 3)
                     if len(parts) >= 4:
@@ -226,25 +316,21 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
                         level = parts[2]
                         message = parts[3].strip()
 
-                        level_map = {
-                            "DEBUG": "7",
-                            "INFO": "6",
-                            "WARNING": "4",
-                            "ERROR": "3",
-                            "CRITICAL": "2",
-                        }
+                        try:
+                            log_time = datetime.strptime(
+                                timestamp_str, "%Y-%m-%d %H:%M:%S"
+                            )
+                        except ValueError:
+                            continue
 
-                        if since_time:
-                            try:
-                                log_time = datetime.strptime(
-                                    timestamp_str, "%Y-%m-%d %H:%M:%S"
-                                )
-                                if log_time < since_time:
-                                    continue
-                            except ValueError:
-                                continue
+                        if before_time and log_time >= before_time:
+                            continue
+                        if since_time and log_time < since_time:
+                            continue
+                        if until_time and log_time > until_time:
+                            continue
 
-                        log_entries.append(
+                        all_entries.append(
                             LogEntry(
                                 timestamp=timestamp_str,
                                 message=message,
@@ -254,10 +340,12 @@ def get_standalone_logs(since: str, limit: int) -> list[LogEntry]:
                 except (IndexError, ValueError):
                     continue
     except Exception as e:
-        _LOGGER.warning(f"Error reading log file: {e}")
-        return []
+        _LOGGER.warning("Error reading log file: %s", e)
+        return [], False
 
-    return log_entries
+    # Take last `limit` entries (newest)
+    has_more = len(all_entries) > limit
+    return all_entries[-limit:], has_more
 
 
 def is_running_as_service() -> bool:

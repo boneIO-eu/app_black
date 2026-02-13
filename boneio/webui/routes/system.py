@@ -51,26 +51,41 @@ def get_config_helper():
 
 
 @router.get("/logs")
-async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
+async def get_logs(
+    limit: int = 200,
+    before: str | None = None,
+    priority: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> LogsResponse:
     """
-    Get logs from either systemd journal or standalone log file.
+    Get logs with cursor-based pagination and optional filtering.
     
     Args:
-        since: Time specification for log retrieval.
-        limit: Maximum number of log entries.
+        limit: Maximum number of log entries to return.
+        before: Timestamp cursor — return entries older than this.
+        priority: Log level filter (systemd only, e.g. '3' for err, '0..4' for range).
+        since: Start of date range filter (ISO or microsecond timestamp).
+        until: End of date range filter (ISO or microsecond timestamp).
         
     Returns:
-        LogsResponse with list of log entries.
+        LogsResponse with list of log entries, has_more flag, and source.
     """
     try:
         if is_running_as_service():
-            log_entries = await get_systemd_logs(since)
+            log_entries, has_more = await get_systemd_logs(
+                limit, before, priority, since, until
+            )
             if log_entries:
-                return LogsResponse(logs=log_entries)
+                return LogsResponse(
+                    logs=log_entries, has_more=has_more, source="systemd"
+                )
 
-        log_entries = get_standalone_logs(since, limit)
+        log_entries, has_more = get_standalone_logs(limit, before, since, until)
         if log_entries:
-            return LogsResponse(logs=log_entries)
+            return LogsResponse(
+                logs=log_entries, has_more=has_more, source="standalone"
+            )
 
         return LogsResponse(
             logs=[
@@ -83,7 +98,7 @@ async def get_logs(since: str = "", limit: int = 100) -> LogsResponse:
         )
 
     except Exception as e:
-        _LOGGER.warning(f"Error fetching logs: {str(e)}")
+        _LOGGER.warning("Error fetching logs: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
