@@ -718,6 +718,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     self._client.light_command(
                         light_key, state=True, transition_length=transition
                     )
+                    new_brightness = light_state.get("brightness", 0.1)
                 else:
                     current_brightness = light_state.get("brightness", 0.5)
                     new_brightness = min(1.0, current_brightness + 0.1)
@@ -727,6 +728,10 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         brightness=new_brightness,
                         transition_length=transition
                     )
+                # Optimistic update so next rapid command reads correct value
+                if light_id in self._light_states:
+                    self._light_states[light_id]["state"] = True
+                    self._light_states[light_id]["brightness"] = new_brightness
                 
             elif action_upper == "BRIGHTNESS_DOWN":
                 # Decrease brightness by 10%
@@ -744,6 +749,9 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     brightness=new_brightness,
                     transition_length=transition
                 )
+                # Optimistic update so next rapid command reads correct value
+                if light_id in self._light_states:
+                    self._light_states[light_id]["brightness"] = new_brightness
                 
             else:
                 _LOGGER.error("Invalid light action: %s", action)
