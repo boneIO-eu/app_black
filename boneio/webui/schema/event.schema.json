@@ -67,8 +67,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -297,8 +297,8 @@
           },
           "double_click_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -307,8 +307,8 @@
           },
           "long_press_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -317,8 +317,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -505,8 +505,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -552,8 +552,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -737,8 +737,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -784,8 +784,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -969,8 +969,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -1016,8 +1016,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -1201,8 +1201,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -1248,8 +1248,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -1433,8 +1433,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -1480,8 +1480,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -1665,8 +1665,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -1712,8 +1712,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -1897,8 +1897,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -1944,8 +1944,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",

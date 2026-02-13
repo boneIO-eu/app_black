@@ -13,6 +13,7 @@ import AreasForm from './AreasForm';
 import SensorForm from './SensorForm';
 import VirtualEnergySensorForm from './VirtualEnergySensorForm';
 import RemoteDeviceForm from './RemoteDeviceForm';
+import TemplateForm from './TemplateForm';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import ModbusDeviceTable from './tables/ModbusDeviceTable';
 import SensorTable from './tables/SensorTable';
 import VirtualEnergySensorTable from './tables/VirtualEnergySensorTable';
 import RemoteDeviceTable from './tables/RemoteDeviceTable';
+import TemplateTable from './tables/TemplateTable';
 import GenericTable from './tables/GenericTable';
 
 interface Area {
@@ -42,7 +44,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -437,6 +439,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         errorMessage = t('array_table_widget.remote_device_fields_required');
       }
       console.log('Remote device validation:', dataToSave, 'isValid:', isValid);
+    } else if (sectionType === 'template') {
+      const hasId = !!dataToSave.id;
+      const hasPlatform = !!dataToSave.platform;
+      if (dataToSave.platform === 'thermostat') {
+        isValid = hasId && hasPlatform && !!dataToSave.sensor_id && !!dataToSave.output_id;
+        errorMessage = t('template.thermostat_fields_required');
+      } else if (dataToSave.platform === 'alarm_control_panel') {
+        isValid = hasId && hasPlatform;
+        errorMessage = t('template.alarm_fields_required');
+      } else {
+        isValid = hasId && hasPlatform;
+        errorMessage = t('template.platform_required');
+      }
     } else {
       // For other sections, allow saving (or add specific validation)
       isValid = true;
@@ -974,6 +989,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
       case 'remote_devices':
         return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={handleAddFromDiscovery} />;
+      case 'template':
+        return <TemplateTable {...commonProps} allAreas={allAreas} />;
       default:
         return <GenericTable {...commonProps} />;
     }
@@ -1190,6 +1207,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                   <RemoteDeviceForm
                     data={editingItem}
                     onChange={setEditingItem}
+                  />
+                ) : sectionType === 'template' ? (
+                  <TemplateForm
+                    data={editingItem}
+                    onChange={setEditingItem}
+                    schema={schema}
+                    allOutputs={allOutputs}
+                    allAreas={allAreas}
+                    allSensors={allSensors}
+                    allInputs={[...(allBinarySensors || []), ...(allEvents || [])]}
                   />
                 ) : (
                   <div className="alert alert-warning">

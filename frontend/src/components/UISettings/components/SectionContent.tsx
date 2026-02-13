@@ -74,7 +74,7 @@ function ArraySectionContent({
       uiSchema={activeSectionData.uiSchema.items}
       onChange={(newData) => onSectionChange(activeSection, newData)}
       schema={activeSectionData.normalizedSchema}
-      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'other'}
+      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'other'}
       deviceType={formData.boneio?.device_type}
       allBinarySensors={formData.binary_sensor || []}
       allEvents={formData.event || []}

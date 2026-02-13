@@ -62,8 +62,8 @@
           },
           "bounce_time": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -515,8 +515,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -562,8 +562,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -747,8 +747,8 @@
                     },
                     "transition": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "description": "Transition Time",
@@ -794,8 +794,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",

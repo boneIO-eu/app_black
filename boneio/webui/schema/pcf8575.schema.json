@@ -28,8 +28,8 @@
           },
           "init_sleep": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "default": "0s",

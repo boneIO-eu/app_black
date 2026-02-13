@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "template": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for the entity in Home Assistant.",
+            "title": "Name"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "thermostat",
+              "alarm_control_panel"
+            ],
+            "examples": [
+              "thermostat"
+            ],
+            "description": "Template platform type.",
+            "title": "Platform"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/room for HA device grouping.",
+            "title": "Area"
+          },
+          "sensor_id": {
+            "type": "string",
+            "description": "ID of the temperature sensor to read (thermostat only).",
+            "title": "Sensor id"
+          },
+          "output_id": {
+            "type": "string",
+            "description": "ID of the output (relay) to control (thermostat only).",
+            "title": "Output id"
+          },
+          "mode": {
+            "type": "string",
+            "default": "heat",
+            "enum": [
+              "heat",
+              "off"
+            ],
+            "examples": [
+              "heat"
+            ],
+            "description": "Initial climate mode (thermostat only).",
+            "title": "Mode"
+          },
+          "target_temperature": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "default": 21.0,
+            "description": "Initial target temperature in \u00b0C (thermostat only).",
+            "title": "Target temperature"
+          },
+          "hysteresis": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "default": 0.5,
+            "description": "Temperature hysteresis in \u00b0C (thermostat only).",
+            "title": "Hysteresis"
+          },
+          "min_temperature": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "default": 5.0,
+            "description": "Minimum settable temperature (thermostat only).",
+            "title": "Min temperature"
+          },
+          "max_temperature": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "default": 35.0,
+            "description": "Maximum settable temperature (thermostat only).",
+            "title": "Max temperature"
+          },
+          "code": {
+            "type": "string",
+            "default": "REMOTE_CODE",
+            "description": "Code type for alarm panel. Use REMOTE_CODE for HA-managed codes.",
+            "title": "Code"
+          },
+          "code_arm_required": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Whether code is required to arm the alarm.",
+            "title": "Code arm required"
+          },
+          "arming_time": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Time before alarm is armed after arming command. Example 30s.",
+            "title": "Arming time"
+          },
+          "delay_time": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Entry delay time before alarm triggers. Example 30s.",
+            "title": "Delay time"
+          },
+          "trigger_time": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Duration the alarm stays triggered. Example 5min.",
+            "title": "Trigger time"
+          },
+          "outputs": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Output relay ID.",
+                  "title": "Id"
+                },
+                "type": {
+                  "type": "string",
+                  "default": "siren",
+                  "enum": [
+                    "siren",
+                    "notification",
+                    "light",
+                    "custom"
+                  ],
+                  "examples": [
+                    "siren"
+                  ],
+                  "description": "Output type (siren, notification, light, custom).",
+                  "title": "Type"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            },
+            "description": "List of outputs activated when alarm triggers.",
+            "title": "Outputs"
+          },
+          "zones": {
+            "type": [
+              "string",
+              "array"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "object"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Zone name.",
+                  "title": "Name"
+                },
+                "inputs": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "description": "List of input IDs monitored in this zone.",
+                  "title": "Inputs"
+                },
+                "arm_modes": {
+                  "type": [
+                    "string",
+                    "array"
+                  ],
+                  "description": "Arm modes where this zone is active (armed_away, armed_home, armed_night).",
+                  "title": "Arm modes"
+                },
+                "entry_delay": {
+                  "oneOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "yes",
+                        "no",
+                        "true",
+                        "false",
+                        "on",
+                        "off"
+                      ],
+                      "x-yaml-boolean": true
+                    }
+                  ],
+                  "default": false,
+                  "description": "Whether this zone uses entry delay before triggering.",
+                  "title": "Entry delay"
+                }
+              },
+              "required": [
+                "name",
+                "inputs",
+                "arm_modes"
+              ]
+            },
+            "description": "Alarm zones \u2014 groups of inputs with arm mode assignments.",
+            "title": "Zones"
+          }
+        },
+        "required": [
+          "platform"
+        ]
+      },
+      "description": "Template entities \u2014 composite virtual entities like thermostats and alarm panels.",
+      "title": "Template"
+    }
+  }
+}

@@ -24,6 +24,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'modbus_devices', icon: '📱', translationKey: 'sections.modbus_devices' },
   { name: 'sensor', icon: '🌡️', translationKey: 'sections.sensor' },
   { name: 'virtual_energy_sensor', icon: '⚡', translationKey: 'sections.virtual_energy_sensor' },
+  { name: 'template', icon: '🧩', translationKey: 'sections.template' },
   { name: 'logger', icon: '📝', translationKey: 'sections.logger' },
 ];
 
@@ -58,6 +59,7 @@ export const ARRAY_SECTIONS = [
   'sensor',
   'virtual_energy_sensor',
   'remote_devices',
+  'template',
 ] as const;
 
 export type ArraySectionType = typeof ARRAY_SECTIONS[number];

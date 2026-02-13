@@ -24,8 +24,8 @@
         },
         "version": {
           "type": [
-            "string",
-            "number"
+            "number",
+            "string"
           ],
           "enum": [
             "0.2",

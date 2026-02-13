@@ -102,8 +102,8 @@
           },
           "update_interval": {
             "type": [
-              "string",
-              "number"
+              "number",
+              "string"
             ],
             "x-timeperiod": true,
             "minimum": 1000,
@@ -172,18 +172,18 @@
             "properties": {
               "width": {
                 "type": [
-                  "integer",
+                  "number",
                   "string",
-                  "number"
+                  "integer"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
-                  "integer",
+                  "number",
                   "string",
-                  "number"
+                  "integer"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"

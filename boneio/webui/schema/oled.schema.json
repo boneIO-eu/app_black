@@ -105,8 +105,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "string",
-            "number"
+            "number",
+            "string"
           ],
           "x-timeperiod": true,
           "default": "60s",

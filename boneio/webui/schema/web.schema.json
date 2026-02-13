@@ -5,8 +5,8 @@
     "web": {
       "type": [
         "string",
-        "object",
-        "null"
+        "null",
+        "object"
       ],
       "properties": {
         "port": {
@@ -30,8 +30,8 @@
         "cloud": {
           "type": [
             "string",
-            "object",
-            "null"
+            "null",
+            "object"
           ],
           "default": {},
           "properties": {
@@ -72,8 +72,8 @@
         "auth": {
           "type": [
             "string",
-            "object",
-            "null"
+            "null",
+            "object"
           ],
           "default": {},
           "properties": {

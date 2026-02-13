@@ -310,16 +310,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "string",
-                        "number"
+                        "number",
+                        "string"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
