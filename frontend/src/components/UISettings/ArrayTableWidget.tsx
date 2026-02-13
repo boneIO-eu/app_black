@@ -100,6 +100,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [affectedActions, setAffectedActions] = useState<{type: string, name: string, actionType: string}[]>([]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
 
   // Auto-open edit modal when editItemName is provided (from URL query param)
@@ -258,10 +259,22 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     // Set default values for remote_devices
     if (sectionType === 'remote_devices') {
       setEditingItem({ protocol: 'mqtt', device_type: 'boneio_black' });
+      setAttemptedSubmit(false);
+      setIsModalOpen(true);
+    } else if (sectionType === 'template') {
+      // Show platform picker first
+      setShowTemplatePicker(true);
     } else {
       setEditingItem({});
+      setAttemptedSubmit(false);
+      setIsModalOpen(true);
     }
-    setAttemptedSubmit(false); // Reset przy otwieraniu modala
+  };
+
+  const handleTemplatePlatformSelect = (platform: string) => {
+    setShowTemplatePicker(false);
+    setEditingItem({ platform, _autoId: true });
+    setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
 
@@ -440,16 +453,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
       console.log('Remote device validation:', dataToSave, 'isValid:', isValid);
     } else if (sectionType === 'template') {
-      const hasId = !!dataToSave.id;
       const hasPlatform = !!dataToSave.platform;
       if (dataToSave.platform === 'thermostat') {
-        isValid = hasId && hasPlatform && !!dataToSave.sensor_id && !!dataToSave.output_id;
+        isValid = hasPlatform && !!dataToSave.sensor_id && !!dataToSave.output_id;
         errorMessage = t('template.thermostat_fields_required');
       } else if (dataToSave.platform === 'alarm_control_panel') {
-        isValid = hasId && hasPlatform;
+        isValid = hasPlatform;
         errorMessage = t('template.alarm_fields_required');
       } else {
-        isValid = hasId && hasPlatform;
+        isValid = hasPlatform;
         errorMessage = t('template.platform_required');
       }
     } else {
@@ -467,6 +479,23 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     let cleanedData = { ...dataToSave };
     if ((sectionType === 'binary_sensor' || sectionType === 'event') && cleanedData.name && cleanedData.id) {
       delete cleanedData.id;
+    }
+    // Auto-generate unique ID for template entries
+    if (sectionType === 'template') {
+      delete cleanedData._autoId;
+      const baseName = (cleanedData.name || cleanedData.platform || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const existingIds = new Set(
+        value
+          .filter((_: any, i: number) => i !== editingIndex)
+          .map((item: any) => item.id)
+      );
+      let candidateId = baseName;
+      let suffix = 2;
+      while (existingIds.has(candidateId)) {
+        candidateId = `${baseName}_${suffix}`;
+        suffix++;
+      }
+      cleanedData.id = candidateId;
     }
     
     const newValue = [...value];
@@ -1058,6 +1087,39 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </div>
       )}
 
+      {/* Template Platform Picker Dialog */}
+      <Dialog open={showTemplatePicker} onOpenChange={setShowTemplatePicker}>
+        <DialogContent className="max-w-md bg-base-100">
+          <DialogHeader>
+            <DialogTitle>{t('template.select_platform_title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <button
+              type="button"
+              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
+              onClick={() => handleTemplatePlatformSelect('thermostat')}
+            >
+              <span className="text-2xl">🌡️</span>
+              <div>
+                <div className="font-semibold">{t('template.platform_thermostat')}</div>
+                <div className="text-sm text-base-content/60">{t('template.platform_thermostat_hint')}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
+              onClick={() => handleTemplatePlatformSelect('alarm_control_panel')}
+            >
+              <span className="text-2xl">🚨</span>
+              <div>
+                <div className="font-semibold">{t('template.platform_alarm_control_panel')}</div>
+                <div className="text-sm text-base-content/60">{t('template.platform_alarm_hint')}</div>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-4xl sm:max-w-3xl lg:w-[120vw] max-h-[80vh] flex flex-col gap-0 bg-base-100">
@@ -1216,6 +1278,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allOutputs={allOutputs}
                     allAreas={allAreas}
                     allSensors={allSensors}
+                    allModbusDevices={allModbusDevices}
                     allInputs={[...(allBinarySensors || []), ...(allEvents || [])]}
                   />
                 ) : (

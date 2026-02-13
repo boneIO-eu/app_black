@@ -23,6 +23,7 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
   allAreas = [],
   allSensors = [],
   allInputs = [],
+  allModbusDevices = [],
 }) => {
   const { t } = useTranslation();
 
@@ -53,7 +54,7 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
     onChange(newData);
   };
 
-  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs };
+  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs, allModbusDevices };
 
   return (
     <div className="space-y-4">

@@ -26,6 +26,7 @@ export interface TemplateSubFormProps {
   allAreas: Area[];
   allSensors: any[];
   allInputs: any[];
+  allModbusDevices: any[];
 }
 
 export interface TemplateFormProps extends TemplateSubFormProps {
@@ -34,4 +35,4 @@ export interface TemplateFormProps extends TemplateSubFormProps {
 
 export const PLATFORM_OPTIONS = ['thermostat', 'alarm_control_panel'] as const;
 export const ARM_MODE_OPTIONS = ['armed_away', 'armed_home', 'armed_night'] as const;
-export const OUTPUT_TYPE_OPTIONS = ['siren', 'notification', 'light', 'custom'] as const;
+export const OUTPUT_TYPE_OPTIONS = ['siren', 'light', 'custom'] as const;

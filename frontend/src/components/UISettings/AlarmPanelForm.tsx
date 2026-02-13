@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import OutputSelectDropdown from './OutputSelectDropdown';
-import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
 import {
@@ -124,19 +123,6 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 </label>
               </div>
 
-              {/* ID */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('outputs.id')} *</span>
-                </label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  value={data.id || ''}
-                  onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-                  placeholder={t('sensors.id_hint')}
-                />
-              </div>
 
               {/* Area */}
               <div className="form-control">
@@ -375,6 +361,25 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 label={t('template.trigger_time')}
                 allowedUnits={['s', 'min', 'h']}
               />
+
+              {/* Code / PIN */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('template.alarm_code')}</span>
+                </label>
+                <input
+                  type="text"
+                  className="input w-full font-mono"
+                  value={data.code || ''}
+                  onChange={(e) => updateField('code', e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder={t('template.alarm_code_placeholder')}
+                  inputMode="numeric"
+                  maxLength={8}
+                />
+                <label className="label">
+                  <span className="label-text-alt text-info">{t('template.alarm_code_hint')}</span>
+                </label>
+              </div>
 
               {/* Code Arm Required */}
               <div className="form-control">

@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import OutputSelectDropdown from './OutputSelectDropdown';
-import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
 import {
@@ -11,6 +10,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { TemplateSubFormProps } from './types/template';
+
+interface TemperatureSensor {
+  id: string;
+  label: string;
+  source: string;
+}
 
 /**
  * ThermostatForm — configuration form for the thermostat template platform.
@@ -24,6 +29,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
   allOutputs,
   allAreas,
   allSensors,
+  allModbusDevices,
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
@@ -32,9 +38,43 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
     onChange({ ...data, [field]: value });
   };
 
-  const availableSensorIds = allSensors
-    .map((s: any) => s.id || s.address || '')
-    .filter(Boolean);
+
+  /**
+   * Build a unified list of temperature sensors from all sources:
+   * - 1-Wire sensors (sensor section)
+   * - Modbus devices with temperature readings (CWT, etc.)
+   */
+  const temperatureSensors: TemperatureSensor[] = useMemo(() => {
+    const sensors: TemperatureSensor[] = [];
+
+    // 1-Wire / GPIO sensors
+    for (const s of allSensors) {
+      const id = s.id || s.address || '';
+      if (id) {
+        sensors.push({
+          id,
+          label: s.name || s.id || s.address,
+          source: '1-Wire',
+        });
+      }
+    }
+
+    // Modbus devices that have temperature sensors (CWT model has temp sensors)
+    for (const dev of allModbusDevices) {
+      const model = (dev.model || '').toLowerCase();
+      const devId = dev.id || `modbus_${dev.address}_${model}`;
+      if (model === 'cwt') {
+        // CWT has temperature + humidity sensors
+        sensors.push({
+          id: `${devId}_temperature`,
+          label: `${dev.name || devId} (${t('template.modbus_temp')})`,
+          source: 'Modbus',
+        });
+      }
+    }
+
+    return sensors;
+  }, [allSensors, allModbusDevices, t]);
 
   return (
     <TabsBox
@@ -64,19 +104,6 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
               </div>
 
-              {/* ID */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('outputs.id')} *</span>
-                </label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  value={data.id || ''}
-                  onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-                  placeholder={t('sensors.id_hint')}
-                />
-              </div>
 
               {/* Area */}
               <div className="form-control">
@@ -101,12 +128,12 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </Select>
               </div>
 
-              {/* Sensor ID */}
+              {/* Sensor ID — grouped by source */}
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-medium">{t('template.sensor_id')} *</span>
                 </label>
-                {availableSensorIds.length > 0 ? (
+                {temperatureSensors.length > 0 ? (
                   <Select
                     value={data.sensor_id || ''}
                     onValueChange={(value) => updateField('sensor_id', value)}
@@ -115,9 +142,12 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                       <SelectValue placeholder={t('template.select_sensor')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableSensorIds.map((sid: string) => (
-                        <SelectItem key={sid} value={sid}>
-                          {sid}
+                      {temperatureSensors.map((sensor) => (
+                        <SelectItem key={sensor.id} value={sensor.id}>
+                          <span className="flex items-center gap-2">
+                            <span className="badge badge-xs badge-outline">{sensor.source}</span>
+                            {sensor.label}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
