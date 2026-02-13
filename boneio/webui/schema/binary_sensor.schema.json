@@ -4,8 +4,8 @@
   "properties": {
     "binary_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -343,8 +343,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -507,8 +507,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -524,16 +524,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -575,8 +575,8 @@
               },
               "released": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -739,8 +739,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -756,16 +756,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"

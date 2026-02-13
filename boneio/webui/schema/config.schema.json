@@ -4,8 +4,8 @@
   "properties": {
     "areas": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -34,8 +34,8 @@
     },
     "remote_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -89,8 +89,8 @@
             "properties": {
               "outputs": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -118,8 +118,8 @@
               },
               "covers": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -186,8 +186,8 @@
               },
               "switches": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -223,8 +223,8 @@
               },
               "lights": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -364,8 +364,8 @@
               },
               "covers": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -477,8 +477,8 @@
               },
               "segments": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -555,8 +555,8 @@
               },
               "effects": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -588,8 +588,8 @@
               },
               "palettes": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -793,8 +793,8 @@
         "proxy_port": {
           "type": [
             "string",
-            "null",
-            "integer"
+            "integer",
+            "null"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"
@@ -949,8 +949,8 @@
         },
         "screens": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "default": [
             "uptime",
@@ -983,8 +983,8 @@
         },
         "extra_screen_sensors": {
           "type": [
-            "array",
-            "string"
+            "string",
+            "array"
           ],
           "items": {
             "type": [
@@ -1103,8 +1103,8 @@
     },
     "modbus_devices": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1218,8 +1218,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -1237,8 +1237,8 @@
               },
               "humidity": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "default": [
                   {
@@ -1271,18 +1271,18 @@
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "string",
-                  "number",
-                  "integer"
+                  "number"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -1307,8 +1307,8 @@
     },
     "lm75": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1342,8 +1342,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -1377,8 +1377,8 @@
     },
     "ina219": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1402,8 +1402,8 @@
           },
           "sensors": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -1443,8 +1443,8 @@
                 },
                 "filters": {
                   "type": [
-                    "array",
-                    "string"
+                    "string",
+                    "array"
                   ],
                   "default": [
                     {
@@ -1480,8 +1480,8 @@
     },
     "virtual_energy_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1553,8 +1553,8 @@
     },
     "mcp9808": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1588,8 +1588,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -1623,8 +1623,8 @@
     },
     "mcp23017": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1665,8 +1665,8 @@
     },
     "pcf8575": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1707,8 +1707,8 @@
     },
     "pca9685": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1749,8 +1749,8 @@
     },
     "output": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1855,8 +1855,8 @@
           },
           "interlock_group": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"
@@ -1904,8 +1904,8 @@
     },
     "output_group": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -1925,8 +1925,8 @@
           },
           "outputs": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "description": "Output IDs",
             "title": "Outputs"
@@ -1981,8 +1981,8 @@
     },
     "binary_sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -2320,8 +2320,8 @@
             "properties": {
               "pressed": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -2484,8 +2484,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -2501,16 +2501,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -2552,8 +2552,8 @@
               },
               "released": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -2716,8 +2716,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -2733,16 +2733,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -2791,8 +2791,8 @@
     },
     "event": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -3120,8 +3120,8 @@
             "properties": {
               "single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -3284,8 +3284,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -3301,16 +3301,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -3352,8 +3352,8 @@
               },
               "double": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -3516,8 +3516,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -3533,16 +3533,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -3584,8 +3584,8 @@
               },
               "triple": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -3748,8 +3748,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -3765,16 +3765,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -3816,8 +3816,8 @@
               },
               "long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -3980,8 +3980,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -3997,16 +3997,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -4048,8 +4048,8 @@
               },
               "double_then_long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -4212,8 +4212,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -4229,16 +4229,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -4280,8 +4280,8 @@
               },
               "single_then_long": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -4444,8 +4444,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -4461,16 +4461,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -4512,8 +4512,8 @@
               },
               "double_then_single": {
                 "type": [
-                  "array",
-                  "string"
+                  "string",
+                  "array"
                 ],
                 "items": {
                   "type": [
@@ -4676,8 +4676,8 @@
                     },
                     "rgb": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "RGB Color [R, G, B]",
                       "title": "Rgb"
@@ -4693,16 +4693,16 @@
                     },
                     "colors": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Color List for CYCLE_COLOR",
                       "title": "Colors"
                     },
                     "presets": {
                       "type": [
-                        "array",
-                        "string"
+                        "string",
+                        "array"
                       ],
                       "description": "Preset/Effect List for CYCLE_PRESET",
                       "title": "Presets"
@@ -4862,8 +4862,8 @@
     },
     "adc": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -4927,8 +4927,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {
@@ -4957,8 +4957,8 @@
     },
     "cover": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -5118,8 +5118,8 @@
     },
     "ds2482": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -5145,8 +5145,8 @@
     },
     "sensor": {
       "type": [
-        "array",
-        "string"
+        "string",
+        "array"
       ],
       "items": {
         "type": [
@@ -5216,8 +5216,8 @@
           },
           "filters": {
             "type": [
-              "array",
-              "string"
+              "string",
+              "array"
             ],
             "default": [
               {

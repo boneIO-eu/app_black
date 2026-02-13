@@ -21,8 +21,8 @@
         "proxy_port": {
           "type": [
             "string",
-            "null",
-            "integer"
+            "integer",
+            "null"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"

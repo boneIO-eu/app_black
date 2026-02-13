@@ -203,8 +203,7 @@ export default function UISettings() {
       setSections(initialSections);
 
       // Load schema in background (lazy) - only needed for ArrayTableWidget sections
-      const isDevelopment = import.meta.env.DEV;
-      const schemaUrl = isDevelopment ? '/schem/config.schema.json' : '/schema/config.schema.json';
+      const schemaUrl = '/schema/config.schema.json';
 
       axios.get(schemaUrl, { headers: { 'Cache-Control': 'no-store' } })
         .then(res => res.data)
