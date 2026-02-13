@@ -1,0 +1,208 @@
+import { useState, useCallback } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
+import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
+import ModbusHelper from './ModbusHelper';
+import axios from '@/api/axios';
+
+interface I2CDevice {
+  address: number;
+  address_hex: string;
+  known_devices: string[];
+  is_boneio: boolean;
+}
+
+interface I2CScanResult {
+  bus: number;
+  devices: I2CDevice[];
+  raw_output: string;
+  error: string | null;
+}
+
+export default function Tools() {
+  const { t } = useTranslation();
+  const [activeSection, setActiveSection] = useState<'modbus' | 'i2c'>('modbus');
+
+  return (
+    <div className="container mx-auto p-4 max-w-4xl">
+      <h1 className="text-2xl font-bold mb-6">{t('tools.title')}</h1>
+
+      {/* Section tabs */}
+      <div className="tabs tabs-boxed mb-6">
+        <button
+          className={`tab tab-lg gap-2 ${activeSection === 'modbus' ? 'tab-active' : ''}`}
+          onClick={() => setActiveSection('modbus')}
+        >
+          <FaNetworkWired /> Modbus
+        </button>
+        <button
+          className={`tab tab-lg gap-2 ${activeSection === 'i2c' ? 'tab-active' : ''}`}
+          onClick={() => setActiveSection('i2c')}
+        >
+          <FaMicrochip /> I2C
+        </button>
+      </div>
+
+      {activeSection === 'modbus' && <ModbusHelper />}
+      {activeSection === 'i2c' && <I2CSection />}
+    </div>
+  );
+}
+
+function I2CSection() {
+  const { t } = useTranslation();
+  const [bus, setBus] = useState(2);
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState<I2CScanResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const handleScan = useCallback(async () => {
+    setScanning(true);
+    setResult(null);
+    try {
+      const { data } = await axios.get(`/api/i2c/scan?bus=${bus}`, { timeout: 15000 });
+      setResult(data);
+    } catch (err) {
+      setResult({
+        bus,
+        devices: [],
+        raw_output: '',
+        error: String(err),
+      });
+    } finally {
+      setScanning(false);
+    }
+  }, [bus]);
+
+  const handleCopyRaw = () => {
+    if (!result?.raw_output) return;
+    navigator.clipboard.writeText(result.raw_output).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div>
+      <div className="card bg-base-200 mb-6">
+        <div className="card-body">
+          <h2 className="card-title text-lg">{t('tools.i2c_scan')}</h2>
+          <p className="text-sm text-base-content/70 mb-4">
+            {t('tools.i2c_scan_hint')}
+          </p>
+
+          <div className="flex items-end gap-4">
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text">{t('tools.i2c_bus')}</span>
+              </label>
+              <select
+                className="select select-bordered"
+                value={bus}
+                onChange={(e) => setBus(parseInt(e.target.value))}
+              >
+                <option value={0}>I2C-0</option>
+                <option value={1}>I2C-1</option>
+                <option value={2}>I2C-2 ({t('tools.i2c_default')})</option>
+              </select>
+            </div>
+
+            <button
+              className={`btn btn-primary gap-2 ${scanning ? 'loading' : ''}`}
+              onClick={handleScan}
+              disabled={scanning}
+            >
+              {!scanning && <FaSearch />}
+              {scanning ? t('tools.i2c_scanning') : t('tools.i2c_scan_btn')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      {result && (
+        <>
+          {/* Error */}
+          {result.error && (
+            <div className="alert alert-error mb-6">
+              <span>{result.error}</span>
+            </div>
+          )}
+
+          {/* Detected devices */}
+          {result.devices.length > 0 && (
+            <div className="card bg-base-200 mb-6">
+              <div className="card-body">
+                <h2 className="card-title text-lg">
+                  {t('tools.i2c_found', { count: result.devices.length })}
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>{t('tools.i2c_address')}</th>
+                        <th>{t('tools.i2c_decimal')}</th>
+                        <th>{t('tools.i2c_possible_devices')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.devices.map((dev) => (
+                        <tr key={dev.address} className="hover">
+                          <td className="font-mono font-bold text-primary">{dev.address_hex}</td>
+                          <td className="font-mono text-base-content/70">{dev.address}</td>
+                          <td>
+                            {dev.known_devices.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {dev.known_devices.map((name, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={`badge badge-sm ${dev.is_boneio ? 'badge-success' : 'badge-info'}`}
+                                  >
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-base-content/40 italic">{t('tools.i2c_unknown')}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* No devices found */}
+          {!result.error && result.devices.length === 0 && (
+            <div className="alert alert-warning mb-6">
+              <span>{t('tools.i2c_no_devices')}</span>
+            </div>
+          )}
+
+          {/* Raw output */}
+          {result.raw_output && (
+            <div className="card bg-base-200 mb-6">
+              <div className="card-body">
+                <div className="flex items-center justify-between">
+                  <h2 className="card-title text-lg">{t('tools.i2c_raw_output')}</h2>
+                  <button
+                    className="btn btn-sm btn-ghost gap-1"
+                    onClick={handleCopyRaw}
+                  >
+                    <FaCopy className="w-3 h-3" />
+                    {copied ? t('tools.copied') : t('tools.copy')}
+                  </button>
+                </div>
+                <pre className="bg-base-300 rounded-lg p-4 font-mono text-sm overflow-x-auto whitespace-pre select-all">
+                  {result.raw_output}
+                </pre>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

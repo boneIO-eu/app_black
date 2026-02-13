@@ -5,7 +5,7 @@
     "inputs": "Inputs",
     "sensors": "Sensors",
     "modbus": "Modbus",
-    "modbus_helper": "Helper tool",
+    "tools": "Tools",
     "config": "YAML editor",
     "settings": "Settings",
     "logs": "Logs",
@@ -1183,5 +1183,23 @@
     "date_from": "From",
     "date_to": "To",
     "date_apply": "Apply"
+  },
+  "tools": {
+    "title": "Tools",
+    "i2c_scan": "I2C Bus Scan",
+    "i2c_scan_hint": "Scan the I2C bus to detect connected devices. boneIO Black uses I2C-2 by default.",
+    "i2c_bus": "I2C Bus",
+    "i2c_default": "default",
+    "i2c_scan_btn": "Scan",
+    "i2c_scanning": "Scanning...",
+    "i2c_found": "{{count}} devices found",
+    "i2c_address": "Address",
+    "i2c_decimal": "Decimal",
+    "i2c_possible_devices": "Possible devices",
+    "i2c_unknown": "Unknown device",
+    "i2c_no_devices": "No I2C devices found on this bus.",
+    "i2c_raw_output": "Raw i2cdetect output",
+    "copy": "Copy",
+    "copied": "Copied!"
   }
 }

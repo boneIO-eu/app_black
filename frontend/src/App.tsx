@@ -7,7 +7,7 @@ import OutputsView from './components/OutputsView';
 import InputsView from './components/InputsView';
 import SensorView from './components/SensorView';
 import ModbusView from './components/ModbusView';
-import ModbusHelper from './components/ModbusHelper';
+import Tools from './components/Tools';
 import HelpView from './components/HelpView';
 import LoginView from './components/LoginView';
 import Layout from './components/Layout';
@@ -44,7 +44,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isApiAvailable || isLoading) {
     return <NotAvailable />
-  }
+  } 
   
   if (!isAuthenticated && isAuthRequired) {
     return <LoginView />
@@ -293,10 +293,10 @@ function AppContent() {
             </Layout>
           </ProtectedRoute>
         } />
-        <Route path="/modbus-helper" element={
+        <Route path="/tools" element={
           <ProtectedRoute>
             <Layout>
-              <ModbusHelper />
+              <Tools />
             </Layout>
           </ProtectedRoute>
         } />

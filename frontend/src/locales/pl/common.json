@@ -5,7 +5,7 @@
     "inputs": "Wejścia",
     "sensors": "Czujniki",
     "modbus": "Modbus",
-    "modbus_helper": "Narzędzia dodatkowe",
+    "tools": "Narzędzia",
     "config": "Edytor YAML",
     "settings": "Ustawienia",
     "logs": "Logi",
@@ -1188,6 +1188,24 @@
     "date_from": "Od",
     "date_to": "Do",
     "date_apply": "Zastosuj"
+  },
+  "tools": {
+    "title": "Narzędzia",
+    "i2c_scan": "Skanowanie magistrali I2C",
+    "i2c_scan_hint": "Skanuj magistralę I2C w poszukiwaniu podłączonych urządzeń. boneIO Black domyślnie używa I2C-2.",
+    "i2c_bus": "Magistrala I2C",
+    "i2c_default": "domyślna",
+    "i2c_scan_btn": "Skanuj",
+    "i2c_scanning": "Skanowanie...",
+    "i2c_found": "Znaleziono {{count}} urządzeń",
+    "i2c_address": "Adres",
+    "i2c_decimal": "Dziesiętnie",
+    "i2c_possible_devices": "Możliwe urządzenia",
+    "i2c_unknown": "Nieznane urządzenie",
+    "i2c_no_devices": "Nie znaleziono urządzeń I2C na tej magistrali.",
+    "i2c_raw_output": "Surowe wyjście i2cdetect",
+    "copy": "Kopiuj",
+    "copied": "Skopiowano!"
   }
 }
   

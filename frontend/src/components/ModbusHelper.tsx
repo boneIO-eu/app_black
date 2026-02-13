@@ -230,8 +230,7 @@ export default function ModbusHelper() {
   // Show warning if Modbus is not configured
   if (config && !config.configured) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6">{t('modbus_helper.title')}</h1>
+      <div>
         <div className="alert alert-warning">
           <span>{t('modbus_helper.not_configured')}</span>
         </div>
@@ -240,8 +239,7 @@ export default function ModbusHelper() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">{t('modbus_helper.title')}</h1>
+    <div>
 
       {/* Tabs */}
       <div className="tabs tabs-boxed mb-6">
