@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { rgbToHex, hexToRgb } from './helpers';
+import { rgbToHex, hexToRgb, formatActionLabel } from './helpers';
 import SimpleTimePeriodInput from '../widgets/SimpleTimePeriodInput';
 import type { RemoteOutputActionProps, RemoteDevice } from './types';
 
@@ -175,7 +175,7 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           <SelectContent>
             {actionOutputOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ')}
+                {formatActionLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>

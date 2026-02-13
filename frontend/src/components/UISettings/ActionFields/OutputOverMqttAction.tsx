@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { sanitizeId } from '../helpers/idValidation';
 import type { OutputOverMqttActionProps } from './types';
+import { formatActionLabel } from './helpers';
 
 /**
  * Output Over MQTT Action component - controls outputs on remote boneIO devices via MQTT.
@@ -74,7 +75,7 @@ const OutputOverMqttAction: React.FC<OutputOverMqttActionProps> = ({
           <SelectContent>
             {actionOutputOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.charAt(0) + option.slice(1).toLowerCase()}
+                {formatActionLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>

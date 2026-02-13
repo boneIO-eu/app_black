@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -62,8 +62,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -337,8 +337,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "pressed": {
@@ -348,8 +348,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -418,23 +418,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -452,6 +452,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -489,16 +491,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -513,11 +515,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -560,8 +562,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -578,8 +580,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -648,23 +650,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -682,6 +684,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -719,16 +723,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -743,11 +747,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -790,8 +794,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",

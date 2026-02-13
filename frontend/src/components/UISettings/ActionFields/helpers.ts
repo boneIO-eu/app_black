@@ -1,6 +1,16 @@
 import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
 
 /**
+ * Formats an action option string into a human-readable label.
+ * E.g. 'BRIGHTNESS_UP_CYCLE' -> 'Brightness Up Cycle'
+ * @param option - The action option string (e.g. 'TOGGLE', 'BRIGHTNESS_UP_CYCLE')
+ * @returns Formatted label string
+ */
+export const formatActionLabel = (option: string): string => {
+  return option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ');
+};
+
+/**
  * Validates an action and returns an error message if invalid.
  * @param action - The action object to validate
  * @param t - Translation function

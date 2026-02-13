@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -39,8 +39,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -83,8 +83,8 @@
           },
           "mqtt": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "outputs": {
@@ -94,8 +94,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -123,8 +123,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -156,8 +156,8 @@
           },
           "esphome_api": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "host": {
@@ -167,8 +167,8 @@
               },
               "port": {
                 "type": [
-                  "integer",
-                  "string"
+                  "string",
+                  "integer"
                 ],
                 "default": 6053,
                 "description": "Port",
@@ -191,8 +191,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -207,8 +207,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -228,8 +228,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -244,8 +244,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -340,16 +340,16 @@
                     },
                     "min_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Min Color Temp (mireds)",
                       "title": "Min mireds"
                     },
                     "max_mireds": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "description": "Max Color Temp (mireds)",
                       "title": "Max mireds"
@@ -369,8 +369,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
@@ -385,8 +385,8 @@
                     },
                     "key": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -457,8 +457,8 @@
           },
           "wled": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "host": {
@@ -468,8 +468,8 @@
               },
               "port": {
                 "type": [
-                  "integer",
-                  "string"
+                  "string",
+                  "integer"
                 ],
                 "default": 80,
                 "description": "Port",
@@ -482,14 +482,14 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Segment ID",
                       "title": "Id"
@@ -501,24 +501,24 @@
                     },
                     "start": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Start LED",
                       "title": "Start"
                     },
                     "stop": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Stop LED",
                       "title": "Stop"
                     },
                     "len": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "LED Count",
                       "title": "Len"
@@ -560,14 +560,14 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Effect ID",
                       "title": "Id"
@@ -593,14 +593,14 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Palette ID",
                       "title": "Id"
@@ -643,8 +643,8 @@
     },
     "mqtt": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "host": {
@@ -664,8 +664,8 @@
         },
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -673,8 +673,8 @@
         },
         "ha_discovery": {
           "type": [
-            "object",
-            "string"
+            "string",
+            "object"
           ],
           "default": {},
           "properties": {
@@ -776,15 +776,15 @@
     },
     "web": {
       "type": [
-        "object",
         "string",
+        "object",
         "null"
       ],
       "properties": {
         "port": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -792,17 +792,17 @@
         },
         "proxy_port": {
           "type": [
-            "integer",
             "string",
-            "null"
+            "null",
+            "integer"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"
         },
         "cloud": {
           "type": [
-            "object",
             "string",
+            "object",
             "null"
           ],
           "default": {},
@@ -843,8 +843,8 @@
         },
         "auth": {
           "type": [
-            "object",
             "string",
+            "object",
             "null"
           ],
           "default": {},
@@ -869,8 +869,8 @@
     },
     "logger": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "default": {
@@ -920,8 +920,8 @@
     },
     "oled": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "default": {},
       "properties": {
@@ -988,8 +988,8 @@
           ],
           "items": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "sensor_type": {
@@ -1021,8 +1021,8 @@
         },
         "screensaver_timeout": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "x-timeperiod": true,
           "default": "60s",
@@ -1035,8 +1035,8 @@
     },
     "modbus": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "uart": {
@@ -1056,15 +1056,15 @@
         },
         "baudrate": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1,
           "enum": [
@@ -1077,8 +1077,8 @@
         },
         "bytesize": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8
         },
@@ -1108,8 +1108,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -1129,8 +1129,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -1201,8 +1201,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "minimum": 1000,
@@ -1212,8 +1212,8 @@
           },
           "sensors_filters": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "temperature": {
@@ -1228,8 +1228,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1247,8 +1247,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1265,24 +1265,24 @@
           },
           "data": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "width": {
                 "type": [
+                  "string",
                   "number",
-                  "integer",
-                  "string"
+                  "integer"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "string",
                   "number",
-                  "integer",
-                  "string"
+                  "integer"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -1312,8 +1312,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1323,8 +1323,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -1332,8 +1332,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1352,8 +1352,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1382,8 +1382,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1393,8 +1393,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -1421,8 +1421,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ],
               "properties": {
                 "id": {
@@ -1453,8 +1453,8 @@
                   ],
                   "items": {
                     "type": [
-                      "object",
-                      "string"
+                      "string",
+                      "object"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1465,8 +1465,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1485,8 +1485,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1558,8 +1558,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1569,8 +1569,8 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -1578,8 +1578,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -1598,8 +1598,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1628,8 +1628,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1639,16 +1639,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1670,8 +1670,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1681,16 +1681,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1712,8 +1712,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1723,16 +1723,16 @@
           },
           "address": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
           },
           "init_sleep": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "0s",
@@ -1754,8 +1754,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -1809,16 +1809,16 @@
           },
           "pin": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "Pin number",
             "title": "Pin"
           },
           "momentary_turn_on": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be off. Can\"t be used if output_type is \"none\".",
@@ -1826,8 +1826,8 @@
           },
           "momentary_turn_off": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
@@ -1863,8 +1863,8 @@
           },
           "percentage_default_brightness": {
             "type": [
-              "integer",
-              "string"
+              "string",
+              "integer"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1909,8 +1909,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -1986,8 +1986,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -2039,8 +2039,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "120ms",
@@ -2314,8 +2314,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "pressed": {
@@ -2325,8 +2325,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2395,23 +2395,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2429,6 +2429,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -2466,16 +2468,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -2490,11 +2492,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -2537,8 +2539,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -2555,8 +2557,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -2625,23 +2627,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2659,6 +2661,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -2696,16 +2700,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -2720,11 +2724,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -2767,8 +2771,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -2792,8 +2796,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -2850,8 +2854,8 @@
           },
           "bounce_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "30ms",
@@ -3080,8 +3084,8 @@
           },
           "double_click_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "220ms",
@@ -3090,8 +3094,8 @@
           },
           "long_press_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "400ms",
@@ -3100,8 +3104,8 @@
           },
           "sequence_window_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "500ms",
@@ -3110,8 +3114,8 @@
           },
           "actions": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "single": {
@@ -3121,8 +3125,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -3191,23 +3195,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3225,6 +3229,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -3262,16 +3268,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3286,11 +3292,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -3333,8 +3339,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -3351,8 +3357,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -3421,23 +3427,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3455,6 +3461,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -3492,16 +3500,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3516,11 +3524,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -3563,8 +3571,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -3581,8 +3589,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -3651,23 +3659,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3685,6 +3693,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -3722,16 +3732,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3746,11 +3756,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -3793,8 +3803,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -3811,8 +3821,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -3881,23 +3891,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3915,6 +3925,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -3952,16 +3964,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3976,11 +3988,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -4023,8 +4035,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -4041,8 +4053,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -4111,23 +4123,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4145,6 +4157,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -4182,16 +4196,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4206,11 +4220,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -4253,8 +4267,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -4271,8 +4285,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -4341,23 +4355,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4375,6 +4389,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -4412,16 +4428,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4436,11 +4452,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -4483,8 +4499,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -4501,8 +4517,8 @@
                 ],
                 "items": {
                   "type": [
-                    "object",
-                    "string"
+                    "string",
+                    "object"
                   ],
                   "properties": {
                     "action": {
@@ -4571,23 +4587,23 @@
                     },
                     "data": {
                       "type": [
-                        "object",
-                        "string"
+                        "string",
+                        "object"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "integer",
-                            "string"
+                            "string",
+                            "integer"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4605,6 +4621,8 @@
                         "OFF",
                         "BRIGHTNESS_UP",
                         "BRIGHTNESS_DOWN",
+                        "BRIGHTNESS_UP_CYCLE",
+                        "BRIGHTNESS_DOWN_CYCLE",
                         "SET_BRIGHTNESS",
                         "CYCLE_COLOR",
                         "CYCLE_PRESET"
@@ -4642,16 +4660,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "integer",
-                        "string"
+                        "string",
+                        "integer"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4666,11 +4684,11 @@
                     },
                     "transition": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
-                      "default": 0.0,
-                      "description": "Transition Time (seconds)",
+                      "x-timeperiod": true,
+                      "description": "Transition Time",
                       "title": "Transition"
                     },
                     "colors": {
@@ -4713,8 +4731,8 @@
                     },
                     "repeat_interval": {
                       "type": [
-                        "number",
-                        "string"
+                        "string",
+                        "number"
                       ],
                       "x-timeperiod": true,
                       "default": "800ms",
@@ -4763,8 +4781,8 @@
           },
           "mqtt_sequences": {
             "type": [
-              "object",
-              "string"
+              "string",
+              "object"
             ],
             "properties": {
               "double_then_long": {
@@ -4849,8 +4867,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -4877,8 +4895,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -4922,8 +4940,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -4944,8 +4962,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "name": {
@@ -5011,8 +5029,8 @@
           },
           "open_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to open cover. Example 30s. Minimum is 1s.",
@@ -5020,8 +5038,8 @@
           },
           "close_time": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to close cover. Example 30s. Minimum is 1s.",
@@ -5029,8 +5047,8 @@
           },
           "tilt_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to tilt cover. Example 2s. Minimum is 10ms.",
@@ -5038,8 +5056,8 @@
           },
           "actuator_activation_duration": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
@@ -5105,8 +5123,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -5132,8 +5150,8 @@
       ],
       "items": {
         "type": [
-          "object",
-          "string"
+          "string",
+          "object"
         ],
         "properties": {
           "id": {
@@ -5208,8 +5226,8 @@
             ],
             "items": {
               "type": [
-                "object",
-                "string"
+                "string",
+                "object"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -5217,8 +5235,8 @@
           },
           "update_interval": {
             "type": [
-              "number",
-              "string"
+              "string",
+              "number"
             ],
             "x-timeperiod": true,
             "default": "60s",
@@ -5246,10 +5264,19 @@
     },
     "boneio": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
+        "config_version": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 0,
+          "description": "Schema version for config migrations. Managed automatically.",
+          "title": "Config version"
+        },
         "name": {
           "type": "string",
           "description": "Name of boneio. Default is Black.",
@@ -5257,8 +5284,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.2",

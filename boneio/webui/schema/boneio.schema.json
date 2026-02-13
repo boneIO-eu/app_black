@@ -4,10 +4,19 @@
   "properties": {
     "boneio": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
+        "config_version": {
+          "type": [
+            "string",
+            "integer"
+          ],
+          "default": 0,
+          "description": "Schema version for config migrations. Managed automatically.",
+          "title": "Config version"
+        },
         "name": {
           "type": "string",
           "description": "Name of boneio. Default is Black.",
@@ -15,8 +24,8 @@
         },
         "version": {
           "type": [
-            "number",
-            "string"
+            "string",
+            "number"
           ],
           "enum": [
             "0.2",

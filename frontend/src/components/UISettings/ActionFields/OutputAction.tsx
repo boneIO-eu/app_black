@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import OutputSelectDropdown from '../OutputSelectDropdown';
 import type { OutputActionProps } from './types';
+import { formatActionLabel } from './helpers';
 
 /**
  * Output Action component - handles local boneIO outputs.
@@ -69,7 +70,7 @@ const OutputAction: React.FC<OutputActionProps> = ({
           <SelectContent>
             {actionOutputOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.charAt(0) + option.slice(1).toLowerCase()}
+                {formatActionLabel(option)}
               </SelectItem>
             ))}
           </SelectContent>

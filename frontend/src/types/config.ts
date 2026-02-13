@@ -29,7 +29,9 @@ export type ActionType =
 /** ESPHome light action options */
 export type ESPHomeLightAction = 
   | 'TOGGLE' | 'ON' | 'OFF' 
-  | 'BRIGHTNESS_UP' | 'BRIGHTNESS_DOWN' | 'SET_BRIGHTNESS';
+  | 'BRIGHTNESS_UP' | 'BRIGHTNESS_DOWN' 
+  | 'BRIGHTNESS_UP_CYCLE' | 'BRIGHTNESS_DOWN_CYCLE' 
+  | 'SET_BRIGHTNESS';
 
 /** Output action options */
 export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';

@@ -4,8 +4,8 @@
   "properties": {
     "modbus": {
       "type": [
-        "object",
-        "string"
+        "string",
+        "object"
       ],
       "properties": {
         "uart": {
@@ -25,15 +25,15 @@
         },
         "baudrate": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 1,
           "enum": [
@@ -46,8 +46,8 @@
         },
         "bytesize": {
           "type": [
-            "integer",
-            "string"
+            "string",
+            "integer"
           ],
           "default": 8
         },
