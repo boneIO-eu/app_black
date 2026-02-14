@@ -906,6 +906,7 @@ class Manager:
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
+            "template": self.templates.reload_templates,  # Thermostats and alarm panels
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
         }
         

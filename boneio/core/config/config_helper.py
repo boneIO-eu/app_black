@@ -11,9 +11,11 @@ if TYPE_CHECKING:
     from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
 
 from boneio.const import (
+    ALARM_CONTROL_PANEL,
     BINARY_SENSOR,
     BONEIO,
     BUTTON,
+    CLIMATE,
     COVER,
     EVENT_ENTITY,
     HOMEASSISTANT,
@@ -95,7 +97,9 @@ class ConfigHelper:
             TEXT_SENSOR: {},
             SELECT: {},
             NUMERIC: {},
-            "update": {}
+            "update": {},
+            CLIMATE: {},
+            ALARM_CONTROL_PANEL: {},
         }
         self.manager_ready: bool = False
         self._network_info = network_info

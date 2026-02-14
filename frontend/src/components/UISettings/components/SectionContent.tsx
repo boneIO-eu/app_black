@@ -82,7 +82,11 @@ function ArraySectionContent({
       allOutputGroups={formData.output_group || []}
       allCovers={formData.cover || []}
       allAreas={formData.areas || []}
-      allSensors={formData.sensor || []}
+      allSensors={[
+        ...(formData.sensor || []),
+        ...(formData.lm75 || []).map((s: any) => ({ ...s, _source: 'lm75' })),
+        ...(formData.mcp9808 || []).map((s: any) => ({ ...s, _source: 'mcp9808' })),
+      ]}
       allModbusDevices={formData.modbus_devices || []}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}

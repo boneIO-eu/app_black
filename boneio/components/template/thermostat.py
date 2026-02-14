@@ -39,7 +39,7 @@ class BoneIOThermostat:
     Args:
         id: Unique thermostat identifier.
         name: Human-readable name for HA.
-        sensor_id: ID of the temperature sensor to read.
+        sensor_ids: List of temperature sensor IDs to read (average is used).
         output: The output (relay) to control.
         message_bus: MessageBus for MQTT communication.
         event_bus: EventBus for internal events.
@@ -56,7 +56,7 @@ class BoneIOThermostat:
         self,
         id: str,
         name: str,
-        sensor_id: str,
+        sensor_ids: list[str],
         output: "BasicOutput",
         message_bus: "MessageBus",
         event_bus: "EventBus",
@@ -70,7 +70,7 @@ class BoneIOThermostat:
     ) -> None:
         self._id = id
         self._name = name
-        self._sensor_id = sensor_id
+        self._sensor_ids = sensor_ids
         self._output = output
         self._message_bus = message_bus
         self._event_bus = event_bus
@@ -86,6 +86,9 @@ class BoneIOThermostat:
         self._current_temperature: float | None = None
         self._action = ACTION_IDLE if self._mode == MODE_HEAT else ACTION_OFF
 
+        # Per-sensor temperature readings for averaging
+        self._sensor_readings: dict[str, float] = {}
+
         # MQTT topics
         self._state_topic = f"{topic_prefix}/{CLIMATE}/{id}"
         self._cmd_mode_topic = f"{topic_prefix}/cmd/{CLIMATE}/{id}/mode/set"
@@ -95,9 +98,9 @@ class BoneIOThermostat:
         self._eval_task: asyncio.Task | None = None
 
         _LOGGER.info(
-            "Initialized BoneIOThermostat: id=%s, sensor=%s, output=%s, "
+            "Initialized BoneIOThermostat: id=%s, sensors=%s, output=%s, "
             "target=%.1f°C, hysteresis=%.1f°C",
-            id, sensor_id, output.id, target_temperature, hysteresis,
+            id, sensor_ids, output.id, target_temperature, hysteresis,
         )
 
     # -- Properties ----------------------------------------------------------
@@ -111,6 +114,11 @@ class BoneIOThermostat:
     def name(self) -> str:
         """Get thermostat name."""
         return self._name
+
+    @property
+    def sensor_ids(self) -> list[str]:
+        """Get list of temperature sensor IDs."""
+        return self._sensor_ids
 
     @property
     def area(self) -> str | None:
@@ -183,15 +191,32 @@ class BoneIOThermostat:
 
     # -- Sensor update -------------------------------------------------------
 
-    def update_temperature(self, temperature: float) -> None:
-        """Update current temperature reading from sensor.
+    def update_sensor_temperature(self, sensor_id: str, temperature: float) -> None:
+        """Update temperature reading from a specific sensor.
 
         Called by TemplateManager when a matching sensor event arrives.
+        When multiple sensors are configured, the average of all available
+        readings is used as the current temperature.
 
         Args:
+            sensor_id: The sensor entity ID that reported.
             temperature: Current temperature in °C.
         """
-        self._current_temperature = temperature
+        self._sensor_readings[sensor_id] = temperature
+
+        # Compute average of all available sensor readings
+        readings = [v for v in self._sensor_readings.values() if v is not None]
+        if readings:
+            self._current_temperature = sum(readings) / len(readings)
+            if len(self._sensor_ids) > 1:
+                _LOGGER.debug(
+                    "Thermostat %s: sensor %s=%.1f°C, average=%.1f°C (%d/%d sensors)",
+                    self._id, sensor_id, temperature,
+                    self._current_temperature, len(readings), len(self._sensor_ids),
+                )
+        else:
+            self._current_temperature = None
+
         self._evaluate()
         self._publish_state()
 

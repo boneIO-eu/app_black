@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import OutputSelectDropdown from './OutputSelectDropdown';
+import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
 import {
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { TemplateSubFormProps, AlarmZone, AlarmOutput } from './types/template';
+import type { TemplateSubFormProps, AlarmZone, AlarmOutput, AlarmPin, ZoneInput } from './types/template';
 import { ARM_MODE_OPTIONS, OUTPUT_TYPE_OPTIONS } from './types/template';
 
 /**
@@ -32,6 +33,24 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
 
   const updateField = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
+  };
+
+  // --- PIN codes helpers ---
+  const pinCodes: AlarmPin[] = data.codes || [];
+  const updatePinCodes = (newCodes: AlarmPin[]) => updateField('codes', newCodes);
+
+  const addPinCode = () => {
+    updatePinCodes([...pinCodes, { name: '', code: '' }]);
+  };
+
+  const removePinCode = (index: number) => {
+    updatePinCodes(pinCodes.filter((_, i) => i !== index));
+  };
+
+  const updatePinCode = (index: number, field: string, value: string) => {
+    const newCodes = [...pinCodes];
+    newCodes[index] = { ...newCodes[index], [field]: value };
+    updatePinCodes(newCodes);
   };
 
   // --- Zone helpers ---
@@ -61,16 +80,42 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
     updateZone(zoneIndex, 'arm_modes', newModes);
   };
 
+  /** Normalize a zone input entry to ZoneInput object. */
+  const normalizeZoneInput = (inp: string | ZoneInput): ZoneInput => {
+    if (typeof inp === 'string') return { id: inp, type: 'normally_closed' };
+    return inp;
+  };
+
+  /** Get all ZoneInput objects for a zone (normalized). */
+  const getZoneInputs = (zone: AlarmZone): ZoneInput[] =>
+    (zone.inputs || []).map(normalizeZoneInput);
+
+  /** Get list of input IDs already used in a zone. */
+  const getZoneInputIds = (zone: AlarmZone): string[] =>
+    getZoneInputs(zone).map((zi) => zi.id);
+
   const addInputToZone = (zoneIndex: number, inputId: string) => {
     const zone = zones[zoneIndex];
-    if (!zone.inputs.includes(inputId)) {
-      updateZone(zoneIndex, 'inputs', [...zone.inputs, inputId]);
+    if (!getZoneInputIds(zone).includes(inputId)) {
+      const normalized = getZoneInputs(zone);
+      updateZone(zoneIndex, 'inputs', [...normalized, { id: inputId, type: 'normally_closed' }]);
     }
   };
 
   const removeInputFromZone = (zoneIndex: number, inputId: string) => {
     const zone = zones[zoneIndex];
-    updateZone(zoneIndex, 'inputs', zone.inputs.filter((id) => id !== inputId));
+    const normalized = getZoneInputs(zone);
+    updateZone(zoneIndex, 'inputs', normalized.filter((zi) => zi.id !== inputId));
+  };
+
+  const toggleInputType = (zoneIndex: number, inputId: string) => {
+    const zone = zones[zoneIndex];
+    const normalized = getZoneInputs(zone);
+    updateZone(zoneIndex, 'inputs', normalized.map((zi) =>
+      zi.id === inputId
+        ? { ...zi, type: zi.type === 'normally_closed' ? 'normally_open' : 'normally_closed' }
+        : zi
+    ));
   };
 
   // --- Alarm outputs helpers ---
@@ -91,9 +136,19 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
     updateAlarmOutputs(newOutputs);
   };
 
-  const availableInputIds = allInputs
-    .map((inp: any) => inp.id || inp.boneio_input || '')
-    .filter(Boolean);
+  /** Build enriched input list from binary sensors only. */
+  const enrichedInputs = allInputs
+    .filter((inp: any) => {
+      const id = inp.id || inp.boneio_input || '';
+      return Boolean(id);
+    })
+    .map((inp: any) => {
+      const id = inp.id || inp.boneio_input || '';
+      const name = inp.name || '';
+      const area = inp.area || '';
+      const areaName = allAreas.find((a) => a.id === area)?.name || '';
+      return { id, name, area, areaName, boneioInput: inp.boneio_input || '' };
+    });
 
   return (
     <TabsBox
@@ -123,6 +178,22 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 </label>
               </div>
 
+              {/* ID */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('outputs.id')}</span>
+                </label>
+                <input
+                  type="text"
+                  className="input w-full font-mono"
+                  value={data.id || ''}
+                  onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+                  placeholder={t('template.id_placeholder')}
+                />
+                <label className="label">
+                  <span className="label-text-alt text-info">{t('template.id_hint')}</span>
+                </label>
+              </div>
 
               {/* Area */}
               <div className="form-control">
@@ -198,6 +269,52 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 </div>
               </div>
 
+              {/* PIN Codes */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('template.alarm_codes')}</span>
+                </label>
+                <div className="space-y-2">
+                  {pinCodes.map((pin, idx) => (
+                    <div key={idx} className="flex gap-2 items-center p-3 bg-base-200 rounded-lg">
+                      <input
+                        type="text"
+                        className="input input-sm flex-1"
+                        value={pin.name || ''}
+                        onChange={(e) => updatePinCode(idx, 'name', e.target.value)}
+                        placeholder={t('template.pin_name_placeholder')}
+                      />
+                      <input
+                        type="text"
+                        className="input input-sm w-28 font-mono"
+                        value={pin.code || ''}
+                        onChange={(e) => updatePinCode(idx, 'code', e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder={t('template.alarm_code_placeholder')}
+                        inputMode="numeric"
+                        maxLength={8}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm btn-square text-error"
+                        onClick={() => removePinCode(idx)}
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm gap-2"
+                    onClick={addPinCode}
+                  >
+                    <FaPlus /> {t('template.add_pin_code')}
+                  </button>
+                </div>
+                <label className="label">
+                  <span className="label-text-alt text-info">{t('template.alarm_codes_hint')}</span>
+                </label>
+              </div>
+
               {/* Zones */}
               <div className="form-control">
                 <label className="label">
@@ -267,21 +384,43 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                         <label className="label py-1">
                           <span className="label-text text-sm">{t('template.zone_inputs')}</span>
                         </label>
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {(zone.inputs || []).map((inputId: string) => (
-                            <span key={inputId} className="badge badge-primary gap-1">
-                              {inputId}
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs p-0"
-                                onClick={() => removeInputFromZone(zIdx, inputId)}
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
+                        <div className="space-y-1 mb-2">
+                          {getZoneInputs(zone).map((zi) => {
+                            const info = enrichedInputs.find((e) => e.id === zi.id);
+                            const label = info
+                              ? `${info.name || zi.id}${info.boneioInput ? ` (${info.boneioInput})` : ''}${info.areaName ? ` · ${info.areaName}` : ''}`
+                              : zi.id;
+                            return (
+                              <div key={zi.id} className="flex items-center gap-2 p-2 bg-base-300 rounded-lg">
+                                <span className="flex-1 text-sm font-medium truncate" title={label}>
+                                  {label}
+                                </span>
+                                <button
+                                  type="button"
+                                  className={`btn btn-xs ${
+                                    zi.type === 'normally_closed'
+                                      ? 'btn-info'
+                                      : 'btn-warning'
+                                  }`}
+                                  onClick={() => toggleInputType(zIdx, zi.id)}
+                                  title={zi.type === 'normally_closed'
+                                    ? t('template.wiring_nc_hint')
+                                    : t('template.wiring_no_hint')}
+                                >
+                                  {zi.type === 'normally_closed' ? 'NC' : 'NO'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs btn-square text-error"
+                                  onClick={() => removeInputFromZone(zIdx, zi.id)}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
-                        {availableInputIds.length > 0 ? (
+                        {enrichedInputs.length > 0 ? (
                           <Select
                             value=""
                             onValueChange={(value) => {
@@ -292,31 +431,27 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                               <SelectValue placeholder={t('template.add_input')} />
                             </SelectTrigger>
                             <SelectContent>
-                              {availableInputIds
-                                .filter((id: string) => !(zone.inputs || []).includes(id))
-                                .map((id: string) => (
-                                  <SelectItem key={id} value={id}>
-                                    {id}
+                              {enrichedInputs
+                                .filter((inp) => !getZoneInputIds(zone).includes(inp.id))
+                                .map((inp) => (
+                                  <SelectItem key={inp.id} value={inp.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{inp.name || inp.id}</span>
+                                      {inp.boneioInput && (
+                                        <span className="text-xs opacity-60">{inp.boneioInput}</span>
+                                      )}
+                                      {inp.areaName && (
+                                        <span className="text-xs opacity-50">· {inp.areaName}</span>
+                                      )}
+                                    </div>
                                   </SelectItem>
                                 ))}
                             </SelectContent>
                           </Select>
                         ) : (
-                          <input
-                            type="text"
-                            className="input input-sm w-full"
-                            placeholder={t('template.input_id_manual')}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const val = (e.target as HTMLInputElement).value.trim();
-                                if (val) {
-                                  addInputToZone(zIdx, val);
-                                  (e.target as HTMLInputElement).value = '';
-                                }
-                                e.preventDefault();
-                              }
-                            }}
-                          />
+                          <p className="text-sm text-base-content/50 italic">
+                            {t('template.no_binary_sensors')}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -361,25 +496,6 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 label={t('template.trigger_time')}
                 allowedUnits={['s', 'min', 'h']}
               />
-
-              {/* Code / PIN */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('template.alarm_code')}</span>
-                </label>
-                <input
-                  type="text"
-                  className="input w-full font-mono"
-                  value={data.code || ''}
-                  onChange={(e) => updateField('code', e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder={t('template.alarm_code_placeholder')}
-                  inputMode="numeric"
-                  maxLength={8}
-                />
-                <label className="label">
-                  <span className="label-text-alt text-info">{t('template.alarm_code_hint')}</span>
-                </label>
-              </div>
 
               {/* Code Arm Required */}
               <div className="form-control">

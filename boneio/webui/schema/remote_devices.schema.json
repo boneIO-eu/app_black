@@ -4,8 +4,8 @@
   "properties": {
     "remote_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -59,8 +59,8 @@
             "properties": {
               "outputs": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -88,8 +88,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -156,8 +156,8 @@
               },
               "switches": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -193,8 +193,8 @@
               },
               "lights": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -334,8 +334,8 @@
               },
               "covers": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -447,8 +447,8 @@
               },
               "segments": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -525,8 +525,8 @@
               },
               "effects": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [
@@ -558,8 +558,8 @@
               },
               "palettes": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "items": {
                   "type": [

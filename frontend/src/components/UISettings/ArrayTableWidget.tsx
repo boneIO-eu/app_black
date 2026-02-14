@@ -480,22 +480,24 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if ((sectionType === 'binary_sensor' || sectionType === 'event') && cleanedData.name && cleanedData.id) {
       delete cleanedData.id;
     }
-    // Auto-generate unique ID for template entries
+    // Auto-generate unique ID for template entries (only if user didn't provide one)
     if (sectionType === 'template') {
       delete cleanedData._autoId;
-      const baseName = (cleanedData.name || cleanedData.platform || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-      const existingIds = new Set(
-        value
-          .filter((_: any, i: number) => i !== editingIndex)
-          .map((item: any) => item.id)
-      );
-      let candidateId = baseName;
-      let suffix = 2;
-      while (existingIds.has(candidateId)) {
-        candidateId = `${baseName}_${suffix}`;
-        suffix++;
+      if (!cleanedData.id) {
+        const baseName = (cleanedData.name || cleanedData.platform || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+        const existingIds = new Set(
+          value
+            .filter((_: any, i: number) => i !== editingIndex)
+            .map((item: any) => item.id)
+        );
+        let candidateId = baseName;
+        let suffix = 2;
+        while (existingIds.has(candidateId)) {
+          candidateId = `${baseName}_${suffix}`;
+          suffix++;
+        }
+        cleanedData.id = candidateId;
       }
-      cleanedData.id = candidateId;
     }
     
     const newValue = [...value];
@@ -1279,7 +1281,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allAreas={allAreas}
                     allSensors={allSensors}
                     allModbusDevices={allModbusDevices}
-                    allInputs={[...(allBinarySensors || []), ...(allEvents || [])]}
+                    allInputs={allBinarySensors || []}
                   />
                 ) : (
                   <div className="alert alert-warning">

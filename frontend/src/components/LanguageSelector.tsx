@@ -22,7 +22,7 @@ const LanguageSelector: React.FC = () => {
           {CurrentFlag ? <CurrentFlag className="w-5 h-5" /> : '🌐'}
         </span>
       </div>
-      <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-40">
+      <ul tabIndex={0} className="dropdown-content z-1  menu p-2 shadow bg-base-100 rounded-box w-40">
         {availableLanguages.map((lang: any) => {
           const FlagComponent = lang.flag;
           return (

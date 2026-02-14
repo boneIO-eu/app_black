@@ -4,8 +4,8 @@
   "properties": {
     "cover": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [

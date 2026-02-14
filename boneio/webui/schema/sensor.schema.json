@@ -4,8 +4,8 @@
   "properties": {
     "sensor": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -75,8 +75,8 @@
           },
           "filters": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "default": [
               {

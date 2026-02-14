@@ -4,8 +4,8 @@
   "properties": {
     "output": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -110,8 +110,8 @@
           },
           "interlock_group": {
             "type": [
-              "string",
-              "array"
+              "array",
+              "string"
             ],
             "description": "Restore saved state of boneio. Not used for \"none\" and output_type!",
             "title": "Interlock group"

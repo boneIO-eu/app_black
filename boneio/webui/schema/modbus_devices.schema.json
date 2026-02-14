@@ -4,8 +4,8 @@
   "properties": {
     "modbus_devices": {
       "type": [
-        "string",
-        "array"
+        "array",
+        "string"
       ],
       "items": {
         "type": [
@@ -119,8 +119,8 @@
             "properties": {
               "temperature": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {
@@ -138,8 +138,8 @@
               },
               "humidity": {
                 "type": [
-                  "string",
-                  "array"
+                  "array",
+                  "string"
                 ],
                 "default": [
                   {

@@ -759,6 +759,7 @@ export default function UISettings() {
           'virtual_energy_sensor',
           'logger',
           'remote_devices',
+          'template',
         ];
         if (reloadableSections.includes(sectionName)) {
           try {

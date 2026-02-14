@@ -1282,7 +1282,12 @@ template:
         type: string
         required: False
         meta:
-          label: ID of the temperature sensor to read (thermostat only).
+          label: ID of the primary temperature sensor (thermostat only).
+      sensor_ids:
+        type: list
+        required: False
+        meta:
+          label: List of temperature sensor IDs. Average of available readings is used (thermostat only).
       output_id:
         type: string
         required: False
@@ -1320,12 +1325,24 @@ template:
         meta:
           label: Maximum settable temperature (thermostat only).
       # --- Alarm panel fields ---
-      code:
-        type: string
+      codes:
+        type: list
         required: False
-        default: REMOTE_CODE
         meta:
-          label: Code type for alarm panel. Use REMOTE_CODE for HA-managed codes.
+          label: List of PIN codes with user names for arming/disarming the alarm.
+        schema:
+          type: dict
+          schema:
+            name:
+              type: string
+              required: True
+              meta:
+                label: User name (used in logs to identify who disarmed).
+            code:
+              type: string
+              required: True
+              meta:
+                label: Numeric PIN code.
       code_arm_required:
         type: boolean
         required: False

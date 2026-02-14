@@ -757,12 +757,15 @@ def load_config_from_string(config_str: str) -> dict:
     schema = _get_schema()  # Use cached schema instead of loading every time
     v = CustomValidator(schema, purge_unknown=True)
 
+    # Parse YAML string into dict first
+    raw_doc = load(config_str, Loader=BoneIOLoader) or OrderedDict()
+
     # Apply migrations on raw dict BEFORE normalization/coercion
     # (coerce: positive_time_period would fail on bare int like transition: 2)
-    migrated_str, _ = _run_config_migrations(config_str, config_file=None)
+    migrated_doc, _ = _run_config_migrations(raw_doc, config_file=None)
     
     # Normalize the document (applies coercion rules)
-    doc = v.normalized(migrated_str, always_return_document=True)  # type: ignore[attr-defined]
+    doc = v.normalized(migrated_doc, always_return_document=True)  # type: ignore[attr-defined]
     
     # Then merge board config
     merged_doc = merge_board_config(doc)

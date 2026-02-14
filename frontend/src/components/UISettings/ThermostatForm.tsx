@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import OutputSelectDropdown from './OutputSelectDropdown';
+import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
 import {
@@ -47,15 +48,28 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
   const temperatureSensors: TemperatureSensor[] = useMemo(() => {
     const sensors: TemperatureSensor[] = [];
 
-    // 1-Wire / GPIO sensors
     for (const s of allSensors) {
-      const id = s.id || s.address || '';
-      if (id) {
-        sensors.push({
-          id,
-          label: s.name || s.id || s.address,
-          source: '1-Wire',
-        });
+      const src = s._source || '';
+      if (src === 'lm75' || src === 'mcp9808') {
+        // I2C temperature sensors (LM75/PCT2075, MCP9808)
+        const id = (s.id || '').replace(/\s/g, '');
+        if (id) {
+          sensors.push({
+            id,
+            label: s.id || `${src.toUpperCase()} @ 0x${(s.address ?? 0).toString(16)}`,
+            source: src.toUpperCase(),
+          });
+        }
+      } else {
+        // 1-Wire / Dallas sensors
+        const id = s.id || s.address || '';
+        if (id) {
+          sensors.push({
+            id,
+            label: s.name || s.id || s.address,
+            source: '1-Wire',
+          });
+        }
       }
     }
 
@@ -64,7 +78,6 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
       const model = (dev.model || '').toLowerCase();
       const devId = dev.id || `modbus_${dev.address}_${model}`;
       if (model === 'cwt') {
-        // CWT has temperature + humidity sensors
         sensors.push({
           id: `${devId}_temperature`,
           label: `${dev.name || devId} (${t('template.modbus_temp')})`,
@@ -104,6 +117,22 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
               </div>
 
+              {/* ID */}
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text font-medium">{t('outputs.id')}</span>
+                </label>
+                <input
+                  type="text"
+                  className="input w-full font-mono"
+                  value={data.id || ''}
+                  onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+                  placeholder={t('template.id_placeholder')}
+                />
+                <label className="label">
+                  <span className="label-text-alt text-info">{t('template.id_hint')}</span>
+                </label>
+              </div>
 
               {/* Area */}
               <div className="form-control">
@@ -128,41 +157,64 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </Select>
               </div>
 
-              {/* Sensor ID — grouped by source */}
+              {/* Temperature Sensors — multi-select checkboxes */}
               <div className="form-control">
                 <label className="label">
                   <span className="label-text font-medium">{t('template.sensor_id')} *</span>
                 </label>
-                {temperatureSensors.length > 0 ? (
-                  <Select
-                    value={data.sensor_id || ''}
-                    onValueChange={(value) => updateField('sensor_id', value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('template.select_sensor')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {temperatureSensors.map((sensor) => (
-                        <SelectItem key={sensor.id} value={sensor.id}>
-                          <span className="flex items-center gap-2">
-                            <span className="badge badge-xs badge-outline">{sensor.source}</span>
-                            {sensor.label}
-                          </span>
-                        </SelectItem>
+                {(() => {
+                  const selectedIds: string[] = data.sensor_ids || (data.sensor_id ? [data.sensor_id] : []);
+                  const toggleSensor = (sensorId: string) => {
+                    const newIds = selectedIds.includes(sensorId)
+                      ? selectedIds.filter((id: string) => id !== sensorId)
+                      : [...selectedIds, sensorId];
+                    onChange({ ...data, sensor_ids: newIds, sensor_id: newIds[0] || '' });
+                  };
+                  // IDs selected manually that are not in the known sensor list
+                  const knownIds = new Set(temperatureSensors.map((s) => s.id));
+                  const manualIds = selectedIds.filter((id) => !knownIds.has(id));
+
+                  return (
+                    <div className="space-y-2">
+                      {temperatureSensors.length > 0 && (
+                        <div className="space-y-1 p-3 bg-base-200 rounded-lg max-h-48 overflow-y-auto">
+                          {temperatureSensors.map((sensor) => (
+                            <label key={sensor.id} className="flex items-center gap-2 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm checkbox-primary"
+                                checked={selectedIds.includes(sensor.id)}
+                                onChange={() => toggleSensor(sensor.id)}
+                              />
+                              <span className="badge badge-xs badge-outline">{sensor.source}</span>
+                              <span className="text-sm">{sensor.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {temperatureSensors.length === 0 && selectedIds.length === 0 && (
+                        <div className="text-sm text-base-content/50 italic p-3 bg-base-200 rounded-lg">
+                          {t('template.no_sensors_available')}
+                        </div>
+                      )}
+                      {/* Manually added IDs (not in known sensor list) — shown as removable chips */}
+                      {manualIds.map((id) => (
+                        <div key={id} className="flex items-center gap-2 px-3 py-1 bg-base-200 rounded-lg">
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm checkbox-primary"
+                            checked
+                            onChange={() => toggleSensor(id)}
+                          />
+                          <span className="badge badge-xs badge-ghost">manual</span>
+                          <span className="text-sm font-mono">{id}</span>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <input
-                    type="text"
-                    className="input w-full"
-                    value={data.sensor_id || ''}
-                    onChange={(e) => updateField('sensor_id', e.target.value)}
-                    placeholder={t('template.sensor_id_placeholder')}
-                  />
-                )}
+                    </div>
+                  );
+                })()}
                 <label className="label">
-                  <span className="label-text-alt text-info">{t('template.sensor_id_hint')}</span>
+                  <span className="label-text-alt text-info">{t('template.sensor_ids_hint')}</span>
                 </label>
               </div>
 
@@ -190,13 +242,21 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input w-full"
-                    value={data.target_temperature ?? 21}
-                    onChange={(e) => updateField('target_temperature', parseFloat(e.target.value) || 21)}
-                    min={data.min_temperature ?? 5}
-                    max={data.max_temperature ?? 35}
-                    step={0.5}
+                    value={data.target_temperature ?? '21'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v)) {
+                        updateField('target_temperature', v === '' ? '' : v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(data.target_temperature);
+                      if (!isNaN(num)) updateField('target_temperature', num);
+                      else updateField('target_temperature', 21);
+                    }}
                   />
                   <span className="text-base-content/70">°C</span>
                 </div>
@@ -235,13 +295,21 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input w-full"
-                    value={data.hysteresis ?? 0.5}
-                    onChange={(e) => updateField('hysteresis', parseFloat(e.target.value) || 0.5)}
-                    min={0.1}
-                    max={5}
-                    step={0.1}
+                    value={data.hysteresis ?? '0.5'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                        updateField('hysteresis', v === '' ? '' : v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(data.hysteresis);
+                      if (!isNaN(num) && num > 0) updateField('hysteresis', num);
+                      else updateField('hysteresis', 0.5);
+                    }}
                   />
                   <span className="text-base-content/70">°C</span>
                 </div>
@@ -257,13 +325,21 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input w-full"
-                    value={data.min_temperature ?? 5}
-                    onChange={(e) => updateField('min_temperature', parseFloat(e.target.value) || 5)}
-                    min={0}
-                    max={data.max_temperature ?? 35}
-                    step={0.5}
+                    value={data.min_temperature ?? '5'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v)) {
+                        updateField('min_temperature', v === '' ? '' : v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(data.min_temperature);
+                      if (!isNaN(num)) updateField('min_temperature', num);
+                      else updateField('min_temperature', 5);
+                    }}
                   />
                   <span className="text-base-content/70">°C</span>
                 </div>
@@ -276,13 +352,21 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     className="input w-full"
-                    value={data.max_temperature ?? 35}
-                    onChange={(e) => updateField('max_temperature', parseFloat(e.target.value) || 35)}
-                    min={data.min_temperature ?? 5}
-                    max={50}
-                    step={0.5}
+                    value={data.max_temperature ?? '35'}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || v === '-' || /^-?\d*\.?\d*$/.test(v)) {
+                        updateField('max_temperature', v === '' ? '' : v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(data.max_temperature);
+                      if (!isNaN(num)) updateField('max_temperature', num);
+                      else updateField('max_temperature', 35);
+                    }}
                   />
                   <span className="text-base-content/70">°C</span>
                 </div>

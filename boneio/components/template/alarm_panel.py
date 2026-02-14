@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from boneio.core.messaging.basic import MessageBus
     from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
+    from boneio.core.manager.inputs import InputManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,13 +46,50 @@ OUTPUT_NOTIFICATION = "notification"
 OUTPUT_LIGHT = "light"
 OUTPUT_CUSTOM = "custom"
 
+# Input wiring types
+NORMALLY_CLOSED = "normally_closed"
+NORMALLY_OPEN = "normally_open"
+
+
+class ZoneInput:
+    """A single input within an alarm zone with wiring type.
+
+    Args:
+        input_id: Input entity ID to monitor.
+        wiring: Wiring type — 'normally_closed' (default) or 'normally_open'.
+            - normally_closed (NC): contact sensor, door, gate — closed circuit = safe,
+              open circuit = alarm.  GPIO _state=True means closed (safe).
+            - normally_open (NO): PIR motion sensor — open circuit = safe,
+              closed circuit = alarm.  GPIO _state=True means closed (alarm).
+    """
+
+    def __init__(self, input_id: str, wiring: str = NORMALLY_CLOSED) -> None:
+        self.input_id = input_id
+        self.wiring = wiring
+
+    def is_triggered(self, gpio_state: bool) -> bool:
+        """Check if this input is in alarm-triggering state.
+
+        Args:
+            gpio_state: Raw GPIO state (True = pressed/closed circuit).
+
+        Returns:
+            True if the input should trigger the alarm.
+        """
+        if self.wiring == NORMALLY_CLOSED:
+            # NC: closed = safe, open = alarm → trigger when NOT pressed
+            return not gpio_state
+        else:
+            # NO: open = safe, closed = alarm → trigger when pressed
+            return gpio_state
+
 
 class AlarmZone:
     """A zone groups inputs and defines which arm modes activate them.
 
     Args:
         name: Human-readable zone name.
-        input_ids: List of input entity IDs to monitor.
+        inputs: List of ZoneInput objects to monitor.
         arm_modes: List of arm modes where this zone is active.
         entry_delay: Whether this zone uses entry delay before triggering.
     """
@@ -59,14 +97,29 @@ class AlarmZone:
     def __init__(
         self,
         name: str,
-        input_ids: list[str],
+        inputs: list[ZoneInput],
         arm_modes: list[str],
         entry_delay: bool = False,
     ) -> None:
         self.name = name
-        self.input_ids = input_ids
+        self.inputs = inputs
+        self.input_ids = [zi.input_id for zi in inputs]
         self.arm_modes = arm_modes
         self.entry_delay = entry_delay
+
+    def get_zone_input(self, input_id: str) -> ZoneInput | None:
+        """Get ZoneInput by input_id.
+
+        Args:
+            input_id: Input entity ID.
+
+        Returns:
+            ZoneInput or None if not found.
+        """
+        for zi in self.inputs:
+            if zi.input_id == input_id:
+                return zi
+        return None
 
     def is_active_in_mode(self, mode: str) -> bool:
         """Check if this zone is active in the given arm mode.
@@ -93,6 +146,19 @@ class AlarmOutput:
         self.output_type = output_type
 
 
+class AlarmPinCode:
+    """A named PIN code for alarm arming/disarming.
+
+    Args:
+        name: User name (used in logs to identify who armed/disarmed).
+        code: Numeric PIN code string.
+    """
+
+    def __init__(self, name: str, code: str) -> None:
+        self.name = name
+        self.code = code
+
+
 class BoneIOAlarmPanel:
     """Zone-based alarm control panel with state machine.
 
@@ -104,6 +170,9 @@ class BoneIOAlarmPanel:
         topic_prefix: MQTT topic prefix.
         zones: List of AlarmZone definitions.
         outputs: List of AlarmOutput definitions.
+        input_manager: InputManager for checking input states before arming.
+        codes: List of AlarmPinCode for multi-user PIN authentication.
+        code_arm_required: Whether a code is required to arm (not just disarm).
         arming_time_s: Seconds to wait in arming state before armed.
         delay_time_s: Seconds to wait in pending state before triggered.
         trigger_time_s: Seconds the alarm stays triggered before auto-disarm.
@@ -119,6 +188,9 @@ class BoneIOAlarmPanel:
         topic_prefix: str,
         zones: list[AlarmZone],
         outputs: list[AlarmOutput],
+        input_manager: "InputManager | None" = None,
+        codes: list[AlarmPinCode] | None = None,
+        code_arm_required: bool = False,
         arming_time_s: float = 30.0,
         delay_time_s: float = 30.0,
         trigger_time_s: float = 300.0,
@@ -131,6 +203,9 @@ class BoneIOAlarmPanel:
         self._topic_prefix = topic_prefix
         self._zones = zones
         self._outputs = outputs
+        self._input_manager = input_manager
+        self._codes = codes or []
+        self._code_arm_required = code_arm_required
         self._arming_time_s = arming_time_s
         self._delay_time_s = delay_time_s
         self._trigger_time_s = trigger_time_s
@@ -148,6 +223,7 @@ class BoneIOAlarmPanel:
         # MQTT topics
         self._state_topic = f"{topic_prefix}/alarm/{id}/{STATE}"
         self._cmd_topic = f"{topic_prefix}/cmd/alarm/{id}/set"
+        self._attributes_topic = f"{topic_prefix}/alarm/{id}/attributes"
 
         # Track triggered inputs for logging
         self._triggered_zone: str | None = None
@@ -155,8 +231,8 @@ class BoneIOAlarmPanel:
 
         _LOGGER.info(
             "Initialized BoneIOAlarmPanel: id=%s, zones=%d, outputs=%d, "
-            "arming=%.0fs, delay=%.0fs, trigger=%.0fs",
-            id, len(zones), len(outputs),
+            "codes=%d, arming=%.0fs, delay=%.0fs, trigger=%.0fs",
+            id, len(zones), len(outputs), len(self._codes),
             arming_time_s, delay_time_s, trigger_time_s,
         )
 
@@ -192,27 +268,93 @@ class BoneIOAlarmPanel:
         """Get alarm outputs."""
         return self._outputs
 
+    @property
+    def codes(self) -> list[AlarmPinCode]:
+        """Get configured PIN codes."""
+        return self._codes
+
+    @property
+    def code_arm_required(self) -> bool:
+        """Whether a code is required to arm the alarm."""
+        return self._code_arm_required
+
+    # -- PIN code validation -------------------------------------------------
+
+    def _validate_code(self, code: str | None, action: str) -> tuple[bool, str | None]:
+        """Validate a PIN code against configured codes.
+
+        Args:
+            code: The PIN code to validate (None if not provided).
+            action: The action being performed (for logging).
+
+        Returns:
+            Tuple of (is_valid, user_name). If no codes are configured,
+            always returns (True, None).
+        """
+        if not self._codes:
+            return True, None
+
+        if not code:
+            _LOGGER.warning("Alarm %s: %s rejected — no code provided", self._id, action)
+            return False, None
+
+        for pin in self._codes:
+            if pin.code == code:
+                return True, pin.name
+
+        _LOGGER.warning("Alarm %s: %s rejected — invalid code", self._id, action)
+        return False, None
+
     # -- MQTT command handler ------------------------------------------------
 
     async def handle_command(self, _topic: str, payload: str) -> None:
         """Handle alarm command from HA.
 
+        Payload can be a plain command string (ARM_HOME, DISARM, etc.)
+        or a JSON object with 'action' and optional 'code' fields:
+        {"action": "DISARM", "code": "1234"}
+
         Args:
             _topic: MQTT topic (unused).
-            payload: Command string (ARM_HOME, ARM_AWAY, ARM_NIGHT, DISARM, TRIGGER).
+            payload: Command string or JSON payload.
         """
-        command = payload.strip().upper()
+        code: str | None = None
+        command: str
+
+        # Try to parse as JSON first (HA sends JSON with code)
+        try:
+            data = json.loads(payload)
+            if isinstance(data, dict):
+                command = str(data.get("action", data.get("command", ""))).strip().upper()
+                code = data.get("code")
+            else:
+                command = payload.strip().upper()
+        except (json.JSONDecodeError, ValueError):
+            command = payload.strip().upper()
+
         _LOGGER.info("Alarm %s received command: %s (current state: %s)",
                       self._id, command, self._state)
 
         if command == CMD_DISARM:
+            valid, user_name = self._validate_code(code, "DISARM")
+            if not valid:
+                return
+            if user_name:
+                _LOGGER.info("Alarm %s disarmed by %s", self._id, user_name)
             await self._disarm()
-        elif command == CMD_ARM_HOME:
-            await self._arm(ARMED_HOME)
-        elif command == CMD_ARM_AWAY:
-            await self._arm(ARMED_AWAY)
-        elif command == CMD_ARM_NIGHT:
-            await self._arm(ARMED_NIGHT)
+        elif command in (CMD_ARM_HOME, CMD_ARM_AWAY, CMD_ARM_NIGHT):
+            if self._code_arm_required:
+                valid, user_name = self._validate_code(code, command)
+                if not valid:
+                    return
+                if user_name:
+                    _LOGGER.info("Alarm %s armed (%s) by %s", self._id, command, user_name)
+            target = {
+                CMD_ARM_HOME: ARMED_HOME,
+                CMD_ARM_AWAY: ARMED_AWAY,
+                CMD_ARM_NIGHT: ARMED_NIGHT,
+            }[command]
+            await self._arm(target)
         elif command == CMD_TRIGGER:
             await self._trigger("manual", "manual")
         else:
@@ -224,10 +366,12 @@ class BoneIOAlarmPanel:
         """Handle input sensor event (pressed/released).
 
         Called by TemplateManager when a monitored input fires.
+        Checks the ZoneInput wiring type to determine if this event
+        should trigger the alarm.
 
         Args:
             input_id: The input entity ID that fired.
-            event_type: Event type (e.g. 'pressed', 'single').
+            event_type: Event type (e.g. 'pressed', 'released').
         """
         if self._state == DISARMED:
             return
@@ -235,16 +379,24 @@ class BoneIOAlarmPanel:
         if self._state in (ARMING, PENDING, TRIGGERED):
             return
 
-        # Check if any active zone contains this input
+        # Determine GPIO state from event_type
+        gpio_state = event_type.lower() in ("pressed", "single", "double", "long")
+
+        # Check if any active zone contains this input and if it triggers
         for zone in self._zones:
-            if input_id not in zone.input_ids:
+            zone_input = zone.get_zone_input(input_id)
+            if zone_input is None:
                 continue
             if not zone.is_active_in_mode(self._state):
                 continue
+            if not zone_input.is_triggered(gpio_state):
+                continue
 
             _LOGGER.warning(
-                "Alarm %s: zone '%s' triggered by input %s (event: %s)",
+                "Alarm %s: zone '%s' triggered by input %s "
+                "(event: %s, wiring: %s)",
                 self._id, zone.name, input_id, event_type,
+                zone_input.wiring,
             )
 
             if zone.entry_delay:
@@ -255,12 +407,66 @@ class BoneIOAlarmPanel:
 
     # -- State machine -------------------------------------------------------
 
+    def _check_zones_clear(self, target_mode: str) -> list[dict[str, str]]:
+        """Check if all inputs in zones active for target_mode are safe.
+
+        Uses ZoneInput.is_triggered() to respect NC/NO wiring type.
+
+        Args:
+            target_mode: The target armed state to check zones for.
+
+        Returns:
+            List of dicts with 'zone', 'input_id', 'input_name', 'wiring'
+            for each input in alarm-triggering state.  Empty list means clear.
+        """
+        blocking: list[dict[str, str]] = []
+        if self._input_manager is None:
+            return blocking
+
+        all_inputs = self._input_manager.get_all_inputs()
+        for zone in self._zones:
+            if not zone.is_active_in_mode(target_mode):
+                continue
+            for zone_input in zone.inputs:
+                inp = all_inputs.get(zone_input.input_id)
+                if inp is None:
+                    continue
+                gpio_state = getattr(inp, "_state", False)
+                if zone_input.is_triggered(gpio_state):
+                    blocking.append({
+                        "zone": zone.name,
+                        "input_id": zone_input.input_id,
+                        "input_name": getattr(inp, "_name", zone_input.input_id),
+                        "wiring": zone_input.wiring,
+                    })
+        return blocking
+
     async def _arm(self, target_mode: str) -> None:
         """Start arming sequence.
+
+        Refuses to arm if any monitored input is currently active (open)
+        and publishes the list of blocking inputs to MQTT.
 
         Args:
             target_mode: The target armed state (armed_home, armed_away, armed_night).
         """
+        blocking = self._check_zones_clear(target_mode)
+        if blocking:
+            names = ", ".join(
+                f"{b['input_name']} ({b['zone']})" for b in blocking
+            )
+            _LOGGER.warning(
+                "Alarm %s: arming to %s blocked by active inputs: %s",
+                self._id, target_mode, names,
+            )
+            # Publish blocking inputs as HA entity attributes
+            self._publish_attributes(blocking_inputs=blocking)
+            # Stay in current state (disarmed) — do not arm
+            return
+
+        # Clear any previous blocking info
+        self._publish_attributes(blocking_inputs=[])
+
         self._cancel_all_timers()
         self._pending_arm_mode = target_mode
 
@@ -389,6 +595,27 @@ class BoneIOAlarmPanel:
         self._message_bus.send_message(
             topic=self._state_topic,
             payload=self._state,
+            retain=True,
+        )
+        self._publish_attributes()
+
+    def _publish_attributes(
+        self, blocking_inputs: list[dict[str, str]] | None = None,
+    ) -> None:
+        """Publish JSON attributes to MQTT for HA json_attributes_topic.
+
+        Args:
+            blocking_inputs: List of inputs blocking arming (optional override).
+        """
+        attrs: dict[str, Any] = {
+            "triggered_zone": self._triggered_zone,
+            "triggered_input": self._triggered_input,
+        }
+        if blocking_inputs is not None:
+            attrs["blocking_inputs"] = blocking_inputs
+        self._message_bus.send_message(
+            topic=self._attributes_topic,
+            payload=json.dumps(attrs),
             retain=True,
         )
 

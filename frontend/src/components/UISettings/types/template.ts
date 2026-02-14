@@ -7,9 +7,14 @@ export interface Area {
   name: string;
 }
 
+export interface ZoneInput {
+  id: string;
+  type: 'normally_closed' | 'normally_open';
+}
+
 export interface AlarmZone {
   name: string;
-  inputs: string[];
+  inputs: (string | ZoneInput)[];
   arm_modes: string[];
   entry_delay: boolean;
 }
@@ -17,6 +22,11 @@ export interface AlarmZone {
 export interface AlarmOutput {
   id: string;
   type: string;
+}
+
+export interface AlarmPin {
+  name: string;
+  code: string;
 }
 
 export interface TemplateSubFormProps {

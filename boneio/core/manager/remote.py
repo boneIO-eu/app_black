@@ -453,7 +453,7 @@ class RemoteDeviceManager:
                 brightness=brightness,
                 rgb=wled_rgb,
                 transition=transition if transition is not None else 0.0,
-                effect=effect,
+                effect=effect if isinstance(effect, int) else None,
                 palette=palette,
                 effect_speed=effect_speed,
                 effect_intensity=effect_intensity,

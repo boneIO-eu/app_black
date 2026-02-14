@@ -606,7 +606,7 @@ def modbus_numeric_availabilty_message(
 
 
 def ha_cover_availabilty_message(
-    id: str, name: str, device_class: str, config_helper: ConfigHelper, **kwargs
+    id: str, name: str, device_class: str | None, config_helper: ConfigHelper, **kwargs
 ):
     """Create Cover availability topic for HA."""
     topic = config_helper.topic_prefix
@@ -633,7 +633,7 @@ def ha_cover_availabilty_message(
 
 
 def ha_cover_with_tilt_availabilty_message(
-    id: str, name: str, device_class: str, config_helper: ConfigHelper, **kwargs
+    id: str, name: str, device_class: str | None, config_helper: ConfigHelper, **kwargs
 ):
     """Create Cover with tilt availability topic for HA."""
     topic = config_helper.topic_prefix
@@ -815,17 +815,20 @@ def ha_alarm_panel_availability_message(
         **kwargs,
     )
 
+    has_code = bool(code)
     result: dict[str, Any] = {
         **msg,
         "state_topic": f"{topic}/alarm/{id}/state",
         "command_topic": f"{topic}/cmd/alarm/{id}/set",
         "supported_features": supported_features,
-        "code_arm_required": code_arm_required,
-        "code_disarm_required": True,
+        "code_arm_required": code_arm_required if has_code else False,
+        "code_disarm_required": has_code,
         "code_trigger_required": False,
+        "json_attributes_topic": f"{topic}/alarm/{id}/attributes",
     }
 
-    if code:
+    if has_code:
+        result["command_template"] = '{"action":"{{ action }}","code":"{{ code }}"}'
         result["code"] = code
 
     return result
