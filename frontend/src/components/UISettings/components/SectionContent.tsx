@@ -11,6 +11,7 @@ import ModbusForm from '../ModbusForm';
 import LoggerForm from '../LoggerForm';
 import Mcp23017Form from '../Mcp23017Form';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
+import { normalizeCovers } from '../helpers/coverUtils';
 
 interface ConfigSection {
   name: string;
@@ -92,7 +93,7 @@ function ArraySectionContent({
       allRemoteDevices={formData.remote_devices || []}
       savedOutputs={originalData.output || []}
       savedOutputGroups={originalData.output_group || []}
-      savedCovers={originalData.cover || []}
+      savedCovers={normalizeCovers(originalData.cover || [])}
       onUpdateEvents={(newEvents) => onSectionChange('event', newEvents)}
       onUpdateBinarySensors={(newSensors) => onSectionChange('binary_sensor', newSensors)}
       onSaveSection={onSaveSection}
