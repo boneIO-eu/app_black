@@ -9,6 +9,7 @@ autodiscovery.  Code validation is delegated to HA (``REMOTE_CODE``).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
     from boneio.core.manager.inputs import InputManager
+    from boneio.core.state.manager import StateManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -149,14 +151,55 @@ class AlarmOutput:
 class AlarmPinCode:
     """A named PIN code for alarm arming/disarming.
 
+    Stores the code as a SHA-256 hex digest so plain-text PINs are never
+    kept in memory or written to YAML.  If the supplied *code_or_hash* is
+    shorter than 64 hex characters it is treated as a plain-text PIN and
+    hashed automatically.
+
     Args:
         name: User name (used in logs to identify who armed/disarmed).
-        code: Numeric PIN code string.
+        code_or_hash: Plain-text PIN **or** pre-computed SHA-256 hex digest.
     """
 
-    def __init__(self, name: str, code: str) -> None:
+    def __init__(self, name: str, code_or_hash: str) -> None:
         self.name = name
-        self.code = code
+        if self._is_sha256(code_or_hash):
+            self._hash = code_or_hash
+        else:
+            self._hash = self.hash_code(code_or_hash)
+
+    @property
+    def code_hash(self) -> str:
+        """Return the stored SHA-256 hex digest."""
+        return self._hash
+
+    def verify(self, plain_code: str) -> bool:
+        """Check a plain-text PIN against the stored hash.
+
+        Args:
+            plain_code: The PIN entered by the user.
+
+        Returns:
+            True if the PIN matches.
+        """
+        return self._hash == self.hash_code(plain_code)
+
+    @staticmethod
+    def hash_code(plain: str) -> str:
+        """Compute SHA-256 hex digest of a plain-text PIN.
+
+        Args:
+            plain: Plain-text PIN string.
+
+        Returns:
+            64-character lowercase hex digest.
+        """
+        return hashlib.sha256(plain.encode()).hexdigest()
+
+    @staticmethod
+    def _is_sha256(value: str) -> bool:
+        """Check whether *value* looks like a SHA-256 hex digest."""
+        return len(value) == 64 and all(c in '0123456789abcdef' for c in value.lower())
 
 
 class BoneIOAlarmPanel:
@@ -173,6 +216,7 @@ class BoneIOAlarmPanel:
         input_manager: InputManager for checking input states before arming.
         codes: List of AlarmPinCode for multi-user PIN authentication.
         code_arm_required: Whether a code is required to arm (not just disarm).
+        allow_frontend_control: Whether the boneIO frontend can arm/disarm.
         arming_time_s: Seconds to wait in arming state before armed.
         delay_time_s: Seconds to wait in pending state before triggered.
         trigger_time_s: Seconds the alarm stays triggered before auto-disarm.
@@ -191,10 +235,12 @@ class BoneIOAlarmPanel:
         input_manager: "InputManager | None" = None,
         codes: list[AlarmPinCode] | None = None,
         code_arm_required: bool = False,
+        allow_frontend_control: bool = False,
         arming_time_s: float = 30.0,
         delay_time_s: float = 30.0,
         trigger_time_s: float = 300.0,
         area: str | None = None,
+        state_manager: "StateManager | None" = None,
     ) -> None:
         self._id = id
         self._name = name
@@ -206,14 +252,18 @@ class BoneIOAlarmPanel:
         self._input_manager = input_manager
         self._codes = codes or []
         self._code_arm_required = code_arm_required
+        self._allow_frontend_control = allow_frontend_control
         self._arming_time_s = arming_time_s
         self._delay_time_s = delay_time_s
         self._trigger_time_s = trigger_time_s
         self._area = area
+        self._state_manager = state_manager
 
-        # State
-        self._state = DISARMED
+        # State — restore from persisted state if available
+        restored = self._restore_state()
+        self._state = restored or DISARMED
         self._pending_arm_mode: str | None = None
+        self._arming_started_at: float | None = None
 
         # Timers
         self._arming_timer: asyncio.TimerHandle | None = None
@@ -278,6 +328,55 @@ class BoneIOAlarmPanel:
         """Whether a code is required to arm the alarm."""
         return self._code_arm_required
 
+    @property
+    def allow_frontend_control(self) -> bool:
+        """Whether the boneIO frontend is allowed to arm/disarm this alarm."""
+        return self._allow_frontend_control
+
+    @property
+    def arming_remaining_s(self) -> float | None:
+        """Seconds remaining until arming completes, or None if not arming."""
+        if self._state != ARMING or self._arming_started_at is None:
+            return None
+        elapsed = time.monotonic() - self._arming_started_at
+        remaining = self._arming_time_s - elapsed
+        return max(0.0, round(remaining, 1))
+
+    # -- State persistence ----------------------------------------------------
+
+    _PERSIST_ATTR_TYPE = ALARM_CONTROL_PANEL
+
+    # Only these stable states are worth persisting (not transient arming/pending/triggered)
+    _PERSISTABLE_STATES = {DISARMED, ARMED_HOME, ARMED_AWAY, ARMED_NIGHT}
+
+    def _persist_state(self) -> None:
+        """Save current alarm state to disk via StateManager."""
+        if self._state_manager is None:
+            return
+        if self._state in self._PERSISTABLE_STATES:
+            self._state_manager.save_attribute(
+                attr_type=self._PERSIST_ATTR_TYPE,
+                attribute=self._id,
+                value=self._state,
+            )
+
+    def _restore_state(self) -> str | None:
+        """Restore alarm state from disk.
+
+        Returns:
+            Persisted state string or None if nothing saved.
+        """
+        if self._state_manager is None:
+            return None
+        restored = self._state_manager.get(
+            attr_type=self._PERSIST_ATTR_TYPE,
+            attr=self._id,
+        )
+        if restored and restored in self._PERSISTABLE_STATES:
+            _LOGGER.info("Alarm %s: restored state '%s' from disk", self._id, restored)
+            return restored
+        return None
+
     # -- PIN code validation -------------------------------------------------
 
     def _validate_code(self, code: str | None, action: str) -> tuple[bool, str | None]:
@@ -299,7 +398,7 @@ class BoneIOAlarmPanel:
             return False, None
 
         for pin in self._codes:
-            if pin.code == code:
+            if pin.verify(code):
                 return True, pin.name
 
         _LOGGER.warning("Alarm %s: %s rejected — invalid code", self._id, action)
@@ -410,6 +509,7 @@ class BoneIOAlarmPanel:
     def _check_zones_clear(self, target_mode: str) -> list[dict[str, str]]:
         """Check if all inputs in zones active for target_mode are safe.
 
+        Reads live GPIO state (not cached _state) to avoid stale data.
         Uses ZoneInput.is_triggered() to respect NC/NO wiring type.
 
         Args:
@@ -419,10 +519,13 @@ class BoneIOAlarmPanel:
             List of dicts with 'zone', 'input_id', 'input_name', 'wiring'
             for each input in alarm-triggering state.  Empty list means clear.
         """
+        from boneio.hardware.gpio.input import get_gpio_manager
+
         blocking: list[dict[str, str]] = []
         if self._input_manager is None:
             return blocking
 
+        gpio_manager = get_gpio_manager(loop=asyncio.get_event_loop())
         all_inputs = self._input_manager.get_all_inputs()
         for zone in self._zones:
             if not zone.is_active_in_mode(target_mode):
@@ -431,7 +534,14 @@ class BoneIOAlarmPanel:
                 inp = all_inputs.get(zone_input.input_id)
                 if inp is None:
                     continue
-                gpio_state = getattr(inp, "_state", False)
+                # Read live GPIO state instead of cached _state
+                pin = getattr(inp, "_pin", None)
+                inverted = getattr(inp, "_inverted", False)
+                if pin is not None:
+                    raw_value = gpio_manager.read_value(pin)
+                    gpio_state = not raw_value if not inverted else raw_value
+                else:
+                    gpio_state = getattr(inp, "_state", False)
                 if zone_input.is_triggered(gpio_state):
                     blocking.append({
                         "zone": zone.name,
@@ -472,6 +582,7 @@ class BoneIOAlarmPanel:
 
         if self._arming_time_s > 0:
             self._state = ARMING
+            self._arming_started_at = time.monotonic()
             self._publish_state()
             _LOGGER.info("Alarm %s arming → %s in %.0fs",
                           self._id, target_mode, self._arming_time_s)
@@ -489,19 +600,23 @@ class BoneIOAlarmPanel:
         if self._pending_arm_mode:
             self._state = self._pending_arm_mode
             self._pending_arm_mode = None
+            self._arming_started_at = None
             _LOGGER.info("Alarm %s armed: %s", self._id, self._state)
             self._publish_state()
+            self._persist_state()
 
     async def _disarm(self) -> None:
         """Disarm the alarm, cancel all timers, turn off outputs."""
         self._cancel_all_timers()
         self._state = DISARMED
         self._pending_arm_mode = None
+        self._arming_started_at = None
         self._triggered_zone = None
         self._triggered_input = None
 
         await self._deactivate_outputs()
         self._publish_state()
+        self._persist_state()
         _LOGGER.info("Alarm %s disarmed", self._id)
 
     def _enter_pending(self, zone_name: str, input_id: str) -> None:

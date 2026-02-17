@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import OutputSelectDropdown from './OutputSelectDropdown';
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import HelpLabel from './components/HelpLabel';
 import type { TemplateSubFormProps, AlarmZone, AlarmOutput, AlarmPin, ZoneInput } from './types/template';
 import { ARM_MODE_OPTIONS, OUTPUT_TYPE_OPTIONS } from './types/template';
 
@@ -39,17 +40,45 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   const pinCodes: AlarmPin[] = data.codes || [];
   const updatePinCodes = (newCodes: AlarmPin[]) => updateField('codes', newCodes);
 
+  const isSha256 = (value: string) =>
+    value.length === 64 && /^[0-9a-f]{64}$/i.test(value);
+
+  // Track original hashes in local ref (not in form data)
+  const originalHashesRef = useRef<Record<number, string>>({});
+
   const addPinCode = () => {
     updatePinCodes([...pinCodes, { name: '', code: '' }]);
   };
 
   const removePinCode = (index: number) => {
+    // Clean up hash tracking
+    const newHashes: Record<number, string> = {};
+    for (const [k, v] of Object.entries(originalHashesRef.current)) {
+      const ki = Number(k);
+      if (ki < index) newHashes[ki] = v;
+      else if (ki > index) newHashes[ki - 1] = v;
+    }
+    originalHashesRef.current = newHashes;
     updatePinCodes(pinCodes.filter((_, i) => i !== index));
   };
 
   const updatePinCode = (index: number, field: string, value: string) => {
     const newCodes = [...pinCodes];
-    newCodes[index] = { ...newCodes[index], [field]: value };
+    if (field === 'code') {
+      const current = newCodes[index].code || '';
+      // When user starts editing a hashed code, remember the hash
+      if (isSha256(current) && !originalHashesRef.current[index]) {
+        originalHashesRef.current[index] = current;
+      }
+      if (value === '' && originalHashesRef.current[index]) {
+        // User cleared the field — restore original hash (PIN unchanged)
+        newCodes[index] = { ...newCodes[index], code: originalHashesRef.current[index] };
+      } else {
+        newCodes[index] = { ...newCodes[index], code: value };
+      }
+    } else {
+      newCodes[index] = { ...newCodes[index], [field]: value };
+    }
     updatePinCodes(newCodes);
   };
 
@@ -275,33 +304,38 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                   <span className="label-text font-medium">{t('template.alarm_codes')}</span>
                 </label>
                 <div className="space-y-2">
-                  {pinCodes.map((pin, idx) => (
-                    <div key={idx} className="flex gap-2 items-center p-3 bg-base-200 rounded-lg">
-                      <input
-                        type="text"
-                        className="input input-sm flex-1"
-                        value={pin.name || ''}
-                        onChange={(e) => updatePinCode(idx, 'name', e.target.value)}
-                        placeholder={t('template.pin_name_placeholder')}
-                      />
-                      <input
-                        type="text"
-                        className="input input-sm w-28 font-mono"
-                        value={pin.code || ''}
-                        onChange={(e) => updatePinCode(idx, 'code', e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder={t('template.alarm_code_placeholder')}
-                        inputMode="numeric"
-                        maxLength={8}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm btn-square text-error"
-                        onClick={() => removePinCode(idx)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  ))}
+                  {pinCodes.map((pin, idx) => {
+                    const codeIsHash = isSha256(pin.code || '');
+                    const hasOriginalHash = !!originalHashesRef.current[idx] || codeIsHash;
+                    const displayValue = codeIsHash ? '' : (pin.code || '');
+                    return (
+                      <div key={idx} className="flex gap-2 items-center p-3 bg-base-200 rounded-lg">
+                        <input
+                          type="text"
+                          className="input input-sm flex-1"
+                          value={pin.name || ''}
+                          onChange={(e) => updatePinCode(idx, 'name', e.target.value)}
+                          placeholder={t('template.pin_name_placeholder')}
+                        />
+                        <input
+                          type="password"
+                          className="input input-sm w-28 font-mono"
+                          value={displayValue}
+                          onChange={(e) => updatePinCode(idx, 'code', e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder={hasOriginalHash ? '••••••' : t('template.alarm_code_placeholder')}
+                          inputMode="numeric"
+                          maxLength={8}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm btn-square text-error"
+                          onClick={() => removePinCode(idx)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     className="btn btn-outline btn-sm gap-2"
@@ -508,9 +542,23 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                   />
                   <div>
                     <span className="label-text font-medium">{t('template.code_arm_required')}</span>
-                    <p className="text-sm text-base-content/70 mt-1">
-                      {t('template.code_arm_required_hint')}
-                    </p>
+                    <HelpLabel>{t('template.code_arm_required_hint')}</HelpLabel>
+                  </div>
+                </label>
+              </div>
+
+              {/* Allow Frontend Control */}
+              <div className="form-control">
+                <label className="label cursor-pointer justify-start gap-4">
+                  <input
+                    type="checkbox"
+                    className="checkbox"
+                    checked={data.allow_frontend_control || false}
+                    onChange={(e) => updateField('allow_frontend_control', e.target.checked)}
+                  />
+                  <div>
+                    <span className="label-text font-medium">{t('template.allow_frontend_control')}</span>
+                    <HelpLabel>{t('template.allow_frontend_control_hint')}</HelpLabel>
                   </div>
                 </label>
               </div>

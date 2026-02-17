@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useState, useEffect } from 'react';
@@ -101,7 +101,6 @@ export default function Navigation() {
           )}
         </div>
       </div>
-      <Menu />
       <div className="flex xl:gap-2">
         <ThemeChanger />
         <LanguageSelector />
@@ -115,6 +114,10 @@ export default function Navigation() {
           </button>
         )}
       </div>
+    </div>
+    {/* Desktop second row: navigation menu */}
+    <div className="hidden xl:block bg-base-200/80 border-b border-base-content/10 sticky top-16 z-20">
+      <Menu />
     </div>
     {/* Mobile sub-header with device info */}
     <div className="xl:hidden bg-base-200/80 border-b border-base-content/5 px-4 py-1 flex items-center justify-between text-xs sticky top-16 z-20">
@@ -137,6 +140,7 @@ interface MenuItem {
   icon: any;
   label: string;
   experimental?: boolean;
+  right?: boolean;
 }
 
 function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
@@ -151,15 +155,16 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/inputs', icon: FaInbox, label: t('navigation.inputs') },
     { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors') },
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
-    { path: '/tools', icon: FaToolbox, label: t('navigation.tools') },
+    { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
+    { path: '/tools', icon: FaToolbox, label: t('navigation.tools'), right: true },
     // Settings (experimental) - only show if boneio section exists in config
-    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings') }] : []),
-    { path: '/config', icon: FaCode, label: t('navigation.config') },
-    { path: '/logs', icon: FaList, label: t('navigation.logs') },
-    { path: '/system', icon: FaCog, label: t('navigation.system_update') },
+    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings'), right: true }] : []),
+    { path: '/config', icon: FaCode, label: t('navigation.config'), right: true },
+    { path: '/logs', icon: FaList, label: t('navigation.logs'), right: true },
+    { path: '/system', icon: FaCog, label: t('navigation.system_update'), right: true },
     // Node-RED - only show if available via nginx proxy
-    ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED' }] : []),
-    { path: '/help', icon: FaQuestionCircle, label: t('navigation.help') },
+    ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),
+    { path: '/help', icon: FaQuestionCircle, label: t('navigation.help'), right: true },
   ];
 
   const isActive = (item: MenuItem) => 
@@ -176,27 +181,40 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     navigate(path);
   };
 
-  // Desktop horizontal menu
+  // Desktop horizontal menu — rendered in second navbar row
   if (!sideMenu) {
+    const leftItems = menuItems.filter((item) => !item.right);
+    const rightItems = menuItems.filter((item) => item.right);
+
+    const renderItem = (item: MenuItem) => (
+      <li key={item.path}>
+        <a
+          onClick={() => handleClick(item.path)}
+          className={clsx(
+            'px-3 py-1.5 text-sm',
+            {
+              'active bg-primary text-primary-content font-semibold': isActive(item),
+            }
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          <span>
+            {item.label}
+            {item.experimental && <span className="ml-1 badge badge-warning badge-xs">{t('navigation.experimental')}</span>}
+          </span>
+        </a>
+      </li>
+    );
+
     return (
-      <ul className="menu menu-horizontal hidden xl:flex">
-        {menuItems.map((item) => (
-          <li key={item.path}>
-            <a
-              onClick={() => handleClick(item.path)}
-              className={clsx({
-                'active bg-primary text-primary-content font-semibold': isActive(item),
-              })}
-            >
-              <item.icon className="h-5 w-5 xl:hidden" />
-              <span className="hidden xl:inline">
-                {item.label}
-                {item.experimental && <span className="ml-1 badge badge-warning badge-xs">{t('navigation.experimental')}</span>}
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
+      <div className="flex justify-between items-center w-full px-2 py-0.5">
+        <ul className="menu menu-horizontal flex flex-wrap gap-0">
+          {leftItems.map(renderItem)}
+        </ul>
+        <ul className="menu menu-horizontal flex flex-wrap gap-0">
+          {rightItems.map(renderItem)}
+        </ul>
+      </div>
     );
   }
 

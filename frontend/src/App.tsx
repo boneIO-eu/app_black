@@ -18,6 +18,7 @@ import NotAvailable from './components/NotAvailable';
 import UISettings from './components/UISettings/UISettings';
 import SystemState from './components/UISettings/SystemState';
 import NodeRedView from './components/NodeRedView';
+import TemplatesView from './components/TemplatesView';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 
@@ -290,6 +291,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <ModbusView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/templates" element={
+          <ProtectedRoute>
+            <Layout>
+              <TemplatesView />
             </Layout>
           </ProtectedRoute>
         } />

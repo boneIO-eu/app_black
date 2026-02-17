@@ -663,6 +663,41 @@ def ha_cover_with_tilt_availabilty_message(
     }
 
 
+def ha_gate_cover_availability_message(
+    id: str, name: str, device_class: str, config_helper: ConfigHelper, **kwargs
+):
+    """Create Gate Cover availability topic for HA.
+
+    Used by template gate_cover platform for gates, garage doors, barriers, doors.
+    Unlike regular covers, gate covers use impulse-based control and contact sensors.
+
+    Args:
+        id: Entity identifier.
+        name: Display name.
+        device_class: HA device_class (gate, garage_door, barrier, door).
+        config_helper: ConfigHelper instance.
+    """
+    topic = config_helper.topic_prefix
+    kwargs = {"device_class": device_class, **kwargs}
+    msg = ha_availabilty_message(
+        device_type=COVER, entity_type="cover", config_helper=config_helper, id=id, name=name, **kwargs
+    )
+
+    return {
+        **msg,
+        "command_topic": f"{topic}/cmd/cover/{id}/set",
+        "payload_open": OPEN,
+        "payload_close": CLOSE,
+        "payload_stop": STOP,
+        "state_open": OPEN,
+        "state_opening": OPENING,
+        "state_closed": CLOSED,
+        "state_closing": CLOSING,
+        "state_topic": f"{topic}/{COVER}/{id}/{STATE}",
+        "json_attributes_topic": f"{topic}/{COVER}/{id}/attributes",
+    }
+
+
 def ha_update_availability_message(
     id: str, name: str, config_helper: ConfigHelper, **kwargs
 ) -> HomeAssistantDiscoveryMessage:

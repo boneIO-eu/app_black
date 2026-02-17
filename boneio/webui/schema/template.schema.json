@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -27,7 +27,8 @@
             "type": "string",
             "enum": [
               "thermostat",
-              "alarm_control_panel"
+              "alarm_control_panel",
+              "gate_cover"
             ],
             "examples": [
               "thermostat"
@@ -114,8 +115,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "name": {
@@ -193,8 +194,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "id": {
@@ -232,8 +233,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "name": {
@@ -288,6 +289,74 @@
             },
             "description": "Alarm zones \u2014 groups of inputs with arm mode assignments.",
             "title": "Zones"
+          },
+          "control_mode": {
+            "type": "string",
+            "default": "cycle",
+            "enum": [
+              "cycle",
+              "separate",
+              "open_only"
+            ],
+            "examples": [
+              "cycle"
+            ],
+            "description": "Gate control mode (gate_cover only).",
+            "title": "Control mode"
+          },
+          "device_class": {
+            "type": "string",
+            "default": "gate",
+            "enum": [
+              "gate",
+              "garage_door",
+              "barrier",
+              "door"
+            ],
+            "examples": [
+              "gate"
+            ],
+            "description": "HA device class for the cover entity (gate_cover only).",
+            "title": "Device class"
+          },
+          "pulse_output": {
+            "type": "string",
+            "description": "Relay output ID for pulse control (cycle/open_only modes).",
+            "title": "Pulse output"
+          },
+          "open_output": {
+            "type": "string",
+            "description": "Relay output ID for opening (separate mode).",
+            "title": "Open output"
+          },
+          "close_output": {
+            "type": "string",
+            "description": "Relay output ID for closing (separate mode).",
+            "title": "Close output"
+          },
+          "stop_output": {
+            "type": "string",
+            "description": "Relay output ID for stop (separate mode, optional).",
+            "title": "Stop output"
+          },
+          "pulse_duration": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "How long the relay pulse lasts. Example 500ms.",
+            "title": "Pulse duration"
+          },
+          "closed_sensor": {
+            "type": "string",
+            "description": "Input ID of the closed contact sensor.",
+            "title": "Closed sensor"
+          },
+          "open_sensor": {
+            "type": "string",
+            "description": "Input ID of the open contact sensor.",
+            "title": "Open sensor"
           }
         },
         "required": [

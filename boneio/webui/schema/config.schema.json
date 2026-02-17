@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -39,8 +39,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -83,8 +83,8 @@
           },
           "mqtt": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "outputs": {
@@ -94,8 +94,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -123,8 +123,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -156,8 +156,8 @@
           },
           "esphome_api": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "host": {
@@ -167,8 +167,8 @@
               },
               "port": {
                 "type": [
-                  "string",
-                  "integer"
+                  "integer",
+                  "string"
                 ],
                 "default": 6053,
                 "description": "Port",
@@ -191,8 +191,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -207,8 +207,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -228,8 +228,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -244,8 +244,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -369,8 +369,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
@@ -385,8 +385,8 @@
                     },
                     "key": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Entity Key (from discovery)",
                       "title": "Key"
@@ -457,8 +457,8 @@
           },
           "wled": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "host": {
@@ -468,8 +468,8 @@
               },
               "port": {
                 "type": [
-                  "string",
-                  "integer"
+                  "integer",
+                  "string"
                 ],
                 "default": 80,
                 "description": "Port",
@@ -482,14 +482,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Segment ID",
                       "title": "Id"
@@ -501,24 +501,24 @@
                     },
                     "start": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Start LED",
                       "title": "Start"
                     },
                     "stop": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Stop LED",
                       "title": "Stop"
                     },
                     "len": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "LED Count",
                       "title": "Len"
@@ -560,14 +560,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Effect ID",
                       "title": "Id"
@@ -593,14 +593,14 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "id": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Palette ID",
                       "title": "Id"
@@ -643,8 +643,8 @@
     },
     "mqtt": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "host": {
@@ -664,8 +664,8 @@
         },
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1883,
           "description": "Port to connect to mqtt broker",
@@ -673,8 +673,8 @@
         },
         "ha_discovery": {
           "type": [
-            "string",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -776,15 +776,15 @@
     },
     "web": {
       "type": [
-        "string",
         "null",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -792,18 +792,18 @@
         },
         "proxy_port": {
           "type": [
-            "string",
             "integer",
-            "null"
+            "null",
+            "string"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"
         },
         "cloud": {
           "type": [
-            "string",
             "null",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -831,8 +831,8 @@
             },
             "pwa_name": {
               "type": [
-                "string",
-                "null"
+                "null",
+                "string"
               ],
               "description": "PWA short name",
               "title": "Pwa name"
@@ -843,9 +843,9 @@
         },
         "auth": {
           "type": [
-            "string",
             "null",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -869,8 +869,8 @@
     },
     "logger": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "default": {
@@ -920,8 +920,8 @@
     },
     "oled": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "default": {},
       "properties": {
@@ -988,8 +988,8 @@
           ],
           "items": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "sensor_type": {
@@ -1035,8 +1035,8 @@
     },
     "modbus": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "uart": {
@@ -1056,15 +1056,15 @@
         },
         "baudrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 9600
         },
         "stopbits": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 1,
           "enum": [
@@ -1077,8 +1077,8 @@
         },
         "bytesize": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8
         },
@@ -1108,8 +1108,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -1129,8 +1129,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Address of Modbus sensor to use.",
             "title": "Address"
@@ -1212,8 +1212,8 @@
           },
           "sensors_filters": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "temperature": {
@@ -1228,8 +1228,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1247,8 +1247,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ]
                 },
                 "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1265,24 +1265,24 @@
           },
           "data": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "width": {
                 "type": [
+                  "integer",
                   "number",
-                  "string",
-                  "integer"
+                  "string"
                 ],
                 "description": "Width of sensor in meters, cm etc. Without unit is meters",
                 "title": "Width"
               },
               "length": {
                 "type": [
+                  "integer",
                   "number",
-                  "string",
-                  "integer"
+                  "string"
                 ],
                 "description": "Length of sensor in meters, cm etc. Without unit is meters",
                 "title": "Length"
@@ -1312,8 +1312,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1323,8 +1323,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 72,
             "description": "Address of I2C",
@@ -1352,8 +1352,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1382,8 +1382,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1393,8 +1393,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 64,
             "description": "Address of I2C",
@@ -1421,8 +1421,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "id": {
@@ -1453,8 +1453,8 @@
                   ],
                   "items": {
                     "type": [
-                      "string",
-                      "object"
+                      "object",
+                      "string"
                     ]
                   },
                   "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1485,8 +1485,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1558,8 +1558,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1569,8 +1569,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "default": 24,
             "description": "Address of I2C device",
@@ -1598,8 +1598,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -1628,8 +1628,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1639,8 +1639,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -1670,8 +1670,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1681,8 +1681,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -1712,8 +1712,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1723,8 +1723,8 @@
           },
           "address": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "GPIO of I2C SDA",
             "title": "Address"
@@ -1754,8 +1754,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -1809,8 +1809,8 @@
           },
           "pin": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "Pin number",
             "title": "Pin"
@@ -1863,8 +1863,8 @@
           },
           "percentage_default_brightness": {
             "type": [
-              "string",
-              "integer"
+              "integer",
+              "string"
             ],
             "description": "When the brightness is not set in ha, and we switch led to turn this value will be used",
             "title": "Percentage default brightness"
@@ -1909,8 +1909,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -1986,8 +1986,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -2314,8 +2314,8 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "pressed": {
@@ -2325,8 +2325,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2395,23 +2395,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2468,16 +2468,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -2557,8 +2557,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -2627,23 +2627,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -2700,16 +2700,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -2796,8 +2796,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -3114,8 +3114,8 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "single": {
@@ -3125,8 +3125,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -3195,23 +3195,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3268,16 +3268,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3357,8 +3357,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -3427,23 +3427,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3500,16 +3500,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3589,8 +3589,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -3659,23 +3659,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3732,16 +3732,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -3821,8 +3821,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -3891,23 +3891,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -3964,16 +3964,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4053,8 +4053,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -4123,23 +4123,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4196,16 +4196,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4285,8 +4285,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -4355,23 +4355,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4428,16 +4428,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4517,8 +4517,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -4587,23 +4587,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -4660,16 +4660,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -4781,8 +4781,8 @@
           },
           "mqtt_sequences": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "double_then_long": {
@@ -4867,8 +4867,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -4940,8 +4940,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -4962,8 +4962,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -5123,8 +5123,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -5141,7 +5141,8 @@
             "type": "string",
             "enum": [
               "thermostat",
-              "alarm_control_panel"
+              "alarm_control_panel",
+              "gate_cover"
             ],
             "examples": [
               "thermostat"
@@ -5228,8 +5229,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "name": {
@@ -5307,8 +5308,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "id": {
@@ -5346,8 +5347,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ],
               "properties": {
                 "name": {
@@ -5402,6 +5403,74 @@
             },
             "description": "Alarm zones \u2014 groups of inputs with arm mode assignments.",
             "title": "Zones"
+          },
+          "control_mode": {
+            "type": "string",
+            "default": "cycle",
+            "enum": [
+              "cycle",
+              "separate",
+              "open_only"
+            ],
+            "examples": [
+              "cycle"
+            ],
+            "description": "Gate control mode (gate_cover only).",
+            "title": "Control mode"
+          },
+          "device_class": {
+            "type": "string",
+            "default": "gate",
+            "enum": [
+              "gate",
+              "garage_door",
+              "barrier",
+              "door"
+            ],
+            "examples": [
+              "gate"
+            ],
+            "description": "HA device class for the cover entity (gate_cover only).",
+            "title": "Device class"
+          },
+          "pulse_output": {
+            "type": "string",
+            "description": "Relay output ID for pulse control (cycle/open_only modes).",
+            "title": "Pulse output"
+          },
+          "open_output": {
+            "type": "string",
+            "description": "Relay output ID for opening (separate mode).",
+            "title": "Open output"
+          },
+          "close_output": {
+            "type": "string",
+            "description": "Relay output ID for closing (separate mode).",
+            "title": "Close output"
+          },
+          "stop_output": {
+            "type": "string",
+            "description": "Relay output ID for stop (separate mode, optional).",
+            "title": "Stop output"
+          },
+          "pulse_duration": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "How long the relay pulse lasts. Example 500ms.",
+            "title": "Pulse duration"
+          },
+          "closed_sensor": {
+            "type": "string",
+            "description": "Input ID of the closed contact sensor.",
+            "title": "Closed sensor"
+          },
+          "open_sensor": {
+            "type": "string",
+            "description": "Input ID of the open contact sensor.",
+            "title": "Open sensor"
           }
         },
         "required": [
@@ -5418,8 +5487,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -5445,8 +5514,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "id": {
@@ -5521,8 +5590,8 @@
             ],
             "items": {
               "type": [
-                "string",
-                "object"
+                "object",
+                "string"
               ]
             },
             "description": "List of filters to apply. Allowed filters visible in allowed section.",
@@ -5559,14 +5628,14 @@
     },
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "config_version": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 0,
           "description": "Schema version for config migrations. Managed automatically.",

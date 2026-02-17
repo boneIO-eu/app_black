@@ -2,11 +2,18 @@ import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import ThermostatForm from './ThermostatForm';
 import AlarmPanelForm from './AlarmPanelForm';
+import GateCoverForm from './GateCoverForm';
 import type { TemplateFormProps } from './types/template';
+
+const PLATFORM_ICONS: Record<string, string> = {
+  thermostat: '🌡️',
+  alarm_control_panel: '🚨',
+  gate_cover: '🚪',
+};
 
 /**
  * TemplateForm — platform selector wrapper that delegates to the
- * appropriate sub-form (ThermostatForm or AlarmPanelForm).
+ * appropriate sub-form (ThermostatForm, AlarmPanelForm, or GateCoverForm).
  */
 const TemplateForm: React.FC<TemplateFormProps> = ({
   data,
@@ -28,13 +35,15 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
       {/* Platform — read-only badge (platform is chosen in the picker dialog) */}
       <div className="flex items-center gap-2">
         <span className="badge badge-lg badge-primary">
-          {platform === 'thermostat' ? '🌡️' : '🚨'} {t(`template.platform_${platform}`)}
+          {PLATFORM_ICONS[platform] || '⚙️'} {t(`template.platform_${platform}`)}
         </span>
       </div>
 
       {/* Platform-specific form */}
       {platform === 'thermostat' ? (
         <ThermostatForm {...subFormProps} />
+      ) : platform === 'gate_cover' ? (
+        <GateCoverForm {...subFormProps} />
       ) : (
         <AlarmPanelForm {...subFormProps} />
       )}

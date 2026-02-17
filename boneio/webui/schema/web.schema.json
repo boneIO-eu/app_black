@@ -4,15 +4,15 @@
   "properties": {
     "web": {
       "type": [
-        "string",
         "null",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "port": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 8090,
           "description": "Port to run web server",
@@ -20,18 +20,18 @@
         },
         "proxy_port": {
           "type": [
-            "string",
             "integer",
-            "null"
+            "null",
+            "string"
           ],
           "description": "Reverse proxy port (used in HA discovery URL). If not set, uses 'port' value.",
           "title": "Proxy port"
         },
         "cloud": {
           "type": [
-            "string",
             "null",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {
@@ -59,8 +59,8 @@
             },
             "pwa_name": {
               "type": [
-                "string",
-                "null"
+                "null",
+                "string"
               ],
               "description": "PWA short name",
               "title": "Pwa name"
@@ -71,9 +71,9 @@
         },
         "auth": {
           "type": [
-            "string",
             "null",
-            "object"
+            "object",
+            "string"
           ],
           "default": {},
           "properties": {

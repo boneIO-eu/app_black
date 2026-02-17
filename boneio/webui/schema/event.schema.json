@@ -9,8 +9,8 @@
       ],
       "items": {
         "type": [
-          "string",
-          "object"
+          "object",
+          "string"
         ],
         "properties": {
           "name": {
@@ -327,8 +327,8 @@
           },
           "actions": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "single": {
@@ -338,8 +338,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -408,23 +408,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -481,16 +481,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -570,8 +570,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -640,23 +640,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -713,16 +713,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -802,8 +802,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -872,23 +872,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -945,16 +945,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -1034,8 +1034,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1104,23 +1104,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1177,16 +1177,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -1266,8 +1266,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1336,23 +1336,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1409,16 +1409,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -1498,8 +1498,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1568,23 +1568,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1641,16 +1641,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -1730,8 +1730,8 @@
                 ],
                 "items": {
                   "type": [
-                    "string",
-                    "object"
+                    "object",
+                    "string"
                   ],
                   "properties": {
                     "action": {
@@ -1800,23 +1800,23 @@
                     },
                     "data": {
                       "type": [
-                        "string",
-                        "object"
+                        "object",
+                        "string"
                       ],
                       "default": {},
                       "properties": {
                         "position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Position to set cover to",
                           "title": "Position"
                         },
                         "tilt_position": {
                           "type": [
-                            "string",
-                            "integer"
+                            "integer",
+                            "string"
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
@@ -1873,16 +1873,16 @@
                     },
                     "brightness": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
                     "color_temp": {
                       "type": [
-                        "string",
-                        "integer"
+                        "integer",
+                        "string"
                       ],
                       "description": "Color Temperature (mireds)",
                       "title": "Color temp"
@@ -1994,8 +1994,8 @@
           },
           "mqtt_sequences": {
             "type": [
-              "string",
-              "object"
+              "object",
+              "string"
             ],
             "properties": {
               "double_then_long": {

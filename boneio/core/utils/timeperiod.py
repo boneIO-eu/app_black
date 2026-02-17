@@ -1,7 +1,10 @@
+import logging
 import math
 from collections import OrderedDict
 from datetime import timedelta
+from typing import Any
 
+_LOGGER = logging.getLogger(__name__)
 
 def is_approximately_integer(value):
     if isinstance(value, int):
@@ -187,3 +190,51 @@ class TimePeriodSeconds(TimePeriod):
 
 class TimePeriodMinutes(TimePeriod):
     pass
+
+
+def parse_time_to_seconds(value: Any, default: float) -> float:
+    """Parse a time value to seconds.
+
+    Supports TimePeriod objects and raw numeric values.
+
+    Args:
+        value: TimePeriod, int, float, or None.
+        default: Default value in seconds.
+
+    Returns:
+        Time in seconds as float.
+    """
+    if value is None:
+        return default
+    if hasattr(value, "total_in_seconds"):
+        return value.total_in_seconds
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        _LOGGER.warning("Invalid time value: %s, using default %.0fs", value, default)
+        return default
+
+
+def parse_time_to_ms(value: Any, default: int | None) -> int | None:
+    """Parse a time value to milliseconds.
+
+    Supports TimePeriod objects and raw numeric values.
+
+    Args:
+        value: TimePeriod, int, float, or None.
+        default: Default value in milliseconds (None = no default).
+
+    Returns:
+        Time in milliseconds as int, or None.
+    """
+    if value is None:
+        return default
+    if hasattr(value, "total_milliseconds"):
+        return int(value.total_milliseconds)
+    if hasattr(value, "total_in_seconds"):
+        return int(value.total_in_seconds * 1000)
+    try:
+        return int(float(value))
+    except (ValueError, TypeError):
+        _LOGGER.warning("Invalid time value: %s, using default %s ms", value, default)
+        return default

@@ -92,7 +92,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
-                type_list = list(types)
+                type_list = sorted(types)
                 field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 
                 # Mark timeperiod fields for special handling in ConfigEditor2
@@ -147,7 +147,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
-                type_list = list(types)
+                type_list = sorted(types)
                 field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 field_schema["properties"] = {}
                 nested_required = []
@@ -179,7 +179,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 if schema.get("nullable", False):
                     types.add("null")
                 # Convert to list and optimize single types
-                type_list = list(types)
+                type_list = sorted(types)
                 field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 if isinstance(schema["schema"], dict):
                     field_schema["items"] = convert_cerberus_to_json_schema(

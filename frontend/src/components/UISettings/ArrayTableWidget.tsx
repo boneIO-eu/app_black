@@ -460,6 +460,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       } else if (dataToSave.platform === 'alarm_control_panel') {
         isValid = hasPlatform;
         errorMessage = t('template.alarm_fields_required');
+      } else if (dataToSave.platform === 'gate_cover') {
+        const mode = dataToSave.control_mode || 'cycle';
+        if (mode === 'separate') {
+          isValid = hasPlatform && !!dataToSave.id && (!!dataToSave.open_output || !!dataToSave.close_output);
+        } else {
+          isValid = hasPlatform && !!dataToSave.id && !!dataToSave.pulse_output;
+        }
+        errorMessage = t('template.gate_cover_fields_required');
       } else {
         isValid = hasPlatform;
         errorMessage = t('template.platform_required');
@@ -1116,6 +1124,17 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               <div>
                 <div className="font-semibold">{t('template.platform_alarm_control_panel')}</div>
                 <div className="text-sm text-base-content/60">{t('template.platform_alarm_hint')}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
+              onClick={() => handleTemplatePlatformSelect('gate_cover')}
+            >
+              <span className="text-2xl">🚪</span>
+              <div>
+                <div className="font-semibold">{t('template.platform_gate_cover')}</div>
+                <div className="text-sm text-base-content/60">{t('template.platform_gate_cover_hint')}</div>
               </div>
             </button>
           </div>

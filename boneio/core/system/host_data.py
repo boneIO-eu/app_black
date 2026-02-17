@@ -40,7 +40,7 @@ from boneio.version import __version__
 if TYPE_CHECKING:
     from boneio.core.events import EventBus
     from boneio.core.manager import Manager
-    from boneio.hardware.gpio.input import GpioBaseClass
+    from boneio.components.input import GpioEventButton, GpioInputBinarySensor
     from boneio.hardware.i2c import INA219 as INA219Class
     from boneio.hardware.i2c import MCP9808, PCT2075
 
@@ -133,7 +133,7 @@ class HostData:
     def __init__(
         self,
         output: dict,
-        inputs: dict[str, GpioBaseClass],
+        inputs: dict[str, GpioEventButton | GpioInputBinarySensor],
         temp_sensor: PCT2075 | MCP9808 | None,
         ina219: INA219Class | None,
         manager: Manager,

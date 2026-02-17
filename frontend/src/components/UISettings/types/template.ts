@@ -43,6 +43,8 @@ export interface TemplateFormProps extends TemplateSubFormProps {
   schema?: any;
 }
 
-export const PLATFORM_OPTIONS = ['thermostat', 'alarm_control_panel'] as const;
+export const PLATFORM_OPTIONS = ['thermostat', 'alarm_control_panel', 'gate_cover'] as const;
 export const ARM_MODE_OPTIONS = ['armed_away', 'armed_home', 'armed_night'] as const;
 export const OUTPUT_TYPE_OPTIONS = ['siren', 'light', 'custom'] as const;
+export const GATE_CONTROL_MODES = ['cycle', 'separate', 'open_only'] as const;
+export const GATE_DEVICE_CLASSES = ['gate', 'garage_door', 'barrier', 'door'] as const;

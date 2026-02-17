@@ -1269,7 +1269,7 @@ template:
       platform:
         type: string
         required: True
-        allowed: ['thermostat', 'alarm_control_panel']
+        allowed: ['thermostat', 'alarm_control_panel', 'gate_cover']
         meta:
           label: Template platform type.
       area:
@@ -1428,6 +1428,61 @@ template:
               default: False
               meta:
                 label: Whether this zone uses entry delay before triggering.
+      # --- Gate cover fields ---
+      control_mode:
+        type: string
+        required: False
+        default: cycle
+        allowed: ['cycle', 'separate', 'open_only']
+        meta:
+          label: Gate control mode (gate_cover only).
+      device_class:
+        type: string
+        required: False
+        default: gate
+        allowed: ['gate', 'garage_door', 'barrier', 'door']
+        meta:
+          label: HA device class for the cover entity (gate_cover only).
+      pulse_output:
+        type: string
+        required: False
+        meta:
+          label: Relay output ID for pulse control (cycle/open_only modes).
+      open_output:
+        type: string
+        required: False
+        meta:
+          label: Relay output ID for opening (separate mode).
+      close_output:
+        type: string
+        required: False
+        meta:
+          label: Relay output ID for closing (separate mode).
+      stop_output:
+        type: string
+        required: False
+        meta:
+          label: Relay output ID for stop (separate mode, optional).
+      pulse_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: How long the relay pulse lasts. Example 500ms.
+      closed_sensor:
+        type: string
+        required: False
+        meta:
+          label: Input ID of the closed contact sensor.
+      open_sensor:
+        type: string
+        required: False
+        meta:
+          label: Input ID of the open contact sensor.
 
 ds2482:
   type: list

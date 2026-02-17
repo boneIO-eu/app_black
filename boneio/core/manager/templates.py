@@ -10,7 +10,8 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import ALARM_CONTROL_PANEL, CLIMATE, SENSOR
+from boneio.const import ALARM_CONTROL_PANEL, CLIMATE, COVER
+from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.components.template.thermostat import BoneIOThermostat
 from boneio.components.template.alarm_panel import (
     AlarmOutput,
@@ -19,6 +20,7 @@ from boneio.components.template.alarm_panel import (
     BoneIOAlarmPanel,
     ZoneInput,
 )
+from boneio.components.template.gate_cover import BoneIOGateCover
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -42,11 +44,14 @@ class TemplateManager:
         self._manager = manager
         self._thermostats: list[BoneIOThermostat] = []
         self._alarm_panels: list[BoneIOAlarmPanel] = []
+        self._gate_covers: list[BoneIOGateCover] = []
 
         # Map sensor_id → list of thermostats that use it
         self._sensor_thermostat_map: dict[str, list[BoneIOThermostat]] = {}
         # Map input_id → list of alarm panels that monitor it
         self._input_alarm_map: dict[str, list[BoneIOAlarmPanel]] = {}
+        # Map input_id → list of gate covers that monitor it (contact sensors)
+        self._input_gate_map: dict[str, list[BoneIOGateCover]] = {}
 
         for entry in template_config:
             platform = entry.get("platform", "")
@@ -55,6 +60,8 @@ class TemplateManager:
                     self._configure_thermostat(entry)
                 elif platform == "alarm_control_panel":
                     self._configure_alarm_panel(entry)
+                elif platform == "gate_cover":
+                    self._configure_gate_cover(entry)
                 else:
                     _LOGGER.warning("Unknown template platform: %s", platform)
             except Exception as err:
@@ -64,8 +71,8 @@ class TemplateManager:
                 )
 
         _LOGGER.info(
-            "TemplateManager initialized: %d thermostats, %d alarm panels",
-            len(self._thermostats), len(self._alarm_panels),
+            "TemplateManager initialized: %d thermostats, %d alarm panels, %d gate covers",
+            len(self._thermostats), len(self._alarm_panels), len(self._gate_covers),
         )
 
     # -- Configuration -------------------------------------------------------
@@ -158,9 +165,9 @@ class TemplateManager:
             return
 
         # Parse time periods
-        arming_time_s = self._parse_time_to_seconds(config.get("arming_time"), 30.0)
-        delay_time_s = self._parse_time_to_seconds(config.get("delay_time"), 30.0)
-        trigger_time_s = self._parse_time_to_seconds(config.get("trigger_time"), 300.0)
+        arming_time_s = parse_time_to_seconds(config.get("arming_time"), 30.0)
+        delay_time_s = parse_time_to_seconds(config.get("delay_time"), 30.0)
+        trigger_time_s = parse_time_to_seconds(config.get("trigger_time"), 300.0)
 
         # Parse outputs
         alarm_outputs: list[AlarmOutput] = []
@@ -209,7 +216,7 @@ class TemplateManager:
             pin_name = code_cfg.get("name", "")
             pin_code = str(code_cfg.get("code", ""))
             if pin_code:
-                pin_codes.append(AlarmPinCode(name=pin_name, code=pin_code))
+                pin_codes.append(AlarmPinCode(name=pin_name, code_or_hash=pin_code))
 
         code_arm_required = config.get("code_arm_required", False)
 
@@ -239,38 +246,156 @@ class TemplateManager:
                     self._input_alarm_map[input_id] = []
                 self._input_alarm_map[input_id].append(alarm)
 
+        # Sync initial input states so _check_zones_clear has live data
+        self._sync_alarm_initial_input_states(zones)
+
         # Publish HA discovery
         self._publish_alarm_discovery(alarm)
 
         _LOGGER.info("Configured alarm panel '%s' (%d zones, %d outputs, %d PIN codes)",
                       entity_id, len(zones), len(alarm_outputs), len(pin_codes))
 
-    # -- Time parsing --------------------------------------------------------
+    def _sync_alarm_initial_input_states(self, zones: list) -> None:
+        """Ask InputManager to re-send current state for all alarm zone inputs.
 
-    @staticmethod
-    def _parse_time_to_seconds(value: Any, default: float) -> float:
-        """Parse a time value to seconds.
-
-        Supports TimePeriod objects and raw numeric values.
+        This ensures cached _state on each input reflects live GPIO,
+        so _check_zones_clear works correctly from the first arming attempt.
 
         Args:
-            value: TimePeriod, int, float, or None.
-            default: Default value in seconds.
-
-        Returns:
-            Time in seconds as float.
+            zones: List of AlarmZone instances with input IDs.
         """
-        if value is None:
-            return default
-        # TimePeriod object (from YAML coerce)
-        if hasattr(value, "total_in_seconds"):
-            return value.total_in_seconds
-        # Raw numeric
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            _LOGGER.warning("Invalid time value: %s, using default %.0fs", value, default)
-            return default
+        input_mgr = self._manager.inputs
+        seen: set[str] = set()
+        for zone in zones:
+            for input_id in zone.input_ids:
+                if input_id not in seen:
+                    seen.add(input_id)
+                    input_mgr.send_current_state_for_input(input_id)
+
+    def _configure_gate_cover(self, config: dict[str, Any]) -> None:
+        """Configure a gate cover from YAML config.
+
+        Args:
+            config: Gate cover configuration dictionary.
+        """
+        entity_id = config.get("id", "")
+        name = config.get("name", entity_id)
+        area = config.get("area")
+        device_class = config.get("device_class", "gate")
+        control_mode = config.get("control_mode", "cycle")
+
+        if not entity_id:
+            _LOGGER.error("Gate cover config missing 'id': %s", config)
+            return
+
+        # Parse pulse_duration (optional for open_only)
+        pulse_duration_ms = parse_time_to_ms(
+            config.get("pulse_duration"),
+            default=500 if control_mode != "open_only" else None,
+        )
+
+        # Resolve outputs
+        pulse_output = None
+        open_output = None
+        close_output = None
+        stop_output = None
+
+        if control_mode in ("cycle", "open_only"):
+            pulse_id = config.get("pulse_output", "")
+            if pulse_id:
+                pulse_output = self._manager.outputs.get_output(pulse_id)
+                if pulse_output is None:
+                    _LOGGER.error("Gate %s: pulse_output '%s' not found", entity_id, pulse_id)
+                    return
+            else:
+                _LOGGER.error("Gate %s: pulse_output required for mode '%s'", entity_id, control_mode)
+                return
+        elif control_mode == "separate":
+            open_id = config.get("open_output", "")
+            close_id = config.get("close_output", "")
+            stop_id = config.get("stop_output", "")
+            if open_id:
+                open_output = self._manager.outputs.get_output(open_id)
+                if open_output is None:
+                    _LOGGER.error("Gate %s: open_output '%s' not found", entity_id, open_id)
+                    return
+            if close_id:
+                close_output = self._manager.outputs.get_output(close_id)
+                if close_output is None:
+                    _LOGGER.error("Gate %s: close_output '%s' not found", entity_id, close_id)
+                    return
+            if stop_id:
+                stop_output = self._manager.outputs.get_output(stop_id)
+                if stop_output is None:
+                    _LOGGER.warning("Gate %s: stop_output '%s' not found", entity_id, stop_id)
+            if not open_id and not close_id:
+                _LOGGER.error("Gate %s: open_output or close_output required for 'separate' mode", entity_id)
+                return
+
+        # Contact sensors
+        closed_sensor_id = config.get("closed_sensor")
+        open_sensor_id = config.get("open_sensor")
+
+        gate = BoneIOGateCover(
+            id=entity_id,
+            name=name,
+            message_bus=self._manager.message_bus,
+            event_bus=self._manager.event_bus,
+            topic_prefix=self._manager.config_helper.topic_prefix,
+            control_mode=control_mode,
+            device_class=device_class,
+            pulse_output=pulse_output,
+            open_output=open_output,
+            close_output=close_output,
+            stop_output=stop_output,
+            pulse_duration_ms=pulse_duration_ms,
+            closed_sensor_id=closed_sensor_id,
+            open_sensor_id=open_sensor_id,
+            area=area,
+        )
+
+        self._gate_covers.append(gate)
+
+        # Register contact sensor → gate mapping
+        for sensor_id in (closed_sensor_id, open_sensor_id):
+            if sensor_id:
+                if sensor_id not in self._input_gate_map:
+                    self._input_gate_map[sensor_id] = []
+                self._input_gate_map[sensor_id].append(gate)
+
+        # Read current sensor states to set correct initial gate state.
+        # Without this, gate defaults to CLOSED which may be wrong.
+        self._sync_gate_initial_state(closed_sensor_id, open_sensor_id)
+
+        # Publish HA discovery
+        self._publish_gate_cover_discovery(gate)
+
+        _LOGGER.info(
+            "Configured gate cover '%s' (mode=%s, device_class=%s)",
+            entity_id, control_mode, device_class,
+        )
+
+    # -- Gate cover initial state sync ----------------------------------------
+
+    def _sync_gate_initial_state(
+        self,
+        closed_sensor_id: str | None,
+        open_sensor_id: str | None,
+    ) -> None:
+        """Sync initial gate state by asking InputManager to re-send sensor states.
+
+        Delegates to InputManager.send_current_state_for_input() which reads
+        live GPIO and fires an EventBus event. The gate cover's event listener
+        picks it up automatically.
+
+        Args:
+            closed_sensor_id: ID of the closed contact sensor (or None).
+            open_sensor_id: ID of the open contact sensor (or None).
+        """
+        input_mgr = self._manager.inputs
+        for sensor_id in (closed_sensor_id, open_sensor_id):
+            if sensor_id:
+                input_mgr.send_current_state_for_input(sensor_id)
 
     # -- HA Discovery --------------------------------------------------------
 
@@ -316,6 +441,25 @@ class TemplateManager:
             id=alarm.id, ha_type=ALARM_CONTROL_PANEL, payload=payload
         )
 
+    def _publish_gate_cover_discovery(self, gate: BoneIOGateCover) -> None:
+        """Publish HA autodiscovery for a gate cover.
+
+        Args:
+            gate: The gate cover instance.
+        """
+        from boneio.integration.homeassistant import ha_gate_cover_availability_message
+
+        payload = ha_gate_cover_availability_message(
+            id=gate.id,
+            name=gate.name,
+            device_class=gate.device_class,
+            config_helper=self._manager._config_helper,
+            area=gate.area,
+        )
+        self._manager.publish_ha_discovery(
+            id=gate.id, ha_type=COVER, payload=payload
+        )
+
     # -- Event routing -------------------------------------------------------
 
     def _on_sensor_event(self, event: Any) -> None:
@@ -335,7 +479,7 @@ class TemplateManager:
             thermostat.update_sensor_temperature(sensor_id, temperature)
 
     def on_input_event(self, input_id: str, event_type: str) -> None:
-        """Route input event to matching alarm panels.
+        """Route input event to matching alarm panels and gate covers.
 
         Called by InputManager when an input fires.
 
@@ -347,6 +491,14 @@ class TemplateManager:
         for alarm in alarms:
             alarm.on_input_event(input_id, event_type)
 
+        # Route to gate covers (contact sensors)
+        gates = self._input_gate_map.get(input_id, [])
+        if gates:
+            # Determine sensor state: "pressed" = closed circuit (True)
+            is_closed = event_type in ("pressed", "single", "double", "long")
+            for gate in gates:
+                gate.on_sensor_event(input_id, is_closed)
+
     # -- HA autodiscovery resend ---------------------------------------------
 
     async def send_ha_autodiscovery(self) -> None:
@@ -355,6 +507,8 @@ class TemplateManager:
             self._publish_thermostat_discovery(thermostat)
         for alarm in self._alarm_panels:
             self._publish_alarm_discovery(alarm)
+        for gate in self._gate_covers:
+            self._publish_gate_cover_discovery(gate)
 
     # -- MQTT subscriptions --------------------------------------------------
 
@@ -370,6 +524,8 @@ class TemplateManager:
             await thermostat.start()
         for alarm in self._alarm_panels:
             await alarm.start()
+        for gate in self._gate_covers:
+            await gate.start()
         _LOGGER.info("TemplateManager started all entities")
 
     async def stop(self) -> None:
@@ -385,6 +541,8 @@ class TemplateManager:
             await thermostat.stop()
         for alarm in self._alarm_panels:
             await alarm.stop()
+        for gate in self._gate_covers:
+            await gate.stop()
 
     # -- Hot reload ----------------------------------------------------------
 
@@ -402,6 +560,7 @@ class TemplateManager:
         # Build maps of new entities by ID
         new_thermostats: dict[str, dict[str, Any]] = {}
         new_alarms: dict[str, dict[str, Any]] = {}
+        new_gates: dict[str, dict[str, Any]] = {}
         for entry in new_template_config:
             platform = entry.get("platform", "")
             eid = entry.get("id", "")
@@ -411,9 +570,12 @@ class TemplateManager:
                 new_thermostats[eid] = entry
             elif platform == "alarm_control_panel":
                 new_alarms[eid] = entry
+            elif platform == "gate_cover":
+                new_gates[eid] = entry
 
         current_thermostat_ids = {t.id for t in self._thermostats}
         current_alarm_ids = {a.id for a in self._alarm_panels}
+        current_gate_ids = {g.id for g in self._gate_covers}
 
         # --- Remove deleted thermostats ---
         for tid in current_thermostat_ids - set(new_thermostats.keys()):
@@ -422,6 +584,10 @@ class TemplateManager:
         # --- Remove deleted alarm panels ---
         for aid in current_alarm_ids - set(new_alarms.keys()):
             await self._remove_alarm_panel(aid)
+
+        # --- Remove deleted gate covers ---
+        for gid in current_gate_ids - set(new_gates.keys()):
+            await self._remove_gate_cover(gid)
 
         # --- Add new / update existing thermostats ---
         for eid, entry in new_thermostats.items():
@@ -451,12 +617,25 @@ class TemplateManager:
             if alarm:
                 await alarm.start()
 
+        # --- Add new / update existing gate covers ---
+        for eid, entry in new_gates.items():
+            if eid in current_gate_ids:
+                await self._remove_gate_cover(eid)
+            try:
+                self._configure_gate_cover(entry)
+            except Exception as err:
+                _LOGGER.error("Failed to configure gate cover '%s': %s", eid, err)
+                continue
+            gate = self.get_gate_cover(eid)
+            if gate:
+                await gate.start()
+
         # Re-register all sensor EventBus listeners (clean slate)
         self._register_sensor_listeners()
 
         _LOGGER.info(
-            "Template reload complete: %d thermostats, %d alarm panels",
-            len(self._thermostats), len(self._alarm_panels),
+            "Template reload complete: %d thermostats, %d alarm panels, %d gate covers",
+            len(self._thermostats), len(self._alarm_panels), len(self._gate_covers),
         )
 
     async def _remove_thermostat(self, entity_id: str) -> None:
@@ -511,6 +690,32 @@ class TemplateManager:
         self._remove_ha_discovery(entity_id)
 
         self._alarm_panels = [a for a in self._alarm_panels if a.id != entity_id]
+
+    async def _remove_gate_cover(self, entity_id: str) -> None:
+        """Remove a gate cover: stop MQTT, remove sensor mappings, remove HA discovery.
+
+        Args:
+            entity_id: Gate cover entity ID to remove.
+        """
+        gate = self.get_gate_cover(entity_id)
+        if not gate:
+            return
+
+        _LOGGER.info("Removing gate cover '%s'", entity_id)
+        await gate.stop()
+
+        # Remove sensor → gate mappings
+        for input_id in list(self._input_gate_map.keys()):
+            self._input_gate_map[input_id] = [
+                g for g in self._input_gate_map[input_id] if g.id != entity_id
+            ]
+            if not self._input_gate_map[input_id]:
+                del self._input_gate_map[input_id]
+
+        # Remove HA discovery
+        self._remove_ha_discovery(entity_id)
+
+        self._gate_covers = [g for g in self._gate_covers if g.id != entity_id]
 
     def _remove_ha_discovery(self, entity_id: str) -> None:
         """Remove HA autodiscovery entries for an entity.
@@ -585,4 +790,23 @@ class TemplateManager:
         for a in self._alarm_panels:
             if a.id == entity_id:
                 return a
+        return None
+
+    @property
+    def gate_covers(self) -> list[BoneIOGateCover]:
+        """Get all configured gate covers."""
+        return self._gate_covers
+
+    def get_gate_cover(self, entity_id: str) -> BoneIOGateCover | None:
+        """Get gate cover by ID.
+
+        Args:
+            entity_id: Gate cover entity ID.
+
+        Returns:
+            BoneIOGateCover or None if not found.
+        """
+        for g in self._gate_covers:
+            if g.id == entity_id:
+                return g
         return None

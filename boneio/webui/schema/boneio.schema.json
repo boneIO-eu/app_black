@@ -4,14 +4,14 @@
   "properties": {
     "boneio": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "config_version": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 0,
           "description": "Schema version for config migrations. Managed automatically.",

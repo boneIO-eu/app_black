@@ -24,8 +24,6 @@ from boneio.const import (
     INPUT_SENSOR,
     LONG,
     PIN,
-    PRESSED,
-    RELEASED,
     SHOW_HA,
 )
 from boneio.exceptions import GPIOInputException
@@ -37,7 +35,6 @@ from boneio.models.events import InputEvent
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
-    from boneio.hardware.gpio.input import GpioBaseClass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +63,7 @@ class InputManager:
     ):
         """Initialize input manager."""
         self._manager = manager
-        self._inputs: dict[str, GpioBaseClass] = {}
+        self._inputs: dict[str, GpioEventButton | GpioInputBinarySensor] = {}
         self._event_pins = event_pins
         self._binary_pins = binary_pins
         
@@ -348,11 +345,6 @@ class InputManager:
 
             # Reload: update existing input's actions and name
             if existing_input:
-                if not isinstance(existing_input, GpioInputBinarySensor):
-                    _LOGGER.warning(
-                        "Cannot reconfigure input type for %s. Restart required.", pin
-                    )
-                    return existing_input
                 
                 # Check if HA-relevant fields changed (name, area)
                 old_name = existing_input._name if hasattr(existing_input, '_name') else None
@@ -424,7 +416,7 @@ class InputManager:
             _LOGGER.error("Failed to configure binary sensor on pin %s: %s", pin, err)
             return None
 
-    def get_input(self, pin: str) -> GpioBaseClass | None:
+    def get_input(self, pin: str) -> GpioEventButton | GpioInputBinarySensor | None:
         """Get input by pin.
         
         Args:
@@ -435,7 +427,7 @@ class InputManager:
         """
         return self._inputs.get(pin)
 
-    def get_all_inputs(self) -> dict[str, GpioBaseClass]:
+    def get_all_inputs(self) -> dict[str, GpioEventButton | GpioInputBinarySensor]:
         """Get all inputs.
         
         Returns:
@@ -443,13 +435,41 @@ class InputManager:
         """
         return self._inputs
 
-    def get_inputs_list(self) -> list[GpioBaseClass]:
+    def get_inputs_list(self) -> list[GpioEventButton | GpioInputBinarySensor]:
         """Get list of all inputs.
         
         Returns:
             List of all input instances
         """
         return list(self._inputs.values())
+
+    def send_current_state_for_input(self, input_id: str) -> bool:
+        """Schedule sending current GPIO state for a specific input.
+
+        Registers a callback on the GPIO manager so that send_current_state()
+        runs after GPIO lines are fully configured. If the GPIO manager is
+        already running, the callback executes immediately.
+
+        Args:
+            input_id: Input entity ID (boneio_input).
+
+        Returns:
+            True if the input was found and callback registered, False otherwise.
+        """
+        from boneio.hardware.gpio.input import get_gpio_manager
+
+        inp = self._inputs.get(input_id)
+        if inp is None:
+            _LOGGER.warning("send_current_state_for_input: input '%s' not found", input_id)
+            return False
+        if not isinstance(inp, GpioInputBinarySensor):
+            _LOGGER.warning("send_current_state_for_input: input '%s' is not a binary sensor", input_id)
+            return False
+
+        gpio_manager = get_gpio_manager(loop=inp._loop)
+        gpio_manager.register_on_start_callback(inp.send_current_state)
+        _LOGGER.debug("send_current_state_for_input: registered on-start callback for '%s'", input_id)
+        return True
 
     async def reload_inputs(self) -> None:
         """Reload input configuration from file.
@@ -600,7 +620,7 @@ class InputManager:
     SEQUENCE_CLICK_TYPES = {"double_then_long", "single_then_long", "double_then_single"}
 
     def _publish_input_event_to_mqtt(
-        self, input_instance: GpioBaseClass, event: InputEvent
+        self, input_instance: GpioEventButton | GpioInputBinarySensor, event: InputEvent
     ) -> None:
         """Publish input event to MQTT for Home Assistant.
         
@@ -694,6 +714,11 @@ class InputManager:
         
         # Send event to MQTT for Home Assistant
         self._publish_input_event_to_mqtt(input_instance, event)
+        
+        # Route to template entities (gate covers, alarm panels)
+        # This must happen before the publish_only check so initial state
+        # sync events reach gate covers and alarm panels.
+        self._manager.templates.on_input_event(event.entity_id, event.click_type)
         
         # If publish_only is set, skip action execution (used for initial state sync)
         if event.publish_only:
