@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import os
@@ -34,6 +35,9 @@ router = APIRouter(prefix="/api", tags=["config"])
 # Config cache to avoid re-parsing YAML on every request
 _config_cache: dict = {"data": None, "mtime": 0}
 
+# SHA256 checksum cache - recomputed on every config change
+_checksum_cache: dict = {"sha256": None, "file_count": 0}
+
 # App state reference - set by app initialization
 _app_state: Optional["State"] = None
 _websocket_manager = None
@@ -63,10 +67,64 @@ def get_manager():
     raise NotImplementedError("Manager not initialized")
 
 
+def _get_config_yaml_files(config_dir: Path) -> list[Path]:
+    """
+    Get sorted list of all YAML config files (same set as download_config).
+
+    Args:
+        config_dir: Root config directory.
+
+    Returns:
+        Sorted list of Path objects for all YAML files.
+    """
+    files: list[Path] = []
+    for pattern in ["*.yaml", "*.yml"]:
+        for yaml_file in config_dir.glob(pattern):
+            if yaml_file.is_file():
+                files.append(yaml_file)
+    for subdir in config_dir.iterdir():
+        if subdir.is_dir() and not subdir.name.startswith('.'):
+            for pattern in ["*.yaml", "*.yml"]:
+                for yaml_file in subdir.glob(pattern):
+                    if yaml_file.is_file():
+                        files.append(yaml_file)
+    files.sort(key=lambda p: str(p))
+    return files
+
+
+def _recompute_config_checksum() -> None:
+    """
+    Recompute SHA256 checksum over all YAML config files.
+
+    The hash is deterministic: files are sorted by path, and both
+    the relative path and content of each file are fed into the digest.
+    """
+    try:
+        config_file = _get_app_state().yaml_config_file
+        config_dir = Path(config_file).parent
+        files = _get_config_yaml_files(config_dir)
+
+        hasher = hashlib.sha256()
+        for f in files:
+            rel = str(f.relative_to(config_dir))
+            hasher.update(rel.encode("utf-8"))
+            hasher.update(f.read_bytes())
+
+        _checksum_cache["sha256"] = hasher.hexdigest()
+        _checksum_cache["file_count"] = len(files)
+        _LOGGER.debug("Config checksum recomputed: %s (%d files)",
+                      _checksum_cache["sha256"][:12], len(files))
+    except Exception as exc:
+        _LOGGER.warning("Failed to compute config checksum: %s", exc)
+        _checksum_cache["sha256"] = None
+        _checksum_cache["file_count"] = 0
+
+
 def invalidate_config_cache():
-    """Invalidate config cache - call after saving config."""
+    """Invalidate config cache and recompute checksum."""
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
+    _recompute_config_checksum()
 
 
 def _get_config_mtime(config_file: str) -> float:
@@ -285,6 +343,22 @@ async def download_config():
         media_type="application/gzip",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@router.get("/config/checksum")
+async def get_config_checksum():
+    """
+    Return cached SHA256 checksum of all YAML configuration files.
+
+    The checksum is recomputed automatically after every config change.
+    On first request it is computed lazily if not yet available.
+
+    Returns:
+        Dictionary with sha256 hex string and file_count.
+    """
+    if not _checksum_cache["sha256"]:
+        _recompute_config_checksum()
+    return _checksum_cache
 
 
 @router.post("/config/restore")
