@@ -351,10 +351,18 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 for cover in self._covers_list:
                     if cover.get("key") == state.key:
                         cover_id = cover.get("id", "")
+                        
+                        # Store last known operation if moving
+                        current_op = getattr(state, 'current_operation', 0)
+                        last_op = self._cover_states.get(cover_id, {}).get("last_known_operation", 2) # Default to CLOSING (2)
+                        if current_op != 0:
+                            last_op = current_op
+                            
                         self._cover_states[cover_id] = {
                             "position": state.position,
                             "tilt": getattr(state, 'tilt', None),
-                            "current_operation": getattr(state, 'current_operation', None),
+                            "current_operation": current_op,
+                            "last_known_operation": last_op,
                         }
                         _LOGGER.debug("Cover '%s' position: %.2f", cover_id, state.position)
                         break
@@ -847,12 +855,31 @@ class ESPHomeRemoteDevice(RemoteDevice):
             elif action_upper == "STOP":
                 self._client.cover_command(cover_key, stop=True)
             elif action_upper == "TOGGLE":
-                # Get current state and toggle
-                current_pos = self._cover_states.get(cover_id, {}).get("position", 0.5)
-                if current_pos > 0.5:
+                # Toggle based on current operation or last known operation
+                state = self._cover_states.get(cover_id, {})
+                current_op = state.get("current_operation", 0) # 0=IDLE, 1=OPENING, 2=CLOSING
+                last_op = state.get("last_known_operation", 2)
+                
+                if current_op != 0: # If moving, stop it
+                    self._client.cover_command(cover_key, stop=True)
+                elif last_op == 2: # If last operation was CLOSING, open it
+                    self._client.cover_command(cover_key, position=1.0)
+                else: # Otherwise close it
                     self._client.cover_command(cover_key, position=0.0)
+            elif action_upper == "TOGGLE_OPEN":
+                state = self._cover_states.get(cover_id, {})
+                current_op = state.get("current_operation", 0)
+                if current_op != 0:
+                    self._client.cover_command(cover_key, stop=True)
                 else:
                     self._client.cover_command(cover_key, position=1.0)
+            elif action_upper == "TOGGLE_CLOSE":
+                state = self._cover_states.get(cover_id, {})
+                current_op = state.get("current_operation", 0)
+                if current_op != 0:
+                    self._client.cover_command(cover_key, stop=True)
+                else:
+                    self._client.cover_command(cover_key, position=0.0)
             else:
                 _LOGGER.error("Invalid cover action: %s", action)
                 return False

@@ -171,6 +171,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._position = position
         self._initial_position = None
         self._current_operation = IDLE
+        self._last_operation = CLOSING
         _LOGGER.debug(
             "BaseCover %s initialized: open_time=%dms, close_time=%dms, initial_position=%d%%",
             id, self._open_time, self._close_time, position
@@ -207,6 +208,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             # Send relay states to WebSocket (not MQTT - that's handled by output_type check)
             asyncio.create_task(self._open_relay.async_send_state())
             asyncio.create_task(self._close_relay.async_send_state())
+            if self._current_operation in (OPENING, CLOSING):
+                self._last_operation = self._current_operation
             self._current_operation = IDLE
             if not on_exit:
                 self.send_state(self.state, self.json_position)
@@ -219,6 +222,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             "Opening cover %s from position %d%%. Estimated time: %.1fs (open_time=%dms)",
             self._id, self._position, estimated_time_s, self._open_time
         )
+        self._last_operation = OPENING
         await self.run_cover(current_operation=OPENING)
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=OPENING)
 
@@ -230,6 +234,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             "Closing cover %s from position %d%%. Estimated time: %.1fs (close_time=%dms)",
             self._id, self._position, estimated_time_s, self._close_time
         )
+        self._last_operation = CLOSING
         await self.run_cover(current_operation=CLOSING)
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=CLOSING)
 
@@ -258,10 +263,12 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
     async def toggle(self) -> None:
         _LOGGER.debug("Toggle cover %s from input.", self._id)
-        if self._position > 50:
-            await self.close()
-        else:
+        if self._current_operation != IDLE:
+            await self.stop()
+        elif self._last_operation == CLOSING:
             await self.open()
+        else:
+            await self.close()
 
     async def toggle_open(self) -> None:
         _LOGGER.debug("Toggle open cover %s from input.", self._id)
