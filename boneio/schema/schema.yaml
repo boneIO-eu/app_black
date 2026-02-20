@@ -340,6 +340,8 @@ modbus_devices:
           [
             'cwt',
             'dts1964_3f',
+            'dyp-a12-ultrasonic',
+            'boneio-edge-temp',
             'liquid-sensor',
             'orno-or-we-517',
             'pt100',
