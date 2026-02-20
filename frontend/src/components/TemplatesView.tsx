@@ -1,7 +1,16 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
-import { FaThermometerHalf, FaShieldAlt, FaDoorOpen } from 'react-icons/fa';
+import { FaThermometerHalf, FaShieldAlt, FaDoorOpen, FaCog } from 'react-icons/fa';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import type { TemplatesData } from './templates/types';
 import ThermostatCard from './templates/ThermostatCard';
 import AlarmCard from './templates/AlarmCard';
@@ -9,9 +18,27 @@ import GateCard from './templates/GateCard';
 
 export default function TemplatesView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [data, setData] = useState<TemplatesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Long press dialog state
+  const [longPressDialog, setLongPressDialog] = useState<{ open: boolean; templateId: string | null; name: string | null }>({
+    open: false,
+    templateId: null,
+    name: null
+  });
+
+  const handleLongPress = useCallback((templateId: string, name: string) => {
+    setLongPressDialog({ open: true, templateId, name });
+  }, []);
+
+  const handleGoToSettings = useCallback(() => {
+    if (!longPressDialog.templateId) return;
+    navigate(`/settings/template?edit=${encodeURIComponent(longPressDialog.templateId)}`);
+    setLongPressDialog({ open: false, templateId: null, name: null });
+  }, [longPressDialog.templateId, navigate]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -122,12 +149,13 @@ export default function TemplatesView() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {thermostats.map((th) => (
-                  <ThermostatCard
-                    key={th.id}
-                    data={th}
-                    onSetMode={setThermostatMode}
-                    onSetTemp={setThermostatTemp}
-                  />
+                  <LongPressWrapper key={th.id} onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
+                    <ThermostatCard
+                      data={th}
+                      onSetMode={setThermostatMode}
+                      onSetTemp={setThermostatTemp}
+                    />
+                  </LongPressWrapper>
                 ))}
               </div>
             </>
@@ -142,11 +170,12 @@ export default function TemplatesView() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {alarms.map((al) => (
-                  <AlarmCard
-                    key={al.id}
-                    data={al}
-                    onCommand={sendAlarmCommand}
-                  />
+                  <LongPressWrapper key={al.id} onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
+                    <AlarmCard
+                      data={al}
+                      onCommand={sendAlarmCommand}
+                    />
+                  </LongPressWrapper>
                 ))}
               </div>
             </>
@@ -161,11 +190,12 @@ export default function TemplatesView() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {gates.map((g) => (
-                  <GateCard
-                    key={g.id}
-                    data={g}
-                    onCommand={sendGateCommand}
-                  />
+                  <LongPressWrapper key={g.id} onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
+                    <GateCard
+                      data={g}
+                      onCommand={sendGateCommand}
+                    />
+                  </LongPressWrapper>
                 ))}
               </div>
             </>
@@ -177,6 +207,36 @@ export default function TemplatesView() {
           <div className="alert alert-error">{error}</div>
         </div>
       )}
+
+      {/* Long press dialog - go to settings */}
+      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, templateId: open ? longPressDialog.templateId : null, name: open ? longPressDialog.name : null })}>
+        <DialogContent className="sm:max-w-md bg-base-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FaCog className="w-5 h-5" />
+              {t('inputs.go_to_settings')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>{t('inputs.go_to_settings_confirm')}</p>
+            <p className="font-semibold mt-2">{longPressDialog.name}</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLongPressDialog({ open: false, templateId: null, name: null })}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleGoToSettings}
+            >
+              {t('inputs.go_to_settings')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

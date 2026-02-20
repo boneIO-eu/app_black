@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 
 interface ToastNotification {
   id: string;
@@ -46,46 +47,13 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
   onLongPress: (inputEvent: InputEvent) => void;
   duration: number | null;
 }) => {
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const isLongPress = useRef(false);
-
-  const handlePressStart = () => {
-    isLongPress.current = false;
-    longPressTimer.current = setTimeout(() => {
-      isLongPress.current = true;
-      onLongPress(inputEvent);
-    }, 500);
-  };
-
-  const handlePressEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  const handleClick = () => {
-    if (!isLongPress.current) {
-      onCopy(inputEvent.state.name);
-    }
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault();
-    handlePressStart();
-  };
-
   const isLongState = inputEvent.state.state === 'long';
 
   return (
-    <div
-      onClick={handleClick}
-      onMouseDown={handlePressStart}
-      onMouseUp={handlePressEnd}
-      onMouseLeave={handlePressEnd}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handlePressEnd}
-      onContextMenu={(e) => e.preventDefault()}
+    <LongPressWrapper
+      onClick={() => onCopy(inputEvent.state.name)}
+      onLongPress={() => onLongPress(inputEvent)}
+      preventDefaultOnTouchStart={true}
       className={clsx(
         'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 cursor-pointer hover:bg-base-300 select-none touch-none',
         isGrid ? 'border-l-4' : 'border-l-8',
@@ -94,47 +62,46 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
         isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02] transition-all duration-500'
       )}
       title={t('inputs.long_press_to_edit')}
-      style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' }}
     >
-    <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
-      <div>
-        <h3 className="font-semibold text-lg">{inputEvent.state.name}</h3>
-        <p className="text-xs text-gray-500">{inputEvent.entity_id}</p>
-        <p className="text-sm">{t('inputs.type')}: {inputEvent.state.type === "input" ? t('inputs.event_entity') : t('inputs.binary_sensor')}</p>
-        <p className="text-xs text-gray-400">{t('inputs.area')}: {inputEvent.state.area || t('inputs.no_area')}</p>
+      <div className={`flex ${isGrid ? 'justify-between items-start' : 'flex-col gap-2'}`}>
+        <div>
+          <h3 className="font-semibold text-lg">{inputEvent.state.name}</h3>
+          <p className="text-xs text-gray-500">{inputEvent.entity_id}</p>
+          <p className="text-sm">{t('inputs.type')}: {inputEvent.state.type === "input" ? t('inputs.event_entity') : t('inputs.binary_sensor')}</p>
+          <p className="text-xs text-gray-400">{t('inputs.area')}: {inputEvent.state.area || t('inputs.no_area')}</p>
+        </div>
+        <div className={`${isGrid ? 'text-right' : ''}`}>
+          <span
+            className={clsx('px-4 py-2 rounded-lg font-semibold inline-flex items-center',
+              inputEvent.state.state === 'ON' ? 'bg-primary text-white' :
+                inputEvent.state.state === 'single' ? 'bg-success text-black' :
+                  inputEvent.state.state === 'double' ? 'bg-warning text-black' :
+                    inputEvent.state.state === 'long' ? 'bg-info text-white' :
+                      inputEvent.state.state === 'pressed' ? 'bg-success text-black' :
+                        inputEvent.state.state === 'released' ? 'bg-warning text-black' :
+                          'bg-base-200 text-base-content'
+            )}
+          >
+            {inputEvent.state.state}
+            {isLongState && <DurationDisplay duration={duration} />}
+          </span>
+          <p className="text-gray-500 text-xs mt-2">
+            {formatTimestamp(inputEvent.state.timestamp)}
+          </p>
+        </div>
       </div>
-      <div className={`${isGrid ? 'text-right' : ''}`}>
-        <span
-          className={clsx('px-4 py-2 rounded-lg font-semibold inline-flex items-center',
-            inputEvent.state.state === 'ON' ? 'bg-primary text-white' :
-            inputEvent.state.state === 'single' ? 'bg-success text-black' :
-            inputEvent.state.state === 'double' ? 'bg-warning text-black' :
-            inputEvent.state.state === 'long' ? 'bg-info text-white' :
-            inputEvent.state.state === 'pressed' ? 'bg-success text-black' :
-            inputEvent.state.state === 'released' ? 'bg-warning text-black' :
-            'bg-base-200 text-base-content'
-          )}
-        >
-          {inputEvent.state.state}
-          {isLongState && <DurationDisplay duration={duration} />}
-        </span>
-        <p className="text-gray-500 text-xs mt-2">
-          {formatTimestamp(inputEvent.state.timestamp)}
-        </p>
-      </div>
-    </div>
-  </div>
+    </LongPressWrapper>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison - optimized for long press to reduce re-renders
   const prevState = prevProps.inputEvent.state;
   const nextState = nextProps.inputEvent.state;
-  
+
   // Always re-render if state type changed (e.g., from 'long' to 'released')
   if (prevState.state !== nextState.state) {
     return false;
   }
-  
+
   // For long press, throttle duration updates - only re-render every 500ms worth of duration change
   // This significantly reduces CPU usage while still showing progress
   if (nextState.state === 'long') {
@@ -144,22 +111,22 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
       prevProps.isGrid === nextProps.isGrid &&
       prevProps.isHighlighted === nextProps.isHighlighted
     );
-    
+
     if (!sameCore) return false;
-    
+
     // Throttle duration display updates - only re-render if duration changed by >= 0.5s
     const prevDur = prevProps.duration ?? 0;
     const nextDur = nextProps.duration ?? 0;
     const durationDiff = Math.abs(nextDur - prevDur);
-    
+
     // Skip re-render if duration change is less than 0.5s
     if (durationDiff < 0.5) {
       return true; // Same, skip re-render
     }
-    
+
     return false; // Re-render to update duration display
   }
-  
+
   // For other states, use standard comparison
   return (
     prevProps.inputEvent.entity_id === nextProps.inputEvent.entity_id &&
@@ -186,7 +153,7 @@ export default function InputsView() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
   const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
-  
+
   // Throttle refs for long press updates (to reduce CPU usage)
   const lastLongPressUpdateRef = useRef<Map<string, number>>(new Map());
   const LONG_PRESS_THROTTLE_MS = 500; // Update toast max every 500ms
@@ -218,24 +185,24 @@ export default function InputsView() {
           return updated;
         }
       }
-      
+
       // Create new toast
       const id = `${Date.now()}-${Math.random()}`;
       const newToast = { id, message, type, inputName, duration, entityId };
       const newToasts = [...prev, newToast];
-      
+
       // Auto-remove after 3 seconds (only for non-long events)
       if (type !== 'long') {
         setTimeout(() => {
           setToasts(prev => prev.filter(toast => toast.id !== id));
         }, 3000);
       }
-      
+
       // Keep only last 4 toasts (remove oldest if exceeding limit)
       return newToasts.slice(-4);
     });
   }, []);
-  
+
   // Remove toast by entity_id (used when long press ends)
   const removeToastByEntity = useCallback((entityId: string) => {
     setToasts(prev => prev.filter(toast => toast.entityId !== entityId));
@@ -243,7 +210,7 @@ export default function InputsView() {
 
   // Copy input name to clipboard
   const [copiedName, setCopiedName] = useState<string | null>(null);
-  
+
   const copyToClipboard = useCallback((name: string) => {
     navigator.clipboard.writeText(name).then(() => {
       setCopiedName(name);
@@ -283,7 +250,7 @@ export default function InputsView() {
     const toastEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'double_then_long', 'single_then_long', 'double_then_single'];
     const highlightEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple', 'double_then_long', 'single_then_long', 'double_then_single', 'ON', 'OFF'];
     const now = Date.now() / 1000; // Current time in seconds
-    
+
     // On first render, just populate the ref without showing toasts
     if (!isInitializedRef.current) {
       validInputs.forEach((inputEvent: InputEvent) => {
@@ -295,17 +262,17 @@ export default function InputsView() {
       isInitializedRef.current = true;
       return;
     }
-    
+
     validInputs.forEach((inputEvent: InputEvent) => {
       const prevData = prevInputsRef.current.get(inputEvent.entity_id);
       const currentState = inputEvent.state.state;
       const currentTimestamp = inputEvent.state.timestamp;
-      
+
       // Only consider as changed if: we have previous data AND timestamp changed
       // Also check if event is recent (within last 5 seconds) to avoid stale events on page load
       const isRecent = (now - currentTimestamp) < 5;
       const hasChanged = prevData && prevData.timestamp !== currentTimestamp && isRecent;
-      
+
       // Show toast for event types (not ON/OFF binary states)
       if (hasChanged && toastEventTypes.includes(currentState)) {
         // Throttle long press updates to reduce CPU usage
@@ -318,19 +285,19 @@ export default function InputsView() {
           }
           lastLongPressUpdateRef.current.set(inputEvent.entity_id, nowMs);
         }
-        
+
         const time = new Date(currentTimestamp * 1000).toLocaleTimeString('pl-PL', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
         });
-        
+
         // For long press, include duration in message
         let message = `[${time}] ${t('inputs.detected')} ${currentState} ${t('inputs.in')} ${inputEvent.state.name}`;
         if (currentState === 'long' && inputEvent.duration !== null && inputEvent.duration !== undefined) {
           message += ` (${inputEvent.duration.toFixed(1)}s)`;
         }
-        
+
         addOrUpdateToast(
           message,
           currentState,
@@ -339,14 +306,14 @@ export default function InputsView() {
           inputEvent.entity_id
         );
       }
-      
+
       // Remove long press toast when state changes from 'long' to something else
       if (prevData && prevData.state === 'long' && currentState !== 'long') {
         removeToastByEntity(inputEvent.entity_id);
         // Clean up throttle ref
         lastLongPressUpdateRef.current.delete(inputEvent.entity_id);
       }
-      
+
       // Highlight changed inputs
       if (hasChanged && highlightEventTypes.includes(currentState)) {
         setRecentlyChanged(prev => new Set(prev).add(inputEvent.entity_id));
@@ -358,7 +325,7 @@ export default function InputsView() {
           });
         }, 2000);
       }
-      
+
       // Always update the ref (even for new items without prevData)
       prevInputsRef.current.set(inputEvent.entity_id, {
         state: currentState,
@@ -377,19 +344,19 @@ export default function InputsView() {
     }
     return sorted;
   }, [validInputs, sortMode]);
-  
+
   if (validInputs.length === 0) {
     return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
-      </div>
-      <div>
-        No inputs configured.
-      </div>
-    </div>)
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">{t('inputs.title')}</h2>
+        </div>
+        <div>
+          No inputs configured.
+        </div>
+      </div>)
   }
-  
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
@@ -404,7 +371,7 @@ export default function InputsView() {
             </label>
             <ul tabIndex={0} className="dropdown-content z-1 menu p-2 shadow bg-base-100 rounded-box w-52">
               <li>
-                <button 
+                <button
                   onClick={() => handleSortChange('name')}
                   className={sortMode === 'name' ? 'active' : ''}
                 >
@@ -412,7 +379,7 @@ export default function InputsView() {
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => handleSortChange('recent')}
                   className={sortMode === 'recent' ? 'active' : ''}
                 >
@@ -424,15 +391,15 @@ export default function InputsView() {
           <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
         </div>
       </div>
-      <div className={isGrid 
+      <div className={isGrid
         ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
         : "flex flex-col gap-4"
       }>
         {sortedInputs.map((inputEvent: InputEvent) => (
-          <InputItem 
-            key={inputEvent.entity_id} 
-            inputEvent={inputEvent} 
-            isGrid={isGrid} 
+          <InputItem
+            key={inputEvent.entity_id}
+            inputEvent={inputEvent}
+            isGrid={isGrid}
             t={t}
             isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
             onCopy={copyToClipboard}
@@ -491,14 +458,14 @@ export default function InputsView() {
             <p className="font-semibold mt-2">{longPressDialog.inputEvent?.state.name}</p>
           </div>
           <DialogFooter className="gap-2">
-            <button 
-              className="btn btn-ghost" 
+            <button
+              className="btn btn-ghost"
               onClick={() => setLongPressDialog({ open: false, inputEvent: null })}
             >
               {t('common.cancel')}
             </button>
-            <button 
-              className="btn btn-primary" 
+            <button
+              className="btn btn-primary"
               onClick={handleGoToSettings}
             >
               {t('inputs.go_to_settings')}
