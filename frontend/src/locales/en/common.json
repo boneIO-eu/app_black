@@ -835,6 +835,8 @@
     "configure_error_baudrate_not_supported": "Baudrate is not supported. Supported:",
     "configure_error_write_address": "Failed to write new address. Check device connection.",
     "configure_error_write_baudrate": "Failed to write new baudrate. Check device connection.",
+    "broadcast_mode": "Broadcast Mode (address 0)",
+    "broadcast_warning": "Broadcast mode will change settings on ALL devices connected to this UART bus!",
     "creator": "Creator",
     "device_creator": "Device Configuration Creator"
   },

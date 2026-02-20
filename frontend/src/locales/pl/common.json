@@ -842,6 +842,8 @@
     "configure_error_write_address": "Nie udało się zapisać nowego adresu. Sprawdź połączenie z urządzeniem.",
     "configure_error_write_baudrate": "Nie udało się zapisać nowej prędkości. Sprawdź połączenie z urządzeniem.",
     "configure_error_no_operation": "Musisz określić nowy adres lub nową prędkość.",
+    "broadcast_mode": "Tryb Broadcast (adres 0)",
+    "broadcast_warning": "Tryb broadcast zmieni ustawienia na WSZYSTKICH urządzeniach podłączonych do tej magistrali UART!",
     "creator": "Kreator",
     "device_creator": "Kreator Konfiguracji Urządzenia"
   },

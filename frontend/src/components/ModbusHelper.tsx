@@ -60,13 +60,14 @@ export default function ModbusHelper() {
   const [searchTimeout, setSearchTimeout] = useState(0.3);
 
   // CONFIGURE parameters
-  const [configDevice, setConfigDevice] = useState('cwt');
+  const [configDevice, setConfigDevice] = useState('boneio-edge-temp');
   const [configUart, setConfigUart] = useState('uart4');
   const [configCurrentAddress, setConfigCurrentAddress] = useState(1);
-  const [configCurrentBaudrate, setConfigCurrentBaudrate] = useState(4800);
+  const [configCurrentBaudrate, setConfigCurrentBaudrate] = useState(9600);
   const [configOperation, setConfigOperation] = useState<'address' | 'baudrate'>('address');
   const [configNewAddress, setConfigNewAddress] = useState<number | ''>('');
   const [configNewBaudrate, setConfigNewBaudrate] = useState<number | ''>(9600);
+  const [configBroadcast, setConfigBroadcast] = useState(false);
 
   // Load config on mount
   useEffect(() => {
@@ -117,7 +118,7 @@ export default function ModbusHelper() {
   const handleSearch = async () => {
     setLoading(true);
     setResult(null);
-    
+
     // Build query params for SSE endpoint
     const params = new URLSearchParams({
       start_address: searchStartAddress.toString(),
@@ -126,19 +127,19 @@ export default function ModbusHelper() {
       register_type: searchRegisterType,
       timeout: searchTimeout.toString(),
     });
-    
+
     // Add token to query params for SSE (EventSource doesn't support headers)
     const token = localStorage.getItem('token');
     if (token) {
       params.set('token', token);
     }
-    
+
     try {
       const eventSource = new EventSource(`/api/modbus/search/stream?${params}`);
-      
+
       eventSource.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
+
         switch (data.type) {
           case 'start':
             setResult({ success: true, devices: [], count: 0, scanned: 0, total: data.total });
@@ -187,12 +188,12 @@ export default function ModbusHelper() {
             break;
         }
       };
-      
+
       eventSource.onerror = () => {
         eventSource.close();
         setLoading(false);
       };
-      
+
     } catch (err) {
       setResult({ success: false, error: String(err) });
       setLoading(false);
@@ -211,12 +212,13 @@ export default function ModbusHelper() {
     setLoading(true);
     setResult(null);
     try {
+      const effectiveAddress = configBroadcast ? 0 : configCurrentAddress;
       const { data } = await axios.post('/api/modbus/configure-device', {
         device: configDevice,
         uart: configUart,
-        current_address: configCurrentAddress,
+        current_address: effectiveAddress,
         current_baudrate: configCurrentBaudrate,
-        new_address: configOperation === 'address' ? (configNewAddress || null) : null,
+        new_address: configOperation === 'address' && !configBroadcast ? (configNewAddress || null) : null,
         new_baudrate: configOperation === 'baudrate' ? (configNewBaudrate || null) : null,
       });
       setResult(data);
@@ -361,7 +363,7 @@ export default function ModbusHelper() {
         <div className="card bg-base-200 mb-6">
           <div className="card-body">
             <h2 className="card-title text-lg">{t('modbus_helper.write_register')}</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Device Address */}
               <div className="form-control">
@@ -615,9 +617,9 @@ export default function ModbusHelper() {
               <span>{t('modbus_helper.scanning')}...</span>
               <span className="text-sm">{result.scanned}/{result.total}</span>
             </div>
-            <progress 
-              className="progress progress-primary w-full" 
-              value={result.scanned || 0} 
+            <progress
+              className="progress progress-primary w-full"
+              value={result.scanned || 0}
               max={result.total}
             ></progress>
             {result.devices && result.devices.length > 0 && (
@@ -658,12 +660,16 @@ export default function ModbusHelper() {
                   value={configDevice}
                   onChange={(e) => {
                     setConfigDevice(e.target.value);
+                    setConfigBroadcast(false);
                     if (e.target.value === 'dyp-a12-ultrasonic') {
                       setConfigOperation('address');
+                      setConfigCurrentBaudrate(9600);
+                    } else if (e.target.value === 'boneio-edge-temp') {
                       setConfigCurrentBaudrate(9600);
                     }
                   }}
                 >
+                  <option value="boneio-edge-temp">boneIO Edge Sensor (Temp & Humidity)</option>
                   <option value="cwt">CWT (Temp & Humidity)</option>
                   <option value="sht30">SHT30 (Temp & Humidity)</option>
                   <option value="dyp-a12-ultrasonic">DYP-A12 (Ultrasonic Distance)</option>
@@ -688,22 +694,52 @@ export default function ModbusHelper() {
               </div>
             </div>
 
+            {/* Broadcast mode for edge-temp */}
+            {configDevice === 'boneio-edge-temp' && (
+              <div className="form-control mb-4">
+                <label className="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-warning"
+                    checked={configBroadcast}
+                    onChange={(e) => {
+                      setConfigBroadcast(e.target.checked);
+                      if (e.target.checked) {
+                        setConfigOperation('baudrate');
+                        setConfigCurrentAddress(0);
+                      } else {
+                        setConfigCurrentAddress(1);
+                      }
+                    }}
+                  />
+                  <span className="label-text font-semibold">{t('modbus_helper.broadcast_mode') || 'Broadcast Mode (address 0)'}</span>
+                </label>
+                {configBroadcast && (
+                  <div className="alert alert-error mt-2">
+                    <span>⚠️ {t('modbus_helper.broadcast_warning') || 'Broadcast mode will change settings on ALL devices connected to this UART bus!'}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Operation Type Selection */}
             <div className="form-control mb-4">
               <label className="label">
                 <span className="label-text font-semibold">{t('modbus_helper.select_operation')}</span>
               </label>
               <div className="flex gap-4">
-                <label className="label cursor-pointer gap-2">
-                  <input
-                    type="radio"
-                    name="operation"
-                    className="radio radio-primary"
-                    checked={configOperation === 'address'}
-                    onChange={() => setConfigOperation('address')}
-                  />
-                  <span className="label-text">{t('modbus_helper.change_address')}</span>
-                </label>
+                {!configBroadcast && (
+                  <label className="label cursor-pointer gap-2">
+                    <input
+                      type="radio"
+                      name="operation"
+                      className="radio radio-primary"
+                      checked={configOperation === 'address'}
+                      onChange={() => setConfigOperation('address')}
+                    />
+                    <span className="label-text">{t('modbus_helper.change_address')}</span>
+                  </label>
+                )}
                 {configDevice !== 'dyp-a12-ultrasonic' && (
                   <label className="label cursor-pointer gap-2">
                     <input
@@ -718,7 +754,7 @@ export default function ModbusHelper() {
                 )}
               </div>
             </div>
-            
+
             {/* Address change fields */}
             {configOperation === 'address' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -831,12 +867,12 @@ export default function ModbusHelper() {
                 className="btn btn-primary"
                 onClick={handleConfigure}
                 disabled={
-                  loading || 
+                  loading ||
                   (configOperation === 'address' && !configNewAddress) ||
                   (configOperation === 'baudrate' && !configNewBaudrate)
                 }
               >
-                <FaCog className="mr-2" /> 
+                <FaCog className="mr-2" />
                 {configOperation === 'address' ? t('modbus_helper.set_new_address') : t('modbus_helper.set_new_baudrate')}
               </button>
             </div>
