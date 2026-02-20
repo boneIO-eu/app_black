@@ -49,7 +49,8 @@ from boneio.modbus.entities.writeable.numeric import (
     ModbusNumericWriteableEntity,
     ModbusNumericWriteableEntityDiscrete,
 )
-from boneio.models.events import ModbusDeviceEvent
+from boneio.models.events import ModbusDeviceEvent, SensorEvent
+from boneio.models.state import SensorState
 
 from .client import VALUE_TYPES, Modbus
 
@@ -686,26 +687,45 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     ) -> None:
         """Trigger events for entity updates.
         
+        Emits ModbusDeviceEvent for all entities. Additionally emits
+        SensorEvent for any entity that acts as a sensor, so standard
+        components (like thermostats) can listen to sensor updates natively.
+        
         Args:
             entity: Entity that was updated
-            output: Output dictionary with states
         """
         type_info = self._get_entity_type_info(entity)
         
+        device_state = ModbusDeviceState(
+            id=entity.id,
+            name=entity.name,
+            state=entity.state or 0.0,
+            unit=getattr(entity, 'unit_of_measurement', None),
+            timestamp=entity.last_timestamp,
+            device_group=self.name,
+            coordinator_id=self._id,
+            entity_type=entity.entity_type,
+            **type_info
+        )
+
         self._event_bus.trigger_event(ModbusDeviceEvent(
             entity_id=entity.id,
-            state=ModbusDeviceState(
-                id=entity.id,
-                name=entity.name,
-                state=entity.state or 0.0,
-                unit=getattr(entity, 'unit_of_measurement', None),
-                timestamp=entity.last_timestamp,
-                device_group=self.name,
-                coordinator_id=self._id,
-                entity_type=entity.entity_type,
-                **type_info
-            ),
+            state=device_state,
         ))
+
+        # Also emit dedicated SensorEvent for generic sensor integration 
+        # (thermostats, rules, etc. shouldn't care about transport type)
+        if entity.entity_type in (SENSOR, TEXT_SENSOR):
+            self._event_bus.trigger_event(SensorEvent(
+                entity_id=entity.id,
+                state=SensorState(
+                    id=entity.id,
+                    name=entity.name,
+                    state=entity.state or 0.0,
+                    unit=getattr(entity, 'unit_of_measurement', None),
+                    timestamp=entity.last_timestamp,
+                )
+            ))
 
     async def write_register(
         self, 

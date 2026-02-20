@@ -37,6 +37,7 @@ export interface TemplateSubFormProps {
   allSensors: any[];
   allInputs: any[];
   allModbusDevices: any[];
+  onValidationChange?: (hasErrors: boolean) => void;
 }
 
 export interface TemplateFormProps extends TemplateSubFormProps {

@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
-from yaml import MarkedYAMLError, SafeLoader, YAMLError, dump, load
+from yaml import MarkedYAMLError, SafeLoader, SafeDumper, YAMLError, dump, load
 
 from boneio.const import OUTPUT
 from boneio.core.utils import TimePeriod
@@ -55,6 +55,15 @@ def clear_config_cache():
     _BOARD_CONFIG_CACHE.clear()
     _LOGGER.info("Config cache cleared")
 
+
+class TimePeriodDumper(SafeDumper):
+    """Custom dumper that cleanly serializes TimePeriod objects as strings."""
+    pass
+
+def represent_time_period(dumper, data):
+    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
+
+TimePeriodDumper.add_representer(TimePeriod, represent_time_period)
 
 class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
@@ -1006,7 +1015,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                 _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
                 
                 # Save cleaned data to the included file
-                content = dump(cleaned_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                content = dump(cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
                 with open(include_file_path, 'w', encoding='utf-8') as f:
                     f.write(content)
                     
@@ -1035,7 +1044,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         in_section = True
                         section_indent = len(line) - len(line.lstrip())
                         # Add the complete new section (header + data)
-                        section_yaml = dump({section: cleaned_data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                        section_yaml = dump({section: cleaned_data}, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
                         # Add proper indentation if section was indented
                         if section_indent > 0:
                             indented_lines = []
@@ -1065,7 +1074,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
             _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
             
             # Append new section to the end of the file
-            section_yaml = dump({section: cleaned_data}, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            section_yaml = dump({section: cleaned_data}, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
             with open(config_file, 'a', encoding='utf-8') as f:
                 f.write('\n' + section_yaml)
                 

@@ -28,6 +28,7 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   allOutputs,
   allAreas,
   allInputs,
+  onValidationChange,
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
@@ -35,6 +36,16 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   const updateField = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
+
+  // --- Zone helpers ---
+  const zones: AlarmZone[] = data.zones || [];
+
+  React.useEffect(() => {
+    if (onValidationChange) {
+      const hasErrors = zones.some((z) => !z.arm_modes || z.arm_modes.length === 0 || !z.name || z.name.trim() === '');
+      onValidationChange(hasErrors);
+    }
+  }, [zones, onValidationChange]);
 
   // --- PIN codes helpers ---
   const pinCodes: AlarmPin[] = data.codes || [];
@@ -82,8 +93,6 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
     updatePinCodes(newCodes);
   };
 
-  // --- Zone helpers ---
-  const zones: AlarmZone[] = data.zones || [];
   const updateZones = (newZones: AlarmZone[]) => updateField('zones', newZones);
 
   const addZone = () => {
@@ -371,11 +380,18 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                       {/* Zone name */}
                       <div className="form-control">
                         <label className="label py-1">
-                          <span className="label-text text-sm">{t('template.zone_name')} *</span>
+                          <span className="label-text text-sm">
+                            {t('template.zone_name')}
+                            {(!zone.name || zone.name.trim() === '') ? (
+                              <span className="text-error font-medium ml-2">* {t('common.required')}</span>
+                            ) : (
+                              ' *'
+                            )}
+                          </span>
                         </label>
                         <input
                           type="text"
-                          className="input input-sm w-full"
+                          className={`input input-sm w-full ${(!zone.name || zone.name.trim() === '') ? 'input-error bg-error/5' : ''}`}
                           value={zone.name || ''}
                           onChange={(e) => updateZone(zIdx, 'name', e.target.value)}
                           placeholder={t('template.zone_name_placeholder')}
@@ -383,9 +399,14 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                       </div>
 
                       {/* Arm modes */}
-                      <div className="form-control">
+                      <div className={`form-control p-2 rounded-lg ${(zone.arm_modes?.length === 0 || !zone.arm_modes) ? 'border border-error bg-error/10' : ''}`}>
                         <label className="label py-1">
-                          <span className="label-text text-sm">{t('template.arm_modes')}</span>
+                          <span className="label-text text-sm font-medium">
+                            {t('template.arm_modes')}
+                            {(zone.arm_modes?.length === 0 || !zone.arm_modes) && (
+                              <span className="text-error ml-2">* {t('common.required')}</span>
+                            )}
+                          </span>
                         </label>
                         <div className="flex flex-wrap gap-2">
                           {ARM_MODE_OPTIONS.map((mode) => (
@@ -431,11 +452,10 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                                 </span>
                                 <button
                                   type="button"
-                                  className={`btn btn-xs ${
-                                    zi.type === 'normally_closed'
-                                      ? 'btn-info'
-                                      : 'btn-warning'
-                                  }`}
+                                  className={`btn btn-xs ${zi.type === 'normally_closed'
+                                    ? 'btn-info'
+                                    : 'btn-warning'
+                                    }`}
                                   onClick={() => toggleInputType(zIdx, zi.id)}
                                   title={zi.type === 'normally_closed'
                                     ? t('template.wiring_nc_hint')

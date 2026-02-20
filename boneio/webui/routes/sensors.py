@@ -63,6 +63,7 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
     result = {
         "dallas": [],
         "temp": [],
+        "modbus_temp": [],
         "ina219": [],
         "adc": [],
         "system": [],
@@ -87,6 +88,21 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
             "state": sensor.state,
             "unit": sensor.unit_of_measurement,
         })
+
+    # Modbus temperature sensors (CWT, R4DCB08, N4DSC08, boneIO Edge, etc.)
+    for coordinator in manager.modbus.get_all_coordinators().values():
+        if not coordinator:
+            continue
+        for entities in coordinator.get_all_entities():
+            for entity in entities.values():
+                if getattr(entity, '_device_class', None) == "temperature":
+                    result["modbus_temp"].append({
+                        "id": entity.id,
+                        "name": entity.name,
+                        "state": entity.state,
+                        "unit": entity.unit_of_measurement,
+                        "device_group": coordinator.name,
+                    })
     
     # INA219 sensors
     for ina_device in manager.sensors.get_ina219_sensors():
@@ -116,3 +132,4 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
         })
     
     return result
+

@@ -23,12 +23,13 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
   allSensors = [],
   allInputs = [],
   allModbusDevices = [],
+  onValidationChange,
 }) => {
   const { t } = useTranslation();
 
   const platform = data.platform || 'thermostat';
 
-  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs, allModbusDevices };
+  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs, allModbusDevices, onValidationChange };
 
   return (
     <div className="space-y-4 mt-2">

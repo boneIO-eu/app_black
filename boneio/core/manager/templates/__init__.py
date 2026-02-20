@@ -260,7 +260,7 @@ class TemplateManager:
                 listener_id=f"template_mgr_{sensor_id}",
             )
 
-        # Re-register for current mappings
+        # Re-register for current mappings (native SensorEvent sources)
         for sensor_id in self._thermostats.sensor_map:
             event_bus.add_event_listener(
                 event_type="sensor",

@@ -87,19 +87,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
-  const [availableDallasSensors, setAvailableDallasSensors] = useState<{address: string, type: string}[]>([]);
-  
+  const [availableDallasSensors, setAvailableDallasSensors] = useState<{ address: string, type: string }[]>([]);
+
   // State for delete confirmation dialog
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
-  
+
   // State for import dialog
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importData, setImportData] = useState<any[] | null>(null);
   const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge');
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [affectedActions, setAffectedActions] = useState<{type: string, name: string, actionType: string}[]>([]);
+  const [affectedActions, setAffectedActions] = useState<{ type: string, name: string, actionType: string }[]>([]);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
 
@@ -109,12 +109,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     if (!editItemName || value.length === 0) {
       return;
     }
-    
+
     // Don't process the same item twice
     if (editItemProcessedRef.current === editItemName) {
       return;
     }
-    
+
     // Find item by name, id, boneio_input, boneio_output, or auto-generated cover id
     const index = value.findIndex((item: any) => {
       if (item.name === editItemName) return true;
@@ -128,9 +128,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
       return false;
     });
-    
+
     console.log('🔍 ArrayTableWidget: Looking for item to edit:', editItemName, 'found at index:', index, 'in', value.length, 'items');
-    
+
     if (index !== -1) {
       editItemProcessedRef.current = editItemName;
       const item = { ...value[index] };
@@ -188,7 +188,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // Accepts number (ms), string ("30s"), or TimePeriod object from backend
   const formatTimeperiod = (value: number | string | { milliseconds?: number; seconds?: number; minutes?: number; hours?: number; _total_in_seconds?: number }): string => {
     let ms: number;
-    
+
     // If string with unit, return as-is
     if (typeof value === 'string') {
       if (/^\d+(\.\d+)?\s*(ms|s|sec|min|h|hours?)$/i.test(value)) {
@@ -223,7 +223,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else {
       return '0ms';
     }
-    
+
     // Format milliseconds to best unit
     if (ms >= 60000) {
       const minutes = ms / 60000;
@@ -239,14 +239,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     console.log('🔧 ArrayTableWidget: handleEdit called for index:', index);
     // Deep copy to prevent mutations from affecting original data when user cancels
     const item = JSON.parse(JSON.stringify(value[index]));
-    
+
     // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
     // This prevents duplicate fields when user edits old config with 'id' and form uses 'name'
     if ((sectionType === 'binary_sensor' || sectionType === 'event') && item.id && !item.name) {
       item.name = item.id;
       delete item.id;
     }
-    
+
     setEditingItem(item);
     setEditingIndex(index);
     setAttemptedSubmit(false); // Reset przy otwieraniu modala
@@ -282,7 +282,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleAddFromDiscovery = (device: any) => {
     console.log('➕ ArrayTableWidget: handleAddFromDiscovery called', device);
     setEditingIndex(null);
-    
+
     // Check if this is an ESPHome device
     if (device.protocol === 'esphome_api' || device.esphome_api) {
       // Pre-fill form with ESPHome device data
@@ -347,23 +347,23 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
       const outputCount = getOutputCount(deviceType || '');
       const usedOutputs = value.filter(output => output.boneio_output).length;
-      
+
       return usedOutputs >= outputCount;
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
       // Check if all inputs are used (shared between binary_sensor and event)
       const usedInputsFromBinarySensors = allBinarySensors
         .filter(sensor => sensor.boneio_input)
         .map(sensor => sensor.boneio_input);
-      
+
       const usedInputsFromEvents = allEvents
         .filter(event => event.boneio_input)
         .map(event => event.boneio_input);
-      
+
       const allUsedInputs = [...new Set([...usedInputsFromBinarySensors, ...usedInputsFromEvents])];
-      
+
       // Get total available inputs from schema (assuming it's the same for both)
       const totalInputs = (schema as any)?.items?.properties?.boneio_input?.enum?.length || 0;
-      
+
       return allUsedInputs.length >= totalInputs;
     } else if (sectionType === 'output_group') {
       // Output groups don't have a fixed limit, so always allow adding
@@ -378,30 +378,30 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       // Remote devices don't have a fixed limit, so always allow adding
       return false;
     }
-    
+
     return false;
   };
 
   const handleSave = (e?: any) => {
     console.log('💾 ArrayTableWidget: handleSave called, calling onChange');
-    
+
     // Oznacz że użytkownik próbował zapisać
     setAttemptedSubmit(true);
-    
+
     // Block save if there are validation errors from child form
     if (hasValidationErrors) {
       console.log('❌ ArrayTableWidget: Save blocked due to validation errors');
       alert(t('array_table_widget.fix_validation_errors_before_saving'));
       return;
     }
-    
+
     // If called from @rjsf onSubmit, e.formData contains the data
     const dataToSave = e?.formData || editingItem;
-    
+
     // Validate required fields based on section type
     let isValid = false;
     let errorMessage = '';
-    
+
     if (sectionType === 'binary_sensor') {
       isValid = !!dataToSave.boneio_input;
       errorMessage = t('array_table_widget.boneio_input_required');
@@ -424,13 +424,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       // ID is now optional (auto-generated from address and model)
       isValid = !!dataToSave.address && !!dataToSave.model;
       errorMessage = t('array_table_widget.address_and_model_required');
-      
+
       // Validate update_interval minimum (1 second = 1000ms)
       if (isValid && dataToSave.update_interval) {
-        const interval = typeof dataToSave.update_interval === 'number' 
-          ? dataToSave.update_interval 
+        const interval = typeof dataToSave.update_interval === 'number'
+          ? dataToSave.update_interval
           : parseInt(dataToSave.update_interval);
-        
+
         if (interval < 1000) {
           isValid = false;
           errorMessage = t('array_table_widget.update_interval_minimum');
@@ -439,7 +439,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'remote_devices') {
       // Remote device requires id, name, protocol
       isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol;
-      
+
       // ESPHome API also requires host
       if (isValid && dataToSave.protocol === 'esphome_api') {
         isValid = !!dataToSave.esphome_api?.host;
@@ -447,7 +447,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           errorMessage = t('remote_devices.esphome_host_required') || 'ESPHome host is required';
         }
       }
-      
+
       if (!errorMessage) {
         errorMessage = t('array_table_widget.remote_device_fields_required');
       }
@@ -476,12 +476,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       // For other sections, allow saving (or add specific validation)
       isValid = true;
     }
-    
+
     if (!isValid) {
       alert(errorMessage);
       return;
     }
-    
+
     // For binary_sensor and event, ensure we don't have both 'id' and 'name' fields
     // Remove legacy 'id' field if 'name' exists
     let cleanedData = { ...dataToSave };
@@ -507,7 +507,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         cleanedData.id = candidateId;
       }
     }
-    
+
     const newValue = [...value];
     if (editingIndex !== null) {
       newValue[editingIndex] = cleanedData;
@@ -526,9 +526,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
    * Find all items that use the given area ID.
    * Returns list of affected items with their section type and name.
    */
-  const findItemsUsingArea = (areaId: string): {type: string, name: string, actionType: string}[] => {
-    const affected: {type: string, name: string, actionType: string}[] = [];
-    
+  const findItemsUsingArea = (areaId: string): { type: string, name: string, actionType: string }[] => {
+    const affected: { type: string, name: string, actionType: string }[] = [];
+
     // Check outputs
     allOutputs.forEach((item: any) => {
       if (item.area === areaId) {
@@ -539,7 +539,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check output groups
     allOutputGroups.forEach((item: any) => {
       if (item.area === areaId) {
@@ -550,7 +550,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check covers
     allCovers.forEach((item: any) => {
       if (item.area === areaId) {
@@ -561,7 +561,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check binary sensors
     allBinarySensors.forEach((item: any) => {
       if (item.area === areaId) {
@@ -572,7 +572,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check events
     allEvents.forEach((item: any) => {
       if (item.area === areaId) {
@@ -583,7 +583,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check sensors
     allSensors.forEach((item: any) => {
       if (item.area === areaId) {
@@ -594,7 +594,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check modbus devices
     allModbusDevices.forEach((item: any) => {
       if (item.area === areaId) {
@@ -605,7 +605,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     // Check virtual energy sensors
     allVirtualEnergySensors.forEach((item: any) => {
       if (item.area === areaId) {
@@ -616,7 +616,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       }
     });
-    
+
     return affected;
   };
 
@@ -625,9 +625,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
    * Returns list of affected actions with their source (event/binary_sensor name and action type).
    * For remote_devices, checks remote_device field in remote_output and remote_cover actions.
    */
-  const findAffectedActions = (itemId: string, isRemoteDevice: boolean = false): {type: string, name: string, actionType: string}[] => {
-    const affected: {type: string, name: string, actionType: string}[] = [];
-    
+  const findAffectedActions = (itemId: string, isRemoteDevice: boolean = false): { type: string, name: string, actionType: string }[] => {
+    const affected: { type: string, name: string, actionType: string }[] = [];
+
     // Check events
     allEvents.forEach((event: any) => {
       const eventName = event.name || event.boneio_input || t('array_table_widget.unknown_event');
@@ -656,7 +656,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         });
       });
     });
-    
+
     // Check binary_sensors
     allBinarySensors.forEach((sensor: any) => {
       const sensorName = sensor.name || sensor.boneio_input || t('array_table_widget.unknown_sensor');
@@ -686,7 +686,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       });
     });
     console.log("Affected actions:", affected);
-    
+
     return affected;
   };
 
@@ -697,10 +697,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
    */
   const removeOrphanedActions = (itemId: string, isRemoteDevice: boolean = false): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
     console.log('🗑️ removeOrphanedActions called with itemId:', itemId, 'isRemoteDevice:', isRemoteDevice);
-    
+
     let updatedEvents: any[] | null = null;
     let updatedSensors: any[] | null = null;
-    
+
     // Update events
     if (onUpdateEvents) {
       updatedEvents = allEvents.map((event: any) => {
@@ -731,7 +731,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       console.log('🗑️ Updated events:', updatedEvents);
       onUpdateEvents(updatedEvents);
     }
-    
+
     // Update binary_sensors
     if (onUpdateBinarySensors) {
       updatedSensors = allBinarySensors.map((sensor: any) => {
@@ -762,7 +762,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       console.log('🗑️ Updated sensors:', updatedSensors);
       onUpdateBinarySensors(updatedSensors);
     }
-    
+
     return { updatedEvents, updatedSensors };
   };
 
@@ -775,7 +775,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (sectionType === 'output_group') {
       return item.id || '';
     } else if (sectionType === 'cover') {
-      return item.id || (item.open_relay && item.close_relay 
+      return item.id || (item.open_relay && item.close_relay
         ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase()
         : '');
     } else if (sectionType === 'remote_devices') {
@@ -786,12 +786,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleDelete = (index: number) => {
     const item = value[index];
-    
+
     // Check for affected items when deleting an area
     if (sectionType === 'areas') {
       const areaId = item.id;
       const affected = findItemsUsingArea(areaId);
-      
+
       if (affected.length > 0) {
         // Show confirmation dialog - but for areas we just warn, don't auto-remove
         setDeleteIndex(index);
@@ -800,13 +800,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return;
       }
     }
-    
+
     // Only check for affected actions when deleting output, output_group, cover, or remote_devices
     if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover' || sectionType === 'remote_devices') {
       const itemId = getItemId(item);
       const isRemoteDevice = sectionType === 'remote_devices';
       const affected = findAffectedActions(itemId, isRemoteDevice);
-      
+
       if (affected.length > 0) {
         // Show confirmation dialog
         setDeleteIndex(index);
@@ -815,7 +815,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return;
       }
     }
-    
+
     // No affected actions, delete directly
     const newValue = value.filter((_, i) => i !== index);
     onChange(newValue);
@@ -823,19 +823,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const confirmDelete = async () => {
     if (deleteIndex === null) return;
-    
+
     const item = value[deleteIndex];
-    
+
     // For areas, just delete without removing references (user is warned)
     if (sectionType === 'areas') {
       const newValue = value.filter((_, i) => i !== deleteIndex);
       onChange(newValue);
-      
+
       // Close dialog
       setDeleteConfirmOpen(false);
       setDeleteIndex(null);
       setAffectedActions([]);
-      
+
       // Save the areas section
       if (onSaveSection) {
         console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
@@ -843,32 +843,32 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
       return;
     }
-    
+
     const itemId = getItemId(item);
     const isRemoteDevice = sectionType === 'remote_devices';
-    
+
     // Check which sections have affected actions
     const hasEventActions = affectedActions.some(a => a.type === t('array_table_widget.event'));
     const hasBinarySensorActions = affectedActions.some(a => a.type === t('array_table_widget.binary_sensor'));
-    
+
     // Remove orphaned actions first and get updated data
     const { updatedEvents, updatedSensors } = removeOrphanedActions(itemId, isRemoteDevice);
-    
+
     // Delete the item and get updated value
     const newValue = value.filter((_, i) => i !== deleteIndex);
     onChange(newValue);
-    
+
     // Close dialog
     setDeleteConfirmOpen(false);
     setDeleteIndex(null);
     setAffectedActions([]);
-    
+
     // Save all affected sections with the updated data directly
     if (onSaveSection) {
       // First save the current section (output/output_group/cover/remote_devices) with the item removed
       console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
       await onSaveSection(sectionType, newValue);
-      
+
       // Then save event and binary_sensor sections with orphaned actions removed
       if (hasEventActions && updatedEvents) {
         console.log('🔄 Auto-saving event section with updated data:', updatedEvents);
@@ -903,7 +903,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       exported_at: new Date().toISOString(),
       data: value
     };
-    
+
     const yamlContent = yaml.dump(exportData, { indent: 2, lineWidth: -1, noRefs: true });
     const blob = new Blob([yamlContent], { type: 'application/x-yaml' });
     const url = URL.createObjectURL(blob);
@@ -928,7 +928,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       try {
         const content = e.target?.result as string;
         let parsed: any;
-        
+
         // Try YAML first (also handles JSON since JSON is valid YAML)
         try {
           parsed = yaml.load(content);
@@ -936,7 +936,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           // Fallback to JSON parse for better error messages
           parsed = JSON.parse(content);
         }
-        
+
         // Validate structure
         if (!parsed.data || !Array.isArray(parsed.data)) {
           setImportError(t('import_export.invalid_format'));
@@ -944,12 +944,12 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           setImportDialogOpen(true);
           return;
         }
-        
+
         // Check section type match (warning only)
         if (parsed.section && parsed.section !== sectionType) {
           console.warn(`Import section mismatch: expected ${sectionType}, got ${parsed.section}`);
         }
-        
+
         setImportData(parsed.data);
         setImportError(null);
         setImportDialogOpen(true);
@@ -960,7 +960,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
     };
     reader.readAsText(file);
-    
+
     // Reset input so same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -972,7 +972,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
    */
   const confirmImport = () => {
     if (!importData) return;
-    
+
     if (importMode === 'replace') {
       onChange(importData);
     } else {
@@ -984,7 +984,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       });
       onChange([...value, ...newItems]);
     }
-    
+
     setImportDialogOpen(false);
     setImportData(null);
     setImportMode('merge');
@@ -1046,7 +1046,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         accept=".yaml,.yml,.json"
         className="hidden"
       />
-      
+
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h3 className="text-lg font-semibold">{title || t('array_table_widget.items')}</h3>
         <div className="flex gap-2 flex-wrap">
@@ -1061,7 +1061,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               <span className="hidden sm:inline ml-1">{t('import_export.export')}</span>
             </button>
           </div>
-          
+
           {/* Import button */}
           <div className="tooltip tooltip-bottom" data-tip={t('import_export.import')}>
             <button
@@ -1072,10 +1072,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               <span className="hidden sm:inline ml-1">{t('import_export.import')}</span>
             </button>
           </div>
-          
+
           {/* Add new button */}
-          <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`} 
-               data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
+          <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`}
+            data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
             <button
               onClick={handleAdd}
               className="btn btn-primary btn-sm"
@@ -1162,7 +1162,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               ) : t('settings.add_new_item')}
             </DialogTitle>
           </DialogHeader>
-          
+
           {/* Scrollable content area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 wrap-break-words [&_.label-text]:whitespace-normal [&_.label-text]:wrap-break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:wrap-break-words [&_.form-control]:min-w-0">
             {/* Only render form when editingItem is not null */}
@@ -1301,6 +1301,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allSensors={allSensors}
                     allModbusDevices={allModbusDevices}
                     allInputs={allBinarySensors || []}
+                    onValidationChange={setHasValidationErrors}
                   />
                 ) : (
                   <div className="alert alert-warning">
@@ -1310,19 +1311,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               </>
             )}
           </div>
-          
+
           {/* Action buttons - fixed at bottom */}
           <DialogFooter className="shrink-0 mt-2">
-            <button 
-              type="button" 
-              onClick={handleCancel} 
+            <button
+              type="button"
+              onClick={handleCancel}
               className="btn btn-ghost"
             >
               {t('common.cancel')}
             </button>
-            <button 
-              type="button" 
-              onClick={handleSave} 
+            <button
+              type="button"
+              onClick={handleSave}
               className="btn btn-primary"
               disabled={hasValidationErrors}
               title={hasValidationErrors ? t('settings.fix_validation_errors') : ''}
@@ -1343,14 +1344,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           </DialogHeader>
           <div className="py-4">
             <p className="mb-4">
-              {sectionType === 'areas' 
-                ? t('settings.area_in_use_message') 
+              {sectionType === 'areas'
+                ? t('settings.area_in_use_message')
                 : t('settings.delete_warning_message')}
             </p>
             <div className="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto">
               <p className="font-medium mb-2">
-                {sectionType === 'areas' 
-                  ? t('settings.items_using_area') 
+                {sectionType === 'areas'
+                  ? t('settings.items_using_area')
                   : t('settings.affected_actions')} ({affectedActions.length}):
               </p>
               <ul className="space-y-1 text-sm">
@@ -1365,16 +1366,16 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             </div>
           </div>
           <DialogFooter>
-            <button 
-              type="button" 
-              onClick={cancelDelete} 
+            <button
+              type="button"
+              onClick={cancelDelete}
               className="btn btn-ghost"
             >
               {t('common.cancel')}
             </button>
-            <button 
-              type="button" 
-              onClick={confirmDelete} 
+            <button
+              type="button"
+              onClick={confirmDelete}
               className="btn btn-error"
             >
               {sectionType === 'areas' ? t('settings.delete_anyway') : t('settings.delete_and_remove_actions')}
@@ -1399,7 +1400,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             ) : (
               <>
                 <p>{t('import_export.import_confirm').replace('{count}', String(importData?.length || 0))}</p>
-                
+
                 <div className="form-control">
                   <label className="label cursor-pointer justify-start gap-3">
                     <input
@@ -1415,7 +1416,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     </div>
                   </label>
                 </div>
-                
+
                 <div className="form-control">
                   <label className="label cursor-pointer justify-start gap-3">
                     <input
@@ -1435,17 +1436,17 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             )}
           </div>
           <DialogFooter>
-            <button 
-              type="button" 
-              onClick={cancelImport} 
+            <button
+              type="button"
+              onClick={cancelImport}
               className="btn btn-ghost"
             >
               {t('common.cancel')}
             </button>
             {!importError && (
-              <button 
-                type="button" 
-                onClick={confirmImport} 
+              <button
+                type="button"
+                onClick={confirmImport}
                 className={`btn ${importMode === 'replace' ? 'btn-warning' : 'btn-primary'}`}
               >
                 {t('import_export.confirm_import')}

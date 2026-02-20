@@ -64,12 +64,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
           ws: true
         },
-        '/schema': {
-          target: env.VITE_API_URL || 'http://localhost:8090',
-          changeOrigin: true,
-          secure: false,
-          ws: true
-        },
+        // '/schema': {
+        //   target: env.VITE_API_URL || 'http://localhost:8090',
+        //   changeOrigin: true,
+        //   secure: false,
+        //   ws: true
+        // },
         // Node-RED proxy (requires nginx from docker/nodered to be running)
         '/nodered-status': {
           target: env.VITE_NODERED_URL || 'http://localhost:8091',
