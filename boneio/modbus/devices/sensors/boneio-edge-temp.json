@@ -1,0 +1,50 @@
+{
+    "model": "boneIO Edge Temp and Humidity sensor",
+    "set_base": {
+        "set_address_address": 100,
+        "set_baudrate": {
+            "address": 101,
+            "possible_baudrates": {
+                "2400": 0,
+                "4800": 1,
+                "9600": 2,
+                "19200": 3
+            }
+        }
+    },
+    "registers_base": [
+        {
+            "base": 0,
+            "length": 2,
+            "register_type": "holding",
+            "registers": [
+                {
+                    "name": "Humidity",
+                    "address": 0,
+                    "unit_of_measurement": "%",
+                    "state_class": "measurement",
+                    "device_class": "humidity",
+                    "value_type": "S_WORD",
+                    "filters": [
+                        {
+                            "multiply": 0.1
+                        }
+                    ]
+                },
+                {
+                    "name": "Temperature",
+                    "address": 1,
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "value_type": "S_WORD",
+                    "filters": [
+                        {
+                            "multiply": 0.1
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
