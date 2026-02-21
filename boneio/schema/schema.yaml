@@ -291,6 +291,16 @@ modbus:
       type: string
       allowed: ['N', 'E', 'O']
       default: 'N'
+    timeout:
+      coerce: timeperiod
+      default: 1500ms
+      meta:
+        label: Response timeout. Increase for slow devices or long cables.
+    inter_device_delay:
+      coerce: timeperiod
+      default: 5ms
+      meta:
+        label: Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.
 
 modbus_devices:
   type: list

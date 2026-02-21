@@ -103,8 +103,21 @@ class Modbus:
         bytesize: int = 8,
         parity: str = "N",
         timeout: float = 1.5,
+        inter_device_delay: int = 5,
     ) -> None:
-        """Initialize the Modbus hub."""
+        """Initialize the Modbus hub.
+
+        Args:
+            uart: UART configuration dict with RX/TX pins.
+            baudrate: Serial baudrate (default 9600).
+            stopbits: Number of stop bits (default 1).
+            bytesize: Number of data bits (default 8).
+            parity: Parity mode N/E/O (default N).
+            timeout: Response timeout in seconds (default 1.5).
+            inter_device_delay: Delay in ms between transactions (default 5).
+                Helps with star topology wiring where signal reflections
+                on branch stubs need time to settle.
+        """
         rx = uart.get(RX)
         tx = uart.get(TX)
         if not tx or not rx:
@@ -115,15 +128,24 @@ class Modbus:
         self._uart = uart
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
+        # Clamp inter_device_delay to 0-200ms, timeout to 0.1-10s
+        clamped_delay = max(0, min(200, inter_device_delay))
+        if clamped_delay != inter_device_delay:
+            _LOGGER.warning(
+                "inter_device_delay %dms out of range (0-200), clamped to %dms",
+                inter_device_delay, clamped_delay,
+            )
+        self._inter_device_delay = clamped_delay / 1000.0  # ms -> seconds
+        clamped_timeout = max(0.1, min(10.0, timeout))
+        if clamped_timeout != timeout:
+            _LOGGER.warning(
+                "timeout %.2fs out of range (0.1-10), clamped to %.2fs",
+                timeout, clamped_timeout,
+            )
+        timeout = clamped_timeout
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
 
         _LOGGER.debug(f"Creating ModbusSerialClient for port: {self._uart[ID]}")
-        # Calculate inter-character timeout based on baudrate (3.5 characters)
-        # At 9600 baud: 1 char = 11 bits (start + 8 data + parity + stop) = ~1.15ms
-        # 3.5 chars = ~4ms, we use slightly more for safety
-        char_time_ms = (11 * 1000) / baudrate  # Time for 1 character in ms
-        inter_char_timeout = (char_time_ms * 3.5) / 1000  # Convert to seconds
-        
         self._client = ModbusSerialClient(
             port=self._uart[ID],
             framer=FramerType.RTU,
@@ -134,7 +156,10 @@ class Modbus:
             timeout=timeout,
             retries=2,  # Reduced from 3 to speed up detection of offline devices
         )
-        _LOGGER.debug("ModbusSerialClient created successfully with timeout=%.2fs, retries=2", timeout)
+        _LOGGER.debug(
+            "ModbusSerialClient created successfully with timeout=%.2fs, retries=2, inter_device_delay=%dms",
+            timeout, inter_device_delay,
+        )
 
     @property
     def client(self) -> ModbusSerialClient | None:
@@ -341,7 +366,10 @@ class Modbus:
     ):
         """Call async pymodbus."""
         async with self._lock:
-            return await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
+            result = await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result
 
     def scan_device_blocking(self, unit: int, address: int = 1, method: str = "input", timeout: float = 0.3) -> bool:
         """Quick scan to check if device exists at address.
@@ -426,4 +454,7 @@ class Modbus:
     async def write_register(self, unit: int | str, address: int, value: int | float):
         """Write register async."""
         async with self._lock:
-            return await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)
+            result = await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result

@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import ADDRESS, ID, MODEL, NAME, UART, UARTS, UPDATE_INTERVAL
-from boneio.core.utils.timeperiod import TimePeriod
+from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_seconds, parse_time_to_ms
 from boneio.exceptions import ModbusUartException
 
 if TYPE_CHECKING:
@@ -83,10 +83,20 @@ class ModbusManager:
                     f"UART {uart} is not available. Available UARTs: {UARTS}"
                 )
             
+            # Convert TimePeriod values to numeric before passing to client
+            timeout = parse_time_to_seconds(
+                config.pop("timeout", None), default=1.5
+            )
+            inter_device_delay = parse_time_to_ms(
+                config.pop("inter_device_delay", None), default=5
+            ) or 5
+            
             # Initialize Modbus client
             self._modbus = Modbus(
                 uart=UARTS[uart],
                 baudrate=config.pop("baudrate", 9600),
+                timeout=timeout,
+                inter_device_delay=inter_device_delay,
                 **config
             )
             

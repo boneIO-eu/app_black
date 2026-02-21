@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
 interface ModbusFormProps {
   data: any;
@@ -115,6 +116,28 @@ const ModbusForm: React.FC<ModbusFormProps> = ({ data, onChange }) => {
         </select>
         <HelpLabel>{t('modbus_config.stop_bits_help')}</HelpLabel>
       </div>
+
+      {/* Timeout */}
+      <SimpleTimePeriodInput
+        label={t('modbus_config.timeout')}
+        value={data?.timeout ?? '1500ms'}
+        onChange={(val) => handleChange('timeout', val)}
+        minimum={100}
+        maximum={10000}
+        allowedUnits={['ms', 's']}
+      />
+      <HelpLabel>{t('modbus_config.timeout_help')}</HelpLabel>
+
+      {/* Inter-device delay */}
+      <SimpleTimePeriodInput
+        label={t('modbus_config.inter_device_delay')}
+        value={data?.inter_device_delay ?? '5ms'}
+        onChange={(val) => handleChange('inter_device_delay', val)}
+        minimum={0}
+        maximum={200}
+        allowedUnits={['ms']}
+      />
+      <HelpLabel>{t('modbus_config.inter_device_delay_help')}</HelpLabel>
     </div>
   );
 };
