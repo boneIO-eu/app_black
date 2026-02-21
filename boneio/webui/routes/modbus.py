@@ -358,11 +358,22 @@ async def get_modbus_models():
                 continue
 
             device_classes: set[str] = set()
+            temperature_sensors: list[dict[str, str]] = []
             for reg_base in db.get("registers_base", []):
                 for reg in reg_base.get("registers", []):
                     dc = reg.get("device_class")
                     if dc:
                         device_classes.add(dc)
+                    if dc == "temperature":
+                        name = reg.get("name", "Temperature")
+                        # Match entity ID suffix generation from BaseEntity:
+                        # _decoded_name_low = name.replace(" ", "").lower()
+                        # _id suffix = _decoded_name_low.replace("_", "")
+                        suffix = name.replace(" ", "").lower().replace("_", "")
+                        temperature_sensors.append({
+                            "name": name,
+                            "suffix": suffix,
+                        })
 
             models[model_key] = {
                 "display_name": db.get("model", model_key),
@@ -370,6 +381,7 @@ async def get_modbus_models():
                 "has_humidity": "humidity" in device_classes,
                 "has_energy": "energy" in device_classes or "power" in device_classes,
                 "device_classes": sorted(device_classes),
+                "temperature_sensors": temperature_sensors,
             }
 
     return {"models": models}

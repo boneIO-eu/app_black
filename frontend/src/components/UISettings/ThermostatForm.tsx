@@ -35,7 +35,10 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
-  const [modbusModels, setModbusModels] = useState<Record<string, { has_temperature: boolean }>>({});
+  const [modbusModels, setModbusModels] = useState<Record<string, {
+    has_temperature: boolean;
+    temperature_sensors?: { name: string; suffix: string }[];
+  }>>({});
 
   const updateField = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
@@ -91,12 +94,28 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
       const devId = dev.id
         ? String(dev.id).replace(/\s/g, '').toLowerCase()
         : `${dev.address}_${model}`.toLowerCase().replace(/\s/g, '_');
-      if (modbusModels[model]?.has_temperature) {
-        sensors.push({
-          id: `${devId}_temperature`,
-          label: `${dev.name || devId} (${t('template.modbus_temp')})`,
-          source: 'Modbus',
-        });
+      const modelInfo = modbusModels[model];
+      if (modelInfo?.has_temperature) {
+        const tempSensors = modelInfo.temperature_sensors || [];
+        if (tempSensors.length > 1) {
+          // Multi-sensor device (e.g. R4DCB08 with 8 temperatures) — list each individually
+          for (const ts of tempSensors) {
+            sensors.push({
+              id: `${devId}_${ts.suffix}`,
+              label: `${dev.name || devId} → ${ts.name}`,
+              source: 'Modbus',
+            });
+          }
+        } else {
+          // Single temperature sensor — use suffix from model or fallback
+          const suffix = tempSensors.length === 1 ? tempSensors[0].suffix : 'temperature';
+          const name = tempSensors.length === 1 ? tempSensors[0].name : t('template.modbus_temp');
+          sensors.push({
+            id: `${devId}_${suffix}`,
+            label: `${dev.name || devId} (${name})`,
+            source: 'Modbus',
+          });
+        }
       }
     }
 
