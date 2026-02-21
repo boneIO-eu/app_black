@@ -695,7 +695,12 @@ class InputManager:
         """
         
         if not event.entity_id or not event.click_type:
-            _LOGGER.warning("Entity ID or click type not found in event data")
+            # State-sync events (e.g. from _broadcast_all_input_states after reload)
+            # have click_type=None — this is expected, not an error.
+            _LOGGER.debug(
+                "Ignoring input event without click_type (state sync): entity_id=%s",
+                event.entity_id,
+            )
             return
         # Get the input instance and retrieve actions for this click type
         input_instance = self._inputs.get(event.entity_id)
