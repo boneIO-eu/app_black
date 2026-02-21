@@ -661,7 +661,11 @@
     "parity": "Parzystość",
     "parity_help": "Sprawdzanie parzystości (domyślnie: Brak)",
     "stop_bits": "Bity stopu",
-    "stop_bits_help": "Liczba bitów stopu (domyślnie: 1)"
+    "stop_bits_help": "Liczba bitów stopu (domyślnie: 1)",
+    "timeout": "Timeout",
+    "timeout_help": "Czas oczekiwania na odpowiedź (domyślnie: 1500ms). Zwiększ dla wolnych urządzeń lub długich kabli.",
+    "inter_device_delay": "Opóźnienie między urządzeniami",
+    "inter_device_delay_help": "Opóźnienie między transakcjami (domyślnie: 5ms). Pomaga przy topologii gwiazdy. Zalecane 5-50ms dla gwiazdy, 0ms dla łańcucha."
   },
   "logger": {
     "default_level": "Domyślny Poziom Logowania",
@@ -1019,7 +1023,10 @@
     "static_color": "Kolor statyczny",
     "validation_colors_required": "CYCLE_COLOR wymaga co najmniej jednego koloru",
     "validation_presets_required": "CYCLE_PRESET wymaga co najmniej jednego presetu",
-    "validation_transition_exceeds_repeat": "Czas przejścia nie może być dłuższy niż interwał powtarzania"
+    "validation_transition_exceeds_repeat": "Czas przejścia nie może być dłuższy niż interwał powtarzania",
+    "test_action": "Testuj akcję",
+    "test_action_success": "Akcja wykonana",
+    "test_action_error": "Błąd akcji"
   },
   "virtual_energy_sensor": {
     "name": "Nazwa",
@@ -1176,6 +1183,7 @@
     "copy_selected": "Kopiuj zaznaczone logi",
     "copied_clipboard": "Skopiowano do schowka!",
     "copied_discord": "Skopiowano dla Discord!",
+    "copied_line": "Skopiowano linię logu!",
     "share_discord": "Udostępnij na Discord",
     "discord_max_chars": "Max {{max}} znaków w Discord ({{current}}). Zmniejsz zaznaczenie.",
     "scroll_to_bottom": "Przewiń na dół",

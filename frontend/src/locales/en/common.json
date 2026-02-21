@@ -655,7 +655,11 @@
     "parity": "Parity",
     "parity_help": "Parity checking (default: None)",
     "stop_bits": "Stop Bits",
-    "stop_bits_help": "Number of stop bits (default: 1)"
+    "stop_bits_help": "Number of stop bits (default: 1)",
+    "timeout": "Timeout",
+    "timeout_help": "Response timeout (default: 1500ms). Increase for slow devices or long cables.",
+    "inter_device_delay": "Inter-device delay",
+    "inter_device_delay_help": "Delay between transactions (default: 5ms). Helps with star topology wiring. Recommended 5-50ms for star, 0ms for daisy-chain."
   },
   "logger": {
     "default_level": "Default Log Level",
@@ -1012,7 +1016,10 @@
     "static_color": "Static",
     "validation_colors_required": "At least one color is required for CYCLE_COLOR",
     "validation_presets_required": "At least one preset is required for CYCLE_PRESET",
-    "validation_transition_exceeds_repeat": "Transition time must not exceed repeat interval"
+    "validation_transition_exceeds_repeat": "Transition time must not exceed repeat interval",
+    "test_action": "Test Action",
+    "test_action_success": "Action executed",
+    "test_action_error": "Action failed"
   },
   "virtual_energy_sensor": {
     "name": "Name",
@@ -1171,6 +1178,7 @@
     "copy_selected": "Copy selected logs",
     "copied_clipboard": "Copied to clipboard!",
     "copied_discord": "Copied for Discord!",
+    "copied_line": "Log line copied!",
     "share_discord": "Share to Discord",
     "discord_max_chars": "Max {{max}} chars in Discord ({{current}}). Reduce selection.",
     "scroll_to_bottom": "Scroll to bottom",
