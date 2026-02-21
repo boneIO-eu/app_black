@@ -32,6 +32,14 @@ def _persist_transition(config_file: str) -> None:
     for line in lines:
         m = transition_re.match(line)
         if m:
+            num_val = float(m.group(2))
+            if num_val == 0:
+                # Remove transition: 0 entirely — not meaningful
+                _LOGGER.info(
+                    "Removing from config file: %s", line.rstrip(),
+                )
+                updated = True
+                continue  # skip this line
             new_line = f"{m.group(1)}{m.group(2)}s\n"
             updated_lines.append(new_line)
             updated = True
@@ -82,13 +90,20 @@ def migrate(doc: dict) -> dict:
                     if "transition" in action_def:
                         val = action_def["transition"]
                         if isinstance(val, (int, float)):
-                            new_val = f"{val}s"
-                            _LOGGER.info(
-                                "Migrating transition: %s -> '%s' in %s action",
-                                val,
-                                new_val,
-                                section_name,
-                            )
-                            action_def["transition"] = new_val
+                            if val == 0:
+                                _LOGGER.info(
+                                    "Removing transition: 0 from %s action (not meaningful)",
+                                    section_name,
+                                )
+                                del action_def["transition"]
+                            else:
+                                new_val = f"{val}s"
+                                _LOGGER.info(
+                                    "Migrating transition: %s -> '%s' in %s action",
+                                    val,
+                                    new_val,
+                                    section_name,
+                                )
+                                action_def["transition"] = new_val
 
     return doc

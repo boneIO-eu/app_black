@@ -527,6 +527,8 @@ class CustomValidator(Validator):
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
         """Validate and transform time period with time unit and integer value."""
         if isinstance(value, int):
+            if value == 0:
+                return TimePeriod(seconds=0)
             raise ConfigurationException(
                 f"Don't know what '{value}' means as it has no time *unit*! Did you mean '{value}s'?"
             )
@@ -885,8 +887,12 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
                                 action_defaults = {
                                     'action_cover': 'TOGGLE',
                                     'action_output': 'TOGGLE',
-                                    'data': {}
+                                    'data': {},
                                 }
+                                # Remove transition if 0 or '0s' — not meaningful
+                                t_val = action_item.get('transition')
+                                if t_val is not None and (t_val == 0 or t_val == 0.0 or str(t_val) in ('0s', '0ms', '0')):
+                                    action_item = {k: v for k, v in action_item.items() if k != 'transition'}
                                 cleaned_action = clean_dict(action_item, action_defaults)
                                 # Only add if action field exists (required)
                                 if 'action' in cleaned_action or cleaned_action:

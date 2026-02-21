@@ -166,6 +166,8 @@ schema:
     type: timeperiod
     coerce: positive_time_period
     required: False
+    forbidden_if:
+      action: ['output', 'cover', 'mqtt', 'output_over_mqtt', 'cover_over_mqtt', 'remote_cover']
     meta:
       label: Transition Time
       description: "Time to transition to the new state. Only for ESPHome/WLED lights. Example: 500ms, 1s"
