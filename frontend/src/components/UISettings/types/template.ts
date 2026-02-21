@@ -32,6 +32,7 @@ export interface AlarmPin {
 export interface TemplateSubFormProps {
   data: any;
   onChange: (data: any) => void;
+  onValidationChange?: (valid: boolean) => void;
   allOutputs: any[];
   allAreas: Area[];
   allSensors: any[];
@@ -41,6 +42,7 @@ export interface TemplateSubFormProps {
 
 export interface TemplateFormProps extends TemplateSubFormProps {
   schema?: any;
+  onValidationChange?: (valid: boolean) => void;
 }
 
 export const PLATFORM_OPTIONS = ['thermostat', 'alarm_control_panel', 'gate_cover'] as const;
