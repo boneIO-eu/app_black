@@ -1,6 +1,7 @@
-import React from 'react';
-import { FaTrash } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaTrash, FaPlay } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 import type { CoverEntity, OutputEntity } from '@/types/config';
 import {
   Select,
@@ -86,17 +87,64 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
     return savedCovers.some((c: any) => c.id === coverId || c === coverId);
   };
 
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
+
+  /**
+   * Execute the current action via the test-action API endpoint.
+   * Uses the same code path as real button presses on the backend.
+   */
+  const handleTestAction = async () => {
+    setTestStatus('loading');
+    setTestError(null);
+    try {
+      await axios.post('/api/test-action', { action });
+      setTestStatus('success');
+      setTimeout(() => setTestStatus('idle'), 2000);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err.message || 'Unknown error';
+      setTestError(detail);
+      setTestStatus('error');
+      setTimeout(() => { setTestStatus('idle'); setTestError(null); }, 4000);
+    }
+  };
+
   return (
     <div className="border border-base-300 rounded-lg p-4 mb-3 bg-base-100">
       <div className="flex justify-between items-center mb-3">
         <span className="font-medium">{t('event_form.action')} {index + 1}</span>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm text-error"
-          onClick={onRemove}
-        >
-          <FaTrash />
-        </button>
+        <div className="flex items-center gap-1">
+          {testStatus === 'success' && (
+            <span className="text-success text-xs font-medium mr-1">{t('event_form.test_action_success')}</span>
+          )}
+          {testStatus === 'error' && (
+            <span className="text-error text-xs font-medium mr-1" title={testError || ''}>{t('event_form.test_action_error')}</span>
+          )}
+          <button
+            type="button"
+            className={`btn btn-ghost btn-sm ${
+              testStatus === 'success' ? 'text-success' :
+              testStatus === 'error' ? 'text-error' :
+              'text-info'
+            }`}
+            onClick={handleTestAction}
+            disabled={testStatus === 'loading' || !!validationError}
+            title={t('event_form.test_action')}
+          >
+            {testStatus === 'loading' ? (
+              <span className="loading loading-spinner loading-xs"></span>
+            ) : (
+              <FaPlay className="w-3 h-3" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm text-error"
+            onClick={onRemove}
+          >
+            <FaTrash />
+          </button>
+        </div>
       </div>
 
       {validationError && (

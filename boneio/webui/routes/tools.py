@@ -1,16 +1,88 @@
-"""Tools routes for BoneIO Web UI (I2C scan, etc.)."""
+"""Tools routes for BoneIO Web UI (I2C scan, test-action, etc.)."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["tools"])
+
+
+def get_manager():
+    """Get manager instance - will be overridden by app initialization."""
+    raise NotImplementedError("Manager not initialized")
+
+
+class TestActionRequest(BaseModel):
+    """Request body for testing a single action.
+
+    The action dict uses the same format as YAML config actions,
+    e.g. {"action": "output", "boneio_output": "light_kitchen", "action_output": "TOGGLE"}
+    """
+
+    action: dict[str, Any]
+
+
+@router.post("/test-action")
+async def test_action(
+    request: TestActionRequest,
+    manager: Manager = Depends(get_manager),
+):
+    """Execute a single action for testing purposes.
+
+    Parses the action through the same code path as real button presses
+    (manager.parse_actions → manager.execute_actions) so the test is
+    identical to production behaviour.
+
+    Args:
+        request: Action definition dict (same format as YAML config).
+        manager: Manager instance.
+
+    Returns:
+        Status response with success or error detail.
+
+    Raises:
+        HTTPException: 400 if action is invalid, 500 if execution fails.
+    """
+    action_def = request.action
+    action_type = action_def.get("action")
+    if not action_type:
+        raise HTTPException(status_code=400, detail="Missing 'action' field")
+
+    _LOGGER.info("Test-action request: %s", action_def)
+
+    # Wrap single action in the format parse_actions expects:
+    # {"<click_type>": [<action_def>, ...]}
+    fake_actions = {"single": [action_def]}
+
+    try:
+        parsed = manager.parse_actions(pin="__test__", actions=fake_actions)
+    except Exception as e:
+        _LOGGER.warning("Test-action parse error: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to parse action: {e}")
+
+    actions_list = parsed.get("single", [])
+    if not actions_list:
+        raise HTTPException(
+            status_code=400,
+            detail="Action could not be resolved. Check that the target entity exists and is saved.",
+        )
+
+    try:
+        await manager.execute_actions(actions=actions_list)
+    except Exception as e:
+        _LOGGER.error("Test-action execution error: %s", e)
+        raise HTTPException(status_code=500, detail=f"Action execution failed: {e}")
+
+    return {"status": "success"}
 
 # boneIO Black on-board I2C devices (from schema.yaml)
 # For these addresses we show ONLY the boneIO device, no alternatives.
