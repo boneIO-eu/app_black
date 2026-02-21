@@ -54,6 +54,8 @@ export default function LogViewer() {
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const moduleDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
@@ -423,8 +425,8 @@ export default function LogViewer() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100">
-      <div className="bg-base-200 p-4 border-b border-base-content/10 flex items-center gap-4">
+    <div className="h-[calc(100vh-8rem)] flex flex-col bg-base-100 overflow-hidden">
+      <div className="bg-base-200 p-2 sm:p-4 border-b border-base-content/10 flex flex-wrap items-center gap-2 sm:gap-4">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -593,7 +595,7 @@ export default function LogViewer() {
       <div 
         ref={logContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-auto p-4 font-mono text-sm relative"
+        className="flex-1 overflow-auto p-2 sm:p-4 font-mono text-xs sm:text-sm relative min-w-0"
       >
         {isLoading && logs.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
@@ -621,7 +623,7 @@ export default function LogViewer() {
           {filteredLogs.map((log, index) => (
             <div 
               key={index} 
-              className={`flex gap-4 cursor-pointer px-2 rounded transition-colors ${
+              className={`flex gap-2 sm:gap-4 cursor-pointer px-1 sm:px-2 rounded transition-colors ${
                 selectedLogIndices.has(index)
                   ? '' 
                   : 'hover:bg-base-200'
@@ -633,26 +635,58 @@ export default function LogViewer() {
               }
               onMouseDown={(e) => {
                 e.preventDefault(); // Prevent default text selection
+                longPressTriggered.current = false;
+                longPressTimer.current = setTimeout(() => {
+                  longPressTriggered.current = true;
+                  navigator.clipboard.writeText(log.message).then(() => {
+                    showToast(t('log_viewer.copied_line'));
+                  });
+                }, 500);
                 if (e.shiftKey) {
-                  // Shift+click: extend selection from selectionStart to this index
                   handleLogSelection(index, true);
                 } else {
-                  // Normal click: start new selection at this line
                   handleLogSelection(index, false);
                 }
                 setIsSelecting(true);
               }}
-              onMouseEnter={() => handleMouseMove(index)}
-              onMouseUp={() => setIsSelecting(false)}
+              onMouseEnter={() => {
+                handleMouseMove(index);
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              }}
+              onMouseUp={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                setIsSelecting(false);
+              }}
+              onTouchStart={() => {
+                longPressTriggered.current = false;
+                longPressTimer.current = setTimeout(() => {
+                  longPressTriggered.current = true;
+                  navigator.clipboard.writeText(log.message).then(() => {
+                    showToast(t('log_viewer.copied_line'));
+                  });
+                }, 500);
+              }}
+              onTouchEnd={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              }}
+              onTouchMove={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              }}
             >
               <span
-                className="whitespace-nowrap"
+                className="whitespace-nowrap shrink-0 hidden sm:inline"
                 style={{ color: selectedLogIndices.has(index) ? 'var(--log-selected-timestamp)' : 'var(--log-timestamp)' }}
               >
                 {formatTimestamp(log.timestamp)}
               </span>
               <span
-                className="flex-1 whitespace-pre-wrap"
+                className="whitespace-nowrap shrink-0 sm:hidden"
+                style={{ color: selectedLogIndices.has(index) ? 'var(--log-selected-timestamp)' : 'var(--log-timestamp)' }}
+              >
+                {formatTimestamp(log.timestamp).split(' ')[1] || formatTimestamp(log.timestamp)}
+              </span>
+              <span
+                className="flex-1 whitespace-pre-wrap break-all min-w-0"
                 style={selectedLogIndices.has(index) ? { color: 'var(--log-selected-text)' } : getLogLevelStyle(log.level)}
               >
                 {log.message}
