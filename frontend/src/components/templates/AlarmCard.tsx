@@ -120,10 +120,10 @@ export default function AlarmCard({
 
       {/* Controls */}
       {data.allow_frontend_control && !pinDialogCommand && (
-        <div className="flex gap-1.5 mt-2">
+        <div className="flex gap-2 mt-4">
           {isArmed || data.state === 'triggered' ? (
             <button
-              className="btn btn-xs btn-success flex-1"
+              className="btn btn-sm h-auto py-2 btn-success flex-1"
               onClick={() => handleAction('DISARM')}
             >
               {t('templates.disarm')}
@@ -131,19 +131,19 @@ export default function AlarmCard({
           ) : isDisarmed ? (
             <>
               <button
-                className="btn btn-xs btn-warning flex-1"
+                className="btn btn-sm h-auto py-2 btn-warning flex-1 leading-tight"
                 onClick={() => handleAction('ARM_HOME')}
               >
                 {t('templates.arm_home')}
               </button>
               <button
-                className="btn btn-xs btn-error flex-1"
+                className="btn btn-sm h-auto py-2 btn-error flex-1 leading-tight"
                 onClick={() => handleAction('ARM_AWAY')}
               >
                 {t('templates.arm_away')}
               </button>
               <button
-                className="btn btn-xs btn-info flex-1"
+                className="btn btn-sm h-auto py-2 btn-info flex-1 leading-tight"
                 onClick={() => handleAction('ARM_NIGHT')}
               >
                 {t('templates.arm_night')}
