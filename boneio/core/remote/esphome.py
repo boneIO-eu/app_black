@@ -859,12 +859,21 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 state = self._cover_states.get(cover_id, {})
                 current_op = state.get("current_operation", 0) # 0=IDLE, 1=OPENING, 2=CLOSING
                 last_op = state.get("last_known_operation", 2)
+                cover_pos = state.get("position")
+                _LOGGER.debug(
+                    "TOGGLE cover '%s': key=%s, state=%s, current_op=%s, last_op=%s, position=%s, all_states=%s",
+                    cover_id, cover_key, state, current_op, last_op, cover_pos,
+                    {k: v for k, v in self._cover_states.items()},
+                )
                 
                 if current_op != 0: # If moving, stop it
+                    _LOGGER.debug("TOGGLE -> STOP (cover is moving, current_op=%s)", current_op)
                     self._client.cover_command(cover_key, stop=True)
                 elif last_op == 2: # If last operation was CLOSING, open it
+                    _LOGGER.debug("TOGGLE -> OPEN (last_op=CLOSING)")
                     self._client.cover_command(cover_key, position=1.0)
                 else: # Otherwise close it
+                    _LOGGER.debug("TOGGLE -> CLOSE (last_op=%s)", last_op)
                     self._client.cover_command(cover_key, position=0.0)
             elif action_upper == "TOGGLE_OPEN":
                 state = self._cover_states.get(cover_id, {})
