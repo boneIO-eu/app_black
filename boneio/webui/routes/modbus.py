@@ -325,6 +325,56 @@ async def get_modbus_config(boneio_manager: Manager = Depends(get_manager)):
     }
 
 
+@router.get("/modbus/models")
+async def get_modbus_models():
+    """Get all available Modbus models with their capabilities.
+
+    Scans JSON model definition files and extracts capabilities
+    based on device_class fields in registers (e.g. temperature, humidity).
+
+    Returns:
+        Dictionary mapping model file names to their capabilities.
+    """
+    devices_dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "modbus", "devices"
+    )
+    devices_dir = os.path.normpath(devices_dir)
+    models: dict[str, dict[str, Any]] = {}
+
+    if not os.path.isdir(devices_dir):
+        _LOGGER.warning("Modbus devices directory not found: %s", devices_dir)
+        return {"models": models}
+
+    for root, _dirs, files in os.walk(devices_dir):
+        for fname in files:
+            if not fname.endswith(".json"):
+                continue
+            model_key = fname[:-5]  # strip .json
+            try:
+                with open(os.path.join(root, fname)) as fh:
+                    db = json.load(fh)
+            except Exception as exc:
+                _LOGGER.debug("Failed to read model file %s: %s", fname, exc)
+                continue
+
+            device_classes: set[str] = set()
+            for reg_base in db.get("registers_base", []):
+                for reg in reg_base.get("registers", []):
+                    dc = reg.get("device_class")
+                    if dc:
+                        device_classes.add(dc)
+
+            models[model_key] = {
+                "display_name": db.get("model", model_key),
+                "has_temperature": "temperature" in device_classes,
+                "has_humidity": "humidity" in device_classes,
+                "has_energy": "energy" in device_classes or "power" in device_classes,
+                "device_classes": sorted(device_classes),
+            }
+
+    return {"models": models}
+
+
 @router.post("/modbus/configure-device")
 async def modbus_configure_device(
     request: ModbusConfigureDeviceRequest,

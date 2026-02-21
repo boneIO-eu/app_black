@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { TemplateSubFormProps } from './types/template';
+import axios from '@/api/axios';
 
 interface TemperatureSensor {
   id: string;
@@ -34,16 +35,24 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+  const [modbusModels, setModbusModels] = useState<Record<string, { has_temperature: boolean }>>({});
 
   const updateField = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
 
+  // Fetch Modbus model capabilities once
+  useEffect(() => {
+    axios.get('/api/modbus/models')
+      .then((res) => setModbusModels(res.data.models || {}))
+      .catch(() => {});
+  }, []);
 
   /**
    * Build a unified list of temperature sensors from all sources:
    * - 1-Wire sensors (sensor section)
-   * - Modbus devices with temperature readings (CWT, etc.)
+   * - I2C sensors (LM75, MCP9808)
+   * - Modbus devices whose model has_temperature capability
    */
   const temperatureSensors: TemperatureSensor[] = useMemo(() => {
     const sensors: TemperatureSensor[] = [];
@@ -73,11 +82,11 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
       }
     }
 
-    // Modbus devices that have temperature sensors (CWT model has temp sensors)
+    // Modbus devices — use capabilities from /api/modbus/models
     for (const dev of allModbusDevices) {
       const model = (dev.model || '').toLowerCase();
       const devId = dev.id || `modbus_${dev.address}_${model}`;
-      if (model === 'cwt') {
+      if (modbusModels[model]?.has_temperature) {
         sensors.push({
           id: `${devId}_temperature`,
           label: `${dev.name || devId} (${t('template.modbus_temp')})`,
@@ -87,7 +96,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
     }
 
     return sensors;
-  }, [allSensors, allModbusDevices, t]);
+  }, [allSensors, allModbusDevices, modbusModels, t]);
 
   return (
     <TabsBox
