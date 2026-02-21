@@ -83,9 +83,14 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
     }
 
     // Modbus devices — use capabilities from /api/modbus/models
+    // devId must match backend coordinator ID generation:
+    //   custom id: str(id).replace(' ','').lower()
+    //   auto id:   `${address}_${model}`.lower().replace(' ', '_')
     for (const dev of allModbusDevices) {
       const model = (dev.model || '').toLowerCase();
-      const devId = dev.id || `modbus_${dev.address}_${model}`;
+      const devId = dev.id
+        ? String(dev.id).replace(/\s/g, '').toLowerCase()
+        : `${dev.address}_${model}`.toLowerCase().replace(/\s/g, '_');
       if (modbusModels[model]?.has_temperature) {
         sensors.push({
           id: `${devId}_temperature`,

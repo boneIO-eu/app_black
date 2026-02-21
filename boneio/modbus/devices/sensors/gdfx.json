@@ -1,0 +1,41 @@
+{
+  "model": "WIND_DIRECTION_GD_FX",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 2,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "wind_direction_gear",
+          "address": 0,
+          "unit_of_measurement": "sector",
+          "state_class": "measurement",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "wind_direction_degree",
+          "address": 1,
+          "unit_of_measurement": "°",
+          "state_class": "measurement",
+          "value_type": "U_WORD"
+        }
+      ]
+    }
+  ],
+  "set_base": {
+    "set_address_address": 10,
+    "set_baudrate": {
+      "address": 100,
+      "possible_baudrates": {
+        "2400": 0,
+        "4800": 1,
+        "9600": 2,
+        "19200": 3,
+        "38400": 4,
+        "57600": 5,
+        "115200": 6
+      }
+    }
+  }
+}

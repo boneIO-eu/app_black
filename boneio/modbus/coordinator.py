@@ -716,6 +716,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Also emit dedicated SensorEvent for generic sensor integration 
         # (thermostats, rules, etc. shouldn't care about transport type)
         if entity.entity_type in (SENSOR, TEXT_SENSOR):
+            _LOGGER.debug(
+                "Emitting SensorEvent: entity_id='%s', name='%s', state=%s",
+                entity.id, entity.name, entity.state,
+            )
             self._event_bus.trigger_event(SensorEvent(
                 entity_id=entity.id,
                 state=SensorState(

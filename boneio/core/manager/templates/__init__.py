@@ -93,7 +93,15 @@ class TemplateManager:
         except (ValueError, TypeError, AttributeError):
             return
 
-        for thermostat in self._thermostats.sensor_map.get(sensor_id, []):
+        matched = self._thermostats.sensor_map.get(sensor_id, [])
+        if not matched:
+            _LOGGER.debug(
+                "SensorEvent '%s' (%.1f°C) has no matching thermostat. "
+                "Registered sensor_ids: %s",
+                sensor_id, temperature,
+                list(self._thermostats.sensor_map.keys()),
+            )
+        for thermostat in matched:
             thermostat.update_sensor_temperature(sensor_id, temperature)
 
     def on_input_event(self, input_id: str, event_type: str) -> None:
@@ -268,3 +276,8 @@ class TemplateManager:
                 listener_id=f"template_mgr_{sensor_id}",
                 target=self._on_sensor_event,
             )
+
+        _LOGGER.info(
+            "Registered sensor listeners for thermostat sensor_ids: %s",
+            list(self._thermostats.sensor_map.keys()),
+        )

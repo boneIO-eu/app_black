@@ -1,0 +1,35 @@
+{
+  "model": "WIND_SPEED_GD_FS",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 1,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "wind_speed",
+          "address": 0,
+          "unit_of_measurement": "m/s",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "device_class": "speed"
+        }
+      ]
+    }
+  ],
+  "set_base": {
+    "set_address_address": 10,
+    "set_baudrate": {
+      "address": 100,
+      "possible_baudrates": {
+        "2400": 0,
+        "4800": 1,
+        "9600": 2,
+        "19200": 3,
+        "38400": 4,
+        "57600": 5,
+        "115200": 6
+      }
+    }
+  }
+}
