@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from '@/api/axios';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
@@ -64,6 +64,7 @@ export default function UISettings() {
   const [isRestarting, setIsRestarting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [schemaLoaded, setSchemaLoaded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
@@ -94,6 +95,10 @@ export default function UISettings() {
   // Function to navigate to a section
   const navigateToSection = (sectionName: string) => {
     navigate(`/settings/${sectionName}`);
+    // On mobile: close sidebar accordion so content is immediately visible
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
   };
 
   // Use imported section definitions with translated titles
@@ -1111,7 +1116,7 @@ export default function UISettings() {
       />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
+      <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
         {activeSection_data && (
           <>
             {/* Header */}

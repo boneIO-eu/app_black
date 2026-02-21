@@ -188,6 +188,7 @@ export default function SettingsSidebar({
   onNavigate,
 }: SettingsSidebarProps) {
   const { t } = useTranslation();
+  const activeSectionConfig = configSections.find(s => s.name === activeSection);
   
   return (
     <div className="w-full lg:w-80 bg-base-200 border-r lg:border-r border-b lg:border-b-0 border-base-content/10 lg:min-h-0">
@@ -200,7 +201,12 @@ export default function SettingsSidebar({
             onChange={(e) => onSidebarToggle(e.target.checked)}
           />
           <div className="collapse-title text-lg font-bold text-base-content p-3">
-            {t('settings.configuration_sections')}
+            {isSidebarOpen ? t('settings.configuration_sections') : (
+              <span className="flex items-center gap-2">
+                <span>{activeSectionConfig?.icon}</span>
+                <span>{activeSectionConfig?.title || t('settings.configuration_sections')}</span>
+              </span>
+            )}
           </div>
           <div className="collapse-content">
             <div className="p-3 pt-0">

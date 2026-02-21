@@ -221,31 +221,33 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     <div className="space-y-6">
       {/* Autodiscovered devices section - includes both BoneIO and ESPHome */}
       <div className="bg-base-200 rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <FaWifi className="text-success" />
           <h3 className="font-semibold">{t('remote_devices.autodiscovered_title')}</h3>
           {totalDiscovered > 0 && (
             <span className="badge badge-success badge-sm">{totalDiscovered}</span>
           )}
           <div className="grow" />
-          <button
-            className={`btn btn-sm btn-secondary gap-1 ${scanningNetwork ? 'loading' : ''}`}
-            onClick={scanEsphomeNetwork}
-            disabled={scanningNetwork}
-            title={t('remote_devices.scan_network') || 'Scan for ESPHome devices'}
-          >
-            <FaSearch className="w-3 h-3" />
-            {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_esphome') || 'Scan ESPHome')}
-          </button>
-          <button
-            className={`btn btn-sm btn-accent gap-1 ${scanningWled ? 'loading' : ''}`}
-            onClick={scanWledNetwork}
-            disabled={scanningWled}
-            title={t('remote_devices.scan_wled') || 'Scan for WLED devices'}
-          >
-            <FaSearch className="w-3 h-3" />
-            {scanningWled ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_wled') || 'Scan WLED')}
-          </button>
+          <div className="flex gap-2">
+            <button
+              className={`btn btn-sm btn-secondary gap-1 ${scanningNetwork ? 'loading' : ''}`}
+              onClick={scanEsphomeNetwork}
+              disabled={scanningNetwork}
+              title={t('remote_devices.scan_network') || 'Scan for ESPHome devices'}
+            >
+              <FaSearch className="w-3 h-3" />
+              {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_esphome') || 'Scan ESPHome')}
+            </button>
+            <button
+              className={`btn btn-sm btn-accent gap-1 ${scanningWled ? 'loading' : ''}`}
+              onClick={scanWledNetwork}
+              disabled={scanningWled}
+              title={t('remote_devices.scan_wled') || 'Scan for WLED devices'}
+            >
+              <FaSearch className="w-3 h-3" />
+              {scanningWled ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_wled') || 'Scan WLED')}
+            </button>
+          </div>
         </div>
         <p className="text-sm text-base-content/70 mb-3">
           {t('remote_devices.autodiscovered_hint')}
@@ -259,77 +261,55 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
         )}
 
         {hasDiscoveredDevices && (
-          <div className="overflow-x-auto">
-            <Table className="table table-zebra w-full">
-              <Thead>
-                <Tr>
-                  <Th>{t('remote_devices.device_id')}</Th>
-                  <Th>{t('remote_devices.device_name')}</Th>
-                  <Th>{t('remote_devices.protocol')}</Th>
-                  <Th>{t('remote_devices.outputs')}/{t('remote_devices.covers')}</Th>
-                  <Th>{t('outputs.actions')}</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {/* BoneIO Black autodiscovered devices */}
-                {availableAutodiscovered.map((device) => (
-                  <Tr key={device.id} className="hover:bg-base-300">
-                    <Td className="font-mono">{device.id}</Td>
-                    <Td>{device.name || device.id}</Td>
-                    <Td>
-                      <span className="badge badge-primary badge-sm">MQTT</span>
-                    </Td>
-                    <Td>
-                      <span className="badge badge-outline badge-sm mr-1">
-                        {device.outputs?.length || 0} out
-                      </span>
-                      <span className="badge badge-outline badge-sm">
-                        {device.covers?.length || 0} cov
-                      </span>
-                    </Td>
-                    <Td>
-                      <div className="flex gap-1">
+          <>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2">
+              {availableAutodiscovered.map((device) => (
+                <div key={device.id} className="card card-compact bg-base-100 shadow-sm">
+                  <div className="card-body p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{device.name || device.id}</div>
+                        <div className="text-xs text-base-content/60 font-mono truncate">{device.id}</div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           className="btn btn-success btn-sm gap-1"
                           onClick={() => onAddFromDiscovery?.(device)}
-                          title={t('remote_devices.add_from_discovery')}
                         >
                           <FaPlus className="w-3 h-3" />
                           {t('remote_devices.add')}
                         </button>
                         <button
-                          className={`btn btn-error btn-sm gap-1 ${removingDeviceId === device.id ? 'loading' : ''}`}
+                          className={`btn btn-error btn-sm btn-square ${removingDeviceId === device.id ? 'loading' : ''}`}
                           onClick={() => removeAutodiscoveredDevice(device.id)}
                           disabled={removingDeviceId === device.id}
-                          title={t('remote_devices.remove_autodiscovered') || 'Remove'}
                         >
                           <FaTrash className="w-3 h-3" />
                         </button>
                       </div>
-                    </Td>
-                  </Tr>
-                ))}
-                {/* ESPHome scanned devices */}
-                {scannedEsphomeDevices.map((device, idx) => (
-                  <Tr key={`esphome-${idx}`} className="hover:bg-base-300">
-                    <Td className="font-mono text-xs">
-                      <div className="flex flex-col">
-                        <span>{device.host}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="badge badge-primary badge-sm">MQTT</span>
+                      <span className="badge badge-outline badge-sm">{device.outputs?.length || 0} out</span>
+                      <span className="badge badge-outline badge-sm">{device.covers?.length || 0} cov</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {scannedEsphomeDevices.map((device, idx) => (
+                <div key={`esphome-${idx}`} className="card card-compact bg-base-100 shadow-sm">
+                  <div className="card-body p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{device.name}</div>
+                        <div className="text-xs text-base-content/60 font-mono truncate">{device.host}</div>
                         {device.ip && device.ip !== device.host && (
-                          <span className="text-xs opacity-50">IP: {device.ip}</span>
+                          <div className="text-xs text-base-content/40">IP: {device.ip}</div>
                         )}
                       </div>
-                    </Td>
-                    <Td>{device.name}</Td>
-                    <Td>
-                      <span className="badge badge-secondary badge-sm">ESPHome</span>
-                    </Td>
-                    <Td>
-                      <span className="text-xs opacity-60">:{device.port}</span>
-                    </Td>
-                    <Td>
                       <button
-                        className="btn btn-success btn-sm gap-1"
+                        className="btn btn-success btn-sm gap-1 shrink-0"
                         onClick={() => onAddFromDiscovery?.({
                           id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
                           name: device.name,
@@ -337,41 +317,33 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           device_type: 'esphome',
                           outputs: [],
                           covers: [],
-                          // Pass ESPHome specific data - use hostname (mDNS) instead of IP for stability
-                          esphome_api: {
-                            host: device.host,
-                            port: device.port,
-                          }
+                          esphome_api: { host: device.host, port: device.port }
                         } as any)}
-                        title={t('remote_devices.add_from_discovery')}
                       >
                         <FaPlus className="w-3 h-3" />
                         {t('remote_devices.add')}
                       </button>
-                    </Td>
-                  </Tr>
-                ))}
-                {/* WLED scanned devices */}
-                {scannedWledDevices.map((device, idx) => (
-                  <Tr key={`wled-${idx}`} className="hover:bg-base-300">
-                    <Td className="font-mono text-xs">
-                      <div className="flex flex-col">
-                        <span>{device.host}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="badge badge-secondary badge-sm">ESPHome</span>
+                      <span className="text-xs opacity-60">:{device.port}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {scannedWledDevices.map((device, idx) => (
+                <div key={`wled-${idx}`} className="card card-compact bg-base-100 shadow-sm">
+                  <div className="card-body p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{device.name}</div>
+                        <div className="text-xs text-base-content/60 font-mono truncate">{device.host}</div>
                         {device.ip && device.ip !== device.host && (
-                          <span className="text-xs opacity-50">IP: {device.ip}</span>
+                          <div className="text-xs text-base-content/40">IP: {device.ip}</div>
                         )}
                       </div>
-                    </Td>
-                    <Td>{device.name}</Td>
-                    <Td>
-                      <span className="badge badge-accent badge-sm">WLED</span>
-                    </Td>
-                    <Td>
-                      <span className="text-xs opacity-60">:{device.port}</span>
-                    </Td>
-                    <Td>
                       <button
-                        className="btn btn-success btn-sm gap-1"
+                        className="btn btn-success btn-sm gap-1 shrink-0"
                         onClick={() => onAddFromDiscovery?.({
                           id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
                           name: device.name,
@@ -379,22 +351,160 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                           device_type: 'wled',
                           outputs: [],
                           covers: [],
-                          wled: {
-                            host: device.host,
-                            port: device.port,
-                          }
+                          wled: { host: device.host, port: device.port }
                         } as any)}
-                        title={t('remote_devices.add_from_discovery')}
                       >
                         <FaPlus className="w-3 h-3" />
                         {t('remote_devices.add')}
                       </button>
-                    </Td>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="badge badge-accent badge-sm">WLED</span>
+                      <span className="text-xs opacity-60">:{device.port}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <Table className="table table-zebra w-full">
+                <Thead>
+                  <Tr>
+                    <Th>{t('remote_devices.device_id')}</Th>
+                    <Th>{t('remote_devices.device_name')}</Th>
+                    <Th>{t('remote_devices.protocol')}</Th>
+                    <Th>{t('remote_devices.outputs')}/{t('remote_devices.covers')}</Th>
+                    <Th>{t('outputs.actions')}</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </div>
+                </Thead>
+                <Tbody>
+                  {/* BoneIO Black autodiscovered devices */}
+                  {availableAutodiscovered.map((device) => (
+                    <Tr key={device.id} className="hover:bg-base-300">
+                      <Td className="font-mono">{device.id}</Td>
+                      <Td>{device.name || device.id}</Td>
+                      <Td>
+                        <span className="badge badge-primary badge-sm">MQTT</span>
+                      </Td>
+                      <Td>
+                        <span className="badge badge-outline badge-sm mr-1">
+                          {device.outputs?.length || 0} out
+                        </span>
+                        <span className="badge badge-outline badge-sm">
+                          {device.covers?.length || 0} cov
+                        </span>
+                      </Td>
+                      <Td>
+                        <div className="flex gap-1">
+                          <button
+                            className="btn btn-success btn-sm gap-1"
+                            onClick={() => onAddFromDiscovery?.(device)}
+                            title={t('remote_devices.add_from_discovery')}
+                          >
+                            <FaPlus className="w-3 h-3" />
+                            {t('remote_devices.add')}
+                          </button>
+                          <button
+                            className={`btn btn-error btn-sm gap-1 ${removingDeviceId === device.id ? 'loading' : ''}`}
+                            onClick={() => removeAutodiscoveredDevice(device.id)}
+                            disabled={removingDeviceId === device.id}
+                            title={t('remote_devices.remove_autodiscovered') || 'Remove'}
+                          >
+                            <FaTrash className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))}
+                  {/* ESPHome scanned devices */}
+                  {scannedEsphomeDevices.map((device, idx) => (
+                    <Tr key={`esphome-${idx}`} className="hover:bg-base-300">
+                      <Td className="font-mono text-xs">
+                        <div className="flex flex-col">
+                          <span>{device.host}</span>
+                          {device.ip && device.ip !== device.host && (
+                            <span className="text-xs opacity-50">IP: {device.ip}</span>
+                          )}
+                        </div>
+                      </Td>
+                      <Td>{device.name}</Td>
+                      <Td>
+                        <span className="badge badge-secondary badge-sm">ESPHome</span>
+                      </Td>
+                      <Td>
+                        <span className="text-xs opacity-60">:{device.port}</span>
+                      </Td>
+                      <Td>
+                        <button
+                          className="btn btn-success btn-sm gap-1"
+                          onClick={() => onAddFromDiscovery?.({
+                            id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                            name: device.name,
+                            protocol: 'esphome_api',
+                            device_type: 'esphome',
+                            outputs: [],
+                            covers: [],
+                            // Pass ESPHome specific data - use hostname (mDNS) instead of IP for stability
+                            esphome_api: {
+                              host: device.host,
+                              port: device.port,
+                            }
+                          } as any)}
+                          title={t('remote_devices.add_from_discovery')}
+                        >
+                          <FaPlus className="w-3 h-3" />
+                          {t('remote_devices.add')}
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
+                  {/* WLED scanned devices */}
+                  {scannedWledDevices.map((device, idx) => (
+                    <Tr key={`wled-${idx}`} className="hover:bg-base-300">
+                      <Td className="font-mono text-xs">
+                        <div className="flex flex-col">
+                          <span>{device.host}</span>
+                          {device.ip && device.ip !== device.host && (
+                            <span className="text-xs opacity-50">IP: {device.ip}</span>
+                          )}
+                        </div>
+                      </Td>
+                      <Td>{device.name}</Td>
+                      <Td>
+                        <span className="badge badge-accent badge-sm">WLED</span>
+                      </Td>
+                      <Td>
+                        <span className="text-xs opacity-60">:{device.port}</span>
+                      </Td>
+                      <Td>
+                        <button
+                          className="btn btn-success btn-sm gap-1"
+                          onClick={() => onAddFromDiscovery?.({
+                            id: device.name.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                            name: device.name,
+                            protocol: 'wled',
+                            device_type: 'wled',
+                            outputs: [],
+                            covers: [],
+                            wled: {
+                              host: device.host,
+                              port: device.port,
+                            }
+                          } as any)}
+                          title={t('remote_devices.add_from_discovery')}
+                        >
+                          <FaPlus className="w-3 h-3" />
+                          {t('remote_devices.add')}
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </div>
+          </>
         )}
 
         {!isLoading && !scanningNetwork && !scanningWled && !hasDiscoveredDevices && (
