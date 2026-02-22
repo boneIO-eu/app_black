@@ -280,3 +280,66 @@ class TestCoverManagerRelayReload:
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None, "Cover should be created despite unknown platform"
         assert cover.kind == "time", "Should fall back to time_based"
+
+    def test_cover_removed_on_reload(self, event_loop, relays, initial_cover_config):
+        """Test that a cover is removed when it disappears from config after reload."""
+        manager = _make_mock_manager(relays)
+
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+
+        assert cover_mgr.get_cover("test_cover") is not None
+        assert len(cover_mgr.get_all_covers()) == 1
+
+        # Reload with empty config (cover deleted by user)
+        manager._config_helper.reload_config.return_value = {
+            COVER: [],
+        }
+
+        cover_mgr.reload_covers()
+
+        assert cover_mgr.get_cover("test_cover") is None, "Cover should be removed after reload"
+        assert len(cover_mgr.get_all_covers()) == 0, "No covers should remain"
+
+    def test_one_cover_removed_another_stays(self, event_loop, relays):
+        """Test that only the deleted cover is removed, others stay."""
+        manager = _make_mock_manager(relays)
+
+        two_covers_config = [
+            {
+                "id": "cover_a",
+                "platform": "time_based",
+                "open_relay": "OUT_01",
+                "close_relay": "OUT_02",
+                "open_time": TimePeriod(seconds=10),
+                "close_time": TimePeriod(seconds=10),
+                "restore_state": False,
+                "show_in_ha": False,
+            },
+            {
+                "id": "cover_b",
+                "platform": "time_based",
+                "open_relay": "OUT_03",
+                "close_relay": "OUT_04",
+                "open_time": TimePeriod(seconds=10),
+                "close_time": TimePeriod(seconds=10),
+                "restore_state": False,
+                "show_in_ha": False,
+            },
+        ]
+
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=two_covers_config)
+
+        assert len(cover_mgr.get_all_covers()) == 2
+
+        # Reload with only cover_b (cover_a deleted)
+        manager._config_helper.reload_config.return_value = {
+            COVER: [two_covers_config[1]],
+        }
+
+        cover_mgr.reload_covers()
+
+        assert cover_mgr.get_cover("cover_a") is None, "cover_a should be removed"
+        assert cover_mgr.get_cover("cover_b") is not None, "cover_b should still exist"
+        assert len(cover_mgr.get_all_covers()) == 1

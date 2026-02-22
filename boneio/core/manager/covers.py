@@ -72,6 +72,28 @@ class CoverManager:
             config = self._manager._config_helper.reload_config()
             self._config_covers = config.get(COVER, [])
             self._manager._config_helper.clear_autodiscovery_type(ha_type=COVER)
+
+            # Remove covers that are no longer in config
+            new_ids = set()
+            for _cfg in self._config_covers:
+                if _cfg.get(ID):
+                    new_ids.add(strip_accents(_cfg[ID]))
+                else:
+                    _open = str(_cfg.get("open_relay", ""))
+                    _close = str(_cfg.get("close_relay", ""))
+                    new_ids.add(f"cover_{_open}_{_close}".lower().replace(" ", "_"))
+
+            removed_ids = [cid for cid in self._covers if cid not in new_ids]
+            for cid in removed_ids:
+                _LOGGER.info("Cover %s removed from config, cleaning up", cid)
+                cover = self._covers.pop(cid)
+                # Stop cover movement if running
+                try:
+                    asyncio.ensure_future(cover.stop())
+                except Exception:
+                    pass
+                # Remove HA autodiscovery
+                self._remove_cover_ha_discovery(cid)
         
         for _config in self._config_covers:
             # Get relay outputs for cover
