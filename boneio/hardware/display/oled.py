@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import subprocess
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 from PIL.ImageDraw import ImageDraw as ImageDrawType
 
-from boneio.const import OLED_PIN, UPTIME, WHITE
+from boneio.const import LONG, OLED_PIN, SINGLE, UPTIME, WHITE
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.core.system import HostData
 from boneio.core.utils.font_util import make_font
@@ -101,6 +102,22 @@ class Oled:
         self._sleep = False
         self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
+        
+        # Shutdown confirmation state machine
+        # States: None -> "wait_release" -> "confirm" -> "progress" -> shutdown
+        # - First long press → show confirm screen, enter "wait_release"
+        # - Release after first long → enter "confirm" (waiting for second long)
+        # - Second long press → enter "progress" with filling progress bar
+        # - Hold 5s → execute shutdown
+        # - Single click or 10s timeout → cancel
+        self._shutdown_state: str | None = None
+        self._shutdown_cancel_handle = None
+        # Last seen long press duration — used to detect new press cycle (duration resets)
+        self._shutdown_last_long_duration: float = 0.0
+        # Duration (seconds) the user must hold the button to confirm shutdown
+        self._shutdown_hold_duration: float = 5.0
+        # Timeout (seconds) to cancel shutdown confirmation if no action
+        self._shutdown_confirm_timeout: float = 10.0
         
         # Initialize I2C display
         try:
@@ -219,14 +236,106 @@ class Oled:
         # Display the centered QR code
         self._device.display(display_image)
 
-    async def _handle_button_press(self, event: dict) -> None:
-        """Handle button press event from input."""
-        _LOGGER.debug(f"OLED button pressed event received: {event}")
+    async def _handle_button_press(self, event) -> None:
+        """Handle button press event from input.
+
+        Supports shutdown flow via long press:
+        1. First long press → show confirmation screen
+        2. User releases button → state moves to "confirm"
+        3. Second long press (held 5s) → progress bar fills, then shutdown
+        4. Any single click or 10s timeout → cancel shutdown
+
+        The detector emits periodic LONG events (every 200ms) with growing
+        duration while the button is held. A new press cycle is detected
+        when duration resets (new duration < last tracked duration).
+
+        Args:
+            event: InputEvent from EventBus with click_type and duration
+        """
+        click_type = getattr(event, "click_type", None)
+        duration = getattr(event, "duration", None) or 0.0
+
+        _LOGGER.debug("OLED button event: click_type=%s, duration=%.2f, shutdown_state=%s",
+                       click_type, duration, self._shutdown_state)
+
+        # --- Shutdown state machine ---
+
+        if self._shutdown_state == "wait_release":
+            # Absorb periodic LONG events from the first long press.
+            # Detect release: when we get a LONG with duration < last seen
+            # (duration resets on new press) OR a SINGLE event.
+            if click_type == LONG:
+                if duration < self._shutdown_last_long_duration:
+                    # Duration reset → this is a NEW long press (second one).
+                    # User released and pressed again very quickly.
+                    # Go straight to progress.
+                    self._shutdown_state = "progress"
+                    self._cancel_shutdown_timeout()
+                    self._shutdown_last_long_duration = duration
+                    self._draw_shutdown_progress(duration)
+                    if duration >= self._shutdown_hold_duration:
+                        await self._execute_shutdown()
+                    return
+                # Still the same first long press — track duration, ignore
+                self._shutdown_last_long_duration = duration
+                return
+            elif click_type == SINGLE:
+                # Single after long = user released. Move to confirm state.
+                self._shutdown_state = "confirm"
+                self._shutdown_last_long_duration = 0.0
+                self._start_shutdown_timeout()
+                return
+            # Ignore other events
+            return
+
+        if self._shutdown_state == "confirm":
+            if click_type == LONG:
+                # Second long press — enter progress mode
+                self._shutdown_state = "progress"
+                self._cancel_shutdown_timeout()
+                self._shutdown_last_long_duration = duration
+                self._draw_shutdown_progress(duration)
+                if duration >= self._shutdown_hold_duration:
+                    await self._execute_shutdown()
+                return
+            elif click_type == SINGLE:
+                # Single click cancels shutdown confirmation
+                self._cancel_shutdown()
+                return
+            # Ignore other events during confirm
+            return
+
+        if self._shutdown_state == "progress":
+            if click_type == LONG:
+                if duration < self._shutdown_last_long_duration:
+                    # Duration reset — user released and pressed again, cancel
+                    self._cancel_shutdown()
+                    return
+                # Still holding — update progress bar
+                self._shutdown_last_long_duration = duration
+                self._draw_shutdown_progress(duration)
+                if duration >= self._shutdown_hold_duration:
+                    await self._execute_shutdown()
+                return
+            else:
+                # Released (single) or other — cancel
+                self._cancel_shutdown()
+                return
+
+        # --- Normal mode ---
         if self._sleep:
-            # Display is sleeping - wake it up
             self.wake_up()
-        else:
-            # Display is active - go to next screen
+            return
+
+        if click_type == LONG and duration < 1.0:
+            # First long press event — show confirmation, enter wait_release
+            self._shutdown_state = "wait_release"
+            self._shutdown_last_long_duration = duration
+            self._draw_shutdown_confirm()
+            self._start_shutdown_timeout()
+            return
+
+        if click_type == SINGLE:
             self._next_screen()
 
     def _next_screen(self) -> None:
@@ -239,6 +348,122 @@ class Oled:
             pass
         self._current_screen = next(self._screen_cycle)
         self.render_display()
+
+    # --- Shutdown helper methods ---
+
+    def _draw_shutdown_confirm(self) -> None:
+        """Draw shutdown confirmation screen on OLED.
+        
+        Shows a warning message asking the user to hold the button
+        for 5 seconds to confirm system shutdown.
+        """
+        with canvas(self._device) as draw:
+            # Warning triangle
+            draw.polygon([(64, 2), (54, 18), (74, 18)], outline=WHITE)
+            draw.text((61, 5), "!", font=fonts["small"], fill=WHITE)
+            # Message
+            draw.text((10, 24), "Shutdown system?", font=fonts["small"], fill=WHITE)
+            draw.text((4, 38), "Hold button 5s to confirm", font=fonts["extraSmall"], fill=WHITE)
+            draw.text((8, 52), "Click to cancel (10s)", font=fonts["extraSmall"], fill=WHITE)
+
+    def _draw_shutdown_progress(self, duration: float) -> None:
+        """Draw shutdown progress bar on OLED.
+        
+        Shows a progress bar that fills proportionally to how long
+        the user has been holding the button vs the required duration.
+        
+        Args:
+            duration: How long the button has been held (seconds)
+        """
+        progress = min(duration / self._shutdown_hold_duration, 1.0)
+        bar_x, bar_y = 10, 34
+        bar_w, bar_h = 108, 14
+        fill_w = int(bar_w * progress)
+
+        with canvas(self._device) as draw:
+            draw.text((20, 4), "Shutting down...", font=fonts["small"], fill=WHITE)
+            draw.text((28, 18), f"{int(progress * 100)}%", font=fonts["small"], fill=WHITE)
+            # Progress bar outline
+            draw.rectangle([bar_x, bar_y, bar_x + bar_w, bar_y + bar_h], outline=WHITE)
+            # Progress bar fill
+            if fill_w > 0:
+                draw.rectangle([bar_x + 1, bar_y + 1, bar_x + fill_w - 1, bar_y + bar_h - 1], fill=WHITE)
+            draw.text((22, 54), "Release to cancel", font=fonts["extraSmall"], fill=WHITE)
+
+    def _start_shutdown_timeout(self) -> None:
+        """Start a 10-second timeout that cancels the shutdown confirmation.
+        
+        If the user doesn't interact within the timeout period,
+        the shutdown flow is cancelled and the normal screen is restored.
+        """
+        self._cancel_shutdown_timeout()
+        loop = self._event_bus._loop
+
+        def _timeout_callback() -> None:
+            """Cancel shutdown after timeout expires."""
+            _LOGGER.info("Shutdown confirmation timed out, cancelling")
+            self._shutdown_state = None
+            self._shutdown_cancel_handle = None
+            self.render_display()
+
+        self._shutdown_cancel_handle = loop.call_later(
+            self._shutdown_confirm_timeout, _timeout_callback
+        )
+
+    def _cancel_shutdown_timeout(self) -> None:
+        """Cancel the pending shutdown timeout timer."""
+        if self._shutdown_cancel_handle is not None:
+            self._shutdown_cancel_handle.cancel()
+            self._shutdown_cancel_handle = None
+
+    def _cancel_shutdown(self) -> None:
+        """Cancel the shutdown flow and return to normal display.
+        
+        Resets the shutdown state machine and restores the current screen.
+        """
+        _LOGGER.info("Shutdown cancelled by user")
+        self._cancel_shutdown_timeout()
+        self._shutdown_state = None
+        self._shutdown_last_long_duration = 0.0
+        self.render_display()
+
+    async def _execute_shutdown(self) -> None:
+        """Execute system shutdown.
+        
+        Draws a final 'Goodbye' message on the OLED, then runs
+        'sudo shutdown -h now' to power off the device.
+        """
+        _LOGGER.warning("System shutdown initiated from OLED button")
+        self._shutdown_state = None
+        self._shutdown_last_long_duration = 0.0
+        self._cancel_shutdown_timeout()
+
+        # Draw goodbye screen
+        with canvas(self._device) as draw:
+            draw.text((20, 10), "Goodbye!", font=fonts["big"], fill=WHITE)
+            draw.text((15, 35), "System shutting down...", font=fonts["extraSmall"], fill=WHITE)
+
+        # Small delay so the user sees the message
+        await asyncio.sleep(1)
+
+        try:
+            subprocess.run(
+                ["sudo", "shutdown", "-h", "now"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            _LOGGER.error("Failed to shutdown device: %s", e.stderr)
+            # Show error on OLED and return to normal
+            with canvas(self._device) as draw:
+                draw.text((10, 20), "Shutdown failed!", font=fonts["small"], fill=WHITE)
+                draw.text((10, 40), str(e.stderr)[:20], font=fonts["extraSmall"], fill=WHITE)
+            await asyncio.sleep(3)
+            self.render_display()
+        except Exception as e:
+            _LOGGER.error("Error shutting down device: %s", e)
+            self.render_display()
 
     def render_display(self) -> None:
         """Render display - main method that decides what to display."""

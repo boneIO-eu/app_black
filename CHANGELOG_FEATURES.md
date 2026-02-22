@@ -116,6 +116,18 @@ cykliczne efekty/presety.
 
 ---
 
+## OLED Display
+
+### [ ] Shutdown systemu z przycisku OLED (v1.2.0dev23)
+Przycisk OLED obsługuje teraz zamykanie systemu przez long press:
+1. Pierwszy long press → ekran potwierdzenia "Shutdown system? Hold button 5s to confirm"
+2. Drugi long press (trzymany 5s) → progress bar wypełnia się, po 100% wykonuje `sudo shutdown -h now`
+3. Kliknięcie single lub brak akcji przez 10s → anulowanie
+
+Nie wymaga konfiguracji — działa automatycznie na każdym urządzeniu z OLED.
+
+---
+
 ## WebUI
 
 ### [ ] LogViewer — fix kopiowania do schowka
