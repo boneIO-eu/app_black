@@ -10,7 +10,7 @@ from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.components.cover.cover import BaseCover
 from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
-from boneio.components.output import MCPOutput
+from boneio.components.output import BasicOutput
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
@@ -19,8 +19,8 @@ class TimeBasedCover(BaseCover):
     """Time-based cover algorithm similar to ESPHome."""
     def __init__(
         self,
-        open_relay: MCPOutput,
-        close_relay: MCPOutput,
+        open_relay: BasicOutput,
+        close_relay: BasicOutput,
         state_save: Callable,
         open_time: TimePeriod,
         close_time: TimePeriod,

@@ -20,7 +20,7 @@ from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import TimePeriod
 from boneio.models import CoverState, PositionDict
-from boneio.components.output import MCPOutput
+from boneio.components.output import BasicOutput
 from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,8 +30,8 @@ class BaseCoverABC(ABC):
 
     @abstractmethod
     def __init__(self, id: str,
-        open_relay: MCPOutput,
-        close_relay: MCPOutput,
+        open_relay: BasicOutput,
+        close_relay: BasicOutput,
         state_save: Callable,
         open_time: TimePeriod,
         close_time: TimePeriod,
@@ -147,8 +147,8 @@ class BaseVenetianCoverABC:
 
 class BaseCover(BaseCoverABC, BasicMqtt):
     def __init__(self, id: str,
-        open_relay: MCPOutput,
-        close_relay: MCPOutput,
+        open_relay: BasicOutput,
+        close_relay: BasicOutput,
         state_save: Callable,
         open_time: TimePeriod,
         close_time: TimePeriod,
