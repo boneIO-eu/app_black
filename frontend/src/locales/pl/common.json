@@ -583,7 +583,6 @@
     "select_device_class": "Wybierz klasę urządzenia...",
     "platform_time_based": "Standardowe sterowanie czasowe roletą",
     "platform_venetian": "Żaluzje weneckie z obsługą nachylenia",
-    "platform_previous": "Śledzenie poprzedniej pozycji z siłownikiem",
     "no_cover_outputs": "Brak dostępnych wyjść dla rolet. Najpierw skonfiguruj wyjścia z output_type='cover'.",
     "open_relay_hint": "Wyjście używane do otwierania rolety",
     "close_relay_hint": "Wyjście używane do zamykania rolety",

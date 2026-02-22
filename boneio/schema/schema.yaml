@@ -1219,7 +1219,7 @@ cover:
         type: string
         required: True
         default: time_based
-        allowed: ['time_based', 'venetian', 'previous']
+        allowed: ['time_based', 'venetian']
         meta:
           label: Platform to use for cover.
       open_time:

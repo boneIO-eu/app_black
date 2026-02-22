@@ -411,7 +411,6 @@
     "select_device_class": "Select device class...",
     "platform_time_based": "Standard time-based cover control",
     "platform_venetian": "Venetian blinds with tilt support",
-    "platform_previous": "Previous position tracking with actuator",
     "no_cover_outputs": "No cover outputs available. Please configure outputs with output_type='cover' first.",
     "open_relay_hint": "Output used to open the cover",
     "close_relay_hint": "Output used to close the cover",

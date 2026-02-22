@@ -12,7 +12,6 @@ from boneio.core.manager import Manager
 from boneio.models.actions import CoverAction, CoverPosition, CoverTilt
 
 if TYPE_CHECKING:
-    from boneio.components.cover.previous import PreviousCover
     from boneio.components.cover.time_based import TimeBasedCover
 
 _LOGGER = logging.getLogger(__name__)
@@ -104,7 +103,7 @@ async def set_cover_tilt(cover_id: str, tilt_data: CoverTilt, manager: Manager =
     Raises:
         HTTPException: 404 if cover not found, 400 if invalid tilt or cover type.
     """
-    cover: PreviousCover | TimeBasedCover | VenetianCover | None = manager.covers.get_cover(cover_id)
+    cover: TimeBasedCover | VenetianCover | None = manager.covers.get_cover(cover_id)
     if not cover:
         raise HTTPException(status_code=404, detail="Cover not found")
     if cover.kind != "venetian":

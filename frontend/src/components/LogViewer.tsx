@@ -230,11 +230,11 @@ export default function LogViewer() {
     });
   }, [logs, selectedModules, selectedLevels]);
 
-  // Clear selection when filters change (indices become stale)
+  // Clear selection when filter criteria change (indices become stale)
   useEffect(() => {
     setSelectedLogIndices(new Set());
     setSelectionStart(null);
-  }, [filteredLogs]);
+  }, [selectedModules, selectedLevels]);
 
   const toggleLevel = (level: string) => {
     if (isSystemd) {

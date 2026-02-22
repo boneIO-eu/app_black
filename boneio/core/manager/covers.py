@@ -2,7 +2,6 @@
 
 This module manages all cover devices including:
 - Time-based covers
-- Previous-state covers
 - Venetian blinds
 - Cover actions and callbacks
 """
@@ -21,14 +20,14 @@ from boneio.integration import ha_cover_availabilty_message
 from boneio.integration.homeassistant import ha_cover_with_tilt_availabilty_message
 
 if TYPE_CHECKING:
-    from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
+    from boneio.components.cover import TimeBasedCover, VenetianCover
     from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class CoverManager:
-    """Manages all covers (time-based, previous-state, venetian).
+    """Manages all covers (time-based, venetian).
     
     This manager handles:
     - Cover configuration and initialization
@@ -49,7 +48,7 @@ class CoverManager:
     ):
         """Initialize cover manager."""
         self._manager = manager
-        self._covers: dict[str, PreviousCover | TimeBasedCover | VenetianCover] = {}
+        self._covers: dict[str, TimeBasedCover | VenetianCover] = {}
         self._config_covers = cover_config
         
         # Configure covers if outputs exist
@@ -110,11 +109,11 @@ class CoverManager:
                 # Update existing cover or create new one
                 if _id in self._covers:
                     _cover = self._covers[_id]
-                    new_platform = _config.get("platform", "previous")
+                    new_platform = _config.get("platform", "time_based")
                     
                     # Check if platform (cover type) changed - need to recreate cover
                     current_kind = _cover.kind
-                    new_kind = "venetian" if new_platform == "venetian" else ("time" if new_platform == "time_based" else "previous")
+                    new_kind = "venetian" if new_platform == "venetian" else "time"
                     
                     if current_kind != new_kind:
                         # Platform changed - remove old cover and create new one
@@ -127,7 +126,16 @@ class CoverManager:
                         # Remove old cover from dict (will be recreated below)
                         del self._covers[_id]
                     else:
-                        # Same platform - just update times and autodiscovery
+                        # Same platform - update relays, times and autodiscovery
+                        old_open = getattr(_cover._open_relay, 'id', None)
+                        old_close = getattr(_cover._close_relay, 'id', None)
+                        if old_open != open_relay_id or old_close != close_relay_id:
+                            _LOGGER.info(
+                                "Cover %s relays changed: open %s->%s, close %s->%s",
+                                _id, old_open, open_relay_id, old_close, close_relay_id
+                            )
+                        _cover._open_relay = open_relay
+                        _cover._close_relay = close_relay
                         _cover.update_config_times(_config)
                         # Re-send HA autodiscovery with potentially new area
                         if _config.get(SHOW_HA, True):
@@ -170,7 +178,7 @@ class CoverManager:
         cover_name: str,
         config: dict,
         tilt_duration: TimePeriod | None,
-    ) -> PreviousCover | TimeBasedCover | VenetianCover:
+    ) -> TimeBasedCover | VenetianCover:
         """Configure a cover instance.
         
         Args:
@@ -185,7 +193,7 @@ class CoverManager:
         Raises:
             CoverConfigurationException: If cover configuration is invalid
         """
-        from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
+        from boneio.components.cover import TimeBasedCover, VenetianCover
         
         platform = config.get("platform", "time_based")
         
@@ -241,8 +249,11 @@ class CoverManager:
                 **{k: v for k, v in config.items() if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
             )
             availability_msg_func = ha_cover_availabilty_message
-        elif platform == "previous":
-            _LOGGER.debug("Configuring previous cover %s", cover_id)
+        else:
+            _LOGGER.warning(
+                "Unknown cover platform '%s' for %s, falling back to time_based",
+                platform, cover_id
+            )
             restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
@@ -250,7 +261,7 @@ class CoverManager:
                 restored_state = {"position": restored_state}
             elif isinstance(restored_state, str):
                 restored_state = {"position": 100}
-            cover = PreviousCover(
+            cover = TimeBasedCover(
                 id=cover_id,
                 name=cover_name,
                 state_save=state_save,
@@ -298,7 +309,7 @@ class CoverManager:
             # Remove from internal cache
             self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
 
-    def get_cover(self, id: str) -> PreviousCover | TimeBasedCover | VenetianCover | None:
+    def get_cover(self, id: str) -> TimeBasedCover | VenetianCover | None:
         """Get cover by ID.
         
         Args:
@@ -309,7 +320,7 @@ class CoverManager:
         """
         return self._covers.get(id)
 
-    def get_all_covers(self) -> dict[str, PreviousCover | TimeBasedCover | VenetianCover]:
+    def get_all_covers(self) -> dict[str, TimeBasedCover | VenetianCover]:
         """Get all covers.
         
         Returns:
@@ -391,20 +402,10 @@ class CoverManager:
         
         This is called after reload to ensure frontend receives
         the state of all covers, including newly created ones.
-        
-        Handles both PreviousCover (send_state with no args) and BaseCover 
-        (send_state with state and json_position args) implementations.
         """
-        from boneio.components.cover import PreviousCover, TimeBasedCover, VenetianCover
-        
         for cover in self._covers.values():
             try:
-                if isinstance(cover, PreviousCover):
-                    # PreviousCover.send_state() takes no arguments
-                    cover.send_state()
-                elif isinstance(cover, (TimeBasedCover, VenetianCover)):
-                    # BaseCover.send_state(state, json_position) takes 2 arguments
-                    cover.send_state(cover.state, cover.json_position)
+                cover.send_state(cover.state, cover.json_position)
             except Exception as e:
                 _LOGGER.debug("Error broadcasting cover state %s: %s", cover.id, e)
 

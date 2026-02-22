@@ -35,9 +35,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
-  // Extract enums from schema (exclude deprecated 'previous' platform)
-  const platformOptions = (schema?.items?.properties?.platform?.enum || ['time_based', 'venetian', 'previous'])
-    .filter((p: string) => p !== 'previous');
+  const platformOptions = schema?.items?.properties?.platform?.enum || ['time_based', 'venetian'];
   const deviceClassOptions = schema?.items?.properties?.device_class?.enum || [
     'awning', 'blind', 'curtain', 'damper', 'door', 'garage', 'gate', 'shade', 'shutter', 'window'
   ];
@@ -51,10 +49,6 @@ const CoverForm: React.FC<CoverFormProps> = ({
         // Remove tilt_duration when not venetian
         delete newData.tilt_duration;
       }
-      if (value !== 'previous') {
-        // Remove actuator_activation_duration when not previous
-        delete newData.actuator_activation_duration;
-      }
     }
     
     onChange(newData);
@@ -62,7 +56,6 @@ const CoverForm: React.FC<CoverFormProps> = ({
 
   const selectedPlatform = data.platform || 'time_based';
   const showTiltDuration = selectedPlatform === 'venetian';
-  const showActuatorDuration = selectedPlatform === 'previous';
 
   return (
     <div className="space-y-4">
@@ -174,7 +167,6 @@ const CoverForm: React.FC<CoverFormProps> = ({
                     <span className="label-text-alt text-info">
                       {selectedPlatform === 'time_based' && t('covers.platform_time_based')}
                       {selectedPlatform === 'venetian' && t('covers.platform_venetian')}
-                      {selectedPlatform === 'previous' && t('covers.platform_previous')}
                     </span>
                   </label>
                 </div>
@@ -256,16 +248,6 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   />
                 )}
 
-                {/* Actuator Activation Duration - only for previous */}
-                {showActuatorDuration && (
-                  <SimpleTimePeriodInput
-                    value={data.actuator_activation_duration || ''}
-                    onChange={(value: string) => updateField('actuator_activation_duration', value)}
-                    label={t('covers.actuator_duration')}
-                    required={false}
-                    minimum={0}
-                  />
-                )}
               </div>
             ),
           },

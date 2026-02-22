@@ -65,8 +65,7 @@
             "default": "time_based",
             "enum": [
               "time_based",
-              "venetian",
-              "previous"
+              "venetian"
             ],
             "examples": [
               "time_based"
