@@ -112,6 +112,8 @@ class Oled:
         # - Single click or 10s timeout → cancel
         self._shutdown_state: str | None = None
         self._shutdown_cancel_handle = None
+        # Timer to detect button release (no LONG event for 300ms = released)
+        self._shutdown_release_timer: asyncio.TimerHandle | None = None
         # Last seen long press duration — used to detect new press cycle (duration resets)
         self._shutdown_last_long_duration: float = 0.0
         # Duration (seconds) the user must hold the button to confirm shutdown
@@ -262,28 +264,19 @@ class Oled:
 
         if self._shutdown_state == "wait_release":
             # Absorb periodic LONG events from the first long press.
-            # Detect release: when we get a LONG with duration < last seen
-            # (duration resets on new press) OR a SINGLE event.
+            # Detector does NOT emit SINGLE after long press release.
+            # Detect release via timer: each LONG resets a 300ms timer.
+            # When no more LONG events arrive, timer fires → "confirm".
             if click_type == LONG:
-                if duration < self._shutdown_last_long_duration:
-                    # Duration reset → this is a NEW long press (second one).
-                    # User released and pressed again very quickly.
-                    # Go straight to progress.
-                    self._shutdown_state = "progress"
-                    self._cancel_shutdown_timeout()
-                    self._shutdown_last_long_duration = duration
-                    self._draw_shutdown_progress(duration)
-                    if duration >= self._shutdown_hold_duration:
-                        await self._execute_shutdown()
-                    return
-                # Still the same first long press — track duration, ignore
                 self._shutdown_last_long_duration = duration
+                # Reset release-detection timer
+                self._reset_release_timer()
                 return
             elif click_type == SINGLE:
-                # Single after long = user released. Move to confirm state.
+                # Shouldn't happen after long, but handle gracefully
+                self._cancel_release_timer()
                 self._shutdown_state = "confirm"
                 self._shutdown_last_long_duration = 0.0
-                self._start_shutdown_timeout()
                 return
             # Ignore other events
             return
@@ -333,6 +326,7 @@ class Oled:
             self._shutdown_last_long_duration = duration
             self._draw_shutdown_confirm()
             self._start_shutdown_timeout()
+            self._reset_release_timer()
             return
 
         if click_type == SINGLE:
@@ -416,6 +410,33 @@ class Oled:
             self._shutdown_cancel_handle.cancel()
             self._shutdown_cancel_handle = None
 
+    def _reset_release_timer(self) -> None:
+        """Reset the 300ms release-detection timer.
+        
+        Called on each periodic LONG event during wait_release state.
+        If no more LONG events arrive within 300ms, the timer fires
+        and transitions to 'confirm' state (button was released).
+        """
+        self._cancel_release_timer()
+        loop = self._event_bus._loop
+
+        def _on_release_detected() -> None:
+            """No LONG event for 300ms — button was released."""
+            self._shutdown_release_timer = None
+            if self._shutdown_state == "wait_release":
+                _LOGGER.debug("OLED button release detected (no LONG for 300ms)")
+                self._shutdown_state = "confirm"
+                self._shutdown_last_long_duration = 0.0
+                # Timeout already running from first long press
+
+        self._shutdown_release_timer = loop.call_later(0.3, _on_release_detected)
+
+    def _cancel_release_timer(self) -> None:
+        """Cancel the pending release-detection timer."""
+        if self._shutdown_release_timer is not None:
+            self._shutdown_release_timer.cancel()
+            self._shutdown_release_timer = None
+
     def _cancel_shutdown(self) -> None:
         """Cancel the shutdown flow and return to normal display.
         
@@ -423,6 +444,7 @@ class Oled:
         """
         _LOGGER.info("Shutdown cancelled by user")
         self._cancel_shutdown_timeout()
+        self._cancel_release_timer()
         self._shutdown_state = None
         self._shutdown_last_long_duration = 0.0
         self.render_display()
