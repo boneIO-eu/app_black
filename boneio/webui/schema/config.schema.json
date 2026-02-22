@@ -4785,6 +4785,16 @@
             "description": "Enable Triple Click",
             "title": "Enable triple click"
           },
+          "long_press_mqtt_mode": {
+            "type": "string",
+            "default": "single",
+            "enum": [
+              "single",
+              "periodic"
+            ],
+            "description": "How long press events are published to MQTT. 'single' sends only the first event (prevents repeated triggers in Node-RED). 'periodic' sends all events with growing duration.",
+            "title": "Long press MQTT mode"
+          },
           "mqtt_sequences": {
             "type": [
               "object",

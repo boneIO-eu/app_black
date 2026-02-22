@@ -739,6 +739,31 @@ const EventForm: React.FC<EventFormProps> = ({
                 <span className="label-text-alt">{t('event_form.enable_triple_click_hint')}</span>
               </label>
             </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">{t('event_form.long_press_mqtt_mode')}</span>
+              </label>
+              <Select
+                  value={data.long_press_mqtt_mode || 'single'}
+                  onValueChange={(value) => updateField('long_press_mqtt_mode', value)}  
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">{t('event_form.long_press_mqtt_single')}</SelectItem>
+                    <SelectItem value="periodic">{t('event_form.long_press_mqtt_periodic')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              <label className="label">
+                <span className="label-text-alt">
+                  {data.long_press_mqtt_mode === 'periodic' 
+                    ? t('event_form.long_press_mqtt_periodic_hint')
+                    : t('event_form.long_press_mqtt_single_hint')}
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Timing validation warning */}

@@ -82,6 +82,8 @@ class GpioBaseClass:
         self._mqtt_sequences: dict[str, bool] = mqtt_seq if isinstance(mqtt_seq, dict) else {}
         # Sequence mode: 'immediate' or 'exclusive'
         self._sequence_mode: str = kwargs.get("sequence_mode", "exclusive")
+        # Long press MQTT mode: 'single' (only first + final) or 'periodic' (all events with duration)
+        self._long_press_mqtt_mode: str = kwargs.get("long_press_mqtt_mode", "single")
 
     @property
     def boneio_input(self) -> str:
@@ -228,6 +230,15 @@ class GpioBaseClass:
             Unix timestamp
         """
         return self._last_timestamp
+
+    @property
+    def long_press_mqtt_mode(self) -> str:
+        """Get long press MQTT mode.
+        
+        Returns:
+            'single' (first + final only) or 'periodic' (all events with duration)
+        """
+        return self._long_press_mqtt_mode
 
     @property
     def mqtt_sequences(self) -> dict[str, bool]:

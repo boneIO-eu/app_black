@@ -147,6 +147,7 @@ class GpioEventButton(GpioBaseClass):
         actions: dict | None = None,
         mqtt_sequences: dict | None = None,
         enable_triple_click: bool | None = None,
+        long_press_mqtt_mode: str | None = None,
     ) -> None:
         """Update timing parameters for click detection.
         
@@ -161,6 +162,7 @@ class GpioEventButton(GpioBaseClass):
             actions: Actions dict to determine enabled sequences
             mqtt_sequences: MQTT sequences dict to determine enabled sequences
             enable_triple_click: Enable triple click detection
+            long_press_mqtt_mode: 'single' or 'periodic' for MQTT long press events
         """
         from boneio.const import CLICK_SEQUENCES
         
@@ -214,3 +216,7 @@ class GpioEventButton(GpioBaseClass):
                             self._detector._delay_click_types.add(first)
                             break
             _LOGGER.debug("Updated enabled_sequences to %s for %s", enabled_sequences, self._name)
+
+        if long_press_mqtt_mode is not None:
+            self._long_press_mqtt_mode = long_press_mqtt_mode
+            _LOGGER.debug("Updated long_press_mqtt_mode to %s for %s", long_press_mqtt_mode, self._name)

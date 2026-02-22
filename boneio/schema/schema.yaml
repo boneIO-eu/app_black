@@ -1104,6 +1104,17 @@ event:
           label: Enable Triple Click
           description: |
             Enable triple click detection. Disabled by default to avoid conflicts with double_then sequence.
+      long_press_mqtt_mode:
+        type: string
+        required: False
+        default: 'single'
+        allowed: ['single', 'periodic']
+        meta:
+          label: Long Press MQTT Mode
+          description: |
+            How long press events are published to MQTT:
+            - single: Only the first long press event is sent. Periodic updates are skipped. Prevents repeated triggers in Node-RED.
+            - periodic: All long press events (with growing duration) are sent every 200ms. Use if you need duration tracking in MQTT.
       mqtt_sequences:
         required: False
         type: dict

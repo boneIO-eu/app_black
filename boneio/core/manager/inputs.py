@@ -66,6 +66,8 @@ class InputManager:
         self._inputs: dict[str, GpioEventButton | GpioInputBinarySensor] = {}
         self._event_pins = event_pins
         self._binary_pins = binary_pins
+        # Track inputs that already had first long press published to MQTT (for single mode)
+        self._long_press_mqtt_published: set[str] = set()
         
         # Configure inputs
         self._configure_inputs()
@@ -249,6 +251,7 @@ class InputManager:
                     actions=actions,
                     mqtt_sequences=new_mqtt_sequences,
                     enable_triple_click=gpio.get('enable_triple_click'),
+                    long_press_mqtt_mode=gpio.get('long_press_mqtt_mode'),
                 )
                 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
@@ -654,6 +657,24 @@ class InputManager:
                         click_type, input_id
                     )
                     return
+            
+            # Long press MQTT mode filtering:
+            # In 'single' mode, only publish the first long press event to MQTT.
+            # Periodic updates (with growing duration) are skipped to avoid
+            # triggering repeated actions in Node-RED or other MQTT consumers.
+            if click_type == LONG:
+                mqtt_mode = getattr(input_instance, 'long_press_mqtt_mode', 'single')
+                if mqtt_mode == "single":
+                    if input_id in self._long_press_mqtt_published:
+                        _LOGGER.debug(
+                            "Skipping periodic long press MQTT for %s (mode=single, already published)",
+                            input_id
+                        )
+                        return
+                    self._long_press_mqtt_published.add(input_id)
+            else:
+                # Any non-long event clears the tracking (button released, new click cycle)
+                self._long_press_mqtt_published.discard(input_id)
             
             event_payload: dict[str, str | float | None] = {"event_type": click_type}
             if event.duration is not None:

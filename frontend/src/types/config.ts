@@ -160,6 +160,8 @@ export interface EventEntity {
   sequence_mode?: 'immediate' | 'exclusive';
   /** Enable triple click detection (default: false) */
   enable_triple_click?: boolean;
+  /** Long press MQTT mode: 'single' (first only) or 'periodic' (all with duration) */
+  long_press_mqtt_mode?: 'single' | 'periodic';
   /** Actions configuration */
   actions?: EventActions;
   /** MQTT sequences configuration - which sequences to publish to MQTT */
