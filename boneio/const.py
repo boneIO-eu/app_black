@@ -187,6 +187,33 @@ cover_actions = {
     'TILT_CLOSE': 'tilt_close',
 }
 
+# Map of cover action method name -> accepted extra_data keys.
+# Actions not listed here (open, close, toggle, stop, etc.) accept no extra params.
+_COVER_ACTION_PARAMS: dict[str, set[str]] = {
+    "smart_toggle": {"always_open_till"},
+    "set_cover_position": {"position"},
+    "set_tilt": {"tilt_position"},
+    "set_cover_tilt_position": {"tilt_position"},
+}
+
+
+def filter_cover_extra_data(action_name: str, extra_data: dict) -> dict:
+    """Filter extra_data to only include params accepted by the cover action.
+
+    Args:
+        action_name: The cover method name (e.g. 'open', 'toggle', 'smart_toggle')
+        extra_data: Raw extra_data dict from action config
+
+    Returns:
+        Filtered dict with only accepted params for the action.
+    """
+    if not extra_data:
+        return {}
+    allowed = _COVER_ACTION_PARAMS.get(action_name)
+    if allowed is None:
+        return {}
+    return {k: v for k, v in extra_data.items() if k in allowed}
+
 INA219 = "ina219"
 VIRTUAL_ENERGY_SENSOR = "virtual_energy_sensor"
 PINS = {

@@ -28,6 +28,7 @@ from boneio.const import (
     STATE,
     TOGGLE,
     cover_actions,
+    filter_cover_extra_data,
     output_actions,
 )
 from boneio.core.config import ConfigHelper
@@ -669,6 +670,8 @@ class Manager:
                     continue
                 action_to_execute = action_definition.get("action_to_execute")
                 extra_data = action_definition.get("extra_data", {})
+                # Filter extra_data to only pass params accepted by each action
+                filtered_data = filter_cover_extra_data(action_to_execute, extra_data)
                 _LOGGER.debug(
                     "Executing action %s for cover %s. Duration: %s",
                     action_to_execute,
@@ -676,7 +679,7 @@ class Manager:
                     time.time() - start_time,
                 )
                 _f = getattr(cover, action_to_execute)
-                await _f(**extra_data)
+                await _f(**filtered_data)
                 
             elif action == OUTPUT_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")

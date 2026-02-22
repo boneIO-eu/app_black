@@ -587,6 +587,7 @@ class RemoteDeviceManager:
             return await device.control_cover(
                 cover_id=cover_id,
                 action=action,
+                **kwargs,
             )
         
         # For MQTT devices, use standard control_cover

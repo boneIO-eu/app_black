@@ -364,7 +364,10 @@ class ESPHomeRemoteDevice(RemoteDevice):
                             "current_operation": current_op,
                             "last_known_operation": last_op,
                         }
-                        _LOGGER.debug("Cover '%s' position: %.2f", cover_id, state.position)
+                        _LOGGER.debug(
+                            "Cover '%s' state update: position=%.2f, current_op=%s, last_op=%s",
+                            cover_id, state.position, current_op, last_op,
+                        )
                         break
         except Exception as e:
             _LOGGER.debug("Error processing state change: %s", e)
@@ -854,27 +857,52 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 self._client.cover_command(cover_key, position=0.0)
             elif action_upper == "STOP":
                 self._client.cover_command(cover_key, stop=True)
-            elif action_upper == "TOGGLE":
-                # Toggle based on current operation or last known operation
+            elif action_upper in ("TOGGLE", "SMART_TOGGLE"):
+                # Toggle based on current operation, position, or last known operation
                 state = self._cover_states.get(cover_id, {})
                 current_op = state.get("current_operation", 0) # 0=IDLE, 1=OPENING, 2=CLOSING
                 last_op = state.get("last_known_operation", 2)
                 cover_pos = state.get("position")
+                always_open_till = kwargs.get("always_open_till", 50) if action_upper == "SMART_TOGGLE" else None
                 _LOGGER.debug(
-                    "TOGGLE cover '%s': key=%s, state=%s, current_op=%s, last_op=%s, position=%s, all_states=%s",
-                    cover_id, cover_key, state, current_op, last_op, cover_pos,
-                    {k: v for k, v in self._cover_states.items()},
+                    "ESPHome %s cover '%s': current_op=%s, last_op=%s, position=%s, always_open_till=%s",
+                    action_upper, cover_id, current_op, last_op, cover_pos, always_open_till,
                 )
                 
                 if current_op != 0: # If moving, stop it
-                    _LOGGER.debug("TOGGLE -> STOP (cover is moving, current_op=%s)", current_op)
+                    _LOGGER.debug("%s -> STOP (cover is moving, current_op=%s)", action_upper, current_op)
                     self._client.cover_command(cover_key, stop=True)
-                elif last_op == 2: # If last operation was CLOSING, open it
-                    _LOGGER.debug("TOGGLE -> OPEN (last_op=CLOSING)")
-                    self._client.cover_command(cover_key, position=1.0)
-                else: # Otherwise close it
-                    _LOGGER.debug("TOGGLE -> CLOSE (last_op=%s)", last_op)
-                    self._client.cover_command(cover_key, position=0.0)
+                elif cover_pos is not None:
+                    # Position is known — use it for smarter decisions
+                    pos_pct = int(cover_pos * 100)
+                    if always_open_till is not None and pos_pct <= always_open_till:
+                        # SMART_TOGGLE: below threshold → always open
+                        _LOGGER.debug("SMART_TOGGLE -> OPEN (pos=%d%% <= threshold=%d%%)", pos_pct, always_open_till)
+                        self._client.cover_command(cover_key, position=1.0)
+                    elif cover_pos >= 0.99:
+                        # Fully open → close
+                        _LOGGER.debug("%s -> CLOSE (fully open, pos=%.2f)", action_upper, cover_pos)
+                        self._client.cover_command(cover_key, position=0.0)
+                    elif cover_pos <= 0.01:
+                        # Fully closed → open
+                        _LOGGER.debug("%s -> OPEN (fully closed, pos=%.2f)", action_upper, cover_pos)
+                        self._client.cover_command(cover_key, position=1.0)
+                    elif last_op == 2:
+                        # Last was closing → open
+                        _LOGGER.debug("%s -> OPEN (last_op=CLOSING)", action_upper)
+                        self._client.cover_command(cover_key, position=1.0)
+                    else:
+                        # Last was opening → close
+                        _LOGGER.debug("%s -> CLOSE (last_op=%s)", action_upper, last_op)
+                        self._client.cover_command(cover_key, position=0.0)
+                else:
+                    # No position known — use last_op only
+                    if last_op == 2:
+                        _LOGGER.debug("%s -> OPEN (no position, last_op=CLOSING)", action_upper)
+                        self._client.cover_command(cover_key, position=1.0)
+                    else:
+                        _LOGGER.debug("%s -> CLOSE (no position, last_op=%s)", action_upper, last_op)
+                        self._client.cover_command(cover_key, position=0.0)
             elif action_upper == "TOGGLE_OPEN":
                 state = self._cover_states.get(cover_id, {})
                 current_op = state.get("current_operation", 0)

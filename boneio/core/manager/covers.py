@@ -13,7 +13,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import COVER, DEVICE_CLASS, ID, NAME, RESTORE_STATE, SHOW_HA, cover_actions
+from boneio.const import COVER, DEVICE_CLASS, ID, NAME, RESTORE_STATE, SHOW_HA, cover_actions, filter_cover_extra_data
 from boneio.core.utils import TimePeriod, strip_accents
 from boneio.exceptions import CoverConfigurationException
 from boneio.integration import ha_cover_availabilty_message
@@ -387,8 +387,10 @@ class CoverManager:
         
         try:
             _f = getattr(cover, action_to_execute)
-            if extra_data:
-                await _f(**extra_data)
+            # Filter extra_data to only pass params accepted by the action
+            filtered = filter_cover_extra_data(action_to_execute, extra_data or {})
+            if filtered:
+                await _f(**filtered)
             else:
                 await _f()
         except Exception as err:
