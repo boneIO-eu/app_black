@@ -67,7 +67,8 @@ class InputManager:
         self._event_pins = event_pins
         self._binary_pins = binary_pins
         # Track inputs that already had first long press published to MQTT (for single mode)
-        self._long_press_mqtt_published: set[str] = set()
+        # Maps input_id -> timestamp of last long press MQTT publish
+        self._long_press_mqtt_last_ts: dict[str, float] = {}
         
         # Configure inputs
         self._configure_inputs()
@@ -659,22 +660,28 @@ class InputManager:
                     return
             
             # Long press MQTT mode filtering:
-            # In 'single' mode, only publish the first long press event to MQTT.
+            # In 'single' mode, only publish the first long press event per press cycle.
             # Periodic updates (with growing duration) are skipped to avoid
             # triggering repeated actions in Node-RED or other MQTT consumers.
+            # A new press cycle is detected when duration resets (new duration < last duration).
             if click_type == LONG:
                 mqtt_mode = getattr(input_instance, 'long_press_mqtt_mode', 'single')
                 if mqtt_mode == "single":
-                    if input_id in self._long_press_mqtt_published:
+                    current_duration = event.duration or 0.0
+                    last_duration = self._long_press_mqtt_last_ts.get(input_id, 0.0)
+                    if current_duration > last_duration and last_duration > 0.0:
+                        # Duration is growing — this is a periodic update, skip it
                         _LOGGER.debug(
-                            "Skipping periodic long press MQTT for %s (mode=single, already published)",
-                            input_id
+                            "Skipping periodic long press MQTT for %s (mode=single, duration=%.3f > last=%.3f)",
+                            input_id, current_duration, last_duration
                         )
+                        self._long_press_mqtt_last_ts[input_id] = current_duration
                         return
-                    self._long_press_mqtt_published.add(input_id)
+                    # New press cycle (duration reset) or first long press — publish
+                    self._long_press_mqtt_last_ts[input_id] = current_duration
             else:
-                # Any non-long event clears the tracking (button released, new click cycle)
-                self._long_press_mqtt_published.discard(input_id)
+                # Any non-long event clears the tracking
+                self._long_press_mqtt_last_ts.pop(input_id, None)
             
             event_payload: dict[str, str | float | None] = {"event_type": click_type}
             if event.duration is not None:
