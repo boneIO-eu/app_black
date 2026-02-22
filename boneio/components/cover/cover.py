@@ -265,6 +265,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         _LOGGER.debug("Toggle cover %s from input.", self._id)
         if self._current_operation != IDLE:
             await self.stop()
+        elif self._position >= 100:
+            await self.close()
+        elif self._position <= 0:
+            await self.open()
         elif self._last_operation == CLOSING:
             await self.open()
         else:
@@ -302,6 +306,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         if self._current_operation != IDLE:
             await self.stop()
         elif self._position <= always_open_till:
+            await self.open()
+        elif self._position >= 100:
+            await self.close()
+        elif self._position <= 0:
             await self.open()
         elif self._last_operation == CLOSING:
             await self.open()
