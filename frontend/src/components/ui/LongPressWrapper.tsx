@@ -44,6 +44,11 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
         }
     };
 
+    const handleTouchMove = () => {
+        // Cancel long press if user moves finger (scrolling)
+        handlePressEnd();
+    };
+
     const handleClick = (e: React.MouseEvent) => {
         if ((e.target as Element).closest('button, a')) return;
         if (!isLongPress.current && onClick) {
@@ -58,6 +63,7 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
             onMouseUp={handlePressEnd}
             onMouseLeave={handlePressEnd}
             onTouchStart={handlePressStart}
+            onTouchMove={handleTouchMove}
             onTouchEnd={handlePressEnd}
             onContextMenu={(e) => {
                 if (!(e.target as Element).closest('button, a')) {

@@ -53,9 +53,9 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
     <LongPressWrapper
       onClick={() => onCopy(inputEvent.state.name)}
       onLongPress={() => onLongPress(inputEvent)}
-      preventDefaultOnTouchStart={true}
+      preventDefaultOnTouchStart={false}
       className={clsx(
-        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 cursor-pointer hover:bg-base-300 select-none touch-none',
+        'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 cursor-pointer hover:bg-base-300 select-none touch-manipulation',
         isGrid ? 'border-l-4' : 'border-l-8',
         'border-blue-500',
         // Only apply transition when highlighted to avoid flash on duration updates
