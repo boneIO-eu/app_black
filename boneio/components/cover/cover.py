@@ -16,7 +16,7 @@ from boneio.const import (
     OPEN,
     OPENING,
 )
-from boneio.core.events import EventBus, async_track_point_in_time, utcnow
+from boneio.core.events import EventBus
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import TimePeriod
 from boneio.models import CoverState, PositionDict
