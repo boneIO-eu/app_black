@@ -993,6 +993,8 @@
     "esphome_cover_id": "Cover",
     "select_esphome_cover": "Select cover...",
     "esphome_cover_action": "Cover Action",
+    "always_open_till": "Always open till (%)",
+    "always_open_till_hint": "If cover position is at or below this value, it will always open. Above it, normal toggle applies.",
     "validation_esphome_device_required": "ESPHome device is required",
     "duration_thresholds": "Duration Thresholds",
     "duration_thresholds_hint": "Optional: Execute this action only when long press duration is within specified range (in milliseconds)",

@@ -39,7 +39,7 @@ export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
 /** Cover action options */
 export type CoverAction = 
   | 'TOGGLE' | 'OPEN' | 'CLOSE' | 'STOP' 
-  | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' 
+  | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' | 'SMART_TOGGLE'
   | 'TILT' | 'TILT_OPEN' | 'TILT_CLOSE';
 
 /** BoneIO input pin identifiers (IN_01 to IN_49, case-insensitive) */
@@ -49,12 +49,14 @@ export type BoneioInput = string;
 // Action types
 // ============================================
 
-/** Extra data for cover actions (position, tilt) */
+/** Extra data for cover actions (position, tilt, smart toggle) */
 export interface ActionData {
   /** Position to set cover to (0-100) */
   position?: number;
   /** Tilt position to set cover to (0-100) */
   tilt_position?: number;
+  /** Smart toggle threshold (0-100%) - cover opens if position <= this value */
+  always_open_till?: number;
 }
 
 /** Single action configuration */

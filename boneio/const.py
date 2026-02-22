@@ -181,6 +181,7 @@ cover_actions = {
     "STOP": "stop",
     "TOGGLE_OPEN": "toggle_open",
     "TOGGLE_CLOSE": "toggle_close",
+    "SMART_TOGGLE": "smart_toggle",
     "TILT": "set_tilt",
     'TILT_OPEN': 'tilt_open',
     'TILT_CLOSE': 'tilt_close',

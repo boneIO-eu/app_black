@@ -284,6 +284,29 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         else:
             await self.close()
 
+    async def smart_toggle(self, always_open_till: int = 50) -> None:
+        """Smart toggle with position threshold.
+
+        If cover is moving → stop.
+        If position <= always_open_till → open (to 100%).
+        If position > always_open_till → normal toggle (based on last_operation).
+
+        Args:
+            always_open_till: Position threshold (0-100%). Below or equal this
+                value the cover will always open. Above it, normal toggle applies.
+        """
+        _LOGGER.debug(
+            "Smart toggle cover %s (position=%d%%, threshold=%d%%)",
+            self._id, self._position, always_open_till,
+        )
+        if self._current_operation != IDLE:
+            await self.stop()
+        elif self._position <= always_open_till:
+            await self.open()
+        elif self._last_operation == CLOSING:
+            await self.open()
+        else:
+            await self.close()
 
     @property
     def state(self) -> str:

@@ -84,6 +84,30 @@ const CoverAction: React.FC<CoverActionProps> = ({
           </SelectContent>
         </Select>
       </div>
+
+      {action.action_cover === 'SMART_TOGGLE' && (
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">{t('event_form.always_open_till')}</span>
+          </label>
+          <input
+            type="number"
+            className="input input-bordered w-full"
+            min={0}
+            max={100}
+            placeholder="50"
+            value={action.data?.always_open_till ?? 50}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              const data = { ...(action.data || {}), always_open_till: isNaN(val) ? 50 : Math.min(100, Math.max(0, val)) };
+              onUpdate('data', data);
+            }}
+          />
+          <label className="label">
+            <span className="label-text-alt">{t('event_form.always_open_till_hint')}</span>
+          </label>
+        </div>
+      )}
     </>
   );
 };

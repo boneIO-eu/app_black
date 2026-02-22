@@ -35,7 +35,7 @@ schema:
       action: ['cover', 'cover_over_mqtt', 'remote_cover']
     forbidden_if:
       action: ['output', 'mqtt', 'mqtt_output', 'remote_output']
-    allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE']
+    allowed: ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE']
     coerce: action_field
     default: TOGGLE
     case_insensitive: true
@@ -58,6 +58,18 @@ schema:
         required: False
         meta:
           label: Tilt position to set cover to. 0 means closed, 100 means opened.
+      always_open_till:
+        type: integer
+        required: False
+        min: 0
+        max: 100
+        default: 50
+        meta:
+          label: Smart toggle threshold (0-100%).
+          description: |
+            Position threshold for SMART_TOGGLE action.
+            If cover position is at or below this value, it will always open.
+            Above this value, normal toggle behavior applies.
   action_output:
     type: string
     required_if:

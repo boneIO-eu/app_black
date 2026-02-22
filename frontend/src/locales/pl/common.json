@@ -1000,6 +1000,8 @@
     "esphome_cover_id": "Roleta",
     "select_esphome_cover": "Wybierz roletę...",
     "esphome_cover_action": "Akcja Rolety",
+    "always_open_till": "Zawsze otwieraj do (%)",
+    "always_open_till_hint": "Jeśli pozycja rolety jest równa lub poniżej tej wartości, roleta zawsze się otworzy. Powyżej — normalne toggle.",
     "duration_thresholds": "Progi Czasowe",
     "duration_thresholds_hint": "Opcjonalnie: Wykonaj tę akcję tylko gdy czas długiego naciśnięcia jest w określonym zakresie (w milisekundach)",
     "min_duration_ms": "Min. Czas (ms)",

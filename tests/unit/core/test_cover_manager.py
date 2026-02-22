@@ -343,3 +343,127 @@ class TestCoverManagerRelayReload:
         assert cover_mgr.get_cover("cover_a") is None, "cover_a should be removed"
         assert cover_mgr.get_cover("cover_b") is not None, "cover_b should still exist"
         assert len(cover_mgr.get_all_covers()) == 1
+
+
+class TestSmartToggle:
+    """Tests for BaseCover.smart_toggle method."""
+
+    @pytest.fixture
+    def event_loop(self):
+        """Provide an event loop for tests that need asyncio."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        yield loop
+        loop.close()
+
+    @pytest.fixture
+    def relays(self):
+        """Create mock relays."""
+        return {
+            "OUT_01": _make_mock_relay("OUT_01"),
+            "OUT_02": _make_mock_relay("OUT_02"),
+        }
+
+    @pytest.fixture
+    def initial_cover_config(self):
+        """Cover config for smart_toggle tests."""
+        return [
+            {
+                "id": "test_cover",
+                "platform": "time_based",
+                "open_relay": "OUT_01",
+                "close_relay": "OUT_02",
+                "open_time": TimePeriod(seconds=10),
+                "close_time": TimePeriod(seconds=10),
+                "restore_state": False,
+                "show_in_ha": False,
+            }
+        ]
+
+    def test_smart_toggle_below_threshold_opens(self, event_loop, relays, initial_cover_config):
+        """When position <= threshold, smart_toggle should open."""
+        manager = _make_mock_manager(relays)
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+        cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
+
+        # Position 30%, threshold 40% → should open
+        cover._position = 30
+        cover._current_operation = "idle"
+        cover._last_operation = "closing"
+
+        event_loop.run_until_complete(cover.smart_toggle(always_open_till=40))
+        # After smart_toggle with pos<=threshold, last_operation should be opening
+        assert cover._last_operation == "opening"
+
+    def test_smart_toggle_at_threshold_opens(self, event_loop, relays, initial_cover_config):
+        """When position == threshold, smart_toggle should open."""
+        manager = _make_mock_manager(relays)
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+        cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
+
+        cover._position = 40
+        cover._current_operation = "idle"
+        cover._last_operation = "closing"
+
+        event_loop.run_until_complete(cover.smart_toggle(always_open_till=40))
+        assert cover._last_operation == "opening"
+
+    def test_smart_toggle_above_threshold_last_closing_opens(self, event_loop, relays, initial_cover_config):
+        """When position > threshold and last_operation was closing, should open (normal toggle)."""
+        manager = _make_mock_manager(relays)
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+        cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
+
+        cover._position = 60
+        cover._current_operation = "idle"
+        cover._last_operation = "closing"
+
+        event_loop.run_until_complete(cover.smart_toggle(always_open_till=40))
+        assert cover._last_operation == "opening"
+
+    def test_smart_toggle_above_threshold_last_opening_closes(self, event_loop, relays, initial_cover_config):
+        """When position > threshold and last_operation was opening, should close (normal toggle)."""
+        manager = _make_mock_manager(relays)
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+        cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
+
+        cover._position = 60
+        cover._current_operation = "idle"
+        cover._last_operation = "opening"
+
+        event_loop.run_until_complete(cover.smart_toggle(always_open_till=40))
+        assert cover._last_operation == "closing"
+
+    def test_smart_toggle_while_moving_stops(self, event_loop, relays, initial_cover_config):
+        """When cover is moving, smart_toggle should stop (not open/close)."""
+        manager = _make_mock_manager(relays)
+        from boneio.core.manager.covers import CoverManager
+        cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
+        cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
+
+        cover._position = 30
+        cover._current_operation = "opening"
+
+        # Mock stop() to verify it's called instead of open/close
+        stop_called = False
+        original_stop = cover.stop
+
+        async def mock_stop():
+            nonlocal stop_called
+            stop_called = True
+            cover._current_operation = "idle"
+
+        cover.stop = mock_stop
+        event_loop.run_until_complete(cover.smart_toggle(always_open_till=40))
+        assert stop_called, "stop() should be called when cover is moving"
+        assert cover._current_operation == "idle"
+        cover.stop = original_stop
