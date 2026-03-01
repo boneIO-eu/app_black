@@ -1,56 +1,7 @@
-import type { CoverEntity, OutputEntity } from '@/types/config';
+import type { AreaEntity, CoverEntity, OutputEntity, RemoteDeviceEntity } from '@/types/config';
 
-export interface Area {
-  id: string;
-  name: string;
-}
-
-export interface RemoteDevice {
-  id: string;
-  name?: string;
-  protocol?: string;
-  mqtt?: {
-    outputs?: { id: string; name?: string }[];
-    covers?: { id: string; name?: string }[];
-  };
-  esphome_api?: {
-    host?: string;
-    switches?: { id: string; name?: string; key?: number }[];
-    lights?: { 
-      id: string; 
-      name?: string; 
-      key?: number; 
-      supports_brightness?: boolean; 
-      supports_color_temp?: boolean; 
-      supports_rgb?: boolean; 
-      supports_rgbw?: boolean;
-      min_mireds?: number; 
-      max_mireds?: number;
-      effects?: string[];
-    }[];
-    covers?: { 
-      id: string; 
-      name?: string; 
-      key?: number; 
-      supports_position?: boolean; 
-      supports_tilt?: boolean 
-    }[];
-  };
-  wled?: {
-    host?: string;
-    port?: number;
-    segments?: { 
-      id: number; 
-      name?: string; 
-      start?: number; 
-      stop?: number; 
-      len?: number; 
-      supports_rgb?: boolean 
-    }[];
-    effects?: { id: number; name: string }[];
-    palettes?: { id: number; name: string }[];
-  };
-}
+export type Area = AreaEntity;
+export type RemoteDevice = RemoteDeviceEntity;
 
 export interface ActionFieldsProps {
   action: any;

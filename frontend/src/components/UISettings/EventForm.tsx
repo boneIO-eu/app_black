@@ -15,17 +15,9 @@ import type {
   AreaEntity,
   OutputEntity,
   CoverEntity,
-  BinarySensorEntity 
+  BinarySensorEntity,
+  RemoteDeviceEntity,
 } from '@/types/config';
-
-interface RemoteDeviceEntity {
-  id: string;
-  name?: string;
-  mqtt?: {
-    outputs?: { id: string; name?: string }[];
-    covers?: { id: string; name?: string }[];
-  };
-}
 
 interface EventFormProps {
   /** Current event entity data being edited */
@@ -172,6 +164,12 @@ const EventForm: React.FC<EventFormProps> = ({
         // Keep only fields that are common across all action types
         ...(currentAction?.boneio_id && { boneio_id: currentAction.boneio_id })
       };
+    } else if (field === 'remote_device') {
+      // Clear dependent fields when changing remote device
+      newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
+    } else if (field === 'output_id') {
+      // Clear presets/colors when changing output
+      newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, presets: undefined, colors: undefined };
     } else {
       newActions[actionType][index] = { ...newActions[actionType][index], [field]: value };
     }

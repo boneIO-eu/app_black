@@ -89,6 +89,12 @@ class GpioEventButton(GpioBaseClass):
         # Get enable_triple_click setting (default: False)
         enable_triple_click = kwargs.get('enable_triple_click', False)
         
+        # Safety timeout for long press (default: 120s)
+        max_long_press_seconds = _to_milliseconds(
+            kwargs.get('max_long_press_duration'),
+            120 * 1000  # 120s default
+        ) / 1000.0
+        
         # Create multiclick detector
         self._detector = MultiClickDetector(
             loop=self._loop,
@@ -102,6 +108,7 @@ class GpioEventButton(GpioBaseClass):
             enable_triple_click=enable_triple_click,
             name=self._name,
             pin=self._pin,
+            max_long_press_seconds=max_long_press_seconds,
         )
         
         # Register with GPIO manager
@@ -148,6 +155,7 @@ class GpioEventButton(GpioBaseClass):
         mqtt_sequences: dict | None = None,
         enable_triple_click: bool | None = None,
         long_press_mqtt_mode: str | None = None,
+        max_long_press_duration: int | float | None = None,
     ) -> None:
         """Update timing parameters for click detection.
         
@@ -163,6 +171,7 @@ class GpioEventButton(GpioBaseClass):
             mqtt_sequences: MQTT sequences dict to determine enabled sequences
             enable_triple_click: Enable triple click detection
             long_press_mqtt_mode: 'single' or 'periodic' for MQTT long press events
+            max_long_press_duration: Safety timeout for long press in ms (default: 120000ms)
         """
         from boneio.const import CLICK_SEQUENCES
         
@@ -216,6 +225,11 @@ class GpioEventButton(GpioBaseClass):
                             self._detector._delay_click_types.add(first)
                             break
             _LOGGER.debug("Updated enabled_sequences to %s for %s", enabled_sequences, self._name)
+
+        if max_long_press_duration is not None:
+            value_ms = _to_milliseconds(max_long_press_duration, 120 * 1000)
+            self._detector._max_long_press_seconds = value_ms / 1000.0
+            _LOGGER.debug("Updated max_long_press_duration to %dms for %s", value_ms, self._name)
 
         if long_press_mqtt_mode is not None:
             self._long_press_mqtt_mode = long_press_mqtt_mode

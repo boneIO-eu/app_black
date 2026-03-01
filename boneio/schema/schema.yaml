@@ -1115,6 +1115,21 @@ event:
             How long press events are published to MQTT:
             - single: Only the first long press event is sent. Periodic updates are skipped. Prevents repeated triggers in Node-RED.
             - periodic: All long press events (with growing duration) are sent every 200ms. Use if you need duration tracking in MQTT.
+      max_long_press_duration:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        default: '120s'
+        meta:
+          label: Max Long Press Duration
+          description: |
+            Safety timeout for long press in seconds.
+            If a long press exceeds this duration, it is automatically stopped.
+            Prevents infinite long press events when RELEASE edge is missed (e.g., due to EMI or hardware issues).
       mqtt_sequences:
         required: False
         type: dict

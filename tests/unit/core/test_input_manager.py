@@ -92,6 +92,7 @@ class TestInputManagerMQTTPublish:
                 im._inputs = {}
                 im._event_pins = []
                 im._binary_pins = []
+                im._long_press_mqtt_last_ts = {}
                 return im
 
     def test_binary_sensor_publishes_pressed_state(self, input_manager, mock_manager):
@@ -331,6 +332,7 @@ class TestInputManagerHandleEvent:
                 im._inputs = {}
                 im._event_pins = []
                 im._binary_pins = []
+                im._long_press_mqtt_last_ts = {}
                 return im
 
     @pytest.mark.asyncio

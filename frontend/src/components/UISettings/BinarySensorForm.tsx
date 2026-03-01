@@ -3,7 +3,14 @@ import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction } from './ActionFields';
 import { TabsBox } from '@/components/ui/tabs-box';
-import type { CoverEntity, OutputEntity } from '@/types/config';
+import type { 
+  BinarySensorEntity, 
+  CoverEntity, 
+  OutputEntity, 
+  AreaEntity,
+  RemoteDeviceEntity,
+  Action,
+} from '@/types/config';
 import {
   Select,
   SelectContent,
@@ -12,87 +19,30 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface Action {
-  action: string;
-  /** Output ID to control (for output action) */
-  boneio_output?: string;
-  /** Cover ID to control (for cover action) */
-  boneio_cover?: string;
-  /** @deprecated Use boneio_output or boneio_cover instead */
-  pin?: string;
-  topic?: string;
-  action_cover?: string;
-  action_output?: string;
-  action_mqtt_msg?: string;
-  boneio_id?: string;
-  data?: {
-    position?: number;
-    tilt_position?: number;
-  };
-}
-
-interface BinarySensorData {
-  name?: string;
-  pin?: string;
-  boneio_input?: string;
-  bounce_time?: string | number;
-  show_in_ha?: boolean;
-  inverted?: boolean;
-  initial_send?: boolean;
-  clear_message?: boolean;
-  device_class?: string;
-  area?: string;
-  actions?: {
-    pressed?: Action[];
-    released?: Action[];
-  };
-}
-
-interface Area {
-  id: string;
-  name: string;
-}
-
-interface RemoteDevice {
-  id: string;
-  name?: string;
-  protocol?: string;
-  mqtt?: {
-    outputs?: { id: string; name?: string }[];
-    covers?: { id: string; name?: string }[];
-  };
-  esphome_api?: {
-    host?: string;
-    switches?: { id: string; name?: string; key?: number }[];
-    lights?: { id: string; name?: string; key?: number; supports_brightness?: boolean }[];
-    covers?: { id: string; name?: string; key?: number }[];
-  };
-}
-
 interface BinarySensorFormProps {
-  data: BinarySensorData;
-  onChange: (data: BinarySensorData) => void;
+  data: BinarySensorEntity;
+  onChange: (data: BinarySensorEntity) => void;
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
   schema?: any;
-  allBinarySensors?: any[];
+  allBinarySensors?: BinarySensorEntity[];
   allEvents?: any[];
   editingIndex?: number | null;
   allOutputs?: OutputEntity[];
   allOutputGroups?: any[];
   allCovers?: CoverEntity[];
-  allAreas?: Area[];
-  allRemoteDevices?: RemoteDevice[];
+  allAreas?: AreaEntity[];
+  allRemoteDevices?: RemoteDeviceEntity[];
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
   attemptedSubmit?: boolean;
   /** Saved (committed) outputs for comparison */
-  savedOutputs?: any[];
+  savedOutputs?: OutputEntity[];
   /** Saved (committed) output groups for comparison */
   savedOutputGroups?: any[];
   /** Saved (committed) covers for comparison */
-  savedCovers?: any[];
+  savedCovers?: CoverEntity[];
 }
 
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
@@ -188,7 +138,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE'
   ];
 
-  const updateField = (field: keyof BinarySensorData, value: any) => {
+  const updateField = (field: keyof BinarySensorEntity, value: any) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -215,6 +165,12 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         } else {
           updatedActions[index] = { ...updatedActions[index], [field]: value };
         }
+      } else if (field === 'remote_device') {
+        // Clear dependent fields when changing remote device
+        updatedActions[index] = { ...updatedActions[index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
+      } else if (field === 'output_id') {
+        // Clear presets/colors when changing output
+        updatedActions[index] = { ...updatedActions[index], [field]: value, presets: undefined, colors: undefined };
       } else {
         updatedActions[index] = { ...updatedActions[index], [field]: value };
       }

@@ -75,9 +75,6 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           value={action.remote_device || ''}
           onValueChange={(value) => {
             onUpdate('remote_device', value);
-            onUpdate('output_id', undefined);
-            onUpdate('presets', undefined);
-            onUpdate('colors', undefined);
           }}
         >
           <SelectTrigger className="w-full">
@@ -107,8 +104,6 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           value={action.output_id || ''}
           onValueChange={(value) => {
             onUpdate('output_id', value);
-            onUpdate('presets', undefined);
-            onUpdate('colors', undefined);
           }}
           disabled={!action.remote_device}
         >

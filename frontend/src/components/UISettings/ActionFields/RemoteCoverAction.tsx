@@ -36,7 +36,6 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           value={action.remote_device || ''}
           onValueChange={(value) => {
             onUpdate('remote_device', value);
-            onUpdate('cover_id', '');
           }}
         >
           <SelectTrigger className="w-full">

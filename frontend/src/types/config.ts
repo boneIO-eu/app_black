@@ -107,6 +107,10 @@ export interface Action {
   color_temp?: number;
   /** Transition time in seconds */
   transition?: number;
+  /** Light/WLED presets for cycle actions */
+  presets?: any;
+  /** Light/WLED colors for cycle actions */
+  colors?: any;
 }
 
 /** Action type keys for event entity */
@@ -215,6 +219,10 @@ export interface BinarySensorEntity {
   show_in_ha?: boolean;
   /** Invert sensor state */
   inverted?: boolean;
+  /** Send initial state on startup */
+  initial_send?: boolean;
+  /** Clear MQTT message after action (like Zigbee2MQTT) */
+  clear_message?: boolean;
   /** Sensor kind (sensor or button) */
   kind?: BinarySensorKind;
   /** Device class for Home Assistant */
@@ -434,9 +442,9 @@ export interface RemoteDeviceEntity {
   /** Device ID */
   id: string;
   /** Display name */
-  name: string;
+  name?: string;
   /** Communication protocol */
-  protocol: RemoteDeviceProtocol;
+  protocol?: RemoteDeviceProtocol;
   /** Device type */
   device_type?: RemoteDeviceType;
   /** MQTT configuration (for protocol: mqtt) */

@@ -31,6 +31,7 @@ class ClickState:
     """State for tracking multi-click detection."""
     click_count: int = 0
     last_press_ts: float | None = None
+    last_press_loop_ts: float | None = None  # Event loop time of last press (for duration calc)
     last_release_ts: float | None = None
     finalizer: asyncio.TimerHandle | None = None
     finalizer_scheduled_loop_ts: float | None = None
@@ -77,6 +78,7 @@ class MultiClickDetector:
         enable_triple_click: bool = False,
         name: str = "unknown",
         pin: str = "unknown",
+        max_long_press_seconds: float = 120.0,
     ):
         """Initialize multiclick detector.
         
@@ -92,6 +94,7 @@ class MultiClickDetector:
             enable_triple_click: Enable triple click detection (default: False)
             name: Name of the input
             pin: Pin name for logging
+            max_long_press_seconds: Safety timeout for long press in seconds (default: 120s)
         """
         self._loop = loop
         self._callback = callback
@@ -104,6 +107,7 @@ class MultiClickDetector:
         self._enable_triple_click = enable_triple_click
         self._name = name
         self._pin = pin
+        self._max_long_press_seconds = max_long_press_seconds
         self._state = ClickState()
         
         # Pre-compute which click types should be delayed in exclusive mode
@@ -357,14 +361,14 @@ class MultiClickDetector:
 
     def _detect_long_press(self) -> None:
         """Detect and report a long press and start periodic updates."""
-        if not self._state.last_press_ts:
+        if not self._state.last_press_loop_ts:
             return
         
         # Reset executed actions for new long press
         self._state.executed_long_actions = set()
         self._state.last_repeat_times = {}
         
-        duration = self._loop.time() - self._state.last_press_ts
+        duration = self._loop.time() - self._state.last_press_loop_ts
         
         _LOGGER.info("Detected LONG press on %s (%s)", self._name, self._pin)
         
@@ -383,11 +387,24 @@ class MultiClickDetector:
     
     def _send_periodic_long_event(self) -> None:
         """Send periodic 'long' event with updated duration."""
-        if not self._state.last_press_ts or self._state.last_release_ts:
+        if not self._state.last_press_loop_ts or self._state.last_release_ts:
             # Button released or invalid state
             return
         
-        duration = self._loop.time() - self._state.last_press_ts
+        duration = self._loop.time() - self._state.last_press_loop_ts
+        
+        # Safety timeout: stop periodic events if duration exceeds max
+        if duration > self._max_long_press_seconds:
+            _LOGGER.warning(
+                "Safety timeout: long press on %s (%s) exceeded %.0fs (duration=%.1fs). "
+                "Possible missed RELEASE event. Forcing stop.",
+                self._name,
+                self._pin,
+                self._max_long_press_seconds,
+                duration,
+            )
+            self._force_stop_long_press()
+            return
         
         _LOGGER.debug(
             "Periodic long event on %s (%s), duration=%.3fs",
@@ -403,6 +420,34 @@ class MultiClickDetector:
         self._state.long_hold_periodic_timer = self._loop.call_later(
             0.2,
             self._send_periodic_long_event
+        )
+    
+    def _force_stop_long_press(self) -> None:
+        """Force stop a long press due to safety timeout (missed RELEASE).
+        
+        Cleans up all long-press related state as if a RELEASE event occurred.
+        """
+        if self._state.long_hold_periodic_timer:
+            self._state.long_hold_periodic_timer.cancel()
+            self._state.long_hold_periodic_timer = None
+        
+        if self._state.long_press_timer:
+            self._state.long_press_timer.cancel()
+            self._state.long_press_timer = None
+            self._state.long_press_scheduled_loop_ts = None
+        
+        # Simulate release: use last_press_ts (kernel time) as base to stay
+        # consistent with debounce comparisons that use kernel timestamps
+        self._state.last_release_ts = self._state.last_press_ts or 0.0
+        
+        # Reset long press action tracking
+        self._state.executed_long_actions = set()
+        self._state.last_repeat_times = {}
+        
+        _LOGGER.info(
+            "Forced long press stop on %s (%s) - state cleaned up",
+            self._name,
+            self._pin,
         )
 
     def handle_event(self, event: gpiod.EdgeEvent) -> None:
@@ -435,6 +480,7 @@ class MultiClickDetector:
 
             _LOGGER.debug("PRESSED: %s (%s)", self._name, self._pin)
             self._state.last_press_ts = timestamp_s
+            self._state.last_press_loop_ts = self._loop.time()  # Store loop time for duration calc
             self._state.last_release_ts = None  # Reset release timestamp for new press
 
             # Cancel any pending finalizer for a multi-click sequence
@@ -510,8 +556,8 @@ class MultiClickDetector:
                 # Note: The callback creates an async task, so we need to delay
                 # the reset of executed_actions to allow the async handler to
                 # read the current state before it's cleared
-                if self._state.last_press_ts:
-                    duration = timestamp_s - self._state.last_press_ts
+                if self._state.last_press_loop_ts:
+                    duration = self._loop.time() - self._state.last_press_loop_ts
                     _LOGGER.debug(
                         "Sending final long event on release for %s, duration=%.3fs, executed_actions=%s",
                         self._name,

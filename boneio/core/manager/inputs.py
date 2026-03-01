@@ -253,6 +253,7 @@ class InputManager:
                     mqtt_sequences=new_mqtt_sequences,
                     enable_triple_click=gpio.get('enable_triple_click'),
                     long_press_mqtt_mode=gpio.get('long_press_mqtt_mode'),
+                    max_long_press_duration=gpio.get('max_long_press_duration'),
                 )
                 
                 # Re-send HA discovery only if HA-relevant fields changed (name, area, mqtt_sequences)
