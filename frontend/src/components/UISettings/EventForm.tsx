@@ -762,6 +762,19 @@ const EventForm: React.FC<EventFormProps> = ({
                 </span>
               </label>
             </div>
+
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                label={t('event_form.max_long_press_duration')}
+                value={data.max_long_press_duration || '120s'}
+                onChange={(value) => updateField('max_long_press_duration', value)}
+                maximum={600}
+                allowedUnits={['s']}
+              />
+              <label className="label">
+                <span className="label-text-alt">{t('event_form.max_long_press_duration_hint')} ({t('common.default')}: 120s)</span>
+              </label>
+            </div>
           </div>
 
           {/* Timing validation warning */}

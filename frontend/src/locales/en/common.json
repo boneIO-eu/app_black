@@ -187,7 +187,8 @@
     "selected": "Selected",
     "at_least_one_required": "At least one output is required",
     "all_on_behaviour": "All On Behaviour",
-    "all_on_behaviour_hint": "If true, toggle when all outputs are on. Otherwise, group is on if any output is on."
+    "all_on_behaviour_hint": "If true, toggle when all outputs are on. Otherwise, group is on if any output is on.",
+    "output_used_as_cover": "This output is used as a cover relay and will be ignored in this group"
   },
   "settings": {
     "title": "Settings",
@@ -932,6 +933,8 @@
     "long_press_mqtt_periodic": "Periodic (all events with duration)",
     "long_press_mqtt_single_hint": "Only the first long press event is sent to MQTT. Prevents repeated triggers in Node-RED and other MQTT consumers.",
     "long_press_mqtt_periodic_hint": "All long press events are sent to MQTT every 200ms with growing duration. Use if you need duration tracking in MQTT.",
+    "max_long_press_duration": "Max Long Press Duration",
+    "max_long_press_duration_hint": "Safety timeout. Long press is automatically stopped if it exceeds this duration (missed RELEASE protection).",
     "triple_click_disabled_warning": "Triple click detection is disabled! Go to the Advanced tab and enable 'Enable Triple Click' for these actions to work.",
     "timing_validation_error": "Double click duration must be less than long press duration!",
     "restore_defaults": "Restore Defaults",

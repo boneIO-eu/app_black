@@ -192,7 +192,8 @@
     "selected": "Wybrane",
     "at_least_one_required": "Wymagane jest co najmniej jedno wyjście",
     "all_on_behaviour": "Zachowanie Wszystkie Włączone",
-    "all_on_behaviour_hint": "Jeśli true, przełącza gdy wszystkie wyjścia są włączone. W przeciwnym razie grupa jest włączona gdy jakiekolwiek wyjście jest włączone."
+    "all_on_behaviour_hint": "Jeśli true, przełącza gdy wszystkie wyjścia są włączone. W przeciwnym razie grupa jest włączona gdy jakiekolwiek wyjście jest włączone.",
+    "output_used_as_cover": "To wyjście jest używane jako przekaźnik rolety i będzie ignorowane w tej grupie"
   },
   "settings": {
     "title": "Ustawienia",
@@ -939,6 +940,8 @@
     "long_press_mqtt_periodic": "Periodyczny (wszystkie eventy z duration)",
     "long_press_mqtt_single_hint": "Tylko pierwszy event długiego naciśnięcia jest wysyłany do MQTT. Zapobiega powtarzającym się wyzwalaczom w Node-RED i innych konsumentach MQTT.",
     "long_press_mqtt_periodic_hint": "Wszystkie eventy długiego naciśnięcia są wysyłane do MQTT co 200ms z rosnącym duration. Użyj jeśli potrzebujesz śledzenia czasu trwania w MQTT.",
+    "max_long_press_duration": "Maks. czas długiego naciśnięcia",
+    "max_long_press_duration_hint": "Zabezpieczenie. Długie naciśnięcie jest automatycznie zatrzymywane po przekroczeniu tego czasu (ochrona przed brakującym RELEASE).",
     "triple_click_disabled_warning": "Wykrywanie potrójnego kliknięcia jest wyłączone! Przejdź do karty Zaawansowane i włącz 'Włącz Potrójne Kliknięcie', aby te akcje działały.",
     "timing_validation_error": "Czas podwójnego kliknięcia musi być mniejszy niż czas długiego naciśnięcia!",
     "restore_defaults": "Przywróć Domyślne",

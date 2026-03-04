@@ -1012,7 +1012,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       case 'output':
         return <OutputTable {...commonProps} allAreas={allAreas} />;
       case 'output_group':
-        return <OutputGroupTable {...commonProps} allAreas={allAreas} />;
+        return <OutputGroupTable {...commonProps} allAreas={allAreas} allCovers={allCovers} />;
       case 'cover':
         return <CoverTable {...commonProps} allAreas={allAreas} />;
       case 'binary_sensor':

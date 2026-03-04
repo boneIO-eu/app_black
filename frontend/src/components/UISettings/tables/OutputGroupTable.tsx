@@ -15,13 +15,24 @@ interface Area {
 interface OutputGroupTableProps {
   items: any[];
   allAreas: Area[];
+  allCovers?: any[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
 }
 
-const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
+const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, allCovers = [], onEdit, onDelete }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
+
+  // Build set of output IDs used as cover relays
+  const coverRelayIds = useMemo(() => {
+    const ids = new Set<string>();
+    allCovers.forEach((cover: any) => {
+      if (cover.open_relay) ids.add(cover.open_relay.toUpperCase());
+      if (cover.close_relay) ids.add(cover.close_relay.toUpperCase());
+    });
+    return ids;
+  }, [allCovers]);
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('output_group');
 
   const filteredItems = useMemo(() => {
@@ -86,9 +97,18 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
               fields={[
                 { label: t('outputs.title'), value: outputs.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
-                    {outputs.map((output: string, idx: number) => (
-                      <span key={idx} className="badge badge-primary badge-xs uppercase">{output}</span>
-                    ))}
+                    {outputs.map((output: string, idx: number) => {
+                      const isCoverRelay = coverRelayIds.has(output.toUpperCase());
+                      return (
+                        <span 
+                          key={idx} 
+                          className={`badge badge-xs uppercase ${isCoverRelay ? 'badge-warning line-through opacity-60' : 'badge-primary'}`}
+                          title={isCoverRelay ? t('groups.output_used_as_cover') : undefined}
+                        >
+                          {output}{isCoverRelay ? ' ⚠' : ''}
+                        </span>
+                      );
+                    })}
                   </div>
                 ) : <span className="text-warning text-xs">{t('array_table_widget.no_outputs')}</span> },
                 { label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type || 'switch'}</span> },
@@ -133,11 +153,18 @@ const OutputGroupTable: React.FC<OutputGroupTableProps> = ({ items, allAreas, on
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     {outputs.length > 0 ? (
-                      outputs.map((output: string, idx: number) => (
-                        <span key={idx} className="badge badge-primary badge-sm uppercase">
-                          {output}
-                        </span>
-                      ))
+                      outputs.map((output: string, idx: number) => {
+                        const isCoverRelay = coverRelayIds.has(output.toUpperCase());
+                        return (
+                          <span 
+                            key={idx} 
+                            className={`badge badge-sm uppercase ${isCoverRelay ? 'badge-warning line-through opacity-60' : 'badge-primary'}`}
+                            title={isCoverRelay ? t('groups.output_used_as_cover') : undefined}
+                          >
+                            {output}{isCoverRelay ? ' ⚠' : ''}
+                          </span>
+                        );
+                      })
                     ) : (
                       <span className="text-warning">{t('array_table_widget.no_outputs')}</span>
                     )}

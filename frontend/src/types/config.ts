@@ -168,6 +168,8 @@ export interface EventEntity {
   enable_triple_click?: boolean;
   /** Long press MQTT mode: 'single' (first only) or 'periodic' (all with duration) */
   long_press_mqtt_mode?: 'single' | 'periodic';
+  /** Safety timeout for long press (default: 120s). Stops long press if RELEASE is missed. */
+  max_long_press_duration?: number | string;
   /** Actions configuration */
   actions?: EventActions;
   /** MQTT sequences configuration - which sequences to publish to MQTT */
