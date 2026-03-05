@@ -61,6 +61,37 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
   const selectedLight = lights.find((l: any) => l.id === action.output_id);
   const isLight = isEspHome && selectedLight;
   
+  // ON/OFF-only actions (no brightness/color/cycle support)
+  const ON_OFF_ACTIONS = ['TOGGLE', 'ON', 'OFF'];
+  
+  // Filter action options based on selected entity capabilities:
+  // - ESPHome switch → ON/OFF only
+  // - ESPHome light without supports_brightness → ON/OFF only
+  // - MQTT remote output → ON/OFF only
+  // - WLED / ESPHome dimmable light → full list
+  const filteredActionOptions = React.useMemo(() => {
+    if (!selectedEntity) return actionOutputOptions;
+    
+    const entityType = selectedEntity._type;
+    
+    // ESPHome switch — always ON/OFF only
+    if (entityType === 'switch') {
+      return actionOutputOptions.filter((o: string) => ON_OFF_ACTIONS.includes(o));
+    }
+    
+    // ESPHome light — check supports_brightness
+    if (entityType === 'light' && !selectedLight?.supports_brightness) {
+      return actionOutputOptions.filter((o: string) => ON_OFF_ACTIONS.includes(o));
+    }
+    
+    // MQTT remote output (no _type or generic) — ON/OFF only
+    if (!entityType || (!['light', 'wled_main', 'wled_segment'].includes(entityType))) {
+      return actionOutputOptions.filter((o: string) => ON_OFF_ACTIONS.includes(o));
+    }
+    
+    return actionOutputOptions;
+  }, [selectedEntity, selectedLight, actionOutputOptions]);
+  
   // Default action is TOGGLE
   const effectiveAction = action.action_output || 'TOGGLE';
 
@@ -104,6 +135,14 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           value={action.output_id || ''}
           onValueChange={(value) => {
             onUpdate('output_id', value);
+            // Reset action_output if current action is not valid for new entity
+            const newEntity = allEntities.find((o: any) => o.id === value);
+            const isOnOffOnly = !newEntity || newEntity._type === 'switch' 
+              || (newEntity._type === 'light' && !lights.find((l: any) => l.id === value)?.supports_brightness)
+              || !['light', 'wled_main', 'wled_segment'].includes(newEntity._type);
+            if (isOnOffOnly && action.action_output && !ON_OFF_ACTIONS.includes(action.action_output)) {
+              onUpdate('action_output', 'TOGGLE');
+            }
           }}
           disabled={!action.remote_device}
         >
@@ -168,7 +207,7 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
             <SelectValue placeholder="Select action..." />
           </SelectTrigger>
           <SelectContent>
-            {actionOutputOptions.map((option: string) => (
+            {filteredActionOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
                 {formatActionLabel(option)}
               </SelectItem>
