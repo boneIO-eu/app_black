@@ -312,6 +312,76 @@ modbus:
       meta:
         label: Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.
 
+can:
+  type: dict
+  required: False
+  meta:
+    label: "CAN bus configuration for inter-device communication via CANopen protocol."
+  schema:
+    enabled:
+      type: boolean
+      default: False
+      meta:
+        label: Enable CAN bus communication.
+    channel:
+      type: string
+      required: False
+      default: 'can0'
+      meta:
+        label: CAN interface name
+        description: |
+          CAN interface name (e.g., 'can0', 'can1', 'vcan0' for testing).
+    bitrate:
+      type: integer
+      required: False
+      default: 125000
+      allowed: [10000, 20000, 50000, 100000, 125000, 250000, 500000, 1000000]
+      meta:
+        label: CAN bus bitrate in bps
+        description: |
+          CAN bus speed. Default 125000 (125kbps) is compatible with esphome-canopen.
+          All devices on the same bus must use the same bitrate.
+    node_id:
+      type:
+        - string
+        - integer
+      required: False
+      default: 'auto'
+      meta:
+        label: CANopen node ID (1-127 or 'auto')
+        description: |
+          Unique node identifier on the CAN bus (1-127).
+          'auto' generates a deterministic ID from MAC address and persists it.
+          Manual override: set an integer 1-127.
+    mode:
+      type: string
+      required: False
+      default: 'master'
+      allowed: ['master', 'slave']
+      meta:
+        label: CAN bus mode
+        description: |
+          master: Device has LAN/MQTT, relays slave data to Home Assistant.
+          slave: Device has no LAN, sends data only via CAN bus.
+    auto_setup:
+      type: boolean
+      required: False
+      default: True
+      meta:
+        label: Auto-setup CAN interface
+        description: |
+          Automatically configure CAN interface on startup using
+          'sudo ip link set'. Requires sudoers NOPASSWD for boneio user.
+    restart_on_error:
+      type: boolean
+      required: False
+      default: True
+      meta:
+        label: Restart CAN interface on bus-off error
+        description: |
+          Automatically restart CAN interface when bus-off state is detected.
+          Requires sudoers NOPASSWD for boneio user.
+
 modbus_devices:
   type: list
   required: False

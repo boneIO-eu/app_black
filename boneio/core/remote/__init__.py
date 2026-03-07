@@ -9,6 +9,7 @@ Supports multiple protocols:
 """
 
 from boneio.core.remote.base import RemoteDevice, RemoteDeviceProtocol
+from boneio.core.remote.can import CANRemoteDevice
 from boneio.core.remote.mqtt import MQTTRemoteDevice
 from boneio.core.remote.esphome import (
     ESPHomeRemoteDevice,
@@ -26,6 +27,7 @@ from boneio.core.remote.wled import (
 __all__ = [
     "RemoteDevice",
     "RemoteDeviceProtocol",
+    "CANRemoteDevice",
     "MQTTRemoteDevice",
     "ESPHomeRemoteDevice",
     "discover_esphome_entities",

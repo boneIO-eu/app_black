@@ -1,0 +1,47 @@
+# boneIO CAN Slave - config.yaml
+# Ten config wgraj na urządzenie SLAVE (bez MQTT, komunikacja tylko przez CAN)
+# Slave odbiera komendy od mastera via CAN i steruje lokalnymi outputami
+
+# BEZ sekcji mqtt: — slave nie potrzebuje MQTT!
+# Automatycznie użyje LocalMessageBus
+
+boneio:
+  name: "boneIO Slave"
+  version: 0.8
+  device_type: "24x16A"
+
+can:
+  enabled: true
+  channel: can0
+  bitrate: 125000
+  node_id: auto       # auto-generowany z MAC, persystowany w /var/lib/boneio/can_node_id
+  mode: slave
+  auto_setup: true
+  restart_on_error: true
+
+lm75:
+  - id: Board temperature
+    address: 0x48
+
+# Outputy slave'a — te będą sterowane przez mastera via CAN
+output: !include 24x16/output24x16A.yaml
+
+# Slave może też mieć lokalne inputy z lokalnymi akcjami
+# event:
+#   - id: IN_01
+#     pin: P9_23
+#     actions:
+#       single:
+#         - action: output
+#           boneio_output: OUT_01
+#           action_output: TOGGLE
+
+logger:
+  default: info
+  logs:
+    boneio.hardware.can: debug
+    boneio.core.manager.canopen: debug
+
+web:
+  port: 8090
+  proxy_port: 8443
