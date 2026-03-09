@@ -128,6 +128,49 @@ Nie wymaga konfiguracji — działa automatycznie na każdym urządzeniu z OLED.
 
 ---
 
+## CAN bus
+
+### [ ] CANopen — komunikacja między urządzeniami boneIO przez CAN bus (v1.2.1dev)
+Integracja CANopen pozwala na komunikację między urządzeniami boneIO Black przez magistralę CAN.
+Tryb **master** — urządzenie z LAN/MQTT przekazuje dane slave'ów do Home Assistant.
+Tryb **slave** — urządzenie bez LAN, wysyła dane tylko przez CAN (nie wymaga MQTT).
+
+Funkcje:
+- Automatyczne wykrywanie węzłów (autodiscovery przez heartbeat)
+- RPDO1 — zdalne sterowanie wyjściami slave'a (ON/OFF/TOGGLE/brightness)
+- TPDO1 — raportowanie stanu wyjść do mastera
+- CANMQTTBridge — relay stanów CAN↔MQTT w trybie master
+- Auto-setup interfejsu CAN (`sudo ip link set`)
+- Auto-restart przy błędzie bus-off
+- Deterministyczny node_id z adresu MAC (lub ręczny 1-127)
+
+```yaml
+# Przykład konfiguracji (master)
+can:
+  enabled: true
+  channel: can0
+  bitrate: 125000
+  node_id: auto
+  mode: master
+  auto_setup: true
+  restart_on_error: true
+```
+
+```yaml
+# Przykład konfiguracji (slave — bez MQTT)
+can:
+  enabled: true
+  channel: can0
+  bitrate: 125000
+  node_id: auto
+  mode: slave
+```
+
+Wymagania:
+- Overlay CAN w `/boot/uEnv.txt`: `uboot_overlay_addr4=/lib/firmware/BB-CAN1-00A0.dtbo`
+- Sudoers NOPASSWD dla `ip link set can*`
+- Pakiet Python: `python-can`
+
 ## WebUI
 
 ### [ ] LogViewer — fix kopiowania do schowka
