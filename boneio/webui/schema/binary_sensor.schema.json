@@ -406,6 +406,7 @@
                         "STOP",
                         "TOGGLE_OPEN",
                         "TOGGLE_CLOSE",
+                        "SMART_TOGGLE",
                         "TILT",
                         "TILT_OPEN",
                         "TILT_CLOSE"
@@ -438,6 +439,14 @@
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
+                        },
+                        "always_open_till": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Smart toggle threshold (0-100%).",
+                          "title": "Always open till"
                         }
                       },
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
@@ -638,6 +647,7 @@
                         "STOP",
                         "TOGGLE_OPEN",
                         "TOGGLE_CLOSE",
+                        "SMART_TOGGLE",
                         "TILT",
                         "TILT_OPEN",
                         "TILT_CLOSE"
@@ -670,6 +680,14 @@
                           ],
                           "description": "Tilt position to set cover to. 0 means closed, 100 means opened.",
                           "title": "Tilt position"
+                        },
+                        "always_open_till": {
+                          "type": [
+                            "integer",
+                            "string"
+                          ],
+                          "description": "Smart toggle threshold (0-100%).",
+                          "title": "Always open till"
                         }
                       },
                       "description": "Extra data to send to function. Currently used only for cover tilt.",

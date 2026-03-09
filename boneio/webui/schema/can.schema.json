@@ -4,8 +4,8 @@
   "properties": {
     "can": {
       "type": [
-        "string",
-        "object"
+        "object",
+        "string"
       ],
       "properties": {
         "enabled": {
@@ -38,8 +38,8 @@
         },
         "bitrate": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": 125000,
           "enum": [
@@ -60,8 +60,8 @@
         },
         "node_id": {
           "type": [
-            "string",
-            "integer"
+            "integer",
+            "string"
           ],
           "default": "auto",
           "description": "CANopen node ID (1-127 or 'auto')",

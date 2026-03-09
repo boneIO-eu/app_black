@@ -64,18 +64,24 @@
           ]
         },
         "timeout": {
-          "type": "string",
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
           "default": "1500ms",
           "description": "Response timeout. Increase for slow devices or long cables.",
-          "title": "Timeout",
-          "x-timeperiod": true
+          "title": "Timeout"
         },
         "inter_device_delay": {
-          "type": "string",
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
           "default": "5ms",
           "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
-          "title": "Inter-device delay",
-          "x-timeperiod": true
+          "title": "Inter device delay"
         }
       },
       "required": [

@@ -1093,6 +1093,26 @@
           "examples": [
             "N"
           ]
+        },
+        "timeout": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "1500ms",
+          "description": "Response timeout. Increase for slow devices or long cables.",
+          "title": "Timeout"
+        },
+        "inter_device_delay": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "5ms",
+          "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
+          "title": "Inter device delay"
         }
       },
       "required": [
@@ -1100,6 +1120,132 @@
       ],
       "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
       "title": "Modbus"
+    },
+    "can": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Enable CAN bus communication.",
+          "title": "Enabled"
+        },
+        "channel": {
+          "type": "string",
+          "default": "can0",
+          "description": "CAN interface name",
+          "title": "Channel"
+        },
+        "bitrate": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 125000,
+          "enum": [
+            10000,
+            20000,
+            50000,
+            100000,
+            125000,
+            250000,
+            500000,
+            1000000
+          ],
+          "examples": [
+            10000
+          ],
+          "description": "CAN bus bitrate in bps",
+          "title": "Bitrate"
+        },
+        "node_id": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": "auto",
+          "description": "CANopen node ID (1-127 or 'auto')",
+          "title": "Node id"
+        },
+        "mode": {
+          "type": "string",
+          "default": "master",
+          "enum": [
+            "master",
+            "slave"
+          ],
+          "examples": [
+            "master"
+          ],
+          "description": "CAN bus mode",
+          "title": "Mode"
+        },
+        "auto_setup": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Auto-setup CAN interface",
+          "title": "Auto setup"
+        },
+        "restart_on_error": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Restart CAN interface on bus-off error",
+          "title": "Restart on error"
+        }
+      },
+      "description": "CAN bus configuration for inter-device communication via CANopen protocol.",
+      "title": "Can"
     },
     "modbus_devices": {
       "type": [
@@ -1148,6 +1294,10 @@
               "Dyp-A12-Ultrasonic",
               "FUJITSU-AC",
               "Fujitsu-Ac",
+              "GDFS",
+              "GDFX",
+              "Gdfs",
+              "Gdfx",
               "LE-03MW",
               "LE-03MWCT",
               "LIQUID-SENSOR",
@@ -1183,6 +1333,8 @@
               "dts1964_3f",
               "dyp-a12-ultrasonic",
               "fujitsu-ac",
+              "gdfs",
+              "gdfx",
               "le-03mw",
               "le-03mwct",
               "liquid-sensor",
@@ -2428,14 +2580,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -2672,14 +2821,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -3252,14 +3398,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -3496,14 +3639,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -3740,14 +3880,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -3984,14 +4121,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -4228,14 +4362,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -4472,14 +4603,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -4716,14 +4844,11 @@
                             "integer",
                             "string"
                           ],
-                          "minimum": 0,
-                          "maximum": 100,
-                          "default": 50,
-                          "description": "Smart toggle threshold (0-100%). If cover position is at or below this value, it will always open. Above this value, normal toggle behavior applies.",
+                          "description": "Smart toggle threshold (0-100%).",
                           "title": "Always open till"
                         }
                       },
-                      "description": "Extra data to send to function. Used for cover tilt and smart toggle.",
+                      "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
                     "action_output": {
@@ -4900,8 +5025,21 @@
               "single",
               "periodic"
             ],
-            "description": "How long press events are published to MQTT. 'single' sends only the first event (prevents repeated triggers in Node-RED). 'periodic' sends all events with growing duration.",
-            "title": "Long press MQTT mode"
+            "examples": [
+              "single"
+            ],
+            "description": "Long Press MQTT Mode",
+            "title": "Long press mqtt mode"
+          },
+          "max_long_press_duration": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "120s",
+            "description": "Max Long Press Duration",
+            "title": "Max long press duration"
           },
           "mqtt_sequences": {
             "type": [
