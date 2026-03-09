@@ -291,7 +291,7 @@ class CANopenManager:
         Returns:
             True if sent successfully.
         """
-        if not self.is_connected:
+        if not self.is_connected or self._client is None:
             return False
         
         return await self._client.send_output_state(output_index, state, brightness)
@@ -357,6 +357,8 @@ class CANopenManager:
         
         while self._running:
             try:
+                if self._client is None:
+                    break
                 await self._client.send_heartbeat(NMTState.OPERATIONAL)
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
             except asyncio.CancelledError:
