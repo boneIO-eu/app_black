@@ -10,16 +10,15 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Callable
 
+if TYPE_CHECKING:
+    from canopen import Network, LocalNode, RemoteNode
+
 try:
     import canopen
-    from canopen import Network, LocalNode, RemoteNode
     CANOPEN_AVAILABLE = True
 except ImportError:
     CANOPEN_AVAILABLE = False
-    canopen = None
-    Network = None
-    LocalNode = None
-    RemoteNode = None
+    canopen = None  # type: ignore[assignment]
 
 _LOGGER = logging.getLogger(__name__)
 
