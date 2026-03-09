@@ -47,7 +47,6 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
     def discovery_message(self):
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
-            "entity_id": self.name,
             "options": [*self._value_mapping.values()],
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from boneio.const import ID, MODEL, NAME
 from boneio.integration.homeassistant import (
     ha_availabilty_message,
     ha_binary_sensor_availabilty_message,
@@ -20,6 +21,7 @@ from boneio.integration.homeassistant import (
     modbus_select_availabilty_message,
     modbus_sensor_availabilty_message,
 )
+from boneio.modbus.entities.derived.select import ModbusDerivedSelect
 
 
 @pytest.fixture
@@ -223,6 +225,44 @@ class TestModbusMessages:
         assert "state_topic" in msg
         assert "device" in msg
 
+    def test_modbus_select_no_duplicate_kwargs(self, config_helper):
+        """Test that modbus_select doesn't fail with duplicate entity_id."""
+        msg = modbus_select_availabilty_message(
+            entity_id="test_entity",
+            entity_name="Test Entity",
+            device_id="device1",
+            device_name="Device 1",
+            manufacturer="Test",
+            state_topic_base="0",
+            config_helper=config_helper,
+            model="TestModel",
+            entity_id_legacy="ignored",
+            value_template="{{ value_json.test }}",
+        )
+
+        assert msg is not None
+        assert "state_topic" in msg
+        assert msg.get("value_template") == "{{ value_json.test }}"
+
+    def test_modbus_select_filters_duplicate_entity_id_from_kwargs(self, config_helper):
+        """Test that explicit entity_id wins over value from kwargs."""
+        msg = modbus_select_availabilty_message(
+            entity_id="proper_entity",
+            entity_name="Test Entity",
+            device_id="device1",
+            device_name="Device 1",
+            manufacturer="Test",
+            state_topic_base="0",
+            config_helper=config_helper,
+            model="TestModel",
+            options=["Auto", "Manual"],
+            command_topic="boneio/cmd/test",
+        )
+
+        assert msg["default_entity_id"].endswith("proper_entity")
+        assert msg.get("command_topic") == "boneio/cmd/test"
+
+
     def test_modbus_numeric_message(self, config_helper):
         """Test modbus numeric message structure."""
         msg = modbus_numeric_availabilty_message(
@@ -280,3 +320,79 @@ class TestModbusMessages:
         assert msg.get("mode") == "box"
         assert msg.get("step") == 0.1
         assert msg.get("command_topic") == "boneio/cmd/test"
+
+
+class TestModbusDerivedSelect:
+    """Regression tests for derived Modbus select entities."""
+
+    def test_discovery_message_does_not_pass_duplicate_entity_id(self, config_helper):
+        """Test derived select discovery generation does not duplicate entity_id."""
+        message_bus = MagicMock()
+        parent = {
+            ID: "SDM120",
+            NAME: "SDM120 Meter",
+            MODEL: "SDM120",
+            "manufacturer": "Eastron",
+            "area": None,
+        }
+        entity = ModbusDerivedSelect(
+            name="Operating Mode",
+            parent=parent,
+            message_bus=message_bus,
+            context_config={},
+            config_helper=config_helper,
+            source_sensor_base_address=10,
+            source_sensor_decoded_name="operatingmode",
+            value_mapping={"0": "Auto", "1": "Manual"},
+        )
+
+        msg = entity.discovery_message()
+
+        assert msg is not None
+        assert msg["name"] == "Operating Mode"
+        assert msg["state_topic"] == "boneio/modbus/SDM120/10"
+        assert msg["command_topic"] == "boneio/cmd/modbus/sdm120/set"
+        assert msg["options"] == ["Auto", "Manual"]
+
+
+class TestModbusCoordinatorDiscovery:
+    """Regression tests for coordinator discovery flow."""
+
+    def test_send_discovery_for_all_registers_with_derived_select(self, config_helper):
+        """Test coordinator discovery sends discovery for derived select without TypeError."""
+        base_sensor = MagicMock()
+        base_sensor.send_ha_discovery = MagicMock()
+        message_bus = MagicMock()
+
+        derived_select = ModbusDerivedSelect(
+            name="Operating Mode",
+            parent={
+                ID: "SDM120",
+                NAME: "SDM120 Meter",
+                MODEL: "SDM120",
+                "manufacturer": "Eastron",
+                "area": None,
+            },
+            message_bus=message_bus,
+            context_config={},
+            config_helper=config_helper,
+            source_sensor_base_address=10,
+            source_sensor_decoded_name="operatingmode",
+            value_mapping={"0": "Auto", "1": "Manual"},
+        )
+
+        coordinator = MagicMock()
+        coordinator._modbus_entities = [{"operatingmode": base_sensor}]
+        coordinator._additional_entities = [{derived_select.decoded_name: derived_select}]
+
+        from boneio.modbus.coordinator import ModbusCoordinator
+
+        ModbusCoordinator._send_discovery_for_all_registers(coordinator)
+
+        base_sensor.send_ha_discovery.assert_called_once()
+        config_helper.add_autodiscovery_msg.assert_called_once()
+
+        send_calls = message_bus.send_message.call_args_list
+        assert len(send_calls) == 1
+        assert send_calls[0].kwargs["payload"]["name"] == "Operating Mode"
+        assert send_calls[0].kwargs["payload"]["command_topic"] == "boneio/cmd/modbus/sdm120/set"

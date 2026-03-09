@@ -8,17 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from types import ModuleType
+from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from canopen import Network, LocalNode, RemoteNode
+    from canopen import Network, LocalNode
 
 try:
     import canopen
     CANOPEN_AVAILABLE = True
 except ImportError:
     CANOPEN_AVAILABLE = False
-    canopen = None  # type: ignore[assignment]
+    canopen: ModuleType = None  # type: ignore[assignment]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,10 +101,11 @@ class CANopenClient:
             self._loop = asyncio.get_running_loop()
             
             # Create CANopen network
-            self._network = canopen.Network()
+            network: Network = canopen.Network()
+            self._network = network
             
             # Connect to CAN bus with asyncio loop
-            self._network.connect(
+            network.connect(
                 interface=DEFAULT_INTERFACE,
                 channel=self._channel,
                 bitrate=self._bitrate,
@@ -149,7 +151,8 @@ class CANopenClient:
         Returns:
             True if sent successfully.
         """
-        if not self.is_connected:
+        network = self._network
+        if not self.is_connected or network is None:
             _LOGGER.warning("Cannot send heartbeat: not connected")
             return False
         
@@ -159,7 +162,7 @@ class CANopenClient:
             data = bytes([state])
             
             # Send raw CAN message
-            self._network.send_message(cob_id, data)
+            network.send_message(cob_id, data)
             _LOGGER.debug("Sent heartbeat: node_id=%d, state=0x%02X", self._node_id, state)
             return True
             
@@ -181,7 +184,8 @@ class CANopenClient:
         Returns:
             True if sent successfully.
         """
-        if not self.is_connected:
+        network = self._network
+        if not self.is_connected or network is None:
             _LOGGER.warning("Cannot send PDO: not connected")
             return False
         
@@ -198,7 +202,7 @@ class CANopenClient:
             base_cob_ids = {1: 0x180, 2: 0x280, 3: 0x380, 4: 0x480}
             cob_id = base_cob_ids[pdo_number] + self._node_id
             
-            self._network.send_message(cob_id, data)
+            network.send_message(cob_id, data)
             _LOGGER.debug(
                 "Sent TPDO%d: node_id=%d, cob_id=0x%03X, data=%s",
                 pdo_number,
@@ -262,7 +266,8 @@ class CANopenClient:
         Returns:
             True if sent successfully.
         """
-        if not self.is_connected:
+        network = self._network
+        if not self.is_connected or network is None:
             _LOGGER.warning("Cannot send command: not connected")
             return False
 
@@ -277,7 +282,7 @@ class CANopenClient:
                 0, 0, 0, 0,  # Reserved
             ])
 
-            self._network.send_message(cob_id, data)
+            network.send_message(cob_id, data)
             _LOGGER.debug(
                 "Sent command to node %d: RPDO1 cob_id=0x%03X, output=%d, state=%d",
                 target_node_id, cob_id, output_index, state,
