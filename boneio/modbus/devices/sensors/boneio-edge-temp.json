@@ -28,6 +28,9 @@
                     "filters": [
                         {
                             "multiply": 0.1
+                        },
+                        {
+                            "round": 1
                         }
                     ]
                 },
@@ -41,10 +44,65 @@
                     "filters": [
                         {
                             "multiply": 0.1
+                        },
+                        {
+                            "round": 1
                         }
                     ]
                 }
             ]
+        },
+        {
+            "base": 102,
+            "length": 1,
+            "register_type": "holding",
+            "update_every_n": 60,
+            "registers": [
+                {
+                    "name": "LED Mode",
+                    "address": 102,
+                    "write_address": 102,
+                    "entity_type": "writeable_sensor_discrete",
+                    "state_class": "measurement",
+                    "value_type": "U_WORD",
+                    "x_mapping": {
+                        "0": "off",
+                        "1": "on",
+                        "2": "beacon",
+                        "3": "auto"
+                    }
+                }
+            ]
+        },
+        {
+            "base": 103,
+            "length": 1,
+            "register_type": "holding",
+            "update_every_n": 1440,
+            "registers": [
+                {
+                    "name": "FW Version",
+                    "address": 103,
+                    "value_type": "U_WORD",
+                    "ha_filter": null,
+                    "filters": [
+                        {"firmware_version": 0}
+                    ]
+                }
+            ]
+        }
+    ],
+    "additional_entities": [
+        {
+            "name": "LED Mode",
+            "source": "ledmode",
+            "entity_type": "select",
+            "x_mapping": {
+                "0": "off",
+                "1": "on",
+                "2": "beacon",
+                "3": "auto"
+            }
         }
     ]
 }
