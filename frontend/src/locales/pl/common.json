@@ -620,7 +620,8 @@
     "tabs": {
       "basic": "Podstawowe",
       "filters": "Filtry czujników",
-      "data": "Dane"
+      "data": "Dane",
+      "labels": "Nazwy encji"
     },
     "filters": {
       "info": "Konfiguruj filtry czujników dla czujnika temperatury/wilgotności CWT. Filtry są stosowane w kolejności.",
@@ -637,6 +638,11 @@
       "length": "Długość",
       "length_hint": "Długość w metrach, cm, itp.",
       "length_placeholder": "np. 100cm lub 1.0"
+    },
+    "labels": {
+      "info": "Ustaw własne nazwy wyświetlane dla poszczególnych encji. Pozostaw puste, aby użyć domyślnej nazwy.",
+      "fetch_error": "Nie udało się pobrać encji. Upewnij się, że urządzenie działa.",
+      "no_entities": "Nie znaleziono encji. Urządzenie może jeszcze nie działać."
     }
   },
   "modbus_view": {

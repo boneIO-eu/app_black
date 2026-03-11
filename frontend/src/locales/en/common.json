@@ -614,7 +614,8 @@
     "tabs": {
       "basic": "Basic",
       "filters": "Sensor Filters",
-      "data": "Data"
+      "data": "Data",
+      "labels": "Entity Names"
     },
     "filters": {
       "info": "Configure sensor filters for CWT temperature/humidity sensor. Filters are applied in order.",
@@ -631,6 +632,11 @@
       "length": "Length",
       "length_hint": "Length in meters, cm, etc.",
       "length_placeholder": "e.g., 100cm or 1.0"
+    },
+    "labels": {
+      "info": "Set custom display names for individual entities. Leave empty to use the default name.",
+      "fetch_error": "Could not load entities. Make sure the device is running.",
+      "no_entities": "No entities found. The device may not be running yet."
     }
   },
   "modbus_view": {

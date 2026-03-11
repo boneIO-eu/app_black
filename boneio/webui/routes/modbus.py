@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Any, Protocol, runtime_checkable
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -387,6 +387,76 @@ async def get_modbus_models():
     return {"models": models}
 
 
+@router.get("/modbus/models/{model_name}/entities")
+async def get_model_entities(model_name: str):
+    """Get entity names defined in a Modbus model JSON file.
+
+    Reads the model definition and extracts all entity names from
+    registers_base and additional_entities sections.
+
+    Args:
+        model_name: Model file name (without .json extension).
+
+    Returns:
+        List of entity definitions with name and decoded_name.
+    """
+    devices_dir = os.path.join(
+        os.path.dirname(__file__), "..", "..", "modbus", "devices"
+    )
+    devices_dir = os.path.normpath(devices_dir)
+
+    # Find model JSON file
+    filename = f"{model_name}.json"
+    db = None
+    for root, _dirs, files in os.walk(devices_dir):
+        if filename in files:
+            try:
+                with open(os.path.join(root, filename)) as fh:
+                    db = json.load(fh)
+                break
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Failed to read model file: {exc}")
+
+    if db is None:
+        raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+
+    entities = []
+    seen: set[str] = set()
+
+    # Base register entities
+    for reg_base in db.get("registers_base", []):
+        for reg in reg_base.get("registers", []):
+            name = reg.get("name", "")
+            if name:
+                decoded_name = name.replace(" ", "").lower()
+                entity_type = reg.get("entity_type", "sensor")
+                if decoded_name not in seen:
+                    seen.add(decoded_name)
+                    entities.append({
+                        "name": name,
+                        "decoded_name": decoded_name,
+                        "entity_type": entity_type,
+                    })
+
+    # Additional (derived) entities
+    # decoded_name comes from their JSON "name" field (same logic as BaseEntity)
+    # Skip duplicates — derived entities share label with their source register
+    for entity in db.get("additional_entities", []):
+        name = entity.get("name", "")
+        if name:
+            decoded_name = name.replace(" ", "").lower()
+            entity_type = entity.get("entity_type", "sensor")
+            if decoded_name not in seen:
+                seen.add(decoded_name)
+                entities.append({
+                    "name": name,
+                    "decoded_name": decoded_name,
+                    "entity_type": entity_type,
+                })
+
+    return {"model": model_name, "entities": entities}
+
+
 @router.post("/modbus/configure-device")
 async def modbus_configure_device(
     request: ModbusConfigureDeviceRequest,
@@ -526,3 +596,101 @@ async def modbus_configure_device(
                     modbus_client.client.connect()
                 except Exception as restore_error:
                     _LOGGER.error(f"Failed to restore original baudrate: {restore_error}")
+
+
+@router.get("/modbus/{coordinator_id}/entity_labels")
+async def get_entity_labels(
+    coordinator_id: str,
+    manager: Manager = Depends(get_manager),
+):
+    """Get custom entity labels for a Modbus coordinator.
+
+    Args:
+        coordinator_id: Coordinator ID.
+
+    Returns:
+        Dictionary of entity labels.
+    """
+    coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
+    if not coordinator:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    return {"coordinator_id": coordinator_id, "labels": coordinator.entity_labels}
+
+
+@router.put("/modbus/{coordinator_id}/entity_labels")
+async def set_entity_labels(
+    coordinator_id: str,
+    labels: dict[str, str] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Set custom entity labels for a Modbus coordinator.
+
+    Updates labels in running coordinator immediately and saves to YAML config.
+
+    Args:
+        coordinator_id: Coordinator ID.
+        labels: Dictionary mapping decoded_name to custom label string.
+
+    Returns:
+        Confirmation with saved labels.
+    """
+    from boneio.core.config.yaml_util import update_config_section
+
+    coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
+    if not coordinator:
+        raise HTTPException(status_code=404, detail=f"Coordinator '{coordinator_id}' not found")
+
+    # Apply labels to running coordinator immediately
+    coordinator.update_entity_labels(labels)
+
+    # Save to YAML config
+    try:
+        config = manager.config_helper.get_config()
+        modbus_devices = config.get("modbus_devices", [])
+
+        # Find matching device config entry
+        updated = False
+        for device_config in modbus_devices:
+            from boneio.const import ADDRESS, MODEL, ID
+            has_custom_id = bool(device_config.get(ID))
+            if has_custom_id:
+                device_id = str(device_config[ID]).replace(" ", "").lower()
+            else:
+                addr = device_config.get(ADDRESS, "")
+                model = device_config.get(MODEL, "")
+                device_id = f"{addr}_{model}".lower().replace(" ", "_")
+
+            if device_id == coordinator_id.lower():
+                device_config["entity_labels"] = labels if labels else {}
+                updated = True
+                break
+
+        if not updated:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Device config for '{coordinator_id}' not found in YAML"
+            )
+
+        # Write back to YAML
+        config_file = manager._config_file_path
+        result = update_config_section(config_file, "modbus_devices", modbus_devices)
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result.get("message", "Failed to save config"))
+
+        # Invalidate config cache
+        manager.config_helper.reload_config()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Failed to save entity labels to YAML: %s", e)
+        # Labels are already applied in memory, just log the error
+        return {
+            "coordinator_id": coordinator_id,
+            "labels": labels,
+            "warning": f"Labels applied but failed to save to YAML: {e}"
+        }
+
+    _LOGGER.info("Entity labels saved for %s: %s", coordinator_id, labels)
+    return {"coordinator_id": coordinator_id, "labels": labels}

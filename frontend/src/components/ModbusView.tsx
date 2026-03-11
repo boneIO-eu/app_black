@@ -85,7 +85,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
-            <h3 className="font-semibold text-lg">{device.name}</h3>
+            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
           <div className={`${isGrid ? 'w-full' : 'min-w-[200px]'}`}>
@@ -117,7 +117,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
-            <h3 className="font-semibold text-lg">{device.name}</h3>
+            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
           <div className={`${isGrid ? 'w-full' : 'flex flex-col items-end gap-2'}`}>
@@ -183,7 +183,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
       >
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
-            <h3 className="font-semibold text-lg">{device.name}</h3>
+            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
           <div className={`${isGrid ? 'w-full' : 'min-w-[200px]'}`}>
@@ -228,7 +228,7 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
     >
       <div className={`flex ${isGrid ? 'justify-between items-start' : 'justify-between items-start'}`}>
         <div>
-          <h3 className="font-semibold text-lg">{device.name}</h3>
+          <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
           <p className="text-sm text-base-content/70">{device.id}</p>
         </div>
         <div className='text-right'>
@@ -260,9 +260,10 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if state, timestamp, name, entity_type, x_mapping or isGrid changed
+  // Custom comparison: only re-render if state, timestamp, name, custom_label, entity_type, x_mapping or isGrid changed
   return prevProps.device.id === nextProps.device.id &&
          prevProps.device.name === nextProps.device.name &&
+         prevProps.device.custom_label === nextProps.device.custom_label &&
          prevProps.device.state === nextProps.device.state &&
          prevProps.device.timestamp === nextProps.device.timestamp &&
          prevProps.device.entity_type === nextProps.device.entity_type &&

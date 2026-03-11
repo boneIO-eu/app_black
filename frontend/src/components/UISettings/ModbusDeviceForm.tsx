@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import axios from '@/api/axios';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
@@ -138,7 +139,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   areas = []
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'filters' | 'data'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'filters' | 'data' | 'labels'>('basic');
 
   // Extract model options from schema
   const modelOptions = useMemo(() => {
@@ -168,9 +169,43 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
   const showSensorsFilters = selectedModel === 'cwt';
   const showDataFields = selectedModel === 'liquid-sensor';
 
+  // Entity labels: fetch entity list from model JSON (not from running coordinator)
+  const [entities, setEntities] = useState<Array<{ decoded_name: string; name: string; entity_type: string }>>([]);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+  const [labelsError, setLabelsError] = useState<string | null>(null);
+  const fetchedModelRef = React.useRef<string>('');
+
+  useEffect(() => {
+    if (activeTab !== 'labels' || !selectedModel) return;
+    if (fetchedModelRef.current === selectedModel) return;
+
+    let cancelled = false;
+    setLabelsLoading(true);
+    setLabelsError(null);
+
+    axios.get(`/api/modbus/models/${selectedModel}/entities`)
+      .then((res) => {
+        if (!cancelled) {
+          setEntities(res.data.entities || []);
+          fetchedModelRef.current = selectedModel;
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLabelsError(t('modbus.labels.fetch_error'));
+          setEntities([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLabelsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [activeTab, selectedModel]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Determine which tabs to show
   const availableTabs = useMemo(() => {
-    const tabs: Array<{ id: 'basic' | 'filters' | 'data'; label: string }> = [
+    const tabs: Array<{ id: 'basic' | 'filters' | 'data' | 'labels'; label: string }> = [
       { id: 'basic', label: t('modbus.tabs.basic') }
     ];
     if (showSensorsFilters) {
@@ -179,8 +214,11 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
     if (showDataFields) {
       tabs.push({ id: 'data', label: t('modbus.tabs.data') });
     }
+    if (selectedModel) {
+      tabs.push({ id: 'labels', label: t('modbus.tabs.labels') });
+    }
     return tabs;
-  }, [showSensorsFilters, showDataFields, t]);
+  }, [showSensorsFilters, showDataFields, selectedModel, t]);
 
   // Reset to basic tab if current tab is not available
   React.useEffect(() => {
@@ -190,7 +228,10 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
     if (activeTab === 'data' && !showDataFields) {
       setActiveTab('basic');
     }
-  }, [activeTab, showSensorsFilters, showDataFields]);
+    if (activeTab === 'labels' && !selectedModel) {
+      setActiveTab('basic');
+    }
+  }, [activeTab, showSensorsFilters, showDataFields, selectedModel]);
 
   return (
     <div className="space-y-4">
@@ -393,6 +434,63 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               <HelpLabel className="py-0.5">{t('modbus.data.length_hint')}</HelpLabel>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Entity Labels Tab */}
+      {activeTab === 'labels' && (
+        <div className="space-y-4">
+          <div className="alert alert-info text-sm">
+            <span>{t('modbus.labels.info')}</span>
+          </div>
+
+          {labelsLoading && (
+            <div className="flex justify-center py-4">
+              <span className="loading loading-spinner loading-md" />
+            </div>
+          )}
+
+          {labelsError && (
+            <div className="alert alert-warning text-sm">
+              <span>{labelsError}</span>
+            </div>
+          )}
+
+          {!labelsLoading && entities.length > 0 && (
+            <div className="space-y-2">
+              {entities.map((entity) => (
+                <div key={entity.decoded_name} className="flex items-center gap-3">
+                  <div className="w-44 shrink-0">
+                    <span className="text-sm text-base-content/70 truncate block" title={entity.name}>
+                      {entity.name}
+                    </span>
+                    <span className="badge badge-xs badge-ghost">{entity.entity_type}</span>
+                  </div>
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm flex-1"
+                    value={data.entity_labels?.[entity.decoded_name] ?? ''}
+                    onChange={(e) => {
+                      const newLabels = { ...(data.entity_labels || {}) };
+                      if (e.target.value.trim()) {
+                        newLabels[entity.decoded_name] = e.target.value;
+                      } else {
+                        delete newLabels[entity.decoded_name];
+                      }
+                      updateField('entity_labels', Object.keys(newLabels).length > 0 ? newLabels : undefined);
+                    }}
+                    placeholder={entity.name}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!labelsLoading && entities.length === 0 && !labelsError && (
+            <div className="text-center py-4 text-base-content/60 text-sm">
+              {t('modbus.labels.no_entities')}
+            </div>
+          )}
         </div>
       )}
     </div>
