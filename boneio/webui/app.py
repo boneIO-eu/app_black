@@ -43,6 +43,7 @@ from boneio.version import __version__
 from boneio.webui.routes import (
     auth_router,
     caddy_router,
+    can_router,
     config_router,
     covers_router,
     modbus_router,
@@ -146,6 +147,7 @@ app.include_router(update_router)
 app.include_router(modbus_router)
 app.include_router(sensors_router)
 app.include_router(caddy_router)
+app.include_router(can_router)
 app.include_router(remote_devices_router)
 app.include_router(templates_router)
 app.include_router(tools_router)

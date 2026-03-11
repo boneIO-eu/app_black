@@ -15,8 +15,6 @@ from typing import TYPE_CHECKING, Any, Callable
 from boneio.hardware.can.client import CANopenClient, CANOPEN_AVAILABLE
 from boneio.hardware.can.node import (
     BoneIOCANNode,
-    DeviceType,
-    HeartbeatMessage,
     NMTState,
     OutputStateMessage,
 )
