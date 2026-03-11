@@ -51,7 +51,7 @@ class ModbusDerivedTextSensor(ModbusDerivedEntity):
         }
         return modbus_sensor_availabilty_message(
             entity_id=self._id,
-            entity_name=self._name,
+            entity_name=self.display_name,
             device_id=self._parent[ID],
             device_name=self._parent[NAME],
             state_topic_base=str(self.base_address),

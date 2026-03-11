@@ -465,6 +465,20 @@ modbus_devices:
         min: 1s
         meta:
           label: Update interval (minimum 1 second).
+      entity_labels:
+        type: dict
+        required: False
+        keysrules:
+          type: string
+        valuesrules:
+          type: string
+        meta:
+          label: Custom entity labels
+          description: |
+            Map of sensor decoded_name to custom display label.
+            Keys are lowercase sensor names without spaces (e.g. humidity, temperature).
+            Values are custom labels shown in UI and Home Assistant.
+            Example: { humidity: "Wilgotność salon", temperature: "Temperatura salon" }
       sensors_filters:
         type: dict
         required: False

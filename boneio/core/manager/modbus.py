@@ -169,6 +169,7 @@ class ModbusManager:
                         ),
                         modbus=self._modbus,
                         sensors_filters=device_config.get("sensors_filters", {}),
+                        entity_labels=device_config.get("entity_labels", {}),
                         additional_data=additional_data,
                         area=area,
                         has_custom_id=has_custom_id,

@@ -55,7 +55,7 @@ class ModbusDerivedSwitch(ModbusDerivedEntity):
     def discovery_message(self):
         kwargs = {
             "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
-            "entity_id": self.name,
+            "entity_id": self.display_name,
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "'
             + self.decoded_name
