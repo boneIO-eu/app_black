@@ -134,10 +134,11 @@ function AppContent() {
           });
         } else if (message.event_type === 'modbus_device') {
           setModbusDevices(prev => {
-            const index = prev.findIndex(s => s.state.name === message.state.name);
+            const index = prev.findIndex(s => s.entity_id === message.entity_id);
             if (index >= 0) {
               const prevDevice = prev[index];
-              if (prevDevice.state.state === message.state.state) {
+              if (prevDevice.state.state === message.state.state &&
+                  prevDevice.state.timestamp === message.state.timestamp) {
                 return prev; // No change needed
               }
               const newDevices = [...prev];
@@ -148,10 +149,11 @@ function AppContent() {
           });
         } else if (message.event_type === 'sensor') {
           setSensors(prev => {
-            const index = prev.findIndex(s => s.state.name === message.state.name);
+            const index = prev.findIndex(s => s.entity_id === message.entity_id);
             if (index >= 0) {
               const prevSensor = prev[index];
-              if (prevSensor.state.state === message.state.state) {
+              if (prevSensor.state.state === message.state.state &&
+                  prevSensor.state.timestamp === message.state.timestamp) {
                 return prev; // No change needed
               }
               const newSensors = [...prev];

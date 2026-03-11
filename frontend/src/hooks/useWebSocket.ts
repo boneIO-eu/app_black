@@ -79,6 +79,7 @@ export interface ModbusDeviceState {
   payload_on?: string | null;  // For switch entities
   payload_off?: string | null;  // For switch entities
   step?: number | null;  // Step value for numeric inputs
+  custom_label?: string | null;  // User-defined custom label from YAML config
 }
 
 export interface SensorEvent {
