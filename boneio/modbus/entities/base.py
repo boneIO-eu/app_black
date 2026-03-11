@@ -37,6 +37,7 @@ class BaseEntity(Filter):
         ha_filter: str = "round(2)",
     ) -> None:
         self._name = name
+        self._custom_label: str | None = None
         self._parent = parent
         self._decoded_name = self._name.replace(" ", "")
         self._decoded_name_low = self._name.replace(" ", "").lower()
@@ -63,6 +64,24 @@ class BaseEntity(Filter):
 
     def set_user_filters(self, user_filters: list) -> None:
         self._user_filters = user_filters
+
+    def set_custom_label(self, label: str | None) -> None:
+        """Set a user-defined custom display label for this entity.
+
+        Args:
+            label: Custom label string or None to clear.
+        """
+        self._custom_label = label
+
+    @property
+    def custom_label(self) -> str | None:
+        """Return custom label if set."""
+        return self._custom_label
+
+    @property
+    def display_name(self) -> str:
+        """Return custom label if set, otherwise default name."""
+        return self._custom_label or self._name
 
     def set_value(self, value, timestamp: float) -> None:
         value = self._apply_filters(value=value)
@@ -121,6 +140,7 @@ class BaseEntity(Filter):
         return self._entity_type
 
     def send_ha_discovery(self):
+        """Send HA MQTT autodiscovery message for this entity."""
         payload = self.discovery_message()
         _LOGGER.debug(
             "Sending %s discovery message for %s of %s",
@@ -131,7 +151,21 @@ class BaseEntity(Filter):
         self._config_helper.add_autodiscovery_msg(
             topic=self._topic, payload=payload, ha_type=self._entity_type
         )
-        self._message_bus.send_message(topic=self._topic, payload=payload)
+        self._message_bus.send_message(topic=self._topic, payload=payload, retain=True)
+
+    def remove_ha_discovery(self):
+        """Remove entity from HA by sending empty payload to discovery topic.
+
+        HA interprets an empty retained message on the discovery topic
+        as a request to remove the entity.
+        """
+        _LOGGER.debug(
+            "Removing %s discovery for %s of %s",
+            self._entity_type,
+            self._name,
+            self._parent[ID],
+        )
+        self._message_bus.send_message(topic=self._topic, payload="", retain=True)
 
     @property
     def base_address(self) -> int | None:
@@ -155,7 +189,7 @@ class BaseEntity(Filter):
             kwargs["device_class"] = self._device_class
         return modbus_sensor_availabilty_message(
             entity_id=self._id,
-            entity_name=self._name,
+            entity_name=self.display_name,
             device_id=self._parent[ID],
             device_name=self._parent[NAME],
             state_topic_base=str(self.base_address),

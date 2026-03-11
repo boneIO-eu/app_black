@@ -92,6 +92,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         update_interval: TimePeriod = TimePeriod(seconds=60),
         area: str | None = None,
         has_custom_id: bool = False,
+        entity_labels: dict | None = None,
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
@@ -114,6 +115,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._discovery_sent = False
         self._payload_online = OFFLINE
         self._sensors_filters = {k.lower(): v for k, v in sensors_filters.items()}
+        self._entity_labels: dict[str, str] = (
+            {k.lower(): v for k, v in entity_labels.items()} if entity_labels else {}
+        )
         
         
         self._modbus_entities: list[dict[str, ModbusEntity]] = []  # type: ignore[valid-type]
@@ -122,6 +126,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._additional_entities_by_source_name: dict[str, list[DerivedEntity]] = {}  # type: ignore[valid-type]
         self._additional_entities_by_name: dict[str, DerivedEntity] = {}  # type: ignore[valid-type]
         self._additional_data = additional_data
+        self._update_cycle_count = 0
+        self._failed_groups: set[int] = set()  # Track register group indices that failed last read
 
         self.__init_modbus_entities__()
         # Additional entities
@@ -229,6 +235,9 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 single_sensor.set_user_filters(
                     self._sensors_filters.get(single_sensor.decoded_name, [])
                 )
+                custom_label = self._entity_labels.get(single_sensor.decoded_name)
+                if custom_label:
+                    single_sensor.set_custom_label(custom_label)
                 self._modbus_entities[index][single_sensor.decoded_name] = single_sensor
 
     def __init_derived_numeric(
@@ -400,6 +409,10 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if not derived_sensor:
                 continue
 
+            custom_label = self._entity_labels.get(derived_sensor.decoded_name)
+            if custom_label:
+                derived_sensor.set_custom_label(custom_label)
+
             self._additional_entities.append(
                 {derived_sensor.decoded_name: derived_sensor}
             )
@@ -425,6 +438,55 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if name in sensors:
                 return sensors[name]
         return None
+
+    def update_entity_labels(self, labels: dict[str, str]) -> None:
+        """Update custom entity labels at runtime (without restart).
+
+        Applies new labels to all modbus and derived entities and updates
+        the internal labels dict.
+
+        Args:
+            labels: Dictionary mapping decoded_name to custom label.
+        """
+        # Step 1: Remove old HA discovery for all entities (empty payload)
+        if self._discovery_sent:
+            for entities_dict in self._modbus_entities:
+                for sensor in entities_dict.values():
+                    sensor.remove_ha_discovery()
+            for entities_dict in self._additional_entities:
+                for entity in entities_dict.values():
+                    entity.remove_ha_discovery()
+
+        # Step 2: Apply new labels
+        self._entity_labels = {k.lower(): v for k, v in labels.items()}
+        for entities_dict in self._modbus_entities:
+            for sensor in entities_dict.values():
+                custom_label = self._entity_labels.get(sensor.decoded_name)
+                sensor.set_custom_label(custom_label)
+        for entities_dict in self._additional_entities:
+            for entity in entities_dict.values():
+                custom_label = self._entity_labels.get(entity.decoded_name)
+                entity.set_custom_label(custom_label)
+
+        # Step 3: Re-send HA discovery with updated names
+        if self._discovery_sent:
+            self._send_discovery_for_all_registers()
+
+        # Step 4: Re-trigger entity events so frontend gets updated labels via WebSocket
+        for entities_dict in self._modbus_entities:
+            for sensor in entities_dict.values():
+                if sensor.state is not None:
+                    self._trigger_entity_events(sensor)
+        for entities_dict in self._additional_entities:
+            for entity in entities_dict.values():
+                if entity.state is not None:
+                    self._trigger_entity_events(entity)
+        _LOGGER.info("Updated entity labels for %s: %s", self._name, labels)
+
+    @property
+    def entity_labels(self) -> dict[str, str]:
+        """Return current entity labels dict."""
+        return self._entity_labels
 
     def get_all_entities(
         self,
@@ -525,6 +587,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 self._message_bus.send_message(
                     topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
                     payload=self._payload_online,
+                    retain=True,
                 )
                 _LOGGER.info("Sent online status for Modbus device %s to new availability topic", self._name)
             else:
@@ -681,6 +744,17 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             "payload_off": payload_off
         }
         
+    def _get_entity_label(self, entity: ModbusBaseEntity | ModbusDerivedEntity) -> str | None:
+        """Get custom label for entity from YAML config.
+
+        Args:
+            entity: Entity to look up label for.
+
+        Returns:
+            Custom label string or None if no custom label is set.
+        """
+        return self._entity_labels.get(entity.decoded_name)
+
     def _trigger_entity_events(
         self, 
         entity: ModbusBaseEntity | ModbusDerivedEntity, 
@@ -695,6 +769,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             entity: Entity that was updated
         """
         type_info = self._get_entity_type_info(entity)
+        custom_label = self._get_entity_label(entity)
         
         device_state = ModbusDeviceState(
             id=entity.id,
@@ -705,6 +780,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             device_group=self.name,
             coordinator_id=self._id,
             entity_type=entity.entity_type,
+            custom_label=custom_label,
             **type_info
         )
 
@@ -716,15 +792,16 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Also emit dedicated SensorEvent for generic sensor integration 
         # (thermostats, rules, etc. shouldn't care about transport type)
         if entity.entity_type in (SENSOR, TEXT_SENSOR):
+            display_name = custom_label or entity.name
             _LOGGER.debug(
                 "Emitting SensorEvent: entity_id='%s', name='%s', state=%s",
-                entity.id, entity.name, entity.state,
+                entity.id, display_name, entity.state,
             )
             self._event_bus.trigger_event(SensorEvent(
                 entity_id=entity.id,
                 state=SensorState(
                     id=entity.id,
-                    name=entity.name,
+                    name=display_name,
                     state=entity.state or 0.0,
                     unit=getattr(entity, 'unit_of_measurement', None),
                     timestamp=entity.last_timestamp,
@@ -869,8 +946,19 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         """Fetch state periodically and send to MQTT."""
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
+        self._update_cycle_count += 1
         
         for index, data in enumerate(self._db["registers_base"]):
+            # Skip this register group if update_every_n is set and not due,
+            # BUT always retry if previous read for this group failed
+            update_every_n = data.get("update_every_n")
+            if update_every_n and self._update_cycle_count % update_every_n != 1:
+                if index not in self._failed_groups:
+                    continue
+                _LOGGER.debug(
+                    "Retrying failed register group %d (base=%s) for %s",
+                    index, data.get(BASE), self._name,
+                )
             values = await self._modbus.read_registers(
                 unit=self._address,
                 address=data[BASE],
@@ -885,6 +973,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 self._message_bus.send_message(
                     topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
                     payload=self._payload_online,
+                    retain=True,
                 )
                 # Send HA discovery if not sent yet (device was offline during startup)
                 if not self._discovery_sent:
@@ -892,6 +981,18 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     self._discovery_sent = self._send_discovery_for_all_registers()
                 
             if not values:
+                # Mark this group as failed so it retries next cycle
+                self._failed_groups.add(index)
+                
+                # For groups with update_every_n, just skip — don't abort entire update
+                if update_every_n:
+                    _LOGGER.warning(
+                        "Can't fetch data from modbus device %s (group %d, base=%s, update_every_n=%d). "
+                        "Will retry next cycle.",
+                        self.id, index, data.get(BASE), update_every_n,
+                    )
+                    continue
+                
                 if update_interval < 600:
                     # Let's wait little more for device.
                     update_interval = update_interval * 1.5
@@ -901,16 +1002,22 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     self._message_bus.send_message(
                         topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/{STATE}",
                         payload=self._payload_online,
+                        retain=True,
                     )
                     self._discovery_sent = False
                 _LOGGER.warning(
-                    "Can't fetch data from modbus device %s. Will sleep for %s seconds",
+                    "Can't fetch data from modbus device %s (group %d, base=%s). Will sleep for %s seconds",
                     self.id,
+                    index,
+                    data.get(BASE),
                     update_interval,
                 )
                 return update_interval
-            elif update_interval != self._update_interval.total_in_seconds:
-                update_interval = self._update_interval.total_in_seconds
+            else:
+                # Read succeeded — clear failed flag for this group
+                self._failed_groups.discard(index)
+                if update_interval != self._update_interval.total_in_seconds:
+                    update_interval = self._update_interval.total_in_seconds
                 
             # Update all sensors in this register group
             output = {}

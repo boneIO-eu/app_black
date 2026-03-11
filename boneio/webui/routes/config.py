@@ -223,6 +223,44 @@ async def get_parsed_config():
         raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
 
 
+def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -> None:
+    """Hot-apply entity_labels from saved config to running Modbus coordinators.
+
+    Matches each device config entry to its running coordinator by ID
+    and calls update_entity_labels so changes take effect immediately.
+
+    Args:
+        manager: Application manager instance.
+        devices_data: List of device config dicts (as saved to YAML).
+    """
+    from boneio.const import ADDRESS, MODEL, ID
+
+    if not hasattr(manager, 'modbus') or manager.modbus is None:
+        return
+
+    coordinators = manager.modbus.get_all_coordinators()
+    if not coordinators:
+        return
+
+    for device_config in devices_data:
+        entity_labels = device_config.get("entity_labels")
+        if entity_labels is None:
+            continue
+
+        has_custom_id = bool(device_config.get(ID))
+        if has_custom_id:
+            device_id = str(device_config[ID]).replace(" ", "").lower()
+        else:
+            addr = device_config.get(ADDRESS, "")
+            model = device_config.get(MODEL, "")
+            device_id = f"{addr}_{model}".lower().replace(" ", "_")
+
+        coordinator = coordinators.get(device_id)
+        if coordinator:
+            coordinator.update_entity_labels(entity_labels)
+            _LOGGER.info("Hot-applied entity labels for coordinator %s", device_id)
+
+
 @router.put("/config/{section}")
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """
@@ -250,6 +288,13 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             manager.config_helper.set_restart_required(section)
             result["restart_required"] = True
             result["restart_required_sections"] = manager.config_helper.restart_required_sections
+        
+        # Hot-apply entity_labels to running Modbus coordinators
+        if section == "modbus_devices" and isinstance(data, list):
+            try:
+                _apply_entity_labels_to_coordinators(app_state.manager, data)
+            except Exception as e:
+                _LOGGER.warning("Failed to hot-apply entity labels: %s", e)
         
         return result
         
