@@ -13,7 +13,7 @@
                     "state_class": "measurement",
                     "device_class": "temperature",
                     "value_type": "S_WORD",
-                    "filters": [{ "multiply": 0.1 }]
+                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
                 }
             ]
         }

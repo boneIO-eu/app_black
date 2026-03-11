@@ -17,6 +17,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -31,6 +34,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -45,6 +51,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -59,6 +68,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         }
@@ -103,7 +115,7 @@
           "address": 10,
           "entity_type": "binary_sensor",
           "value_type": "S_WORD"
-        },
+        }
       ]
     },
     {

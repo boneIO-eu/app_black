@@ -13,7 +13,7 @@
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
+          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
         },
         {
           "name": "Voltage_Phase2",
@@ -22,7 +22,7 @@
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
+          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
         },
         {
           "name": "Voltage_Phase3",
@@ -31,7 +31,7 @@
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
+          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
         },
         {
           "name": "Frequency",
@@ -40,7 +40,7 @@
           "state_class": "measurement",
           "device_class": "frequency",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Current_Phase1",
@@ -49,7 +49,7 @@
           "state_class": "measurement",
           "device_class": "current",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Current_Phase2",
@@ -58,7 +58,7 @@
           "state_class": "measurement",
           "device_class": "current",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Current_Phase3",
@@ -67,7 +67,7 @@
           "state_class": "measurement",
           "device_class": "current",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Current_In",
@@ -76,7 +76,7 @@
           "state_class": "measurement",
           "device_class": "current",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Sum_Active_Power",
@@ -108,7 +108,7 @@
           "unit_of_measurement": "",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 0.001 }]
+          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
         },
         {
           "name": "Active_Power_Phase1",
@@ -148,7 +148,7 @@
           "value_type": "U_DWORD",
           "state_class": "total",
           "device_class": "energy",
-          "filters": [{ "multiply": 0.01 }]
+          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
         },
         {
           "name": "Total_Negative_Active_Energy",
@@ -157,7 +157,7 @@
           "state_class": "total",
           "device_class": "energy",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }]
+          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
         }
       ]
     }

@@ -71,6 +71,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -85,6 +88,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -99,6 +105,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -113,6 +122,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -251,6 +263,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -266,6 +281,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -281,6 +299,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -296,6 +317,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         },
@@ -311,6 +335,9 @@
           "filters": [
             {
               "multiply": 0.1
+            },
+            {
+              "round": 1
             }
           ]
         }
