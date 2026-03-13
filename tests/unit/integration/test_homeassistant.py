@@ -107,8 +107,8 @@ class TestHAChildDevicesMode:
             device_type="output",
         )
 
-        # Entity name should be empty
-        assert msg["name"] == ""
+        # Entity name should be None — HA will use the device name
+        assert msg["name"] == "null"
         # Device name should be the output name
         assert msg["device"]["name"] == "OUT 01"
         # Device should be a child of the main device
@@ -143,8 +143,8 @@ class TestHAChildDevicesMode:
         assert msg["device"]["name"] == "OUT 01"
         # Area is set via suggested_area
         assert msg["device"]["suggested_area"] == "Salon"
-        # Entity name is empty
-        assert msg["name"] == ""
+        # Entity name is None
+        assert msg["name"] is None
 
     def test_child_device_switch(self, child_config_helper):
         """Test child device mode with switch entity."""
@@ -154,9 +154,65 @@ class TestHAChildDevicesMode:
             config_helper=child_config_helper,
         )
 
-        assert msg["name"] == ""
+        assert msg["name"] is None
         assert msg["device"]["name"] == "OUT 05"
         assert "command_topic" in msg
+
+    def test_sensor_stays_on_main_device(self, child_config_helper):
+        """Test that sensors (INA219, CPU, etc.) stay on the main device, not child."""
+        msg = ha_availabilty_message(
+            id="ina219_voltage",
+            name="INA219 Voltage",
+            entity_type="sensor",
+            config_helper=child_config_helper,
+            device_type="sensor",
+        )
+
+        # Entity name should NOT be None — sensor stays on main device
+        assert msg["name"] == "INA219 Voltage"
+        # Device should be the main device, not a child
+        assert "via_device" not in msg["device"]
+
+    def test_input_becomes_child_device(self, child_config_helper):
+        """Test that inputs become child devices."""
+        msg = ha_availabilty_message(
+            id="in_01",
+            name="IN 01",
+            entity_type="binary_sensor",
+            config_helper=child_config_helper,
+            device_type="input",
+        )
+
+        assert msg["name"] is None
+        assert msg["device"]["name"] == "IN 01"
+        assert msg["device"]["via_device"] == "boneio/blk_abc123"
+
+    def test_cover_becomes_child_device(self, child_config_helper):
+        """Test that covers become child devices."""
+        msg = ha_availabilty_message(
+            id="cover_01",
+            name="Cover 01",
+            entity_type="cover",
+            config_helper=child_config_helper,
+            device_type="cover",
+        )
+
+        assert msg["name"] is None
+        assert msg["device"]["name"] == "Cover 01"
+        assert msg["device"]["via_device"] == "boneio/blk_abc123"
+
+    def test_button_stays_on_main_device(self, child_config_helper):
+        """Test that button entities stay on main device."""
+        msg = ha_availabilty_message(
+            id="restart",
+            name="Restart",
+            entity_type="button",
+            config_helper=child_config_helper,
+            device_type="button",
+        )
+
+        assert msg["name"] == "Restart"
+        assert "via_device" not in msg["device"]
 
     def test_disabled_mode_uses_standard_device(self, config_helper):
         """Test that ha_child_devices=False uses standard device grouping."""

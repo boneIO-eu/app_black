@@ -95,10 +95,11 @@ def ha_availabilty_message(
     )
     
     # --- EXPERIMENTAL: ha_child_devices mode ---
-    # Each entity becomes its own child device in HA.
-    # Device name = entity name (e.g., "OUT 01"), entity name = "" (empty).
-    # With area: device gets suggested_area but area is NOT in the device name.
-    if config_helper.ha_child_devices:
+    # Only outputs, inputs, covers and groups become child devices.
+    # Sensors (INA219, CPU, Memory, FW Version, Update) stay on the main device.
+    _CHILD_DEVICE_TYPES = {OUTPUT, INPUT, COVER, "group"}
+    
+    if config_helper.ha_child_devices and device_type in _CHILD_DEVICE_TYPES:
         child_device_name = name  # e.g., "OUT 01"
         child_identifier = f"{topic}_{device_type}_{id}"
         device_info = {
@@ -115,8 +116,8 @@ def ha_availabilty_message(
         if area_name:
             device_info["suggested_area"] = area_name
         
-        # Entity name is empty — HA will use the device name
-        entity_name = ""
+        # Entity name is None — HA will use the device name
+        entity_name = "null"
     elif area and area_name:
         # Create sub-device named "{device_name} - {area_name}" (e.g., "boneIO Black - Gabinet")
         # All entities with the same area will be grouped under this sub-device
