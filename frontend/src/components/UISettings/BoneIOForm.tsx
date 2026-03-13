@@ -195,6 +195,22 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         <HelpLabel>{t('boneio_config.device_type_help')}</HelpLabel>
       </div>
 
+      {/* HA Child Devices (experimental) */}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-3">
+          <input
+            type="checkbox"
+            className="toggle toggle-warning"
+            checked={data?.ha_child_devices || false}
+            onChange={(e) => handleChange('ha_child_devices', e.target.checked)}
+          />
+          <span className="label-text font-medium">
+            {t('boneio_config.ha_child_devices')}
+          </span>
+        </label>
+        <HelpLabel>{t('boneio_config.ha_child_devices_help')}</HelpLabel>
+      </div>
+
       {/* Device Type Change Warning Modal */}
       {showWarningModal && validationResult && (
         <div className="modal modal-open">

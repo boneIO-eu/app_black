@@ -1721,3 +1721,15 @@ boneio:
         - lower
       meta:
         label: Predefined device type configuration
+    ha_child_devices:
+      type: boolean
+      required: False
+      default: False
+      meta:
+        label: "[EXPERIMENTAL] HA child devices mode"
+        description: |
+          When enabled, each output/input/cover/sensor is registered as a separate
+          child device in Home Assistant (linked via via_device to the main boneIO device).
+          This allows HA to auto-generate dashboards per area.
+          Entity names become empty so HA uses the device name directly.
+          WARNING: Experimental feature — may change or be removed in future versions.

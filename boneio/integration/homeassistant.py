@@ -90,11 +90,34 @@ def ha_availabilty_message(
     area_name = config_helper.get_area_name(area) if area else None
     
     _LOGGER.debug(
-        "HA Discovery for %s: area=%s, area_name=%s, available_areas=%s",
-        id, area, area_name, config_helper.areas
+        "HA Discovery for %s: area=%s, area_name=%s, available_areas=%s, child_devices=%s",
+        id, area, area_name, config_helper.areas, config_helper.ha_child_devices
     )
     
-    if area and area_name:
+    # --- EXPERIMENTAL: ha_child_devices mode ---
+    # Each entity becomes its own child device in HA.
+    # Device name = entity name (e.g., "OUT 01"), entity name = "" (empty).
+    # With area: device gets suggested_area but area is NOT in the device name.
+    if config_helper.ha_child_devices:
+        child_device_name = name  # e.g., "OUT 01"
+        child_identifier = f"{topic}_{device_type}_{id}"
+        device_info = {
+            "identifiers": [child_identifier],
+            "manufacturer": manufacturer,
+            "model": model,
+            "model_id": config_helper.serial_number,
+            "name": child_device_name,
+            "serial_number": config_helper.serial_number,
+            "sw_version": __version__,
+            "via_device": topic,  # Link to main BoneIO device
+            **web_url_dict,
+        }
+        if area_name:
+            device_info["suggested_area"] = area_name
+        
+        # Entity name is empty — HA will use the device name
+        entity_name = ""
+    elif area and area_name:
         # Create sub-device named "{device_name} - {area_name}" (e.g., "boneIO Black - Gabinet")
         # All entities with the same area will be grouped under this sub-device
         sub_device_name = f"{device_name} - {area_name}"
@@ -110,6 +133,7 @@ def ha_availabilty_message(
             "suggested_area": area_name,  # Use area ID (lowercase) - HA converts area names to lowercase
             **web_url_dict
         }
+        entity_name = name
     else:
         device_info = {
             "identifiers": [topic],
@@ -121,6 +145,7 @@ def ha_availabilty_message(
             "sw_version": __version__,
             **web_url_dict
         }
+        entity_name = name
     
     # Include area in unique_id so HA treats entities in different areas as distinct
     # This allows moving entities between sub-devices by changing their area
@@ -134,7 +159,7 @@ def ha_availabilty_message(
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "optimistic": False,
         "device": device_info,
-        "name": name,
+        "name": entity_name,
         "state_topic": f"{topic}/{device_type}/{id}",
         "unique_id": unique_id,
         "default_entity_id": default_entity_id,

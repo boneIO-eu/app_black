@@ -90,6 +90,12 @@
           ],
           "description": "Predefined device type configuration",
           "title": "Device type"
+        },
+        "ha_child_devices": {
+          "type": "boolean",
+          "default": false,
+          "description": "[EXPERIMENTAL] When enabled, each output/input/cover/sensor is registered as a separate child device in Home Assistant (linked via via_device to the main boneIO device). Entity names become empty so HA uses the device name directly.",
+          "title": "HA child devices mode"
         }
       },
       "required": [

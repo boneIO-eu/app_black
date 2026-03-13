@@ -700,6 +700,8 @@
     "load_and_apply": "Load & Apply",
     "restart_required": "Restart required to apply changes.",
     "copied_files": "Copied files",
+    "ha_child_devices": "[EXPERIMENTAL] HA Child Devices",
+    "ha_child_devices_help": "When enabled, each output/input/cover/sensor is registered as a separate child device in Home Assistant (linked via via_device to the main boneIO device). Entity names become empty so HA uses the device name directly. This allows HA to auto-generate dashboards per area.",
     "cloud_registration": "Cloud Registration (PWA)",
     "cloud_registration_help": "Registers device subdomain ({serial}.black.boneio.app) with boneIO Cloud API and downloads wildcard SSL certificate for PWA access via HTTPS.",
     "cloud_registration_warning_title": "DNS Rebinding Protection",

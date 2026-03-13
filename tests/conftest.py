@@ -37,6 +37,7 @@ def mock_config_helper():
     helper.topic_prefix = "boneio"
     helper.ha_discovery = True
     helper.ha_discovery_prefix = "homeassistant"
+    helper.ha_child_devices = False
     return helper
 
 

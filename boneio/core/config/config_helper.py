@@ -50,6 +50,7 @@ class ConfigHelper:
         update_channel: str = "stable",
         cloud_registration: bool = False,
         pwa_name: str | None = None,
+        ha_child_devices: bool = False,
     ):
         self._name = name
         
@@ -81,6 +82,7 @@ class ConfigHelper:
         self._receive_boneio_autodiscovery = receive_boneio_autodiscovery
         self._update_channel = update_channel
         self._cloud_registration = cloud_registration
+        self._ha_child_devices = ha_child_devices
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -224,6 +226,15 @@ class ConfigHelper:
     def cloud_registration(self) -> bool:
         """Check if cloud registration (PWA) is enabled."""
         return self._cloud_registration
+
+    @property
+    def ha_child_devices(self) -> bool:
+        """Check if experimental HA child devices mode is enabled.
+        
+        When enabled, each output/input/cover becomes its own child device
+        in Home Assistant instead of being grouped under one main device.
+        """
+        return self._ha_child_devices
 
     @property
     def device_type(self) -> str:

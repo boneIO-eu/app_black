@@ -179,3 +179,23 @@ Naprawiono problem gdzie auto-refresh czyścił zaznaczenie logów, uniemożliwi
 ### [ ] BoneIO autodiscovery (send/receive)
 Urządzenia BoneIO automatycznie publikują swoje outputy, covery, inputy i sensory
 do MQTT discovery topics, umożliwiając wzajemne wykrywanie się urządzeń.
+
+### [ ] [EXPERIMENTAL] ha_child_devices — osobne urządzenia HA per wyjście
+Nowa opcja eksperymentalna `ha_child_devices: true` w sekcji `boneio`.
+Gdy włączona, każde wyjście/wejście/cover/sensor jest rejestrowane jako osobne
+urządzenie-dziecko w Home Assistant (połączone z głównym urządzeniem przez `via_device`).
+Nazwa encji jest pusta — HA używa nazwy urządzenia. Z area: urządzenie dostaje
+`suggested_area` bez nazwy area w nazwie urządzenia.
+
+```yaml
+# Przykład konfiguracji
+boneio:
+  name: boneIO Black
+  device_type: 32x10a
+  ha_child_devices: true  # EXPERIMENTAL
+```
+
+Efekt w HA:
+- Zamiast jednego urządzenia "boneIO Black 32x10A" z 32 encjami
+- Każde wyjście (OUT 01, OUT 02, ...) to osobne urządzenie-dziecko
+- Umożliwia automatyczne generowanie dashboardów per area

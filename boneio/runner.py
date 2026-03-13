@@ -127,6 +127,7 @@ async def async_run(
         update_channel=mqtt_config.get("update_channel", "stable"),
         cloud_registration=web_config.get("cloud", {}).get("enabled", False),
         pwa_name=web_config.get("cloud", {}).get("pwa_name"),
+        ha_child_devices=main_config.get("ha_child_devices", False),
     )
     
     # Load areas configuration

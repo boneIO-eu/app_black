@@ -706,6 +706,8 @@
     "load_and_apply": "Wgraj i zastosuj",
     "restart_required": "Wymagany restart aby zastosować zmiany.",
     "copied_files": "Skopiowane pliki",
+    "ha_child_devices": "[EKSPERYMENTALNE] Osobne urządzenia HA",
+    "ha_child_devices_help": "Gdy włączone, każde wyjście/wejście/cover/sensor jest rejestrowane jako osobne urządzenie-dziecko w Home Assistant (połączone z głównym urządzeniem przez via_device). Nazwy encji są puste — HA używa nazwy urządzenia. Umożliwia automatyczne generowanie dashboardów per area.",
     "cloud_registration": "Rejestracja w chmurze (PWA)",
     "cloud_registration_help": "Rejestruje subdomenę urządzenia ({serial}.black.boneio.app) w boneIO Cloud API i pobiera wildcard certyfikat SSL do dostępu PWA przez HTTPS.",
     "cloud_registration_warning_title": "Ochrona przed DNS Rebinding",
