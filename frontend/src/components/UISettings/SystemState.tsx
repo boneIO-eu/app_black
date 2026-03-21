@@ -214,8 +214,31 @@ const SystemState: React.FC = () => {
 
   // Rollback to specific version
   const performRollback = async (version: string) => {
-    if (!confirm(t('system_update.confirm_rollback') + ` (${version})`)) {
-      return;
+    // Check config compatibility before rollback
+    try {
+      const { data: compat } = await axios.get('/api/update/check_config_compat', {
+        params: { target_version: version },
+      });
+
+      if (compat.compatible === false) {
+        const forceRollback = confirm(
+          `⚠️ ${t('system_update.config_incompatible') || 'Configuration may be incompatible!'}\n\n` +
+          `${compat.message}\n\n` +
+          `${t('system_update.force_rollback_prompt') || 'Do you want to force the rollback anyway? This may cause configuration errors.'}`
+        );
+        if (!forceRollback) {
+          return;
+        }
+      } else {
+        if (!confirm(t('system_update.confirm_rollback') + ` (${version})`)) {
+          return;
+        }
+      }
+    } catch {
+      // If compat check fails, fall back to simple confirm
+      if (!confirm(t('system_update.confirm_rollback') + ` (${version})`)) {
+        return;
+      }
     }
 
     setIsUpdating(true);
