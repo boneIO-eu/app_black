@@ -176,6 +176,34 @@ Wymagania:
 ### [ ] LogViewer — fix kopiowania do schowka
 Naprawiono problem gdzie auto-refresh czyścił zaznaczenie logów, uniemożliwiając kopiowanie.
 
+### [ ] WebUI AI assistant dla Event / Binary Sensor (v1.3.0dev2)
+W formularzach `Event` i `Binary Sensor` dodano eksperymentalny asystent AI.
+WebUI potrafi skopiować gotowy prompt z aktualnym kontekstem konfiguracji
+(wejścia, wyjścia, covery, remote devices, dozwolone akcje), a następnie
+przyjąć odpowiedź AI w postaci JSON i zastosować ją bezpośrednio do formularza
+po walidacji.
+
+Przykład odpowiedzi JSON od AI:
+
+```json
+{
+  "version": 1,
+  "entity_type": "event",
+  "apply_to": "current_form",
+  "changes": {
+    "actions": {
+      "single": [
+        {
+          "action": "output",
+          "boneio_output": "out_02",
+          "action_output": "ON"
+        }
+      ]
+    }
+  }
+}
+```
+
 ### [ ] BoneIO autodiscovery (send/receive)
 Urządzenia BoneIO automatycznie publikują swoje outputy, covery, inputy i sensory
 do MQTT discovery topics, umożliwiając wzajemne wykrywanie się urządzeń.

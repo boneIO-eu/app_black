@@ -1,11 +1,30 @@
 import { useState, useEffect } from 'react';
-import Editor, { BeforeMount, OnMount } from '@monaco-editor/react';
+import Editor, { BeforeMount, OnMount, loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
 import axios from '@/api/axios';
 import { useTheme } from '../hooks/useTheme';
 import { FaChevronRight, FaChevronDown, FaRegFolder, FaRegFolderOpen, FaRegFile } from 'react-icons/fa';
 import { GoSidebarExpand } from 'react-icons/go';
 import ConfigCheckModal from './ConfigCheckModal';
 import { configureMonacoYaml, MonacoYaml } from 'monaco-yaml';
+import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
+import yamlWorker from '../yaml.worker.ts?worker';
+
+// Configure Monaco workers and loader (lazy-loaded with this component)
+self.MonacoEnvironment = {
+  getWorker(_, label) {
+    if (label === 'yaml') {
+      return new yamlWorker();
+    }
+    if (label === 'json') {
+      return new jsonWorker();
+    }
+    return new editorWorker();
+  }
+};
+
+loader.config({ monaco });
 
 
 interface FileItem {

@@ -1,7 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { createContext, useEffect, useState } from 'react';
+import { createContext, useEffect, useState, lazy, Suspense } from 'react';
 import { getRouterBasename } from './api/basePath';
-import ConfigEditor from './components/ConfigEditor';
+
+// Lazy-load ConfigEditor to keep Monaco out of the initial bundle
+const ConfigEditor = lazy(() => import('./components/ConfigEditor'));
 import LogViewer from './components/LogViewer';
 import OutputsView from './components/OutputsView';
 import InputsView from './components/InputsView';
@@ -255,7 +257,13 @@ function AppContent() {
         <Route path="/config" element={
           <ProtectedRoute>
             <Layout configEditor={true}>
-              <ConfigEditor />
+              <Suspense fallback={
+                <div className="flex items-center justify-center h-full">
+                  <span className="loading loading-spinner loading-lg"></span>
+                </div>
+              }>
+                <ConfigEditor />
+              </Suspense>
             </Layout>
           </ProtectedRoute>
         } />
