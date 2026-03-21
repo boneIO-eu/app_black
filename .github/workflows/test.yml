@@ -40,6 +40,27 @@ jobs:
           fail_ci_if_error: false
         continue-on-error: true
 
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: frontend
+
+      - name: Run frontend unit tests
+        run: pnpm test
+        working-directory: frontend
+
   # TODO: Enable lint job after running: black boneio tests && isort boneio tests
   # lint:
   #   runs-on: ubuntu-latest
