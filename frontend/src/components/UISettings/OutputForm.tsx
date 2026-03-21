@@ -110,6 +110,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
       return Array.from({ length: 32 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
     }
     
+    // 48x4A: OUT_01 - OUT_48 (DISCONTINUED)
+    if (type.includes('48')) {
+      return Array.from({ length: 48 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
+    }
+    
     // Default fallback: OUT_01 - OUT_49
     return Array.from({ length: 49 }, (_, i) => i + 1).map(num => `OUT_${num.toString().padStart(2, '0')}`);
   };

@@ -136,11 +136,13 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                     ? 'boneIO 24x16A'
                     : type === '32x10'
                       ? 'boneIO 32x10A'
-                      : type === 'cover'
-                        ? 'boneIO Cover'
-                        : type === 'cover_mix'
-                          ? 'boneIO Cover Mix'
-                          : type}
+                      : type === '48x4'
+                        ? 'boneIO 48x4A (DISCONTINUED)'
+                        : type === 'cover'
+                          ? 'boneIO Cover'
+                          : type === 'cover_mix'
+                            ? 'boneIO Cover Mix'
+                            : type}
                 </option>
               ))}
             </select>

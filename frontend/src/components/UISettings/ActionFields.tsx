@@ -15,6 +15,7 @@ import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 // Import sub-components
 import {
   validateAction as validate,
+  cleanActionFields as cleanFields,
   OutputAction,
   CoverAction,
   MqttAction,
@@ -25,8 +26,9 @@ import {
 } from './ActionFields/index';
 import type { Area, RemoteDevice } from './ActionFields/types';
 
-// Re-export validation function for use in parent components
+// Re-export helper functions for use in parent components
 export const validateAction = validate;
+export const cleanActionFields = cleanFields;
 
 interface ActionFieldsProps {
   action: any;
