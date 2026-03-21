@@ -19,6 +19,14 @@ _LOGGER = logging.getLogger(__name__)
 # Current schema version — bump this when adding new migrations
 CURRENT_SCHEMA_VERSION = 2
 
+# Minimum app version that introduced each schema version.
+# Used by the WebUI to warn before rolling back to an incompatible version.
+SCHEMA_VERSION_APP_MAP: dict[int, str] = {
+    0: "1.0.0",       # original schema
+    1: "1.2.0dev1",   # proxy_port rename
+    2: "1.3.0dev1",   # transition timeperiod
+}
+
 
 @dataclass
 class Migration:

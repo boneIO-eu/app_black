@@ -256,6 +256,10 @@ def normalize_board_name(name: str) -> str:
     if name == 'cover':
         return 'cover'
     
+    # Handle 48x4A variations (DISCONTINUED)
+    if name.startswith('48'):
+        return '48_4'
+    
     # Handle 32x5A variations (must check before 32x10 since both start with 32)
     if name in ('32x5a', '32x5'):
         return '32_5'
@@ -810,6 +814,21 @@ def load_config_from_file(config_file: str):
     schema = _get_schema()
     v = CustomValidator(schema, purge_unknown=True)
     
+    # Check if config was created by a newer app version (soft block)
+    from boneio.core.config.migrations import (
+        CURRENT_SCHEMA_VERSION as _CURRENT_SCHEMA,
+        get_config_version as _get_cv,
+    )
+    _cv = _get_cv(config_yaml)
+    if _cv > _CURRENT_SCHEMA:
+        _LOGGER.warning(
+            "Config version %d is newer than supported schema version %d. "
+            "This config was created by a newer version of boneIO. "
+            "Some features may not work correctly. "
+            "Consider upgrading the application or restoring an older config backup.",
+            _cv, _CURRENT_SCHEMA,
+        )
+
     # Apply migrations on raw dict BEFORE normalization/coercion
     # (coerce: positive_time_period would fail on bare int like transition: 2)
     config_yaml, migrations_applied = _run_config_migrations(config_yaml, config_file=config_file)

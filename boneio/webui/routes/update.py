@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
-from boneio.core.config.yaml_util import load_config_from_file, normalize_board_name
+from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -514,8 +514,88 @@ async def list_available_versions():
         }
 
 
+@router.get("/update/check_config_compat")
+async def check_config_compat(target_version: str):
+    """Check if current config is compatible with a target app version.
+
+    Compares the current config_version against the maximum schema version
+    supported by the target app version using SCHEMA_VERSION_APP_MAP.
+
+    Args:
+        target_version: The app version the user wants to roll back to.
+
+    Returns:
+        Compatibility info with compatible flag and human-readable message.
+    """
+    from boneio.core.config.migrations import (
+        CURRENT_SCHEMA_VERSION,
+        SCHEMA_VERSION_APP_MAP,
+        get_config_version,
+    )
+
+    try:
+        from packaging import version as pkg_version
+    except ImportError:
+        return {
+            "compatible": True,
+            "message": "Cannot check compatibility (packaging module not installed).",
+        }
+
+    # Read current config_version from the YAML file on disk
+    current_config_version = CURRENT_SCHEMA_VERSION  # fallback
+    try:
+        config_file = os.path.expanduser("~/boneio/config.yaml")
+        if os.path.exists(config_file):
+            raw = load_yaml_file(config_file)
+            if raw:
+                current_config_version = get_config_version(raw)
+    except Exception as e:
+        _LOGGER.warning("Could not read config_version from file: %s", e)
+
+    # Find max schema version supported by target app version
+    try:
+        target_parsed = pkg_version.parse(target_version)
+    except Exception:
+        return {
+            "compatible": True,
+            "message": f"Cannot parse target version '{target_version}'.",
+        }
+
+    max_supported_schema = 0
+    min_required_app = SCHEMA_VERSION_APP_MAP.get(current_config_version, "unknown")
+
+    for schema_ver, app_ver_str in sorted(SCHEMA_VERSION_APP_MAP.items()):
+        try:
+            if pkg_version.parse(app_ver_str) <= target_parsed:
+                max_supported_schema = schema_ver
+        except Exception:
+            continue
+
+    compatible = current_config_version <= max_supported_schema
+
+    if compatible:
+        message = (
+            f"Config version {current_config_version} is compatible "
+            f"with app version {target_version}."
+        )
+    else:
+        message = (
+            f"Config version {current_config_version} requires app >= {min_required_app}. "
+            f"Version {target_version} supports max config version {max_supported_schema}. "
+            f"Rolling back may cause configuration errors."
+        )
+
+    return {
+        "compatible": compatible,
+        "current_config_version": current_config_version,
+        "target_max_schema_version": max_supported_schema,
+        "min_required_app_version": min_required_app,
+        "message": message,
+    }
+
+
 # Available device types for factory reset
-DEVICE_TYPES = ["24x16", "32x10", "cover", "cover_mix"]
+DEVICE_TYPES = ["24x16", "32x10", "48x4", "cover", "cover_mix"]
 
 # Hardware version to sensor mapping
 # Different hardware versions have different temperature sensors, power monitoring, and UART for modbus
