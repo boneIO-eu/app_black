@@ -544,12 +544,15 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Check additional entities if not found in regular entities
         # Try direct lookup by decoded_name
         additional_entity = self.get_additional_entity_by_name(entity_id)
+        if not additional_entity and entity_id.startswith("_"):
+            # Strip leading underscore separator (frontend may include it)
+            additional_entity = self.get_additional_entity_by_name(entity_id.lstrip("_"))
         if not additional_entity:
             # If not found, try to extract decoded_name from full ID
             # Remove parent ID prefix if it matches
             coordinator_id_lower = self._id.lower()
             if entity_id.lower().startswith(coordinator_id_lower):
-                decoded_name = entity_id[len(coordinator_id_lower):]
+                decoded_name = entity_id[len(coordinator_id_lower):].lstrip("_")
                 additional_entity = self.get_additional_entity_by_name(decoded_name)
         
         # Also check all additional entities by their full ID

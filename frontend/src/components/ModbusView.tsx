@@ -14,11 +14,12 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
 }) => {
   const { t } = useTranslation();
   const handleSelectChange = async (value: string) => {
-    // Extract entity_id from device.id (format: {coordinator_id}{decoded_name})
+    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
     // or use decoded_name if it's available
-    const entityId = device.id.startsWith(device.coordinator_id) 
+    let entityId = device.id.startsWith(device.coordinator_id) 
       ? device.id.slice(device.coordinator_id.length) 
       : device.id;
+    if (entityId.startsWith('_')) entityId = entityId.slice(1);
     onValueChange(device.coordinator_id, entityId, value);
   };
 
@@ -27,19 +28,21 @@ const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
       return;
     }
     const value = checked ? device.payload_on : device.payload_off;
-    // Extract entity_id from device.id (format: {coordinator_id}{decoded_name})
+    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
     // or use decoded_name if it's available
-    const entityId = device.id.startsWith(device.coordinator_id) 
+    let entityId = device.id.startsWith(device.coordinator_id) 
       ? device.id.slice(device.coordinator_id.length) 
       : device.id;
+    if (entityId.startsWith('_')) entityId = entityId.slice(1);
     onValueChange(device.coordinator_id, entityId, value);
   };
 
   const handleWriteableSensorChange = async (value: string) => {
-    // Extract entity_id from device.id (format: {coordinator_id}{decoded_name})
-    const entityId = device.id.startsWith(device.coordinator_id) 
+    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
+    let entityId = device.id.startsWith(device.coordinator_id) 
       ? device.id.slice(device.coordinator_id.length) 
       : device.id;
+    if (entityId.startsWith('_')) entityId = entityId.slice(1);
     
     // Convert string to number if possible
     const numValue = parseFloat(value);
