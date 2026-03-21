@@ -1,0 +1,41 @@
+mqtt: !include mqtt.yaml
+
+oled:
+  enabled: yes
+  screens:
+    - uptime
+    - network
+    - cpu
+    - disk
+    - memory
+    - swap
+    - outputs
+    - inputs
+    - web
+
+lm75:
+  - id: Board temperature
+    address: 0x48
+ina219:
+  - address: 0x40
+
+event: !include event.yaml
+binary_sensor: !include binary_sensor.yaml
+
+output: !include output48x4A.yaml
+
+boneio:
+  name: "boneIO Black 48x4A"
+  version: 0.8
+  device_type: "48x4A"
+
+modbus:
+  uart: uart4
+
+logger:
+  default: info
+
+web:
+  port: 8090 #If you change this you need to change Nginx proxy settings in /home/boneio/docker/
+  proxy_port: 8443
+# adc: !include adc.yaml Uncomment only if needed. Not supported yet in v1.0.0

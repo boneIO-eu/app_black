@@ -1,0 +1,6 @@
+host: localhost
+username: boneio
+password: boneio123
+topic_prefix: boneio
+ha_discovery:
+  enabled: yes
