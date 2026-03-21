@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import tailwindcss from "@tailwindcss/vite";
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -54,8 +53,23 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: path.resolve(__dirname, '../boneio/webui/frontend-dist'),
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'monaco': ['monaco-editor', '@monaco-editor/react', 'monaco-yaml'],
+            'vendor': ['react', 'react-dom', 'react-router-dom'],
+          }
+        }
+      },
     },
     publicDir: "public",
+    test: {
+      environment: 'node',
+      include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+      },
+    },
     server: {
       proxy: {
         '/api': {

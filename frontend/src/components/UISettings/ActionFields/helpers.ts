@@ -1,6 +1,48 @@
 import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
 
 /**
+ * Fields allowed per action type. When switching action type,
+ * only these fields (plus 'action') are preserved.
+ */
+const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
+  output: ['boneio_output', 'action_output'],
+  cover: ['boneio_cover', 'action_cover', 'data'],
+  mqtt: ['topic', 'action_mqtt_msg'],
+  output_over_mqtt: ['boneio_id', 'boneio_output', 'action_output', 'action_mqtt_msg'],
+  cover_over_mqtt: ['boneio_id', 'boneio_cover', 'action_cover', 'action_mqtt_msg'],
+  remote_output: [
+    'remote_device', 'output_id', 'action_output',
+    'brightness', 'color_temp', 'rgb', 'transition',
+    'effect', 'palette', 'effect_speed', 'effect_intensity',
+    'colors', 'presets',
+  ],
+  remote_cover: ['remote_device', 'cover_id', 'action_cover', 'data'],
+};
+
+/** Fields shared across all action types (always preserved). */
+const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repeat_interval'];
+
+/**
+ * Returns a clean action object containing only fields valid for the given action type.
+ * Used when user switches action type to prevent stale fields from the previous type.
+ * @param newActionType - The new action type string
+ * @param currentAction - The current action object (may contain fields from old type)
+ * @returns New action object with only valid fields
+ */
+export const cleanActionFields = (newActionType: string, currentAction: Record<string, any> = {}): Record<string, any> => {
+  const allowed = ALLOWED_FIELDS_BY_ACTION[newActionType.toLowerCase()] || [];
+  const keepSet = new Set([...SHARED_FIELDS, ...allowed]);
+
+  const cleaned: Record<string, any> = { action: newActionType };
+  for (const key of Object.keys(currentAction)) {
+    if (key !== 'action' && keepSet.has(key) && currentAction[key] !== undefined) {
+      cleaned[key] = currentAction[key];
+    }
+  }
+  return cleaned;
+};
+
+/**
  * Formats an action option string into a human-readable label.
  * E.g. 'BRIGHTNESS_UP_CYCLE' -> 'Brightness Up Cycle'
  * @param option - The action option string (e.g. 'TOGGLE', 'BRIGHTNESS_UP_CYCLE')

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
-import ActionFields, { validateAction } from './ActionFields';
+import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
+import AiConfigAssistant from './AiConfigAssistant';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import {
   Select,
@@ -156,14 +157,10 @@ const EventForm: React.FC<EventFormProps> = ({
       newActions[actionType] = [];
     }
     
-    // When changing action type, clear pin field to avoid mismatched values
+    // When changing action type, clean fields to only keep valid ones for new type
     if (field === 'action') {
       const currentAction = newActions[actionType][index];
-      newActions[actionType][index] = { 
-        action: value,
-        // Keep only fields that are common across all action types
-        ...(currentAction?.boneio_id && { boneio_id: currentAction.boneio_id })
-      };
+      newActions[actionType][index] = cleanActionFields(value, currentAction) as any;
     } else if (field === 'remote_device') {
       // Clear dependent fields when changing remote device
       newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
@@ -241,6 +238,21 @@ const EventForm: React.FC<EventFormProps> = ({
           </div>
         </div>
       )}
+
+      <AiConfigAssistant
+        entityType="event"
+        data={data}
+        schema={schema}
+        allOutputs={allOutputs}
+        allOutputGroups={allOutputGroups}
+        allCovers={allCovers}
+        allAreas={allAreas}
+        allRemoteDevices={allRemoteDevices}
+        actionTypeOptions={actionTypeOptions}
+        actionOutputOptions={actionOutputOptions}
+        actionCoverOptions={actionCoverOptions}
+        onApply={onChange}
+      />
 
       {/* DaisyUI Tabs - lifted style with bordered content */}
       <div role="tablist" className="tabs tabs-box">

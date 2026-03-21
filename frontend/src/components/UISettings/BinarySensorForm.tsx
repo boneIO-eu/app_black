@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
-import ActionFields, { validateAction } from './ActionFields';
+import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
+import AiConfigAssistant from './AiConfigAssistant';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
   BinarySensorEntity, 
@@ -147,14 +148,10 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     if (!actions[type]) actions[type] = [];
     const updatedActions = [...actions[type]!];
     
-    // When changing action type, clear pin field to avoid mismatched values
+    // When changing action type, clean fields to only keep valid ones for new type
     if (field === 'action') {
       const currentAction = updatedActions[index];
-      updatedActions[index] = {
-        action: value,
-        // Keep only fields that are common across all action types
-        ...(currentAction?.boneio_id && { boneio_id: currentAction.boneio_id })
-      };
+      updatedActions[index] = cleanActionFields(value, currentAction) as any;
     } else {
       // When setting new boneio_output or boneio_cover, remove old pin field
       if (field === 'boneio_output' || field === 'boneio_cover') {
@@ -236,6 +233,21 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
           </div>
         </div>
       )}
+
+      <AiConfigAssistant
+        entityType="binary_sensor"
+        data={data}
+        schema={schema}
+        allOutputs={allOutputs}
+        allOutputGroups={allOutputGroups}
+        allCovers={allCovers}
+        allAreas={allAreas}
+        allRemoteDevices={allRemoteDevices}
+        actionTypeOptions={actionTypeOptions}
+        actionOutputOptions={actionOutputOptions}
+        actionCoverOptions={actionCoverOptions}
+        onApply={onChange}
+      />
 
       <TabsBox
         name="binary_sensor_tabs"

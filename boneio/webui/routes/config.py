@@ -27,6 +27,7 @@ from boneio.core.config.yaml_util import (
 )
 from boneio.core.manager import Manager
 from boneio.version import __version__
+from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -274,7 +275,15 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         Status response with optional restart_required flag.
     """
     RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus', 'mcp23017'}
-    
+
+    if section in ("event", "binary_sensor") and isinstance(data, list):
+        errors = _validate_section_actions(section, data)
+        if errors:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Invalid action configuration", "errors": errors},
+            )
+
     try:
         app_state = _get_app_state()
         result = update_config_section(app_state.yaml_config_file, section, data)
