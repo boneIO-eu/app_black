@@ -1715,7 +1715,7 @@ boneio:
     device_type:
       type: string
       required: False
-      allowed: ['32x10A', '32x10', '32', '32x5A', '32x5', '24x16A', '24x16', '24', 'cover', 'cover mix', 'cm', '32x10a', '32x5a', '24x16a']
+      allowed: ['32x10A', '32x10', '32', '32x5A', '32x5', '24x16A', '24x16', '24', '48x4A', '48x4', '48', 'cover', 'cover mix', 'cm', '32x10a', '32x5a', '24x16a', '48x4a']
       coerce:
         - str
         - lower

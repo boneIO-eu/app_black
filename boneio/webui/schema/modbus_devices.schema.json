@@ -123,6 +123,14 @@
             "description": "Update interval (minimum 1 second).",
             "title": "Update interval"
           },
+          "entity_labels": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Custom entity labels",
+            "title": "Entity labels"
+          },
           "sensors_filters": {
             "type": [
               "object",

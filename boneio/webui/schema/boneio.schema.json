@@ -69,6 +69,12 @@
             "32x5",
             "32x5A",
             "32x5a",
+            "48",
+            "48X4",
+            "48X4A",
+            "48x4",
+            "48x4A",
+            "48x4a",
             "CM",
             "COVER",
             "COVER MIX",
@@ -92,10 +98,26 @@
           "title": "Device type"
         },
         "ha_child_devices": {
-          "type": "boolean",
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
           "default": false,
-          "description": "[EXPERIMENTAL] When enabled, each output/input/cover/sensor is registered as a separate child device in Home Assistant (linked via via_device to the main boneIO device). Entity names become empty so HA uses the device name directly.",
-          "title": "HA child devices mode"
+          "description": "[EXPERIMENTAL] HA child devices mode",
+          "title": "Ha child devices"
         }
       },
       "required": [
