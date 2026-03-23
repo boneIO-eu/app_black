@@ -752,7 +752,15 @@
     "update_channel": "Kanał aktualizacji",
     "update_channel_stable": "Stabilny (zalecany)",
     "update_channel_dev": "Deweloperski (pre-release)",
-    "update_channel_help": "Które wersje pokazywać w encji Update w Home Assistant. Stabilny pokazuje tylko stabilne wersje, Deweloperski zawiera wersje pre-release."
+    "update_channel_help": "Które wersje pokazywać w encji Update w Home Assistant. Stabilny pokazuje tylko stabilne wersje, Deweloperski zawiera wersje pre-release.",
+    "remove_ha_discovery": "Usuń urządzenia z Home Assistant",
+    "remove_ha_discovery_help": "Usuń wszystkie urządzenia i encje zarejestrowane przez to boneIO z Home Assistant Discovery. Przydatne przy zmianie trybu sub-urządzeń lub czyszczeniu starych wpisów. Urządzenia zostaną ponownie utworzone po restarcie.",
+    "remove_ha_discovery_btn": "Usuń wszystkie urządzenia z HA",
+    "confirm_remove_ha_discovery": "Czy na pewno chcesz usunąć WSZYSTKIE urządzenia z Home Assistant? Urządzenia zostaną ponownie utworzone po następnym restarcie aplikacji.",
+    "remove_ha_discovery_failed": "Nie udało się usunąć wpisów HA discovery.",
+    "resend_ha_discovery_btn": "Usuń i wyślij ponownie HA Discovery",
+    "confirm_resend_ha_discovery": "Usunąć i wysłać ponownie wszystkie wpisy HA Discovery? Urządzenia zostaną chwilowo usunięte i ponownie utworzone.",
+    "resend_ha_discovery_failed": "Nie udało się ponownie wysłać wpisów HA discovery."
   },
   "webserver": {
     "port": "Port",
@@ -1413,5 +1421,12 @@
     "close": "Zamknij",
     "cancel": "Anuluj",
     "enter_pin": "Wprowadź kod PIN"
+  },
+  "startup": {
+    "initializing": "Inicjalizacja...",
+    "starting_gpio": "Uruchamianie GPIO...",
+    "connecting_mqtt": "Łączenie z MQTT...",
+    "ha_discovery": "Publikowanie HA Discovery...",
+    "ready": "Gotowe"
   }
 }

@@ -121,6 +121,7 @@ class Manager:
         can: dict[str, Any] = {},
         web_active: bool = False,
         web_port: int = 8090,
+        early_oled_device: Any | None = None,
     ) -> None:
         """Initialize the manager and all subsystems."""
         _LOGGER.info("Initializing Manager with modular architecture")
@@ -137,6 +138,12 @@ class Manager:
         
         # Hardware errors storage for WebUI
         self._hardware_errors: list[dict[str, Any]] = []
+        
+        # Startup status tracking
+        self._startup_status: str = "initializing"
+        self._startup_complete: bool = False
+        self._websocket_manager: Any | None = None
+        self._early_oled_device = early_oled_device
         
         # Web server info
         self._web_active = web_active
@@ -195,6 +202,7 @@ class Manager:
         self.display = DisplayManager(
             manager=self,
             oled_config=oled,
+            early_oled_device=self._early_oled_device,
         )
         
         # 7. RemoteDeviceManager (optional - for controlling remote devices)
@@ -326,6 +334,36 @@ class Manager:
         self._web_active = status
         self._web_port = bind
         _LOGGER.info("Web server status set to %s on port %s", status, bind)
+
+    async def set_startup_status(self, status: str, message: str) -> None:
+        """Set and broadcast startup status to WebSocket clients.
+        
+        Args:
+            status: Machine-readable status key (e.g. 'connecting_mqtt')
+            message: Human-readable status message
+        """
+        self._startup_status = status
+        _LOGGER.info("Startup status: %s", message)
+        if self._websocket_manager:
+            await self._websocket_manager.broadcast({
+                "event_type": "startup_status",
+                "status": status,
+                "message": message,
+                "complete": False,
+            })
+
+    async def mark_startup_complete(self) -> None:
+        """Mark startup as complete and notify WebSocket clients."""
+        self._startup_complete = True
+        self._startup_status = "ready"
+        _LOGGER.info("Startup complete")
+        if self._websocket_manager:
+            await self._websocket_manager.broadcast({
+                "event_type": "startup_status",
+                "status": "ready",
+                "message": "",
+                "complete": True,
+            })
 
     def append_task(
         self,

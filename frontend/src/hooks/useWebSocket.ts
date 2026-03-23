@@ -113,7 +113,14 @@ export interface ConfigReloadEvent {
   sections: string[];
 }
 
-export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ConfigReloadEvent;
+export interface StartupStatusEvent {
+  event_type: 'startup_status';
+  status: string;
+  message: string;
+  complete: boolean;
+}
+
+export type StateUpdate = InputEvent | OutputEvent | SensorEvent | CoverEvent | ModbusDeviceEvent | GroupEvent | ConfigReloadEvent | StartupStatusEvent;
 
 // Type guards
 
@@ -145,6 +152,10 @@ export function isConfigReloadEvent(data: StateUpdate): data is ConfigReloadEven
   return data.event_type === 'config_reload';
 }
 
+export function isStartupStatusEvent(data: StateUpdate): data is StartupStatusEvent {
+  return data.event_type === 'startup_status';
+}
+
 // Singleton WebSocket instance and listeners
 let globalWs: WebSocket | null = null;
 let globalMessageListeners = new Set<(message: StateUpdate) => void>();
@@ -159,6 +170,17 @@ const MAX_RECONNECT_DELAY = 30000; // Max 30 seconds
 const PING_INTERVAL = 15000; // 15 seconds - shorter for mobile browsers
 let activeConnections = 0;
 let globalIsConnected = false;
+
+/**
+ * Subscribe directly to global WebSocket messages without using the useWebSocket hook.
+ * Use this for components that need to listen but should not affect the connection lifecycle.
+ */
+export const addGlobalMessageListener = (callback: (message: StateUpdate) => void) => {
+  globalMessageListeners.add(callback);
+  return () => {
+    globalMessageListeners.delete(callback);
+  };
+};
 
 export const closeWebSocket = () => {
   if (globalWs) {

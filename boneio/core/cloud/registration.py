@@ -14,9 +14,10 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
 from boneio.core.system.monitor import get_network_info
@@ -45,7 +46,7 @@ REGISTRATION_INTERVAL = 3600
 class CloudRegistration:
     """
     Manages cloud registration for boneIO Black devices.
-    
+
     Registers device DNS with cloud API and downloads SSL certificates
     for PWA support.
     """
@@ -59,7 +60,7 @@ class CloudRegistration:
     ) -> None:
         """
         Initialize cloud registration.
-        
+
         Args:
             serial_number: Device serial number (e.g., 'blkf8dc18')
             local_ip: Local IP address of the device
@@ -73,7 +74,7 @@ class CloudRegistration:
         self._enabled = enabled
         self._domain: Optional[str] = None
         self._task: Optional[asyncio.Task] = None
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: Optional["aiohttp.ClientSession"] = None
         self._last_error: Optional[str] = None
 
     @property
@@ -111,10 +112,10 @@ class CloudRegistration:
             self._master_secret[:4] if self._master_secret else "NONE",
             len(self._master_secret) if self._master_secret else 0,
         )
-        
+
         # Create SSL directory if it doesn't exist
         CERT_DIR.mkdir(parents=True, exist_ok=True)
-        
+
         # Start registration loop
         self._task = asyncio.create_task(self._registration_loop())
 
@@ -134,7 +135,7 @@ class CloudRegistration:
 
     def _compute_token(self) -> str:
         """Compute HMAC-SHA256 auth token from master secret and serial.
-        
+
         Returns:
             Hex-encoded HMAC token string
         """
@@ -146,14 +147,16 @@ class CloudRegistration:
 
     def _auth_headers(self) -> dict[str, str]:
         """Get authorization headers for cloud API requests.
-        
+
         Returns:
             Dict with Authorization header
         """
         return {"Authorization": f"Bearer {self._compute_token()}"}
 
-    async def _get_session(self) -> aiohttp.ClientSession:
+    async def _get_session(self) -> "aiohttp.ClientSession":
         """Get or create aiohttp session."""
+        import aiohttp
+
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=30)
@@ -167,14 +170,16 @@ class CloudRegistration:
                 # Refresh local IP in case it changed (e.g. DHCP renewal)
                 current_ip = get_network_info().get("ip", "")
                 if current_ip and current_ip != "none" and current_ip != self._local_ip:
-                    _LOGGER.info("Local IP changed: %s -> %s", self._local_ip, current_ip)
+                    _LOGGER.info(
+                        "Local IP changed: %s -> %s", self._local_ip, current_ip
+                    )
                     self._local_ip = current_ip
 
                 # Register DNS
                 success = await self._register_dns()
                 if success:
                     _LOGGER.info("DNS registration successful: %s", self._domain)
-                    
+
                     # Fetch certificate if not present or needs refresh
                     cert_refreshed = False
                     if not self._cert_exists() or await self._cert_needs_refresh():
@@ -201,18 +206,20 @@ class CloudRegistration:
     async def _register_dns(self) -> bool:
         """
         Register device DNS with cloud API.
-        
+
         Returns:
             True if registration was successful
         """
+        import aiohttp
+
         try:
             session = await self._get_session()
-            
+
             payload = {
                 "serial": self._serial,
                 "ip": self._local_ip,
             }
-            
+
             async with session.post(
                 f"{CLOUD_API_URL}/register",
                 json=payload,
@@ -226,9 +233,7 @@ class CloudRegistration:
                     # Rate limited - wait longer
                     data = await response.json()
                     retry_after = data.get("retryAfter", 3600)
-                    _LOGGER.warning(
-                        "Rate limited, retry after %d seconds", retry_after
-                    )
+                    _LOGGER.warning("Rate limited, retry after %d seconds", retry_after)
                     return False
                 else:
                     body = await response.text()
@@ -246,13 +251,15 @@ class CloudRegistration:
     async def _fetch_certificate(self) -> bool:
         """
         Fetch SSL certificate from cloud API.
-        
+
         Returns:
             True if certificate was fetched successfully
         """
+        import aiohttp
+
         try:
             session = await self._get_session()
-            
+
             async with session.get(
                 f"{CLOUD_API_URL}/cert",
                 params={"serial": self._serial},
@@ -260,20 +267,20 @@ class CloudRegistration:
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    
+
                     # Decode and save certificate
                     cert_data = base64.b64decode(data["cert"])
                     key_data = base64.b64decode(data["key"])
-                    
+
                     CERT_FILE.write_bytes(cert_data)
                     KEY_FILE.write_bytes(key_data)
-                    
+
                     # Set proper permissions for key file
                     os.chmod(KEY_FILE, 0o600)
-                    
+
                     _LOGGER.info(
                         "SSL certificate saved, expires: %s",
-                        data.get("expiresAt", "unknown")
+                        data.get("expiresAt", "unknown"),
                     )
                     return True
                 elif response.status == 503:
@@ -297,16 +304,17 @@ class CloudRegistration:
     async def _cert_needs_refresh(self) -> bool:
         """
         Check if certificate needs to be refreshed.
-        
+
         Returns:
             True if cert is older than 30 days or doesn't exist
         """
         if not self._cert_exists():
             return True
-        
+
         try:
             # Check cert file age
             import time
+
             cert_age = time.time() - CERT_FILE.stat().st_mtime
             # Refresh if older than 30 days
             return cert_age > (30 * 24 * 3600)
@@ -316,7 +324,7 @@ class CloudRegistration:
     def update_ip(self, new_ip: str) -> None:
         """
         Update local IP address.
-        
+
         Args:
             new_ip: New local IP address
         """
@@ -415,7 +423,9 @@ class CloudRegistration:
             )
             cloud_content = cloud_src.read_text(encoding="utf-8")
             compose_file.write_text(cloud_content)
-            _LOGGER.info("Replaced docker-compose.yaml with cloud template from package")
+            _LOGGER.info(
+                "Replaced docker-compose.yaml with cloud template from package"
+            )
 
             return await self._recreate_caddy()
 
@@ -502,7 +512,7 @@ class CloudRegistration:
                     cwd=compose_dir,
                     capture_output=True,
                     timeout=60,
-                )
+                ),
             )
 
             if result.returncode == 0:
@@ -511,7 +521,7 @@ class CloudRegistration:
             else:
                 _LOGGER.error(
                     "Failed to recreate Caddy: %s",
-                    result.stderr.decode() if result.stderr else "Unknown error"
+                    result.stderr.decode() if result.stderr else "Unknown error",
                 )
                 return False
 

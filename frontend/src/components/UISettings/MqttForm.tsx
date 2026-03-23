@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import axiosInstance from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
 
@@ -13,6 +14,9 @@ interface MqttFormProps {
  */
 const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [removeResult, setRemoveResult] = useState<{ status: string; message: string } | null>(null);
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
   };
@@ -23,6 +27,40 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
       ...data,
       ha_discovery: { ...haDiscovery, [field]: value }
     });
+  };
+
+  const removeHaDiscovery = async () => {
+    if (!confirm(t('mqtt_config.confirm_remove_ha_discovery') || 'Are you sure you want to remove ALL devices from Home Assistant? This action cannot be undone.')) {
+      return;
+    }
+    setIsRemoving(true);
+    setRemoveResult(null);
+    try {
+      const { data: result } = await axiosInstance.post('/api/config/remove_ha_discovery');
+      setRemoveResult({ status: 'success', message: result.message });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || t('mqtt_config.remove_ha_discovery_failed') || 'Failed to remove HA discovery entries.';
+      setRemoveResult({ status: 'error', message: msg });
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  const resendHaDiscovery = async () => {
+    if (!confirm(t('mqtt_config.confirm_resend_ha_discovery') || 'Remove and re-send all HA Discovery entries? Devices will be briefly removed and then re-created.')) {
+      return;
+    }
+    setIsResending(true);
+    setRemoveResult(null);
+    try {
+      const { data: result } = await axiosInstance.post('/api/config/resend_ha_discovery');
+      setRemoveResult({ status: 'success', message: result.message });
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || t('mqtt_config.resend_ha_discovery_failed') || 'Failed to resend HA discovery entries.';
+      setRemoveResult({ status: 'error', message: msg });
+    } finally {
+      setIsResending(false);
+    }
   };
 
   return (
@@ -120,6 +158,45 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
           placeholder="homeassistant"
         />
         <HelpLabel>{t('mqtt_config.ha_discovery_prefix_help')}</HelpLabel>
+      </div>
+
+      {/* Remove all HA Discovery entries */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">{t('mqtt_config.remove_ha_discovery')}</span>
+        </label>
+        <p className="text-sm text-base-content/60 mb-2">
+          {t('mqtt_config.remove_ha_discovery_help')}
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            className="btn btn-warning btn-sm"
+            onClick={resendHaDiscovery}
+            disabled={isRemoving || isResending}
+          >
+            {isResending
+              ? <span className="loading loading-spinner loading-xs" />
+              : t('mqtt_config.resend_ha_discovery_btn')
+            }
+          </button>
+          <button
+            type="button"
+            className="btn btn-error btn-sm"
+            onClick={removeHaDiscovery}
+            disabled={isRemoving || isResending}
+          >
+            {isRemoving
+              ? <span className="loading loading-spinner loading-xs" />
+              : t('mqtt_config.remove_ha_discovery_btn')
+            }
+          </button>
+        </div>
+        {removeResult && (
+          <div className={`alert mt-2 ${removeResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
+            <span>{removeResult.message}</span>
+          </div>
+        )}
       </div>
 
       {/* BoneIO Autodiscovery Section */}

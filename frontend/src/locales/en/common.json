@@ -746,7 +746,15 @@
     "update_channel": "Update Channel",
     "update_channel_stable": "Stable (recommended)",
     "update_channel_dev": "Development (pre-release)",
-    "update_channel_help": "Which releases to show in Home Assistant Update entity. Stable shows only stable releases, Dev includes pre-release versions."
+    "update_channel_help": "Which releases to show in Home Assistant Update entity. Stable shows only stable releases, Dev includes pre-release versions.",
+    "remove_ha_discovery": "Remove devices from Home Assistant",
+    "remove_ha_discovery_help": "Remove all devices and entities registered by this boneIO from Home Assistant Discovery. Useful when switching between sub-device modes or cleaning up stale entries. Devices will be re-created on next restart.",
+    "remove_ha_discovery_btn": "Remove all HA devices",
+    "confirm_remove_ha_discovery": "Are you sure you want to remove ALL devices from Home Assistant? Devices will be re-created on next application restart.",
+    "remove_ha_discovery_failed": "Failed to remove HA discovery entries.",
+    "resend_ha_discovery_btn": "Remove & re-send HA Discovery",
+    "confirm_resend_ha_discovery": "Remove and re-send all HA Discovery entries? Devices will be briefly removed and then re-created.",
+    "resend_ha_discovery_failed": "Failed to resend HA discovery entries."
   },
   "webserver": {
     "port": "Port",
@@ -1408,5 +1416,12 @@
     "close": "Close",
     "cancel": "Cancel",
     "enter_pin": "Enter PIN code"
+  },
+  "startup": {
+    "initializing": "Initializing...",
+    "starting_gpio": "Starting GPIO...",
+    "connecting_mqtt": "Connecting to MQTT...",
+    "ha_discovery": "Publishing HA Discovery...",
+    "ready": "Ready"
   }
 }

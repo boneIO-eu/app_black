@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time as _boot_time
+_BOOT_T0 = _boot_time.monotonic()
+
 import logging
 import os
 
@@ -11,21 +14,13 @@ import argparse
 import asyncio
 import sys
 
-from yaml import MarkedYAMLError
+print(f"[BOOT TIMING] stdlib imports: {_boot_time.monotonic() - _BOOT_T0:.2f}s", flush=True)
 
-from boneio.const import ACTION
-from boneio.core.config import load_config_from_file
-from boneio.core.events import GracefulExit
-from boneio.core.utils.logger import configure_logger, setup_logging
-from boneio.exceptions import (
-    ConfigurationException,
-    RestartRequestException,
-)
-# Lazy import modbus CLI to save ~0.35s on startup for 'run' command
-# from boneio.modbus.cli import async_run_modbus_get, async_run_modbus_search, async_run_modbus_set
-# from boneio.modbus.client import VALUE_TYPES
-from boneio.runner import async_run
+# All boneio imports are lazy (inside run/run_modbus_command) to minimize
+# startup time. Only version is imported here for --version CLI flag.
+_t_ver = _boot_time.monotonic()
 from boneio.version import __version__
+print(f"[BOOT TIMING] ALL imports: {_boot_time.monotonic() - _BOOT_T0:.2f}s", flush=True)
 
 TASK_CANCELATION_TIMEOUT = 1
 
@@ -34,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def get_arguments() -> argparse.Namespace:
     """Get parsed passed in arguments."""
+    from boneio.const import ACTION
 
     parser = argparse.ArgumentParser(
         description="boneIO app for BeagleBone Black.",
@@ -208,14 +204,44 @@ def run(
     config: str, debug: int, mqttusername: str = "", mqttpassword: str = ""
 ) -> int:
     """Run BoneIO."""
+    import time as _time
+    from yaml import MarkedYAMLError
+    from boneio.core.config import load_config_from_file
+    from boneio.core.events import GracefulExit
+    from boneio.core.utils.logger import configure_logger, setup_logging
+    from boneio.exceptions import ConfigurationException
+    _t0 = _time.monotonic()
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
+    _LOGGER.info("[STARTUP TIMING] after setup_logging: %.2fs", _time.monotonic() - _t0)
     try:
+        _t1 = _time.monotonic()
         _config = load_config_from_file(config_file=config)
+        _LOGGER.info("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
         configure_logger(log_config=_config.get("logger") or {}, debug=debug)
+        # Granular timing of runner sub-imports to find the bottleneck
+        _t_a = _time.monotonic()
+        from boneio.const import ACTION
+        _LOGGER.info("[RUNNER IMPORT] boneio.const: %.2fs", _time.monotonic() - _t_a)
+        _t_a = _time.monotonic()
+        from boneio.core.cloud import CloudRegistration
+        _LOGGER.info("[RUNNER IMPORT] boneio.core.cloud: %.2fs", _time.monotonic() - _t_a)
+        _t_a = _time.monotonic()
+        from boneio.core.manager import Manager
+        _LOGGER.info("[RUNNER IMPORT] boneio.core.manager: %.2fs", _time.monotonic() - _t_a)
+        _t_a = _time.monotonic()
+        from boneio.core.messaging import MQTTClient
+        _LOGGER.info("[RUNNER IMPORT] boneio.core.messaging: %.2fs", _time.monotonic() - _t_a)
+        _t_a = _time.monotonic()
+        from boneio.hardware.gpio.input import get_gpio_manager
+        _LOGGER.info("[RUNNER IMPORT] boneio.hardware.gpio.input: %.2fs", _time.monotonic() - _t_a)
+        _t_a = _time.monotonic()
+        from boneio.runner import async_run
+        _LOGGER.info("[RUNNER IMPORT] boneio.runner (rest): %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.info("[STARTUP TIMING] total before async_run: %.2fs", _time.monotonic() - _t0)
         ret = asyncio.run(
             async_run(
                 config=_config,
@@ -241,13 +267,15 @@ def run_modbus_command(
     args: argparse.Namespace,
 ) -> int:
     """Run BoneIO."""
-    # Lazy import modbus CLI only when needed
+    from yaml import MarkedYAMLError
+    from boneio.core.events import GracefulExit
+    from boneio.core.utils.logger import configure_logger, setup_logging
+    from boneio.exceptions import ConfigurationException, RestartRequestException
     from boneio.modbus.cli import (
         async_run_modbus_get,
         async_run_modbus_search,
         async_run_modbus_set,
     )
-    
     setup_logging(debug_level=args.debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     try:

@@ -34,7 +34,7 @@ class WebServer:
         initial_config: dict | None = None,
     ) -> None:
         """Initialize the web server.
-        
+
         Args:
             initial_config: Pre-parsed config to populate cache (avoids slow first request)
         """
@@ -91,11 +91,76 @@ class WebServer:
         """Start the web server."""
         _LOGGER.info("Starting HYPERCORN web server...")
         self._server_running = True
-        
-        # Lazy import hypercorn to speed up application startup (~2-3s saved)
+
+        # Start a dummy server to show a loading screen while heavy imports run
+        # This prevents the web UI from appearing completely unresponsive for 20s
+        async def dummy_handler(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            try:
+                request_line = await reader.readline()
+                if not request_line:
+                    return
+                while True:
+                    line = await reader.readline()
+                    if not line or line == b"\r\n":
+                        break
+
+                html = (
+                    b"<html><head><meta http-equiv='refresh' content='2'>"
+                    b"<style>body{font-family:sans-serif;text-align:center;padding-top:20%;background:#1e1e2e;color:#cdd6f4;}</style>"
+                    b"</head><body><h1>BoneIO is starting...</h1>"
+                    b"<p>Please wait while the system initializes (this may take up to 30 seconds on BeagleBone).</p>"
+                    b"</body></html>"
+                )
+
+                response = (
+                    b"HTTP/1.1 503 Service Unavailable\r\n"
+                    b"Content-Type: text/html\r\n"
+                    b"Retry-After: 2\r\n"
+                    b"Connection: close\r\n"
+                    b"Content-Length: " + str(len(html)).encode() + b"\r\n"
+                    b"\r\n" + html
+                )
+
+                writer.write(response)
+                await writer.drain()
+            except Exception:
+                pass
+            finally:
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except Exception:
+                    pass
+
+        try:
+            dummy_server = await asyncio.start_server(
+                dummy_handler, "0.0.0.0", self._port
+            )
+            _LOGGER.info(f"Loading screen active on port {self._port}")
+        except Exception as err:
+            _LOGGER.warning(f"Could not bind dummy server on port {self._port}: {err}")
+            dummy_server = None
+
+        _LOGGER.info("Importing heavy web modules in background thread...")
+
+        def _do_heavy_imports():
+            import hypercorn.asyncio
+            import hypercorn.config
+            import boneio.webui.app
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _do_heavy_imports)
+
+        if dummy_server:
+            dummy_server.close()
+            await dummy_server.wait_closed()
+            _LOGGER.debug("Loading screen closed, starting actual server")
+
         from hypercorn.asyncio import serve
         from hypercorn.config import Config
-        
+
         # Configure hypercorn (moved from __init__ for lazy loading)
         self._hypercorn_config = Config()
         self._hypercorn_config.bind = [f"0.0.0.0:{self._port}"]
@@ -116,15 +181,21 @@ class WebServer:
         self._hypercorn_config.errorlog = hypercorn_logger
 
         # Reduce timeouts for faster shutdown
-        self._hypercorn_config.graceful_timeout = 2.0  # Wait max 2s for connections to close
+        self._hypercorn_config.graceful_timeout = (
+            2.0  # Wait max 2s for connections to close
+        )
         self._hypercorn_config.keep_alive_timeout = 2  # Keep-alive timeout
-        self._hypercorn_config.websocket_ping_interval = 20  # Ping interval (default is None)
+        self._hypercorn_config.websocket_ping_interval = (
+            20  # Ping interval (default is None)
+        )
 
         async def shutdown_trigger() -> None:
             """Shutdown trigger for hypercorn"""
             _LOGGER.debug("Shutdown trigger waiting for event...")
             await self._shutdown_event.wait()
-            _LOGGER.info("Shutdown trigger activated, Hypercorn will now shutdown gracefully")
+            _LOGGER.info(
+                "Shutdown trigger activated, Hypercorn will now shutdown gracefully"
+            )
 
         from boneio.webui.app import init_app
 
@@ -139,8 +210,16 @@ class WebServer:
             initial_config=self.initial_config,
         )
 
+        # Assign websocket manager back to Manager so it can broadcast events
+        if hasattr(self.app, "state") and hasattr(self.app.state, "websocket_manager"):
+            self.manager._websocket_manager = self.app.state.websocket_manager
+
         server_task = asyncio.create_task(
-            serve(app=cast("Framework", self.app), config=self._hypercorn_config, shutdown_trigger=shutdown_trigger)
+            serve(
+                app=cast("Framework", self.app),
+                config=self._hypercorn_config,
+                shutdown_trigger=shutdown_trigger,
+            )
         )
         self.manager.set_web_server_status(status=True, bind=self._port)
         try:

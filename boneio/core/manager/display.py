@@ -35,13 +35,21 @@ class DisplayManager:
         self,
         manager: Manager,
         oled_config: dict[str, Any],
+        early_oled_device: Any | None = None,
     ):
-        """Initialize display manager."""
+        """Initialize display manager.
+        
+        Args:
+            manager: Parent Manager instance
+            oled_config: OLED configuration dictionary
+            early_oled_device: Pre-initialized sh1106 device from early startup
+        """
         self._manager = manager
         self._oled = None
         self._screens = []
         self._configured_screen_order = []
         self._input_groups = []
+        self._early_oled_device = early_oled_device
         
         # Configure OLED if enabled
         if oled_config:
@@ -169,6 +177,7 @@ class DisplayManager:
                 input_groups=self._input_groups,
                 event_bus=self._manager._event_bus,
                 i2c_bus=self._manager._i2cbusio,
+                device=self._early_oled_device,
             )
             
             # Configure OLED button as event input

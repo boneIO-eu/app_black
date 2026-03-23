@@ -42,17 +42,28 @@ def _get_board_config(board_file: str):
     return _BOARD_CONFIG_CACHE[board_file]
 
 
-def clear_config_cache():
+def clear_config_cache(config_file: str | None = None):
     """Clear all cached YAML configs.
     
-    Use this when schema or board config files have been modified
-    and you want to force reload without restarting the process.
+    Clears in-memory schema/board caches and optionally removes the
+    validated config disk cache (.cache.pkl) for the given config file.
     
-    Note: In production, cache is automatically cleared on process restart.
+    Args:
+        config_file: Path to config file whose disk cache should be removed.
+                     If None, only in-memory caches are cleared.
     """
     global _SCHEMA_CACHE, _BOARD_CONFIG_CACHE
     _SCHEMA_CACHE = None
     _BOARD_CONFIG_CACHE.clear()
+    if config_file:
+        cache_path = config_file + ".cache.pkl"
+        try:
+            os.remove(cache_path)
+            _LOGGER.info("Config disk cache removed: %s", cache_path)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            _LOGGER.debug("Could not remove config cache: %s", e)
     _LOGGER.info("Config cache cleared")
 
 
@@ -801,18 +812,106 @@ def load_config_from_string(config_str: str) -> dict:
     return merged_doc
 
 
-def load_config_from_file(config_file: str):
-    try:
-        config_yaml = load_yaml_file(config_file)
-    except FileNotFoundError as err:
-        raise ConfigurationException(err)
-    if not config_yaml:
-        _LOGGER.warning("Missing yaml file. %s", config_file)
-        return None
+def _get_config_cache_path(config_file: str) -> str:
+    """Get path for validated config cache file.
     
-    # Load and validate config
+    Cache is stored next to the config file with .cache.pkl suffix.
+    Uses pickle instead of JSON to handle TimePeriod and OrderedDict objects.
+    """
+    return config_file + ".cache.pkl"
+
+
+def _compute_file_hash(filepath: str) -> str:
+    """Compute SHA256 hash of a file's contents."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _try_load_cached_config(config_file: str) -> dict | None:
+    """Try to load validated config from cache.
+    
+    Returns the cached config dict if cache is valid (config file and schema
+    file unchanged since cache was written). Returns None if cache is missing,
+    corrupt, or stale.
+    """
+    import pickle
+    cache_path = _get_config_cache_path(config_file)
+    try:
+        with open(cache_path, "rb") as f:
+            cached = pickle.load(f)
+        
+        # Verify cache structure
+        if not isinstance(cached, dict) or "config_hash" not in cached or "schema_hash" not in cached or "data" not in cached:
+            _LOGGER.debug("Config cache has invalid structure, ignoring")
+            return None
+        
+        # Verify app version matches (schema may change between versions)
+        from boneio.version import __version__
+        if cached.get("app_version") != __version__:
+            _LOGGER.debug("Config cache version mismatch (%s vs %s), ignoring", cached.get("app_version"), __version__)
+            return None
+        
+        # Verify config file hash
+        current_config_hash = _compute_file_hash(config_file)
+        if cached["config_hash"] != current_config_hash:
+            _LOGGER.debug("Config file changed, cache invalidated")
+            return None
+        
+        # Verify schema file hash
+        current_schema_hash = _compute_file_hash(schema_file)
+        if cached["schema_hash"] != current_schema_hash:
+            _LOGGER.debug("Schema file changed, cache invalidated")
+            return None
+        
+        _LOGGER.info("Loading validated config from cache (skipping Cerberus validation)")
+        return cached["data"]
+    except (FileNotFoundError, pickle.UnpicklingError, OSError, EOFError) as e:
+        _LOGGER.debug("Config cache not available: %s", e)
+        return None
+
+
+def _save_config_cache(config_file: str, validated_config: dict) -> None:
+    """Save validated config to cache file.
+    
+    Stores the validated config along with hashes of the config and schema
+    files so we can detect when the cache is stale. Uses pickle to handle
+    TimePeriod and OrderedDict objects.
+    """
+    import pickle
+    from boneio.version import __version__
+    cache_path = _get_config_cache_path(config_file)
+    try:
+        cache_data = {
+            "app_version": __version__,
+            "config_hash": _compute_file_hash(config_file),
+            "schema_hash": _compute_file_hash(schema_file),
+            "data": validated_config,
+        }
+        with open(cache_path, "wb") as f:
+            pickle.dump(cache_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        _LOGGER.debug("Saved validated config cache to %s", cache_path)
+    except (OSError, pickle.PicklingError) as e:
+        _LOGGER.debug("Could not save config cache: %s", e)
+
+
+def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
+    """Run full Cerberus schema validation on config.
+    
+    This is the slow path (~20s on BeagleBone). Results are cached
+    to disk so subsequent startups can skip this step.
+    """
+    import time as _time
+    
+    _t1 = _time.monotonic()
     schema = _get_schema()
+    _LOGGER.info("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
+    _t2 = _time.monotonic()
     v = CustomValidator(schema, purge_unknown=True)
+    _LOGGER.info("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
     
     # Check if config was created by a newer app version (soft block)
     from boneio.core.config.migrations import (
@@ -830,16 +929,22 @@ def load_config_from_file(config_file: str):
         )
 
     # Apply migrations on raw dict BEFORE normalization/coercion
-    # (coerce: positive_time_period would fail on bare int like transition: 2)
+    _t3 = _time.monotonic()
     config_yaml, migrations_applied = _run_config_migrations(config_yaml, config_file=config_file)
+    _LOGGER.info("[STARTUP TIMING] migrations: %.2fs", _time.monotonic() - _t3)
     
     # Normalize the document (applies coercion rules)
+    _t4 = _time.monotonic()
     doc = v.normalized(config_yaml, always_return_document=True)  # type: ignore[attr-defined]
+    _LOGGER.info("[STARTUP TIMING] v.normalized: %.2fs", _time.monotonic() - _t4)
     
     # Then merge board config
+    _t5 = _time.monotonic()
     merged_doc = merge_board_config(doc)
+    _LOGGER.info("[STARTUP TIMING] merge_board_config: %.2fs", _time.monotonic() - _t5)
     
     # Finally validate
+    _t6 = _time.monotonic()
     if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
         error_msg = "Configuration validation failed:\n"
         for field, errors in v.errors.items():  # type: ignore[attr-defined]
@@ -851,6 +956,43 @@ def load_config_from_file(config_file: str):
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
+    _LOGGER.info("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
+    
+    # Save to cache for next startup
+    _save_config_cache(config_file, merged_doc)
+    
+    return merged_doc
+
+
+def load_config_from_file(config_file: str):
+    """Load and validate config from YAML file.
+    
+    Uses a validated config cache to skip Cerberus validation on subsequent
+    startups when config and schema files haven't changed. This saves ~20s
+    on BeagleBone Black where Cerberus validation is very slow.
+    """
+    import time as _time
+    _t0 = _time.monotonic()
+    
+    # Try loading from cache first (fast path: ~0.5s vs ~20s)
+    cached = _try_load_cached_config(config_file)
+    if cached is not None:
+        _LOGGER.info("[STARTUP TIMING] load_config_from_file TOTAL (cached): %.2fs", _time.monotonic() - _t0)
+        return cached
+    
+    # Cache miss — full validation (slow path)
+    _LOGGER.info("Config cache miss, running full validation...")
+    try:
+        config_yaml = load_yaml_file(config_file)
+    except FileNotFoundError as err:
+        raise ConfigurationException(err)
+    _LOGGER.info("[STARTUP TIMING] load_yaml_file: %.2fs", _time.monotonic() - _t0)
+    if not config_yaml:
+        _LOGGER.warning("Missing yaml file. %s", config_file)
+        return None
+    
+    merged_doc = _full_config_validation(config_file, config_yaml)
+    _LOGGER.info("[STARTUP TIMING] load_config_from_file TOTAL: %.2fs", _time.monotonic() - _t0)
     
     return merged_doc
 

@@ -74,6 +74,7 @@ class Oled:
         input_groups: list[str],
         event_bus: EventBus,
         i2c_bus: "SMBus2I2C | None" = None,
+        device: "sh1106 | None" = None,
     ):
         """Initialize OLED display.
         
@@ -85,6 +86,7 @@ class Oled:
             input_groups: List of input group names
             event_bus: Event bus for handling events
             i2c_bus: I2C bus instance (optional, will create if not provided)
+            device: Pre-initialized sh1106 device (optional, avoids duplicate I2C init)
         """
         self._host_data: HostData = host_data
         self._grouped_outputs_by_expander = grouped_outputs_by_expander
@@ -121,14 +123,17 @@ class Oled:
         # Timeout (seconds) to cancel shutdown confirmation if no action
         self._shutdown_confirm_timeout: float = 10.0
         
-        # Initialize I2C display
-        try:
-            # Use luma.oled for now, but could be refactored to use SMBus2I2C
-            serial = i2c(port=2, address=0x3C)
-            self._device = sh1106(serial)
-            _LOGGER.debug("OLED display initialized successfully")
-        except (DeviceNotFoundError, OSError) as err:
-            raise I2CError(f"OLED display not found: {err}")
+        # Initialize I2C display (reuse early device if provided)
+        if device is not None:
+            self._device = device
+            _LOGGER.debug("OLED display reusing early-initialized device")
+        else:
+            try:
+                serial = i2c(port=2, address=0x3C)
+                self._device = sh1106(serial)
+                _LOGGER.debug("OLED display initialized successfully")
+            except (DeviceNotFoundError, OSError) as err:
+                raise I2CError(f"OLED display not found: {err}")
         
         # Subscribe to OLED button events
         self._event_bus.add_event_listener(

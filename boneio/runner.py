@@ -57,6 +57,64 @@ warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptogra
 
 _LOGGER = logging.getLogger(__name__)
 
+
+def _init_early_oled(oled_config: dict) -> Any | None:
+    """Initialize bare OLED device for startup status messages.
+    
+    This creates the I2C connection and SH1106 device early,
+    before Manager.__init__(), so we can display boot progress
+    on the OLED screen immediately.
+    
+    Args:
+        oled_config: OLED configuration dict from config file
+        
+    Returns:
+        sh1106 device instance or None if OLED is not configured or fails
+    """
+    if not oled_config:
+        return None
+    try:
+        from luma.core.interface.serial import i2c
+        from luma.oled.device import sh1106
+        serial = i2c(port=2, address=0x3C)
+        device = sh1106(serial)
+        _LOGGER.debug("Early OLED device initialized for startup messages")
+        return device
+    except Exception as err:
+        _LOGGER.debug("Early OLED init skipped: %s", err)
+        return None
+
+
+def _draw_startup_status(device: Any | None, message: str) -> None:
+    """Draw a startup status message on the OLED display.
+    
+    Shows the boneIO logo and a status line below it.
+    
+    Args:
+        device: sh1106 device instance (or None to skip)
+        message: Status message to display
+    """
+    if device is None:
+        return
+    try:
+        from luma.core.render import canvas
+        from boneio.core.utils.font_util import make_font
+        try:
+            font_logo = make_font("danube__.ttf", 15, local=True)
+            font_status = make_font("DejaVuSans.ttf", 9)
+        except (OSError, IOError):
+            from PIL import ImageFont
+            font_logo = ImageFont.load_default()
+            font_status = ImageFont.load_default()
+
+        with canvas(device) as draw:
+            draw.text((3, 3), "bone", font=font_logo, fill=1)
+            draw.text((53, 3), "iO", font=font_logo, fill=1)
+            draw.text((3, 30), message, font=font_status, fill=1)
+    except Exception as err:
+        _LOGGER.debug("Failed to draw startup status on OLED: %s", err)
+
+
 config_modules = [
     {"name": MCP23017, "default": []},
     {"name": PCF8575, "default": []},
@@ -157,6 +215,11 @@ async def async_run(
         for item in config_modules
     }
 
+    # --- Early OLED init (before Manager) for startup status ---
+    oled_config = config.get(OLED, {})
+    early_oled_device = _init_early_oled(oled_config)
+    _draw_startup_status(early_oled_device, "Initializing...")
+
     manager = Manager(
         message_bus=message_bus,
         event_bus=event_bus,
@@ -180,6 +243,7 @@ async def async_run(
         can=config.get(CAN, {}),
         web_active=web_active,
         web_port=web_config.get("port", 8090),
+        early_oled_device=early_oled_device,
         **manager_kwargs,
     )
     # Convert coroutines to Tasks
@@ -187,62 +251,9 @@ async def async_run(
     # Add manager tasks (get_tasks returns dict, we need values)
     manager_tasks = manager.get_tasks()
     tasks.update(manager_tasks.values())
-    
-    # Start GPIO manager FIRST - local hardware is more important than remote connections
-    gpio_manager = get_gpio_manager()
-    if gpio_manager and gpio_manager._inputs:  # Only start if there are inputs
-        _LOGGER.info("Starting GPIO manager")
-        try:
-            await gpio_manager.start()
-        except Exception as e:
-            _LOGGER.error(f"Failed to start GPIO manager: {e}")
-            _LOGGER.error("If lines are busy, run: sudo pkill -9 -f boneio")
-            # Don't fail the entire application, continue without GPIO
-            pass
-    
-    # Start CAN bus if configured (non-blocking)
-    if manager.canopen is not None:
-        can_task = asyncio.create_task(manager.start_canopen())
-        tasks.add(can_task)
-        can_task.add_done_callback(tasks.discard)
 
-    # Start ESPHome connections as background task (non-blocking)
-    esphome_task = manager.append_task(
-        coro=manager.remote_devices.start_all_connections,
-        name="esphome_connections"
-    )
-    tasks.add(esphome_task)
-
-    message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
-    _LOGGER.info("Starting message bus %s.", message_bus_type)
-    message_bus_task = asyncio.create_task(message_bus.start_client())
-    tasks.add(message_bus_task)
-    message_bus_task.add_done_callback(tasks.discard)
-    
-    # Publish discovery after message bus is started
-    if isinstance(message_bus, MQTTClient):
-        # Wait a bit for MQTT connection to establish (reduced from 2s to 1s for faster startup)
-        await asyncio.sleep(1)
-        _LOGGER.info("Publishing device discovery information")
-        await manager.publish_discovery()
-    
-    # Start cloud registration if enabled
-    cloud_reg = None
-    if _config_helper.cloud_registration:
-        local_ip = network_state.get("ip", "")
-        serial = _config_helper.serial_no
-        if local_ip and serial:
-            cloud_reg = CloudRegistration(
-                serial_number=serial,
-                local_ip=local_ip,
-            )
-            await cloud_reg.start()
-            _config_helper._cloud_reg = cloud_reg
-            _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
-        else:
-            _LOGGER.warning("Cloud registration enabled but missing serial or IP")
-
-    # Start web server if configured
+    # --- Start web server EARLY (before MQTT/discovery) for fast UI access ---
+    _draw_startup_status(early_oled_device, "Starting web server...")
     if web_active:
         _LOGGER.info("Starting Web server.")
         # Lazy import WebServer only when needed (saves ~4s on startup)
@@ -261,8 +272,94 @@ async def async_run(
         web_server_task = asyncio.create_task(web_server.start_webserver())
         tasks.add(web_server_task)
         web_server_task.add_done_callback(tasks.discard)
+        # Store websocket_manager reference for startup status broadcasts
+        # (available after first await yields to event loop and init_app runs)
+        await asyncio.sleep(0)  # Yield to let web server task start
+        if hasattr(web_server, 'app') and hasattr(web_server.app, 'state'):
+            manager._websocket_manager = getattr(web_server.app.state, 'websocket_manager', None)
     else:
         _LOGGER.info("Web server not configured.")
+
+    # --- Start GPIO manager ---
+    _draw_startup_status(early_oled_device, "Starting GPIO...")
+    await manager.set_startup_status("starting_gpio", "Starting GPIO...")
+    gpio_manager = get_gpio_manager()
+    if gpio_manager and gpio_manager._inputs:  # Only start if there are inputs
+        _LOGGER.info("Starting GPIO manager")
+        try:
+            await gpio_manager.start()
+        except Exception as e:
+            _LOGGER.error(f"Failed to start GPIO manager: {e}")
+            _LOGGER.error("If lines are busy, run: sudo pkill -9 -f boneio")
+            # Don't fail the entire application, continue without GPIO
+            pass
+    
+    # Start CAN bus if configured (non-blocking)
+    if manager.canopen is not None:
+        can_task = asyncio.create_task(manager.start_canopen())
+        tasks.add(can_task)
+        can_task.add_done_callback(tasks.discard)
+
+    # Initialize remote devices in background (configure + start connections)
+    # This defers heavy module imports (aioesphomeapi, aiohttp) to background
+    remote_task = manager.append_task(
+        coro=manager.remote_devices.initialize,
+        name="remote_devices_init"
+    )
+    tasks.add(remote_task)
+
+    # --- Start MQTT and discovery in background ---
+    _draw_startup_status(early_oled_device, "Connecting MQTT...")
+    await manager.set_startup_status("connecting_mqtt", "Connecting to MQTT...")
+    message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
+    _LOGGER.info("Starting message bus %s.", message_bus_type)
+    message_bus_task = asyncio.create_task(message_bus.start_client())
+    tasks.add(message_bus_task)
+    message_bus_task.add_done_callback(tasks.discard)
+    
+    # Publish discovery after message bus is started (non-blocking)
+    async def _delayed_discovery() -> None:
+        """Wait for MQTT connection and publish discovery in background."""
+        try:
+            await asyncio.sleep(1)
+            _draw_startup_status(early_oled_device, "Publishing discovery...")
+            await manager.set_startup_status("ha_discovery", "Publishing HA Discovery...")
+            _LOGGER.info("Publishing device discovery information")
+            await manager.publish_discovery()
+            await manager.mark_startup_complete()
+            _draw_startup_status(early_oled_device, "Ready")
+            # Brief pause so user sees "Ready" before normal screen takes over
+            await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            _LOGGER.error("Error during delayed discovery: %s", e)
+            await manager.mark_startup_complete()
+
+    if isinstance(message_bus, MQTTClient):
+        discovery_task = asyncio.create_task(_delayed_discovery())
+        tasks.add(discovery_task)
+        discovery_task.add_done_callback(tasks.discard)
+    else:
+        # No MQTT — mark startup complete immediately
+        await manager.mark_startup_complete()
+        _draw_startup_status(early_oled_device, "Ready")
+    
+    # Start cloud registration if enabled
+    cloud_reg = None
+    if _config_helper.cloud_registration:
+        local_ip = network_state.get("ip", "")
+        serial = _config_helper.serial_no
+        if local_ip and serial:
+            cloud_reg = CloudRegistration(
+                serial_number=serial,
+                local_ip=local_ip,
+            )
+            await cloud_reg.start()
+            _config_helper._cloud_reg = cloud_reg
+            _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
+        else:
+            _LOGGER.warning("Cloud registration enabled but missing serial or IP")
     
     try:
         # Convert tasks set to list for main gather

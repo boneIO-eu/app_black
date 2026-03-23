@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from boneio.core.remote.base import (
     RemoteDevice,
@@ -17,11 +17,11 @@ from boneio.core.remote.base import (
     RemoteDeviceType,
 )
 from boneio.core.remote.mqtt import MQTTRemoteDevice
-from boneio.core.remote.esphome import ESPHomeRemoteDevice, ESPHOME_API_AVAILABLE
-from boneio.core.remote.wled import WLEDRemoteDevice
 
 if TYPE_CHECKING:
     from boneio.core.messaging import MessageBus
+    from boneio.core.remote.esphome import ESPHomeRemoteDevice
+    from boneio.core.remote.wled import WLEDRemoteDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,9 +67,8 @@ class RemoteDeviceManager:
         # Cycle state for CYCLE_COLOR and CYCLE_PRESET actions
         # Key: "device_id:output_id:type:action_idx", Value: current index
         self._cycle_state: dict[str, int] = {}
-        
-        if remote_devices_config:
-            self._configure_devices(remote_devices_config)
+        self._pending_config: list[dict[str, Any]] | None = remote_devices_config
+        self._initialized = False
     
     def add_device(self, device: RemoteDevice) -> None:
         """Dynamically add a remote device (e.g., from CAN autodiscovery).
@@ -236,7 +235,7 @@ class RemoteDeviceManager:
         device_id: str,
         name: str,
         config: dict[str, Any],
-    ) -> ESPHomeRemoteDevice | None:
+    ) -> RemoteDevice | None:
         """Create ESPHome API remote device.
         
         Args:
@@ -247,6 +246,7 @@ class RemoteDeviceManager:
         Returns:
             ESPHomeRemoteDevice instance or None if creation failed
         """
+        from boneio.core.remote.esphome import ESPHomeRemoteDevice, ESPHOME_API_AVAILABLE
         if not ESPHOME_API_AVAILABLE:
             _LOGGER.error(
                 "aioesphomeapi not installed - cannot create ESPHome device '%s'",
@@ -285,7 +285,7 @@ class RemoteDeviceManager:
         device_id: str,
         name: str,
         config: dict[str, Any],
-    ) -> WLEDRemoteDevice | None:
+    ) -> RemoteDevice | None:
         """Create WLED remote device.
         
         Args:
@@ -296,6 +296,7 @@ class RemoteDeviceManager:
         Returns:
             WLEDRemoteDevice instance or None if creation failed
         """
+        from boneio.core.remote.wled import WLEDRemoteDevice
         wled_config = config.get("wled", {})
         host = wled_config.get("host")
         
@@ -314,22 +315,28 @@ class RemoteDeviceManager:
             segments=segments,
         )
     
-    async def start_all_connections(self, delay_seconds: float = 10.0) -> None:
-        """Start persistent connections for all ESPHome devices.
+    async def initialize(self, delay_seconds: float = 10.0) -> None:
+        """Initialize remote devices in background.
         
-        This should be called during application startup to establish
-        connections to all ESPHome devices with ReconnectLogic.
-        
-        ESPHome connections are delayed to prioritize local device functionality
-        (GPIO, MQTT) over remote device connections.
+        Configures devices from pending config (importing ESPHome/WLED modules
+        only at this point) and starts persistent ESPHome connections.
+        This runs as a background task so it does not block application startup.
         
         Args:
             delay_seconds: Seconds to wait before starting ESPHome connections
         """
+        # 1. Configure devices (this triggers lazy module imports)
+        if self._pending_config:
+            _LOGGER.info("Configuring %d remote device(s) in background...", len(self._pending_config))
+            self._configure_devices(self._pending_config)
+            self._pending_config = None
+        self._initialized = True
+        
+        # 2. Start ESPHome connections after delay
         esphome_devices = [
             (device_id, device) 
             for device_id, device in self._devices.items() 
-            if isinstance(device, ESPHomeRemoteDevice)
+            if device.protocol == RemoteDeviceProtocol.ESPHOME_API
         ]
         
         if not esphome_devices:
@@ -344,7 +351,7 @@ class RemoteDeviceManager:
         _LOGGER.info("Starting ESPHome connections...")
         for device_id, device in esphome_devices:
             try:
-                await device.start_connection()
+                await cast(Any, device).start_connection()
                 _LOGGER.info("Started connection for ESPHome device '%s'", device_id)
             except Exception as e:
                 _LOGGER.error("Failed to start connection for ESPHome device '%s': %s", device_id, e)
@@ -357,11 +364,11 @@ class RemoteDeviceManager:
         """
         for device_id, device in self._devices.items():
             try:
-                if isinstance(device, ESPHomeRemoteDevice):
-                    await device.disconnect()
+                if device.protocol == RemoteDeviceProtocol.ESPHOME_API:
+                    await cast(Any, device).disconnect()
                     _LOGGER.info("Stopped connection for ESPHome device '%s'", device_id)
-                elif isinstance(device, WLEDRemoteDevice):
-                    await device.close()
+                elif device.protocol == RemoteDeviceProtocol.WLED:
+                    await cast(Any, device).close()
                     _LOGGER.info("Closed session for WLED device '%s'", device_id)
             except Exception as e:
                 _LOGGER.error("Failed to stop connection for device '%s': %s", device_id, e)
@@ -427,9 +434,10 @@ class RemoteDeviceManager:
             return False
         
         # For ESPHome devices, try to determine if it's a switch or light
-        if isinstance(device, ESPHomeRemoteDevice):
+        if device.protocol == RemoteDeviceProtocol.ESPHOME_API:
             # Check if output_id is a light
-            if device.has_light(output_id):
+            esphome_device = cast(Any, device)
+            if esphome_device.has_light(output_id):
                 _LOGGER.debug("Controlling ESPHome light '%s' on device '%s'", output_id, device_id)
                 # Convert rgb list to tuple[int, int, int] if needed
                 rgb_tuple: tuple[int, int, int] | None = None
@@ -437,7 +445,7 @@ class RemoteDeviceManager:
                     rgb_tuple = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
                 # For ESPHome, effect must be a string
                 esphome_effect = str(effect) if effect is not None else None
-                return await device.control_light(
+                return await esphome_device.control_light(
                     light_id=output_id,
                     action=action,
                     brightness=brightness,
@@ -448,13 +456,13 @@ class RemoteDeviceManager:
                 )
             # Otherwise treat as switch
             _LOGGER.debug("Controlling ESPHome switch '%s' on device '%s'", output_id, device_id)
-            return await device.control_switch(
+            return await esphome_device.control_switch(
                 switch_id=output_id,
                 action=action,
             )
         
         # For WLED devices, use HTTP JSON API
-        if isinstance(device, WLEDRemoteDevice):
+        if device.protocol == RemoteDeviceProtocol.WLED:
             _LOGGER.debug("Controlling WLED '%s' segment '%s' on device '%s'", output_id, action, device_id)
             # Parse segment_id - "main" means whole device, otherwise it's segment ID
             segment_id = None if output_id == "main" else int(output_id)
@@ -462,7 +470,7 @@ class RemoteDeviceManager:
             wled_rgb: tuple[int, int, int] | None = None
             if rgb and len(rgb) >= 3:
                 wled_rgb = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
-            return await device.control_light(
+            return await cast(Any, device).control_light(
                 segment_id=segment_id,
                 action=action,
                 brightness=brightness,
@@ -597,9 +605,9 @@ class RemoteDeviceManager:
             return False
         
         # For ESPHome devices, use native API
-        if isinstance(device, ESPHomeRemoteDevice):
+        if device.protocol == RemoteDeviceProtocol.ESPHOME_API:
             _LOGGER.debug("Controlling ESPHome cover '%s' on device '%s'", cover_id, device_id)
-            return await device.control_cover(
+            return await cast(Any, device).control_cover(
                 cover_id=cover_id,
                 action=action,
                 **kwargs,
@@ -645,7 +653,7 @@ class RemoteDeviceManager:
         esphome_devices = [
             (device_id, device) 
             for device_id, device in self._devices.items() 
-            if isinstance(device, ESPHomeRemoteDevice)
+            if device.protocol == RemoteDeviceProtocol.ESPHOME_API
         ]
         
         if not esphome_devices:
@@ -654,7 +662,7 @@ class RemoteDeviceManager:
         _LOGGER.info("Starting %d ESPHome connection(s)...", len(esphome_devices))
         for device_id, device in esphome_devices:
             try:
-                await device.start_connection()
+                await cast(Any, device).start_connection()
                 _LOGGER.info("Started connection for ESPHome device '%s'", device_id)
             except Exception as e:
                 _LOGGER.error("Failed to start connection for ESPHome device '%s': %s", device_id, e)

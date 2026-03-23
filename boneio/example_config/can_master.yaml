@@ -9,6 +9,7 @@ boneio:
   version: 0.8
   device_type: "24x16A"
 
+  config_version: 2
 can:
   enabled: true
   channel: can0

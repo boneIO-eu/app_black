@@ -355,6 +355,104 @@ async def reload_configuration(
         raise HTTPException(status_code=500, detail=f"Error reloading config: {str(e)}")
 
 
+@router.post("/config/remove_ha_discovery")
+async def remove_ha_discovery():
+    """Remove all Home Assistant discovery entries for this device.
+
+    Publishes empty retained payloads on every cached discovery topic
+    so that Home Assistant removes all entities and devices registered
+    by this boneIO instance.  The internal autodiscovery cache is
+    cleared afterwards.
+
+    Returns:
+        Status with count of removed topics.
+    """
+    manager: Manager = _get_app_state().manager
+    config_helper = manager.config_helper
+
+    if not config_helper.ha_discovery:
+        raise HTTPException(
+            status_code=400,
+            detail="HA Discovery is not enabled",
+        )
+
+    removed = 0
+    for ha_type in config_helper.ha_types:
+        topics = dict(config_helper._autodiscovery_messages.get(ha_type, {}))
+        for topic in topics:
+            _LOGGER.info("Removing HA discovery topic: %s", topic)
+            manager.send_message(topic=topic, payload=None, retain=True)
+            removed += 1
+        config_helper.clear_autodiscovery_type(ha_type)
+
+    # Also publish offline status so HA marks entities as unavailable immediately
+    manager.send_message(
+        topic=f"{config_helper.topic_prefix}/state",
+        payload="offline",
+        retain=False,
+    )
+
+    _LOGGER.info("Removed %d HA discovery topics", removed)
+    return {
+        "status": "success",
+        "removed_topics": removed,
+        "message": f"Removed {removed} discovery entries from Home Assistant.",
+    }
+
+
+@router.post("/config/resend_ha_discovery")
+async def resend_ha_discovery():
+    """Remove and re-send all Home Assistant discovery entries.
+
+    First publishes empty retained payloads to clear all existing
+    discovery topics in HA, then re-publishes the current cached
+    payloads so HA re-creates all devices and entities from scratch.
+
+    Useful after changing ha_child_devices, areas, or other settings
+    that affect device grouping in Home Assistant.
+
+    Returns:
+        Status with counts of removed and re-sent topics.
+    """
+    manager: Manager = _get_app_state().manager
+    config_helper = manager.config_helper
+
+    if not config_helper.ha_discovery:
+        raise HTTPException(
+            status_code=400,
+            detail="HA Discovery is not enabled",
+        )
+
+    # 1. Collect all current discovery messages before clearing
+    all_messages: list[tuple[str, dict]] = []
+    for ha_type in config_helper.ha_types:
+        for topic, entry in config_helper._autodiscovery_messages.get(ha_type, {}).items():
+            all_messages.append((topic, entry.get("payload")))
+
+    # 2. Send empty retained payloads to remove all entries from HA
+    removed = 0
+    for topic, _ in all_messages:
+        manager.send_message(topic=topic, payload=None, retain=True)
+        removed += 1
+
+    # 3. Re-send all cached discovery payloads
+    resent = 0
+    for topic, payload in all_messages:
+        if payload:
+            manager.send_message(topic=topic, payload=payload, retain=True)
+            resent += 1
+
+    _LOGGER.info(
+        "HA Discovery resend: removed %d, re-sent %d topics", removed, resent
+    )
+    return {
+        "status": "success",
+        "removed_topics": removed,
+        "resent_topics": resent,
+        "message": f"Removed {removed} and re-sent {resent} discovery entries.",
+    }
+
+
 @router.get("/config/download")
 async def download_config():
     """

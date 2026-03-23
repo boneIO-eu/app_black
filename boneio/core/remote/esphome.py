@@ -21,20 +21,19 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-# Try to import aioesphomeapi - it's optional
 try:
     from aioesphomeapi import (
         APIClient,
         APIConnectionError,
+        CoverInfo,
+        CoverState,
         InvalidAuthAPIError,
+        LightColorCapability,
+        LightInfo,
+        LightState,
         ReconnectLogic,
         SwitchInfo,
-        LightInfo,
-        LightColorCapability,
-        CoverInfo,
         SwitchState,
-        LightState,
-        CoverState,
     )
     ESPHOME_API_AVAILABLE = True
 except ImportError:
