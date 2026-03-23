@@ -12,13 +12,21 @@ import asyncio
 import logging
 import re
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from boneio.core.manager import Manager
 
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/can", tags=["can"])
+
+
+def get_manager():
+    """Get manager instance - will be overridden by app initialization."""
+    raise NotImplementedError("Manager not initialized")
+
 
 # Default CAN settings matching boneIO Black hardware
 DEFAULT_INTERFACE = "can0"
@@ -49,6 +57,15 @@ class CanSendRequest(BaseModel):
 
     interface: str = DEFAULT_INTERFACE
     frame: str
+
+
+class NodeAssignRequest(BaseModel):
+    target_node_id: int
+    new_node_id: int
+
+
+class NodeConfigRequest(BaseModel):
+    config_yaml: str
 
 
 async def _run_sudo_command(password: str, cmd: list[str], timeout: float = 10) -> dict:
@@ -136,6 +153,54 @@ def _validate_frame(frame: str) -> None:
         )
 
 
+@router.get("/nodes")
+async def get_can_nodes(manager: Manager = Depends(get_manager)):
+    """Get discovered CANopen nodes.
+
+    Includes Unconfigured nodes (ID=127) and Active Slaves (ID=2-126).
+    """
+    canopen = manager.canopen
+    if not canopen or not canopen.is_enabled:
+        raise HTTPException(status_code=400, detail="CANopen is disabled")
+
+    return {"nodes": [node.to_dict() for node in canopen.nodes.values()]}
+
+
+@router.post("/nodes/assign")
+async def assign_node_id(
+    body: NodeAssignRequest, manager: Manager = Depends(get_manager)
+):
+    """Assign a new Node ID to an Unconfigured Node (ID 127)."""
+    canopen = manager.canopen
+    if not canopen or not canopen.is_enabled:
+        raise HTTPException(status_code=400, detail="CANopen is disabled")
+
+    success = await canopen.assign_node_id(body.target_node_id, body.new_node_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send SDO to Node")
+
+    return {
+        "status": "success",
+        "message": f"Assigned Node ID {body.new_node_id} to Node {body.target_node_id}",
+    }
+
+
+@router.post("/nodes/{node_id}/config")
+async def send_node_config(
+    node_id: int, body: NodeConfigRequest, manager: Manager = Depends(get_manager)
+):
+    """Push YAML config over CAN bus to Slave using SDO."""
+    canopen = manager.canopen
+    if not canopen or not canopen.is_enabled:
+        raise HTTPException(status_code=400, detail="CANopen is disabled")
+
+    success = await canopen.send_config(node_id, body.config_yaml)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to send Config to Node")
+
+    return {"status": "success", "message": f"Sent configuration to Node {node_id}"}
+
+
 @router.get("/status")
 async def get_can_status(interface: str = DEFAULT_INTERFACE):
     """Check if CAN interface is up and get its status.
@@ -150,7 +215,11 @@ async def get_can_status(interface: str = DEFAULT_INTERFACE):
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "ip", "-d", "link", "show", interface,
+            "ip",
+            "-d",
+            "link",
+            "show",
+            interface,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -165,7 +234,11 @@ async def get_can_status(interface: str = DEFAULT_INTERFACE):
             }
 
         output = stdout.decode()
-        is_up = "UP" in output and "NOARP" not in output.split("UP")[0].split("<")[-1] if "UP" in output else False
+        is_up = (
+            "UP" in output and "NOARP" not in output.split("UP")[0].split("<")[-1]
+            if "UP" in output
+            else False
+        )
         # Simpler check: look for state UP
         is_up = ",UP," in output or "<UP," in output or ",UP>" in output
 
@@ -220,8 +293,14 @@ async def bring_interface_up(body: InterfaceUpRequest):
         {
             "name": "set bitrate",
             "cmd": [
-                "ip", "link", "set", body.interface,
-                "type", "can", "bitrate", str(body.bitrate),
+                "ip",
+                "link",
+                "set",
+                body.interface,
+                "type",
+                "can",
+                "bitrate",
+                str(body.bitrate),
             ],
             "ignore_error": False,
         },
@@ -241,11 +320,13 @@ async def bring_interface_up(body: InterfaceUpRequest):
         if auth_err:
             return {"status": "error", "message": auth_err}
 
-        results.append({
-            "step": step["name"],
-            "returncode": result["returncode"],
-            "stderr": result["stderr"],
-        })
+        results.append(
+            {
+                "step": step["name"],
+                "returncode": result["returncode"],
+                "stderr": result["stderr"],
+            }
+        )
 
         if result["returncode"] != 0 and not step["ignore_error"]:
             _LOGGER.warning(
@@ -264,7 +345,11 @@ async def bring_interface_up(body: InterfaceUpRequest):
         body.interface,
         body.bitrate,
     )
-    return {"status": "success", "message": f"{body.interface} is up at {body.bitrate} bps", "steps": results}
+    return {
+        "status": "success",
+        "message": f"{body.interface} is up at {body.bitrate} bps",
+        "steps": results,
+    }
 
 
 @router.post("/send")
@@ -292,13 +377,21 @@ async def can_send(body: CanSendRequest):
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
 
         if proc.returncode != 0:
-            error_msg = stderr.decode().strip() or f"cansend exited with code {proc.returncode}"
+            error_msg = (
+                stderr.decode().strip() or f"cansend exited with code {proc.returncode}"
+            )
             return {"status": "error", "message": error_msg}
 
-        return {"status": "success", "message": f"Sent {body.frame} on {body.interface}"}
+        return {
+            "status": "success",
+            "message": f"Sent {body.frame} on {body.interface}",
+        }
 
     except FileNotFoundError:
-        return {"status": "error", "message": "cansend not found. Install can-utils package."}
+        return {
+            "status": "error",
+            "message": "cansend not found. Install can-utils package.",
+        }
     except asyncio.TimeoutError:
         return {"status": "error", "message": "cansend timed out"}
     except Exception as e:

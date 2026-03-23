@@ -33,25 +33,25 @@ NODE_TIMEOUT = 5.0
 
 class CANopenManager:
     """Manager for CANopen communication between boneIO devices.
-    
+
     Handles:
     - Connection to CAN bus
     - Periodic heartbeat transmission
     - Discovery and monitoring of other nodes
     - PDO exchange for output state synchronization
-    
+
     Args:
         manager: Main boneIO manager instance
         config: CANopen configuration dictionary
     """
-    
+
     def __init__(
         self,
         manager: Manager | None = None,
         config: dict[str, Any] | None = None,
     ) -> None:
         """Initialize CANopen manager.
-        
+
         Args:
             manager: Main boneIO manager instance
             config: CANopen configuration with keys:
@@ -62,7 +62,7 @@ class CANopenManager:
         """
         self._manager = manager
         self._config = config or {}
-        
+
         self._enabled = self._config.get("enabled", False)
         self._channel = self._config.get("channel", "can0")
         self._bitrate = self._config.get("bitrate", 125000)
@@ -70,58 +70,61 @@ class CANopenManager:
         self._mode = self._config.get("mode", "master")
         self._auto_setup = self._config.get("auto_setup", True)
         self._restart_on_error = self._config.get("restart_on_error", True)
-        
+
         self._client: CANopenClient | None = None
         self._nodes: dict[int, BoneIOCANNode] = {}
         self._running = False
-        
+
         self._heartbeat_task: asyncio.Task | None = None
         self._monitor_task: asyncio.Task | None = None
         self._bridge = None  # CANMQTTBridge, initialized in start() for master mode
-        
+
         # Callbacks for external handlers
         self._output_state_callbacks: list[Callable[[int, int, int], None]] = []
-    
+
     @property
     def is_enabled(self) -> bool:
         """Check if CANopen is enabled in configuration."""
         return self._enabled and CANOPEN_AVAILABLE
-    
+
     @property
     def is_connected(self) -> bool:
         """Check if connected to CAN bus."""
         return self._client is not None and self._client.is_connected
-    
+
     @property
     def node_id(self) -> int | str:
         """Get local node ID (int after start, may be 'auto' before)."""
         return self._node_id
-    
+
     @property
     def nodes(self) -> dict[int, BoneIOCANNode]:
         """Get dictionary of discovered nodes."""
         return self._nodes
-    
+
     async def start(self) -> bool:
         """Start CANopen manager.
-        
+
         Connects to CAN bus and starts heartbeat/monitoring tasks.
-        
+
         Returns:
             True if started successfully.
         """
         if not self.is_enabled:
             _LOGGER.info("CANopen is disabled or not available")
             return False
-        
+
         if self._running:
             _LOGGER.warning("CANopen manager already running")
             return True
-        
+
         try:
             # Resolve node_id if set to 'auto'
-            if self._node_id == "auto" or (isinstance(self._node_id, str) and self._node_id.lower() == "auto"):
+            if self._node_id == "auto" or (
+                isinstance(self._node_id, str) and self._node_id.lower() == "auto"
+            ):
                 from boneio.hardware.can.node_id import resolve_node_id
+
                 mac = ""
                 config_dir = ""
                 if self._manager is not None:
@@ -131,12 +134,20 @@ class CANopenManager:
 
             # Auto-setup CAN interface if configured
             if self._auto_setup:
-                from boneio.hardware.can.interface import setup_can_interface, interface_exists
+                from boneio.hardware.can.interface import (
+                    setup_can_interface,
+                    interface_exists,
+                )
+
                 if not interface_exists(self._channel):
-                    _LOGGER.error("CAN interface %s does not exist in the system", self._channel)
+                    _LOGGER.error(
+                        "CAN interface %s does not exist in the system", self._channel
+                    )
                     return False
                 if not await setup_can_interface(self._channel, self._bitrate):
-                    _LOGGER.error("Failed to auto-setup CAN interface %s", self._channel)
+                    _LOGGER.error(
+                        "Failed to auto-setup CAN interface %s", self._channel
+                    )
                     return False
 
             # Create and connect client (node_id is guaranteed int after resolve)
@@ -145,15 +156,17 @@ class CANopenManager:
                 bitrate=self._bitrate,
                 node_id=int(self._node_id),
             )
-            
+
             if not await self._client.connect():
                 _LOGGER.error("Failed to connect to CAN bus")
                 return False
-            
+
             # Register callbacks
             self._client.add_heartbeat_callback(self._on_heartbeat)
             self._client.add_pdo_callback(self._on_pdo)
-            
+            self._client.add_sdo_node_id_callback(self._on_sdo_node_id_write)
+            self._client.add_sdo_config_callback(self._on_sdo_config_write)
+
             # Check for node_id collision (listen 3s for heartbeats)
             collision = await self._check_node_id_collision()
             if collision:
@@ -164,15 +177,16 @@ class CANopenManager:
                 await self._client.disconnect()
                 self._client = None
                 return False
-            
+
             # Start background tasks
             self._running = True
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             self._monitor_task = asyncio.create_task(self._monitor_loop())
-            
+
             # Start CAN-MQTT bridge in master mode
             if self._mode == "master" and self._manager is not None:
                 from boneio.hardware.can.bridge import CANMQTTBridge
+
                 self._bridge = CANMQTTBridge(
                     manager=self._manager,
                     canopen_manager=self,
@@ -188,12 +202,12 @@ class CANopenManager:
                 self._mode,
             )
             return True
-            
+
         except Exception as e:
             _LOGGER.error("Failed to start CANopen manager: %s", e)
             self._running = False
             return False
-    
+
     async def _check_node_id_collision(self, listen_seconds: float = 3.0) -> bool:
         """Check if another node on the bus uses the same node_id.
 
@@ -224,7 +238,10 @@ class CANopenManager:
         await asyncio.sleep(listen_seconds)
 
         # Remove temporary callback
-        if self._client is not None and _collision_cb in self._client._heartbeat_callbacks:
+        if (
+            self._client is not None
+            and _collision_cb in self._client._heartbeat_callbacks
+        ):
             self._client._heartbeat_callbacks.remove(_collision_cb)
 
         if collision_detected:
@@ -238,14 +255,14 @@ class CANopenManager:
         """Stop CANopen manager."""
         if not self._running:
             return
-        
+
         self._running = False
-        
+
         # Stop bridge
         if self._bridge is not None:
             self._bridge.stop()
             self._bridge = None
-        
+
         # Cancel background tasks
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
@@ -254,7 +271,7 @@ class CANopenManager:
             except asyncio.CancelledError:
                 pass
             self._heartbeat_task = None
-        
+
         if self._monitor_task:
             self._monitor_task.cancel()
             try:
@@ -262,14 +279,14 @@ class CANopenManager:
             except asyncio.CancelledError:
                 pass
             self._monitor_task = None
-        
+
         # Disconnect client
         if self._client:
             await self._client.disconnect()
             self._client = None
-        
+
         _LOGGER.info("CANopen manager stopped")
-    
+
     async def send_output_state(
         self,
         output_index: int,
@@ -277,23 +294,23 @@ class CANopenManager:
         brightness: int = 0,
     ) -> bool:
         """Send output state change to CAN bus.
-        
+
         Other boneIO devices on the bus will receive this and can
         react accordingly (e.g., for synchronized lighting).
-        
+
         Args:
             output_index: Output index (0-47)
             state: State (0=OFF, 1=ON)
             brightness: Brightness for dimmers (0-255)
-            
+
         Returns:
             True if sent successfully.
         """
         if not self.is_connected or self._client is None:
             return False
-        
+
         return await self._client.send_output_state(output_index, state, brightness)
-    
+
     async def send_command_to_node(
         self,
         target_node_id: int,
@@ -319,40 +336,89 @@ class CANopenManager:
             target_node_id, output_index, state, brightness
         )
 
+    async def assign_node_id(self, target_node_id: int, new_node_id: int) -> bool:
+        """Assign a new Node ID to a target slave via SDO.
+
+        Args:
+            target_node_id: Current Node ID (usually UNCONFIGURED_NODE_ID, 127).
+            new_node_id: New Node ID to assign.
+
+        Returns:
+            True if sent successfully.
+        """
+        if not self.is_connected or self._client is None:
+            return False
+
+        # 0x2000 is Set Node ID
+        data = bytes([new_node_id])
+        success = await self._client.send_sdo_download(target_node_id, 0x2000, data)
+        if success:
+            _LOGGER.info(
+                "Assigned new Node ID %d to Node %d", new_node_id, target_node_id
+            )
+        return success
+
+    async def send_config(self, target_node_id: int, config_yaml: str) -> bool:
+        """Send a configuration string to a target slave via SDO.
+
+        Args:
+            target_node_id: Target CAN node ID.
+            config_yaml: YAML configuration payload string.
+
+        Returns:
+            True if sent successfully.
+        """
+        if not self.is_connected or self._client is None:
+            return False
+
+        data = config_yaml.encode("utf-8")
+        # 0x2001 is Configuration Payload
+        success = await self._client.send_sdo_download(target_node_id, 0x2001, data)
+        if success:
+            # 0x2002 is Trigger Configuration Update
+            success = await self._client.send_sdo_download(
+                target_node_id, 0x2002, bytes([1])
+            )
+            if success:
+                _LOGGER.info(
+                    "Successfully pushed configuration to Node %d", target_node_id
+                )
+        return success
+
     def add_output_state_callback(
         self,
         callback: Callable[[int, int, int], None],
     ) -> None:
         """Add callback for received output state changes.
-        
+
         Args:
             callback: Function(node_id, output_index, state) called on reception.
         """
         self._output_state_callbacks.append(callback)
-    
+
     def get_node(self, node_id: int) -> BoneIOCANNode | None:
         """Get node by ID.
-        
+
         Args:
             node_id: Node ID to look up.
-            
+
         Returns:
             BoneIOCANNode if found, None otherwise.
         """
         return self._nodes.get(node_id)
-    
+
     def get_online_nodes(self) -> list[BoneIOCANNode]:
         """Get list of online nodes.
-        
+
         Returns:
             List of nodes that have sent heartbeat recently.
         """
         return [node for node in self._nodes.values() if node.is_online]
-    
+
     async def _heartbeat_loop(self) -> None:
         """Background task for sending periodic heartbeats."""
         _LOGGER.debug("Heartbeat loop started")
-        
+
         while self._running:
             try:
                 if self._client is None:
@@ -364,17 +430,17 @@ class CANopenManager:
             except Exception as e:
                 _LOGGER.error("Error in heartbeat loop: %s", e)
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
-        
+
         _LOGGER.debug("Heartbeat loop stopped")
-    
+
     async def _monitor_loop(self) -> None:
         """Background task for monitoring node timeouts and bus-off recovery."""
         _LOGGER.debug("Monitor loop started")
-        
+
         while self._running:
             try:
                 current_time = time.time()
-                
+
                 # Check node timeouts
                 for node in list(self._nodes.values()):
                     if node.last_heartbeat is not None:
@@ -386,38 +452,111 @@ class CANopenManager:
                                 elapsed,
                             )
                             node.nmt_state = NMTState.PRE_OPERATIONAL
-                
+
                 # Check for bus-off and auto-restart
                 if self._restart_on_error:
                     from boneio.hardware.can.interface import get_can_state
+
                     can_state = await get_can_state(self._channel)
                     if can_state == "BUS-OFF":
-                        _LOGGER.warning("CAN bus-off detected on %s, restarting interface", self._channel)
+                        _LOGGER.warning(
+                            "CAN bus-off detected on %s, restarting interface",
+                            self._channel,
+                        )
                         from boneio.hardware.can.interface import restart_can_interface
+
                         if await restart_can_interface(self._channel, self._bitrate):
-                            _LOGGER.info("CAN interface %s restarted successfully", self._channel)
+                            _LOGGER.info(
+                                "CAN interface %s restarted successfully", self._channel
+                            )
                         else:
-                            _LOGGER.error("Failed to restart CAN interface %s", self._channel)
-                
+                            _LOGGER.error(
+                                "Failed to restart CAN interface %s", self._channel
+                            )
+
                 await asyncio.sleep(1.0)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 _LOGGER.error("Error in monitor loop: %s", e)
                 await asyncio.sleep(1.0)
-        
+
         _LOGGER.debug("Monitor loop stopped")
-    
+
+    def _on_sdo_node_id_write(self, new_node_id: int) -> None:
+        """Handle SDO request to change Node ID.
+
+        Saves the new Node ID to config directory and restarts the CAN service.
+        """
+        if self._mode == "master":
+            _LOGGER.warning("Master received SDO Node ID change request, ignoring.")
+            return
+
+        _LOGGER.info("Received SDO command to assign new Node ID: %d", new_node_id)
+
+        from boneio.hardware.can.node_id import persist_node_id
+
+        if self._manager is not None:
+            config_dir = os.path.dirname(self._manager._config_file_path)
+            if persist_node_id(config_dir, new_node_id):
+                _LOGGER.info(
+                    "Successfully persisted new Node ID. Restarting interface."
+                )
+                if self._auto_setup:
+                    from boneio.hardware.can.interface import restart_can_interface
+
+                    asyncio.create_task(
+                        restart_can_interface(self._channel, self._bitrate)
+                    )
+                # Also, we should restart boneIO, or update `self._node_id`.
+                # Since restart_can_interface doesn't restart the app, we need to restart the CANopenClient.
+                asyncio.create_task(self._restart_canopen_manager())
+
+    def _on_sdo_config_write(self, config_str: str) -> None:
+        """Handle SDO request to update configuration.
+
+        Saves the YAML payload to disk and triggers application reload.
+        """
+        if self._mode == "master":
+            _LOGGER.warning("Master received SDO Config Update request, ignoring.")
+            return
+
+        _LOGGER.info("Received SDO command to update configuration.")
+
+        if self._manager is not None:
+            config_dir = os.path.dirname(self._manager._config_file_path)
+            # The SDO payload should be the full config to overwrite
+            config_path = self._manager._config_file_path
+            try:
+                # Optionally backup old config?
+                with open(config_path, "w") as f:
+                    f.write(config_str)
+                _LOGGER.info("Successfully overwrote config at %s", config_path)
+
+                # Signal manager to reload config
+                asyncio.create_task(self._manager.reload_config())
+            except Exception as e:
+                _LOGGER.error("Failed to write new config: %s", e)
+
+    async def _restart_canopen_manager(self) -> None:
+        """Restart the CANopen manager with the newly persisted Node ID."""
+        _LOGGER.info("Restarting CANopen manager...")
+        await self.stop()
+        # the next start will pick up the new ID via `resolve_node_id` or we can set `self._node_id` to 'auto'
+        self._node_id = "auto"
+        await asyncio.sleep(1.0)
+        await self.start()
+
     def _on_heartbeat(self, node_id: int, state: str) -> None:
         """Handle received heartbeat message.
-        
+
         Args:
             node_id: Node ID of sender
             state: NMT state string
         """
         if node_id == self._node_id:
             return  # Ignore own heartbeat
-        
+
         # Map state string to NMTState
         state_map = {
             "BOOT-UP": NMTState.BOOT_UP,
@@ -426,7 +565,7 @@ class CANopenManager:
             "PRE-OPERATIONAL": NMTState.PRE_OPERATIONAL,
         }
         nmt_state = state_map.get(state, NMTState.OPERATIONAL)
-        
+
         # Create or update node
         if node_id not in self._nodes:
             self._nodes[node_id] = BoneIOCANNode(node_id=node_id)
@@ -435,21 +574,22 @@ class CANopenManager:
             # Auto-register as CANRemoteDevice in Manager
             if self._manager is not None:
                 from boneio.core.remote.can import CANRemoteDevice
+
                 can_device = CANRemoteDevice(
                     node=self._nodes[node_id],
                     canopen_manager=self,
                 )
                 self._manager.remote_devices.add_device(can_device)
-        
+
         self._nodes[node_id].update_heartbeat(time.time(), nmt_state)
-    
+
     def _on_pdo(self, cob_id: int, data: bytes) -> None:
         """Handle received PDO message.
-        
+
         Handles two PDO types:
         - TPDO1 (0x180 + node_id): output state broadcast from other nodes
         - RPDO1 (0x200 + node_id): command addressed to us from master
-        
+
         Args:
             cob_id: COB-ID of the message
             data: PDO data
@@ -461,7 +601,9 @@ class CANopenManager:
             sender_id = data[3] if len(data) > 3 else 0
             _LOGGER.info(
                 "Received command from node %d: output=%d, state=%d",
-                sender_id, output_index, state,
+                sender_id,
+                output_index,
+                state,
             )
             # Execute locally via Manager
             if self._manager is not None:
@@ -473,10 +615,10 @@ class CANopenManager:
         # TPDO1: 0x180 + node_id — output state broadcast from other nodes
         if 0x181 <= cob_id <= 0x1FF:
             node_id = cob_id - 0x180
-            
+
             if node_id == self._node_id:
                 return  # Ignore own PDO
-            
+
             try:
                 msg = OutputStateMessage.from_bytes(data)
                 _LOGGER.debug(
@@ -485,22 +627,24 @@ class CANopenManager:
                     msg.output_index,
                     msg.state,
                 )
-                
+
                 # Update node state
                 if node_id in self._nodes:
                     self._nodes[node_id].update_output(msg.output_index, msg.state)
-                
+
                 # Call registered callbacks
                 for callback in self._output_state_callbacks:
                     try:
                         callback(node_id, msg.output_index, msg.state)
                     except Exception as e:
                         _LOGGER.error("Error in output state callback: %s", e)
-                        
+
             except Exception as e:
                 _LOGGER.error("Failed to parse PDO data: %s", e)
-    
-    async def _execute_local_output_command(self, output_index: int, state: int) -> None:
+
+    async def _execute_local_output_command(
+        self, output_index: int, state: int
+    ) -> None:
         """Execute output command locally (slave receiving RPDO from master).
 
         Finds the output by index and toggles/sets it.
@@ -518,7 +662,8 @@ class CANopenManager:
             if output_index >= len(output_list):
                 _LOGGER.warning(
                     "CAN command for output index %d but only %d outputs configured",
-                    output_index, len(output_list),
+                    output_index,
+                    len(output_list),
                 )
                 return
 
@@ -529,7 +674,8 @@ class CANopenManager:
                 await output.async_turn_off()
             _LOGGER.info(
                 "Executed CAN command: output[%d]=%s -> %s",
-                output_index, output.name if hasattr(output, "name") else str(output_index),
+                output_index,
+                output.name if hasattr(output, "name") else str(output_index),
                 "ON" if state else "OFF",
             )
         except Exception as e:
@@ -537,7 +683,7 @@ class CANopenManager:
 
     def to_dict(self) -> dict[str, Any]:
         """Get manager status as dictionary.
-        
+
         Returns:
             Dictionary with manager status.
         """

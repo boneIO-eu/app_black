@@ -18,22 +18,8 @@ NODE_ID_MAX = 127
 # Persistence filename (stored next to config.yaml)
 NODE_ID_FILENAME = "can_node_id"
 
-
-def _mac_to_node_id(mac: str) -> int:
-    """Derive a node_id (1-127) from MAC address using a simple hash.
-
-    Takes last 3 bytes of MAC, computes modulo to fit in 1-127 range.
-
-    Args:
-        mac: MAC address string (e.g., 'aa:bb:cc:dd:ee:ff').
-
-    Returns:
-        Integer node_id in range 1-127.
-    """
-    mac_clean = mac.replace(":", "").lower()
-    # Use last 3 bytes (6 hex chars) for better uniqueness
-    last_bytes = int(mac_clean[-6:], 16)
-    return (last_bytes % NODE_ID_MAX) + NODE_ID_MIN
+# Unconfigured node ID
+UNCONFIGURED_NODE_ID = 127
 
 
 def _read_persisted_node_id(config_dir: str) -> int | None:
@@ -60,7 +46,7 @@ def _read_persisted_node_id(config_dir: str) -> int | None:
         return None
 
 
-def _persist_node_id(config_dir: str, node_id: int) -> bool:
+def persist_node_id(config_dir: str, node_id: int) -> bool:
     """Persist node_id to config directory.
 
     Args:
@@ -92,7 +78,7 @@ def resolve_node_id(
     1. If node_id_config is an integer 1-127, use it directly (manual override).
     2. If node_id_config is 'auto':
        a. Try to read persisted node_id from {config_dir}/can_node_id.
-       b. If not found, derive from MAC address and persist.
+       b. If not found, use UNCONFIGURED_NODE_ID (127) as default.
 
     Args:
         node_id_config: Value from config ('auto' or integer 1-127).
@@ -122,15 +108,13 @@ def resolve_node_id(
             _LOGGER.info("Using persisted CAN node_id=%d", persisted)
             return persisted
 
-        # Derive from MAC
-        if not mac_address or mac_address == "none":
-            raise ValueError("Cannot auto-generate node_id: MAC address unavailable")
-
-        node_id = _mac_to_node_id(mac_address)
+        # Use default unconfigured ID (127)
+        node_id = UNCONFIGURED_NODE_ID
         _LOGGER.info(
-            "Generated CAN node_id=%d from MAC %s", node_id, mac_address
+            "No persisted CAN node_id found, using unconfigured ID=%d", node_id
         )
-        _persist_node_id(config_dir, node_id)
         return node_id
 
-    raise ValueError(f"Invalid node_id config: {node_id_config!r} (expected 'auto' or integer 1-127)")
+    raise ValueError(
+        f"Invalid node_id config: {node_id_config!r} (expected 'auto' or integer 1-127)"
+    )

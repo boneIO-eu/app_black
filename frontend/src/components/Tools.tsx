@@ -4,6 +4,7 @@ import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
 import { GiElectric } from 'react-icons/gi';
 import ModbusHelper from './ModbusHelper';
 import CANHelper from './CANHelper';
+import CANNetwork from './CANNetwork';
 import axios from '@/api/axios';
 
 interface I2CDevice {
@@ -22,7 +23,7 @@ interface I2CScanResult {
 
 export default function Tools() {
   const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState<'modbus' | 'i2c' | 'can'>('modbus');
+  const [activeSection, setActiveSection] = useState<'modbus' | 'i2c' | 'can' | 'can_network'>('modbus');
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -43,16 +44,23 @@ export default function Tools() {
           <FaMicrochip /> I2C
         </button>
         <button
+          className={`tab tab-lg gap-2 ${activeSection === 'can_network' ? 'tab-active' : ''}`}
+          onClick={() => setActiveSection('can_network')}
+        >
+          <GiElectric /> CAN Network
+        </button>
+        <button
           className={`tab tab-lg gap-2 ${activeSection === 'can' ? 'tab-active' : ''}`}
           onClick={() => setActiveSection('can')}
         >
-          <GiElectric /> CAN
+          <GiElectric /> CAN Sniffer
         </button>
       </div>
 
       {activeSection === 'modbus' && <ModbusHelper />}
       {activeSection === 'i2c' && <I2CSection />}
       {activeSection === 'can' && <CANHelper />}
+      {activeSection === 'can_network' && <CANNetwork />}
     </div>
   );
 }

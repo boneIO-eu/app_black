@@ -94,11 +94,47 @@ export default function OutputsView({error}: {error: string | null}) {
     return sorted;
   };
 
+  // Fetch remote devices
+  const [remoteDevices, setRemoteDevices] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchRemoteDevices = async () => {
+      try {
+        const { data } = await axios.get('/api/remote-devices/all');
+        setRemoteDevices(data.devices || []);
+      } catch (err) {
+        console.error('Failed to fetch remote devices', err);
+      }
+    };
+    fetchRemoteDevices();
+    const interval = setInterval(fetchRemoteDevices, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Filter and categorize outputs
   const { categorizedOutputs, stateOnlyOutputs } = useMemo(() => {
     const allOutputs = outputs
       .filter(isOutputEvent)
       .map(e => e.state);
+
+    // Add remote device outputs
+    remoteDevices.forEach(device => {
+      if (device.outputs) {
+        device.outputs.forEach((out: any) => {
+          allOutputs.push({
+            id: `remote_${device.id}_${out.id}`,
+            name: `${device.name} - ${out.name}`,
+            state: out.state,
+            type: out.type || 'switch',
+            expander_id: null,
+            pin: 0,
+            timestamp: null,
+            area: null,
+            interlock_groups: []
+          });
+        });
+      }
+    });
     
     const categorized: Record<OutputCategory, OutputState[]> = {
       light: [],
@@ -132,10 +168,26 @@ export default function OutputsView({error}: {error: string | null}) {
   );
 
   // Get valid covers
-  const validCovers = useMemo(() => 
-    covers.filter(isCoverEvent).map(c => c.state as CoverState),
-    [covers]
-  );
+  const validCovers = useMemo(() => {
+    const allCovers = covers.filter(isCoverEvent).map(c => c.state as CoverState);
+    remoteDevices.forEach(device => {
+      if (device.covers) {
+        device.covers.forEach((cov: any) => {
+          allCovers.push({
+            id: `remote_${device.id}_${cov.id}`,
+            name: `${device.name} - ${cov.name}`,
+            state: cov.state,
+            position: cov.position || 0,
+            kind: cov.kind || 'standard',
+            timestamp: null,
+            tilt: cov.tilt || 0,
+            current_operation: cov.current_operation || 'stopped'
+          });
+        });
+      }
+    });
+    return allCovers;
+  }, [covers, remoteDevices]);
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -223,6 +275,18 @@ export default function OutputsView({error}: {error: string | null}) {
 
   const toggleOutput = async (id: string, name: string, type: string) => {
     try {
+      if (id.startsWith('remote_')) {
+        // remote_{device_id}_{output_id}
+        const parts = id.split('_');
+        const deviceId = parts.slice(1, -1).join('_');
+        const outputId = parts[parts.length - 1];
+        await axios.post(`/api/remote-devices/${deviceId}/output/${outputId}/action`, {
+          action: 'TOGGLE'
+        });
+        setError(null);
+        return;
+      }
+
       const response = await axios.post(`/api/outputs/${id}/toggle`);
       if (response.data.status === 'interlock') {
         setError(`${type} ${name} is locked by interlock`);
@@ -237,6 +301,16 @@ export default function OutputsView({error}: {error: string | null}) {
 
   const actionCover = async (id: string, name: string, action: string) => {
     try {
+      if (id.startsWith('remote_')) {
+        const parts = id.split('_');
+        const deviceId = parts.slice(1, -1).join('_');
+        const coverId = parts[parts.length - 1];
+        await axios.post(`/api/remote-devices/${deviceId}/cover/${coverId}/action`, {
+          action: action
+        });
+        setError(null);
+        return;
+      }
       await axios.post(`/api/covers/${id}/action`, { action });
       setError(null);
     } catch (error) {

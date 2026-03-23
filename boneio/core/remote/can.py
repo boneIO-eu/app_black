@@ -57,7 +57,8 @@ class CANRemoteDevice(RemoteDevice):
 
         _LOGGER.info(
             "Configured CAN remote device '%s' (node_id=%d)",
-            node.name, node.node_id,
+            node.name,
+            node.node_id,
         )
 
     @property
@@ -94,21 +95,28 @@ class CANRemoteDevice(RemoteDevice):
         if not self.is_online:
             _LOGGER.warning(
                 "Cannot control output on offline CAN device '%s' (node_id=%d)",
-                self._name, self._node.node_id,
+                self._name,
+                self._node.node_id,
             )
             return False
 
         try:
             output_index = int(output_id)
         except ValueError:
-            _LOGGER.error("Invalid output_id '%s' for CAN device (must be integer index)", output_id)
+            _LOGGER.error(
+                "Invalid output_id '%s' for CAN device (must be integer index)",
+                output_id,
+            )
             return False
 
         state = 1 if action.upper() in ("ON", "TOGGLE") else 0
 
         _LOGGER.debug(
             "Sending CAN output command: device='%s', node_id=%d, output=%d, state=%d",
-            self._name, self._node.node_id, output_index, state,
+            self._name,
+            self._node.node_id,
+            output_index,
+            state,
         )
 
         return await self._canopen_manager.send_command_to_node(
@@ -138,16 +146,41 @@ class CANRemoteDevice(RemoteDevice):
         if not self.is_online:
             _LOGGER.warning(
                 "Cannot control cover on offline CAN device '%s' (node_id=%d)",
-                self._name, self._node.node_id,
+                self._name,
+                self._node.node_id,
             )
             return False
 
         # TODO: Implement cover control via CAN PDO (Faza 4)
         _LOGGER.warning(
             "Cover control via CAN not yet implemented (device='%s', cover='%s', action='%s')",
-            self._name, cover_id, action,
+            self._name,
+            cover_id,
+            action,
         )
         return False
+
+    @property
+    def outputs(self) -> list[dict[str, Any]]:
+        """Get list of available outputs."""
+        result = []
+        for out_idx, state_val in self._node.outputs.items():
+            result.append(
+                {
+                    "id": str(out_idx),
+                    "name": f"Output {out_idx}",
+                    "state": "ON" if state_val else "OFF",
+                    "type": "switch",  # Defaults to switch
+                    "interlock_groups": [],
+                }
+            )
+        return result
+
+    @property
+    def covers(self) -> list[dict[str, Any]]:
+        """Get list of available covers."""
+        # Not yet implemented
+        return []
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
