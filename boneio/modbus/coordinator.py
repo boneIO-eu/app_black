@@ -184,6 +184,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                     "unit_of_measurement": register.get("unit_of_measurement"),
                     "state_class": register.get("state_class"),
                     "device_class": register.get("device_class"),
+                    "entity_category": register.get("entity_category"),
                     "value_type": register.get("value_type"),
                     "filters": register.get("filters", []),
                     "message_bus": self._message_bus,
@@ -277,6 +278,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             state_class=additional.get("state_class", "measurement"),
             device_class=additional.get("device_class", "volume"),
             value_type=None,
+            entity_category=additional.get("entity_category"),
             filters=[],
             message_bus=self._message_bus,
             config_helper=self.manager.config_helper,
@@ -321,6 +323,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
             value_mapping=x_mapping,
+            entity_category=additional.get("entity_category"),
         )
         return single_sensor
 
@@ -355,6 +358,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             source_sensor_decoded_name=source_sensor.decoded_name,
             context_config={},
             value_mapping=x_mapping,
+            entity_category=additional.get("entity_category"),
+            coordinator=self,
         )
         return single_sensor
 
@@ -391,6 +396,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             value_mapping=x_mapping,
             payload_off=additional.get("payload_off", "OFF"),
             payload_on=additional.get("payload_on", "ON"),
+            entity_category=additional.get("entity_category"),
+            coordinator=self,
         )
         return single_sensor
 
@@ -982,6 +989,11 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
                 if not self._discovery_sent:
                     _LOGGER.info("Device %s is now available, sending HA discovery.", self._name)
                     self._discovery_sent = self._send_discovery_for_all_registers()
+                # Force-read all update_every_n groups this cycle
+                # (they may have been skipped if device wasn't online on cycle 1)
+                for i, d in enumerate(self._db["registers_base"]):
+                    if d.get("update_every_n"):
+                        self._failed_groups.add(i)
                 
             if not values:
                 # Mark this group as failed so it retries next cycle
