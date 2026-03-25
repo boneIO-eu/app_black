@@ -550,13 +550,15 @@
       "boneio": "Konfiguracja boneIO. Jeśli chcesz zmienić ustawienia boneIO takie jak typ urządzenia lub wersję sprzętową i załadować domyślną konfigurację, użyj strony System!",
       "mqtt": "Konfiguracja MQTT",
       "web": "Konfiguracja Serwera Web",
-      "modbus": "Konfiguracja Modbus"
+      "modbus": "Konfiguracja Modbus",
+      "can": "Konfiguracja magistrali CAN do komunikacji między urządzeniami przez protokół CANopen."
     },
     "logger": "Logger",
     "boneio": "boneIO",
     "mqtt": "MQTT",
     "web": "Serwer Web",
     "modbus": "Modbus",
+    "can": "Magistrala CAN",
     "mcp23017": "MCP23017 (Zaawansowane)"
   },
   "mcp": {
@@ -674,6 +676,25 @@
     "timeout_help": "Czas oczekiwania na odpowiedź (domyślnie: 1500ms). Zwiększ dla wolnych urządzeń lub długich kabli.",
     "inter_device_delay": "Opóźnienie między urządzeniami",
     "inter_device_delay_help": "Opóźnienie między transakcjami (domyślnie: 5ms). Pomaga przy topologii gwiazdy. Zalecane 5-50ms dla gwiazdy, 0ms dla łańcucha."
+  },
+  "can_config": {
+    "enabled": "Włącz magistralę CAN",
+    "enabled_help": "Włącz komunikację CAN przez protokół CANopen.",
+    "channel": "Interfejs CAN",
+    "channel_help": "Interfejs CAN wykryty na tym urządzeniu.",
+    "no_interfaces": "Nie wykryto interfejsów CAN",
+    "bitrate": "Prędkość transmisji",
+    "bitrate_help": "Prędkość magistrali CAN. Domyślnie 125kbps — kompatybilne z esphome-canopen. Wszystkie urządzenia na magistrali muszą mieć tę samą prędkość.",
+    "node_id": "ID węzła",
+    "node_id_help": "ID węzła CANopen (1-127 lub 'auto'). 'auto' generuje deterministyczny ID z adresu MAC.",
+    "mode": "Tryb",
+    "mode_master": "Master (ma LAN/MQTT)",
+    "mode_slave": "Slave (tylko CAN)",
+    "mode_help": "Master: urządzenie ma LAN/MQTT, przekazuje dane slave do Home Assistant. Slave: urządzenie nie ma LAN, wysyła dane tylko przez CAN.",
+    "auto_setup": "Automatyczna konfiguracja interfejsu",
+    "auto_setup_help": "Automatycznie konfiguruj interfejs CAN przy starcie za pomocą 'ip link set'. Wymaga sudoers NOPASSWD.",
+    "restart_on_error": "Restart przy błędzie bus-off",
+    "restart_on_error_help": "Automatycznie restartuj interfejs CAN po wykryciu stanu bus-off."
   },
   "logger": {
     "default_level": "Domyślny Poziom Logowania",
@@ -1219,9 +1240,10 @@
     "esphome_lights": "Światła",
     "esphome_covers": "Rolety",
     "capabilities": "Możliwości",
-    "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj ESPHome\" lub \"Skanuj WLED\" aby znaleźć urządzenia.",
+    "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj ESPHome\", \"Skanuj WLED\" lub \"Skanuj CAN\" aby znaleźć urządzenia.",
     "scan_esphome": "Skanuj ESPHome",
     "scan_wled": "Skanuj WLED",
+    "scan_can": "Skanuj CAN",
     "wled_settings": "Ustawienia WLED",
     "wled_host": "Host",
     "wled_host_hint": "Użyj nazwy mDNS (np. wled-device.local) dla stabilności",

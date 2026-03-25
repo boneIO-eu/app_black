@@ -575,13 +575,15 @@
       "boneio": "boneIO configuration. If you want to change boneIO settings like device type or hardware version and load default working config, use the System State page!",
       "mqtt": "MQTT",
       "web": "Web Server",
-      "modbus": "Modbus"
+      "modbus": "Modbus",
+      "can": "CAN bus configuration for inter-device communication via CANopen protocol."
     },
     "logger": "Logger",
     "boneio": "boneIO",
     "mqtt": "MQTT",
     "web": "Web Server",
     "modbus": "Modbus",
+    "can": "CAN Bus",
     "mcp23017": "MCP23017 (Advanced)"
   },
   "mcp": {
@@ -668,6 +670,25 @@
     "timeout_help": "Response timeout (default: 1500ms). Increase for slow devices or long cables.",
     "inter_device_delay": "Inter-device delay",
     "inter_device_delay_help": "Delay between transactions (default: 5ms). Helps with star topology wiring. Recommended 5-50ms for star, 0ms for daisy-chain."
+  },
+  "can_config": {
+    "enabled": "Enable CAN Bus",
+    "enabled_help": "Enable CAN bus communication via CANopen protocol.",
+    "channel": "CAN Interface",
+    "channel_help": "CAN interface name detected on this device.",
+    "no_interfaces": "No CAN interfaces detected",
+    "bitrate": "Bitrate",
+    "bitrate_help": "CAN bus speed. Default 125kbps is compatible with esphome-canopen. All devices on the same bus must use the same bitrate.",
+    "node_id": "Node ID",
+    "node_id_help": "CANopen node ID (1-127 or 'auto'). 'auto' generates a deterministic ID from MAC address.",
+    "mode": "Mode",
+    "mode_master": "Master (has LAN/MQTT)",
+    "mode_slave": "Slave (CAN only)",
+    "mode_help": "Master: device has LAN/MQTT, relays slave data to Home Assistant. Slave: device has no LAN, sends data only via CAN bus.",
+    "auto_setup": "Auto-setup interface",
+    "auto_setup_help": "Automatically configure CAN interface on startup using 'ip link set'. Requires sudoers NOPASSWD.",
+    "restart_on_error": "Restart on bus-off error",
+    "restart_on_error_help": "Automatically restart CAN interface when bus-off state is detected."
   },
   "logger": {
     "default_level": "Default Log Level",
@@ -1212,9 +1233,10 @@
     "esphome_lights": "Lights",
     "esphome_covers": "Covers",
     "capabilities": "Capabilities",
-    "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\" or \"Scan WLED\" to find devices.",
+    "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\", \"Scan WLED\" or \"Scan CAN\" to find devices.",
     "scan_esphome": "Scan ESPHome",
     "scan_wled": "Scan WLED",
+    "scan_can": "Scan CAN",
     "wled_settings": "WLED Settings",
     "wled_host": "Host",
     "wled_host_hint": "Use mDNS hostname (e.g. wled-device.local) for stability",
