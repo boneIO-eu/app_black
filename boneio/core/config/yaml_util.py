@@ -831,6 +831,56 @@ def _compute_file_hash(filepath: str) -> str:
     return h.hexdigest()
 
 
+def _compute_config_dir_hash(config_file: str) -> str:
+    """Compute combined SHA256 hash of the main config and its ``!include`` files.
+
+    Scans the main config for ``!include`` / ``!include_*`` YAML tags, resolves
+    their paths relative to the config directory, and hashes every referenced
+    file together with the main config.  Only explicitly included files are
+    hashed — other files in the directory (e.g. ``state.json``) are ignored.
+    """
+    import hashlib
+    import re
+    from pathlib import Path
+
+    config_path = Path(config_file)
+    config_dir = config_path.parent
+
+    # Collect files to hash: main config + all !include targets
+    files_to_hash: list[Path] = [config_path]
+
+    try:
+        raw = config_path.read_text(encoding="utf-8")
+        # Match: !include some_file.yaml  or  !include_dir_list subdir  etc.
+        for match in re.finditer(r"!include(?:_\w+)?\s+(\S+)", raw):
+            target = config_dir / match.group(1)
+            if target.is_file():
+                files_to_hash.append(target)
+            elif target.is_dir():
+                # !include_dir_* tags reference directories
+                for f in sorted(target.iterdir()):
+                    if f.is_file() and f.suffix in (".yaml", ".yml"):
+                        files_to_hash.append(f)
+    except OSError:
+        pass
+
+    # Deduplicate and sort for deterministic output
+    seen: set[str] = set()
+    unique_files: list[Path] = []
+    for f in files_to_hash:
+        key = str(f.resolve())
+        if key not in seen:
+            seen.add(key)
+            unique_files.append(f)
+    unique_files.sort(key=lambda p: str(p))
+
+    h = hashlib.sha256()
+    for fpath in unique_files:
+        h.update(str(fpath.relative_to(config_dir)).encode("utf-8"))
+        h.update(fpath.read_bytes())
+    return h.hexdigest()
+
+
 def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
     
@@ -855,10 +905,10 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             _LOGGER.debug("Config cache version mismatch (%s vs %s), ignoring", cached.get("app_version"), __version__)
             return None
         
-        # Verify config file hash
-        current_config_hash = _compute_file_hash(config_file)
+        # Verify config files hash (main + all !include YAML files)
+        current_config_hash = _compute_config_dir_hash(config_file)
         if cached["config_hash"] != current_config_hash:
-            _LOGGER.debug("Config file changed, cache invalidated")
+            _LOGGER.debug("Config files changed, cache invalidated")
             return None
         
         # Verify schema file hash
@@ -887,7 +937,7 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
     try:
         cache_data = {
             "app_version": __version__,
-            "config_hash": _compute_file_hash(config_file),
+            "config_hash": _compute_config_dir_hash(config_file),
             "schema_hash": _compute_file_hash(schema_file),
             "data": validated_config,
         }
@@ -908,10 +958,10 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     
     _t1 = _time.monotonic()
     schema = _get_schema()
-    _LOGGER.info("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
+    _LOGGER.debug("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
     _t2 = _time.monotonic()
     v = CustomValidator(schema, purge_unknown=True)
-    _LOGGER.info("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
+    _LOGGER.debug("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
     
     # Check if config was created by a newer app version (soft block)
     from boneio.core.config.migrations import (
@@ -931,17 +981,17 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     # Apply migrations on raw dict BEFORE normalization/coercion
     _t3 = _time.monotonic()
     config_yaml, migrations_applied = _run_config_migrations(config_yaml, config_file=config_file)
-    _LOGGER.info("[STARTUP TIMING] migrations: %.2fs", _time.monotonic() - _t3)
+    _LOGGER.debug("[STARTUP TIMING] migrations: %.2fs", _time.monotonic() - _t3)
     
     # Normalize the document (applies coercion rules)
     _t4 = _time.monotonic()
     doc = v.normalized(config_yaml, always_return_document=True)  # type: ignore[attr-defined]
-    _LOGGER.info("[STARTUP TIMING] v.normalized: %.2fs", _time.monotonic() - _t4)
+    _LOGGER.debug("[STARTUP TIMING] v.normalized: %.2fs", _time.monotonic() - _t4)
     
     # Then merge board config
     _t5 = _time.monotonic()
     merged_doc = merge_board_config(doc)
-    _LOGGER.info("[STARTUP TIMING] merge_board_config: %.2fs", _time.monotonic() - _t5)
+    _LOGGER.debug("[STARTUP TIMING] merge_board_config: %.2fs", _time.monotonic() - _t5)
     
     # Finally validate
     _t6 = _time.monotonic()
@@ -956,7 +1006,7 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
-    _LOGGER.info("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
+    _LOGGER.debug("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
     
     # Save to cache for next startup
     _save_config_cache(config_file, merged_doc)
@@ -977,7 +1027,7 @@ def load_config_from_file(config_file: str):
     # Try loading from cache first (fast path: ~0.5s vs ~20s)
     cached = _try_load_cached_config(config_file)
     if cached is not None:
-        _LOGGER.info("[STARTUP TIMING] load_config_from_file TOTAL (cached): %.2fs", _time.monotonic() - _t0)
+        _LOGGER.debug("[STARTUP TIMING] load_config_from_file TOTAL (cached): %.2fs", _time.monotonic() - _t0)
         return cached
     
     # Cache miss — full validation (slow path)
@@ -986,13 +1036,13 @@ def load_config_from_file(config_file: str):
         config_yaml = load_yaml_file(config_file)
     except FileNotFoundError as err:
         raise ConfigurationException(err)
-    _LOGGER.info("[STARTUP TIMING] load_yaml_file: %.2fs", _time.monotonic() - _t0)
+    _LOGGER.debug("[STARTUP TIMING] load_yaml_file: %.2fs", _time.monotonic() - _t0)
     if not config_yaml:
         _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
     
     merged_doc = _full_config_validation(config_file, config_yaml)
-    _LOGGER.info("[STARTUP TIMING] load_config_from_file TOTAL: %.2fs", _time.monotonic() - _t0)
+    _LOGGER.debug("[STARTUP TIMING] load_config_from_file TOTAL: %.2fs", _time.monotonic() - _t0)
     
     return merged_doc
 

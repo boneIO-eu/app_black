@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 from fastapi.responses import StreamingResponse
 
 from boneio.core.config.yaml_util import (
+    clear_config_cache,
     load_config_from_file,
     update_config_section,
     load_yaml_file,
@@ -122,9 +123,14 @@ def _recompute_config_checksum() -> None:
 
 
 def invalidate_config_cache():
-    """Invalidate config cache and recompute checksum."""
+    """Invalidate in-memory config cache and disk validation cache, recompute checksum."""
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
+    try:
+        config_file = _get_app_state().yaml_config_file
+        clear_config_cache(config_file)
+    except Exception:
+        clear_config_cache()
     _recompute_config_checksum()
 
 
@@ -1045,11 +1051,14 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
         return {"status": "error", "message": f"Failed to restore backup: {str(e)}"}
 
 
+MAX_BACKUPS = 10
+
+
 @router.post("/config/create_backup")
 async def create_config_backup():
     """
     Create a configuration backup on disk with version in filename.
-    Automatically removes oldest backups if more than 10 exist.
+    Automatically removes oldest backups if more than MAX_BACKUPS exist.
     
     Returns:
         Status response with backup path.
@@ -1058,9 +1067,26 @@ async def create_config_backup():
     config_dir = Path(config_file).parent
     
     try:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = config_dir / "backups"
         backup_dir.mkdir(exist_ok=True)
+        
+        # Clean up old backups BEFORE creating new one - keep only MAX_BACKUPS - 1
+        all_backups = sorted(backup_dir.glob("config_backup_*.tar.gz"), reverse=True)
+        _LOGGER.debug(f"Found {len(all_backups)} existing backups, max allowed: {MAX_BACKUPS}")
+        
+        if len(all_backups) >= MAX_BACKUPS:
+            # Remove oldest backups to make room for new one
+            # Sorting by filename (reverse=True) puts newest first (timestamp in filename)
+            backups_to_remove = all_backups[MAX_BACKUPS - 1:]
+            _LOGGER.info(f"Removing {len(backups_to_remove)} old backups to maintain limit of {MAX_BACKUPS}")
+            for old_backup in backups_to_remove:
+                try:
+                    old_backup.unlink()
+                    _LOGGER.info(f"Removed old backup: {old_backup.name}")
+                except Exception as e:
+                    _LOGGER.warning(f"Failed to remove old backup {old_backup.name}: {e}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
         
         with tarfile.open(backup_path, mode='w:gz') as tar:
@@ -1078,15 +1104,9 @@ async def create_config_backup():
         
         _LOGGER.info(f"Created config backup: {backup_path}")
         
-        # Clean up old backups - keep only 10 most recent
-        all_backups = sorted(backup_dir.glob("config_backup_*.tar.gz"), key=lambda p: p.stat().st_mtime, reverse=True)
-        if len(all_backups) > 10:
-            for old_backup in all_backups[10:]:
-                try:
-                    old_backup.unlink()
-                    _LOGGER.info(f"Removed old backup: {old_backup.name}")
-                except Exception as e:
-                    _LOGGER.warning(f"Failed to remove old backup {old_backup.name}: {e}")
+        # Final count for response
+        final_count = len(list(backup_dir.glob("config_backup_*.tar.gz")))
+        _LOGGER.debug(f"Total backups after creation: {final_count}")
         
         # Count files
         file_count = 0
