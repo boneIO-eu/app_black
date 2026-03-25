@@ -213,11 +213,11 @@ def run(
     _t0 = _time.monotonic()
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
-    _LOGGER.info("[STARTUP TIMING] after setup_logging: %.2fs", _time.monotonic() - _t0)
+    _LOGGER.debug("[STARTUP TIMING] after setup_logging: %.2fs", _time.monotonic() - _t0)
     try:
         _t1 = _time.monotonic()
         _config = load_config_from_file(config_file=config)
-        _LOGGER.info("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
+        _LOGGER.debug("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
             return 1
@@ -225,23 +225,23 @@ def run(
         # Granular timing of runner sub-imports to find the bottleneck
         _t_a = _time.monotonic()
         from boneio.const import ACTION
-        _LOGGER.info("[RUNNER IMPORT] boneio.const: %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.const: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
         from boneio.core.cloud import CloudRegistration
-        _LOGGER.info("[RUNNER IMPORT] boneio.core.cloud: %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.core.cloud: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
         from boneio.core.manager import Manager
-        _LOGGER.info("[RUNNER IMPORT] boneio.core.manager: %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.core.manager: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
         from boneio.core.messaging import MQTTClient
-        _LOGGER.info("[RUNNER IMPORT] boneio.core.messaging: %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.core.messaging: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
         from boneio.hardware.gpio.input import get_gpio_manager
-        _LOGGER.info("[RUNNER IMPORT] boneio.hardware.gpio.input: %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.hardware.gpio.input: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
         from boneio.runner import async_run
-        _LOGGER.info("[RUNNER IMPORT] boneio.runner (rest): %.2fs", _time.monotonic() - _t_a)
-        _LOGGER.info("[STARTUP TIMING] total before async_run: %.2fs", _time.monotonic() - _t0)
+        _LOGGER.debug("[RUNNER IMPORT] boneio.runner (rest): %.2fs", _time.monotonic() - _t_a)
+        _LOGGER.debug("[STARTUP TIMING] total before async_run: %.2fs", _time.monotonic() - _t0)
         ret = asyncio.run(
             async_run(
                 config=_config,
