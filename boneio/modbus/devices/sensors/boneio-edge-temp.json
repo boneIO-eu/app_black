@@ -59,11 +59,11 @@
             "update_every_n": 60,
             "registers": [
                 {
-                    "name": "LED Mode",
+                    "name": "LED Mode Value",
                     "address": 102,
                     "write_address": 102,
                     "entity_type": "writeable_sensor_discrete",
-                    "state_class": "measurement",
+                    "entity_category": "config",
                     "value_type": "U_WORD",
                     "x_mapping": {
                         "0": "off",
@@ -76,7 +76,7 @@
         },
         {
             "base": 103,
-            "length": 1,
+            "length": 3,
             "register_type": "holding",
             "update_every_n": 1440,
             "registers": [
@@ -85,8 +85,47 @@
                     "address": 103,
                     "value_type": "U_WORD",
                     "ha_filter": null,
+                    "entity_category": "diagnostic",
                     "filters": [
                         {"firmware_version": 0}
+                    ]
+                },
+                {
+                    "name": "Temperature Calibration",
+                    "address": 104,
+                    "write_address": 104,
+                    "entity_type": "writeable_sensor",
+                    "entity_category": "config",
+                    "value_type": "S_WORD",
+                    "unit_of_measurement": "°C",
+                    "state_class": "measurement",
+                    "device_class": "temperature",
+                    "step": 0.1,
+                    "ha_filter": "round(1)",
+                    "filters": [
+                        {"multiply": 0.1}
+                    ],
+                    "write_filters": [
+                        {"multiply": 10}
+                    ]
+                },
+                {
+                    "name": "Humidity Calibration",
+                    "address": 105,
+                    "write_address": 105,
+                    "entity_type": "writeable_sensor",
+                    "entity_category": "config",
+                    "value_type": "S_WORD",
+                    "unit_of_measurement": "%",
+                    "state_class": "measurement",
+                    "device_class": "humidity",
+                    "step": 0.1,
+                    "ha_filter": "round(1)",
+                    "filters": [
+                        {"multiply": 0.1}
+                    ],
+                    "write_filters": [
+                        {"multiply": 10}
                     ]
                 }
             ]
@@ -95,7 +134,8 @@
     "additional_entities": [
         {
             "name": "LED Mode",
-            "source": "ledmode",
+            "source": "ledmodevalue",
+            "entity_category": "config",
             "entity_type": "select",
             "x_mapping": {
                 "0": "off",

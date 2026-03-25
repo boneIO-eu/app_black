@@ -108,7 +108,7 @@ class TestHAChildDevicesMode:
         )
 
         # Entity name should be None — HA will use the device name
-        assert msg["name"] == "null"
+        assert msg["name"] is None
         # Device name should be the output name
         assert msg["device"]["name"] == "OUT 01"
         # Device should be a child of the main device
@@ -495,6 +495,7 @@ class TestModbusDerivedSelect:
             source_sensor_base_address=10,
             source_sensor_decoded_name="operatingmode",
             value_mapping={"0": "Auto", "1": "Manual"},
+            coordinator=MagicMock(),
         )
 
         msg = entity.discovery_message()
@@ -530,6 +531,7 @@ class TestModbusCoordinatorDiscovery:
             source_sensor_base_address=10,
             source_sensor_decoded_name="operatingmode",
             value_mapping={"0": "Auto", "1": "Manual"},
+            coordinator=MagicMock(),
         )
 
         coordinator = MagicMock()
