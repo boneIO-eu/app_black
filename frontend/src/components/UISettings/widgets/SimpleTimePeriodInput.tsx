@@ -25,6 +25,7 @@ interface SimpleTimePeriodInputProps {
   minimum?: number;  // Minimum in milliseconds (for validation display)
   maximum?: number;  // Maximum in milliseconds (for validation and clamping)
   allowedUnits?: ('ms' | 's' | 'min' | 'h')[];  // Restrict available units
+  unitlessNumberUnit?: 'ms' | 's' | 'min' | 'h';  // How to interpret unitless string values like "5"
 }
 
 /**
@@ -38,7 +39,8 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   required = false,
   minimum = 0,
   maximum,
-  allowedUnits = ['ms', 's', 'min', 'h']
+  allowedUnits = ['ms', 's', 'min', 'h'],
+  unitlessNumberUnit = 'ms'
 }) => {
   // Parse value - can be string "30s", number (ms), or TimePeriod object from backend
   const parseValue = (val: string | number | TimePeriodObject): { value: number; unit: string } => {
@@ -58,7 +60,10 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
       // Try parsing as number
       const num = parseFloat(val);
       if (!isNaN(num)) {
-        return parseMilliseconds(num);
+        if (unitlessNumberUnit === 'ms') {
+          return parseMilliseconds(num);
+        }
+        return { value: num, unit: unitlessNumberUnit };
       }
       return { value: 0, unit: 's' };
     }

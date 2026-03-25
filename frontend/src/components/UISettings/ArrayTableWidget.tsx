@@ -427,11 +427,26 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
       // Validate update_interval minimum (1 second = 1000ms)
       if (isValid && dataToSave.update_interval) {
-        const interval = typeof dataToSave.update_interval === 'number'
-          ? dataToSave.update_interval
-          : parseInt(dataToSave.update_interval);
+        const raw = dataToSave.update_interval;
+        let intervalMs: number;
+        if (typeof raw === 'number') {
+          intervalMs = raw;
+        } else {
+          const match = String(raw).match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec|min|h|hours?)$/i);
+          if (match) {
+            const num = parseFloat(match[1]);
+            const unit = match[2].toLowerCase();
+            const multiplier = unit === 'h' || unit === 'hour' || unit === 'hours' ? 3600000
+              : unit === 'min' ? 60000
+              : unit === 's' || unit === 'sec' ? 1000
+              : 1;
+            intervalMs = num * multiplier;
+          } else {
+            intervalMs = parseFloat(raw) || 0;
+          }
+        }
 
-        if (interval < 1000) {
+        if (intervalMs < 1000) {
           isValid = false;
           errorMessage = t('array_table_widget.update_interval_minimum');
         }
