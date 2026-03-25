@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle, FaInfoCircle, FaCheck, FaSpinner } from 'react-icons/fa';
+import { FormInputNumber, FormInputText } from './widgets';
 import HelpLabel from './components/HelpLabel';
 
 interface WebServerFormProps {
@@ -113,75 +114,51 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
   return (
     <div className="space-y-4">
       {/* Port */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('webserver.port')}</span>
-        </label>
-        <input
-          type="number"
-          className="input input-bordered w-full"
-          value={data?.port ?? 8090}
-          onChange={(e) => handleChange('port', parseInt(e.target.value) || 8090)}
-          placeholder="8090"
-        />
-        <HelpLabel>{t('webserver.port_help')}</HelpLabel>
-      </div>
+      <FormInputNumber
+        label={t('webserver.port')}
+        value={data?.port ?? 8090}
+        onChange={(val) => handleChange('port', val === '' ? 8090 : val)}
+        placeholder="8090"
+        help={t('webserver.port_help')}
+      />
 
       {/* Nginx Proxy Port */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('webserver.proxy_port')}</span>
-        </label>
-        <input
-          type="number"
-          className="input input-bordered w-full"
-          value={data?.proxy_port ?? ''}
-          onChange={(e) => {
-            const val = e.target.value ? parseInt(e.target.value) : undefined;
-            if (val) {
-              handleChange('proxy_port', val);
-            } else {
-              const { proxy_port: _, ...rest } = data || {};
-              onChange(rest);
-            }
-          }}
-          placeholder={t('webserver.proxy_port_placeholder')}
-        />
-        <HelpLabel>{t('webserver.proxy_port_help')}</HelpLabel>
-      </div>
+      <FormInputNumber
+        label={t('webserver.proxy_port')}
+        value={data?.proxy_port ?? ''}
+        onChange={(val) => {
+          if (val === '') {
+            const { proxy_port: _, ...rest } = data || {};
+            onChange(rest);
+            return;
+          }
+          handleChange('proxy_port', val);
+        }}
+        placeholder={t('webserver.proxy_port_placeholder')}
+        help={t('webserver.proxy_port_help')}
+      />
 
       {/* Auth Section */}
       <div className="divider">{t('webserver.auth')}</div>
 
       {/* Username */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('webserver.username')}</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered w-full"
-          value={data?.auth?.username || ''}
-          onChange={(e) => handleAuthChange('username', e.target.value)}
-          placeholder="admin"
-        />
-        <HelpLabel>{t('webserver.username_help')}</HelpLabel>
-      </div>
+      <FormInputText
+        label={t('webserver.username')}
+        value={data?.auth?.username || ''}
+        onChange={(val) => handleAuthChange('username', val)}
+        placeholder="admin"
+        help={t('webserver.username_help')}
+      />
 
       {/* Password */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('webserver.password')}</span>
-        </label>
-        <input
-          type="password"
-          className="input input-bordered w-full"
-          value={data?.auth?.password || ''}
-          onChange={(e) => handleAuthChange('password', e.target.value)}
-          placeholder="••••••••"
-        />
-        <HelpLabel>{t('webserver.password_help')}</HelpLabel>
-      </div>
+      <FormInputText
+        label={t('webserver.password')}
+        value={data?.auth?.password || ''}
+        onChange={(val) => handleAuthChange('password', val)}
+        placeholder="••••••••"
+        help={t('webserver.password_help')}
+        type="password"
+      />
 
       {/* Cloud Registration (PWA) */}
       <div className="divider"></div>
@@ -299,21 +276,15 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
 
           {/* PWA App Name */}
           <div className="divider text-xs opacity-60">{t('settings.pwa_name_title')}</div>
-          <div className="form-control">
-            <label className="label">
-              <span className="label-text font-medium">{t('settings.pwa_name_title')}</span>
-            </label>
-            <input
-              type="text"
-              className="input input-bordered w-full"
-              value={newPwaName}
-              onChange={e => setNewPwaName(e.target.value.slice(0, 12))}
-              placeholder={pwaNameDefault || 'bIO abc123'}
-              disabled={isChangingPwaName}
-              maxLength={12}
-            />
-            <HelpLabel>{t('settings.pwa_name_hint')} ({newPwaName.length}/12)</HelpLabel>
-          </div>
+          <FormInputText
+            label={t('settings.pwa_name_title')}
+            value={newPwaName}
+            onChange={(val) => setNewPwaName(val.slice(0, 12))}
+            placeholder={pwaNameDefault || 'bIO abc123'}
+            help={`${t('settings.pwa_name_hint')} (${newPwaName.length}/12)`}
+            maxLength={12}
+            disabled={isChangingPwaName}
+          />
 
           {pwaNameResult && (
             <div className={`alert text-sm ${pwaNameResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>

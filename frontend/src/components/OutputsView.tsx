@@ -117,9 +117,9 @@ export default function OutputsView({error}: {error: string | null}) {
       .filter(isOutputEvent)
       .map(e => e.state);
 
-    // Add remote device outputs
+    // Add remote device outputs (only boneio_black)
     remoteDevices.forEach(device => {
-      if (device.outputs) {
+      if (device.device_type === 'boneio_black' && device.outputs) {
         device.outputs.forEach((out: any) => {
           allOutputs.push({
             id: `remote_${device.id}_${out.id}`,
@@ -171,7 +171,7 @@ export default function OutputsView({error}: {error: string | null}) {
   const validCovers = useMemo(() => {
     const allCovers = covers.filter(isCoverEvent).map(c => c.state as CoverState);
     remoteDevices.forEach(device => {
-      if (device.covers) {
+      if (device.device_type === 'boneio_black' && device.covers) {
         device.covers.forEach((cov: any) => {
           allCovers.push({
             id: `remote_${device.id}_${cov.id}`,
