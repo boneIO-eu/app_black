@@ -8,6 +8,7 @@ import BoneIOForm from '../BoneIOForm';
 import MqttForm from '../MqttForm';
 import WebServerForm from '../WebServerForm';
 import ModbusForm from '../ModbusForm';
+import CANForm from '../CANForm';
 import LoggerForm from '../LoggerForm';
 import Mcp23017Form from '../Mcp23017Form';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
@@ -139,6 +140,13 @@ function CustomFormContent({
     case 'modbus':
       return (
         <ModbusForm
+          data={formData[activeSection]}
+          onChange={handleChange}
+        />
+      );
+    case 'can':
+      return (
+        <CANForm
           data={formData[activeSection]}
           onChange={handleChange}
         />

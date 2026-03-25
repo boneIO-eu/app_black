@@ -107,9 +107,20 @@ export default function UISettings() {
     [t]
   );
 
+  // Hardware version determines which sections are available
+  // CAN bus support was added in hardware version 0.5
+  const hwVersion = parseFloat(formData.boneio?.version || '0');
+  const canSupported = hwVersion >= 0.5;
+  
+  if (!canSupported && hwVersion > 0) {
+    console.log('CAN not supported: hardware version', hwVersion, '< 0.5');
+  }
+
   const restartSections = useMemo(
-    () => RESTART_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
-    [t]
+    () => RESTART_SECTIONS
+      .filter(s => s.name !== 'can' || canSupported)
+      .map(s => ({ ...s, title: t(s.translationKey) })),
+    [t, canSupported]
   );
 
   const configSections = useMemo(
@@ -535,11 +546,28 @@ export default function UISettings() {
       return JSON.stringify(obj);
     };
 
+    // Check if a value is "effectively empty" (only false/null/undefined/empty values)
+    // e.g. { enabled: false } is semantically the same as no section at all
+    const isEffectivelyEmpty = (obj: any): boolean => {
+      if (obj === null || obj === undefined || obj === '' || obj === false) return true;
+      if (Array.isArray(obj)) return obj.length === 0;
+      if (typeof obj === 'object') {
+        return Object.values(obj).every(v => isEffectivelyEmpty(v));
+      }
+      return false;
+    };
+
     const normalizedNew = normalizeForComparison(newFormData);
     const normalizedOriginal = normalizeForComparison(originalData[sectionName]);
-    const newDataStr = sortedStringify(normalizedNew);
-    const originalDataStr = sortedStringify(normalizedOriginal);
-    const hasChanges = newDataStr !== originalDataStr;
+
+    let hasChanges: boolean;
+    if (isEffectivelyEmpty(normalizedNew) && isEffectivelyEmpty(normalizedOriginal)) {
+      hasChanges = false;
+    } else {
+      const newDataStr = sortedStringify(normalizedNew);
+      const originalDataStr = sortedStringify(normalizedOriginal);
+      hasChanges = newDataStr !== originalDataStr;
+    }
     console.log(
       '📝 hasChanges:',
       hasChanges,

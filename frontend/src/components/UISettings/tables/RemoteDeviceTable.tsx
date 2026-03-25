@@ -6,7 +6,7 @@ import TableActions from './TableActions';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaWifi, FaLink, FaSync, FaSearch, FaTrash, FaNetworkWired } from 'react-icons/fa';
 
 interface AutodiscoveredDevice {
   id: string;
@@ -42,6 +42,9 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
   const [scannedEsphomeDevices, setScannedEsphomeDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
   const [scanningWled, setScanningWled] = useState(false);
   const [scannedWledDevices, setScannedWledDevices] = useState<{name: string; host: string; ip: string; port: number}[]>([]);
+  const [scanningCan, setScanningCan] = useState(false);
+  const [canEnabled, setCanEnabled] = useState(false);
+  const [canNodes, setCanNodes] = useState<{node_id: number; name: string; device_type: string; serial: string; is_online: boolean; nmt_state: string; outputs: Record<string, number>}[]>([]);
   const [removingDeviceId, setRemovingDeviceId] = useState<string | null>(null);
 
   // Fetch autodiscovered devices and managed_by devices
@@ -67,8 +70,19 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
       }
     };
 
+    // Check if CAN module is enabled
+    const checkCanEnabled = async () => {
+      try {
+        await axios.get('/api/can/nodes');
+        setCanEnabled(true);
+      } catch {
+        setCanEnabled(false);
+      }
+    };
+
     fetchAutodiscovered();
     fetchManagedBy();
+    checkCanEnabled();
     
     // Refresh every 30 seconds
     const interval = setInterval(() => {
@@ -129,6 +143,23 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
       console.error('Failed to scan ESPHome network:', error);
     } finally {
       setScanningNetwork(false);
+    }
+  };
+
+  /**
+   * Scan CAN bus for boneIO nodes
+   */
+  const scanCanNodes = async () => {
+    setScanningCan(true);
+    setCanNodes([]);
+    try {
+      const { data } = await axios.get('/api/can/nodes');
+      setCanNodes(data.nodes || []);
+    } catch (error) {
+      // CAN may be disabled - silently ignore
+      console.debug('CAN nodes not available:', error);
+    } finally {
+      setScanningCan(false);
     }
   };
 
@@ -198,9 +229,14 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     return { switches, lights, covers, total: switches + lights + covers };
   };
 
-  // Check if we have any discovered devices (BoneIO, ESPHome, or WLED)
-  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0 || scannedWledDevices.length > 0;
-  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length + scannedWledDevices.length;
+  // Filter CAN nodes that are not already configured as remote devices
+  const availableCanNodes = canNodes.filter(
+    node => !configuredIds.has(`can_${node.node_id}`)
+  );
+
+  // Check if we have any discovered devices (BoneIO, ESPHome, WLED, or CAN)
+  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0 || scannedWledDevices.length > 0 || availableCanNodes.length > 0;
+  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length + scannedWledDevices.length + availableCanNodes.length;
 
   // Sort configured devices
   const indexedItems = useMemo(() =>
@@ -247,13 +283,24 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
               <FaSearch className="w-3 h-3" />
               {scanningWled ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_wled') || 'Scan WLED')}
             </button>
+            {canEnabled && (
+              <button
+                className={`btn btn-sm btn-warning gap-1 ${scanningCan ? 'loading' : ''}`}
+                onClick={scanCanNodes}
+                disabled={scanningCan}
+                title={t('remote_devices.scan_can') || 'Scan CAN bus'}
+              >
+                <FaNetworkWired className="w-3 h-3" />
+                {scanningCan ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_can') || 'Scan CAN')}
+              </button>
+            )}
           </div>
         </div>
         <p className="text-sm text-base-content/70 mb-3">
           {t('remote_devices.autodiscovered_hint')}
         </p>
         
-        {(isLoading || scanningNetwork) && !hasDiscoveredDevices && (
+        {(isLoading || scanningNetwork || scanningCan) && !hasDiscoveredDevices && (
           <div className="flex items-center gap-2 text-base-content/50 py-4">
             <span className="loading loading-spinner loading-sm"></span>
             {t('remote_devices.scanning')}
@@ -361,6 +408,43 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     <div className="flex flex-wrap gap-1 mt-1">
                       <span className="badge badge-accent badge-sm">WLED</span>
                       <span className="text-xs opacity-60">:{device.port}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* CAN nodes - mobile */}
+              {availableCanNodes.map((node) => (
+                <div key={`can-${node.node_id}`} className="card card-compact bg-base-100 shadow-sm">
+                  <div className="card-body p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{node.name}</div>
+                        <div className="text-xs text-base-content/60 font-mono truncate">
+                          Node ID: {node.node_id}
+                          {node.serial && ` | S/N: ${node.serial}`}
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-success btn-sm gap-1 shrink-0"
+                        onClick={() => onAddFromDiscovery?.({
+                          id: `can_${node.node_id}`,
+                          name: node.name,
+                          protocol: 'can',
+                          device_type: 'boneio_black',
+                          outputs: Object.keys(node.outputs).map(idx => ({ id: idx, name: `Output ${idx}` })),
+                          covers: [],
+                        } as any)}
+                      >
+                        <FaPlus className="w-3 h-3" />
+                        {t('remote_devices.add')}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="badge badge-warning badge-sm">CAN</span>
+                      <span className={`badge badge-sm ${node.is_online ? 'badge-success' : 'badge-error'}`}>
+                        {node.is_online ? node.nmt_state : 'OFFLINE'}
+                      </span>
+                      <span className="badge badge-outline badge-sm">{Object.keys(node.outputs).length} out</span>
                     </div>
                   </div>
                 </div>
@@ -501,15 +585,59 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                       </Td>
                     </Tr>
                   ))}
+                  {/* CAN nodes - desktop */}
+                  {availableCanNodes.map((node) => (
+                    <Tr key={`can-${node.node_id}`} className="hover:bg-base-300">
+                      <Td className="font-mono text-xs">
+                        <div className="flex flex-col">
+                          <span>Node {node.node_id}</span>
+                          {node.serial && (
+                            <span className="text-xs opacity-50">S/N: {node.serial}</span>
+                          )}
+                        </div>
+                      </Td>
+                      <Td>{node.name}</Td>
+                      <Td>
+                        <div className="flex items-center gap-1">
+                          <span className="badge badge-warning badge-sm">CAN</span>
+                          <span className={`badge badge-sm ${node.is_online ? 'badge-success' : 'badge-error'}`}>
+                            {node.is_online ? node.nmt_state : 'OFFLINE'}
+                          </span>
+                        </div>
+                      </Td>
+                      <Td>
+                        <span className="badge badge-outline badge-sm">
+                          {Object.keys(node.outputs).length} out
+                        </span>
+                      </Td>
+                      <Td>
+                        <button
+                          className="btn btn-success btn-sm gap-1"
+                          onClick={() => onAddFromDiscovery?.({
+                            id: `can_${node.node_id}`,
+                            name: node.name,
+                            protocol: 'can',
+                            device_type: 'boneio_black',
+                            outputs: Object.keys(node.outputs).map(idx => ({ id: idx, name: `Output ${idx}` })),
+                            covers: [],
+                          } as any)}
+                          title={t('remote_devices.add_from_discovery')}
+                        >
+                          <FaPlus className="w-3 h-3" />
+                          {t('remote_devices.add')}
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
                 </Tbody>
               </Table>
             </div>
           </>
         )}
 
-        {!isLoading && !scanningNetwork && !scanningWled && !hasDiscoveredDevices && (
+        {!isLoading && !scanningNetwork && !scanningWled && !scanningCan && !hasDiscoveredDevices && (
           <p className="text-sm text-base-content/50 py-2">
-            {t('remote_devices.no_discovered') || 'No devices discovered. BoneIO devices appear automatically, click "Scan ESPHome" or "Scan WLED" to find devices.'}
+            {t('remote_devices.no_discovered') || 'No devices discovered. boneIO devices appear automatically, click "Scan ESPHome", "Scan WLED" or "Scan CAN" to find devices.'}
           </p>
         )}
       </div>
@@ -552,7 +680,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                 </button>
               ) : undefined}
               fields={[
-                { label: t('remote_devices.protocol'), value: <span className="badge badge-primary badge-xs">{item.protocol?.toUpperCase() || 'MQTT'}</span> },
+                { label: t('remote_devices.protocol'), value: <span className={`badge badge-xs ${item.protocol === 'can' ? 'badge-warning' : item.protocol === 'esphome_api' ? 'badge-secondary' : item.protocol === 'wled' ? 'badge-accent' : 'badge-primary'}`}>{item.protocol?.toUpperCase() || 'MQTT'}</span> },
                 { label: t('remote_devices.device_type'), value: <span className="badge badge-outline badge-xs">{deviceTypeLabel}</span> },
               ]}
             />
@@ -578,7 +706,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                 <Td className="font-mono">{item.id || '-'}</Td>
                 <Td>{item.name || '-'}</Td>
                 <Td>
-                  <span className="badge badge-primary badge-sm">
+                  <span className={`badge badge-sm ${item.protocol === 'can' ? 'badge-warning' : item.protocol === 'esphome_api' ? 'badge-secondary' : item.protocol === 'wled' ? 'badge-accent' : 'badge-primary'}`}>
                     {item.protocol?.toUpperCase() || 'MQTT'}
                   </span>
                 </Td>

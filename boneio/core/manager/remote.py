@@ -327,7 +327,7 @@ class RemoteDeviceManager:
         """
         # 1. Configure devices (this triggers lazy module imports)
         if self._pending_config:
-            _LOGGER.info("Configuring %d remote device(s) in background...", len(self._pending_config))
+            _LOGGER.debug("Configuring %d remote device(s) in background...", len(self._pending_config))
             self._configure_devices(self._pending_config)
             self._pending_config = None
         self._initialized = True
@@ -342,13 +342,13 @@ class RemoteDeviceManager:
         if not esphome_devices:
             return
         
-        _LOGGER.info(
+        _LOGGER.debug(
             "Delaying ESPHome connections by %.1f seconds (found %d devices)",
             delay_seconds, len(esphome_devices)
         )
         await asyncio.sleep(delay_seconds)
         
-        _LOGGER.info("Starting ESPHome connections...")
+        _LOGGER.debug("Starting ESPHome connections...")
         for device_id, device in esphome_devices:
             try:
                 await cast(Any, device).start_connection()

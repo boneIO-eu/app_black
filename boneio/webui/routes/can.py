@@ -153,6 +153,35 @@ def _validate_frame(frame: str) -> None:
         )
 
 
+@router.get("/interfaces")
+async def list_can_interfaces():
+    """List available CAN interfaces detected in /sys/class/net/.
+
+    Returns:
+        Dict with list of CAN interface names (can0, can1, etc.).
+    """
+    import os
+
+    interfaces = []
+    net_dir = "/sys/class/net"
+    try:
+        for name in sorted(os.listdir(net_dir)):
+            if not re.match(r"^(v?can\d+)$", name):
+                continue
+            uevent_path = os.path.join(net_dir, name, "uevent")
+            try:
+                with open(uevent_path) as f:
+                    content = f.read()
+                if "DEVTYPE=can" in content or name.startswith("can"):
+                    interfaces.append(name)
+            except (FileNotFoundError, PermissionError):
+                interfaces.append(name)
+    except FileNotFoundError:
+        _LOGGER.warning("/sys/class/net not found")
+
+    return {"interfaces": interfaces}
+
+
 @router.get("/nodes")
 async def get_can_nodes(manager: Manager = Depends(get_manager)):
     """Get discovered CANopen nodes.

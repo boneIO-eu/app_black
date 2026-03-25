@@ -22,6 +22,23 @@ NODE_ID_FILENAME = "can_node_id"
 UNCONFIGURED_NODE_ID = 127
 
 
+def _derive_node_id_from_mac(mac_address: str) -> int:
+    """Derive deterministic CAN node_id from a MAC address.
+
+    Args:
+        mac_address: Device MAC address string, e.g. ``aa:bb:cc:dd:ee:ff``.
+
+    Returns:
+        Deterministic node ID in valid CANopen range 1-127.
+    """
+    clean_mac = mac_address.replace(":", "").replace("-", "").strip().lower()
+    if len(clean_mac) != 12:
+        raise ValueError(f"Invalid MAC address format: {mac_address!r}")
+
+    mac_int = int(clean_mac, 16)
+    return (mac_int % NODE_ID_MAX) + NODE_ID_MIN
+
+
 def _read_persisted_node_id(config_dir: str) -> int | None:
     """Read persisted node_id from config directory.
 
@@ -108,10 +125,17 @@ def resolve_node_id(
             _LOGGER.info("Using persisted CAN node_id=%d", persisted)
             return persisted
 
-        # Use default unconfigured ID (127)
-        node_id = UNCONFIGURED_NODE_ID
+        # Derive from MAC and persist for stable future boots
+        node_id = _derive_node_id_from_mac(mac_address)
+        persist_ok = persist_node_id(config_dir, node_id)
+        if not persist_ok:
+            _LOGGER.warning(
+                "CAN node_id=%d computed from MAC but could not be persisted",
+                node_id,
+            )
         _LOGGER.info(
-            "No persisted CAN node_id found, using unconfigured ID=%d", node_id
+            "No persisted CAN node_id found, using MAC-derived ID=%d",
+            node_id,
         )
         return node_id
 

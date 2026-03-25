@@ -37,6 +37,7 @@ export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'mqtt', icon: '📡', translationKey: 'sections.mqtt' },
   { name: 'web', icon: '🌐', translationKey: 'sections.web' },
   { name: 'modbus', icon: '🔌', translationKey: 'sections.modbus' },
+  { name: 'can', icon: '🔗', translationKey: 'sections.can' },
   { name: 'mcp23017', icon: '🔗', translationKey: 'sections.mcp23017' },
 ];
 
