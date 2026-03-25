@@ -117,7 +117,7 @@ def ha_availabilty_message(
             device_info["suggested_area"] = area_name
         
         # Entity name is None — HA will use the device name
-        entity_name = "null"
+        entity_name = None
     elif area and area_name:
         # Create sub-device named "{device_name} - {area_name}" (e.g., "boneIO Black - Gabinet")
         # All entities with the same area will be grouped under this sub-device
