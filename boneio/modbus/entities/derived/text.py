@@ -22,12 +22,14 @@ class ModbusDerivedTextSensor(ModbusDerivedEntity):
         source_sensor_base_address: int,
         source_sensor_decoded_name: str,
         value_mapping: dict,
+        entity_category: str | None = None,
     ) -> None:
         ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
             value_type=None,
+            entity_category=entity_category,
             filters=[],
             message_bus=message_bus,
             config_helper=config_helper,

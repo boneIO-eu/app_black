@@ -31,6 +31,7 @@ class BaseEntity(Filter):
         unit_of_measurement: str | None = None,
         state_class: str | None   = None,
         device_class: str | None = None,
+        entity_category: str | None = None,
         value_type: str | None = None,
         filters: list = [],
         user_filters: list | None = [],
@@ -44,6 +45,7 @@ class BaseEntity(Filter):
         self._unit_of_measurement = unit_of_measurement
         self._state_class = state_class
         self._device_class = device_class
+        self._entity_category = entity_category
         self._message_bus = message_bus
         self._config_helper = config_helper
         self._user_filters = user_filters
@@ -180,13 +182,17 @@ class BaseEntity(Filter):
         """Generate Home Assistant discovery message for this entity."""
         value_template = f"{{{{ value_json.{self.decoded_name} | {self._ha_filter} }}}}" if self._ha_filter else f"{{{{ value_json.{self.decoded_name} }}}}" 
         
-        kwargs = {
-            "unit_of_measurement": self.unit_of_measurement,
-            "state_class": self._state_class,
+        kwargs: dict[str, Any] = {
             "value_template": value_template,
         }
+        if self.unit_of_measurement:
+            kwargs["unit_of_measurement"] = self.unit_of_measurement
+        if self._state_class:
+            kwargs["state_class"] = self._state_class
         if self._device_class:
             kwargs["device_class"] = self._device_class
+        if self._entity_category:
+            kwargs["entity_category"] = self._entity_category
         return modbus_sensor_availabilty_message(
             entity_id=self._id,
             entity_name=self.display_name,
@@ -215,6 +221,7 @@ class ModbusBaseEntity(BaseEntity):
         state_class: str | None = None,
         device_class: str | None = None,
         value_type: str | None = None,
+        entity_category: str | None = None,
         filters: list | None = None,
         user_filters: list | None = [],
         ha_filter: str = "",
@@ -240,6 +247,7 @@ class ModbusBaseEntity(BaseEntity):
             state_class=state_class,
             device_class=device_class,
             value_type=value_type,
+            entity_category=entity_category,
             filters=filters or [],
             message_bus=message_bus,
             config_helper=config_helper,

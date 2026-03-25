@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from boneio.const import ID, MODEL, NAME, SENSOR, SWITCH
 from boneio.core.config import ConfigHelper
@@ -10,6 +11,9 @@ from boneio.integration.homeassistant import (
 from boneio.core.utils.util import find_key_by_value
 from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.entities.base import ModbusDerivedEntity
+
+if TYPE_CHECKING:
+    from boneio.modbus.coordinator import ModbusCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,14 +31,17 @@ class ModbusDerivedSwitch(ModbusDerivedEntity):
         source_sensor_base_address: int,
         source_sensor_decoded_name: str,
         value_mapping: dict,
+        coordinator: ModbusCoordinator,
         payload_off: str = "OFF",
         payload_on: str = "ON",
+        entity_category: str | None = None,
     ) -> None:
         ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
             value_type=None,
+            entity_category=entity_category,
             filters=[],
             message_bus=message_bus,
             config_helper=config_helper,
@@ -47,6 +54,15 @@ class ModbusDerivedSwitch(ModbusDerivedEntity):
         self._value_mapping = value_mapping
         self._payload_off = payload_off
         self._payload_on = payload_on
+        self._coordinator = coordinator
+
+    async def write_value(self, value: float) -> None:
+        """Write value to the modbus register via coordinator.
+
+        Args:
+            value: The value (switch label) to write.
+        """
+        await self._coordinator.write_register(value=value, entity=self)
 
     @property
     def context(self) -> dict:

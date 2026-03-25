@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from boneio.const import ID, MODEL, NAME, SELECT, SENSOR
 from boneio.core.config import ConfigHelper
 from boneio.integration.homeassistant import (
@@ -8,6 +10,9 @@ from boneio.integration.homeassistant import (
 from boneio.core.utils.util import find_key_by_value
 from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.entities.base import ModbusDerivedEntity
+
+if TYPE_CHECKING:
+    from boneio.modbus.coordinator import ModbusCoordinator
 
 
 class ModbusDerivedSelect(ModbusDerivedEntity):
@@ -23,12 +28,15 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
         source_sensor_base_address: int,
         source_sensor_decoded_name: str,
         value_mapping: dict,
+        coordinator: ModbusCoordinator,
+        entity_category: str | None = None,
     ) -> None:
         ModbusDerivedEntity.__init__(
             self,
             name=name,
             parent=parent,
             value_type=None,
+            entity_category=entity_category,
             filters=[],
             message_bus=message_bus,
             config_helper=config_helper,
@@ -39,6 +47,15 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
         )
         self._context_config = context_config
         self._value_mapping = value_mapping
+        self._coordinator = coordinator
+
+    async def write_value(self, value: float) -> None:
+        """Write value to the modbus register via coordinator.
+
+        Args:
+            value: The value (select label) to write.
+        """
+        await self._coordinator.write_register(value=value, entity=self)
 
     @property
     def context(self) -> dict:
@@ -53,6 +70,8 @@ class ModbusDerivedSelect(ModbusDerivedEntity):
             + self.decoded_name
             + '", "value": "{{ value }}"}',
         }
+        if self._entity_category:
+            kwargs["entity_category"] = self._entity_category
         msg = modbus_select_availabilty_message(
             entity_id=self._id,
             entity_name=self.display_name,

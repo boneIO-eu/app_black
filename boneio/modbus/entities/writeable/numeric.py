@@ -40,6 +40,11 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
         return self._step or 1.0
 
     def discovery_message(self):
+        kwargs = {
+            "value_template": f"{{{{ value_json.{self.decoded_name} }}}}",
+        }
+        if self._entity_category:
+            kwargs["entity_category"] = self._entity_category
         msg = modbus_numeric_availabilty_message(
             entity_id=self._id,
             entity_name=self.display_name,
@@ -52,7 +57,7 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
             config_helper=self._config_helper,
             has_custom_id=self._parent.get("has_custom_id", False),
             device_type=SENSOR,  # because we send everything to boneio/sensor from modbus.
-            value_template=f"{{{{ value_json.{self.decoded_name} }}}}"
+            **kwargs,
         )
         return msg
 
@@ -70,6 +75,8 @@ class ModbusNumericWriteableEntity(ModbusNumericWriteableEntityDiscrete):
             "command_topic": f"{self._config_helper.topic_prefix}/cmd/modbus/{self._parent[ID].lower()}/set",
             "command_template": '{"device": "' + self.decoded_name + '", "value": "{{ value }}"}',
         }
+        if self._entity_category:
+            kwargs["entity_category"] = self._entity_category
         msg = modbus_numeric_availabilty_message(
             entity_id=self._id,
             entity_name=self.display_name,
