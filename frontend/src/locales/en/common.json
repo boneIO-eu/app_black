@@ -165,7 +165,13 @@
     "filters": "Filters",
     "add_filter": "Add Filter",
     "filter_value": "Value",
-    "filters_hint": "Filters are applied in order: offset, round, multiply, filter_out"
+    "filters_hint": "Filters are applied in order: offset, round, multiply, filter_out",
+    "groups": {
+      "adc": "ADC Sensors",
+      "board": "Board Sensors",
+      "system": "System Monitoring",
+      "other": "Other Sensors"
+    }
   },
   "adc": {
     "title": "ADC Sensors",

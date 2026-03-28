@@ -170,7 +170,13 @@
     "filters": "Filtry",
     "add_filter": "Dodaj Filtr",
     "filter_value": "Wartość",
-    "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out"
+    "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out",
+    "groups": {
+      "adc": "Czujniki ADC",
+      "board": "Czujniki płyty",
+      "system": "Monitoring systemu",
+      "other": "Pozostałe czujniki"
+    }
   },
   "adc": {
     "title": "Czujniki ADC",

@@ -19,20 +19,88 @@ interface SparklineProps {
   fillColor?: string;
 }
 
+/**
+ * LTTB (Largest Triangle Three Buckets) downsampling.
+ *
+ * Reduces the number of data points while preserving the visual shape
+ * of the chart. Keeps first and last points, then selects the most
+ * visually significant point in each bucket.
+ */
+function downsampleLTTB(
+  points: HistoryPoint[],
+  targetCount: number,
+): HistoryPoint[] {
+  if (points.length <= targetCount || targetCount < 3) return points;
+
+  const result: HistoryPoint[] = [points[0]]; // Always keep first
+  const bucketSize = (points.length - 2) / (targetCount - 2);
+
+  let prevIndex = 0;
+
+  for (let i = 0; i < targetCount - 2; i++) {
+    const rangeStart = Math.floor((i + 0) * bucketSize) + 1;
+    const rangeEnd = Math.min(Math.floor((i + 1) * bucketSize) + 1, points.length - 1);
+
+    // Average of next bucket (for triangle area calculation)
+    const nextStart = Math.floor((i + 1) * bucketSize) + 1;
+    const nextEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, points.length - 1);
+    let avgX = 0;
+    let avgY = 0;
+    const nextCount = nextEnd - nextStart;
+    for (let j = nextStart; j < nextEnd; j++) {
+      avgX += points[j].timestamp;
+      avgY += points[j].value;
+    }
+    if (nextCount > 0) {
+      avgX /= nextCount;
+      avgY /= nextCount;
+    }
+
+    // Find point in current bucket with largest triangle area
+    let maxArea = -1;
+    let bestIndex = rangeStart;
+    const prevPoint = points[prevIndex];
+
+    for (let j = rangeStart; j < rangeEnd; j++) {
+      const area = Math.abs(
+        (prevPoint.timestamp - avgX) * (points[j].value - prevPoint.value) -
+        (prevPoint.timestamp - points[j].timestamp) * (avgY - prevPoint.value),
+      );
+      if (area > maxArea) {
+        maxArea = area;
+        bestIndex = j;
+      }
+    }
+
+    result.push(points[bestIndex]);
+    prevIndex = bestIndex;
+  }
+
+  result.push(points[points.length - 1]); // Always keep last
+  return result;
+}
+
 function SparklineBase({ points, strokeColor = '#0284c7', fillColor = 'rgba(96, 165, 250, 0.10)' }: SparklineProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<uPlot | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
-  const pointsRef = useRef(points);
-  pointsRef.current = points;
   const [size, setSize] = useState({ width: 0, height: 0 });
 
+  // Downsample points based on chart width (1 point per 2 pixels max)
+  const displayPoints = useMemo(() => {
+    const maxPoints = Math.max(size.width > 0 ? Math.floor(size.width / 2) : 80, 20);
+    return downsampleLTTB(points, maxPoints);
+  }, [points, size.width]);
+
+  const pointsRef = useRef(displayPoints);
+  pointsRef.current = displayPoints;
+
   const data = useMemo<uPlot.AlignedData>(() => {
-    const xValues = points.map((point) => point.timestamp * 1000);
-    const yValues = points.map((point) => point.value);
+    const xValues = displayPoints.map((point) => point.timestamp * 1000);
+    const yValues = displayPoints.map((point) => point.value);
     return [xValues, yValues];
-  }, [points]);
+  }, [displayPoints]);
 
   useEffect(() => {
     if (!wrapperRef.current) {
