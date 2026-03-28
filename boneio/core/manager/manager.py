@@ -909,6 +909,7 @@ class Manager:
             "sensor": publisher.publish_sensors,
             "virtual_energy_sensor": publisher.publish_sensors,
             "modbus_devices": publisher.publish_modbus,
+            "adc": publisher.publish_sensors,
         }
         
         published = set()
@@ -932,7 +933,7 @@ class Manager:
         Args:
             reload_sections: Optional list of section names to reload.
                            If None, reloads all supported sections (output, cover, input, modbus_devices).
-                           Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 
+                           Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 'adc',
                            'modbus_devices', 'sensor', 'virtual_energy_sensor', 'logger', 'remote_devices'
         
         Returns:
@@ -978,6 +979,7 @@ class Manager:
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
             "template": self.templates.reload_templates,  # Thermostats and alarm panels
+            "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
         }
         

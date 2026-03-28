@@ -498,6 +498,24 @@ async def send_initial_states(
                     f"Error preparing temperature sensor state: {type(e).__name__} - {e}"
                 )
 
+        # Send ADC sensor states
+        for sensor in boneio_manager.sensors.get_adc_sensors():
+            try:
+                sensor_state = SensorState(
+                    id=sensor.id,
+                    name=sensor.name,
+                    state=sensor.state,
+                    unit="V",
+                    timestamp=getattr(sensor, '_timestamp', None),
+                )
+                update = SensorEvent(entity_id=sensor.id, state=sensor_state)
+                if not await send_state_update(update):
+                    return False
+            except Exception as e:
+                _LOGGER.error(
+                    f"Error preparing ADC sensor state: {type(e).__name__} - {e}"
+                )
+
         # Send virtual energy sensor states
         for ve_sensor in boneio_manager.sensors.get_virtual_energy_sensors():
             try:

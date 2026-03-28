@@ -14,6 +14,7 @@ import SensorForm from './SensorForm';
 import VirtualEnergySensorForm from './VirtualEnergySensorForm';
 import RemoteDeviceForm from './RemoteDeviceForm';
 import TemplateForm from './TemplateForm';
+import ADCForm from './ADCForm';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ import SensorTable from './tables/SensorTable';
 import VirtualEnergySensorTable from './tables/VirtualEnergySensorTable';
 import RemoteDeviceTable from './tables/RemoteDeviceTable';
 import TemplateTable from './tables/TemplateTable';
+import ADCTable from './tables/ADCTable';
 import GenericTable from './tables/GenericTable';
 
 interface Area {
@@ -44,7 +46,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -102,6 +104,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [affectedActions, setAffectedActions] = useState<{ type: string, name: string, actionType: string }[]>([]);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
+  const [wizardCopied, setWizardCopied] = useState(false);
 
   // Auto-open edit modal when editItemName is provided (from URL query param)
   useEffect(() => {
@@ -124,6 +127,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       // For covers: match auto-generated id format (cover_{open_relay}_{close_relay})
       if (sectionType === 'cover' && item.open_relay && item.close_relay) {
         const generatedId = `cover_${item.open_relay}_${item.close_relay}`.toLowerCase().replace(/ /g, '_');
+        if (generatedId === editItemName) return true;
+      }
+      // For modbus_devices: match auto-generated id format ({address}_{model})
+      if (sectionType === 'modbus_devices' && item.address && item.model) {
+        const generatedId = `${item.address}_${item.model}`.toLowerCase().replace(/ /g, '_');
         if (generatedId === editItemName) return true;
       }
       return false;
@@ -487,6 +495,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         isValid = hasPlatform;
         errorMessage = t('template.platform_required');
       }
+    } else if (sectionType === 'adc') {
+      isValid = !!dataToSave.pin;
+      errorMessage = t('adc.pin_required');
     } else {
       // For other sections, allow saving (or add specific validation)
       isValid = true;
@@ -1045,6 +1056,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={handleAddFromDiscovery} />;
       case 'template':
         return <TemplateTable {...commonProps} allAreas={allAreas} />;
+      case 'adc':
+        return <ADCTable {...commonProps} allAreas={allAreas} />;
       default:
         return <GenericTable {...commonProps} />;
     }
@@ -1087,6 +1100,51 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               <span className="hidden sm:inline ml-1">{t('import_export.import')}</span>
             </button>
           </div>
+
+          {/* AI Wizard button — only for event/binary_sensor */}
+          {(sectionType === 'event' || sectionType === 'binary_sensor') && (
+            <div className="tooltip tooltip-bottom" data-tip={t('event_form.ai_wizard_description')}>
+              <button
+                onClick={async () => {
+                  try {
+                    const { buildAiWizardPrompt } = await import('./helpers/aiWizardPrompt');
+                    const entityType = sectionType === 'event' ? 'event' : 'binary_sensor';
+                    const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum ||
+                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum ||
+                      ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
+                    const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum ||
+                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum ||
+                      ['TOGGLE', 'ON', 'OFF'];
+                    const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum ||
+                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum ||
+                      ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+
+                    const prompt = buildAiWizardPrompt({
+                      entityType: entityType as any,
+                      data: {} as any,
+                      schema,
+                      allOutputs,
+                      allOutputGroups,
+                      allCovers,
+                      allAreas,
+                      allRemoteDevices,
+                      actionTypeOptions,
+                      actionOutputOptions,
+                      actionCoverOptions,
+                    });
+                    await navigator.clipboard.writeText(prompt);
+                    setWizardCopied(true);
+                    setTimeout(() => setWizardCopied(false), 3000);
+                  } catch (err) {
+                    console.error('Failed to copy wizard prompt:', err);
+                  }
+                }}
+                className="btn btn-outline btn-sm"
+              >
+                {wizardCopied ? t('event_form.ai_prompt_copied_short') : t('event_form.ai_copy_wizard')}
+              </button>
+            </div>
+          )}
 
           {/* Add new button */}
           <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`}
@@ -1316,6 +1374,15 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     allSensors={allSensors}
                     allModbusDevices={allModbusDevices}
                     allInputs={allBinarySensors || []}
+                    onValidationChange={setHasValidationErrors}
+                  />
+                ) : sectionType === 'adc' ? (
+                  <ADCForm
+                    data={editingItem}
+                    onChange={setEditingItem}
+                    existingItems={value}
+                    editingIndex={editingIndex}
+                    allAreas={allAreas}
                     onValidationChange={setHasValidationErrors}
                   />
                 ) : (

@@ -23,6 +23,7 @@ _LOGGER = logging.getLogger(name=__name__)
 IIO_DEVICE_PATH = Path("/sys/bus/iio/devices/iio:device0")
 
 # ADC pin mapping (AIN0-AIN6)
+# Supports both AINx names and P9_xx BeagleBone Black header pin names
 ADC_PIN_MAP = {
     "AIN0": "in_voltage0_raw",
     "AIN1": "in_voltage1_raw",
@@ -31,6 +32,14 @@ ADC_PIN_MAP = {
     "AIN4": "in_voltage4_raw",
     "AIN5": "in_voltage5_raw",
     "AIN6": "in_voltage6_raw",
+    # P9 header pin aliases (from schema.yaml)
+    "P9_39": "in_voltage0_raw",  # AIN0
+    "P9_40": "in_voltage1_raw",  # AIN1
+    "P9_37": "in_voltage2_raw",  # AIN2
+    "P9_38": "in_voltage3_raw",  # AIN3
+    "P9_33": "in_voltage4_raw",  # AIN4
+    "P9_36": "in_voltage5_raw",  # AIN5
+    "P9_35": "in_voltage6_raw",  # AIN6
 }
 
 
@@ -183,7 +192,8 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
 
     def __init__(self, pin: str, filters: list, **kwargs) -> None:
         """Initialize GPIO ADC sensor."""
-        super().__init__(topic_type=SENSOR, **kwargs)
+        from boneio.const import ADC
+        super().__init__(topic_type=ADC, **kwargs)
         self._pin = pin
         self._state = None
         self._filters = filters
@@ -207,7 +217,7 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
         return self._state
 
     def update(self, timestamp: float) -> None:
-        """Read ADC value and publish to MQTT.
+        """Read ADC value and publish to MQTT and EventBus.
         
         This method is called periodically by AsyncUpdater.
         
@@ -227,10 +237,25 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
             self._state = _state
             self._timestamp = timestamp
             
+            # Publish to MQTT
             self._message_bus.send_message(
                 topic=self._send_topic,
                 payload=str(self.state),
             )
+            
+            # Emit SensorEvent to EventBus for WebSocket clients
+            from boneio.models.events import SensorEvent
+            from boneio.models import SensorState
+            self.manager.event_bus.trigger_event(SensorEvent(
+                entity_id=self.id,
+                state=SensorState(
+                    id=self.id,
+                    name=self.name,
+                    state=self.state,
+                    unit="V",
+                    timestamp=self._timestamp,
+                )
+            ))
             
         except Exception as err:
             _LOGGER.error("Error updating ADC sensor %s: %s", self._pin, err)

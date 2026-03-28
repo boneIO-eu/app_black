@@ -1246,17 +1246,30 @@ adc:
   schema:
     type: dict
     schema:
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name for the sensor in Home Assistant.
       id:
         type: string
         required: False
         meta:
-          label: Id to use in HA if needed. Default to pin number.
+          label: Id to use for MQTT topic. Default to name or pin number.
       pin:
         type: string
         required: True
         allowed: ['P9_33', 'P9_35', 'P9_36', 'P9_37', 'P9_38', 'P9_39', 'P9_40']
         meta:
           label: PIN to use.
+      area:
+        type: string
+        required: False
+        meta:
+          label: Area/Room
+          description: |
+            Reference to area ID defined in 'areas' section.
+            Creates a sub-device linked to the main BoneIO device.
       update_interval: !include update_interval.yaml
       show_in_ha:
         type: boolean

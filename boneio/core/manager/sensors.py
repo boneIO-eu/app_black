@@ -469,6 +469,9 @@ class SensorManager:
     def _create_adc_sensor(self, gpio: dict):
         """Create ADC sensor instance.
         
+        ID generation follows precedence: explicit id > name (slugified) > pin.
+        Display name follows: name > id > pin.
+        
         Args:
             gpio: GPIO configuration dictionary
             
@@ -477,12 +480,22 @@ class SensorManager:
         """
         from boneio.hardware.analog import GpioADCSensor
         
-        name = gpio.get(ID)
-        if not name:
+        pin = gpio.get(PIN)
+        if not pin:
             return None
-            
-        id = name.replace(" ", "")
-        pin = gpio[PIN]
+        
+        # ID: explicit id > name (slugified) > pin
+        explicit_id = gpio.get(ID)
+        config_name = gpio.get("name")
+        if explicit_id:
+            id = explicit_id.replace(" ", "")
+        elif config_name:
+            id = config_name.replace(" ", "_").lower()
+        else:
+            id = pin
+        
+        # Display name: name > id > pin
+        name = config_name or explicit_id or pin
         
         try:
             sensor = GpioADCSensor(
@@ -500,6 +513,7 @@ class SensorManager:
                     id=id,
                     name=name,
                     config_helper=self._manager._config_helper,
+                    area=gpio.get("area"),
                 )
                 self._manager.publish_ha_discovery(id=id, ha_type=SENSOR, payload=payload)
             return sensor
@@ -665,6 +679,136 @@ class SensorManager:
                     await sensor.async_update(timestamp)
                 except Exception as e:
                     _LOGGER.debug("Error broadcasting sensor state %s: %s", sensor.id, e)
+
+    async def reload_adc_sensors(self) -> None:
+        """Reload ADC sensor configuration from file.
+
+        This handles:
+        - Adding new ADC sensors
+        - Removing deleted ADC sensors (including HA discovery cleanup)
+        - Updating existing sensor configurations (filters, update_interval, show_in_ha)
+        """
+        from boneio.const import ADC
+
+        _LOGGER.info("Reloading ADC sensors configuration")
+
+        # Get fresh config
+        config = self._manager._config_helper.reload_config()
+        new_adc_config = config.get(ADC, [])
+
+        # Get current sensor pins
+        current_pins = {s._pin for s in self._adc_sensors}
+        new_pins = {s.get(PIN) for s in new_adc_config if s.get(PIN)}
+
+        # Find sensors to add and remove
+        to_add = new_pins - current_pins
+        to_remove = current_pins - new_pins
+
+        _LOGGER.debug("ADC sensors - current: %s, new: %s", current_pins, new_pins)
+        _LOGGER.debug("ADC sensors - to_add: %s, to_remove: %s", to_add, to_remove)
+
+        # Remove deleted sensors
+        for pin in to_remove:
+            for sensor in self._adc_sensors[:]:
+                if sensor._pin == pin:
+                    _LOGGER.info("Removing ADC sensor on pin %s (id: %s)", pin, sensor.id)
+                    # Remove HA autodiscovery
+                    matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(sensor.id)
+                    for ha_type, topic in matching_topics:
+                        _LOGGER.debug("Removing HA Discovery for ADC sensor %s: %s", sensor.id, topic)
+                        self._manager.send_message(topic=topic, payload=None, retain=True)
+                        self._manager._config_helper.remove_autodiscovery_msg(ha_type, topic)
+                    self._adc_sensors.remove(sensor)
+
+        # Ensure ADC is initialized if adding new sensors
+        if to_add and not self._adc_sensors:
+            from boneio.hardware.analog import initialize_adc
+            initialize_adc()
+
+        # Add new sensors
+        for sensor_config in new_adc_config:
+            pin = sensor_config.get(PIN)
+            if pin and pin in to_add:
+                _LOGGER.info("Adding new ADC sensor on pin %s", pin)
+                sensor = self._create_adc_sensor(sensor_config)
+                if sensor:
+                    self._adc_sensors.append(sensor)
+
+        # Update existing sensors (name, id, filters, update_interval, show_in_ha)
+        for sensor_config in new_adc_config:
+            pin = sensor_config.get(PIN)
+            if pin and pin not in to_add and pin not in to_remove:
+                for sensor in self._adc_sensors:
+                    if sensor._pin == pin:
+                        # Compute new ID/name using same precedence as _create_adc_sensor
+                        explicit_id = sensor_config.get(ID)
+                        config_name = sensor_config.get("name")
+                        if explicit_id:
+                            new_id = explicit_id.replace(" ", "")
+                        elif config_name:
+                            new_id = config_name.replace(" ", "_").lower()
+                        else:
+                            new_id = pin
+                        new_name = config_name or explicit_id or pin
+
+                        if sensor.id != new_id or sensor.name != new_name:
+                            _LOGGER.debug(
+                                "Updating ADC sensor %s: id=%s->%s, name=%s->%s",
+                                pin, sensor.id, new_id, sensor.name, new_name,
+                            )
+                            sensor._id = new_id
+                            sensor._name = new_name
+
+                        # Update filters
+                        new_filters = sensor_config.get(FILTERS, [])
+                        sensor._filters = new_filters
+
+                        # Update interval
+                        new_interval = sensor_config.get(UPDATE_INTERVAL)
+                        if new_interval:
+                            sensor._update_interval = new_interval
+
+                        # Resend HA autodiscovery with updated info
+                        if sensor_config.get(SHOW_HA, True):
+                            payload = ha_adc_sensor_availabilty_message(
+                                id=sensor.id,
+                                name=new_name,
+                                config_helper=self._manager._config_helper,
+                                area=sensor_config.get("area"),
+                            )
+                            self._manager.publish_ha_discovery(
+                                id=sensor.id, ha_type=SENSOR, payload=payload
+                            )
+                        break
+
+        _LOGGER.info("ADC sensors reload complete. Total: %d", len(self._adc_sensors))
+
+        # Broadcast updated states to WebSocket clients
+        await self._broadcast_adc_states()
+
+    async def _broadcast_adc_states(self) -> None:
+        """Broadcast current state of all ADC sensors via WebSocket.
+
+        Called after reload to ensure frontend receives updated sensor list.
+        Emits SensorEvent for each ADC sensor so WebSocket clients see them.
+        """
+        from boneio.models.events import SensorEvent
+        from boneio.models import SensorState
+
+        for sensor in self._adc_sensors:
+            try:
+                self._manager.event_bus.trigger_event(SensorEvent(
+                    entity_id=sensor.id,
+                    state=SensorState(
+                        id=sensor.id,
+                        name=sensor.name,
+                        state=sensor.state,
+                        unit="V",
+                        timestamp=getattr(sensor, '_timestamp', None),
+                    )
+                ))
+            except Exception as e:
+                _LOGGER.debug("Error broadcasting ADC sensor state %s: %s", sensor.id, e)
 
     def get_ina219_sensors(self) -> list:
         """Get all INA219 sensors.

@@ -13,6 +13,7 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 from boneio.const import (
+    ADC,
     CLOSE,
     CLOSED,
     CLOSING,
@@ -95,9 +96,9 @@ def ha_availabilty_message(
     )
     
     # --- EXPERIMENTAL: ha_child_devices mode ---
-    # Only outputs, inputs, covers and groups become child devices.
-    # Sensors (INA219, CPU, Memory, FW Version, Update) stay on the main device.
-    _CHILD_DEVICE_TYPES = {OUTPUT, INPUT, COVER, "group"}
+    # Outputs, inputs, covers, groups and ADC sensors become child devices.
+    # Other sensors (INA219, CPU, Memory, FW Version, Update) stay on the main device.
+    _CHILD_DEVICE_TYPES = {OUTPUT, INPUT, COVER, "group", ADC}
     
     if config_helper.ha_child_devices and device_type in _CHILD_DEVICE_TYPES:
         child_device_name = name  # e.g., "OUT 01"
@@ -330,7 +331,13 @@ def ha_event_availabilty_message(config_helper: ConfigHelper, mqtt_sequences: di
 
 
 def ha_adc_sensor_availabilty_message(config_helper: ConfigHelper, **kwargs):
-    msg = ha_availabilty_message(device_type=SENSOR, config_helper=config_helper, entity_type="sensor", **kwargs)
+    """Create ADC sensor availability topic for HA.
+
+    Uses device_type=ADC so each ADC sensor becomes a separate child device
+    in Home Assistant (like inputs and outputs). Entity name is set to None
+    so HA uses the device name.
+    """
+    msg = ha_availabilty_message(device_type=ADC, config_helper=config_helper, entity_type="sensor", **kwargs)
     msg["unit_of_measurement"] = "V"
     msg["device_class"] = "voltage"
     msg["state_class"] = "measurement"
