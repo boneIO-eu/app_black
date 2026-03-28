@@ -456,9 +456,9 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             </div>
           )}
 
-          {!labelsLoading && entities.length > 0 && (
+          {!labelsLoading && entities.filter(e => !e.entity_type?.includes('discrete')).length > 0 && (
             <div className="space-y-2">
-              {entities.map((entity) => (
+              {entities.filter(e => !e.entity_type?.includes('discrete')).map((entity) => (
                 <div key={entity.decoded_name} className="flex items-center gap-3">
                   <div className="w-44 shrink-0">
                     <span className="text-sm text-base-content/70 truncate block" title={entity.name}>
@@ -486,7 +486,7 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             </div>
           )}
 
-          {!labelsLoading && entities.length === 0 && !labelsError && (
+          {!labelsLoading && entities.filter(e => !e.entity_type?.includes('discrete')).length === 0 && !labelsError && (
             <div className="text-center py-4 text-base-content/60 text-sm">
               {t('modbus.labels.no_entities')}
             </div>
