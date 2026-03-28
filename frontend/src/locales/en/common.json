@@ -192,6 +192,23 @@
     "add_filter": "Add Filter",
     "filter_value": "Value"
   },
+  "board_sensors": {
+    "type": "Sensor Type",
+    "type_hint": "Select the type of I2C sensor to configure",
+    "id": "Name / ID",
+    "id_hint": "Unique name used as the sensor identifier in MQTT and Home Assistant",
+    "id_hint_ina": "Optional prefix for sub-sensor IDs. If set, sub-sensor IDs become {prefix}{name}. If empty, only the sub-sensor names are used.",
+    "id_required": "Sensor name is required",
+    "address": "I2C Address",
+    "address_required": "I2C address is required",
+    "address_duplicate": "This address is already in use by another sensor of the same type",
+    "select_address": "Select I2C address...",
+    "update_interval": "Update Interval",
+    "update_interval_hint": "How often to read the sensor (e.g. 10s, 60s, 5min)",
+    "ina_sensors": "INA219 Sensors",
+    "ina_sensors_hint": "INA219 measures current, power, and voltage. Customize names for each measurement.",
+    "no_sensors": "No board sensors configured. Click + to add LM75 temperature sensor, INA219 power monitor, or MCP9808 temperature sensor."
+  },
   "groups": {
     "title": "Groups",
     "name": "Name",
@@ -603,7 +620,8 @@
       "mqtt": "MQTT",
       "web": "Web Server",
       "modbus": "Modbus",
-      "can": "CAN bus configuration for inter-device communication via CANopen protocol."
+      "can": "CAN bus configuration for inter-device communication via CANopen protocol.",
+      "board_sensors": "Configure I2C sensors on the board: LM75/PCT2075 temperature sensor, INA219 power monitor, and MCP9808 temperature sensor."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -611,7 +629,8 @@
     "web": "Web Server",
     "modbus": "Modbus",
     "can": "CAN Bus",
-    "mcp23017": "MCP23017 (Advanced)"
+    "mcp23017": "MCP23017 (Advanced)",
+    "board_sensors": "Board Sensors"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",

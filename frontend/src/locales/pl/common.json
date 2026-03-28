@@ -197,6 +197,23 @@
     "add_filter": "Dodaj filtr",
     "filter_value": "Wartość"
   },
+  "board_sensors": {
+    "type": "Typ czujnika",
+    "type_hint": "Wybierz typ czujnika I2C do konfiguracji",
+    "id": "Nazwa / ID",
+    "id_hint": "Unikalna nazwa używana jako identyfikator czujnika w MQTT i Home Assistant",
+    "id_hint_ina": "Opcjonalny prefiks dla ID pod-sensorów. Jeśli ustawiony, ID stają się {prefiks}{nazwa}. Jeśli pusty, używane są tylko nazwy pod-sensorów.",
+    "id_required": "Nazwa czujnika jest wymagana",
+    "address": "Adres I2C",
+    "address_required": "Adres I2C jest wymagany",
+    "address_duplicate": "Ten adres jest już używany przez inny czujnik tego samego typu",
+    "select_address": "Wybierz adres I2C...",
+    "update_interval": "Interwał aktualizacji",
+    "update_interval_hint": "Jak często odczytywać czujnik (np. 10s, 60s, 5min)",
+    "ina_sensors": "Czujniki INA219",
+    "ina_sensors_hint": "INA219 mierzy prąd, moc i napięcie. Dostosuj nazwy dla każdego pomiaru.",
+    "no_sensors": "Brak skonfigurowanych czujników płyty. Kliknij +, aby dodać czujnik temperatury LM75, monitor zasilania INA219 lub czujnik temperatury MCP9808."
+  },
   "groups": {
     "title": "Grupy",
     "name": "Nazwa",
@@ -578,7 +595,8 @@
       "mqtt": "Konfiguracja MQTT",
       "web": "Konfiguracja Serwera Web",
       "modbus": "Konfiguracja Modbus",
-      "can": "Konfiguracja magistrali CAN do komunikacji między urządzeniami przez protokół CANopen."
+      "can": "Konfiguracja magistrali CAN do komunikacji między urządzeniami przez protokół CANopen.",
+      "board_sensors": "Konfiguruj czujniki I2C na płytce: czujnik temperatury LM75/PCT2075, monitor zasilania INA219 i czujnik temperatury MCP9808."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -586,7 +604,8 @@
     "web": "Serwer Web",
     "modbus": "Modbus",
     "can": "Magistrala CAN",
-    "mcp23017": "MCP23017 (Zaawansowane)"
+    "mcp23017": "MCP23017 (Zaawansowane)",
+    "board_sensors": "Czujniki płyty"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",

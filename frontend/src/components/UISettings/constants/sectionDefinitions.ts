@@ -40,6 +40,7 @@ export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'modbus', icon: '🔌', translationKey: 'sections.modbus' },
   { name: 'can', icon: '🔗', translationKey: 'sections.can' },
   { name: 'mcp23017', icon: '🔗', translationKey: 'sections.mcp23017' },
+  { name: 'board_sensors', icon: '🔌', translationKey: 'sections.board_sensors' },
 ];
 
 /**
@@ -63,7 +64,16 @@ export const ARRAY_SECTIONS = [
   'remote_devices',
   'template',
   'adc',
+  'board_sensors',
 ] as const;
+
+/**
+ * Composite sections that combine multiple YAML keys into one UI section.
+ * The key is the virtual section name, the value is an array of actual YAML keys.
+ */
+export const COMPOSITE_SECTIONS: Record<string, string[]> = {
+  board_sensors: ['lm75', 'ina219', 'mcp9808'],
+};
 
 export type ArraySectionType = typeof ARRAY_SECTIONS[number];
 

@@ -34,15 +34,15 @@
             ],
             "default": [
               {
-                "id": "INA219 Current",
+                "id": "Board Current",
                 "device_class": "current"
               },
               {
-                "id": "INA219 Power",
+                "id": "Board Power",
                 "device_class": "power"
               },
               {
-                "id": "INA219 Voltage",
+                "id": "Board Voltage",
                 "device_class": "voltage"
               }
             ],

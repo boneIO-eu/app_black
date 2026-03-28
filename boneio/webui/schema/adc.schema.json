@@ -13,9 +13,14 @@
           "string"
         ],
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for the sensor in Home Assistant.",
+            "title": "Name"
+          },
           "id": {
             "type": "string",
-            "description": "Id to use in HA if needed. Default to pin number.",
+            "description": "Id to use for MQTT topic. Default to name or pin number.",
             "title": "Id"
           },
           "pin": {
@@ -34,6 +39,11 @@
             ],
             "description": "PIN to use.",
             "title": "Pin"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/Room",
+            "title": "Area"
           },
           "update_interval": {
             "type": [

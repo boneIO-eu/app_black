@@ -12,6 +12,7 @@ import {
   RELOAD_SECTIONS,
   RESTART_SECTIONS,
   ALL_SECTIONS,
+  COMPOSITE_SECTIONS,
 } from '@/components/UISettings/constants/sectionDefinitions';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
@@ -203,6 +204,20 @@ export default function UISettings() {
       // Load parsed config from backend FIRST (fast, small)
       const { data: configContent } = await axios.get('/api/config');
       const configData = configContent?.config || {};
+
+      // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors)
+      for (const [virtualName, yamlKeys] of Object.entries(COMPOSITE_SECTIONS)) {
+        const merged: any[] = [];
+        for (const key of yamlKeys) {
+          const items = configData[key];
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              merged.push({ ...item, _type: key });
+            }
+          }
+        }
+        configData[virtualName] = merged;
+      }
 
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
       // setFormData(configData);
@@ -608,6 +623,7 @@ export default function UISettings() {
       'sensor',
       'virtual_energy_sensor',
       'remote_devices',
+      'board_sensors',
     ];
     const defaultValue = arraySections.includes(sectionName) ? [] : {};
     const originalValue =
@@ -753,6 +769,49 @@ export default function UISettings() {
       // Send converted data to backend
       console.log('Sending config for section:', sectionName);
       console.log('Data:', minimalConfig);
+
+      // Handle composite sections — split and save each YAML key separately
+      if (COMPOSITE_SECTIONS[sectionName]) {
+        const yamlKeys = COMPOSITE_SECTIONS[sectionName];
+        const allItems = Array.isArray(minimalConfig) ? minimalConfig : [];
+
+        // Split items by _type back into separate arrays
+        const buckets: Record<string, any[]> = {};
+        for (const key of yamlKeys) {
+          buckets[key] = [];
+        }
+        for (const item of allItems) {
+          const type = item._type;
+          if (type && buckets[type]) {
+            const { _type, ...rest } = item;
+            buckets[type].push(rest);
+          }
+        }
+
+        // Save each YAML key separately
+        for (const key of yamlKeys) {
+          console.log(`📤 Saving composite key ${key}:`, buckets[key]);
+          await axios.put(`/api/config/${key}`, buckets[key]);
+        }
+
+        // Mark restart required for composite sections
+        setRestartRequired(true);
+
+        setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
+        setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
+        setOriginalData(prev => ({
+          ...prev,
+          [sectionName]: JSON.parse(JSON.stringify(dataToUse)),
+        }));
+        if (dataOverride !== undefined) {
+          setFormData(prev => ({ ...prev, [sectionName]: JSON.parse(JSON.stringify(dataToUse)) }));
+        }
+
+        setTimeout(() => {
+          setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
+        }, 3000);
+        return;
+      }
 
       const bodyData = JSON.stringify(minimalConfig);
       console.log('📤 Sending to backend:', bodyData);

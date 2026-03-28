@@ -280,7 +280,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     Returns:
         Status response with optional restart_required flag.
     """
-    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus', 'mcp23017'}
+    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus', 'mcp23017', 'lm75', 'ina219', 'mcp9808', 'can'}
 
     if section in ("event", "binary_sensor") and isinstance(data, list):
         errors = _validate_section_actions(section, data)
