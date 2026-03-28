@@ -1,281 +1,52 @@
-import { useContext, memo, useState, useMemo, useEffect } from 'react';
+import { useContext, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '@/api/axios';
 import { WebSocketContext } from '../App';
-import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
 import { isModbusDeviceEvent, ModbusDeviceState } from '../hooks/useWebSocket';
 import { useTranslation } from '../hooks/useTranslation';
+import ModbusDeviceItem from './ModbusDeviceItem';
+import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
+import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
+import { FaCog } from 'react-icons/fa';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
-// Separate component for individual Modbus device - memoized by device.id and state
-const ModbusDeviceItem = memo(({ device, isGrid, onValueChange }: {
-  device: ModbusDeviceState;
-  isGrid: boolean;
-  onValueChange: (coordinatorId: string, entityId: string, value: string | number) => void;
-}) => {
-  const { t } = useTranslation();
-  const handleSelectChange = async (value: string) => {
-    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
-    // or use decoded_name if it's available
-    let entityId = device.id.startsWith(device.coordinator_id) 
-      ? device.id.slice(device.coordinator_id.length) 
-      : device.id;
-    if (entityId.startsWith('_')) entityId = entityId.slice(1);
-    onValueChange(device.coordinator_id, entityId, value);
-  };
+interface GroupedModbusDevices {
+  groupKey: string;
+  groupName: string;
+  sensors: ModbusDeviceState[];
+  writeable: ModbusDeviceState[];
+}
 
-  const handleSwitchToggle = async (checked: boolean) => {
-    if (!device.x_mapping || !device.payload_on || !device.payload_off) {
-      return;
-    }
-    const value = checked ? device.payload_on : device.payload_off;
-    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
-    // or use decoded_name if it's available
-    let entityId = device.id.startsWith(device.coordinator_id) 
-      ? device.id.slice(device.coordinator_id.length) 
-      : device.id;
-    if (entityId.startsWith('_')) entityId = entityId.slice(1);
-    onValueChange(device.coordinator_id, entityId, value);
-  };
+function isWriteableDevice(device: ModbusDeviceState): boolean {
+  return device.entity_type?.includes('select') || device.entity_type === 'switch' || device.entity_type === 'number';
+}
 
-  const handleWriteableSensorChange = async (value: string) => {
-    // Extract entity_id from device.id (format: {coordinator_id}_{decoded_name})
-    let entityId = device.id.startsWith(device.coordinator_id) 
-      ? device.id.slice(device.coordinator_id.length) 
-      : device.id;
-    if (entityId.startsWith('_')) entityId = entityId.slice(1);
-    
-    // Convert string to number if possible
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
-      onValueChange(device.coordinator_id, entityId, numValue);
-    } else {
-      onValueChange(device.coordinator_id, entityId, value);
-    }
-  };
-
-  // Check if it's a select or switch (additional entity)
-  const isSelect = device.entity_type === 'select' && device.x_mapping;
-  const isSwitch = device.entity_type === 'switch' && device.x_mapping && device.payload_on && device.payload_off;
-  const isNumber = device.entity_type === 'number'
-
-  // Get current switch state
-  const switchChecked = isSwitch && device.state === device.payload_on ? true : false;
-
-  // State for writeable sensor input
-  const currentValue = device.state !== null 
-    ? (typeof device.state === 'number' ? device.state.toString() : device.state.toString())
-    : '';
-  const [inputValue, setInputValue] = useState<string>(currentValue);
-
-  // Update input value when device state changes
-  useEffect(() => {
-    const newValue = device.state !== null 
-      ? (typeof device.state === 'number' ? device.state.toString() : device.state.toString())
-      : '';
-    setInputValue(newValue);
-  }, [device.state]);
-
-  // Render select dropdown
-  if (isSelect) {
-    const options = Object.entries(device.x_mapping || {}).map(([key, label]) => ({
-      value: label as string,
-      key,
-    }));
-
-    return (
-      <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
-      >
-        <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
-          <div>
-            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
-            <p className="text-sm text-base-content/70">{device.id}</p>
-          </div>
-          <div className={`${isGrid ? 'w-full' : 'min-w-[200px]'}`}>
-            <select
-              className="select ed w-full select-sm"
-              value={device.state as string || ''}
-              onChange={(e) => handleSelectChange(e.target.value)}
-            >
-              {options.map((option) => (
-                <option key={option.key} value={option.value}>
-                  {option.value}
-                </option>
-              ))}
-            </select>
-            <p className="text-gray-500 text-xs mt-2">
-              {formatTimestamp(device?.timestamp ?? null)}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+function compareDevices(a: ModbusDeviceState, b: ModbusDeviceState): number {
+  const byCoordinator = (a.coordinator_id || '').localeCompare(b.coordinator_id || '');
+  if (byCoordinator !== 0) {
+    return byCoordinator;
   }
 
-  // Render toggle switch
-  if (isSwitch) {
-    return (
-      <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
-      >
-        <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
-          <div>
-            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
-            <p className="text-sm text-base-content/70">{device.id}</p>
-          </div>
-          <div className={`${isGrid ? 'w-full' : 'flex flex-col items-end gap-2'}`}>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only peer"
-                checked={switchChecked}
-                onChange={(e) => handleSwitchToggle(e.target.checked)}
-              />
-              <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-hidden peer-focus:ring-4 \
-                peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer \
-                dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white \
-                after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white \
-                after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 \
-                after:transition-all dark:border-gray-600 peer-checked:bg-blue-600`}></div>
-            </label>
-            <p className="text-gray-500 text-xs mt-2">
-              {formatTimestamp(device?.timestamp ?? null)}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  const isAWritable = isWriteableDevice(a);
+  const isBWritable = isWriteableDevice(b);
+  if (isAWritable !== isBWritable) {
+    return isAWritable ? 1 : -1;
   }
 
-  // Render writeable sensor (input field)
-  if (isNumber) {
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(e.target.value);
-    };
-
-    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        handleWriteableSensorChange(inputValue);
-      }
-    };
-
-    // Format placeholder to show decimal when step is decimal
-    const formatPlaceholder = (value: string | number | null) => {
-      if (value === null || value === undefined) return t('modbus_view.enter_value');
-      const numValue = typeof value === 'string' ? parseFloat(value) : value;
-      if (isNaN(numValue)) return t('modbus_view.enter_value');
-      
-      // Show decimal if step is less than 1
-      if (device.step && device.step < 1) {
-        return numValue.toFixed(1);
-      }
-      return value.toString();
-    };
-
-    // Check if input value is different from current value
-    const isValueChanged = () => {
-      if (inputValue === '') return false;
-      const inputNum = parseFloat(inputValue);
-      const currentNum = typeof currentValue === 'string' ? parseFloat(currentValue) : currentValue;
-      return !isNaN(inputNum) && !isNaN(currentNum) && inputNum !== currentNum;
-    };
-
-    return (
-      <div
-        className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-green-500 transition-all duration-300`}
-      >
-        <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
-          <div>
-            <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
-            <p className="text-sm text-base-content/70">{device.id}</p>
-          </div>
-          <div className={`${isGrid ? 'w-full' : 'min-w-[200px]'}`}>
-            <div className="flex gap-2 items-center">
-              <input
-                type="number"
-                step={device.step || 1}
-                className="input  input-sm flex-1"
-                value={inputValue}
-                onChange={handleInputChange}
-                onKeyDown={handleInputKeyDown}
-                placeholder={formatPlaceholder(currentValue)}
-              />
-              {device.unit && (
-                <span className="text-sm text-base-content/70 whitespace-nowrap">
-                  {device.unit}
-                </span>
-              )}
-              <button
-                className="btn btn-sm btn-primary"
-                disabled={!isValueChanged()}
-                onClick={() => handleWriteableSensorChange(inputValue)}
-              >
-                {t('modbus_view.set_button')}
-              </button>
-            </div>
-            <p className="text-gray-500 text-xs mt-2">
-              {formatTimestamp(device?.timestamp ?? null)}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Render regular sensor (numeric/text display)
-  const isLoading = device.state === null;
-
-  return (
-    <div
-      className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px]' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}
-    >
-      <div className={`flex ${isGrid ? 'justify-between items-start' : 'justify-between items-start'}`}>
-        <div>
-          <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
-          <p className="text-sm text-base-content/70">{device.id}</p>
-        </div>
-        <div className='text-right'>
-          <div className="flex items-baseline gap-2 justify-end">
-            {isLoading ? (
-              <span className="inline-block h-8 w-20 bg-base-300 rounded animate-pulse" />
-            ) : (
-              <span className="text-2xl font-mono">
-                {typeof device.state === 'number' 
-                  ? device.state.toFixed(2) 
-                  : device.state}
-              </span>
-            )}
-            {device.unit && (
-              <span className="text-base-content/70">
-                {device.unit}
-              </span>
-            )}
-          </div>
-          <p className="text-gray-500 text-xs mt-2">
-            {isLoading ? (
-              <span className="inline-block h-3 w-12 bg-base-300 rounded animate-pulse" />
-            ) : (
-              formatTimestamp(device?.timestamp ?? null)
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if state, timestamp, name, custom_label, entity_type, x_mapping or isGrid changed
-  return prevProps.device.id === nextProps.device.id &&
-         prevProps.device.name === nextProps.device.name &&
-         prevProps.device.custom_label === nextProps.device.custom_label &&
-         prevProps.device.state === nextProps.device.state &&
-         prevProps.device.timestamp === nextProps.device.timestamp &&
-         prevProps.device.entity_type === nextProps.device.entity_type &&
-         prevProps.device.x_mapping === nextProps.device.x_mapping &&
-         prevProps.isGrid === nextProps.isGrid;
-});
+  // Use immutable id for stable sorting; labels can change during runtime.
+  return a.id.localeCompare(b.id);
+}
 
 export default function ModbusView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { modbus_devices } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('modbusViewMode');
@@ -287,51 +58,61 @@ export default function ModbusView() {
     () => modbus_devices.filter(isModbusDeviceEvent).map(e => e.state),
     [modbus_devices]
   );
+  const historyByDeviceId = useModbusHistory(validModbusDevices, 300, 2 * 60 * 60);
 
-  // Group Modbus devices by device_group - memoized
-  const groupedModbusDevices = useMemo(() => {
-    const groups = validModbusDevices.reduce((groups, device) => {
-      const group = device.device_group || t('modbus_view.other_group');
-      if (!groups[group]) {
-        groups[group] = [];
-      }
-      groups[group].push(device);
-      return groups;
-    }, {} as Record<string, ModbusDeviceState[]>);
+  const sortedGroupedEntries = useMemo<GroupedModbusDevices[]>(() => {
+    const sortedDevices = [...validModbusDevices].sort(compareDevices);
+    const byCoordinator = new Map<string, ModbusDeviceState[]>();
 
-    // Sort each group: read-only first, writeable last, stable by id
-    Object.keys(groups).forEach(groupName => {
-      groups[groupName].sort((a, b) => {
-        const isAWritable = a.entity_type?.includes('select') || a.entity_type === 'switch' || a.entity_type === 'number';
-        const isBWritable = b.entity_type?.includes('select') || b.entity_type === 'switch' || b.entity_type === 'number';
-        
-        // Writeable devices should come after read-only devices
-        if (isAWritable !== isBWritable) return isAWritable ? 1 : -1;
-        
-        // Stable sort by id within same category
-        return a.id.localeCompare(b.id);
-      });
-    });
+    for (const device of sortedDevices) {
+      const key = device.coordinator_id || t('modbus_view.other_group');
+      const devices = byCoordinator.get(key);
 
-    return groups;
-  }, [validModbusDevices]);
-
-  // Separate devices into sensors and writeable entities for each group
-  const getDevicesByType = (devices: ModbusDeviceState[]) => {
-    const sensors: ModbusDeviceState[] = [];
-    const writeable: ModbusDeviceState[] = [];
-    
-    devices.forEach(device => {
-      const isWriteable = device.entity_type?.includes('select') || device.entity_type === 'switch' || device.entity_type === 'number';
-      if (isWriteable) {
-        writeable.push(device);
+      if (devices) {
+        devices.push(device);
       } else {
-        sensors.push(device);
+        byCoordinator.set(key, [device]);
       }
+    }
+
+    const groupNameCount = new Map<string, number>();
+    for (const [coordId, devices] of byCoordinator.entries()) {
+      const baseName = devices[0]?.device_group || coordId;
+      groupNameCount.set(baseName, (groupNameCount.get(baseName) || 0) + 1);
+    }
+
+    const grouped = Array.from(byCoordinator.entries()).map(([coordId, devices]) => {
+      const sensors: ModbusDeviceState[] = [];
+      const writeable: ModbusDeviceState[] = [];
+
+      for (const device of devices) {
+        if (isWriteableDevice(device)) {
+          writeable.push(device);
+        } else {
+          sensors.push(device);
+        }
+      }
+
+      const baseName = devices[0]?.device_group || coordId;
+      const duplicateCount = groupNameCount.get(baseName) || 0;
+      const groupName = duplicateCount > 1 ? `${baseName} (${coordId})` : baseName;
+
+      return {
+        groupKey: coordId,
+        groupName,
+        sensors,
+        writeable,
+      };
     });
-    
-    return { sensors, writeable };
-  };
+
+    return grouped.sort((a, b) => {
+      const byName = a.groupName.localeCompare(b.groupName);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.groupKey.localeCompare(b.groupKey);
+    });
+  }, [validModbusDevices, t]);
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -348,68 +129,91 @@ export default function ModbusView() {
     }
   };
 
+  // Long press dialog state
+  const [longPressDialog, setLongPressDialog] = useState<{
+    open: boolean;
+    device: ModbusDeviceState | null;
+  }>({
+    open: false,
+    device: null,
+  });
+
+  const handleLongPress = useCallback((device: ModbusDeviceState) => {
+    setLongPressDialog({ open: true, device });
+  }, []);
+
+  const handleGoToSettings = useCallback(() => {
+    if (!longPressDialog.device) return;
+    // Use device name for matching config entries (coordinator_id is a runtime group id, not a config field)
+    const editKey = longPressDialog.device.coordinator_id;
+    navigate(`/settings/modbus_devices?edit=${encodeURIComponent(editKey)}`);
+    setLongPressDialog({ open: false, device: null });
+  }, [longPressDialog.device, navigate]);
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">{t('modbus_view.title')}</h2>
         <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
       </div>
-      
+
       {error && (
         <div className="alert alert-error mb-4">
           <span>{error}</span>
         </div>
       )}
-      
+
       {/* Grouped Modbus Devices */}
-      {Object.keys(groupedModbusDevices).length === 0 ? (
+      {sortedGroupedEntries.length === 0 ? (
         <div className="text-center py-8 text-base-content/60">
           {t('modbus_view.no_devices')}
         </div>
       ) : (
-        Object.entries(groupedModbusDevices).map(([groupName, devices]) => {
-          const { sensors, writeable } = getDevicesByType(devices);
-          
+        sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable }) => {
           return (
-            <div key={groupName} className="card bg-base-200/80 shadow-lg mb-6">
+            <div key={groupKey} className="card bg-base-200/80 shadow-lg mb-6">
               <div className="card-body">
                 <h3 className="card-title text-lg font-semibold text-base-content/80 mb-4">{groupName}</h3>
-                
+
                 {/* Sensors Section */}
                 {sensors.length > 0 && (
                   <div className="mb-6">
                     <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.sensors')}</h4>
-                    <div className={isGrid 
+                    <div className={isGrid
                       ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
                       : "flex flex-col gap-4"
                     }>
                       {sensors.map((device) => (
-                        <ModbusDeviceItem 
-                          key={device.id} 
-                          device={device} 
-                          isGrid={isGrid}
-                          onValueChange={handleValueChange}
-                        />
+                        <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                          <ModbusDeviceItem
+                            device={device}
+                            isGrid={isGrid}
+                            historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                            onValueChange={handleValueChange}
+                          />
+                        </LongPressWrapper>
                       ))}
                     </div>
                   </div>
                 )}
-                
+
                 {/* Writeable Entities Section */}
                 {writeable.length > 0 && (
                   <div>
                     <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.controls')}</h4>
-                    <div className={isGrid 
+                    <div className={isGrid
                       ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
                       : "flex flex-col gap-4"
                     }>
                       {writeable.map((device) => (
-                        <ModbusDeviceItem 
-                          key={device.id} 
-                          device={device} 
-                          isGrid={isGrid}
-                          onValueChange={handleValueChange}
-                        />
+                        <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                          <ModbusDeviceItem
+                            device={device}
+                            isGrid={isGrid}
+                            historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                            onValueChange={handleValueChange}
+                          />
+                        </LongPressWrapper>
                       ))}
                     </div>
                   </div>
@@ -419,7 +223,39 @@ export default function ModbusView() {
           );
         })
       )}
+
+      {/* Long press dialog - go to settings */}
+      <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, device: open ? longPressDialog.device : null })}>
+        <DialogContent className="sm:max-w-md bg-base-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FaCog className="w-5 h-5" />
+              {t('modbus_view.go_to_settings')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>{t('modbus_view.go_to_settings_confirm')}</p>
+            <p className="font-semibold mt-2">{longPressDialog.device?.custom_label || longPressDialog.device?.name}</p>
+            {longPressDialog.device?.coordinator_id && (
+              <p className="text-sm text-base-content/60">{longPressDialog.device.coordinator_id}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLongPressDialog({ open: false, device: null })}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleGoToSettings}
+            >
+              {t('modbus_view.go_to_settings')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

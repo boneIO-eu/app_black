@@ -178,3 +178,43 @@ body {
 .form-control {
   width: 100% !important;
 }
+
+.modbus-sparkline,
+.sparkline-chart {
+  position: relative;
+  overflow: hidden;
+}
+
+.modbus-sparkline .uplot,
+.modbus-sparkline .u-wrap,
+.modbus-sparkline .u-under,
+.modbus-sparkline .u-over,
+.sparkline-chart .uplot,
+.sparkline-chart .u-wrap,
+.sparkline-chart .u-under,
+.sparkline-chart .u-over {
+  position: absolute;
+  inset: 0;
+}
+
+.modbus-sparkline .u-axis,
+.modbus-sparkline .u-off,
+.modbus-sparkline .u-select,
+.modbus-sparkline .u-cursor-x,
+.modbus-sparkline .u-cursor-y,
+.modbus-sparkline .u-cursor-pt,
+.modbus-sparkline .u-legend,
+.sparkline-chart .u-axis,
+.sparkline-chart .u-off,
+.sparkline-chart .u-select,
+.sparkline-chart .u-cursor-x,
+.sparkline-chart .u-cursor-y,
+.sparkline-chart .u-cursor-pt,
+.sparkline-chart .u-legend {
+  display: none !important;
+}
+
+.modbus-sparkline canvas,
+.sparkline-chart canvas {
+  opacity: 0.95;
+}

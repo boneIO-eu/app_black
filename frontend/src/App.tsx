@@ -23,6 +23,7 @@ import NodeRedView from './components/NodeRedView';
 import TemplatesView from './components/TemplatesView';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
+import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
 
 export const WebSocketContext = createContext<{
   outputs: OutputEvent[];
@@ -135,6 +136,7 @@ function AppContent() {
             return [...prev, message];
           });
         } else if (message.event_type === 'modbus_device') {
+          appendModbusHistoryPointToStorage(message.state);
           setModbusDevices(prev => {
             const index = prev.findIndex(s => s.entity_id === message.entity_id);
             if (index >= 0) {
@@ -216,6 +218,7 @@ function AppContent() {
           }
           if (sections.includes('all') || sections.includes('modbus_devices')) {
             setModbusDevices([]);
+            clearModbusHistoryStorage();
           }
           if (sections.includes('all') || sections.includes('modbus_devices') || sections.includes('sensor') || sections.includes('virtual_energy_sensor')) {
             setSensors([]);
