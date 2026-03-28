@@ -1,0 +1,122 @@
+import type {
+  AreaEntity,
+  CoverEntity,
+  OutputEntity,
+  RemoteDeviceEntity,
+} from '@/types/config';
+import { buildAiConfigContext, type AiEntityType } from './aiConfig';
+import type { EventEntity, BinarySensorEntity } from '@/types/config';
+
+type SupportedEntity = EventEntity | BinarySensorEntity;
+
+interface WizardPromptParams<T extends SupportedEntity> {
+  entityType: AiEntityType;
+  data: T;
+  schema?: any;
+  allOutputs?: OutputEntity[];
+  allOutputGroups?: any[];
+  allCovers?: CoverEntity[];
+  allAreas?: AreaEntity[];
+  allRemoteDevices?: RemoteDeviceEntity[];
+  actionTypeOptions: string[];
+  actionOutputOptions: string[];
+  actionCoverOptions: string[];
+}
+
+/**
+ * Builds a conversational wizard prompt for external AI assistants.
+ *
+ * Unlike the standard edit prompt which expects a single JSON blob back,
+ * this prompt instructs the AI to guide the user through input configuration
+ * step by step, asking one question at a time, and producing the final JSON
+ * only at the very end of the conversation.
+ */
+export function buildAiWizardPrompt<T extends SupportedEntity>(params: WizardPromptParams<T>): string {
+  const context = buildAiConfigContext(params);
+
+  const lines = [
+    '=== ROLE ===',
+    'You are a friendly boneIO Black input configuration wizard.',
+    'Your job is to help the user configure a physical input (button/switch) step by step.',
+    '',
+    '=== CONVERSATION RULES ===',
+    '1. Ask ONE question at a time. Keep questions short and clear.',
+    '2. ONLY use IDs and values from the CONTEXT section below — never invent IDs.',
+    '3. When the user describes an action in natural language, match it to the closest available output, cover, or remote device from the context.',
+    '4. After each user answer, confirm what you understood before moving on.',
+    '5. When the user mentions a "light" or ESPHome light output, ask follow-up questions about:',
+    '   - Action type (TOGGLE, ON, OFF, BRIGHTNESS_UP, BRIGHTNESS_DOWN, SET_BRIGHTNESS)',
+    '   - Transition time (in seconds)',
+    '   - Brightness level (0-255)',
+    '   - Color temperature (if supported)',
+    '6. When the user mentions a "cover" or "blind" or "roller shutter", ask about:',
+    '   - Cover action (TOGGLE, OPEN, CLOSE, STOP, SMART_TOGGLE, TILT)',
+    '   - Position (0-100) if applicable',
+    '7. When the user mentions MQTT action, ask for the MQTT topic and message payload.',
+    '8. Skip questions about features the user says they don\'t need.',
+    '',
+    '=== CONVERSATION FLOW ===',
+    'Follow this order (skip steps the user already answered):',
+    '',
+    'Step 1: Ask which physical input to configure (e.g. IN_01 to IN_49).',
+    '        Show a few available inputs from the context if helpful.',
+    'Step 2: Ask what name to give this input (e.g. "Bedroom Light Switch").',
+    'Step 3: Ask which area/room it belongs to (show available areas).',
+    'Step 4: Ask what should happen on SINGLE CLICK.',
+    '        - Which output/cover/remote device should it control?',
+    '        - What action? (TOGGLE, ON, OFF, etc.)',
+    '        - If it\'s a light with brightness: ask about transition, brightness.',
+    'Step 5: Ask if the user wants a DOUBLE CLICK action.',
+    '        - If yes, same sub-questions as Step 4.',
+    '        - If no, skip to Step 6.',
+    'Step 6: Ask if the user wants a LONG PRESS action.',
+    '        - If yes, same sub-questions as Step 4.',
+    '        - If no, skip to Step 7.',
+    'Step 7: Ask if they want any advanced settings (bounce_time, double_click_duration, etc.).',
+    '        - Most users will say no — that\'s fine, use defaults.',
+    'Step 8: Show a summary of the configuration and ask for confirmation.',
+    'Step 9: Output the final JSON.',
+    '',
+    '=== OUTPUT FORMAT ===',
+    'When the user confirms the configuration, output ONLY a valid JSON block.',
+    'No markdown code fences, no explanations around the JSON.',
+    'The JSON must have this exact shape:',
+    '{"version":1,"entity_type":"event","apply_to":"current_form","changes":{...}}',
+    '',
+    'The "changes" object should contain ALL fields for the configured input:',
+    '- "name": display name',
+    '- "boneio_input": the selected input ID (e.g. "IN_01")',
+    '- "area": room/area ID (if selected)',
+    '- "actions": object with click type keys, each containing an array of action objects',
+    '',
+    'Action object fields: action, boneio_output, action_output, boneio_cover, action_cover,',
+    'remote_device, output_id, cover_id, brightness, color_temp, transition, topic, action_mqtt_msg.',
+    'Only include fields relevant to the action type.',
+    '',
+    '=== EXAMPLE FINAL JSON ===',
+    JSON.stringify({
+      version: 1,
+      entity_type: 'event',
+      apply_to: 'current_form',
+      changes: {
+        name: 'Bedroom Light',
+        boneio_input: 'IN_01',
+        area: 'bedroom',
+        actions: {
+          single: [{ action: 'output', boneio_output: 'out_01', action_output: 'TOGGLE' }],
+          double: [{ action: 'output', boneio_output: 'out_01', action_output: 'ON', brightness: 255 }],
+          long: [{ action: 'output', boneio_output: 'out_01', action_output: 'OFF' }],
+        },
+      },
+    }, null, 2),
+    '',
+    '=== CONTEXT (your knowledge about this boneIO device) ===',
+    JSON.stringify(context, null, 2),
+    '',
+    '=== BEGIN ===',
+    'Start by greeting the user and asking which input (IN_01 to IN_49) they want to configure.',
+    'If there are no available inputs left, let the user know.',
+  ];
+
+  return lines.join('\n');
+}
