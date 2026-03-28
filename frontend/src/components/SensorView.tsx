@@ -1,66 +1,33 @@
-import { useContext, memo, useState, useMemo } from 'react';
+import { useContext, useState, useMemo } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { WebSocketContext } from '../App';
-import { formatTimestamp } from '../utils/formatters';
 import ViewToggle from './ViewToggle';
+import GraphCard from './GraphCard';
 import { isSensorEvent, SensorState } from '../hooks/useWebSocket';
-
-// Separate component for individual sensor - memoized by sensor.id and state                       
-const SensorItem = memo(({ sensor, isGrid }: {
-  sensor: SensorState;
-  isGrid: boolean;
-}) => (
-  <div
-    className={`bg-base-200  shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4' : 'border-l-8'} border-emerald-500`}
-  >
-    <div className={`flex ${isGrid ? 'justify-between items-start' : 'justify-between items-start'}`}>
-      <div>
-        <h3 className="font-semibold text-lg">{sensor.name}</h3>
-        <p className="text-sm text-base-content/70">{sensor.id}</p>
-      </div>
-      <div className='text-right'>
-        <div className="flex items-baseline gap-2 justify-end">
-          <span className="text-2xl font-mono">
-            {sensor.state !== null 
-              ? typeof sensor.state === 'number' 
-                ? sensor.state.toFixed(2) 
-                : sensor.state 
-              : 'N/A'}
-          </span>
-          {sensor.unit && (
-            <span className="text-base-content/70">
-              {sensor.unit}
-            </span>
-          )}
-        </div>
-        <p className="text-gray-500 text-xs mt-2">
-          {formatTimestamp(sensor?.timestamp ?? null)}
-        </p>
-      </div>
-    </div>
-  </div>
-), (prevProps, nextProps) => {
-  // Custom comparison: only re-render if state, timestamp or isGrid changed
-  return prevProps.sensor.id === nextProps.sensor.id &&
-         prevProps.sensor.state === nextProps.sensor.state &&
-         prevProps.sensor.timestamp === nextProps.sensor.timestamp &&
-         prevProps.isGrid === nextProps.isGrid;
-});
+import { useSensorHistory } from '../hooks/useSensorHistory';
 
 export default function SensorView() {
   const { t } = useTranslation();
-  const { sensors } = useContext(WebSocketContext);
-  console.log("Sensors:", sensors)
+  const { sensors, modbus_devices } = useContext(WebSocketContext);
   const [isGrid, setIsGrid] = useState(() => {
     const saved = localStorage.getItem('sensorViewMode');
     return saved ? saved === 'grid' : true;
   });
 
-  // Memoize sensor extraction to avoid recalculations
+  // Extract non-modbus sensors
   const validSensors = useMemo(
-    () => sensors.filter(isSensorEvent).map(e => e.state),
-    [sensors]
+    () => {
+      const modbusIds = new Set(modbus_devices.map(md => md.entity_id));
+      return sensors
+        .filter(isSensorEvent)
+        .filter(e => !modbusIds.has(e.entity_id))
+        .map(e => e.state);
+    },
+    [sensors, modbus_devices]
   );
+
+  // Track history for sparkline charts
+  const historyMap = useSensorHistory(validSensors);
 
   const handleViewToggle = (gridView: boolean) => {
     setIsGrid(gridView);
@@ -83,8 +50,17 @@ export default function SensorView() {
           ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
           : "flex flex-col gap-4"
         }>
-          {validSensors.map((sensor) => (
-            <SensorItem key={sensor.id} sensor={sensor} isGrid={isGrid} />
+          {validSensors.map((sensor: SensorState) => (
+            <GraphCard
+              key={sensor.id}
+              id={sensor.id}
+              name={sensor.name}
+              value={sensor.state}
+              unit={sensor.unit}
+              timestamp={sensor.timestamp}
+              historyPoints={historyMap.get(sensor.id) || []}
+              isGrid={isGrid}
+            />
           ))}
         </div>
       )}

@@ -172,6 +172,25 @@
     "filter_value": "Wartość",
     "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out"
   },
+  "adc": {
+    "title": "Czujniki ADC",
+    "pin": "Pin",
+    "pin_required": "Pin ADC jest wymagany",
+    "pin_duplicate": "Ten pin jest już używany",
+    "select_pin": "Wybierz pin ADC...",
+    "pin_hint": "Pin wejścia analogowego BeagleBone Black (złącze P9)",
+    "pin_in_use": "w użyciu",
+    "name": "Nazwa",
+    "name_hint": "Opcjonalna przyjazna nazwa wyświetlana w Home Assistant. Domyślnie używa ID lub nazwy AIN.",
+    "id": "ID",
+    "id_hint": "Opcjonalne własne ID dla tematu MQTT. Domyślnie używa nazwy lub nazwy AIN.",
+    "show_in_ha": "Pokaż w Home Assistant",
+    "update_interval": "Interwał aktualizacji",
+    "filters": "Filtry",
+    "filters_hint": "Filtry są stosowane w kolejności. Użyj offset, round, multiply lub filter_out do przetwarzania surowych wartości ADC.",
+    "add_filter": "Dodaj filtr",
+    "filter_value": "Wartość"
+  },
   "groups": {
     "title": "Grupy",
     "name": "Nazwa",
@@ -531,6 +550,7 @@
     "remote_devices": "Zdalne Urządzenia",
     "modbus_devices": "Urządzenia Modbus",
     "sensor": "Czujki Onewire",
+    "adc": "Czujniki ADC",
     "virtual_energy_sensor": "Wirtualne Sensory Energii",
     "template": "Szablony",
     "descriptions": {
@@ -543,6 +563,7 @@
       "remote_devices": "Skonfiguruj zdalne urządzenia do sterowania.",
       "modbus_devices": "Dodaj urządzenia Modbus jak liczniki energii, czujniki temperatury i inne urządzenia RS485.",
       "sensor": "Skonfiguruj czujniki temperatury 1-Wire (DS18B20) podłączone do urządzenia.",
+      "adc": "Skonfiguruj czujniki przetwornika analogowo-cyfrowego (ADC) na pinach BeagleBone Black.",
       "virtual_energy_sensor": "Skonfiguruj wirtualne sensory energii i wody powiązane z wyjściami dla panelu Energia w Home Assistant.",
       "template": "Skonfiguruj złożone encje wirtualne, takie jak termostaty i panele alarmowe, łączące czujniki, wejścia i wyjścia.",
       "mcp23017": "Skonfiguruj adresy I2C ekspanderów MCP23017. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
@@ -657,7 +678,9 @@
     "other_group": "Inne",
     "set_button": "Ustaw",
     "enter_value": "Wprowadź wartość",
-    "error_setting_value": "Nie udało się ustawić wartości"
+    "error_setting_value": "Nie udało się ustawić wartości",
+    "go_to_settings": "Przejdź do ustawień",
+    "go_to_settings_confirm": "Czy chcesz otworzyć ustawienia tego urządzenia?"
   },
   "modbus_config": {
     "uart": "UART",
@@ -1117,7 +1140,10 @@
     "ai_boolean_required": "Wymagana wartość boolean",
     "ai_string_required": "Wymagana wartość tekstowa",
     "ai_scalar_required": "Wymagana wartość tekstowa lub liczbowa",
-    "ai_unknown_input": "Wybrane wejście boneIO nie istnieje w schemacie"
+    "ai_unknown_input": "Wybrane wejście boneIO nie istnieje w schemacie",
+    "ai_copy_wizard": "🧙 Skopiuj prompt AI",
+    "ai_wizard_copied": "Prompt skopiowany! Wklej go w ChatGPT, Gemini lub dowolne AI. Po rozmowie otwórz wejście, które konfigurowałeś i użyj 'Wklej odpowiedź AI' aby zastosować.",
+    "ai_wizard_description": "Kopiuje specjalny prompt AI do schowka. Wklej go w ChatGPT, Gemini lub dowolne darmowe AI — poprowadzi Cię krok po kroku. Potem otwórz wejście i użyj 'Wklej odpowiedź AI' aby zastosować wynik."
   },
   "virtual_energy_sensor": {
     "name": "Nazwa",

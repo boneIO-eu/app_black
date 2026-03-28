@@ -167,6 +167,25 @@
     "filter_value": "Value",
     "filters_hint": "Filters are applied in order: offset, round, multiply, filter_out"
   },
+  "adc": {
+    "title": "ADC Sensors",
+    "pin": "Pin",
+    "pin_required": "ADC pin is required",
+    "pin_duplicate": "This pin is already in use",
+    "select_pin": "Select an ADC pin...",
+    "pin_hint": "BeagleBone Black analog input pin (P9 header)",
+    "pin_in_use": "in use",
+    "name": "Name",
+    "name_hint": "Optional friendly name shown in Home Assistant. If not set, uses ID or AIN name.",
+    "id": "ID",
+    "id_hint": "Optional custom ID for MQTT topic. Defaults to name or AIN name if empty.",
+    "show_in_ha": "Show in Home Assistant",
+    "update_interval": "Update Interval",
+    "filters": "Filters",
+    "filters_hint": "Filters are applied in order. Use offset, round, multiply, or filter_out to process raw ADC values.",
+    "add_filter": "Add Filter",
+    "filter_value": "Value"
+  },
   "groups": {
     "title": "Groups",
     "name": "Name",
@@ -556,6 +575,7 @@
     "remote_devices": "Remote Devices",
     "modbus_devices": "Modbus Devices",
     "sensor": "Onewire Sensors",
+    "adc": "ADC Sensors",
     "virtual_energy_sensor": "Virtual Energy Sensors",
     "template": "Templates",
     "descriptions": {
@@ -568,6 +588,7 @@
       "remote_devices": "Configure remote devices to control.",
       "modbus_devices": "Add Modbus devices like energy meters, temperature sensors, and other RS485 equipment.",
       "sensor": "Configure 1-Wire temperature sensors (DS18B20) connected to your device.",
+      "adc": "Configure analog-to-digital converter (ADC) sensors on BeagleBone Black pins.",
       "virtual_energy_sensor": "Configure virtual energy and water sensors linked to outputs for Home Assistant Energy panel.",
       "template": "Configure composite virtual entities like thermostats and alarm panels that combine sensors, inputs, and outputs.",
       "mcp23017": "Configure I2C addresses of GPIO expanders. Default addresses are set automatically by board configuration. Change only if your board has different addresses.",
@@ -651,7 +672,9 @@
     "other_group": "Other",
     "set_button": "Set",
     "enter_value": "Enter value",
-    "error_setting_value": "Failed to set value"
+    "error_setting_value": "Failed to set value",
+    "go_to_settings": "Go to Settings",
+    "go_to_settings_confirm": "Do you want to open the settings for this device?"
   },
   "modbus_config": {
     "uart": "UART",
@@ -1110,7 +1133,10 @@
     "ai_boolean_required": "Boolean value required",
     "ai_string_required": "String value required",
     "ai_scalar_required": "String or numeric value required",
-    "ai_unknown_input": "Selected boneIO input does not exist in the schema"
+    "ai_unknown_input": "Selected boneIO input does not exist in the schema",
+    "ai_copy_wizard": "🧙 Copy AI Wizard Prompt",
+    "ai_wizard_copied": "Wizard prompt copied! Paste it into ChatGPT, Gemini or any AI. After the conversation, open the input you configured and use 'Paste AI Response' to apply.",
+    "ai_wizard_description": "Copies a special AI prompt to your clipboard. Paste it into ChatGPT, Gemini, or any free AI — it will guide you step-by-step. Then open the input and use 'Paste AI Response' to apply the result."
   },
   "virtual_energy_sensor": {
     "name": "Name",
