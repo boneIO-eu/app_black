@@ -10,6 +10,12 @@ export interface ModbusDeviceItemProps {
   isGrid: boolean;
   historyPoints?: ModbusHistoryPoint[];
   onValueChange: (coordinatorId: string, entityId: string, value: string | number) => void;
+  /** Card border accent color class (default: border-blue-500) */
+  accentColor?: string;
+  /** Sparkline stroke color (default: #0284c7) */
+  strokeColor?: string;
+  /** Sparkline fill color (default: semi-transparent blue) */
+  fillColor?: string;
 }
 
 function extractEntityId(device: ModbusDeviceState): string {
@@ -24,7 +30,7 @@ function extractEntityId(device: ModbusDeviceState): string {
   return entityId;
 }
 
-function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: ModbusDeviceItemProps) {
+function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, accentColor = 'border-blue-500', strokeColor = '#0284c7', fillColor = 'rgba(96, 165, 250, 0.10)' }: ModbusDeviceItemProps) {
   const { t } = useTranslation();
 
   const handleSelectChange = (value: string) => {
@@ -70,7 +76,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
     }));
 
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}>
+      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -97,7 +103,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
 
   if (isSwitch) {
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} border-blue-500 transition-all duration-300`}>
+      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -151,7 +157,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
     };
 
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} border-green-500 transition-all duration-300`}>
+      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -190,7 +196,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
   if (isGrid) {
     if (!device.unit) {
       return (
-        <div className="bg-base-200 shadow-sm rounded-lg p-4 border-l-4 min-h-[88px] h-full border-blue-500 transition-all duration-300">
+        <div className={`bg-base-200 shadow-sm rounded-lg p-4 border-l-4 min-h-[88px] h-full ${accentColor} transition-all duration-300`}>
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -221,7 +227,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
     }
 
     return (
-      <div className="overflow-hidden rounded-lg border-l-4 border-blue-500 bg-base-200 p-4 shadow-sm transition-all duration-300 min-h-[166px] h-full flex flex-col">
+      <div className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-200 p-4 shadow-sm transition-all duration-300 min-h-[166px] h-full flex flex-col`}>
         <div className="grid grid-cols-[1fr_auto] gap-4 min-h-[78px]">
           <div className="min-w-0">
             <h3 className="font-semibold text-lg leading-tight truncate">{device.custom_label || device.name}</h3>
@@ -254,7 +260,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
 
         <div className="mt-auto overflow-hidden rounded-md border border-base-content/8 bg-base-100/65 px-2 py-1.5">
           <div className="relative h-[48px] w-full overflow-hidden opacity-90">
-            <Sparkline points={points} />
+            <Sparkline points={points} strokeColor={strokeColor} fillColor={fillColor} />
           </div>
         </div>
       </div>
@@ -262,7 +268,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
   }
 
   return (
-    <div className="relative overflow-hidden bg-base-200 shadow-sm rounded-lg p-4 border-l-8 min-h-[84px] border-blue-500 transition-all duration-300">
+    <div className={`relative overflow-hidden bg-base-200 shadow-sm rounded-lg p-4 border-l-8 min-h-[84px] ${accentColor} transition-all duration-300`}>
       <div className="relative z-10 flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -270,7 +276,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange }: 
         </div>
         {device.unit && (
           <div className="relative h-[56px] w-[180px] shrink-0 overflow-hidden opacity-85">
-            <Sparkline points={points} />
+            <Sparkline points={points} strokeColor={strokeColor} fillColor={fillColor} />
           </div>
         )}
         <div className="text-right shrink-0">
@@ -313,6 +319,7 @@ function areEqual(prevProps: ModbusDeviceItemProps, nextProps: ModbusDeviceItemP
     && prevProps.device.payload_on === nextProps.device.payload_on
     && prevProps.device.payload_off === nextProps.device.payload_off
     && prevProps.isGrid === nextProps.isGrid
+    && prevProps.accentColor === nextProps.accentColor
     && prevHistory.length === nextHistory.length
     && prevHistoryLast?.timestamp === nextHistoryLast?.timestamp
     && prevHistoryLast?.value === nextHistoryLast?.value;

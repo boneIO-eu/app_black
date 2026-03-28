@@ -22,7 +22,22 @@ interface GroupedModbusDevices {
   groupName: string;
   sensors: ModbusDeviceState[];
   writeable: ModbusDeviceState[];
+  accentColor: string;
+  strokeColor: string;
+  fillColor: string;
 }
+
+/** Rotating color palette for Modbus device groups */
+const GROUP_COLORS = [
+  { accentColor: 'border-blue-500',    strokeColor: '#3b82f6', fillColor: 'rgba(59, 130, 246, 0.10)' },
+  { accentColor: 'border-emerald-500', strokeColor: '#10b981', fillColor: 'rgba(16, 185, 129, 0.10)' },
+  { accentColor: 'border-amber-500',   strokeColor: '#f59e0b', fillColor: 'rgba(245, 158, 11, 0.10)' },
+  { accentColor: 'border-rose-500',    strokeColor: '#f43f5e', fillColor: 'rgba(244, 63, 94, 0.10)' },
+  { accentColor: 'border-violet-500',  strokeColor: '#8b5cf6', fillColor: 'rgba(139, 92, 246, 0.10)' },
+  { accentColor: 'border-cyan-500',    strokeColor: '#06b6d4', fillColor: 'rgba(6, 182, 212, 0.10)' },
+  { accentColor: 'border-orange-500',  strokeColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.10)' },
+  { accentColor: 'border-pink-500',    strokeColor: '#ec4899', fillColor: 'rgba(236, 72, 153, 0.10)' },
+];
 
 function isWriteableDevice(device: ModbusDeviceState): boolean {
   return device.entity_type?.includes('select') || device.entity_type === 'switch' || device.entity_type === 'number';
@@ -81,7 +96,7 @@ export default function ModbusView() {
       groupNameCount.set(baseName, (groupNameCount.get(baseName) || 0) + 1);
     }
 
-    const grouped = Array.from(byCoordinator.entries()).map(([coordId, devices]) => {
+    const grouped = Array.from(byCoordinator.entries()).map(([coordId, devices], index) => {
       const sensors: ModbusDeviceState[] = [];
       const writeable: ModbusDeviceState[] = [];
 
@@ -96,12 +111,14 @@ export default function ModbusView() {
       const baseName = devices[0]?.device_group || coordId;
       const duplicateCount = groupNameCount.get(baseName) || 0;
       const groupName = duplicateCount > 1 ? `${baseName} (${coordId})` : baseName;
+      const color = GROUP_COLORS[index % GROUP_COLORS.length];
 
       return {
         groupKey: coordId,
         groupName,
         sensors,
         writeable,
+        ...color,
       };
     });
 
@@ -169,9 +186,9 @@ export default function ModbusView() {
           {t('modbus_view.no_devices')}
         </div>
       ) : (
-        sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable }) => {
+        sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
           return (
-            <div key={groupKey} className="card bg-base-200/80 shadow-lg mb-6">
+            <div key={groupKey} className={`card bg-base-200/80 shadow-lg mb-6 border-l-4 ${accentColor}`}>
               <div className="card-body">
                 <h3 className="card-title text-lg font-semibold text-base-content/80 mb-4">{groupName}</h3>
 
@@ -190,6 +207,9 @@ export default function ModbusView() {
                             isGrid={isGrid}
                             historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
                             onValueChange={handleValueChange}
+                            accentColor={accentColor}
+                            strokeColor={strokeColor}
+                            fillColor={fillColor}
                           />
                         </LongPressWrapper>
                       ))}
@@ -212,6 +232,9 @@ export default function ModbusView() {
                             isGrid={isGrid}
                             historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
                             onValueChange={handleValueChange}
+                            accentColor={accentColor}
+                            strokeColor={strokeColor}
+                            fillColor={fillColor}
                           />
                         </LongPressWrapper>
                       ))}
