@@ -161,6 +161,17 @@ const EventForm: React.FC<EventFormProps> = ({
     if (field === 'action') {
       const currentAction = newActions[actionType][index];
       newActions[actionType][index] = cleanActionFields(value, currentAction) as any;
+    } else if (field === '__batch') {
+      // Batch update: value is an object with multiple fields to set at once
+      const current = { ...newActions[actionType][index] };
+      for (const [k, v] of Object.entries(value)) {
+        if (v === undefined) {
+          delete (current as any)[k];
+        } else {
+          (current as any)[k] = v;
+        }
+      }
+      newActions[actionType][index] = current;
     } else if (field === 'remote_device') {
       // Clear dependent fields when changing remote device
       newActions[actionType][index] = { ...newActions[actionType][index], [field]: value, output_id: undefined, cover_id: undefined, presets: undefined, colors: undefined };
@@ -219,6 +230,7 @@ const EventForm: React.FC<EventFormProps> = ({
         savedOutputGroups={savedOutputGroups}
         savedCovers={savedCovers}
         clickType={type}
+        allBinarySensors={allBinarySensors}
       />
     );
   };

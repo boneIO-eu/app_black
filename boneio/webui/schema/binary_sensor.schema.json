@@ -578,6 +578,172 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "condition": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "time",
+                            "date",
+                            "state"
+                          ],
+                          "examples": [
+                            "time"
+                          ],
+                          "description": "Condition type",
+                          "title": "Type"
+                        },
+                        "after": {
+                          "type": "string",
+                          "description": "After (start of range)",
+                          "title": "After"
+                        },
+                        "before": {
+                          "type": "string",
+                          "description": "Before (end of range)",
+                          "title": "Before"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "enum": [
+                            "binary_sensor",
+                            "cover",
+                            "output",
+                            "light"
+                          ],
+                          "examples": [
+                            "binary_sensor"
+                          ],
+                          "description": "Entity type (for state condition)",
+                          "title": "Entity"
+                        },
+                        "entity_id": {
+                          "type": "string",
+                          "description": "Entity ID (for state condition)",
+                          "title": "Entity id"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "is_on",
+                            "is_off",
+                            "is_open",
+                            "is_closed"
+                          ],
+                          "examples": [
+                            "is_on"
+                          ],
+                          "description": "Expected state (for state condition)",
+                          "title": "State"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "conditions": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "default": "and",
+                          "enum": [
+                            "and",
+                            "or"
+                          ],
+                          "examples": [
+                            "and"
+                          ],
+                          "description": "Condition mode",
+                          "title": "Mode"
+                        },
+                        "list": {
+                          "type": [
+                            "array",
+                            "string"
+                          ],
+                          "items": {
+                            "type": [
+                              "object",
+                              "string"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "time",
+                                  "date",
+                                  "state"
+                                ],
+                                "examples": [
+                                  "time"
+                                ],
+                                "description": "Condition type",
+                                "title": "Type"
+                              },
+                              "after": {
+                                "type": "string",
+                                "description": "After (start of range)",
+                                "title": "After"
+                              },
+                              "before": {
+                                "type": "string",
+                                "description": "Before (end of range)",
+                                "title": "Before"
+                              },
+                              "entity": {
+                                "type": "string",
+                                "enum": [
+                                  "binary_sensor",
+                                  "cover",
+                                  "output",
+                                  "light"
+                                ],
+                                "examples": [
+                                  "binary_sensor"
+                                ],
+                                "description": "Entity type (for state condition)",
+                                "title": "Entity"
+                              },
+                              "entity_id": {
+                                "type": "string",
+                                "description": "Entity ID (for state condition)",
+                                "title": "Entity id"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "is_on",
+                                  "is_off",
+                                  "is_open",
+                                  "is_closed"
+                                ],
+                                "examples": [
+                                  "is_on"
+                                ],
+                                "description": "Expected state (for state condition)",
+                                "title": "State"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          "description": "List of conditions",
+                          "title": "List"
+                        }
+                      },
+                      "required": [
+                        "list"
+                      ]
                     }
                   }
                 }
@@ -819,6 +985,172 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "condition": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "time",
+                            "date",
+                            "state"
+                          ],
+                          "examples": [
+                            "time"
+                          ],
+                          "description": "Condition type",
+                          "title": "Type"
+                        },
+                        "after": {
+                          "type": "string",
+                          "description": "After (start of range)",
+                          "title": "After"
+                        },
+                        "before": {
+                          "type": "string",
+                          "description": "Before (end of range)",
+                          "title": "Before"
+                        },
+                        "entity": {
+                          "type": "string",
+                          "enum": [
+                            "binary_sensor",
+                            "cover",
+                            "output",
+                            "light"
+                          ],
+                          "examples": [
+                            "binary_sensor"
+                          ],
+                          "description": "Entity type (for state condition)",
+                          "title": "Entity"
+                        },
+                        "entity_id": {
+                          "type": "string",
+                          "description": "Entity ID (for state condition)",
+                          "title": "Entity id"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "is_on",
+                            "is_off",
+                            "is_open",
+                            "is_closed"
+                          ],
+                          "examples": [
+                            "is_on"
+                          ],
+                          "description": "Expected state (for state condition)",
+                          "title": "State"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ]
+                    },
+                    "conditions": {
+                      "type": [
+                        "object",
+                        "string"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "default": "and",
+                          "enum": [
+                            "and",
+                            "or"
+                          ],
+                          "examples": [
+                            "and"
+                          ],
+                          "description": "Condition mode",
+                          "title": "Mode"
+                        },
+                        "list": {
+                          "type": [
+                            "array",
+                            "string"
+                          ],
+                          "items": {
+                            "type": [
+                              "object",
+                              "string"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "time",
+                                  "date",
+                                  "state"
+                                ],
+                                "examples": [
+                                  "time"
+                                ],
+                                "description": "Condition type",
+                                "title": "Type"
+                              },
+                              "after": {
+                                "type": "string",
+                                "description": "After (start of range)",
+                                "title": "After"
+                              },
+                              "before": {
+                                "type": "string",
+                                "description": "Before (end of range)",
+                                "title": "Before"
+                              },
+                              "entity": {
+                                "type": "string",
+                                "enum": [
+                                  "binary_sensor",
+                                  "cover",
+                                  "output",
+                                  "light"
+                                ],
+                                "examples": [
+                                  "binary_sensor"
+                                ],
+                                "description": "Entity type (for state condition)",
+                                "title": "Entity"
+                              },
+                              "entity_id": {
+                                "type": "string",
+                                "description": "Entity ID (for state condition)",
+                                "title": "Entity id"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "is_on",
+                                  "is_off",
+                                  "is_open",
+                                  "is_closed"
+                                ],
+                                "examples": [
+                                  "is_on"
+                                ],
+                                "description": "Expected state (for state condition)",
+                                "title": "State"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          },
+                          "description": "List of conditions",
+                          "title": "List"
+                        }
+                      },
+                      "required": [
+                        "list"
+                      ]
                     }
                   }
                 }

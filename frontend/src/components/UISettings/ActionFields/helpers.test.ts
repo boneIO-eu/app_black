@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cleanActionFields, validateAction } from './helpers';
+import { cleanActionFields, validateAction, validateCondition } from './helpers';
 
 // ---------------------------------------------------------------------------
 // cleanActionFields
@@ -266,5 +266,148 @@ describe('validateAction', () => {
       boneio_id: 'boneio_remote',
       boneio_cover: 'blind_01',
     }, t)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateCondition
+// ---------------------------------------------------------------------------
+
+describe('validateCondition', () => {
+  // --- missing type ---
+  it('returns error when condition type is missing', () => {
+    expect(validateCondition({}, t)).toBe('event_form.validation_condition_type_required');
+  });
+
+  it('returns error when condition is null', () => {
+    expect(validateCondition(null, t)).toBe('event_form.validation_condition_type_required');
+  });
+
+  // --- time condition ---
+  it('returns error for time condition without after or before', () => {
+    expect(validateCondition({ type: 'time' }, t)).toBe('event_form.validation_condition_time_required');
+  });
+
+  it('returns error for time condition with empty after and before', () => {
+    expect(validateCondition({ type: 'time', after: '', before: '' }, t)).toBe('event_form.validation_condition_time_required');
+  });
+
+  it('returns null for time condition with only after', () => {
+    expect(validateCondition({ type: 'time', after: '05:00' }, t)).toBeNull();
+  });
+
+  it('returns null for time condition with only before', () => {
+    expect(validateCondition({ type: 'time', before: '22:00' }, t)).toBeNull();
+  });
+
+  it('returns null for time condition with both after and before', () => {
+    expect(validateCondition({ type: 'time', after: '05:00', before: '22:00' }, t)).toBeNull();
+  });
+
+  it('returns error for time condition with invalid format', () => {
+    expect(validateCondition({ type: 'time', after: 'bad' }, t)).toBe('event_form.validation_condition_time_format');
+  });
+
+  // --- date condition ---
+  it('returns error for date condition without after or before', () => {
+    expect(validateCondition({ type: 'date' }, t)).toBe('event_form.validation_condition_date_required');
+  });
+
+  it('returns null for date condition with valid MM-DD', () => {
+    expect(validateCondition({ type: 'date', after: '11-01', before: '03-31' }, t)).toBeNull();
+  });
+
+  it('returns error for date condition with invalid format', () => {
+    expect(validateCondition({ type: 'date', after: '2026-01-15' }, t)).toBe('event_form.validation_condition_date_format');
+  });
+
+  // --- state condition ---
+  it('returns error for state condition without entity', () => {
+    expect(validateCondition({ type: 'state' }, t)).toBe('event_form.validation_condition_entity_required');
+  });
+
+  it('returns error for state condition without entity_id', () => {
+    expect(validateCondition({ type: 'state', entity: 'binary_sensor' }, t)).toBe('event_form.validation_condition_entity_id_required');
+  });
+
+  it('returns error for state condition with empty entity_id', () => {
+    expect(validateCondition({ type: 'state', entity: 'binary_sensor', entity_id: '' }, t)).toBe('event_form.validation_condition_entity_id_required');
+  });
+
+  it('returns error for state condition without state', () => {
+    expect(validateCondition({ type: 'state', entity: 'binary_sensor', entity_id: 'motion' }, t)).toBe('event_form.validation_condition_state_required');
+  });
+
+  it('returns null for valid state condition', () => {
+    expect(validateCondition({
+      type: 'state', entity: 'binary_sensor', entity_id: 'motion', state: 'is_on',
+    }, t)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateAction — condition integration
+// ---------------------------------------------------------------------------
+
+describe('validateAction with conditions', () => {
+  it('returns error for action with invalid single condition (empty entity_id)', () => {
+    expect(validateAction({
+      action: 'output',
+      boneio_output: 'OUT_01',
+      condition: { type: 'state', entity: 'binary_sensor', entity_id: '', state: 'is_off' },
+    }, t)).toBe('event_form.validation_condition_entity_id_required');
+  });
+
+  it('returns null for action with valid single condition', () => {
+    expect(validateAction({
+      action: 'output',
+      boneio_output: 'OUT_01',
+      condition: { type: 'time', after: '05:00', before: '22:00' },
+    }, t)).toBeNull();
+  });
+
+  it('returns error for action with invalid condition in conditions list', () => {
+    expect(validateAction({
+      action: 'output',
+      boneio_output: 'OUT_01',
+      conditions: {
+        mode: 'and',
+        list: [
+          { type: 'time', after: '05:00', before: '22:00' },
+          { type: 'state', entity: 'cover', entity_id: '', state: 'is_open' },
+        ],
+      },
+    }, t)).toBe('event_form.validation_condition_entity_id_required');
+  });
+
+  it('returns null for action with valid conditions list', () => {
+    expect(validateAction({
+      action: 'output',
+      boneio_output: 'OUT_01',
+      conditions: {
+        mode: 'and',
+        list: [
+          { type: 'time', after: '05:00', before: '22:00' },
+          { type: 'state', entity: 'binary_sensor', entity_id: 'motion', state: 'is_on' },
+        ],
+      },
+    }, t)).toBeNull();
+  });
+
+  it('returns null for action without any conditions', () => {
+    expect(validateAction({
+      action: 'output',
+      boneio_output: 'OUT_01',
+    }, t)).toBeNull();
+  });
+
+  it('preserves conditions in cleanActionFields when switching action type', () => {
+    const prior = {
+      action: 'output',
+      boneio_output: 'OUT_01',
+      condition: { type: 'time', after: '05:00', before: '22:00' },
+    };
+    const result = cleanActionFields('mqtt', prior);
+    expect(result.condition).toEqual({ type: 'time', after: '05:00', before: '22:00' });
   });
 });

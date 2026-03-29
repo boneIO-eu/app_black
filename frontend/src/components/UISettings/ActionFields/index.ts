@@ -1,4 +1,4 @@
-export { validateAction, cleanActionFields, rgbToHex, hexToRgb } from './helpers';
+export { validateAction, validateCondition, cleanActionFields, rgbToHex, hexToRgb } from './helpers';
 export type { 
   Area, 
   RemoteDevice, 

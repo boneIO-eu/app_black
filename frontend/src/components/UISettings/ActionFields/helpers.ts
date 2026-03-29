@@ -20,7 +20,7 @@ const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
 };
 
 /** Fields shared across all action types (always preserved). */
-const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repeat_interval'];
+const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repeat_interval', 'condition', 'conditions'];
 
 /**
  * Returns a clean action object containing only fields valid for the given action type.
@@ -50,6 +50,60 @@ export const cleanActionFields = (newActionType: string, currentAction: Record<s
  */
 export const formatActionLabel = (option: string): string => {
   return option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ');
+};
+
+/**
+ * Validates a single condition and returns an error message if invalid.
+ * @param condition - The condition object to validate
+ * @param t - Translation function
+ * @returns Error message string or null if valid
+ */
+export const validateCondition = (condition: any, t: (key: string) => string): string | null => {
+  if (!condition || !condition.type) {
+    return t('event_form.validation_condition_type_required');
+  }
+
+  if (condition.type === 'time') {
+    if (!condition.after && !condition.before) {
+      return t('event_form.validation_condition_time_required');
+    }
+    // Validate HH:MM format
+    const timeRegex = /^\d{1,2}:\d{2}(:\d{2})?$/;
+    if (condition.after && !timeRegex.test(condition.after)) {
+      return t('event_form.validation_condition_time_format');
+    }
+    if (condition.before && !timeRegex.test(condition.before)) {
+      return t('event_form.validation_condition_time_format');
+    }
+  }
+
+  if (condition.type === 'date') {
+    if (!condition.after && !condition.before) {
+      return t('event_form.validation_condition_date_required');
+    }
+    // Validate MM-DD format
+    const dateRegex = /^\d{2}-\d{2}$/;
+    if (condition.after && !dateRegex.test(condition.after)) {
+      return t('event_form.validation_condition_date_format');
+    }
+    if (condition.before && !dateRegex.test(condition.before)) {
+      return t('event_form.validation_condition_date_format');
+    }
+  }
+
+  if (condition.type === 'state') {
+    if (!condition.entity) {
+      return t('event_form.validation_condition_entity_required');
+    }
+    if (!condition.entity_id) {
+      return t('event_form.validation_condition_entity_id_required');
+    }
+    if (!condition.state) {
+      return t('event_form.validation_condition_state_required');
+    }
+  }
+
+  return null;
 };
 
 /**
@@ -101,6 +155,18 @@ export const validateAction = (action: any, t: (key: string) => string): string 
     const repeatMs = convertTimeperiodToMilliseconds(action.repeat_interval || '800ms');
     if (transitionMs > repeatMs) {
       return t('event_form.validation_transition_exceeds_repeat');
+    }
+  }
+
+  // Validate conditions
+  if (action.condition) {
+    const err = validateCondition(action.condition, t);
+    if (err) return err;
+  }
+  if (action.conditions?.list) {
+    for (const cond of action.conditions.list) {
+      const err = validateCondition(cond, t);
+      if (err) return err;
     }
   }
   

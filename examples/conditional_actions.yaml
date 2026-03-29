@@ -1,0 +1,146 @@
+# Example configurations for conditional actions
+# These can be placed in config.yaml under the event section.
+
+# ------------------------------------------------------------------
+# Example 1: Doorbell - ring only during daytime (05:00-22:00)
+# ------------------------------------------------------------------
+event:
+  - id: doorbell
+    boneio_input: IN_01
+    actions:
+      single:
+        - action: output
+          boneio_output: buzzer
+          action_output: ON
+          condition:
+            type: time
+            after: "05:00"
+            before: "22:00"
+
+# ------------------------------------------------------------------
+# Example 2: Night light toggle - only active at night
+# ------------------------------------------------------------------
+  - id: night_switch
+    boneio_input: IN_02
+    actions:
+      single:
+        - action: output
+          boneio_output: night_light
+          action_output: TOGGLE
+          condition:
+            type: time
+            after: "22:00"
+            before: "06:00"   # Midnight crossover: 22:00 → 05:59
+
+# ------------------------------------------------------------------
+# Example 3: Heating toggle - only in winter season (Nov 1 – Mar 31)
+# ------------------------------------------------------------------
+  - id: heater_switch
+    boneio_input: IN_03
+    actions:
+      single:
+        - action: output
+          boneio_output: heater_relay
+          action_output: TOGGLE
+          condition:
+            type: date
+            after: "11-01"    # November 1st
+            before: "03-31"   # March 31st (new year crossover)
+
+# ------------------------------------------------------------------
+# Example 4: Combined conditions — heater only in winter + daytime
+# ------------------------------------------------------------------
+  - id: heater_smart
+    boneio_input: IN_04
+    actions:
+      single:
+        - action: output
+          boneio_output: heater_relay
+          action_output: TOGGLE
+          conditions:
+            mode: and           # ALL conditions must pass
+            list:
+              - type: time
+                after: "06:00"
+                before: "22:00"
+              - type: date
+                after: "11-01"
+                before: "03-31"
+
+# ------------------------------------------------------------------
+# Example 5: Motion sensor — alarm only when cover is open 
+# ------------------------------------------------------------------
+  - id: motion_alarm
+    boneio_input: IN_05
+    actions:
+      single:
+        - action: output
+          boneio_output: alarm_siren
+          action_output: ON
+          condition:
+            type: state
+            entity: cover
+            entity_id: window_cover
+            state: is_open
+
+# ------------------------------------------------------------------
+# Example 6: OR logic — light toggle if motion OR nighttime
+# ------------------------------------------------------------------
+  - id: smart_light
+    boneio_input: IN_06
+    actions:
+      single:
+        - action: output
+          boneio_output: corridor_light
+          action_output: ON
+          conditions:
+            mode: or            # ANY condition must pass
+            list:
+              - type: state
+                entity: binary_sensor
+                entity_id: motion_sensor
+                state: is_on
+              - type: time
+                after: "22:00"
+                before: "06:00"
+
+# ------------------------------------------------------------------
+# Example 7: Multiple actions with different conditions on same button
+# ------------------------------------------------------------------
+  - id: multi_action_switch
+    boneio_input: IN_07
+    actions:
+      single:
+        # During the day: toggle ceiling light
+        - action: output
+          boneio_output: ceiling_light
+          action_output: TOGGLE
+          condition:
+            type: time
+            after: "06:00"
+            before: "22:00"
+
+        # At night: toggle dim night light
+        - action: output
+          boneio_output: night_light
+          action_output: TOGGLE
+          condition:
+            type: time
+            after: "22:00"
+            before: "06:00"
+
+# ------------------------------------------------------------------
+# Example 8: State check — toggle only if another output is OFF
+# ------------------------------------------------------------------
+  - id: exclusive_switch
+    boneio_input: IN_08
+    actions:
+      single:
+        - action: output
+          boneio_output: fan
+          action_output: ON
+          condition:
+            type: state
+            entity: output
+            entity_id: heater_relay
+            state: is_off       # Only turn on fan if heater is OFF

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { FaTrash, FaPlay } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
-import type { CoverEntity, OutputEntity } from '@/types/config';
+import type { CoverEntity, OutputEntity, BinarySensorEntity } from '@/types/config';
+import ActionConditions from './ActionFields/ActionConditions';
 import {
   Select,
   SelectContent,
@@ -48,6 +49,9 @@ interface ActionFieldsProps {
   savedOutputGroups?: any[];
   savedCovers?: CoverEntity[];
   clickType?: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single' | 'pressed' | 'released';
+  allBinarySensors?: BinarySensorEntity[];
+  /** Entity ID to exclude from condition binary_sensor list (prevents self-reference) */
+  excludeEntityId?: string;
 }
 
 /**
@@ -72,6 +76,8 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   savedOutputGroups,
   savedCovers,
   clickType,
+  allBinarySensors = [],
+  excludeEntityId,
 }) => {
   const { t } = useTranslation();
   const actionType = action.action || 'output';
@@ -330,6 +336,18 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           )}
         </div>
       )}
+
+      {/* Conditions — available for all action types */}
+      <ActionConditions
+        action={action}
+        onUpdate={onUpdate}
+        t={t}
+        allOutputs={allOutputs}
+        allCovers={allCovers}
+        allBinarySensors={allBinarySensors}
+        showValidation={showValidation}
+        excludeEntityId={excludeEntityId}
+      />
 
     </div>
   );

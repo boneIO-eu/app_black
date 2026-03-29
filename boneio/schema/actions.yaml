@@ -227,3 +227,30 @@ schema:
         Minimum interval between repeated executions.
         Only used when repeat is true. Default: 800ms.
         Minimum: 200ms (matches periodic event interval).
+
+  # Conditional execution - single condition
+  condition: !include condition.yaml
+
+  # Conditional execution - multiple conditions with AND/OR logic
+  conditions:
+    type: dict
+    required: false
+    schema:
+      mode:
+        type: string
+        allowed: ['and', 'or']
+        default: 'and'
+        meta:
+          label: Condition mode
+          description: |
+            How to combine multiple conditions:
+            - and: ALL conditions must be true (default)
+            - or: ANY condition must be true
+      list:
+        type: list
+        required: true
+        schema: !include condition.yaml
+        meta:
+          label: List of conditions
+          description: |
+            List of conditions to evaluate. Combined using the mode (and/or).

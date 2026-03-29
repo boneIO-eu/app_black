@@ -206,53 +206,51 @@ class TestValidateSectionActions:
         ]
         assert _validate_section_actions("event", data) == []
 
-    def test_hybrid_action_in_event_section_returns_error(self):
-        """The exact scenario from the bug report."""
+    def test_hybrid_action_in_event_section_auto_cleaned(self):
+        """Stale fields are auto-stripped by validate_section_actions."""
+        action = {
+            "action": "remote_output",
+            "remote_device": "boneio_led",
+            "output_id": "chr_02",
+            "action_output": "TOGGLE",
+            "boneio_id": "boneio_led",   # stale field
+            "brightness": 255,
+            "transition": "1s",
+        }
         data = [
             {
                 "name": "Potrojny_prawy_kuchnia",
-                "boneio_input": "IN_45",
-                "actions": {
-                    "single": [{
-                        "action": "remote_output",
-                        "remote_device": "boneio_led",
-                        "output_id": "chr_02",
-                        "boneio_id": "boneio_led",   # stale field
-                        "brightness": 255,
-                        "transition": "1s",
-                    }],
-                },
+                "boneio_input": "IN_48",
+                "actions": {"single": [action]},
             }
         ]
         errors = _validate_section_actions("event", data)
-        assert len(errors) == 1
-        assert "Potrojny_prawy_kuchnia" in errors[0]
-        assert "boneio_id" in errors[0]
+        assert len(errors) == 0
+        # Stale field should have been removed from the action dict
+        assert "boneio_id" not in action
 
-    def test_multiple_errors_reported(self):
+    def test_multiple_stale_fields_auto_cleaned(self):
+        """Multiple actions with stale fields are all auto-cleaned."""
+        action1 = {"action": "remote_output", "remote_device": "d", "output_id": "o", "boneio_id": "x"}
+        action2 = {"action": "output", "boneio_output": "OUT_01", "remote_device": "x"}
+        action3 = {"action": "output_over_mqtt", "boneio_id": "y", "boneio_output": "OUT_02", "topic": "bad"}
         data = [
             {
                 "name": "Btn_A",
                 "boneio_input": "IN_01",
-                "actions": {
-                    "single": [
-                        {"action": "remote_output", "remote_device": "d", "output_id": "o", "boneio_id": "x"},
-                        {"action": "output", "boneio_output": "OUT_01", "remote_device": "x"},
-                    ],
-                },
+                "actions": {"single": [action1, action2]},
             },
             {
                 "name": "Btn_B",
                 "boneio_input": "IN_02",
-                "actions": {
-                    "double": [
-                        {"action": "output_over_mqtt", "boneio_id": "y", "boneio_output": "OUT_02", "topic": "bad"},
-                    ],
-                },
+                "actions": {"double": [action3]},
             },
         ]
         errors = _validate_section_actions("event", data)
-        assert len(errors) == 3
+        assert len(errors) == 0
+        assert "boneio_id" not in action1
+        assert "remote_device" not in action2
+        assert "topic" not in action3
 
     def test_valid_binary_sensor_section(self):
         data = [
@@ -267,24 +265,24 @@ class TestValidateSectionActions:
         ]
         assert _validate_section_actions("binary_sensor", data) == []
 
-    def test_hybrid_action_in_binary_sensor_section(self):
+    def test_hybrid_action_in_binary_sensor_section_auto_cleaned(self):
+        """Stale fields in binary_sensor section are auto-stripped."""
+        action = {
+            "action": "cover_over_mqtt",
+            "boneio_id": "main",
+            "boneio_cover": "blind",
+            "remote_device": "stale",   # stale from remote_cover
+        }
         data = [
             {
                 "name": "PIR_01",
                 "boneio_input": "IN_20",
-                "actions": {
-                    "pressed": [{
-                        "action": "cover_over_mqtt",
-                        "boneio_id": "main",
-                        "boneio_cover": "blind",
-                        "remote_device": "stale",   # stale from remote_cover
-                    }],
-                },
+                "actions": {"pressed": [action]},
             }
         ]
         errors = _validate_section_actions("binary_sensor", data)
-        assert len(errors) == 1
-        assert "PIR_01" in errors[0]
+        assert len(errors) == 0
+        assert "remote_device" not in action
 
     def test_entity_without_actions_key_returns_no_errors(self):
         """Entities with no actions block should not cause errors."""
@@ -294,3 +292,103 @@ class TestValidateSectionActions:
     def test_entity_with_empty_actions_returns_no_errors(self):
         data = [{"name": "In_47", "boneio_input": "IN_47", "actions": {}}]
         assert _validate_section_actions("event", data) == []
+
+    def test_self_reference_single_condition_rejected(self):
+        """Binary sensor referencing its own state in a condition should be rejected."""
+        data = [
+            {
+                "name": "IN_48",
+                "boneio_input": "IN_48",
+                "actions": {
+                    "pressed": [{
+                        "action": "output",
+                        "boneio_output": "OUT_01",
+                        "condition": {
+                            "type": "state",
+                            "entity": "binary_sensor",
+                            "entity_id": "IN_48",
+                            "state": "is_on",
+                        },
+                    }],
+                },
+            }
+        ]
+        errors = _validate_section_actions("binary_sensor", data)
+        assert len(errors) == 1
+        assert "Self-referencing" in errors[0]
+
+    def test_self_reference_in_conditions_list_rejected(self):
+        """Self-reference in conditions list (multi-condition) should be rejected."""
+        data = [
+            {
+                "name": "IN_48",
+                "boneio_input": "IN_48",
+                "actions": {
+                    "released": [{
+                        "action": "output",
+                        "boneio_output": "OUT_02",
+                        "conditions": {
+                            "mode": "and",
+                            "list": [
+                                {"type": "time", "after": "08:00", "before": "22:00"},
+                                {
+                                    "type": "state",
+                                    "entity": "binary_sensor",
+                                    "entity_id": "IN_48",
+                                    "state": "is_off",
+                                },
+                            ],
+                        },
+                    }],
+                },
+            }
+        ]
+        errors = _validate_section_actions("binary_sensor", data)
+        assert len(errors) == 1
+        assert "Self-referencing" in errors[0]
+
+    def test_different_entity_id_no_self_reference(self):
+        """Referencing a different binary sensor should not be flagged."""
+        data = [
+            {
+                "name": "IN_48",
+                "boneio_input": "IN_48",
+                "actions": {
+                    "pressed": [{
+                        "action": "output",
+                        "boneio_output": "OUT_01",
+                        "condition": {
+                            "type": "state",
+                            "entity": "binary_sensor",
+                            "entity_id": "IN_10",
+                            "state": "is_on",
+                        },
+                    }],
+                },
+            }
+        ]
+        errors = _validate_section_actions("binary_sensor", data)
+        assert len(errors) == 0
+
+    def test_event_section_no_self_reference_check(self):
+        """Event entities should not be checked for self-reference (only binary_sensor)."""
+        data = [
+            {
+                "name": "IN_48",
+                "boneio_input": "IN_48",
+                "actions": {
+                    "single": [{
+                        "action": "output",
+                        "boneio_output": "OUT_01",
+                        "condition": {
+                            "type": "state",
+                            "entity": "binary_sensor",
+                            "entity_id": "IN_48",
+                            "state": "is_on",
+                        },
+                    }],
+                },
+            }
+        ]
+        errors = _validate_section_actions("event", data)
+        assert len(errors) == 0

@@ -124,6 +124,63 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   })();
 
   /**
+   * Format a single condition into a short label.
+   */
+  const formatConditionLabel = (cond: any): string => {
+    if (!cond?.type) return '';
+    if (cond.type === 'time') {
+      const parts: string[] = [];
+      if (cond.after) parts.push(`${cond.after}`);
+      if (cond.before) parts.push(`${cond.before}`);
+      return `🕐 ${parts.join('–') || '?'}`;
+    }
+    if (cond.type === 'date') {
+      const parts: string[] = [];
+      if (cond.after) parts.push(`${cond.after}`);
+      if (cond.before) parts.push(`${cond.before}`);
+      return `📅 ${parts.join('–') || '?'}`;
+    }
+    if (cond.type === 'state') {
+      const entity = cond.entity_id || cond.entity || '?';
+      const state = cond.state?.replace('is_', '') || '?';
+      return `🔍 ${entity} ${state}`;
+    }
+    return cond.type;
+  };
+
+  /**
+   * Render condition badges for an action.
+   */
+  const renderConditionBadges = (action: any) => {
+    const conditions: any[] = [];
+    let mode = 'and';
+
+    if (action.conditions?.list?.length) {
+      conditions.push(...action.conditions.list);
+      mode = action.conditions.mode || 'and';
+    } else if (action.condition) {
+      conditions.push(action.condition);
+    }
+
+    if (conditions.length === 0) return null;
+
+    const separator = mode === 'or' ? ` ${t('event_form.condition_mode_or').split(' ')[0]} ` : ' + ';
+
+    return (
+      <div className="flex items-center gap-1 mt-0.5">
+        <span className="badge badge-warning badge-xs gap-0.5 opacity-80" title={t('event_form.conditions')}>
+          {conditions.map((c, i) => (
+            <span key={i}>
+              {i > 0 && <span className="opacity-60">{separator}</span>}
+              {formatConditionLabel(c)}
+            </span>
+          ))}
+        </span>
+      </div>
+    );
+  };
+
+  /**
    * Render action details for expanded row
    */
   const renderActionDetails = (item: BinarySensorOrEventEntity) => {
@@ -232,14 +289,17 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                   }
                   
                   return (
-                    <div key={idx} className="badge badge-primary badge-sm gap-1">
-                      <span className="font-mono text-xs">{action.action}</span>
-                      {actionDetails.length > 0 && (
-                        <span className="opacity-70">→ {actionDetails.join(' ')}</span>
-                      )}
-                      {targetAreaName && (
-                        <span className="opacity-50">[{targetAreaName}]</span>
-                      )}
+                    <div key={idx} className="inline-flex flex-col">
+                      <div className="badge badge-primary badge-sm gap-1">
+                        <span className="font-mono text-xs">{action.action}</span>
+                        {actionDetails.length > 0 && (
+                          <span className="opacity-70">→ {actionDetails.join(' ')}</span>
+                        )}
+                        {targetAreaName && (
+                          <span className="opacity-50">[{targetAreaName}]</span>
+                        )}
+                      </div>
+                      {renderConditionBadges(action)}
                     </div>
                   );
                 })}

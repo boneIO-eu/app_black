@@ -1,0 +1,75 @@
+# Condition schema for conditional action execution.
+#
+# Supports three condition types:
+#   - time: Check current time is within a range (supports midnight crossover)
+#   - date: Check current date is within a range (supports new year crossover)
+#   - state: Check state of a boneIO entity (binary_sensor, cover, output, light)
+#
+# Examples:
+#   condition:
+#     type: time
+#     after: "05:00"
+#     before: "22:00"
+#
+#   condition:
+#     type: state
+#     entity: binary_sensor
+#     entity_id: motion_sensor
+#     state: is_on
+
+type: dict
+required: false
+schema:
+  type:
+    type: string
+    required: true
+    allowed: ['time', 'date', 'state']
+    meta:
+      label: Condition type
+      description: |
+        Type of condition to check before executing the action.
+        - time: Check if current time is within a range (e.g. 05:00-22:00)
+        - date: Check if current date is within a range (e.g. 11-01 to 03-31)
+        - state: Check if a boneIO entity is in a specific state
+  after:
+    type: string
+    required: false
+    meta:
+      label: After (start of range)
+      description: |
+        For time: "HH:MM" format (e.g. "05:00", "22:30")
+        For date: "MM-DD" format (e.g. "11-01" for November 1st)
+  before:
+    type: string
+    required: false
+    meta:
+      label: Before (end of range)
+      description: |
+        For time: "HH:MM" format (e.g. "22:00", "06:00")
+        For date: "MM-DD" format (e.g. "03-31" for March 31st)
+  entity:
+    type: string
+    required: false
+    allowed: ['binary_sensor', 'cover', 'output', 'light']
+    meta:
+      label: Entity type (for state condition)
+      description: |
+        Type of boneIO entity to check state of.
+  entity_id:
+    type: string
+    required: false
+    meta:
+      label: Entity ID (for state condition)
+      description: |
+        ID of the boneIO entity to check state of.
+  state:
+    type: string
+    required: false
+    allowed: ['is_on', 'is_off', 'is_open', 'is_closed']
+    meta:
+      label: Expected state (for state condition)
+      description: |
+        Expected state of the entity.
+        - binary_sensor: is_on, is_off
+        - cover: is_open, is_closed
+        - output/light: is_on, is_off

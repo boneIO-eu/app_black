@@ -47,6 +47,7 @@ from boneio.core.manager.update import UpdateManager
 from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
+from boneio.core.utils.conditions import evaluate_conditions
 from boneio.hardware.i2c.bus import SMBus2I2C
 
 if TYPE_CHECKING:
@@ -461,7 +462,7 @@ class Manager:
         from boneio.core.utils import strip_accents
         
         def _copy_long_press_meta(parsed_action: dict, action_definition: dict) -> None:
-            """Copy long press meta fields (duration thresholds, repeat) to parsed action."""
+            """Copy long press meta fields (duration thresholds, repeat) and conditions to parsed action."""
             for key in ("min_duration", "max_duration"):
                 if action_definition.get(key) is not None:
                     parsed_action[key] = action_definition[key]
@@ -473,6 +474,10 @@ class Manager:
                     parsed_action["repeat_interval"] = ri.total_milliseconds
                 else:
                     parsed_action["repeat_interval"] = ri
+            # Copy condition/conditions for conditional execution
+            for key in ("condition", "conditions"):
+                if action_definition.get(key) is not None:
+                    parsed_action[key] = action_definition[key]
         
         parsed_actions = {}
         for click_type in actions:
@@ -626,6 +631,31 @@ class Manager:
                     
         return parsed_actions
 
+    def _resolve_entity_state(self, entity_type: str, entity_id: str) -> Any:
+        """Resolve a boneIO entity by type and ID for condition evaluation.
+        
+        Used by the conditions system to check entity states.
+        
+        Args:
+            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light')
+            entity_id: Entity ID
+            
+        Returns:
+            Entity object or None if not found
+        """
+        if entity_type in ("output", "light"):
+            return (
+                self.outputs.get_output(entity_id) 
+                or self.outputs.get_output_group(entity_id)
+            )
+        elif entity_type == "cover":
+            return self.covers.get_cover(entity_id)
+        elif entity_type == "binary_sensor":
+            return self.inputs.get_input(entity_id)
+        else:
+            _LOGGER.warning("Unknown entity type for condition: %s", entity_type)
+            return None
+
     async def execute_actions(
         self,
         actions: list,
@@ -701,6 +731,19 @@ class Manager:
                         _LOGGER.debug("Action %d: no thresholds, already executed, skipping", idx)
                         continue
                     _LOGGER.debug("Action %d: no thresholds, not yet executed, executing", idx)
+
+            # Check conditions (time, date, state)
+            action_condition = action_definition.get("condition")
+            action_conditions = action_definition.get("conditions")
+            if action_condition or action_conditions:
+                if not evaluate_conditions(
+                    condition=action_condition,
+                    conditions=action_conditions,
+                    state_resolver=self._resolve_entity_state,
+                ):
+                    _LOGGER.debug("Action %d: condition not met, skipping", idx)
+                    continue
+
             action = action_definition.get("action")
             
             if action == MQTT:

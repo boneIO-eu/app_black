@@ -152,6 +152,17 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
     if (field === 'action') {
       const currentAction = updatedActions[index];
       updatedActions[index] = cleanActionFields(value, currentAction) as any;
+    } else if (field === '__batch') {
+      // Batch update: value is an object with multiple fields to set at once
+      const current = { ...updatedActions[index] };
+      for (const [k, v] of Object.entries(value)) {
+        if (v === undefined) {
+          delete (current as any)[k];
+        } else {
+          (current as any)[k] = v;
+        }
+      }
+      updatedActions[index] = current;
     } else {
       // When setting new boneio_output or boneio_cover, remove old pin field
       if (field === 'boneio_output' || field === 'boneio_cover') {
@@ -214,6 +225,8 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         savedOutputGroups={savedOutputGroups}
         savedCovers={savedCovers}
         clickType={type}
+        allBinarySensors={allBinarySensors}
+        excludeEntityId={data.boneio_input}
       />
     );
   };
