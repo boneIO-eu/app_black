@@ -14,7 +14,7 @@ from luma.oled.device import sh1106
 from PIL import Image, ImageDraw
 from PIL.ImageDraw import ImageDraw as ImageDrawType
 
-from boneio.const import LONG, OLED_PIN, SINGLE, UPTIME, WHITE
+from boneio.const import LONG, SINGLE, UPTIME, WHITE
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.core.system import HostData
 from boneio.core.utils.font_util import make_font

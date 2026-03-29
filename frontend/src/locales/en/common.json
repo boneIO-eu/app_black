@@ -207,7 +207,14 @@
     "update_interval_hint": "How often to read the sensor (e.g. 10s, 60s, 5min)",
     "ina_sensors": "INA219 Sensors",
     "ina_sensors_hint": "INA219 measures current, power, and voltage. Customize names for each measurement.",
-    "no_sensors": "No board sensors configured. Click + to add LM75 temperature sensor, INA219 power monitor, or MCP9808 temperature sensor."
+    "no_sensors": "No board sensors configured. Click + to add LM75 temperature sensor, INA219 power monitor, or MCP9808 temperature sensor.",
+    "scan_i2c": "Scan I2C bus",
+    "detected": "detected",
+    "scan_found_matching": "Found {{count}} available address(es) on I2C bus: {{addresses}}",
+    "scan_found_in_use": "{{count}} detected address(es) already in use: {{addresses}}",
+    "scan_found_other": "No matching addresses for this sensor type, but found other sensors at: {{addresses}}",
+    "scan_none_found": "No known sensor addresses detected on I2C bus",
+    "in_use": "in use"
   },
   "groups": {
     "title": "Groups",

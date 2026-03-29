@@ -4,8 +4,8 @@ This module manages OLED display functionality.
 """
 
 from __future__ import annotations
+from boneio.const import SHOW_HA
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -185,7 +185,7 @@ class DisplayManager:
                 from boneio.const import ID
                 
                 oled_button = self._manager.inputs._configure_event_sensor(
-                    gpio={ID: "oled_button"},
+                    gpio={ID: "oled_button", SHOW_HA: False},
                     pin=OLED_PIN,
                     actions={},
                 )

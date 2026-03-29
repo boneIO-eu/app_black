@@ -785,20 +785,40 @@ class OutputManager:
             output_id: ID of the output to remove from HA Discovery
             old_area: The previous area of the output (used to construct old device identifier)
         """
-        # Construct the old device identifier based on the old area
         topic_prefix = self._manager._config_helper.topic_prefix
+        
         if old_area:
-            old_device_identifier = f"{topic_prefix}_{old_area}"
+            if self._manager._config_helper.ha_child_devices:
+                # Child devices mode: identifier is "{topic}_{device_type}_{id}_{area}"
+                # We need to match the output's own device identifier
+                old_device_identifier = f"{topic_prefix}_{OUTPUT}_{output_id}_{old_area}"
+            else:
+                # Normal mode: area sub-device identifier is "{topic}_{area}"
+                old_device_identifier = f"{topic_prefix}_{old_area}"
         else:
-            old_device_identifier = topic_prefix  # If no area was set, it used the main device identifier
+            if self._manager._config_helper.ha_child_devices:
+                # Child device without area: identifier is "{topic}_{device_type}_{id}"
+                old_device_identifier = f"{topic_prefix}_{OUTPUT}_{output_id}"
+            else:
+                # No area = main device identifier
+                old_device_identifier = topic_prefix
         
         # Find all autodiscovery topics for this output ID with the old device identifier
         matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(
             output_id, old_device_identifier
         )
         
+        if not matching_topics:
+            _LOGGER.debug(
+                "No matching HA Discovery topics found for output %s with device identifier '%s'. "
+                "Trying without device identifier filter...",
+                output_id, old_device_identifier
+            )
+            # Fallback: try without filtering by device identifier
+            matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(output_id)
+        
         for ha_type, topic in matching_topics:
-            _LOGGER.debug(f"Removing HA Discovery for output {output_id} (old area: {old_area}): {topic}")
+            _LOGGER.debug("Removing HA Discovery for output %s (old area: %s): %s", output_id, old_area, topic)
             # Send empty/null payload to remove from HA (HA requires zero-length retained message)
             self._manager.send_message(topic=topic, payload=None, retain=True)
             # Remove from internal cache

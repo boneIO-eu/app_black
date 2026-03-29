@@ -116,6 +116,7 @@ def ha_availabilty_message(
         }
         if area_name:
             device_info["suggested_area"] = area_name
+            device_info["identifiers"] = [f"{child_identifier}_{area}"]
         
         # Entity name is None — HA will use the device name
         entity_name = None
@@ -154,6 +155,7 @@ def ha_availabilty_message(
     # Let's test topic only, don't add area into entity_id.
     # Remove slashes from unique_id to avoid HA issues
     unique_id_prefix = f"{topic.replace("/", "_")}_{area}" if area else topic.replace("/", "_")
+    unique_id_prefix = topic.replace("/", "_")
     unique_id = f"{unique_id_prefix}_{device_type}{id}"
     default_entity_id = f"{entity_type}.{config_helper.serial_number}_{id}"
     

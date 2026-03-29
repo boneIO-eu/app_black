@@ -5,10 +5,14 @@
  * Common fields: type, address, id, update_interval
  * LM75/MCP9808 extra: filters, unit_of_measurement
  * INA219 extra: sensors sub-list (current, power, voltage)
+ *
+ * Supports I2C bus scanning to auto-detect available addresses.
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatTimeperiod } from '@/utils/formatters';
+import { FaSearch } from 'react-icons/fa';
+import axios from '@/api/axios';
 
 /** I2C address options per sensor type */
 const ADDRESS_OPTIONS: Record<string, { value: number; label: string }[]> = {
@@ -40,6 +44,11 @@ const ADDRESS_OPTIONS: Record<string, { value: number; label: string }[]> = {
   ],
 };
 
+/** All known board sensor addresses for matching scan results */
+const ALL_SENSOR_ADDRESSES = new Set(
+  Object.values(ADDRESS_OPTIONS).flatMap(opts => opts.map(o => o.value))
+);
+
 /** Default sensor sub-entries for INA219 */
 const DEFAULT_INA219_SENSORS = [
   { id: 'Board Current', device_class: 'current' },
@@ -70,6 +79,8 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [scanning, setScanning] = useState(false);
+  const [detectedAddresses, setDetectedAddresses] = useState<Set<number> | null>(null);
 
   const sensorType = data?._type || 'lm75';
 
@@ -95,6 +106,33 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
     },
     [data, onChange],
   );
+
+  /**
+   * Scan I2C bus 2 and store detected addresses.
+   * If a matching address for the current sensor type is found,
+   * auto-select it.
+   */
+  const handleI2CScan = useCallback(async () => {
+    setScanning(true);
+    try {
+      const { data: scanResult } = await axios.get('/api/i2c/scan?bus=2', { timeout: 15000 });
+      const foundAddresses = new Set<number>(
+        (scanResult.devices || []).map((dev: any) => dev.address)
+      );
+      setDetectedAddresses(foundAddresses);
+
+      // Auto-select first matching address for current sensor type
+      const typeAddresses = ADDRESS_OPTIONS[sensorType] || [];
+      const matchingAddr = typeAddresses.find(opt => foundAddresses.has(opt.value));
+      if (matchingAddr) {
+        updateField('address', matchingAddr.value);
+      }
+    } catch (err) {
+      console.error('I2C scan failed:', err);
+    } finally {
+      setScanning(false);
+    }
+  }, [sensorType, updateField]);
 
   // Validate
   useEffect(() => {
@@ -123,6 +161,28 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
   }, [data, existingItems, editingIndex, sensorType, t, onValidationChange]);
 
   const addresses = ADDRESS_OPTIONS[sensorType] || [];
+
+  /**
+   * Build the label for an address option, appending
+   * "✓ detected" or "✓ detected ⚠ in use" based on scan and existing items.
+   */
+  const getAddressLabel = (opt: { value: number; label: string }) => {
+    const isDetected = detectedAddresses?.has(opt.value);
+    const isUsed = existingItems.some((item, idx) => {
+      if (editingIndex !== null && idx === editingIndex) return false;
+      return item._type === sensorType && item.address === opt.value;
+    });
+    if (isDetected && isUsed) {
+      return `${opt.label}  ✓ ${t('board_sensors.detected')}  ⚠ ${t('board_sensors.in_use')}`;
+    }
+    if (isDetected) {
+      return `${opt.label}  ✓ ${t('board_sensors.detected')}`;
+    }
+    if (isUsed) {
+      return `${opt.label}  ⚠ ${t('board_sensors.in_use')}`;
+    }
+    return opt.label;
+  };
 
   return (
     <div className="space-y-4">
@@ -174,26 +234,89 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
         </label>
       </div>
 
-      {/* I2C Address */}
+      {/* I2C Address with Scan button */}
       <div className="form-control">
         <label className="label">
           <span className="label-text font-medium">{t('board_sensors.address')}</span>
         </label>
-        <select
-          className={`select select-bordered w-full ${errors.address ? 'select-error' : ''}`}
-          value={data?.address ?? ''}
-          onChange={(e) => updateField('address', parseInt(e.target.value, 10))}
-        >
-          <option value="">{t('board_sensors.select_address')}</option>
-          {addresses.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          <select
+            className={`select select-bordered flex-1 ${errors.address ? 'select-error' : ''}`}
+            value={data?.address ?? ''}
+            onChange={(e) => updateField('address', parseInt(e.target.value, 10))}
+          >
+            <option value="">{t('board_sensors.select_address')}</option>
+            {addresses.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {getAddressLabel(opt)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={`btn btn-square btn-outline ${scanning ? 'loading' : ''}`}
+            onClick={handleI2CScan}
+            disabled={scanning}
+            title={t('board_sensors.scan_i2c')}
+          >
+            {!scanning && <FaSearch />}
+          </button>
+        </div>
         {errors.address && (
           <label className="label">
             <span className="label-text-alt text-error">{errors.address}</span>
+          </label>
+        )}
+        {/* Scan results summary */}
+        {detectedAddresses !== null && (
+          <label className="label">
+            <span className={`label-text-alt ${(() => {
+              const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
+              const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
+                if (editingIndex !== null && idx === editingIndex) return false;
+                return item._type === sensorType && item.address === a.value;
+              }));
+              if (freeAddrs.length > 0) return 'text-success';
+              if (typeAddrs.length > 0) return 'text-warning';
+              return 'text-base-content/60';
+            })()}`}>
+              {(() => {
+                const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
+                const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
+                  if (editingIndex !== null && idx === editingIndex) return false;
+                  return item._type === sensorType && item.address === a.value;
+                }));
+                const usedAddrs = typeAddrs.filter(a => existingItems.some((item, idx) => {
+                  if (editingIndex !== null && idx === editingIndex) return false;
+                  return item._type === sensorType && item.address === a.value;
+                }));
+
+                if (typeAddrs.length > 0) {
+                  const parts: string[] = [];
+                  if (freeAddrs.length > 0) {
+                    parts.push(t('board_sensors.scan_found_matching', {
+                      count: String(freeAddrs.length),
+                      addresses: freeAddrs.map(a => a.label.split(' ')[0]).join(', '),
+                    }));
+                  }
+                  if (usedAddrs.length > 0) {
+                    parts.push(t('board_sensors.scan_found_in_use', {
+                      count: String(usedAddrs.length),
+                      addresses: usedAddrs.map(a => a.label.split(' ')[0]).join(', '),
+                    }));
+                  }
+                  return parts.join('. ');
+                }
+                // Check for any sensor addresses at all
+                const anySensor = [...detectedAddresses].filter(a => ALL_SENSOR_ADDRESSES.has(a));
+                if (anySensor.length > 0) {
+                  return t('board_sensors.scan_found_other', {
+                    addresses: anySensor.map(a => `0x${a.toString(16).toUpperCase()}`).join(', '),
+                  });
+                }
+                return t('board_sensors.scan_none_found');
+              })()}
+            </span>
           </label>
         )}
       </div>
