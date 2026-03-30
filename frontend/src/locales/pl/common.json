@@ -173,7 +173,7 @@
     "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out",
     "groups": {
       "adc": "Czujniki ADC",
-      "board": "Czujniki płyty",
+      "board": "Czujniki sterownika",
       "system": "Monitoring systemu",
       "other": "Pozostałe czujniki"
     }
@@ -612,7 +612,7 @@
     "modbus": "Modbus",
     "can": "Magistrala CAN",
     "mcp23017": "MCP23017 (Zaawansowane)",
-    "board_sensors": "Czujniki płyty"
+    "board_sensors": "Czujniki sterownika"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
