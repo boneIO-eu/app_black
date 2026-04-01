@@ -20,6 +20,7 @@ import BoardSensorsForm from './BoardSensorsForm';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -1188,6 +1189,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 </>
               ) : t('settings.add_new_item')}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingIndex !== null ? t('settings.edit_item') : t('settings.add_new_item')}
+            </DialogDescription>
           </DialogHeader>
 
           {/* Scrollable content area */}

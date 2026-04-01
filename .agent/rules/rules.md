@@ -13,3 +13,4 @@ trigger: always_on
 - save all things you change in some MD files, so we can use it for documentation later
 - we use i18n whenever possible
 - create translations if you can or ask if you should create one
+- always create reusable components and avoid creating new ones whenever possible, reusing existing components instead

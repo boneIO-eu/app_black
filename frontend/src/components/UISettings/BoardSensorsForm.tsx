@@ -10,9 +10,10 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { formatTimeperiod } from '@/utils/formatters';
 import { FaSearch } from 'react-icons/fa';
 import axios from '@/api/axios';
+import { FormInputSelect, FormInputText, FormInputList } from './widgets';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 
 /** I2C address options per sensor type */
 const ADDRESS_OPTIONS: Record<string, { value: number; label: string }[]> = {
@@ -82,6 +83,12 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
   const [scanning, setScanning] = useState(false);
   const [detectedAddresses, setDetectedAddresses] = useState<Set<number> | null>(null);
 
+  // Keep a stable ref to the callback so it never triggers the validation effect
+  const onValidationChangeRef = React.useRef(onValidationChange);
+  React.useEffect(() => {
+    onValidationChangeRef.current = onValidationChange;
+  });
+
   const sensorType = data?._type || 'lm75';
 
   const updateField = useCallback(
@@ -134,31 +141,34 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
     }
   }, [sensorType, updateField]);
 
+  // Extract primitive values for stable effect dependencies
+  const dataId = data?.id;
+  const dataAddress = data?.address;
+
   // Validate
   useEffect(() => {
     const newErrors: Record<string, string> = {};
 
-    // id is required for lm75/mcp9808 (it's the sensor name), optional for ina219 (prefix for sub-sensor IDs)
-    if (sensorType !== 'ina219' && (!data?.id || String(data.id).trim() === '')) {
+    if (sensorType !== 'ina219' && (!dataId || String(dataId).trim() === '')) {
       newErrors.id = t('board_sensors.id_required');
     }
 
-    if (data?.address === undefined || data?.address === null) {
+    if (dataAddress === undefined || dataAddress === null) {
       newErrors.address = t('board_sensors.address_required');
     }
 
     // Check for duplicate address within same type
     const isDuplicate = existingItems.some((item, idx) => {
       if (editingIndex !== null && idx === editingIndex) return false;
-      return item._type === sensorType && item.address === data?.address;
+      return item._type === sensorType && item.address === dataAddress;
     });
     if (isDuplicate) {
       newErrors.address = t('board_sensors.address_duplicate');
     }
 
     setErrors(newErrors);
-    onValidationChange?.(Object.keys(newErrors).length === 0);
-  }, [data, existingItems, editingIndex, sensorType, t, onValidationChange]);
+    onValidationChangeRef.current?.(Object.keys(newErrors).length === 0);
+  }, [dataId, dataAddress, sensorType, editingIndex, existingItems, t]);
 
   const addresses = ADDRESS_OPTIONS[sensorType] || [];
 
@@ -187,71 +197,34 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
   return (
     <div className="space-y-4">
       {/* Sensor Type */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('board_sensors.type')}</span>
-        </label>
-        <select
-          className="select select-bordered w-full"
-          value={sensorType}
-          onChange={(e) => updateField('_type', e.target.value)}
-          disabled={editingIndex !== null}
-        >
-          {SENSOR_TYPES.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('board_sensors.type_hint')}</span>
-        </label>
-      </div>
+      <FormInputSelect
+        label={t('board_sensors.type')}
+        value={sensorType}
+        options={SENSOR_TYPES}
+        onChange={(val) => updateField('_type', val)}
+        disabled={editingIndex !== null}
+        help={t('board_sensors.type_hint')}
+      />
 
       {/* Name / ID */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('board_sensors.id')}</span>
-        </label>
-        <input
-          type="text"
-          className={`input input-bordered w-full ${errors.id ? 'input-error' : ''}`}
-          value={data?.id ?? ''}
-          onChange={(e) => updateField('id', e.target.value || undefined)}
-          placeholder={sensorType === 'lm75' ? 'Board temperature' : sensorType === 'ina219' ? '' : 'Temperature'}
-        />
-        {errors.id && (
-          <label className="label">
-            <span className="label-text-alt text-error">{errors.id}</span>
-          </label>
-        )}
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">
-            {sensorType === 'ina219'
-              ? t('board_sensors.id_hint_ina')
-              : t('board_sensors.id_hint')}
-          </span>
-        </label>
-      </div>
+      <FormInputText
+        label={t('board_sensors.id')}
+        value={data?.id ?? ''}
+        onChange={(val) => updateField('id', val || undefined)}
+        placeholder={sensorType === 'lm75' ? 'Board temperature' : sensorType === 'ina219' ? '' : 'Temperature'}
+        error={errors.id}
+        help={sensorType === 'ina219' ? t('board_sensors.id_hint_ina') : t('board_sensors.id_hint')}
+      />
 
       {/* I2C Address with Scan button */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('board_sensors.address')}</span>
-        </label>
-        <div className="flex gap-2">
-          <select
-            className={`select select-bordered flex-1 ${errors.address ? 'select-error' : ''}`}
-            value={data?.address ?? ''}
-            onChange={(e) => updateField('address', parseInt(e.target.value, 10))}
-          >
-            <option value="">{t('board_sensors.select_address')}</option>
-            {addresses.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {getAddressLabel(opt)}
-              </option>
-            ))}
-          </select>
+      <FormInputSelect
+        label={t('board_sensors.address')}
+        value={data?.address ?? ''}
+        onChange={(val) => updateField('address', typeof val === 'string' ? parseInt(val, 10) : val)}
+        options={addresses.map((opt) => ({ value: opt.value, label: getAddressLabel(opt) }))}
+        placeholder={t('board_sensors.select_address')}
+        error={errors.address}
+        actionButton={
           <button
             type="button"
             className={`btn btn-square btn-outline ${scanning ? 'loading' : ''}`}
@@ -261,110 +234,91 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
           >
             {!scanning && <FaSearch />}
           </button>
-        </div>
-        {errors.address && (
-          <label className="label">
-            <span className="label-text-alt text-error">{errors.address}</span>
-          </label>
-        )}
-        {/* Scan results summary */}
-        {detectedAddresses !== null && (
-          <label className="label">
-            <span className={`label-text-alt ${(() => {
-              const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
-              const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
-                if (editingIndex !== null && idx === editingIndex) return false;
-                return item._type === sensorType && item.address === a.value;
-              }));
-              if (freeAddrs.length > 0) return 'text-success';
-              if (typeAddrs.length > 0) return 'text-warning';
-              return 'text-base-content/60';
-            })()}`}>
-              {(() => {
+        }
+        footerNode={
+          detectedAddresses !== null && (
+            <label className="label">
+              <span className={`label-text-alt ${(() => {
                 const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
                 const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
                   if (editingIndex !== null && idx === editingIndex) return false;
                   return item._type === sensorType && item.address === a.value;
                 }));
-                const usedAddrs = typeAddrs.filter(a => existingItems.some((item, idx) => {
-                  if (editingIndex !== null && idx === editingIndex) return false;
-                  return item._type === sensorType && item.address === a.value;
-                }));
+                if (freeAddrs.length > 0) return 'text-success';
+                if (typeAddrs.length > 0) return 'text-warning';
+                return 'text-base-content/60';
+              })()}`}>
+                {(() => {
+                  const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
+                  const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
+                    if (editingIndex !== null && idx === editingIndex) return false;
+                    return item._type === sensorType && item.address === a.value;
+                  }));
+                  const usedAddrs = typeAddrs.filter(a => existingItems.some((item, idx) => {
+                    if (editingIndex !== null && idx === editingIndex) return false;
+                    return item._type === sensorType && item.address === a.value;
+                  }));
 
-                if (typeAddrs.length > 0) {
-                  const parts: string[] = [];
-                  if (freeAddrs.length > 0) {
-                    parts.push(t('board_sensors.scan_found_matching', {
-                      count: String(freeAddrs.length),
-                      addresses: freeAddrs.map(a => a.label.split(' ')[0]).join(', '),
-                    }));
+                  if (typeAddrs.length > 0) {
+                    const parts: string[] = [];
+                    if (freeAddrs.length > 0) {
+                      parts.push(t('board_sensors.scan_found_matching', {
+                        count: String(freeAddrs.length),
+                        addresses: freeAddrs.map(a => a.label.split(' ')[0]).join(', '),
+                      }));
+                    }
+                    if (usedAddrs.length > 0) {
+                      parts.push(t('board_sensors.scan_found_in_use', {
+                        count: String(usedAddrs.length),
+                        addresses: usedAddrs.map(a => a.label.split(' ')[0]).join(', '),
+                      }));
+                    }
+                    return parts.join('. ');
                   }
-                  if (usedAddrs.length > 0) {
-                    parts.push(t('board_sensors.scan_found_in_use', {
-                      count: String(usedAddrs.length),
-                      addresses: usedAddrs.map(a => a.label.split(' ')[0]).join(', '),
-                    }));
+                  // Check for any sensor addresses at all
+                  const anySensor = [...detectedAddresses].filter(a => ALL_SENSOR_ADDRESSES.has(a));
+                  if (anySensor.length > 0) {
+                    return t('board_sensors.scan_found_other', {
+                      addresses: anySensor.map(a => `0x${a.toString(16).toUpperCase()}`).join(', '),
+                    });
                   }
-                  return parts.join('. ');
-                }
-                // Check for any sensor addresses at all
-                const anySensor = [...detectedAddresses].filter(a => ALL_SENSOR_ADDRESSES.has(a));
-                if (anySensor.length > 0) {
-                  return t('board_sensors.scan_found_other', {
-                    addresses: anySensor.map(a => `0x${a.toString(16).toUpperCase()}`).join(', '),
-                  });
-                }
-                return t('board_sensors.scan_none_found');
-              })()}
-            </span>
-          </label>
-        )}
-      </div>
+                  return t('board_sensors.scan_none_found');
+                })()}
+              </span>
+            </label>
+          )
+        }
+      />
 
       {/* Update Interval */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('board_sensors.update_interval')}</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered w-full"
-          value={typeof data?.update_interval === 'object' ? formatTimeperiod(data.update_interval) : (data?.update_interval || '')}
-          onChange={(e) => updateField('update_interval', e.target.value || undefined)}
-          placeholder="60s"
-        />
-        <label className="label">
-          <span className="label-text-alt text-base-content/60">{t('board_sensors.update_interval_hint')}</span>
-        </label>
-      </div>
+      <SimpleTimePeriodInput
+        label={t('board_sensors.update_interval')}
+        value={data?.update_interval || ''}
+        onChange={(val) => updateField('update_interval', val)}
+        minimum={15000}
+        maximum={300000}
+        allowedUnits={['s', 'min']}
+      />
 
       {/* INA219-specific: Sensors sub-list */}
       {sensorType === 'ina219' && (
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('board_sensors.ina_sensors')}</span>
-          </label>
-          <div className="space-y-2">
-            {(data?.sensors || DEFAULT_INA219_SENSORS).map((sensor: any, idx: number) => (
-              <div key={idx} className="flex items-center gap-2 bg-base-100 rounded p-2">
-                <input
-                  type="text"
-                  className="input input-bordered input-sm flex-1"
-                  value={sensor.id || ''}
-                  onChange={(e) => {
-                    const updated = [...(data?.sensors || DEFAULT_INA219_SENSORS)];
-                    updated[idx] = { ...updated[idx], id: e.target.value };
-                    updateField('sensors', updated);
-                  }}
-                />
-                <span className="badge badge-sm badge-ghost">{sensor.device_class}</span>
-              </div>
-            ))}
-          </div>
-          <label className="label">
-            <span className="label-text-alt text-base-content/60">{t('board_sensors.ina_sensors_hint')}</span>
-          </label>
-        </div>
+        <FormInputList
+          label={t('board_sensors.ina_sensors')}
+          help={t('board_sensors.ina_sensors_hint')}
+          items={data?.sensors || DEFAULT_INA219_SENSORS}
+          onChange={(newSensors) => updateField('sensors', newSensors)}
+          renderItem={(sensor: any, _idx, updateItem) => (
+            <div className="flex items-center gap-2 bg-base-100 rounded p-2">
+              <input
+                type="text"
+                className="input input-bordered input-sm flex-1"
+                value={sensor.id || ''}
+                onChange={(e) => updateItem({ ...sensor, id: e.target.value })}
+              />
+              <span className="badge badge-sm badge-ghost">{sensor.device_class}</span>
+            </div>
+          )}
+        />
       )}
     </div>
   );

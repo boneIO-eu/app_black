@@ -13,6 +13,7 @@ interface SectionHeaderProps {
   onToggleYamlPreview: () => void;
   onRestore: () => void;
   onSave: () => void;
+  hideYamlPreview?: boolean;
 }
 
 /**
@@ -27,6 +28,7 @@ export default function SectionHeader({
   onToggleYamlPreview,
   onRestore,
   onSave,
+  hideYamlPreview,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   
@@ -45,14 +47,16 @@ export default function SectionHeader({
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={onToggleYamlPreview}
-            className="btn btn-ghost btn-sm"
-            title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
-          >
-            {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
-            YAML
-          </button>
+          {!hideYamlPreview && (
+            <button
+              onClick={onToggleYamlPreview}
+              className="btn btn-ghost btn-sm"
+              title={showYamlPreview ? t('settings.hide_yaml') : t('settings.show_yaml')}
+            >
+              {showYamlPreview ? <FaEyeSlash /> : <FaEye />}
+              YAML
+            </button>
+          )}
           {hasUnsavedChanges && (
             <button
               onClick={onRestore}

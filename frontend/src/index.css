@@ -168,7 +168,6 @@ body {
 
 /* Custom form styles */
 /* Force full width for all form inputs */
-.form-control select,
 .form-control textarea {
   width: 100% !important;
   max-width: 100% !important;

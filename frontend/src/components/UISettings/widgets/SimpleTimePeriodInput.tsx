@@ -1,11 +1,4 @@
 import React from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 // TimePeriod object from backend
 interface TimePeriodObject {
@@ -30,7 +23,10 @@ interface SimpleTimePeriodInputProps {
 
 /**
  * Simple time period input that outputs string values like "30s", "1000ms"
- * Backend expects string with unit, not raw milliseconds
+ * Backend expects string with unit, not raw milliseconds.
+ *
+ * Uses a native <select> for the unit picker to avoid Radix UI Select
+ * compose-refs conflicts when rendered inside a Radix Dialog.
  */
 const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   value,
@@ -42,10 +38,23 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   allowedUnits = ['ms', 's', 'min', 'h'],
   unitlessNumberUnit = 'ms'
 }) => {
+  // Convert milliseconds to best unit
+  const parseMilliseconds = (ms: number): { value: number; unit: string } => {
+    if (!ms) return { value: 0, unit: 's' };
+    if (ms >= 3600000 && ms % 3600000 === 0) {
+      return { value: ms / 3600000, unit: 'h' };
+    } else if (ms >= 60000 && ms % 60000 === 0) {
+      return { value: ms / 60000, unit: 'min' };
+    } else if (ms >= 1000 && ms % 1000 === 0) {
+      return { value: ms / 1000, unit: 's' };
+    }
+    return { value: ms, unit: 'ms' };
+  };
+
   // Parse value - can be string "30s", number (ms), or TimePeriod object from backend
   const parseValue = (val: string | number | TimePeriodObject): { value: number; unit: string } => {
     if (!val && val !== 0) return { value: 0, unit: 's' };
-    
+
     // If string with unit like "30s", "1000ms", "5min"
     if (typeof val === 'string') {
       const match = val.match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec|min|h|hours?)$/i);
@@ -67,12 +76,12 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
       }
       return { value: 0, unit: 's' };
     }
-    
+
     // If number, treat as milliseconds
     if (typeof val === 'number') {
       return parseMilliseconds(val);
     }
-    
+
     // If TimePeriod object from backend
     if (typeof val === 'object' && val !== null) {
       // Try to extract value in order of preference: hours > minutes > seconds > milliseconds
@@ -95,21 +104,8 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
       }
       return { value: 0, unit: 's' };
     }
-    
+
     return { value: 0, unit: 's' };
-  };
-  
-  // Convert milliseconds to best unit
-  const parseMilliseconds = (ms: number): { value: number; unit: string } => {
-    if (!ms) return { value: 0, unit: 's' };
-    if (ms >= 3600000 && ms % 3600000 === 0) {
-      return { value: ms / 3600000, unit: 'h' };
-    } else if (ms >= 60000 && ms % 60000 === 0) {
-      return { value: ms / 60000, unit: 'min' };
-    } else if (ms >= 1000 && ms % 1000 === 0) {
-      return { value: ms / 1000, unit: 's' };
-    }
-    return { value: ms, unit: 'ms' };
   };
 
   // Convert value + unit to string like "30s"
@@ -122,16 +118,26 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   const [inputValue, setInputValue] = React.useState(numValue);
   const [inputUnit, setInputUnit] = React.useState(unit);
 
-  // Update when external value changes
+  // Serialize value to a stable string so the effect doesn't fire
+  // on every render when value is an object with a new reference.
+  const serializedValue = React.useMemo(() => {
+    if (typeof value === 'object' && value !== null) {
+      return JSON.stringify(value);
+    }
+    return String(value ?? '');
+  }, [value]);
+
+  // Update local state when the external (serialized) value changes
   React.useEffect(() => {
     const parsed = parseValue(value);
     setInputValue(parsed.value);
     setInputUnit(parsed.unit);
-  }, [value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serializedValue]);
 
   const handleValueChange = (newValue: string) => {
     let num = parseFloat(newValue) || 0;
-    
+
     // Clamp to maximum if set
     if (maximum !== undefined) {
       const maxForUnit = getMaxForUnit(inputUnit);
@@ -139,7 +145,7 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
         num = maxForUnit;
       }
     }
-    
+
     setInputValue(num);
     onChange(toTimeString(num, inputUnit));
   };
@@ -150,18 +156,18 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
   };
 
   // Get minimum value based on minimum prop (in ms)
-  const getMinForUnit = (unit: string): number => {
-    const divisor = unit === 'h' ? 3600000 : unit === 'min' ? 60000 : unit === 's' ? 1000 : 1;
+  const getMinForUnit = (u: string): number => {
+    const divisor = u === 'h' ? 3600000 : u === 'min' ? 60000 : u === 's' ? 1000 : 1;
     return Math.ceil(minimum / divisor);
   };
-  
+
   // Get maximum value based on maximum prop (in ms)
-  const getMaxForUnit = (unit: string): number => {
+  const getMaxForUnit = (u: string): number => {
     if (maximum === undefined) return Infinity;
-    const divisor = unit === 'h' ? 3600000 : unit === 'min' ? 60000 : unit === 's' ? 1000 : 1;
+    const divisor = u === 'h' ? 3600000 : u === 'min' ? 60000 : u === 's' ? 1000 : 1;
     return Math.floor(maximum / divisor);
   };
-  
+
   const minValue = getMinForUnit(inputUnit);
   const maxValue = maximum !== undefined ? getMaxForUnit(inputUnit) : undefined;
 
@@ -181,20 +187,19 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
           min={minValue}
           max={maxValue}
           step={inputUnit === 'ms' ? 10 : 1}
-          className="input input-bordered flex-1 min-h-12"
+          className="input input-bordered flex-1 w-3/4 min-h-12"
           placeholder="0"
         />
-        <Select value={inputUnit} onValueChange={handleUnitChange}>
-          <SelectTrigger className="w-20">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {allowedUnits.includes('ms') && <SelectItem value="ms">ms</SelectItem>}
-            {allowedUnits.includes('s') && <SelectItem value="s">s</SelectItem>}
-            {allowedUnits.includes('min') && <SelectItem value="min">min</SelectItem>}
-            {allowedUnits.includes('h') && <SelectItem value="h">h</SelectItem>}
-          </SelectContent>
-        </Select>
+        <select
+          className="select select-bordered w-20 min-h-12"
+          value={inputUnit}
+          onChange={(e) => handleUnitChange(e.target.value)}
+        >
+          {allowedUnits.includes('ms') && <option value="ms">ms</option>}
+          {allowedUnits.includes('s') && <option value="s">s</option>}
+          {allowedUnits.includes('min') && <option value="min">min</option>}
+          {allowedUnits.includes('h') && <option value="h">h</option>}
+        </select>
       </div>
       {(minimum > 0 || maximum !== undefined) && (
         <label className="label">

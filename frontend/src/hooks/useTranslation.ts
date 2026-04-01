@@ -1,8 +1,11 @@
-import { useContext } from 'react';
+import { useContext, useCallback, useMemo } from 'react';
 import { TranslationContext, TranslationContextType } from '../contexts/TranslationContext';
 
 /**
- * Hook for accessing translation functionality
+ * Hook for accessing translation functionality.
+ *
+ * Returns a memoized `t` function so that consumers can safely include it
+ * in React dependency arrays without triggering unnecessary re-renders.
  */
 export const useTranslation = () => {
   const context = useContext(TranslationContext);
@@ -18,7 +21,7 @@ export const useTranslation = () => {
    * @param key - Dot-separated translation key
    * @param params - Optional object with values to interpolate into {{placeholders}}
    */
-  const t = (key: string, params?: Record<string, string | number>): string => {
+  const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
     let value: any = context.translations;
     
@@ -35,14 +38,14 @@ export const useTranslation = () => {
     }
 
     return result;
-  };
+  }, [context.translations]);
 
-  return {
+  return useMemo(() => ({
     t,
     language: context.language,
     changeLanguage: context.changeLanguage,
     availableLanguages: context.availableLanguages
-  };
+  }), [t, context.language, context.changeLanguage, context.availableLanguages]);
 };
 
 export type { TranslationContextType };

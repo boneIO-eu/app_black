@@ -1746,3 +1746,15 @@ boneio:
           This allows HA to auto-generate dashboards per area.
           Entity names become empty so HA uses the device name directly.
           WARNING: Experimental feature — may change or be removed in future versions.
+    ha_child_devices_naming:
+      type: string
+      required: False
+      default: 'default'
+      allowed: ['default', 'device_name', 'device_name_area']
+      meta:
+        label: "Child device naming style"
+        description: |
+          Controls how child device names are constructed when ha_child_devices is enabled.
+          - default: Entity name only (e.g., "OUT 17"). May cause duplicates if multiple boneIO devices share output names.
+          - device_name: Adds boneIO device name prefix (e.g., "boneIO Black - OUT 17").
+          - device_name_area: Adds device name and area (e.g., "boneIO Black - Living Room - OUT 17"). Falls back to device_name if no area is assigned.

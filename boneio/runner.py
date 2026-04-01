@@ -186,6 +186,7 @@ async def async_run(
         cloud_registration=web_config.get("cloud", {}).get("enabled", False),
         pwa_name=web_config.get("cloud", {}).get("pwa_name"),
         ha_child_devices=main_config.get("ha_child_devices", False),
+        ha_child_devices_naming=main_config.get("ha_child_devices_naming", "default"),
     )
     
     # Load areas configuration

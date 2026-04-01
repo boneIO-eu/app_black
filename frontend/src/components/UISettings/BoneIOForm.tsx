@@ -212,6 +212,25 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         <HelpLabel>{t('boneio_config.ha_child_devices_help')}</HelpLabel>
       </div>
 
+      {/* HA Child Devices Naming Style (shown only when ha_child_devices is enabled) */}
+      {data?.ha_child_devices && (
+        <div className="form-control ml-4">
+          <label className="label">
+            <span className="label-text font-medium">{t('boneio_config.ha_child_devices_naming')}</span>
+          </label>
+          <select
+            className="select select-bordered w-full"
+            value={data?.ha_child_devices_naming || 'default'}
+            onChange={(e) => handleChange('ha_child_devices_naming', e.target.value)}
+          >
+            <option value="default">{t('boneio_config.ha_child_devices_naming_default')}</option>
+            <option value="device_name">{t('boneio_config.ha_child_devices_naming_device_name')}</option>
+            <option value="device_name_area">{t('boneio_config.ha_child_devices_naming_device_name_area')}</option>
+          </select>
+          <HelpLabel>{t('boneio_config.ha_child_devices_naming_help')}</HelpLabel>
+        </div>
+      )}
+
       {/* Device Type Change Warning Modal */}
       {showWarningModal && validationResult && (
         <div className="modal modal-open">

@@ -51,6 +51,7 @@ class ConfigHelper:
         cloud_registration: bool = False,
         pwa_name: str | None = None,
         ha_child_devices: bool = False,
+        ha_child_devices_naming: str = "default",
     ):
         self._name = name
         
@@ -83,6 +84,7 @@ class ConfigHelper:
         self._update_channel = update_channel
         self._cloud_registration = cloud_registration
         self._ha_child_devices = ha_child_devices
+        self._ha_child_devices_naming = ha_child_devices_naming
         self._device_type = device_type
         self._web_port = web_port
         self._proxy_port = proxy_port
@@ -235,6 +237,17 @@ class ConfigHelper:
         in Home Assistant instead of being grouped under one main device.
         """
         return self._ha_child_devices
+
+    @property
+    def ha_child_devices_naming(self) -> str:
+        """Get the naming style for HA child devices.
+        
+        Returns:
+            'default' — entity name only (e.g. "OUT 17")
+            'device_name' — "{device_name} - {name}" (e.g. "boneIO Black - OUT 17")
+            'device_name_area' — "{device_name} - {area} - {name}" (e.g. "boneIO Black - Gabinet - OUT 17")
+        """
+        return self._ha_child_devices_naming
 
     @property
     def device_type(self) -> str:

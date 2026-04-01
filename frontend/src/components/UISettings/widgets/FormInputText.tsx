@@ -11,6 +11,7 @@ interface FormInputTextProps {
   type?: 'text' | 'password';
   maxLength?: number;
   disabled?: boolean;
+  error?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export const FormInputText: React.FC<FormInputTextProps> = ({
   type = 'text',
   maxLength,
   disabled,
+  error,
 }) => {
   return (
     <div className="form-control">
@@ -37,13 +39,18 @@ export const FormInputText: React.FC<FormInputTextProps> = ({
       </label>
       <input
         type={type}
-        className="input input-bordered w-full"
+        className={`input input-bordered w-full ${error ? 'input-error' : ''}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
         disabled={disabled}
       />
+      {error && (
+        <label className="label">
+          <span className="label-text-alt text-error">{error}</span>
+        </label>
+      )}
       {help && <HelpLabel>{help}</HelpLabel>}
     </div>
   );

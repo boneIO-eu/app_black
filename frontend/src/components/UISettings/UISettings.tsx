@@ -1078,6 +1078,13 @@ export default function UISettings() {
     }
   }, [section, sections, navigateToSection]);
 
+  // Auto-hide YAML preview when switching to a composite section
+  useEffect(() => {
+    if (activeSection && COMPOSITE_SECTIONS[activeSection] && showYamlPreview) {
+      setShowYamlPreview(false);
+    }
+  }, [activeSection, showYamlPreview]);
+
   // Debug console.log for active section
   useEffect(() => {
     const activeSection_data = sections.find(s => s.name === activeSection);
@@ -1216,6 +1223,7 @@ export default function UISettings() {
               onToggleYamlPreview={() => setShowYamlPreview(!showYamlPreview)}
               onRestore={() => restoreSection(activeSection)}
               onSave={() => saveSection(activeSection)}
+              hideYamlPreview={!!COMPOSITE_SECTIONS[activeSection]}
             />
 
             {/* Content */}
