@@ -79,7 +79,10 @@ def ha_availabilty_message(
     topic = config_helper.topic_prefix if topic is None else topic
     device_name = config_helper.name if device_name is None else device_name
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
-    if config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
+    if config_helper.cloud_registration and config_helper.serial_number:
+        # PWA-registered device: use the public PWA domain with TLS
+        web_url = f"https://{config_helper.serial_number}.black.boneio.app:8443"
+    elif config_helper.is_web_active and config_helper.network_info and IP in config_helper.network_info:
         web_url = f"{config_helper.http_proto}://{config_helper.network_info[IP]}:{config_helper.web_configuration_port}"
     
     web_url_dict = {
@@ -101,7 +104,17 @@ def ha_availabilty_message(
     _CHILD_DEVICE_TYPES = {OUTPUT, INPUT, COVER, "group", ADC}
     
     if config_helper.ha_child_devices and device_type in _CHILD_DEVICE_TYPES:
-        child_device_name = name  # e.g., "OUT 01"
+        # Build child device name based on naming style
+        naming = config_helper.ha_child_devices_naming
+        if naming == "device_name_area" and area_name:
+            child_device_name = f"{device_name} - {area_name} - {name}"
+        elif naming == "device_name_area" or naming == "device_name":
+            # device_name_area without area falls back to device_name style
+            child_device_name = f"{device_name} - {name}"
+        else:
+            # 'default' — entity name only (e.g. "OUT 17")
+            child_device_name = name
+
         child_identifier = f"{topic}_{device_type}_{id}"
         device_info = {
             "identifiers": [child_identifier],
