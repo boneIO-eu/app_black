@@ -497,3 +497,40 @@ async def can_dump(interface: str = DEFAULT_INTERFACE, duration: int = 30):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+class SudoersFixRequest(BaseModel):
+    """Request body for creating CAN sudoers file.
+
+    Args:
+        password: Sudo password for writing to /etc/sudoers.d/
+    """
+
+    password: str
+
+
+@router.get("/sudoers/check")
+async def check_can_sudoers():
+    """Check if sudoers NOPASSWD is configured for CAN interface commands.
+
+    Returns:
+        Dict with needs_password, sudoers_file_exists, and error fields.
+    """
+    from boneio.hardware.can.sudoers import check_sudo_nopasswd_for_ip
+
+    return await check_sudo_nopasswd_for_ip()
+
+
+@router.post("/sudoers/fix")
+async def fix_can_sudoers(body: SudoersFixRequest):
+    """Create /etc/sudoers.d/boneio-can with NOPASSWD rules for CAN interface.
+
+    Accepts the user's sudo password, validates the sudoers content,
+    and installs it. The password is never logged or stored.
+
+    Returns:
+        Status response with success or error message.
+    """
+    from boneio.hardware.can.sudoers import create_sudoers_file
+
+    return await create_sudoers_file(body.password)

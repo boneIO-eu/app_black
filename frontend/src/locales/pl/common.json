@@ -1552,5 +1552,29 @@
     "connecting_mqtt": "Łączenie z MQTT...",
     "ha_discovery": "Publikowanie HA Discovery...",
     "ready": "Gotowe"
+  },
+  "can_sudoers": {
+    "title": "Uprawnienia interfejsu CAN",
+    "description": "Skonfiguruj reguły sudoers NOPASSWD, aby aplikacja mogła zarządzać interfejsem CAN (ip link set) bez pytania o hasło.",
+    "checking": "Sprawdzanie konfiguracji sudoers...",
+    "error_title": "Interfejs CAN: Wymagane hasło sudo",
+    "error_description": "Aplikacja nie może skonfigurować interfejsu CAN, ponieważ sudo wymaga hasła. Przejdź do Stan Systemu, aby to naprawić.",
+    "fix_button": "Napraw",
+    "password_required": "Hasło sudo jest wymagane dla interfejsu CAN",
+    "password_required_hint": "Aplikacja potrzebuje reguł NOPASSWD w sudoers, aby uruchomić 'sudo /sbin/ip link set can0'. Utwórz plik sudoers, aby to naprawić.",
+    "sudo_password_placeholder": "Hasło systemowe",
+    "create_sudoers": "Utwórz plik sudoers",
+    "info_1": "Utworzy plik sudoers, który pozwoli aplikacji zarządzać interfejsami CAN bez hasła:",
+    "info_2": "Plik przyznaje dostęp NOPASSWD tylko do komend /sbin/ip link set can0 i can1."
+  },
+  "sudo_dialog": {
+    "password_label": "Hasło systemowe",
+    "password_placeholder": "Wprowadź hasło sudo",
+    "password_hint": "Hasło jest przesyłane bezpiecznie i nigdy nie jest zapisywane.",
+    "submit": "Potwierdź",
+    "fix_app_permissions": "Napraw uprawnienia aplikacji",
+    "check_file_permissions": "Sprawdź uprawnienia pliku",
+    "fix_permissions": "Napraw uprawnienia",
+    "fix_permissions_description": "Podaj hasło systemowe, aby naprawić uprawnienia pliku. Hasło jest użyte jednorazowo i nie jest zapisywane."
   }
 }

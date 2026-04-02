@@ -432,16 +432,36 @@ async def get_hardware_errors():
     Get hardware initialization errors.
     
     Returns list of hardware errors that occurred during startup,
-    such as I2C communication failures with MCP23017/PCF8575/PCA9685.
+    such as I2C communication failures with MCP23017/PCF8575/PCA9685,
+    and CAN interface sudoers configuration issues.
     
     Returns:
         Dictionary with errors list.
     """
+    errors = []
+    
     if _app_state and hasattr(_app_state, 'manager'):
         manager = _app_state.manager
-        errors = getattr(manager, '_hardware_errors', [])
-        return {"errors": errors}
-    return {"errors": []}
+        hw_errors = getattr(manager, '_hardware_errors', [])
+        errors.extend(hw_errors)
+        
+        # Check CAN sudoers if CAN is enabled
+        canopen = getattr(manager, 'canopen', None)
+        if canopen and canopen._enabled:
+            try:
+                from boneio.hardware.can.sudoers import check_sudo_nopasswd_for_ip
+                sudoers_check = await check_sudo_nopasswd_for_ip()
+                if sudoers_check.get("needs_password"):
+                    errors.append({
+                        "type": "can_sudoers",
+                        "id": "can_sudoers",
+                        "error": "sudo_password_required",
+                        "message": sudoers_check.get("error") or "sudo requires a password for /sbin/ip commands. CAN interface auto-setup will fail.",
+                    })
+            except Exception as e:
+                _LOGGER.debug("Failed to check CAN sudoers: %s", e)
+    
+    return {"errors": errors}
 
 
 class HostnameRequest(BaseModel):

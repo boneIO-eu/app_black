@@ -31,7 +31,7 @@ dependencies = [
     "packaging==25.0",
     "aioesphomeapi>=29.0.0",
     "zeroconf>=0.148.0",
-    "canopen-asyncio>=2.3.0",
+    "canopen-asyncio>=2.4.1",
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }

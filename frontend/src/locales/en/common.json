@@ -1547,5 +1547,32 @@
     "connecting_mqtt": "Connecting to MQTT...",
     "ha_discovery": "Publishing HA Discovery...",
     "ready": "Ready"
+  },
+  "can_sudoers": {
+    "title": "CAN Interface Permissions",
+    "description": "Configure sudoers NOPASSWD rules so the application can manage CAN interface (ip link set) without a password prompt.",
+    "checking": "Checking sudoers configuration...",
+    "error_title": "CAN Interface: Sudo Password Required",
+    "error_description": "The application cannot configure the CAN interface because sudo requires a password. Go to System State to fix this.",
+    "fix_button": "Fix",
+    "password_required": "Sudo password is required for CAN interface",
+    "password_required_hint": "The application needs NOPASSWD sudoers rules to run 'sudo /sbin/ip link set can0'. Create the sudoers file to fix this.",
+    "sudo_password_placeholder": "System password",
+    "create_sudoers": "Create sudoers file",
+    "check_now": "Check permissions",
+    "status_ok": "CAN interface permissions OK",
+    "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can manage the CAN interface without a password.",
+    "info_1": "This will create a sudoers file that allows the application to manage CAN interfaces without a password:",
+    "info_2": "The file grants NOPASSWD access only to /sbin/ip link set can0 and can1 commands."
+  },
+  "sudo_dialog": {
+    "password_label": "System Password",
+    "password_placeholder": "Enter your sudo password",
+    "password_hint": "Your password is sent securely and is never stored.",
+    "submit": "Confirm",
+    "fix_app_permissions": "Fix App Permissions",
+    "check_file_permissions": "Check File Permissions",
+    "fix_permissions": "Fix Permissions",
+    "fix_permissions_description": "Enter your system password to fix file permissions. The password is used once and is not stored."
   }
 }

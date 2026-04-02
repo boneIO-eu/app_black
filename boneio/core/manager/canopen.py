@@ -111,7 +111,13 @@ class CANopenManager:
             True if started successfully.
         """
         if not self.is_enabled:
-            _LOGGER.info("CANopen is disabled or not available")
+            if not self._enabled:
+                _LOGGER.info("CANopen is disabled in configuration (enabled: false)")
+            elif not CANOPEN_AVAILABLE:
+                _LOGGER.warning(
+                    "CANopen is enabled in configuration but canopen library is not installed. "
+                    "Install with: pip install canopen-asyncio"
+                )
             return False
 
         if self._running:

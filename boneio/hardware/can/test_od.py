@@ -1,5 +1,10 @@
-import canopen
-from canopen.objectdictionary import ObjectDictionary, Variable
+try:
+    import canopen
+except ImportError:
+    import canopen_asyncio as canopen  # type: ignore[no-redef]
+
+ObjectDictionary = canopen.objectdictionary.ObjectDictionary
+Variable = canopen.objectdictionary.Variable
 
 od = ObjectDictionary()
 var_node = Variable("Node ID", 0x2000, 0)

@@ -12,15 +12,27 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from canopen import Network, LocalNode
+    try:
+        from canopen import Network, LocalNode
+    except ImportError:
+        from canopen_asyncio import Network, LocalNode  # type: ignore[assignment]
 
 try:
     import canopen
 
     CANOPEN_AVAILABLE = True
 except ImportError:
-    CANOPEN_AVAILABLE = False
-    canopen: ModuleType = None  # type: ignore[assignment]
+    try:
+        import canopen_asyncio as canopen  # type: ignore[no-redef]
+
+        CANOPEN_AVAILABLE = True
+    except ImportError as _import_err:
+        CANOPEN_AVAILABLE = False
+        canopen: ModuleType = None  # type: ignore[assignment]
+        logging.getLogger(__name__).warning(
+            "canopen module not available: %s. Install with: pip install canopen-asyncio",
+            _import_err,
+        )
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -330,7 +342,9 @@ class CANopenClient:
 
     def _create_object_dictionary(self):
         """Create minimal Object Dictionary for SDO operations."""
-        from canopen.objectdictionary import ObjectDictionary, Variable
+        # Use module-level canopen (may be aliased from canopen_asyncio)
+        ObjectDictionary = canopen.objectdictionary.ObjectDictionary
+        Variable = canopen.objectdictionary.Variable
 
         od = ObjectDictionary()
 

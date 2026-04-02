@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { FaSpinner } from 'react-icons/fa';
 import axios from '@/api/axios';
+import { useTranslation } from '@/hooks/useTranslation';
+import SudoPasswordDialog from './SudoPasswordDialog';
 
 /**
  * Component for diagnosing and fixing app file permissions via sudo.
- * Currently handles docker-compose.yaml; will be extended for sudoers etc.
+ * Currently handles docker-compose.yaml; uses shared SudoPasswordDialog for password input.
  */
 export default function FixAppPermissions() {
+  const { t } = useTranslation();
   const [permInfo, setPermInfo] = useState<any>(null);
   const [fixResult, setFixResult] = useState<any>(null);
-  const [sudoPass, setSudoPass] = useState('');
   const [loading, setLoading] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [showSudoDialog, setShowSudoDialog] = useState(false);
+  const [sudoError, setSudoError] = useState<string | null>(null);
 
   const testPermissions = async () => {
     setLoading(true);
@@ -26,19 +30,21 @@ export default function FixAppPermissions() {
     }
   };
 
-  const fixPermissions = async () => {
-    if (!sudoPass) return;
+  const fixPermissions = async (password: string) => {
     setFixing(true);
     setFixResult(null);
+    setSudoError(null);
     try {
-      const { data } = await axios.post('/api/cloud/fix-permissions', { password: sudoPass });
+      const { data } = await axios.post('/api/cloud/fix-permissions', { password });
       setFixResult(data);
       if (data.status === 'success') {
-        setSudoPass('');
+        setShowSudoDialog(false);
         testPermissions();
+      } else {
+        setSudoError(data.message || t('common.error'));
       }
     } catch (err: any) {
-      setFixResult({ status: 'error', message: err.response?.data?.detail || err.message || 'Request failed' });
+      setSudoError(err.response?.data?.detail || err.message || 'Request failed');
     } finally {
       setFixing(false);
     }
@@ -47,7 +53,7 @@ export default function FixAppPermissions() {
   return (
     <div className="card bg-base-200 shadow-sm mt-4">
       <div className="card-body p-4">
-        <h3 className="card-title text-sm">Fix App Permissions</h3>
+        <h3 className="card-title text-sm">{t('sudo_dialog.fix_app_permissions')}</h3>
 
         <button
           className={`btn btn-sm btn-outline ${loading ? 'loading' : ''}`}
@@ -55,7 +61,7 @@ export default function FixAppPermissions() {
           disabled={loading}
         >
           {loading ? <FaSpinner className="animate-spin" /> : null}
-          Check file permissions
+          {t('sudo_dialog.check_file_permissions')}
         </button>
 
         {permInfo && (
@@ -65,24 +71,15 @@ export default function FixAppPermissions() {
         )}
 
         {permInfo && !permInfo.writable && permInfo.file_exists && (
-          <div className="flex gap-2 mt-2 items-center">
-            <input
-              type="password"
-              className="input input-bordered input-sm flex-1"
-              placeholder="sudo password"
-              value={sudoPass}
-              onChange={(e) => setSudoPass(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && sudoPass) fixPermissions(); }}
-              disabled={fixing}
-            />
-            <button
-              className={`btn btn-sm btn-primary ${fixing ? 'loading' : ''}`}
-              onClick={fixPermissions}
-              disabled={!sudoPass || fixing}
-            >
-              {fixing ? <FaSpinner className="animate-spin" /> : 'Fix permissions'}
-            </button>
-          </div>
+          <button
+            className="btn btn-sm btn-primary mt-2"
+            onClick={() => {
+              setSudoError(null);
+              setShowSudoDialog(true);
+            }}
+          >
+            {t('sudo_dialog.fix_permissions')}
+          </button>
         )}
 
         {fixResult && (
@@ -91,6 +88,17 @@ export default function FixAppPermissions() {
           </pre>
         )}
       </div>
+
+      <SudoPasswordDialog
+        open={showSudoDialog}
+        onOpenChange={setShowSudoDialog}
+        title={t('sudo_dialog.fix_app_permissions')}
+        description={t('sudo_dialog.fix_permissions_description')}
+        submitLabel={t('sudo_dialog.fix_permissions')}
+        isSubmitting={fixing}
+        error={sudoError}
+        onSubmit={fixPermissions}
+      />
     </div>
   );
 }
