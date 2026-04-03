@@ -666,3 +666,236 @@ async def shutdown_device(background_tasks: BackgroundTasks):
     background_tasks.add_task(execute_shutdown)
     _LOGGER.info("System shutdown initiated")
     return {"status": "success", "message": "Device is shutting down..."}
+
+
+# ── Timezone & NTP ──────────────────────────────────────────────────────
+
+
+class TimezoneRequest(BaseModel):
+    """Request model for timezone change."""
+    timezone: str
+
+
+class NtpRequest(BaseModel):
+    """Request model for NTP enable/disable."""
+    enabled: bool
+
+
+def _parse_timedatectl() -> dict:
+    """Parse timedatectl output into a dictionary.
+
+    Returns:
+        Dictionary with keys like 'Time zone', 'NTP service', etc.
+    """
+    try:
+        result = subprocess.run(
+            ["timedatectl", "show"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        info: dict[str, str] = {}
+        for line in result.stdout.strip().splitlines():
+            if "=" in line:
+                key, _, value = line.partition("=")
+                info[key.strip()] = value.strip()
+        return info
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback: parse human-readable output
+        try:
+            result = subprocess.run(
+                ["timedatectl"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            info = {}
+            for line in result.stdout.strip().splitlines():
+                if ":" in line:
+                    key, _, value = line.partition(":")
+                    info[key.strip()] = value.strip()
+            return info
+        except Exception as exc:
+            _LOGGER.error("Failed to parse timedatectl output: %s", exc)
+            return {}
+
+
+@router.get("/timezone")
+async def get_timezone():
+    """
+    Get current system timezone and NTP status.
+
+    Returns:
+        Dictionary with timezone, NTP status, and current time.
+    """
+    info = _parse_timedatectl()
+
+    # timedatectl show uses key=value pairs
+    timezone = info.get("Timezone", "")
+    ntp_active = info.get("NTPSynchronized", "").lower() == "yes"
+    ntp_enabled = info.get("NTP", "").lower() in ("yes", "active")
+
+    # Fallback: read human-readable keys
+    if not timezone:
+        tz_val = info.get("Time zone", "")
+        # e.g. "Europe/Warsaw (CEST, +0200)"
+        timezone = tz_val.split("(")[0].strip() if tz_val else ""
+
+    if not timezone:
+        # Last resort: read /etc/timezone
+        try:
+            with open("/etc/timezone") as f:
+                timezone = f.read().strip()
+        except FileNotFoundError:
+            timezone = "UTC"
+
+    # Get current system time
+    try:
+        local_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        local_time = ""
+
+    return {
+        "timezone": timezone,
+        "ntp_synchronized": ntp_active,
+        "ntp_enabled": ntp_enabled,
+        "local_time": local_time,
+    }
+
+
+@router.post("/timezone")
+async def set_timezone(request: TimezoneRequest):
+    """
+    Set system timezone via timedatectl.
+
+    Args:
+        request: TimezoneRequest with timezone string (e.g. 'Europe/Warsaw').
+
+    Returns:
+        Status response.
+    """
+    tz = request.timezone.strip()
+    if not tz:
+        raise HTTPException(status_code=400, detail="Timezone cannot be empty")
+
+    # Validate timezone exists in system
+    zoneinfo_path = f"/usr/share/zoneinfo/{tz}"
+    if not os.path.isfile(zoneinfo_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid timezone: {tz}. Must be a valid IANA timezone.",
+        )
+
+    try:
+        subprocess.run(
+            ["sudo", "timedatectl", "set-timezone", tz],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _LOGGER.info("Timezone changed to: %s", tz)
+        return {"status": "success", "timezone": tz}
+    except subprocess.CalledProcessError as e:
+        _LOGGER.error("Failed to set timezone: %s", e.stderr)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to set timezone: {e.stderr}"
+        )
+    except Exception as e:
+        _LOGGER.error("Error setting timezone: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ntp")
+async def set_ntp(request: NtpRequest):
+    """
+    Enable or disable NTP time synchronization via timedatectl.
+
+    Args:
+        request: NtpRequest with enabled boolean.
+
+    Returns:
+        Status response.
+    """
+    action = "true" if request.enabled else "false"
+    try:
+        subprocess.run(
+            ["sudo", "timedatectl", "set-ntp", action],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _LOGGER.info("NTP %s", "enabled" if request.enabled else "disabled")
+        return {"status": "success", "ntp_enabled": request.enabled}
+    except subprocess.CalledProcessError as e:
+        _LOGGER.error("Failed to set NTP: %s", e.stderr)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to set NTP: {e.stderr}"
+        )
+    except Exception as e:
+        _LOGGER.error("Error setting NTP: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/timezones")
+async def list_timezones():
+    """
+    List available timezones from timedatectl.
+
+    Returns:
+        List of timezone strings.
+    """
+    try:
+        result = subprocess.run(
+            ["timedatectl", "list-timezones"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        timezones = [tz.strip() for tz in result.stdout.strip().splitlines() if tz.strip()]
+        return {"timezones": timezones}
+    except subprocess.CalledProcessError as e:
+        _LOGGER.error("Failed to list timezones: %s", e.stderr)
+        raise HTTPException(status_code=500, detail="Failed to list timezones")
+    except Exception as e:
+        _LOGGER.error("Error listing timezones: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Timezone Sudoers ─────────────────────────────────────────────────────
+
+
+class TimezoneSudoersFixRequest(BaseModel):
+    """Request body for creating timedatectl sudoers file."""
+    password: str
+
+
+@router.get("/timezone/sudoers/check")
+async def check_timezone_sudoers():
+    """Check if sudoers NOPASSWD is configured for timedatectl commands.
+
+    Returns:
+        Dict with needs_password, sudoers_file_exists, and error fields.
+    """
+    from boneio.webui.routes.timezone_sudoers import (
+        check_sudo_nopasswd_for_timedatectl,
+    )
+
+    return await check_sudo_nopasswd_for_timedatectl()
+
+
+@router.post("/timezone/sudoers/fix")
+async def fix_timezone_sudoers(body: TimezoneSudoersFixRequest):
+    """Create /etc/sudoers.d/boneio-timedatectl with NOPASSWD rules.
+
+    Accepts the user's sudo password, validates the sudoers content,
+    and installs it. The password is never logged or stored.
+
+    Returns:
+        Status response with success or error message.
+    """
+    from boneio.webui.routes.timezone_sudoers import (
+        create_timedatectl_sudoers_file,
+    )
+
+    return await create_timedatectl_sudoers_file(body.password)
+

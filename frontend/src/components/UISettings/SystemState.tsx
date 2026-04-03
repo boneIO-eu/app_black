@@ -18,6 +18,7 @@ import {
   DeviceControlSection,
   MqttPasswordsSection,
   HostnameSection,
+  TimezoneSection,
   SslSection,
   FactoryResetSection,
   BackupSection,
@@ -789,6 +790,8 @@ const SystemState: React.FC = () => {
             </SettingsCard>
 
             <HostnameSection />
+
+            <TimezoneSection />
 
             <MqttPasswordsSection />
 
