@@ -7,7 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { OutputEntity, CoverEntity, BinarySensorEntity } from '@/types/config';
+import type { OutputEntity, CoverEntity, BinarySensorEntity, AreaEntity } from '@/types/config';
+import EntitySelectDropdown from '../EntitySelectDropdown';
+import type { EntityItem } from '../EntitySelectDropdown';
 import { validateCondition } from './helpers';
 
 interface SingleCondition {
@@ -32,6 +34,8 @@ interface ActionConditionsProps {
   allCovers?: CoverEntity[];
   /** Available binary sensors for state condition entity selection */
   allBinarySensors?: BinarySensorEntity[];
+  /** Available areas for displaying area names in entity selectors */
+  allAreas?: AreaEntity[];
   /** Whether to show validation errors */
   showValidation?: boolean;
   /** Entity ID to exclude from binary_sensor list (prevents self-reference loops) */
@@ -39,13 +43,12 @@ interface ActionConditionsProps {
 }
 
 const CONDITION_TYPES = ['time', 'date', 'state'] as const;
-const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'light'] as const;
+const ENTITY_TYPES = ['binary_sensor', 'cover', 'output'] as const;
 
 const STATE_OPTIONS: Record<string, string[]> = {
   binary_sensor: ['is_on', 'is_off'],
   cover: ['is_open', 'is_closed'],
-  output: ['is_on', 'is_off'],
-  light: ['is_on', 'is_off'],
+  output: ['is_on', 'is_off']
 };
 
 /**
@@ -63,6 +66,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   allOutputs = [],
   allCovers = [],
   allBinarySensors = [],
+  allAreas = [],
   showValidation = false,
   excludeEntityId,
 }) => {
@@ -92,7 +96,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
    */
   const updateConditions = (newList: SingleCondition[], newMode?: 'and' | 'or') => {
     const effectiveMode = newMode ?? mode;
-    
+
     if (newList.length === 0) {
       // Remove all condition fields
       onUpdate('__batch', { condition: undefined, conditions: undefined });
@@ -118,7 +122,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   const updateSingleCondition = (index: number, field: string, value: any) => {
     const newList = [...conditionsList];
     const updated = { ...newList[index], [field]: value };
-    
+
     // When changing type, reset type-specific fields
     if (field === 'type') {
       if (value === 'time') {
@@ -143,44 +147,61 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
         updated.state = '';
       }
     }
-    
+
     // When changing entity type, reset entity_id and state
     if (field === 'entity') {
       updated.entity_id = '';
       updated.state = '';
     }
-    
+
     newList[index] = updated;
     updateConditions(newList);
   };
 
   /**
-   * Get available entity IDs for a given entity type.
+   * Get available entity items for EntitySelectDropdown based on entity type.
+   * Returns items with id, name, area, and a badge indicating the entity type.
    */
-  const getEntityIds = (entityType: string): { id: string; label: string }[] => {
+  const getEntityItems = (entityType: string): EntityItem[] => {
     switch (entityType) {
       case 'binary_sensor':
         return allBinarySensors
           .filter(bs => {
-            if (!excludeEntityId) return true;
-            const bsId = bs.id || bs.name || '';
-            return bsId !== excludeEntityId;
+            const bsId = bs.id || bs.boneio_input || bs.name || '';
+            if (!bsId) return false;
+            if (excludeEntityId && bsId === excludeEntityId) return false;
+            return true;
           })
-          .map(bs => ({
-            id: bs.id || bs.name || '',
-            label: bs.name || bs.id || '',
-          }));
+          .map(bs => {
+            const id = bs.id || bs.boneio_input || bs.name || '';
+            return {
+              id,
+              name: bs.name || id,
+              area: bs.area,
+            };
+          });
       case 'cover':
-        return allCovers.map(c => ({
-          id: c.id || '',
-          label: c.id || '',
-        }));
+        return allCovers
+          .filter(c => !!(c.id || c.open_relay))
+          .map(c => {
+            const id = c.id || (c.open_relay && c.close_relay
+              ? `cover_${c.open_relay}_${c.close_relay}`.toLowerCase()
+              : '');
+            return {
+              id,
+              name: c.name || id,
+              area: c.area,
+            };
+          })
+          .filter(item => !!item.id);
       case 'output':
-      case 'light':
-        return allOutputs.map(o => ({
-          id: o.id || '',
-          label: o.id || '',
-        }));
+        return allOutputs
+          .filter(o => !!(o.id))
+          .map(o => ({
+            id: o.id!,
+            name: o.name || o.id || '',
+            area: o.area,
+          }));
       default:
         return [];
     }
@@ -336,26 +357,18 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
                   <label className="label py-1">
                     <span className="label-text text-sm">{t('event_form.condition_entity_id')}</span>
                   </label>
-                  {getEntityIds(condition.entity).length > 0 ? (
-                    <Select
+                  {getEntityItems(condition.entity).length > 0 ? (
+                    <EntitySelectDropdown
                       value={condition.entity_id || ''}
-                      onValueChange={(value) => updateSingleCondition(index, 'entity_id', value)}
-                    >
-                      <SelectTrigger className="w-full h-9">
-                        <SelectValue placeholder={t('event_form.condition_entity_id')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getEntityIds(condition.entity).map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(value) => updateSingleCondition(index, 'entity_id', value)}
+                      items={getEntityItems(condition.entity)}
+                      allAreas={allAreas}
+                      placeholder={t('event_form.condition_entity_id')}
+                    />
                   ) : (
                     <input
                       type="text"
-                      className="input input-bordered input-sm w-full"
+                      className="input input-bordered input-sm w-full text-only"
                       value={condition.entity_id || ''}
                       onChange={(e) => updateSingleCondition(index, 'entity_id', e.target.value)}
                     />
@@ -393,7 +406,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   return (
     <div className="form-control mb-3">
       <div className="divider text-xs opacity-70 my-1">{t('event_form.conditions')}</div>
-      
+
       {!hasConditions ? (
         <button
           type="button"
@@ -440,7 +453,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
           </button>
         </>
       )}
-      
+
       {hasConditions && (
         <p className="text-xs opacity-50 mt-1">{t('event_form.condition_hint')}</p>
       )}

@@ -207,6 +207,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           t={t}
           allOutputs={allOutputs}
           allOutputGroups={allOutputGroups}
+          allAreas={allAreas}
           actionOutputOptions={actionOutputOptions}
           savedOutputs={savedOutputs}
           savedOutputGroups={savedOutputGroups}
@@ -345,6 +346,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         allOutputs={allOutputs}
         allCovers={allCovers}
         allBinarySensors={allBinarySensors}
+        allAreas={allAreas}
         showValidation={showValidation}
         excludeEntityId={excludeEntityId}
       />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Select,
   SelectContent,
@@ -7,16 +7,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { normalizeCovers } from '../helpers/coverUtils';
+import EntitySelectDropdown from '../EntitySelectDropdown';
+import type { EntityItem } from '../EntitySelectDropdown';
 import type { CoverActionProps } from './types';
 
 /**
  * Cover Action component - handles local boneIO covers.
+ * Uses EntitySelectDropdown for cover selection with name + area display.
  */
 const CoverAction: React.FC<CoverActionProps> = ({
   action,
   onUpdate,
   t,
   allCovers,
+  allAreas,
   actionCoverOptions,
   isCoverSaved,
 }) => {
@@ -28,38 +32,33 @@ const CoverAction: React.FC<CoverActionProps> = ({
     onUpdate(field, value);
   };
 
+  /** Convert covers into EntityItem[] for the dropdown. */
+  const coverItems: EntityItem[] = useMemo(() => {
+    return normalizeCovers(allCovers).map((cover): EntityItem => {
+      const saved = isCoverSaved(cover.id);
+      return {
+        id: cover.id,
+        name: cover.name || cover.id,
+        area: cover.area,
+        disabled: !saved,
+        disabledLabel: !saved ? t('common.unsaved') : undefined,
+      };
+    });
+  }, [allCovers, isCoverSaved]);
+
   return (
     <>
       <div className="form-control mb-3">
         <label className="label">
           <span className="label-text font-medium">{t('event_form.cover')}</span>
         </label>
-        <Select
+        <EntitySelectDropdown
           value={action.boneio_cover || action.pin || ''}
-          onValueChange={(value) => handleUpdate('boneio_cover', value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('event_form.select_cover')} />
-          </SelectTrigger>
-          <SelectContent>
-            {normalizeCovers(allCovers).map((cover) => {
-              const name = cover.name || cover.id;
-              const label = name !== cover.id ? `${name} (${cover.id})` : cover.id;
-              const isSaved = isCoverSaved(cover.id);
-              return (
-                <SelectItem 
-                  key={cover.id} 
-                  value={cover.id}
-                  disabled={!isSaved}
-                  className={!isSaved ? 'opacity-50 cursor-not-allowed' : ''}
-                >
-                  {!isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
-                  {label}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
+          onChange={(value: string) => handleUpdate('boneio_cover', value)}
+          items={coverItems}
+          allAreas={allAreas}
+          placeholder={t('event_form.select_cover')}
+        />
       </div>
 
       <div className="form-control mb-3">

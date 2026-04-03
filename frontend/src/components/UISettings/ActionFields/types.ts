@@ -42,6 +42,7 @@ export interface RemoteCoverActionProps extends BaseActionProps {
 export interface OutputActionProps extends BaseActionProps {
   allOutputs: OutputEntity[];
   allOutputGroups: any[];
+  allAreas?: Area[];
   actionOutputOptions: string[];
   savedOutputs?: OutputEntity[];
   savedOutputGroups?: any[];
