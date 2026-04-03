@@ -68,7 +68,7 @@ interface BoardSensorsFormProps {
   onChange: (data: any) => void;
   existingItems: any[];
   editingIndex: number | null;
-  onValidationChange?: (isValid: boolean) => void;
+  onValidationChange?: (hasErrors: boolean) => void;
 }
 
 const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
@@ -167,7 +167,7 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
     }
 
     setErrors(newErrors);
-    onValidationChangeRef.current?.(Object.keys(newErrors).length === 0);
+    onValidationChangeRef.current?.(Object.keys(newErrors).length > 0);
   }, [dataId, dataAddress, sensorType, editingIndex, existingItems, t]);
 
   const addresses = ADDRESS_OPTIONS[sensorType] || [];
