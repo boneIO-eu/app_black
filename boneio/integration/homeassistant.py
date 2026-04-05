@@ -281,7 +281,13 @@ def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_t
     return msg
 
 
-def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_type: str, **kwargs):
+def ha_group_availabilty_message(
+    id: str,
+    config_helper: ConfigHelper,
+    output_type: str,
+    member_unique_ids: list[str] | None = None,
+    **kwargs,
+):
     """Create GROUP (output group) availability topic for HA.
     
     Groups use 'group' as device_type in MQTT topics instead of 'relay'.
@@ -297,6 +303,8 @@ def ha_group_availabilty_message(id: str, config_helper: ConfigHelper, output_ty
         msg["state_value_template"] = "{{ value_json.state }}"
     else:
         msg["value_template"] = "{{ value_json.state }}"
+    if member_unique_ids:
+        msg["group"] = member_unique_ids
     return msg
 
 

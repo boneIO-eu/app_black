@@ -261,12 +261,18 @@ class OutputManager:
             _LOGGER.info("Created output group '%s' with %d members, area='%s'", _id, len(members), area)
             
             # Send HA autodiscovery for group
+            topic_prefix = self._manager._config_helper.topic_prefix
+            member_unique_ids = [
+                f"{topic_prefix.replace('/', '_')}_{OUTPUT}{m.id}"
+                for m in members
+            ]
             payload = ha_group_availabilty_message(
                 id=_id,
                 name=_name,
                 config_helper=self._manager._config_helper,
                 output_type=output_group.output_type,
                 area=area,
+                member_unique_ids=member_unique_ids,
             )
             self._manager.publish_ha_discovery(
                 id=_id, ha_type=output_group.output_type, payload=payload,
@@ -879,11 +885,17 @@ class OutputManager:
         
         # Send autodiscovery for groups
         for group_id, group in self._configured_output_groups.items():
+            topic_prefix = self._manager._config_helper.topic_prefix
+            member_unique_ids = [
+                f"{topic_prefix.replace('/', '_')}_{OUTPUT}{m.id}"
+                for m in group.group_members
+            ]
             payload = ha_group_availabilty_message(
                 id=group_id,
                 name=group.name if hasattr(group, 'name') else group_id,
                 config_helper=self._manager._config_helper,
                 output_type=group.output_type,
+                member_unique_ids=member_unique_ids,
             )
             self._manager.publish_ha_discovery(
                 id=group_id, ha_type=group.output_type, payload=payload,

@@ -112,6 +112,11 @@ class OutputGroup(BasicOutput):
         """Check if group is active (ON state)."""
         return self._state == ON
 
+    @property
+    def group_members(self) -> list[BasicOutput]:
+        """Return list of member outputs."""
+        return self._group_members
+
     @override
     async def async_send_state(self, optimized_value: str | None = None) -> None:
         """Send state to message bus and event bus for WebSocket."""
