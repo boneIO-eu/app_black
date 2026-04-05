@@ -104,22 +104,13 @@ class UpdateManager(AsyncUpdater):
     async def _check_update_from_github(self) -> dict | None:
         """Check for updates from GitHub releases.
         
-        This method reuses the logic from /api/check_update endpoint.
+        Uses the shared cached fetch to avoid exhausting the
+        unauthenticated GitHub API rate limit (60 req/h per IP).
         
         Returns:
             Update information dict or None on error
         """
         current_version = __version__
-        
-        try:
-            import requests
-        except ImportError:
-            _LOGGER.error("Package 'requests' is not installed")
-            return {
-                "status": "error",
-                "message": "Package 'requests' is not installed",
-                "current_version": current_version
-            }
         
         try:
             from packaging import version
@@ -132,18 +123,16 @@ class UpdateManager(AsyncUpdater):
             }
         
         try:
-            repo = "boneIO-eu/app_black"
-            api_url = f'https://api.github.com/repos/{repo}/releases'
-            response = requests.get(api_url, timeout=10)
+            from boneio.webui.routes.update import _fetch_github_releases
+
+            releases, error = _fetch_github_releases()
             
-            if response.status_code != 200:
+            if error:
                 return {
                     "status": "error",
-                    "message": f"GitHub API error: {response.status_code}",
+                    "message": error,
                     "current_version": current_version
                 }
-            
-            releases = response.json()
             
             if not releases:
                 return {

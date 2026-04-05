@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -25,6 +26,62 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["update"])
+
+# ── GitHub releases cache ────────────────────────────────────────────────
+# Unauthenticated GitHub API allows 60 req/h per IP.
+# With multiple boneIO devices behind the same IP this is easily exceeded.
+# Cache the raw releases list with a 15-minute TTL.
+_GITHUB_RELEASES_CACHE: dict = {
+    "data": None,
+    "fetched_at": 0.0,
+}
+_GITHUB_RELEASES_TTL = 900  # 15 minutes in seconds
+
+
+def _get_cached_releases() -> list | None:
+    """Return cached GitHub releases if still fresh, else None."""
+    if (
+        _GITHUB_RELEASES_CACHE["data"] is not None
+        and (time.monotonic() - _GITHUB_RELEASES_CACHE["fetched_at"]) < _GITHUB_RELEASES_TTL
+    ):
+        return _GITHUB_RELEASES_CACHE["data"]
+    return None
+
+
+def _fetch_github_releases(repo: str = "boneIO-eu/app_black") -> tuple[list | None, str | None]:
+    """Fetch releases from GitHub API with caching.
+
+    Returns:
+        Tuple of (releases_list, error_message).
+        On success error_message is None; on failure releases_list is None.
+    """
+    cached = _get_cached_releases()
+    if cached is not None:
+        _LOGGER.debug("Using cached GitHub releases (%d entries)", len(cached))
+        return cached, None
+
+    try:
+        import requests
+    except ImportError:
+        return None, "Package 'requests' is not installed. Run: pip install requests"
+
+    api_url = f"https://api.github.com/repos/{repo}/releases"
+    try:
+        response = requests.get(api_url, timeout=10)
+    except Exception as exc:
+        return None, f"GitHub API request failed: {exc}"
+
+    if response.status_code != 200:
+        return None, f"Failed to fetch releases: {response.text}"
+
+    releases = response.json()
+
+    # Store in cache
+    _GITHUB_RELEASES_CACHE["data"] = releases
+    _GITHUB_RELEASES_CACHE["fetched_at"] = time.monotonic()
+    _LOGGER.debug("Fetched and cached %d GitHub releases", len(releases))
+
+    return releases, None
 
 
 def get_manager():
@@ -112,16 +169,6 @@ async def check_update():
     current_version = __version__
     
     try:
-        import requests
-    except ImportError:
-        _LOGGER.error("Package 'requests' is not installed")
-        return {
-            "status": "error",
-            "message": "Package 'requests' is not installed. Run: pip install requests",
-            "current_version": current_version
-        }
-    
-    try:
         from packaging import version
     except ImportError:
         _LOGGER.error("Package 'packaging' is not installed")
@@ -132,18 +179,14 @@ async def check_update():
         }
     
     try:
-        repo = "boneIO-eu/app_black"
-        api_url = f'https://api.github.com/repos/{repo}/releases'
-        response = requests.get(api_url, timeout=10)
+        releases, error = _fetch_github_releases()
         
-        if response.status_code != 200:
+        if error:
             return {
                 "status": "error",
-                "message": f"Failed to fetch releases: {response.text}",
+                "message": error,
                 "current_version": current_version
             }
-        
-        releases = response.json()
         
         if not releases:
             return {
@@ -454,29 +497,18 @@ async def list_available_versions():
     current_version = __version__
     
     try:
-        import requests
-    except ImportError:
-        return {
-            "status": "error",
-            "message": "Package 'requests' is not installed",
-            "current_version": current_version,
-            "versions": []
-        }
-    
-    try:
-        repo = "boneIO-eu/app_black"
-        api_url = f'https://api.github.com/repos/{repo}/releases'
-        response = requests.get(api_url, timeout=10)
+        releases, error = _fetch_github_releases()
         
-        if response.status_code != 200:
+        if error:
             return {
                 "status": "error",
-                "message": f"GitHub API error: {response.status_code}",
+                "message": error,
                 "current_version": current_version,
                 "versions": []
             }
         
-        releases = response.json()
+        if not releases:
+            releases = []
         versions = []
         
         for release in releases:
