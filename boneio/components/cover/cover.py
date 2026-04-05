@@ -326,6 +326,18 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             return CLOSED if self._position == 0 else OPEN
 
     @property
+    def is_open(self) -> bool:
+        """Whether the cover is currently open (position > 0).
+        
+        Used by the action conditions system to evaluate ``is_open`` / ``is_closed``
+        checks for covers.
+        
+        Returns:
+            True if the cover is not fully closed.
+        """
+        return self._position > 0
+
+    @property
     def position(self) -> int:
         return round(self._position, 0)
 

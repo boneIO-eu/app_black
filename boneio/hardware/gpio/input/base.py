@@ -13,7 +13,6 @@ import time
 from boneio.const import PRESSED, RELEASED, ClickTypes
 from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
-from boneio.hardware.gpio.input.manager import get_gpio_manager
 from boneio.models import InputState
 from boneio.models.events import InputEvent
 
@@ -212,6 +211,18 @@ class GpioBaseClass:
             Last click type or "Unknown"
         """
         return self._last_state
+
+    @property
+    def is_active(self) -> bool:
+        """Whether the input is currently in the active (pressed) state.
+        
+        Used by the action conditions system to evaluate ``is_on`` / ``is_off``
+        checks for binary sensors.
+        
+        Returns:
+            True if the input is currently pressed/active.
+        """
+        return self._state
 
     @property
     def input_type(self) -> str:

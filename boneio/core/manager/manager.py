@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import time
+from datetime import datetime
 from collections import deque
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
@@ -47,7 +48,7 @@ from boneio.core.manager.update import UpdateManager
 from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
-from boneio.core.utils.conditions import evaluate_conditions
+from boneio.core.manager.action_conditions import precompile_conditions, should_execute_action
 from boneio.hardware.i2c.bus import SMBus2I2C
 
 if TYPE_CHECKING:
@@ -478,6 +479,10 @@ class Manager:
             for key in ("condition", "conditions"):
                 if action_definition.get(key) is not None:
                     parsed_action[key] = action_definition[key]
+            # Pre-compile conditions for fast evaluation at action time
+            compiled = precompile_conditions(parsed_action)
+            if compiled is not None:
+                parsed_action["_compiled_conditions"] = compiled
         
         parsed_actions = {}
         for click_type in actions:
@@ -682,6 +687,8 @@ class Manager:
         duration_ms = (duration or 0) * 1000  # Convert to ms
         
         start_time = time.time()
+        # Compute datetime once for all condition evaluations in this batch
+        now_dt = datetime.now()
         
         for idx, action_definition in enumerate(actions):
             is_repeat = action_definition.get("repeat", False)
@@ -689,57 +696,35 @@ class Manager:
             
             # Skip if already executed (unless it's a repeat action)
             if idx in executed_actions and not is_repeat:
-                _LOGGER.debug("Action %d already executed, skipping", idx)
                 continue
             
             # Check duration thresholds
             min_dur = action_definition.get("min_duration")  # ms
             max_dur = action_definition.get("max_duration")  # ms
             
-            _LOGGER.debug(
-                "Checking action %d: min_dur=%s, max_dur=%s, duration_ms=%.1f, repeat=%s, executed=%s",
-                idx, min_dur, max_dur, duration_ms, is_repeat, executed_actions
-            )
-            
             if min_dur is not None or max_dur is not None:
                 # Action has duration thresholds
                 if min_dur is not None and duration_ms < min_dur:
-                    _LOGGER.debug("Action %d: duration %.1fms < min_dur %dms, skipping", idx, duration_ms, min_dur)
                     continue  # Duration too short
                 if max_dur is not None and duration_ms >= max_dur:
-                    _LOGGER.debug("Action %d: duration %.1fms >= max_dur %dms, skipping", idx, duration_ms, max_dur)
                     continue  # Duration too long
-                _LOGGER.debug("Action %d: duration %.1fms in range [%s, %s), executing", idx, duration_ms, min_dur, max_dur)
             else:
                 if is_repeat:
                     # Repeat action - check interval throttling
                     now_ms = duration_ms
                     last_time = last_repeat_times.get(idx, 0.0)
                     if last_time > 0 and (now_ms - last_time) < repeat_interval_ms:
-                        _LOGGER.debug(
-                            "Action %d: repeat throttled (%.1fms since last, interval=%dms)",
-                            idx, now_ms - last_time, repeat_interval_ms
-                        )
                         continue
-                    _LOGGER.debug(
-                        "Action %d: repeat action, interval ok (%.1fms since last, interval=%dms)",
-                        idx, now_ms - last_time, repeat_interval_ms
-                    )
                 else:
                     # Action without thresholds - execute only once (on first long event)
                     if idx in executed_actions:
-                        _LOGGER.debug("Action %d: no thresholds, already executed, skipping", idx)
                         continue
-                    _LOGGER.debug("Action %d: no thresholds, not yet executed, executing", idx)
 
-            # Check conditions (time, date, state)
-            action_condition = action_definition.get("condition")
-            action_conditions = action_definition.get("conditions")
-            if action_condition or action_conditions:
-                if not evaluate_conditions(
-                    condition=action_condition,
-                    conditions=action_conditions,
-                    state_resolver=self._resolve_entity_state,
+            # Check conditions (time, date, state) — uses pre-compiled fast path
+            compiled_cond = action_definition.get("_compiled_conditions")
+            if compiled_cond is not None:
+                if not should_execute_action(
+                    compiled_cond, now_dt, self._resolve_entity_state,
                 ):
                     _LOGGER.debug("Action %d: condition not met, skipping", idx)
                     continue
