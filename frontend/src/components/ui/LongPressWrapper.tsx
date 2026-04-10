@@ -10,6 +10,12 @@ interface LongPressWrapperProps {
     preventDefaultOnTouchStart?: boolean;
 }
 
+/**
+ * Selector for interactive elements that should NOT trigger long press.
+ * Includes buttons, links, form controls, and Radix UI combobox/listbox portals.
+ */
+const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [data-radix-select-viewport]';
+
 export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
     children,
     onLongPress,
@@ -23,8 +29,8 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
     const isLongPress = useRef(false);
 
     const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
-        // Ignore clicks on buttons/links
-        if ((e.target as Element).closest('button, a')) return;
+        // Ignore clicks on interactive elements (buttons, links, form controls, dropdowns)
+        if ((e.target as Element).closest(INTERACTIVE_SELECTOR)) return;
 
         if (preventDefaultOnTouchStart && e.type === 'touchstart') {
             try { e.preventDefault(); } catch { /* ignore passivity errors */ }
@@ -50,7 +56,7 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
     };
 
     const handleClick = (e: React.MouseEvent) => {
-        if ((e.target as Element).closest('button, a')) return;
+        if ((e.target as Element).closest(INTERACTIVE_SELECTOR)) return;
         if (!isLongPress.current && onClick) {
             onClick(e);
         }
@@ -66,7 +72,7 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={handlePressEnd}
             onContextMenu={(e) => {
-                if (!(e.target as Element).closest('button, a')) {
+                if (!(e.target as Element).closest(INTERACTIVE_SELECTOR)) {
                     e.preventDefault();
                 }
             }}
