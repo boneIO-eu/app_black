@@ -148,7 +148,14 @@ class CoverManager:
                         # Remove old cover from dict (will be recreated below)
                         del self._covers[_id]
                     else:
-                        # Same platform - update relays, times and autodiscovery
+                        # Same platform - update name, relays, times and autodiscovery
+                        _new_name = _config.get(NAME) or _id
+                        if _cover._name != _new_name:
+                            _LOGGER.info(
+                                "Cover %s name changed: '%s' -> '%s'",
+                                _id, _cover._name, _new_name
+                            )
+                            _cover._name = _new_name
                         old_open = getattr(_cover._open_relay, 'id', None)
                         old_close = getattr(_cover._close_relay, 'id', None)
                         if old_open != open_relay_id or old_close != close_relay_id:
@@ -159,7 +166,7 @@ class CoverManager:
                         _cover._open_relay = open_relay
                         _cover._close_relay = close_relay
                         _cover.update_config_times(_config)
-                        # Re-send HA autodiscovery with potentially new area
+                        # Re-send HA autodiscovery with potentially new name/area
                         if _config.get(SHOW_HA, True):
                             # Remove old autodiscovery first (in case area changed)
                             self._remove_cover_ha_discovery(_id)
