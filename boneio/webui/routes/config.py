@@ -618,7 +618,8 @@ async def restore_config(file: UploadFile = File(...)):
             "restored_files": restored_files,
             "backup_path": str(backup_path),
             "validation_status": validation_status,
-            "validation_message": validation_message
+            "validation_message": validation_message,
+            "restart_required": True
         }
         
     except tarfile.TarError as e:

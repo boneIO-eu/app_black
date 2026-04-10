@@ -97,13 +97,17 @@ export default function BackupSection() {
     setError(null);
     setRestoreResult(null);
     try {
-      const { data } = await axios.post('/api/config/restore_backup', { backup_path: backupPath });
-      setRestoreResult(data);
-      if (data.status === 'success' && data.restart_required) {
-        if (confirm(t('system_update.restore_success_restart'))) {
-          await axios.post('/api/restart');
-          setTimeout(() => window.location.reload(), 3000);
+      const { data } = await axios.post('/api/config/restore_backup', { backup_path: backupPath }, { timeout: 30000 });
+      if (data.status === 'success') {
+        setRestoreResult(data);
+        if (data.restart_required) {
+          if (confirm(t('system_update.restore_success_restart'))) {
+            await axios.post('/api/restart');
+            setTimeout(() => window.location.reload(), 3000);
+          }
         }
+      } else {
+        setError(data.message || t('system_update.restore_failed'));
       }
     } catch (err) {
       setError(t('system_update.restore_failed'));
@@ -150,6 +154,7 @@ export default function BackupSection() {
       formData.append('file', file);
       const { data } = await axios.post('/api/config/restore', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
       });
       if (data.status === 'success') {
         setRestoreResult(data);
@@ -158,7 +163,7 @@ export default function BackupSection() {
           setTimeout(() => window.location.reload(), 3000);
         }
       } else {
-        setError(data.message);
+        setError(data.message || t('system_update.restore_failed'));
       }
     } catch (err) {
       setError(t('system_update.restore_failed'));
