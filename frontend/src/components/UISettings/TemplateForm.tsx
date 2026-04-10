@@ -3,12 +3,14 @@ import { useTranslation } from '@/hooks/useTranslation';
 import ThermostatForm from './ThermostatForm';
 import AlarmPanelForm from './AlarmPanelForm';
 import GateCoverForm from './GateCoverForm';
+import IrrigationForm from './IrrigationForm';
 import type { TemplateFormProps } from './types/template';
 
 const PLATFORM_ICONS: Record<string, string> = {
   thermostat: '🌡️',
   alarm_control_panel: '🚨',
   gate_cover: '🚪',
+  irrigation: '💧',
 };
 
 /**
@@ -45,6 +47,8 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
         <ThermostatForm {...subFormProps} />
       ) : platform === 'gate_cover' ? (
         <GateCoverForm {...subFormProps} />
+      ) : platform === 'irrigation' ? (
+        <IrrigationForm {...subFormProps} />
       ) : (
         <AlarmPanelForm {...subFormProps} />
       )}

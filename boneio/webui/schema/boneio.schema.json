@@ -118,6 +118,20 @@
           "default": false,
           "description": "[EXPERIMENTAL] HA child devices mode",
           "title": "Ha child devices"
+        },
+        "ha_child_devices_naming": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "device_name",
+            "device_name_area"
+          ],
+          "examples": [
+            "default"
+          ],
+          "description": "Child device naming style",
+          "title": "Ha child devices naming"
         }
       },
       "required": [

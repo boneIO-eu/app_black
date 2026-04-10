@@ -55,6 +55,13 @@ class IrrigationController:
         schedule: list[dict[str, Any]] | None = None,
         master_valve: Any | None = None,
         valve_open_delay_s: int = 0,
+        valve_overlap_s: int = 0,
+        standby: bool = False,
+        pump_switch_off_during_valve_open_delay: bool = False,
+        pump_start_pump_delay_s: int = 0,
+        pump_start_valve_delay_s: int = 0,
+        pump_stop_pump_delay_s: int = 0,
+        pump_stop_valve_delay_s: int = 0,
         multiplier: float = 1.0,
         repeat: int = 0,
         auto_advance: bool = True,
@@ -71,6 +78,13 @@ class IrrigationController:
         self._schedule = schedule or []
         self._master_valve = master_valve
         self._valve_open_delay_s = max(0, int(valve_open_delay_s))
+        self._valve_overlap_s = max(0, int(valve_overlap_s))
+        self._standby = standby
+        self._pump_switch_off_during_valve_open_delay = pump_switch_off_during_valve_open_delay
+        self._pump_start_pump_delay_s = max(0, int(pump_start_pump_delay_s))
+        self._pump_start_valve_delay_s = max(0, int(pump_start_valve_delay_s))
+        self._pump_stop_pump_delay_s = max(0, int(pump_stop_pump_delay_s))
+        self._pump_stop_valve_delay_s = max(0, int(pump_stop_valve_delay_s))
 
         self._state = ControllerState.IDLE
         self._auto_advance = auto_advance
@@ -144,6 +158,7 @@ class IrrigationController:
         self._auto_advance = bool(self._get("auto_advance", self._auto_advance))
         self._reverse = bool(self._get("reverse", self._reverse))
         self._skip_next_run = bool(self._get("skip_next_run", False))
+        self._standby = bool(self._get("standby", self._standby))
 
         for idx, zone in enumerate(self._zones):
             zone.enabled = bool(self._get(f"zone/{zone.id}/enabled", zone.enabled))
@@ -200,6 +215,10 @@ class IrrigationController:
             self._setting_state_topic("reverse"),
             {"state": ON if self._reverse else OFF},
         )
+        self._publish(
+            self._setting_state_topic("standby"),
+            {"state": ON if self._standby else OFF},
+        )
         self._publish(self._setting_state_topic("multiplier"), {"value": self._multiplier})
         self._publish(self._setting_state_topic("repeat"), {"value": self._repeat})
 
@@ -221,7 +240,7 @@ class IrrigationController:
     async def shutdown(self) -> None:
         self.stop_schedules()
         await self._stop_current_zone()
-        await self._set_master(False)
+        await self._handle_pump_stop_sequence()
         self._state = ControllerState.IDLE
         self._active_zone_idx = None
         self._active_zone_remaining_s = None
@@ -259,6 +278,10 @@ class IrrigationController:
         await self._advance_to_next_zone(force=True)
 
     async def start_full_cycle(self) -> None:
+        if self._standby:
+            _LOGGER.info("Irrigation %s is in standby mode, not starting", self.id)
+            return
+
         if self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
             await self.shutdown()
 
@@ -276,6 +299,10 @@ class IrrigationController:
         await self._start_cycle_from_eligible()
 
     async def start_single_zone(self, zone_id: str) -> None:
+        if self._standby:
+            _LOGGER.info("Irrigation %s is in standby mode, not starting zone", self.id)
+            return
+
         match_idx = None
         for idx, zone in enumerate(self._zones):
             if zone.id == zone_id:
@@ -310,15 +337,18 @@ class IrrigationController:
             return
 
         finished_idx = self._active_zone_idx
-        await self._stop_current_zone()
         finished_zone = self._zones[finished_idx]
         self._save(f"zone/{finished_zone.id}/last_run_utc", utcnow().isoformat())
 
         if self._single_zone_mode:
+            await self._stop_current_zone()
+            await self._handle_pump_stop_sequence()
             await self.shutdown()
             return
 
         if not self._auto_advance and not force:
+            await self._stop_current_zone()
+            await self._handle_pump_stop_sequence()
             await self.shutdown()
             return
 
@@ -336,7 +366,35 @@ class IrrigationController:
             remaining = [idx for idx in tail if idx in eligible and idx != finished_idx]
 
         if remaining:
-            await self._start_zone(remaining[0])
+            next_idx = remaining[0]
+            # Handle valve overlap: start next before stopping current
+            if self._valve_overlap_s > 0:
+                next_zone = self._zones[next_idx]
+                try:
+                    await next_zone.valve.async_turn_on()
+                except Exception as err:
+                    _LOGGER.error("Failed to turn on next zone %s: %s", next_zone.id, err)
+                await asyncio.sleep(self._valve_overlap_s)
+                await self._stop_current_zone()
+                self._active_zone_idx = next_idx
+                duration = self._scaled_duration(next_zone.run_duration)
+                self._active_zone_remaining_s = max(1, int(duration))
+                self._run_start_utc = utcnow()
+                self._arm_zone_timer(self._active_zone_remaining_s)
+                await self.publish_all_states()
+                return
+
+            await self._stop_current_zone()
+
+            # Handle valve_open_delay between zones
+            if self._valve_open_delay_s > 0:
+                if self._pump_switch_off_during_valve_open_delay and self._master_valve is not None:
+                    await self._set_master(False)
+                await asyncio.sleep(self._valve_open_delay_s)
+                if self._pump_switch_off_during_valve_open_delay and self._master_valve is not None:
+                    await self._set_master(True)
+
+            await self._start_zone(next_idx)
             return
 
         if self._current_repeat_index < self._repeat:
@@ -365,9 +423,28 @@ class IrrigationController:
         self._state = ControllerState.RUNNING
 
         if self._master_valve is not None:
-            await self._set_master(True)
-            if self._valve_open_delay_s > 0:
-                await asyncio.sleep(self._valve_open_delay_s)
+            if self._pump_start_valve_delay_s > 0:
+                # Pump first, then valve after delay
+                await self._set_master(True)
+                await asyncio.sleep(self._pump_start_valve_delay_s)
+            elif self._pump_start_pump_delay_s > 0:
+                # Valve first, then pump after delay
+                try:
+                    await zone.valve.async_turn_on()
+                except Exception as err:
+                    _LOGGER.error("Failed to turn on zone %s: %s", zone.id, err)
+                    await self.shutdown()
+                    return
+                await asyncio.sleep(self._pump_start_pump_delay_s)
+                await self._set_master(True)
+                self._run_start_utc = utcnow()
+                self._arm_zone_timer(duration)
+                await self.publish_all_states()
+                return
+            else:
+                await self._set_master(True)
+                if self._valve_open_delay_s > 0:
+                    await asyncio.sleep(self._valve_open_delay_s)
 
         try:
             await zone.valve.async_turn_on()
@@ -399,6 +476,21 @@ class IrrigationController:
                 await self._master_valve.async_turn_off()
         except Exception as err:
             _LOGGER.error("Failed to switch master valve for %s: %s", self.id, err)
+
+    async def _handle_pump_stop_sequence(self) -> None:
+        \"\"\"Handle pump stop timing according to configured pump stop delays.\"\"\"
+        if self._master_valve is None:
+            return
+        if self._pump_stop_valve_delay_s > 0:
+            # Pump off first, then valve after delay
+            await self._set_master(False)
+            await asyncio.sleep(self._pump_stop_valve_delay_s)
+        elif self._pump_stop_pump_delay_s > 0:
+            # Valve already off from _stop_current_zone, pump off after delay
+            await asyncio.sleep(self._pump_stop_pump_delay_s)
+            await self._set_master(False)
+        else:
+            await self._set_master(False)
 
     def _scaled_duration(self, seconds: int) -> int:
         return int(max(1, round(seconds * self._multiplier)))
@@ -477,6 +569,13 @@ class IrrigationController:
     async def set_reverse(self, value: bool) -> None:
         self._reverse = bool(value)
         self._save("reverse", self._reverse)
+        await self.publish_all_states()
+
+    async def set_standby(self, value: bool) -> None:
+        self._standby = bool(value)
+        self._save("standby", self._standby)
+        if self._standby and self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
+            await self.shutdown()
         await self.publish_all_states()
 
     async def set_multiplier(self, value: float) -> None:

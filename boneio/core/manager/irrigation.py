@@ -85,6 +85,13 @@ class IrrigationManager:
             schedule=schedule,
             master_valve=master_valve,
             valve_open_delay_s=int(parse_time_to_seconds(cfg.get("valve_open_delay"), 0)),
+            valve_overlap_s=int(parse_time_to_seconds(cfg.get("valve_overlap"), 0)),
+            standby=bool(cfg.get("standby", False)),
+            pump_switch_off_during_valve_open_delay=bool(cfg.get("pump_switch_off_during_valve_open_delay", False)),
+            pump_start_pump_delay_s=int(parse_time_to_seconds(cfg.get("pump_start_pump_delay"), 0)),
+            pump_start_valve_delay_s=int(parse_time_to_seconds(cfg.get("pump_start_valve_delay"), 0)),
+            pump_stop_pump_delay_s=int(parse_time_to_seconds(cfg.get("pump_stop_pump_delay"), 0)),
+            pump_stop_valve_delay_s=int(parse_time_to_seconds(cfg.get("pump_stop_valve_delay"), 0)),
             multiplier=float(cfg.get("multiplier", 1.0)),
             repeat=int(cfg.get("repeat", 0)),
             auto_advance=bool(cfg.get("auto_advance", True)),
@@ -179,11 +186,15 @@ class IrrigationManager:
         async def handle_skip_next(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
             await _ctrl.set_skip_next_run(payload.strip().upper() == ON)
 
+        async def handle_standby(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
+            await _ctrl.set_standby(payload.strip().upper() == ON)
+
         await self._subscribe_topic(ctrl._setting_cmd_topic("auto_advance"), handle_auto_advance)
         await self._subscribe_topic(ctrl._setting_cmd_topic("reverse"), handle_reverse)
         await self._subscribe_topic(ctrl._setting_cmd_topic("multiplier"), handle_multiplier)
         await self._subscribe_topic(ctrl._setting_cmd_topic("repeat"), handle_repeat)
         await self._subscribe_topic(ctrl._setting_cmd_topic("skip_next_run"), handle_skip_next)
+        await self._subscribe_topic(ctrl._setting_cmd_topic("standby"), handle_standby)
 
         for zone in ctrl.zones:
             async def handle_zone(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id) -> None:
@@ -250,8 +261,18 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
-            id=f"{ctrl.id}_multiplier",
+        self._manager.publish_ha_discovery(            id=f\"{ctrl.id}_standby\",
+            ha_type=\"switch\",
+            payload=ha_irrigation_switch_message(
+                ctrl.id,
+                ctrl.name,
+                suffix=\"standby\",
+                name=f\"{ctrl.name} Standby\",
+                config_helper=cfg,
+            ),
+        )
+
+        self._manager.publish_ha_discovery(            id=f"{ctrl.id}_multiplier",
             ha_type="number",
             payload=ha_irrigation_number_message(
                 ctrl.id,

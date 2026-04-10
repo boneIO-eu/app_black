@@ -1416,7 +1416,7 @@ template:
       platform:
         type: string
         required: True
-        allowed: ['thermostat', 'alarm_control_panel', 'gate_cover']
+        allowed: ['thermostat', 'alarm_control_panel', 'gate_cover', 'irrigation']
         meta:
           label: Template platform type.
       area:
@@ -1630,6 +1630,309 @@ template:
         required: False
         meta:
           label: Input ID of the open contact sensor.
+      # --- Irrigation fields ---
+      master_valve:
+        type: string
+        required: False
+        meta:
+          label: Output ID of the master valve/pump (irrigation only).
+      standby:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: When enabled, the controller will not start any valves (irrigation only).
+      valve_open_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay between valve switching. May not be used with valve_overlap (irrigation only). Example 2s.
+      valve_overlap:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Time that current and next valve run simultaneously. May not be used with valve_open_delay (irrigation only).
+      pump_switch_off_during_valve_open_delay:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Turn off pump during valve_open_delay interval (irrigation only).
+      pump_start_pump_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from valve open to pump activation. May not be used with pump_start_valve_delay (irrigation only).
+      pump_start_valve_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from pump start to valve open. May not be used with pump_start_pump_delay (irrigation only).
+      pump_stop_pump_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from valve close to pump deactivation. May not be used with pump_stop_valve_delay (irrigation only).
+      pump_stop_valve_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from pump deactivation to valve close. May not be used with pump_stop_pump_delay (irrigation only).
+      multiplier:
+        type: float
+        required: False
+        default: 1.0
+        meta:
+          label: Duration multiplier for all zone run times (irrigation only).
+      repeat:
+        type: integer
+        required: False
+        default: 0
+        meta:
+          label: Number of times to repeat the full cycle (irrigation only).
+      auto_advance:
+        type: boolean
+        required: False
+        default: True
+        meta:
+          label: Auto-advance to next zone (irrigation only).
+      reverse:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Run zones in reverse order (irrigation only).
+      schedule:
+        type: list
+        required: False
+        meta:
+          label: Scheduled start times (irrigation only).
+        schema:
+          type: dict
+          schema:
+            time:
+              type: string
+              required: True
+              meta:
+                label: "Start time in HH:MM format."
+            days:
+              type: string
+              required: False
+              default: daily
+              allowed: ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+              meta:
+                label: Days when this schedule is active.
+
+irrigation:
+  type: list
+  required: False
+  meta:
+    label: "Irrigation controllers — manage watering zones with schedules, per-zone intervals, and master valve support."
+  schema:
+    type: dict
+    schema:
+      id: !include id.yaml
+      name:
+        type: string
+        required: False
+        meta:
+          label: Display name for the irrigation controller in Home Assistant.
+      master_valve:
+        type: string
+        required: False
+        meta:
+          label: Output ID of the master valve (pump). Turned on before any zone opens.
+      standby:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: When enabled, the controller will not start any valves.
+      valve_open_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay between valve switching. May not be used with valve_overlap.
+      valve_overlap:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Time that current and next valve run simultaneously. May not be used with valve_open_delay.
+      pump_switch_off_during_valve_open_delay:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Turn off pump during valve_open_delay interval.
+      pump_start_pump_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from valve open to pump activation. May not be used with pump_start_valve_delay.
+      pump_start_valve_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from pump start to valve open. May not be used with pump_start_pump_delay.
+      pump_stop_pump_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from valve close to pump deactivation. May not be used with pump_stop_valve_delay.
+      pump_stop_valve_delay:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Delay from pump deactivation to valve close. May not be used with pump_stop_pump_delay.
+      multiplier:
+        type: float
+        required: False
+        default: 1.0
+        meta:
+          label: Duration multiplier applied to all zone run times. 1.0 = 100%.
+      repeat:
+        type: integer
+        required: False
+        default: 0
+        meta:
+          label: Number of times to repeat the full cycle. 0 = run once.
+      auto_advance:
+        type: boolean
+        required: False
+        default: True
+        meta:
+          label: Automatically advance to the next zone. Disable for single-zone manual mode.
+      reverse:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Run zones in reverse order.
+      schedule:
+        type: list
+        required: False
+        meta:
+          label: Scheduled start times for this controller.
+        schema:
+          type: dict
+          schema:
+            time:
+              type: string
+              required: True
+              meta:
+                label: "Start time in HH:MM format. Example: 06:00."
+            days:
+              type: string
+              required: False
+              default: daily
+              allowed: ['daily', 'weekdays', 'weekend', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+              meta:
+                label: Days when this schedule is active.
+      zones:
+        type: list
+        required: True
+        meta:
+          label: Irrigation zones — each zone controls a single valve output.
+        schema:
+          type: dict
+          schema:
+            id: !include id.yaml
+            name:
+              type: string
+              required: False
+              meta:
+                label: Display name for the zone.
+            valve_id:
+              type: string
+              required: True
+              meta:
+                label: Output ID of the valve relay to control.
+            run_duration:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: True
+              meta:
+                label: How long to run this zone. Example 5min or 300s.
+            enabled:
+              type: boolean
+              required: False
+              default: True
+              meta:
+                label: Whether this zone is active.
+            run_every:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: False
+              meta:
+                label: Minimum interval between runs. Example 1d, 2d, 3d.
 
 ds2482:
   type: list

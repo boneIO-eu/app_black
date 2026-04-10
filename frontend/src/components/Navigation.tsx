@@ -147,7 +147,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasBoneioSection } = useConfig();
+  const { hasBoneioSection, hasIrrigationSection } = useConfig();
   const { isNodeRedAvailable } = useNodeRedAvailability();
 
   const menuItems: MenuItem[] = [
@@ -156,7 +156,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/sensors', icon: FaThermometerHalf, label: t('navigation.sensors') },
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
-    { path: '/irrigation', icon: FaTint, label: t('navigation.irrigation') },
+    ...(hasIrrigationSection ? [{ path: '/irrigation', icon: FaTint, label: t('navigation.irrigation') }] : []),
     { path: '/tools', icon: FaToolbox, label: t('navigation.tools'), right: true },
     // Settings (experimental) - only show if boneio section exists in config
     ...(hasBoneioSection ? [{ path: '/settings', icon: FaCode, label: t('navigation.settings'), right: true }] : []),

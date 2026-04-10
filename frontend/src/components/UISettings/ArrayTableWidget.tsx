@@ -1165,6 +1165,17 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 <div className="text-sm text-base-content/60">{t('template.platform_gate_cover_hint')}</div>
               </div>
             </button>
+            <button
+              type="button"
+              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
+              onClick={() => handleTemplatePlatformSelect('irrigation')}
+            >
+              <span className="text-2xl">💧</span>
+              <div>
+                <div className="font-semibold">{t('template.platform_irrigation')}</div>
+                <div className="text-sm text-base-content/60">{t('template.platform_irrigation_hint')}</div>
+              </div>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
