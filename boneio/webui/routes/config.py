@@ -492,7 +492,9 @@ async def download_config():
     buffer.seek(0)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"boneio_config_{timestamp}.tar.gz"
+    manager: Manager = _get_app_state().manager
+    device_name = manager.config_helper.serial_no
+    filename = f"{device_name}_config_{timestamp}.tar.gz"
     
     _LOGGER.info(f"Downloading config archive: {filename}")
     
