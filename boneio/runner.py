@@ -37,6 +37,7 @@ from boneio.const import (
     PCA9685,
     PCF8575,
     PORT,
+    IRRIGATION,
     SENSOR,
     TEMPLATE,
     TOPIC_PREFIX,
@@ -127,6 +128,7 @@ config_modules = [
     {"name": DALLAS, "default": None},
     {"name": OUTPUT_GROUP, "default": []},
     {"name": TEMPLATE, "default": []},
+    {"name": IRRIGATION, "default": []},
 ]
 
 

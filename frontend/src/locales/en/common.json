@@ -12,7 +12,8 @@
     "system_update": "System",
     "help": "Help",
     "templates": "Templates",
-    "experimental": "EXPERIMENTAL"
+    "experimental": "EXPERIMENTAL",
+    "irrigation": "Irrigation"
   },
   "outputs": {
     "title": "Outputs",
@@ -1613,5 +1614,35 @@
     "status_ok_hint": "Sudoers NOPASSWD is configured correctly. The application can change timezone and NTP settings without a password.",
     "info_1": "This will create a sudoers file that allows the application to change timezone and NTP settings without a password:",
     "info_2": "The file grants NOPASSWD access only to timedatectl set-timezone and set-ntp commands."
+  },
+  "irrigation": {
+    "title": "Irrigation",
+    "no_controllers": "No irrigation controllers configured. Add an irrigation section to your YAML configuration.",
+    "fetch_error": "Failed to load irrigation data.",
+    "refresh": "Refresh",
+    "state_idle": "Idle",
+    "state_running": "Running",
+    "state_paused": "Paused",
+    "start": "Start cycle",
+    "stop": "Stop",
+    "pause": "Pause",
+    "resume": "Resume",
+    "next_zone": "Skip to next zone",
+    "zones": "Zones",
+    "schedules": "Schedules",
+    "multiplier": "Duration multiplier",
+    "skip_next": "Skip next scheduled run",
+    "auto_advance": "Auto-advance zones",
+    "reverse": "Reverse zone order",
+    "zone_enable": "Enable zone",
+    "zone_disable": "Disable zone",
+    "start_zone": "Start this zone only",
+    "edit_duration": "Click to edit duration",
+    "edit_run_every": "Click to edit run frequency",
+    "every_n_days": "every {n}d",
+    "skip_run": "Skip",
+    "no_zones": "No zones configured.",
+    "no_schedules": "No schedules configured.",
+    "settings": "Settings"
   }
 }

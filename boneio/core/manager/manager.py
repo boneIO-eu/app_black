@@ -39,6 +39,7 @@ from boneio.core.events import EventBus
 from boneio.core.manager.covers import CoverManager
 from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
+from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
@@ -119,6 +120,7 @@ class Manager:
         adc: list[dict] | None = None,
         cover: list[dict] = [],
         template: list[dict] = [],
+        irrigation: list[dict] = [],
         remote_devices: list[dict] = [],
         can: dict[str, Any] = {},
         web_active: bool = False,
@@ -240,6 +242,12 @@ class Manager:
                 manager=self,
                 config=can,
             )
+
+        # 12. IrrigationManager (optional)
+        self.irrigation = IrrigationManager(
+            manager=self,
+            irrigation_config=irrigation,
+        )
         
         # Configure virtual energy sensors (must be after outputs are initialized)
         self.sensors.configure_virtual_energy_sensors()
@@ -275,6 +283,12 @@ class Manager:
                 await self.canopen.stop()
             except Exception as e:
                 _LOGGER.error("Error stopping CANopen manager: %s", e)
+
+        # Stop irrigation controllers and schedules
+        try:
+            await self.irrigation.stop()
+        except Exception as e:
+            _LOGGER.error("Error stopping irrigation manager: %s", e)
         
         # Stop ESPHome connections
         await self.remote_devices.stop_all_connections()
@@ -410,6 +424,7 @@ class Manager:
         await self.display.send_ha_autodiscovery()
         await self.update_manager.send_ha_autodiscovery()
         await self.templates.send_ha_autodiscovery()
+        await self.irrigation.send_ha_autodiscovery()
 
     def publish_ha_discovery(
         self,
@@ -903,6 +918,8 @@ class Manager:
         
         This should be called after manager is fully initialized.
         """
+        await self.send_all_ha_autodiscovery()
+
         if hasattr(self, '_discovery_publisher'):
             await self._discovery_publisher.publish_discovery()
         else:
@@ -1083,6 +1100,7 @@ class Manager:
         
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()
+        await self.irrigation.start()
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving MQTT messages.

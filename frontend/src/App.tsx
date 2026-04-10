@@ -21,6 +21,7 @@ import UISettings from './components/UISettings/UISettings';
 import SystemState from './components/UISettings/SystemState';
 import NodeRedView from './components/NodeRedView';
 import TemplatesView from './components/TemplatesView';
+import IrrigationView from './components/IrrigationView';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { TranslationProvider } from './contexts/TranslationContext';
 import { appendModbusHistoryPointToStorage, clearModbusHistoryStorage } from './hooks/useModbusHistory';
@@ -311,6 +312,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <TemplatesView />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/irrigation" element={
+          <ProtectedRoute>
+            <Layout>
+              <IrrigationView />
             </Layout>
           </ProtectedRoute>
         } />

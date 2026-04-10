@@ -12,7 +12,8 @@
     "system_update": "System",
     "help": "Pomoc",
     "templates": "Szablony",
-    "experimental": "EKSPERYMENTALNE"
+    "experimental": "EKSPERYMENTALNE",
+    "irrigation": "Nawadnianie"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -1618,5 +1619,35 @@
     "status_ok_hint": "Sudoers NOPASSWD jest poprawnie skonfigurowany. Aplikacja może zmieniać strefę czasową i ustawienia NTP bez hasła.",
     "info_1": "Utworzy plik sudoers, który pozwoli aplikacji zmieniać strefę czasową i ustawienia NTP bez hasła:",
     "info_2": "Plik przyznaje dostęp NOPASSWD tylko do komend timedatectl set-timezone i set-ntp."
+  },
+  "irrigation": {
+    "title": "Nawadnianie",
+    "no_controllers": "Brak skonfigurowanych kontrolerów nawadniania. Dodaj sekcję irrigation do pliku YAML.",
+    "fetch_error": "Nie udało się załadować danych nawadniania.",
+    "refresh": "Odśwież",
+    "state_idle": "Bezczynny",
+    "state_running": "Działa",
+    "state_paused": "Wstrzymany",
+    "start": "Uruchom cykl",
+    "stop": "Zatrzymaj",
+    "pause": "Pauza",
+    "resume": "Wznów",
+    "next_zone": "Przejdź do następnej strefy",
+    "zones": "Strefy",
+    "schedules": "Harmonogramy",
+    "multiplier": "Mnożnik czasu",
+    "skip_next": "Pomiń następny zaplanowany cykl",
+    "auto_advance": "Automatyczne przechodzenie do następnej strefy",
+    "reverse": "Odwróć kolejność stref",
+    "zone_enable": "Włącz strefę",
+    "zone_disable": "Wyłącz strefę",
+    "start_zone": "Uruchom tylko tę strefę",
+    "edit_duration": "Kliknij, aby zmienić czas",
+    "edit_run_every": "Kliknij, aby zmienić częstotliwość",
+    "every_n_days": "co {n}d",
+    "skip_run": "Pomiń",
+    "no_zones": "Brak skonfigurowanych stref.",
+    "no_schedules": "Brak harmonogramów.",
+    "settings": "Ustawienia"
   }
 }

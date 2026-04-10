@@ -34,6 +34,7 @@ from boneio.const import (
     STATE,
     STOP,
     TRIPLE,
+    IRRIGATION,
 )
 from boneio.version import __version__
 from typing import Any, TYPE_CHECKING
@@ -267,6 +268,120 @@ def ha_button_availabilty_message(
     """Create BUTTON availability topic for HA."""
     msg = ha_availabilty_message(device_type="button", config_helper=config_helper, entity_type="button", id=id, **kwargs)
     msg["command_topic"] = f"{config_helper.topic_prefix}/cmd/button/{id}/set"
+    msg["payload_press"] = payload_press
+    return msg
+
+
+def _ha_irrigation_device(ctrl_id: str, ctrl_name: str, config_helper: ConfigHelper) -> dict[str, Any]:
+    """Create HA child-device metadata for one irrigation controller."""
+    topic = config_helper.topic_prefix
+    model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
+    return {
+        "identifiers": [f"{topic}_{IRRIGATION}_{ctrl_id}"],
+        "manufacturer": "boneIO",
+        "model": model,
+        "model_id": config_helper.serial_number,
+        "name": ctrl_name,
+        "serial_number": config_helper.serial_number,
+        "sw_version": __version__,
+        "via_device": topic,
+    }
+
+
+def ha_irrigation_main_switch_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create main ON/OFF switch discovery for irrigation controller."""
+    topic = config_helper.topic_prefix
+    msg = ha_switch_availabilty_message(
+        id=f"irrigation_{ctrl_id}",
+        name=ctrl_name,
+        config_helper=config_helper,
+        device_type=IRRIGATION,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["icon"] = "mdi:sprinkler"
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}"
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/set"
+    msg["value_template"] = "{{ value_json.state }}"
+    return msg
+
+
+def ha_irrigation_switch_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    suffix: str,
+    name: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create switch discovery for irrigation setting/zone/schedule switch."""
+    topic = config_helper.topic_prefix
+    msg = ha_switch_availabilty_message(
+        id=f"irrigation_{ctrl_id}_{suffix.replace('/', '_')}",
+        name=name,
+        config_helper=config_helper,
+        device_type=IRRIGATION,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/{suffix}/set"
+    msg["value_template"] = "{{ value_json.state }}"
+    return msg
+
+
+def ha_irrigation_number_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    suffix: str,
+    name: str,
+    min_val: float,
+    max_val: float,
+    step: float,
+    unit: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create number discovery for irrigation numeric setting."""
+    topic = config_helper.topic_prefix
+    msg = ha_availabilty_message(
+        id=f"irrigation_{ctrl_id}_{suffix.replace('/', '_')}",
+        name=name,
+        entity_type="number",
+        config_helper=config_helper,
+        device_type=IRRIGATION,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/{suffix}/set"
+    msg["value_template"] = "{{ value_json.value }}"
+    msg["mode"] = "box"
+    msg["min"] = min_val
+    msg["max"] = max_val
+    msg["step"] = step
+    if unit:
+        msg["unit_of_measurement"] = unit
+    return msg
+
+
+def ha_irrigation_button_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    suffix: str,
+    name: str,
+    payload_press: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create button discovery for irrigation actions."""
+    topic = config_helper.topic_prefix
+    msg = ha_button_availabilty_message(
+        id=f"irrigation_{ctrl_id}_{suffix}",
+        name=name,
+        config_helper=config_helper,
+        payload_press=payload_press,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/set"
     msg["payload_press"] = payload_press
     return msg
 

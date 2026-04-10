@@ -13,6 +13,7 @@ This module provides the main Manager class that coordinates:
 from boneio.core.manager.covers import CoverManager
 from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
+from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
 from boneio.core.manager.sensors import SensorManager
@@ -22,6 +23,7 @@ __all__ = [
     "Manager",
     "OutputManager",
     "InputManager",
+    "IrrigationManager",
     "CoverManager",
     "SensorManager",
     "ModbusManager",

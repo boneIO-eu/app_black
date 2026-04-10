@@ -217,6 +217,12 @@ def filter_cover_extra_data(action_name: str, extra_data: dict) -> dict:
 
 INA219 = "ina219"
 VIRTUAL_ENERGY_SENSOR = "virtual_energy_sensor"
+
+# IRRIGATION CONSTS
+IRRIGATION = "irrigation"
+NEXT_VALVE = "NEXT_VALVE"
+PAUSE = "PAUSE"
+RESUME = "RESUME"
 PINS = {
     # Based on boneio/boards/0.8/input.yaml
     "P8_37": {"chip": 1, "line": 14},

@@ -1,0 +1,291 @@
+"""Irrigation control routes for BoneIO Web UI."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException
+
+from boneio.const import NEXT_VALVE, OFF, ON, PAUSE, RESUME
+from boneio.core.manager import Manager
+
+_LOGGER = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/irrigation", tags=["irrigation"])
+
+
+def get_manager():
+    """Get manager instance - will be overridden by app initialization."""
+    raise NotImplementedError("Manager not initialized")
+
+
+# ============================================================================
+# List all irrigation controllers and their zone states
+# ============================================================================
+
+
+@router.get("")
+async def list_controllers(manager: Manager = Depends(get_manager)):
+    """Return current state of all irrigation controllers.
+
+    Returns:
+        List of controllers with their zones and runtime status.
+    """
+    result = []
+    for ctrl in manager.irrigation._controllers.values():
+        active_zone = None
+        if ctrl._active_zone_idx is not None and 0 <= ctrl._active_zone_idx < len(ctrl.zones):
+            z = ctrl.zones[ctrl._active_zone_idx]
+            active_zone = {
+                "id": z.id,
+                "name": z.name,
+                "remaining_s": ctrl._active_zone_remaining_s,
+            }
+
+        zones = []
+        for z in ctrl.zones:
+            last_run = ctrl._get(f"zone/{z.id}/last_run_utc", None)
+            zones.append({
+                "id": z.id,
+                "name": z.name,
+                "run_duration": z.run_duration,
+                "enabled": z.enabled,
+                "run_every_days": z.run_every_days,
+                "last_run": str(last_run) if last_run else None,
+            })
+
+        schedules = []
+        for idx, sched in enumerate(ctrl._schedule):
+            schedules.append({
+                "index": idx,
+                "time": sched.get("time", ""),
+                "days": sched.get("days", "daily"),
+                "skip": sched.get("skip", False),
+            })
+
+        result.append({
+            "id": ctrl.id,
+            "name": ctrl.name,
+            "state": ctrl.state.value,
+            "active_zone": active_zone,
+            "multiplier": ctrl._multiplier,
+            "repeat": ctrl._repeat,
+            "auto_advance": ctrl._auto_advance,
+            "reverse": ctrl._reverse,
+            "skip_next_run": ctrl._skip_next_run,
+            "zones": zones,
+            "schedules": schedules,
+        })
+    return result
+
+
+# ============================================================================
+# Controller commands: start / stop / pause / resume / next_valve
+# ============================================================================
+
+
+@router.post("/{ctrl_id}/command")
+async def controller_command(
+    ctrl_id: str,
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Send a command to an irrigation controller.
+
+    Supported commands: ON, OFF, PAUSE, RESUME, NEXT_VALVE.
+    """
+    ctrl = manager.irrigation._controllers.get(ctrl_id)
+    if not ctrl:
+        raise HTTPException(status_code=404, detail="Irrigation controller not found")
+
+    command = str(data.get("command", "")).upper()
+
+    if command == ON:
+        await ctrl.start_full_cycle()
+    elif command == OFF:
+        await ctrl.shutdown()
+    elif command == PAUSE:
+        await ctrl.pause()
+    elif command == RESUME:
+        await ctrl.resume()
+    elif command == NEXT_VALVE:
+        await ctrl.next_valve()
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown command: {command}")
+
+    return {"status": "ok", "state": ctrl.state.value}
+
+
+# ============================================================================
+# Zone commands: enable/disable a single zone or start it manually
+# ============================================================================
+
+
+@router.post("/{ctrl_id}/zone/{zone_id}/command")
+async def zone_command(
+    ctrl_id: str,
+    zone_id: str,
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Send a command to a specific irrigation zone.
+
+    Supported commands: ON (start zone), OFF (stop), ENABLE, DISABLE.
+    """
+    ctrl = manager.irrigation._controllers.get(ctrl_id)
+    if not ctrl:
+        raise HTTPException(status_code=404, detail="Irrigation controller not found")
+
+    zone = next((z for z in ctrl.zones if z.id == zone_id), None)
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
+    command = str(data.get("command", "")).upper()
+
+    if command == ON:
+        await ctrl.start_single_zone(zone_id)
+    elif command == OFF:
+        await ctrl.shutdown()
+    elif command == "ENABLE":
+        zone.enabled = True
+        ctrl._save(f"zone/{zone_id}/enabled", True)
+    elif command == "DISABLE":
+        zone.enabled = False
+        ctrl._save(f"zone/{zone_id}/enabled", False)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown zone command: {command}")
+
+    return {"status": "ok"}
+
+
+# ============================================================================
+# Zone settings: update duration
+# ============================================================================
+
+
+@router.post("/{ctrl_id}/zone/{zone_id}/settings")
+async def update_zone_settings(
+    ctrl_id: str,
+    zone_id: str,
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Update zone runtime settings (duration, run_every_days).
+
+    Body fields (all optional):
+        run_duration: int  — seconds
+        run_every_days: int — days between runs
+        enabled: bool
+    """
+    ctrl = manager.irrigation._controllers.get(ctrl_id)
+    if not ctrl:
+        raise HTTPException(status_code=404, detail="Irrigation controller not found")
+
+    zone = next((z for z in ctrl.zones if z.id == zone_id), None)
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
+    if "run_duration" in data:
+        val = int(data["run_duration"])
+        if val < 1:
+            raise HTTPException(status_code=400, detail="run_duration must be >= 1")
+        zone.run_duration = val
+        ctrl._save(f"zone/{zone_id}/duration", val)
+
+    if "run_every_days" in data:
+        val = int(data["run_every_days"])
+        if val < 1:
+            raise HTTPException(status_code=400, detail="run_every_days must be >= 1")
+        zone.run_every_days = val
+        ctrl._save(f"zone/{zone_id}/run_every_days", val)
+
+    if "enabled" in data:
+        zone.enabled = bool(data["enabled"])
+        ctrl._save(f"zone/{zone_id}/enabled", zone.enabled)
+
+    return {"status": "ok"}
+
+
+# ============================================================================
+# Controller settings: multiplier, repeat, skip_next_run, auto_advance, reverse
+# ============================================================================
+
+
+@router.post("/{ctrl_id}/settings")
+async def update_controller_settings(
+    ctrl_id: str,
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Update controller-level runtime settings.
+
+    Body fields (all optional):
+        multiplier: float
+        repeat: int
+        skip_next_run: bool
+        auto_advance: bool
+        reverse: bool
+    """
+    ctrl = manager.irrigation._controllers.get(ctrl_id)
+    if not ctrl:
+        raise HTTPException(status_code=404, detail="Irrigation controller not found")
+
+    if "multiplier" in data:
+        val = float(data["multiplier"])
+        if val < 0.1:
+            raise HTTPException(status_code=400, detail="multiplier must be >= 0.1")
+        ctrl._multiplier = val
+        ctrl._save("multiplier", val)
+
+    if "repeat" in data:
+        val = int(data["repeat"])
+        if val < 0:
+            raise HTTPException(status_code=400, detail="repeat must be >= 0")
+        ctrl._repeat = val
+        ctrl._save("repeat", val)
+
+    if "skip_next_run" in data:
+        ctrl._skip_next_run = bool(data["skip_next_run"])
+        ctrl._save("skip_next_run", ctrl._skip_next_run)
+
+    if "auto_advance" in data:
+        ctrl._auto_advance = bool(data["auto_advance"])
+        ctrl._save("auto_advance", ctrl._auto_advance)
+
+    if "reverse" in data:
+        ctrl._reverse = bool(data["reverse"])
+        ctrl._save("reverse", ctrl._reverse)
+
+    return {"status": "ok"}
+
+
+# ============================================================================
+# Schedule skip toggle
+# ============================================================================
+
+
+@router.post("/{ctrl_id}/schedule/{idx}/skip")
+async def toggle_schedule_skip(
+    ctrl_id: str,
+    idx: int,
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Set skip flag for a schedule entry.
+
+    Body fields:
+        skip: bool
+    """
+    ctrl = manager.irrigation._controllers.get(ctrl_id)
+    if not ctrl:
+        raise HTTPException(status_code=404, detail="Irrigation controller not found")
+
+    if idx < 0 or idx >= len(ctrl._schedule):
+        raise HTTPException(status_code=404, detail="Schedule index out of range")
+
+    skip = bool(data.get("skip", False))
+    ctrl._schedule[idx]["skip"] = skip
+    ctrl._save(f"schedule/{idx}/skip", skip)
+
+    return {"status": "ok", "skip": skip}
