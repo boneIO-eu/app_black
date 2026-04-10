@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Select,
   SelectContent,
@@ -8,8 +8,12 @@ import {
 } from '@/components/ui/select';
 import type { RemoteCoverActionProps } from './types';
 
+/** Tilt-related cover actions that only apply to covers with tilt support. */
+const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+
 /**
  * Remote Cover Action component - handles ESPHome and MQTT remote covers.
+ * Filters tilt-related actions based on whether the selected cover supports tilt.
  */
 const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
   action,
@@ -24,6 +28,23 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
     ? (selectedDevice?.esphome_api?.covers || [])
     : (selectedDevice?.mqtt?.covers || []);
   const selectedCover = covers.find((c: any) => c.id === action.cover_id);
+
+  /** Check if selected cover supports tilt (ESPHome provides this info). */
+  const supportsTilt = useMemo(() => {
+    if (!selectedCover) return false;
+    // ESPHome covers have explicit supports_tilt flag
+    if ('supports_tilt' in selectedCover) return !!selectedCover.supports_tilt;
+    // For MQTT remote covers, we can't know — show all options
+    return !isEspHome;
+  }, [selectedCover, isEspHome]);
+
+  /** Filter action options: show tilt actions only when cover supports tilt. */
+  const filteredCoverOptions = useMemo(() => {
+    // If no cover selected yet, or device is MQTT (unknown tilt support), show all
+    if (!selectedCover && !isEspHome) return actionCoverOptions;
+    if (supportsTilt) return actionCoverOptions;
+    return actionCoverOptions.filter(opt => !TILT_ACTIONS.includes(opt));
+  }, [actionCoverOptions, supportsTilt, selectedCover, isEspHome]);
 
   return (
     <>
@@ -63,14 +84,30 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
         </label>
         <Select
           value={action.cover_id || ''}
-          onValueChange={(value) => onUpdate('cover_id', value)}
+          onValueChange={(value) => {
+            onUpdate('cover_id', value);
+            // When changing cover, check if new cover supports tilt
+            const newCover = covers.find((c: any) => c.id === value);
+            const newSupportsTilt = newCover && 'supports_tilt' in newCover ? !!newCover.supports_tilt : !isEspHome;
+            if (!newSupportsTilt && TILT_ACTIONS.includes(action.action_cover)) {
+              onUpdate('action_cover', 'TOGGLE');
+              onUpdate('data', undefined);
+            }
+          }}
           disabled={!action.remote_device}
         >
           <SelectTrigger className="w-full input input-bordered h-auto min-h-12 py-2">
             <SelectValue placeholder={t('event_form.select_cover_id')}>
               {selectedCover ? (
                 <div className="flex flex-col items-start">
-                  <span className="font-medium">{selectedCover.name || selectedCover.id}</span>
+                  <span className="font-medium">
+                    {isEspHome && (
+                      <span className={`badge badge-xs ${(selectedCover as any).supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
+                        {(selectedCover as any).supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
+                      </span>
+                    )}
+                    {selectedCover.name || selectedCover.id}
+                  </span>
                   <span className="text-xs opacity-60">ID: {selectedCover.id}</span>
                 </div>
               ) : (
@@ -82,7 +119,14 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
             {covers.map((cover: any) => (
               <SelectItem key={cover.id} value={cover.id}>
                 <div className="flex flex-col">
-                  <span className="font-medium">{cover.name || cover.id}</span>
+                  <span className="font-medium">
+                    {isEspHome && (
+                      <span className={`badge badge-xs ${cover.supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
+                        {cover.supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
+                      </span>
+                    )}
+                    {cover.name || cover.id}
+                  </span>
                   <span className="text-xs opacity-60">ID: {cover.id}</span>
                 </div>
               </SelectItem>
@@ -103,13 +147,23 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
         </label>
         <Select
           value={action.action_cover || 'TOGGLE'}
-          onValueChange={(value) => onUpdate('action_cover', value)}
+          onValueChange={(value) => {
+            onUpdate('action_cover', value);
+            // Clear tilt_position data when switching away from TILT
+            if (value !== 'TILT') {
+              const currentData = action.data || {};
+              if (currentData.tilt_position !== undefined) {
+                const { tilt_position, ...rest } = currentData;
+                onUpdate('data', Object.keys(rest).length > 0 ? rest : undefined);
+              }
+            }
+          }}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select action..." />
           </SelectTrigger>
           <SelectContent>
-            {actionCoverOptions.map((option: string) => (
+            {filteredCoverOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
                 {option.split('_').map(word => 
                   word.charAt(0) + word.slice(1).toLowerCase()
@@ -119,6 +173,31 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           </SelectContent>
         </Select>
       </div>
+
+      {/* Tilt position input — required for TILT action */}
+      {action.action_cover === 'TILT' && (
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">{t('event_form.tilt_position')} <span className="text-error">*</span></span>
+          </label>
+          <input
+            type="number"
+            className={`input input-bordered w-full ${(action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '') ? 'input-error' : ''}`}
+            min={0}
+            max={100}
+            placeholder="50"
+            value={action.data?.tilt_position ?? ''}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              const data = { ...(action.data || {}), tilt_position: isNaN(val) ? undefined : Math.min(100, Math.max(0, val)) };
+              onUpdate('data', data);
+            }}
+          />
+          <label className="label">
+            <span className="label-text-alt">{t('event_form.tilt_position_hint')}</span>
+          </label>
+        </div>
+      )}
 
       {action.action_cover === 'SMART_TOGGLE' && (
         <div className="form-control mb-3">

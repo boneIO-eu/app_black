@@ -9,7 +9,7 @@ const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
   cover: ['boneio_cover', 'action_cover', 'data'],
   mqtt: ['topic', 'action_mqtt_msg'],
   output_over_mqtt: ['boneio_id', 'boneio_output', 'action_output', 'action_mqtt_msg'],
-  cover_over_mqtt: ['boneio_id', 'boneio_cover', 'action_cover', 'action_mqtt_msg'],
+  cover_over_mqtt: ['boneio_id', 'boneio_cover', 'action_cover', 'action_mqtt_msg', 'data'],
   remote_output: [
     'remote_device', 'output_id', 'action_output',
     'brightness', 'color_temp', 'rgb', 'transition',
@@ -123,6 +123,14 @@ export const validateAction = (action: any, t: (key: string) => string): string 
   
   if (actionType === 'cover' || actionType === 'cover_over_mqtt') {
     if (!action.boneio_cover) return t('event_form.validation_cover_required');
+  }
+  
+  // TILT action requires tilt_position
+  if (['cover', 'cover_over_mqtt', 'remote_cover', 'esphome_cover'].includes(actionType)) {
+    const coverAction = action.action_cover || action.action_esphome_cover;
+    if (coverAction === 'TILT' && (action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '')) {
+      return t('event_form.validation_tilt_position_required');
+    }
   }
   
   if (actionType === 'mqtt') {

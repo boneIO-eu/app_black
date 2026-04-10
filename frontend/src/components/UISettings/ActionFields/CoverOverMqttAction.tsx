@@ -83,6 +83,31 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
         </Select>
       </div>
 
+      {/* Tilt position input — required for TILT action */}
+      {action.action_cover === 'TILT' && (
+        <div className="form-control mb-3">
+          <label className="label">
+            <span className="label-text font-medium">{t('event_form.tilt_position')} <span className="text-error">*</span></span>
+          </label>
+          <input
+            type="number"
+            className={`input input-bordered w-full ${(action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '') ? 'input-error' : ''}`}
+            min={0}
+            max={100}
+            placeholder="50"
+            value={action.data?.tilt_position ?? ''}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              const data = { ...(action.data || {}), tilt_position: isNaN(val) ? undefined : Math.min(100, Math.max(0, val)) };
+              onUpdate('data', data);
+            }}
+          />
+          <label className="label">
+            <span className="label-text-alt">{t('event_form.tilt_position_hint')}</span>
+          </label>
+        </div>
+      )}
+
       {action.action_cover === 'SMART_TOGGLE' && (
         <div className="form-control mb-3">
           <label className="label">

@@ -10,6 +10,9 @@ import { sanitizeId } from '../helpers/idValidation';
 import type { OutputOverMqttActionProps } from './types';
 import { formatActionLabel } from './helpers';
 
+/** Output actions supported by light/switch outputs. */
+const OUTPUT_ONLY_ACTIONS = ['TOGGLE', 'ON', 'OFF'];
+
 /**
  * Output Over MQTT Action component - controls outputs on remote boneIO devices via MQTT.
  */
@@ -17,7 +20,7 @@ const OutputOverMqttAction: React.FC<OutputOverMqttActionProps> = ({
   action,
   onUpdate,
   t,
-  actionOutputOptions,
+  actionOutputOptions: _actionOutputOptions,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
   const handleUpdate = (field: string, value: any) => {
@@ -73,7 +76,7 @@ const OutputOverMqttAction: React.FC<OutputOverMqttActionProps> = ({
             <SelectValue placeholder="Select action..." />
           </SelectTrigger>
           <SelectContent>
-            {actionOutputOptions.map((option: string) => (
+            {OUTPUT_ONLY_ACTIONS.map((option: string) => (
               <SelectItem key={option} value={option}>
                 {formatActionLabel(option)}
               </SelectItem>

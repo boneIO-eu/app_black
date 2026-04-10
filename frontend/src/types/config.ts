@@ -276,6 +276,8 @@ export interface CoverEntity {
   restore_state?: boolean;
   /** Tilt time in milliseconds (for blinds) */
   tilt_time?: number | string;
+  /** Cover platform: 'time_based' (standard) or 'venetian' (with tilt support) */
+  platform?: 'time_based' | 'venetian';
 }
 
 // ============================================
