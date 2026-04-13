@@ -478,7 +478,7 @@ class IrrigationController:
             _LOGGER.error("Failed to switch master valve for %s: %s", self.id, err)
 
     async def _handle_pump_stop_sequence(self) -> None:
-        \"\"\"Handle pump stop timing according to configured pump stop delays.\"\"\"
+        """Handle pump stop timing according to configured pump stop delays."""
         if self._master_valve is None:
             return
         if self._pump_stop_valve_delay_s > 0:

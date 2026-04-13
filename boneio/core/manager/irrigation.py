@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 class IrrigationManager:
     """Manages irrigation controllers and their HA integration."""
 
-    def __init__(self, manager: "Manager", irrigation_config: list[dict[str, Any]]) -> None:
+    def __init__(self, manager: Manager, irrigation_config: list[dict[str, Any]]) -> None:
         self._manager = manager
         self._controllers: dict[str, IrrigationController] = {}
         self._subscribed_topics: set[str] = set()
@@ -261,18 +261,20 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(            id=f\"{ctrl.id}_standby\",
-            ha_type=\"switch\",
+        self._manager.publish_ha_discovery(
+            id=f"{ctrl.id}_standby",
+            ha_type="switch",
             payload=ha_irrigation_switch_message(
                 ctrl.id,
                 ctrl.name,
-                suffix=\"standby\",
-                name=f\"{ctrl.name} Standby\",
+                suffix="standby",
+                name=f"{ctrl.name} Standby",
                 config_helper=cfg,
             ),
         )
 
-        self._manager.publish_ha_discovery(            id=f"{ctrl.id}_multiplier",
+        self._manager.publish_ha_discovery(
+            id=f"{ctrl.id}_multiplier",
             ha_type="number",
             payload=ha_irrigation_number_message(
                 ctrl.id,

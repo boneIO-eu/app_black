@@ -843,6 +843,50 @@ output:
         required: False
         meta:
           label: How long can this relay be on. Can"t be used if output_type is "none".
+      # --- Adjustable duration (editable momentary_turn_on via HA slider) ---
+      adjustable_duration:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: "Enable an HA number entity (slider) to dynamically set the on-timer. When ON is pressed, auto-OFF after this duration."
+      duration_default:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Default adjustable duration (e.g. "60s", "5min", "1h").
+      duration_min:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Minimum adjustable duration (e.g. "1s", "10s").
+      duration_max:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Maximum adjustable duration (e.g. "3600s", "1h").
+      duration_unit:
+        type: string
+        required: False
+        default: 's'
+        allowed: ['s', 'min']
+        meta:
+          label: "Unit displayed on Home Assistant duration slider."
       restore_state:
         type: boolean
         required: True

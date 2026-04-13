@@ -49,7 +49,7 @@ class StateManager:
                 err,
             )
             self._reset_state_file()
-        except (OSError, IOError) as err:
+        except OSError as err:
             _LOGGER.error(
                 "Failed to read state file %s: %s. Starting with empty state.",
                 self._file,
@@ -75,7 +75,7 @@ class StateManager:
             with open(self._file, "w", encoding="utf-8") as f:
                 json.dump({}, f, indent=2)
             _LOGGER.info("State file %s reset to empty state", self._file)
-        except (OSError, IOError) as err:
+        except OSError as err:
             _LOGGER.warning(
                 "Failed to reset state file %s: %s. Continuing with empty state in memory.",
                 self._file,

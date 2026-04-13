@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
-
 import time
 from typing import cast
 
 from boneio.components.input.detectors import BinarySensorDetector
-from boneio.const import BinaryStateTypes, ClickTypes, PRESSED, RELEASED
+from boneio.const import PRESSED, RELEASED, BinaryStateTypes, ClickTypes
 from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 from boneio.models import InputState
 from boneio.models.events import InputEvent

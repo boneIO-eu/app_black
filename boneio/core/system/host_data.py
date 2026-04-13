@@ -38,9 +38,9 @@ from boneio.models.events import HostEvent
 from boneio.version import __version__
 
 if TYPE_CHECKING:
+    from boneio.components.input import GpioEventButton, GpioInputBinarySensor
     from boneio.core.events import EventBus
     from boneio.core.manager import Manager
-    from boneio.components.input import GpioEventButton, GpioInputBinarySensor
     from boneio.hardware.i2c import INA219 as INA219Class
     from boneio.hardware.i2c import MCP9808, PCT2075
 

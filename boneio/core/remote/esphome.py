@@ -1054,8 +1054,9 @@ async def discover_esphome_entities(
 
 # Try to import zeroconf for mDNS discovery
 try:
-    from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
     import socket
+
+    from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
     ZEROCONF_AVAILABLE = True
     
     class ESPHomeServiceListener(ServiceListener):

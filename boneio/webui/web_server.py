@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING, cast
 # Imports moved to start_webserver() method
 
 if TYPE_CHECKING:
-    from hypercorn.typing import Framework
     from hypercorn.config import Config
+    from hypercorn.typing import Framework
+
     from boneio.webui.app import BoneIOApp
 
 from boneio.core.config import ConfigHelper
@@ -148,6 +149,7 @@ class WebServer:
         def _do_heavy_imports():
             import hypercorn.asyncio
             import hypercorn.config
+
             import boneio.webui.app
 
         loop = asyncio.get_running_loop()

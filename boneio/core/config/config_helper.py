@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 from _collections_abc import dict_values
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
@@ -27,8 +27,8 @@ from boneio.const import (
     TEXT_SENSOR,
     VALVE,
 )
-from boneio.core.utils.util import sanitize_mqtt_topic
 from boneio.core.system import get_serial_from_mac
+from boneio.core.utils.util import sanitize_mqtt_topic
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -297,7 +297,7 @@ class ConfigHelper:
         self, 
         ha_type: str, 
         topic: str, 
-        payload: str | dict[str, Any] | "HomeAssistantDiscoveryMessage" | None
+        payload: str | dict[str, Any] | HomeAssistantDiscoveryMessage | None
     ):
         """Add autodiscovery message."""
         self._autodiscovery_messages[ha_type][topic] = {"topic": topic, "payload": payload}

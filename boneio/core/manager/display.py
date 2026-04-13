@@ -4,11 +4,11 @@ This module manages OLED display functionality.
 """
 
 from __future__ import annotations
-from boneio.const import SHOW_HA
 
 import logging
 from typing import TYPE_CHECKING, Any
 
+from boneio.const import SHOW_HA
 from boneio.exceptions import GPIOInputException, I2CError
 
 if TYPE_CHECKING:
@@ -195,6 +195,11 @@ class DisplayManager:
                     _LOGGER.info("OLED button configured on pin %s", OLED_PIN)
             
             self._oled.render_display()
+            
+            # Signal early_oled to stop rendering — DisplayManager owns the screen now
+            from boneio.hardware.display.early_oled import handoff
+            handoff()
+            
             _LOGGER.info("OLED display configured successfully")
             
         except (GPIOInputException, I2CError) as err:
@@ -253,6 +258,65 @@ class DisplayManager:
             List of input group names
         """
         return self._input_groups
+
+    def reload_oled(self) -> None:
+        """Hot-reload OLED configuration from file.
+        
+        Reloads screens list, screen order, extra sensors, and screensaver timeout
+        without reinitializing the I2C hardware.
+        """
+        if not self._oled:
+            _LOGGER.warning("Cannot reload OLED: display not initialized")
+            return
+
+        try:
+            config = self._manager._config_helper.reload_config()
+            oled_config = config.get("oled", {})
+
+            if not oled_config or oled_config.get("enabled") is False:
+                _LOGGER.info("OLED disabled in config, shutting down display")
+                self._oled.shutdown()
+                self._oled = None
+                return
+
+            # Update screens
+            new_screens = oled_config.get("screens", self._screens)
+            self._screens = new_screens
+
+            # Update screen order
+            raw_screen_order = oled_config.get("screen_order", new_screens)
+            self._configured_screen_order = self._configure_screen_order(
+                screen_order=raw_screen_order,
+                grouped_outputs_by_expander=self._manager.outputs.grouped_outputs_by_expander,
+                inputs_length=len(self._input_groups) if self._input_groups else 0,
+            )
+
+            # Update OLED screen cycle
+            from itertools import cycle
+            self._oled._screen_order = self._configured_screen_order
+            self._oled._screen_cycle = cycle(self._configured_screen_order) if self._configured_screen_order else cycle(["uptime"])
+            next(self._oled._screen_cycle)  # Skip first so next() shows second screen
+
+            # Update screensaver timeout
+            from boneio.core.utils.timeperiod import parse_time_to_seconds
+            timeout_seconds = parse_time_to_seconds(
+                oled_config.get("screensaver_timeout"), default=60.0
+            )
+            from boneio.core.utils import TimePeriod
+            self._oled._sleep_timeout = TimePeriod(seconds=int(timeout_seconds))
+
+            # Reset to first screen and refresh
+            if self._configured_screen_order:
+                self._oled._current_screen = self._configured_screen_order[0]
+            self._oled.render_display()
+
+            _LOGGER.info(
+                "OLED reloaded: %d screens, timeout=%ds",
+                len(self._configured_screen_order),
+                int(timeout_seconds),
+            )
+        except Exception as e:
+            _LOGGER.error("Failed to reload OLED configuration: %s", e, exc_info=True)
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for OLED entities."""

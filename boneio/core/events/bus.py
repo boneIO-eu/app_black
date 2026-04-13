@@ -10,7 +10,7 @@ from boneio.core.utils.util import callback
 from boneio.models.events import Event
 
 _LOGGER = logging.getLogger(__name__)
-UTC = dt.timezone.utc
+UTC = dt.UTC
 EVENT_TIME_CHANGED = "event_time_changed"
 CALLBACK_TYPE = Callable[[], None]
 

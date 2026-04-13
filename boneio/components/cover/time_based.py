@@ -6,11 +6,11 @@ import threading
 import time
 from collections.abc import Callable
 
-from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.components.cover.cover import BaseCover
+from boneio.components.output import BasicOutput
+from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
-from boneio.components.output import BasicOutput
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}

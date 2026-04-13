@@ -30,9 +30,9 @@ from boneio.const import (
     MCP,
     MCP_ID,
     NONE,
+    ON,
     OUTPUT,
     OUTPUT_TYPE,
-    ON,
     PCA,
     PCA_ID,
     PCF,
@@ -49,6 +49,7 @@ from boneio.integration.homeassistant import (
     ha_group_availabilty_message,
     ha_led_availabilty_message,
     ha_light_availabilty_message,
+    ha_output_duration_number_message,
     ha_switch_availabilty_message,
     ha_valve_availabilty_message,
 )
@@ -414,6 +415,18 @@ class OutputManager:
         """Send output state after a delay."""
         await asyncio.sleep(0.5)
         await output.async_send_state()
+        
+        # Publish initial adjustable duration value (in the user's selected unit)
+        if output.adjustable_duration_enabled:
+            if output.duration_unit == "min":
+                publish_value = round(output.adjustable_duration / 60, 1)
+            else:
+                publish_value = output.adjustable_duration
+            self._manager._message_bus.send_message(
+                topic=f"{self._manager._topic_prefix}/{OUTPUT}/{output.id}/duration",
+                payload={"value": publish_value},
+                retain=True,
+            )
 
     async def _relay_callback(self, event: Any) -> None:
         """Handle relay state change events.
@@ -657,6 +670,28 @@ class OutputManager:
                 self._manager.publish_ha_discovery(
                     id=_id, ha_type=out.output_type, payload=payload,
                 )
+                
+                # Adjustable duration: restore state, publish HA number discovery, publish initial value
+                if out.adjustable_duration_enabled:
+                    saved_dur = self._manager._state_manager.get(
+                        attr_type="adjustable_duration", attr=_id, default_value=None
+                    )
+                    if saved_dur is not None:
+                        out.restore_adjustable_duration(int(saved_dur))
+                    
+                    number_payload = ha_output_duration_number_message(
+                        id=_id,
+                        name=f"{_name} Duration",
+                        min_val=out.duration_min,
+                        max_val=out.duration_max,
+                        unit=out.duration_unit,
+                        config_helper=self._manager._config_helper,
+                        output_discovery_payload=payload,
+                        area=area,
+                    )
+                    self._manager.publish_ha_discovery(
+                        id=f"{_id}_duration", ha_type="number", payload=number_payload,
+                    )
             
             # Delayed state send
             self._manager.loop.create_task(self._delayed_send_state(out))
@@ -882,6 +917,22 @@ class OutputManager:
                 self._manager.publish_ha_discovery(
                     id=output_id, ha_type=output.output_type, payload=payload,
                 )
+
+                # Duration number entity for adjustable outputs
+                if output.adjustable_duration_enabled:
+                    number_payload = ha_output_duration_number_message(
+                        id=output_id,
+                        name=f"{output.name} Duration",
+                        min_val=output.duration_min,
+                        max_val=output.duration_max,
+                        unit=output.duration_unit,
+                        config_helper=self._manager._config_helper,
+                        output_discovery_payload=payload,
+                        area=getattr(output, 'area', None),
+                    )
+                    self._manager.publish_ha_discovery(
+                        id=f"{output_id}_duration", ha_type="number", payload=number_payload,
+                    )
         
         # Send autodiscovery for groups
         for group_id, group in self._configured_output_groups.items():

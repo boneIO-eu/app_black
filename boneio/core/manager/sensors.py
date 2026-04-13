@@ -48,9 +48,9 @@ from boneio.integration.homeassistant import (
 )
 
 if TYPE_CHECKING:
+    from boneio.components.sensor import VirtualEnergySensor
     from boneio.core.manager import Manager
     from boneio.hardware.sensor.temperature import MCP9808, PCT2075
-    from boneio.components.sensor import VirtualEnergySensor
     from boneio.models.events import OutputEvent
 
 # Type alias for all temperature sensors (I2C + Dallas)
@@ -137,7 +137,7 @@ class SensorManager:
                     if temp_sensor:
                         self._temp_sensors.append(temp_sensor)
 
-    def _create_temp_sensor(self, sensor_type: str, config: dict) -> "PCT2075 | MCP9808 | None":
+    def _create_temp_sensor(self, sensor_type: str, config: dict) -> PCT2075 | MCP9808 | None:
         """Create a temperature sensor instance.
         
         Args:
@@ -525,7 +525,7 @@ class SensorManager:
     # Getters
     # -------------------------------------------------------------------------
     
-    def get_temp_sensor(self, id: str) -> "PCT2075 | MCP9808 | DallasSensor | None":
+    def get_temp_sensor(self, id: str) -> PCT2075 | MCP9808 | DallasSensor | None:
         """Get temperature sensor by ID.
         
         Args:
@@ -555,7 +555,7 @@ class SensorManager:
         """
         return self._dallas_sensors
 
-    def get_virtual_energy_sensors(self) -> list["VirtualEnergySensor"]:
+    def get_virtual_energy_sensors(self) -> list[VirtualEnergySensor]:
         """Get all virtual energy sensors.
         
         Returns:
@@ -792,8 +792,8 @@ class SensorManager:
         Called after reload to ensure frontend receives updated sensor list.
         Emits SensorEvent for each ADC sensor so WebSocket clients see them.
         """
-        from boneio.models.events import SensorEvent
         from boneio.models import SensorState
+        from boneio.models.events import SensorEvent
 
         for sensor in self._adc_sensors:
             try:
@@ -912,8 +912,8 @@ class SensorManager:
         as virtual energy sensors need references to output objects.
         """
         from boneio.components.sensor import VirtualEnergySensor
-        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         from boneio.core.utils.util import sanitize_string
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         
         # Track used IDs to detect duplicates
         used_ids: set[str] = set()
@@ -1014,7 +1014,7 @@ class SensorManager:
                 len(self._virtual_energy_sensors)
             )
 
-    def _on_output_state_change(self, event: "OutputEvent", sensor: "VirtualEnergySensor") -> None:
+    def _on_output_state_change(self, event: OutputEvent, sensor: VirtualEnergySensor) -> None:
         """Handle output state change for virtual energy sensor."""
         from boneio.const import ON
         
@@ -1040,8 +1040,8 @@ class SensorManager:
         - Updating existing sensor configurations
         """
         from boneio.components.sensor import VirtualEnergySensor
-        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         from boneio.core.utils.util import sanitize_string
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         
         _LOGGER.info("Reloading virtual energy sensors configuration")
         
@@ -1152,8 +1152,8 @@ class SensorManager:
             config: Sensor configuration dictionary
         """
         from boneio.components.sensor import VirtualEnergySensor
-        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         from boneio.core.utils.util import sanitize_string
+        from boneio.integration.homeassistant import ha_virtual_energy_sensor_availabilty_message
         
         name = config.get("name")
         output_id = config.get("output_id")

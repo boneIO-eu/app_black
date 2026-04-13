@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import os
 
+from pymodbus.pdu import ExceptionResponse
+
 from boneio.const import REGISTERS, UARTS
 from boneio.core.utils import open_json
-from pymodbus.pdu import ExceptionResponse
 
 from .client import Modbus
 from .utils import allowed_operations

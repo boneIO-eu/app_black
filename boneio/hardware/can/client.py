@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from types import ModuleType
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     try:
-        from canopen import Network, LocalNode
+        from canopen import LocalNode, Network
     except ImportError:
-        from canopen_asyncio import Network, LocalNode  # type: ignore[assignment]
+        from canopen_asyncio import LocalNode, Network  # type: ignore[assignment]
 
 try:
     import canopen
@@ -472,7 +473,7 @@ class CANopenClient:
             except Exception as e:
                 _LOGGER.error("Error in heartbeat callback: %s", e)
 
-    async def __aenter__(self) -> "CANopenClient":
+    async def __aenter__(self) -> CANopenClient:
         """Async context manager entry."""
         await self.connect()
         return self

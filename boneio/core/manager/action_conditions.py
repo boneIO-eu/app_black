@@ -20,8 +20,10 @@ Usage:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time as dt_time
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import datetime
+from datetime import time as dt_time
+from typing import Any
 
 _LOGGER = logging.getLogger("boneio.action_conditions")
 

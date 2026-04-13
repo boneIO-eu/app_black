@@ -246,7 +246,7 @@ class RemoteDeviceManager:
         Returns:
             ESPHomeRemoteDevice instance or None if creation failed
         """
-        from boneio.core.remote.esphome import ESPHomeRemoteDevice, ESPHOME_API_AVAILABLE
+        from boneio.core.remote.esphome import ESPHOME_API_AVAILABLE, ESPHomeRemoteDevice
         if not ESPHOME_API_AVAILABLE:
             _LOGGER.error(
                 "aioesphomeapi not installed - cannot create ESPHome device '%s'",

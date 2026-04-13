@@ -12,7 +12,7 @@ import asyncio
 import logging
 import re
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -98,7 +98,7 @@ async def _run_sudo_command(password: str, cmd: list[str], timeout: float = 10) 
             "stdout": stdout.decode().strip(),
             "stderr": stderr.decode().strip(),
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"returncode": -1, "stdout": "", "stderr": "Command timed out"}
     except Exception as e:
         return {"returncode": -1, "stdout": "", "stderr": str(e)}
@@ -421,7 +421,7 @@ async def can_send(body: CanSendRequest):
             "status": "error",
             "message": "cansend not found. Install can-utils package.",
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"status": "error", "message": "cansend timed out"}
     except Exception as e:
         _LOGGER.error("cansend error: %s", e)
@@ -454,7 +454,7 @@ async def can_dump(interface: str = DEFAULT_INTERFACE, duration: int = 30):
                 stderr=asyncio.subprocess.PIPE,
             )
         except FileNotFoundError:
-            yield f"data: {{'error': 'candump not found. Install can-utils package.'}}\n\n"
+            yield "data: {'error': 'candump not found. Install can-utils package.'}\n\n"
             return
         except Exception as e:
             yield f"data: {{'error': '{e}'}}\n\n"
@@ -475,7 +475,7 @@ async def can_dump(interface: str = DEFAULT_INTERFACE, duration: int = 30):
                     decoded = line.decode().strip()
                     if decoded:
                         yield f"data: {decoded}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keepalive
                     yield ": keepalive\n\n"
 

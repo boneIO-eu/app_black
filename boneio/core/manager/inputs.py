@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from boneio.components.input import GpioEventButton, GpioInputBinarySensor
 from boneio.const import (
@@ -264,7 +265,7 @@ class InputManager:
                         id=input_id,
                         name=name,
                         config_helper=self._manager._config_helper,
-                        device_class=gpio.get(DEVICE_CLASS, None),
+                        device_class=gpio.get(DEVICE_CLASS),
                         area=area,
                         mqtt_sequences=gpio.get("mqtt_sequences"),
                         enable_triple_click=gpio.get("enable_triple_click", False),
@@ -294,7 +295,7 @@ class InputManager:
                     id=input_id,
                     name=name,
                     config_helper=self._manager._config_helper,
-                    device_class=gpio.get(DEVICE_CLASS, None),
+                    device_class=gpio.get(DEVICE_CLASS),
                     area=area,
                     mqtt_sequences=gpio.get("mqtt_sequences"),
                     enable_triple_click=gpio.get("enable_triple_click", False),
@@ -374,7 +375,7 @@ class InputManager:
                         id=input_id,
                         name=name,
                         config_helper=self._manager._config_helper,
-                        device_class=gpio.get(DEVICE_CLASS, None),
+                        device_class=gpio.get(DEVICE_CLASS),
                         area=area,
                     )
                     self._manager.publish_ha_discovery(
@@ -408,7 +409,7 @@ class InputManager:
                     id=input_id,
                     name=name,
                     config_helper=self._manager._config_helper,
-                    device_class=gpio.get(DEVICE_CLASS, None),
+                    device_class=gpio.get(DEVICE_CLASS),
                     area=area,
                 )
                 self._manager.publish_ha_discovery(
@@ -563,6 +564,7 @@ class InputManager:
         the updated input list immediately.
         """
         import time
+
         from boneio.models import InputState
         from boneio.models.events import InputEvent
         

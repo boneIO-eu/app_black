@@ -3,7 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import os
-from typing import Any, Union, IO
+from typing import IO, Any, Union
 
 import yaml
 from yaml import SafeLoader, load
@@ -96,9 +96,7 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
                 field_schema["type"] = type_list[0] if len(type_list) == 1 else type_list
                 
                 # Mark timeperiod fields for special handling in ConfigEditor2
-                if isinstance(schema["type"], list) and "timeperiod" in schema["type"]:
-                    field_schema["x-timeperiod"] = True
-                elif schema["type"] == "timeperiod":
+                if isinstance(schema["type"], list) and "timeperiod" in schema["type"] or schema["type"] == "timeperiod":
                     field_schema["x-timeperiod"] = True
 
         # Handle min/max for timeperiod fields (convert to milliseconds)

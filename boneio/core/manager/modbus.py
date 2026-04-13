@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import ADDRESS, ID, MODEL, NAME, UART, UARTS, UPDATE_INTERVAL
-from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_seconds, parse_time_to_ms
+from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_ms, parse_time_to_seconds
 from boneio.exceptions import ModbusUartException
 
 if TYPE_CHECKING:

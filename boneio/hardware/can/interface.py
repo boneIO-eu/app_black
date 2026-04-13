@@ -42,7 +42,7 @@ async def _run_sudo_ip(*args: str) -> tuple[bool, str]:
         error_msg = stderr.decode().strip()
         _LOGGER.error("Command failed (rc=%d): %s -> %s", proc.returncode, " ".join(cmd), error_msg)
         return False, error_msg
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _LOGGER.error("Command timed out: %s", " ".join(cmd))
         return False, "timeout"
     except FileNotFoundError:

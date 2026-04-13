@@ -14,7 +14,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     import aiohttp
@@ -72,13 +72,13 @@ class CloudRegistration:
         self._local_ip = local_ip
         self._master_secret = master_secret
         self._enabled = enabled
-        self._domain: Optional[str] = None
-        self._task: Optional[asyncio.Task] = None
-        self._session: Optional["aiohttp.ClientSession"] = None
-        self._last_error: Optional[str] = None
+        self._domain: str | None = None
+        self._task: asyncio.Task | None = None
+        self._session: aiohttp.ClientSession | None = None
+        self._last_error: str | None = None
 
     @property
-    def domain(self) -> Optional[str]:
+    def domain(self) -> str | None:
         """Get the registered domain name."""
         return self._domain
 
@@ -88,7 +88,7 @@ class CloudRegistration:
         return self._enabled
 
     @property
-    def last_error(self) -> Optional[str]:
+    def last_error(self) -> str | None:
         """Get the last error message, if any."""
         return self._last_error
 

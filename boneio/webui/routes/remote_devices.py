@@ -10,14 +10,14 @@ from pydantic import BaseModel
 
 from boneio.core.manager import Manager
 from boneio.core.remote.esphome import (
-    discover_esphome_entities, 
-    scan_esphome_devices,
     ESPHOME_API_AVAILABLE,
     ZEROCONF_AVAILABLE,
+    discover_esphome_entities,
+    scan_esphome_devices,
 )
 from boneio.core.remote.wled import (
-    scan_wled_devices,
     discover_wled_info,
+    scan_wled_devices,
 )
 
 if TYPE_CHECKING:

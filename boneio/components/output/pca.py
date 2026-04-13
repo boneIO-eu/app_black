@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 
+from boneio.components.output.basic import BasicOutput
 from boneio.const import BRIGHTNESS, LED, OFF, ON, PCA, STATE, SWITCH
 from boneio.hardware.gpio.expanders import PCA9685
 from boneio.hardware.gpio.expanders.pca9685 import PCAChannel
-from boneio.components.output.basic import BasicOutput
 
 _LOGGER = logging.getLogger(__name__)
 

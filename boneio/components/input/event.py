@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 import time
 
-from boneio.const import ClickTypes
 from boneio.components.input.detectors import MultiClickDetector
-from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
+from boneio.const import ClickTypes
 from boneio.core.utils import TimePeriod
+from boneio.hardware.gpio.input import GpioBaseClass, get_gpio_manager
 
 _LOGGER = logging.getLogger(__name__)
 

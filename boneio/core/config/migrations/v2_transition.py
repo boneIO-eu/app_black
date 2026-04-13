@@ -22,7 +22,7 @@ def _persist_transition(config_file: str) -> None:
     Args:
         config_file: Path to the YAML config file.
     """
-    with open(config_file, "r", encoding="utf-8") as f:
+    with open(config_file, encoding="utf-8") as f:
         lines = f.readlines()
 
     updated = False

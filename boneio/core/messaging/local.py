@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -20,7 +20,7 @@ class LocalMessageBus(MessageBus):
         self._state = True
         self._subscribers: dict[str, set[Callable]] = {}
         self._retain_values: dict[str, str | int | dict[str, str | float | int]] = {}
-        self._manager: Optional[Manager] = None
+        self._manager: Manager | None = None
         self._running = True
     
     def send_message(

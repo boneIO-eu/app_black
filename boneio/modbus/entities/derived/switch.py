@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 
 from boneio.const import ID, MODEL, NAME, SENSOR, SWITCH
 from boneio.core.config import ConfigHelper
+from boneio.core.messaging.basic import MessageBus
+from boneio.core.utils.util import find_key_by_value
 from boneio.integration.homeassistant import (
     modbus_availabilty_message,
 )
-from boneio.core.utils.util import find_key_by_value
-from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.entities.base import ModbusDerivedEntity
 
 if TYPE_CHECKING:

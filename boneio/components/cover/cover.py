@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import json
+import logging
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
+from boneio.components.output import BasicOutput
 from boneio.const import (
     CLOSED,
     CLOSING,
@@ -20,7 +21,6 @@ from boneio.core.events import EventBus
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import TimePeriod
 from boneio.models import CoverState, PositionDict
-from boneio.components.output import BasicOutput
 from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
@@ -267,9 +267,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             await self.stop()
         elif self._position >= 100:
             await self.close()
-        elif self._position <= 0:
-            await self.open()
-        elif self._last_operation == CLOSING:
+        elif self._position <= 0 or self._last_operation == CLOSING:
             await self.open()
         else:
             await self.close()
@@ -309,9 +307,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             await self.open()
         elif self._position >= 100:
             await self.close()
-        elif self._position <= 0:
-            await self.open()
-        elif self._last_operation == CLOSING:
+        elif self._position <= 0 or self._last_operation == CLOSING:
             await self.open()
         else:
             await self.close()

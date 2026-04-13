@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from boneio.const import ID, MODEL, NAME, TEXT_SENSOR
 from boneio.core.config import ConfigHelper
+from boneio.core.messaging.basic import MessageBus
 from boneio.integration.homeassistant import (
     modbus_sensor_availabilty_message,
 )
-from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.entities.base import ModbusDerivedEntity
 
 

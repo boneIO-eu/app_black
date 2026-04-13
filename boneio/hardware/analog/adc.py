@@ -102,11 +102,11 @@ class ADCReader:
         value_path = IIO_DEVICE_PATH / iio_file
         
         try:
-            with open(value_path, 'r') as f:
+            with open(value_path) as f:
                 raw_value = int(f.read().strip())
             _LOGGER.debug("Read ADC %s: %d", pin, raw_value)
             return raw_value
-        except (IOError, ValueError) as err:
+        except (OSError, ValueError) as err:
             _LOGGER.error("Error reading ADC pin %s: %s", pin, err)
             return 0
     
@@ -244,8 +244,8 @@ class GpioADCSensor(BasicMqtt, AsyncUpdater, Filter):
             )
             
             # Emit SensorEvent to EventBus for WebSocket clients
-            from boneio.models.events import SensorEvent
             from boneio.models import SensorState
+            from boneio.models.events import SensorEvent
             self.manager.event_bus.trigger_event(SensorEvent(
                 entity_id=self.id,
                 state=SensorState(

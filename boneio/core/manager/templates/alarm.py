@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import ALARM_CONTROL_PANEL
-from boneio.core.utils.timeperiod import parse_time_to_seconds
 from boneio.components.template.alarm_panel import (
     AlarmOutput,
     AlarmPinCode,
@@ -13,6 +11,8 @@ from boneio.components.template.alarm_panel import (
     BoneIOAlarmPanel,
     ZoneInput,
 )
+from boneio.const import ALARM_CONTROL_PANEL
+from boneio.core.utils.timeperiod import parse_time_to_seconds
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -27,7 +27,7 @@ class AlarmManager:
         manager: Reference to the main Manager.
     """
 
-    def __init__(self, manager: "Manager") -> None:
+    def __init__(self, manager: Manager) -> None:
         self._manager = manager
         self._items: list[BoneIOAlarmPanel] = []
         self._input_map: dict[str, list[BoneIOAlarmPanel]] = {}

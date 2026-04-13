@@ -11,8 +11,6 @@ from typing import cast
 import gpiod
 
 from boneio.const import (
-    BinaryStateTypes,
-    ClickTypes,
     CLICK_SEQUENCES,
     DEFAULT_SEQUENCE_WINDOW_MS,
     DOUBLE,
@@ -21,6 +19,8 @@ from boneio.const import (
     RELEASED,
     SINGLE,
     TRIPLE,
+    BinaryStateTypes,
+    ClickTypes,
 )
 
 _LOGGER = logging.getLogger(__name__)

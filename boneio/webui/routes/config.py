@@ -19,12 +19,12 @@ from fastapi.responses import StreamingResponse
 
 from boneio.core.config.yaml_util import (
     clear_config_cache,
+    get_board_config_path,
     load_config_from_file,
-    update_config_section,
     load_yaml_file,
     normalize_board_name,
     normalize_version,
-    get_board_config_path,
+    update_config_section,
 )
 from boneio.core.manager import Manager
 from boneio.version import __version__
@@ -41,11 +41,11 @@ _config_cache: dict = {"data": None, "mtime": 0}
 _checksum_cache: dict = {"sha256": None, "file_count": 0}
 
 # App state reference - set by app initialization
-_app_state: Optional["State"] = None
+_app_state: State | None = None
 _websocket_manager = None
 
 
-def set_app_state(app_state: "State") -> None:
+def set_app_state(app_state: State) -> None:
     """Set app state reference."""
     global _app_state
     _app_state = app_state
@@ -57,7 +57,7 @@ def set_websocket_manager(ws_manager) -> None:
     _websocket_manager = ws_manager
 
 
-def _get_app_state() -> "State":
+def _get_app_state() -> State:
     """Get app state, raising an error if not initialized."""
     if _app_state is None:
         raise HTTPException(status_code=500, detail="App state not initialized")
@@ -240,7 +240,7 @@ def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -
         manager: Application manager instance.
         devices_data: List of device config dicts (as saved to YAML).
     """
-    from boneio.const import ADDRESS, MODEL, ID
+    from boneio.const import ADDRESS, ID, MODEL
 
     if not hasattr(manager, 'modbus') or manager.modbus is None:
         return
@@ -325,7 +325,7 @@ async def reload_configuration(
     """
     Reload configuration from file.
     
-    Supports hot-reloading of: output, cover, input, event, binary_sensor, modbus_devices, sensor.
+    Supports hot-reloading of: output, cover, input, event, binary_sensor, modbus_devices, sensor, oled.
     
     Args:
         sections: Optional list of section names to reload.
@@ -593,9 +593,8 @@ async def restore_config(file: UploadFile = File(...)):
                         _LOGGER.warning(f"Could not extract {member.name}")
                         continue
                     
-                    with source:
-                        with open(target_path, 'wb') as target:
-                            target.write(source.read())
+                    with source, open(target_path, 'wb') as target:
+                        target.write(source.read())
                     
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
@@ -651,7 +650,7 @@ async def get_interlock_groups():
 
 
 @router.get("/files")
-async def list_files(path: Optional[str] = None):
+async def list_files(path: str | None = None):
     """
     List files in the config directory.
     
@@ -1017,9 +1016,8 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
                     if source is None:
                         continue
                     
-                    with source:
-                        with open(target_path, 'wb') as target:
-                            target.write(source.read())
+                    with source, open(target_path, 'wb') as target:
+                        target.write(source.read())
                     
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")

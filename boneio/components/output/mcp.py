@@ -2,10 +2,10 @@
 
 import logging
 from typing import override
-from boneio.hardware.gpio.expanders.mcp23017 import MCP23017
 
-from boneio.const import COVER, MCP, OFF, ON, SWITCH
 from boneio.components.output.basic import BasicOutput
+from boneio.const import COVER, MCP, OFF, ON, SWITCH
+from boneio.hardware.gpio.expanders.mcp23017 import MCP23017
 
 _LOGGER = logging.getLogger(__name__)
 

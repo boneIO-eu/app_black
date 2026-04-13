@@ -1,5 +1,6 @@
 """System monitoring and statistics."""
 
+from boneio.core.system.host_data import HostData, HostSensor
 from boneio.core.system.monitor import (
     display_time,
     get_cpu_info,
@@ -10,7 +11,6 @@ from boneio.core.system.monitor import (
     get_swap_info,
     get_uptime,
 )
-from boneio.core.system.host_data import HostData, HostSensor
 
 __all__ = [
     # System monitoring functions

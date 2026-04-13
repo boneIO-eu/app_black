@@ -17,9 +17,9 @@ from boneio.models import SensorState
 from boneio.models.events import SensorEvent
 
 if TYPE_CHECKING:
-    from boneio.core.messaging.basic import MessageBus
-    from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
+    from boneio.core.events.bus import EventBus
+    from boneio.core.messaging.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class VirtualEnergySensor:
         name: str,
         output: BasicOutput,
         message_bus: MessageBus,
-        event_bus: "EventBus",
+        event_bus: EventBus,
         loop: asyncio.AbstractEventLoop,
         topic_prefix: str,
         sensor_type: str,

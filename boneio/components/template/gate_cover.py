@@ -48,9 +48,9 @@ from boneio.const import (
 )
 
 if TYPE_CHECKING:
-    from boneio.core.messaging.basic import MessageBus
-    from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
+    from boneio.core.events.bus import EventBus
+    from boneio.core.messaging.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,15 +89,15 @@ class BoneIOGateCover:
         self,
         id: str,
         name: str,
-        message_bus: "MessageBus",
-        event_bus: "EventBus",
+        message_bus: MessageBus,
+        event_bus: EventBus,
         topic_prefix: str,
         control_mode: str = MODE_CYCLE,
         device_class: str = "gate",
-        pulse_output: "BasicOutput | None" = None,
-        open_output: "BasicOutput | None" = None,
-        close_output: "BasicOutput | None" = None,
-        stop_output: "BasicOutput | None" = None,
+        pulse_output: BasicOutput | None = None,
+        open_output: BasicOutput | None = None,
+        close_output: BasicOutput | None = None,
+        stop_output: BasicOutput | None = None,
         pulse_duration_ms: int | None = 500,
         closed_sensor_id: str | None = None,
         open_sensor_id: str | None = None,
@@ -312,7 +312,7 @@ class BoneIOGateCover:
 
     # -- Relay pulse ---------------------------------------------------------
 
-    async def _pulse_relay(self, output: "BasicOutput | None") -> None:
+    async def _pulse_relay(self, output: BasicOutput | None) -> None:
         """Send a pulse to a relay output.
 
         Turns the relay on, then schedules turn-off after pulse_duration_ms.
@@ -347,7 +347,7 @@ class BoneIOGateCover:
             )
             await output.async_turn_off()
 
-    async def _relay_off(self, output: "BasicOutput") -> None:
+    async def _relay_off(self, output: BasicOutput) -> None:
         """Turn off relay after pulse.
 
         Args:

@@ -4,9 +4,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from boneio.components.template.gate_cover import BoneIOGateCover
 from boneio.const import COVER
 from boneio.core.utils.timeperiod import parse_time_to_ms
-from boneio.components.template.gate_cover import BoneIOGateCover
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -21,7 +21,7 @@ class GateCoverManager:
         manager: Reference to the main Manager.
     """
 
-    def __init__(self, manager: "Manager") -> None:
+    def __init__(self, manager: Manager) -> None:
         self._manager = manager
         self._items: list[BoneIOGateCover] = []
         self._input_map: dict[str, list[BoneIOGateCover]] = {}

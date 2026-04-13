@@ -14,12 +14,12 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import CLIMATE, ON, OFF, SENSOR, STATE
+from boneio.const import CLIMATE, OFF, ON, SENSOR, STATE
 
 if TYPE_CHECKING:
-    from boneio.core.messaging.basic import MessageBus
-    from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
+    from boneio.core.events.bus import EventBus
+    from boneio.core.messaging.basic import MessageBus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,9 +57,9 @@ class BoneIOThermostat:
         id: str,
         name: str,
         sensor_ids: list[str],
-        output: "BasicOutput",
-        message_bus: "MessageBus",
-        event_bus: "EventBus",
+        output: BasicOutput,
+        message_bus: MessageBus,
+        event_bus: EventBus,
         topic_prefix: str,
         mode: str = MODE_HEAT,
         target_temperature: float = 21.0,

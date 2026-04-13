@@ -64,7 +64,7 @@ class OutputStateMessage:
         ])
     
     @classmethod
-    def from_bytes(cls, data: bytes) -> "OutputStateMessage":
+    def from_bytes(cls, data: bytes) -> OutputStateMessage:
         """Deserialize from CAN message data.
         
         Args:
@@ -106,7 +106,7 @@ class HeartbeatMessage:
         return bytes([self.state])
     
     @classmethod
-    def from_bytes(cls, node_id: int, data: bytes) -> "HeartbeatMessage":
+    def from_bytes(cls, node_id: int, data: bytes) -> HeartbeatMessage:
         """Deserialize from CAN message data.
         
         Args:

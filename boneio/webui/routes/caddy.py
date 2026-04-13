@@ -31,19 +31,19 @@ class CaddyConfig(BaseModel):
         default="self_signed",
         description="Certificate mode: 'self_signed', 'acme_dns', or 'manual'"
     )
-    domain: Optional[str] = Field(
+    domain: str | None = Field(
         default=None,
         description="Domain name for ACME certificate (required when mode is 'acme_dns')"
     )
-    email: Optional[str] = Field(
+    email: str | None = Field(
         default=None,
         description="Email for ACME registration (optional but recommended)"
     )
-    cert_path: Optional[str] = Field(
+    cert_path: str | None = Field(
         default=None,
         description="Path to certificate file (for manual mode)"
     )
-    key_path: Optional[str] = Field(
+    key_path: str | None = Field(
         default=None,
         description="Path to private key file (for manual mode)"
     )
@@ -64,11 +64,11 @@ class CertificateInfo(BaseModel):
     """Certificate information model."""
     
     mode: str
-    domain: Optional[str] = None
-    email: Optional[str] = None
-    valid_from: Optional[str] = None
-    valid_until: Optional[str] = None
-    issuer: Optional[str] = None
+    domain: str | None = None
+    email: str | None = None
+    valid_from: str | None = None
+    valid_until: str | None = None
+    issuer: str | None = None
     is_self_signed: bool = True
 
 
@@ -77,8 +77,8 @@ class CaddyStatus(BaseModel):
     
     status: str
     config: CaddyConfig
-    certificate: Optional[CertificateInfo] = None
-    message: Optional[str] = None
+    certificate: CertificateInfo | None = None
+    message: str | None = None
 
 
 def parse_caddyfile() -> CaddyConfig:
@@ -95,7 +95,7 @@ def parse_caddyfile() -> CaddyConfig:
         return config
     
     try:
-        with open(CADDYFILE_PATH, "r") as f:
+        with open(CADDYFILE_PATH) as f:
             content = f.read()
         
         # Check if using internal (self-signed) TLS
@@ -398,7 +398,7 @@ async def update_caddy_config(config: CaddyConfig):
         if os.path.exists(CADDYFILE_PATH):
             backup_path = f"{CADDYFILE_PATH}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             try:
-                with open(CADDYFILE_PATH, "r") as f:
+                with open(CADDYFILE_PATH) as f:
                     backup_content = f.read()
                 with open(backup_path, "w") as f:
                     f.write(backup_content)
@@ -516,7 +516,7 @@ async def test_caddy_connection():
 class DNSChallengeRequest(BaseModel):
     """DNS challenge request model."""
     domain: str
-    email: Optional[str] = None
+    email: str | None = None
 
 
 class DNSChallengeResponse(BaseModel):

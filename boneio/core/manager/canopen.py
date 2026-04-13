@@ -10,9 +10,10 @@ import asyncio
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-from boneio.hardware.can.client import CANopenClient, CANOPEN_AVAILABLE
+from boneio.hardware.can.client import CANOPEN_AVAILABLE, CANopenClient
 from boneio.hardware.can.node import (
     BoneIOCANNode,
     NMTState,
@@ -141,8 +142,8 @@ class CANopenManager:
             # Auto-setup CAN interface if configured
             if self._auto_setup:
                 from boneio.hardware.can.interface import (
-                    setup_can_interface,
                     interface_exists,
+                    setup_can_interface,
                 )
 
                 if not interface_exists(self._channel):

@@ -51,12 +51,12 @@ class AsyncUpdater(ABC):
         # Validate that subclass implements at least one update method
         has_async_update = (
             hasattr(self, "async_update") 
-            and callable(getattr(self, "async_update"))
+            and callable(self.async_update)
             and self.__class__.async_update is not AsyncUpdater.async_update
         )
         has_sync_update = (
             hasattr(self, "update") 
-            and callable(getattr(self, "update"))
+            and callable(self.update)
             and self.__class__.update is not AsyncUpdater.update
         )
         
@@ -151,7 +151,7 @@ class AsyncUpdater(ABC):
                         self._requested_update_interval = None
                         _LOGGER.debug(f"{getattr(self, 'id', 'unknown')}: Waiting {delay}s before update")
                         await asyncio.sleep(delay)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Normal timeout - continue to update
                     pass
                 

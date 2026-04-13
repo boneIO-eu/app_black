@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,7 +175,7 @@ def _persist_config_version(config_file: str, version: int) -> None:
         config_file: Path to the YAML config file.
         version: New config_version value to write.
     """
-    with open(config_file, "r", encoding="utf-8") as f:
+    with open(config_file, encoding="utf-8") as f:
         lines = f.readlines()
 
     updated_lines: list[str] = []
@@ -226,5 +226,7 @@ def _persist_config_version(config_file: str, version: int) -> None:
 
 
 # Import migration modules to trigger registration
-from boneio.core.config.migrations import v1_proxy_port  # noqa: E402, F401
-from boneio.core.config.migrations import v2_transition  # noqa: E402, F401
+from boneio.core.config.migrations import (
+    v1_proxy_port,  # noqa: E402, F401
+    v2_transition,  # noqa: E402, F401
+)

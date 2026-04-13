@@ -8,7 +8,8 @@ import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, WebSocket, WebSocketDisconnect
+# Import FastAPI
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -38,6 +39,7 @@ from boneio.models.events import (
 )
 from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
+from boneio.webui.middleware.auth import AuthMiddleware, set_auth_config, set_jwt_secret
 
 # Import routes
 from boneio.webui.routes import (
@@ -58,13 +60,9 @@ from boneio.webui.routes import (
 )
 from boneio.webui.routes import config as config_module
 from boneio.webui.routes import system as system_module
-from boneio.webui.middleware.auth import AuthMiddleware, set_auth_config, set_jwt_secret
 
 # Import WebSocket manager
 from boneio.webui.websocket_manager import WebSocketManager
-
-# Import FastAPI
-from fastapi import FastAPI
 
 if TYPE_CHECKING:
     from boneio.webui.web_server import WebServer
@@ -162,12 +160,12 @@ app.include_router(tools_router)
 
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
-from boneio.webui.routes import outputs as outputs_module
 from boneio.webui.routes import covers as covers_module
 from boneio.webui.routes import irrigation as irrigation_module
 from boneio.webui.routes import modbus as modbus_module
-from boneio.webui.routes import sensors as sensors_module
+from boneio.webui.routes import outputs as outputs_module
 from boneio.webui.routes import remote_devices as remote_devices_module
+from boneio.webui.routes import sensors as sensors_module
 from boneio.webui.routes import templates as templates_module
 from boneio.webui.routes import tools as tools_module
 from boneio.webui.routes import update as update_module
@@ -351,6 +349,16 @@ async def send_initial_states(
         # Send outputs
         for output in boneio_manager.outputs.get_all_outputs().values():
             try:
+                if getattr(output, "adjustable_duration_enabled", False):
+                    adjustable_duration_kwargs={"adjustable_duration_enabled":True,"adjustable_duration":getattr(output, "adjustable_duration", None),"duration_min":getattr(output, "duration_min", None),"duration_max":getattr(output, "duration_max", None),"duration_unit":getattr(output, "duration_unit", None)}
+                else:
+                    adjustable_duration_kwargs={
+                        "adjustable_duration_enabled":False,
+                        "adjustable_duration":None,
+                        "duration_min":None,
+                        "duration_max":None,
+                        "duration_unit":None,
+                    }
                 output_state = OutputState(
                     id=output.id,
                     name=output.name,
@@ -361,6 +369,7 @@ async def send_initial_states(
                     timestamp=output.last_timestamp,
                     area=getattr(output, "area", None),
                     interlock_groups=getattr(output, "_interlock_groups", []),
+                    **adjustable_duration_kwargs
                 )
                 update = OutputEvent(entity_id=output.id, state=output_state)
                 if not await send_state_update(update):
@@ -627,7 +636,7 @@ async def websocket_endpoint(
                             _LOGGER.debug("Client requested state resync")
                             if not await send_initial_states(websocket, boneio_manager):
                                 break
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         if websocket.application_state != WebSocketState.CONNECTED:
                             _LOGGER.debug("WebSocket no longer connected, exiting loop")
                             break
@@ -705,6 +714,7 @@ def init_app(
     # Pre-populate config cache if initial_config provided
     if initial_config is not None:
         import os
+
         from boneio.webui.routes.config import _config_cache, _get_config_mtime
 
         _config_cache["data"] = initial_config

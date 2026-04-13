@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from boneio.core.config import ConfigHelper
 from boneio.core.messaging.basic import MessageBus
 from boneio.modbus.entities.base import ModbusDerivedEntity

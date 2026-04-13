@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from jose import jwt
 from jose.exceptions import JWTError
@@ -86,7 +86,7 @@ def create_token(data: dict) -> str:
         Encoded JWT token string.
     """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=7)
+    expire = datetime.now(UTC) + timedelta(days=7)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, _JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
@@ -105,7 +105,7 @@ def verify_token(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[JWT_ALGORITHM])
         exp = payload.get("exp")
-        if not exp or datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
+        if not exp or datetime.fromtimestamp(exp, tz=UTC) < datetime.now(UTC):
             return None
         return payload
     except JWTError:

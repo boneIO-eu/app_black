@@ -4,9 +4,8 @@ import logging
 
 from boneio.const import ID, MODEL, NAME, SENSOR
 from boneio.core.config import ConfigHelper
-from boneio.integration.homeassistant import modbus_sensor_availabilty_message
 from boneio.core.messaging.basic import MessageBus
-
+from boneio.integration.homeassistant import modbus_sensor_availabilty_message
 from boneio.modbus.entities.base import ModbusBaseEntity
 
 _LOGGER = logging.getLogger(__name__)

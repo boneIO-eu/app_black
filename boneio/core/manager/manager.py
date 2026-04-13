@@ -9,9 +9,9 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
 from collections import deque
 from collections.abc import Callable, Coroutine
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import (
@@ -35,21 +35,21 @@ from boneio.const import (
     output_actions,
 )
 from boneio.core.config import ConfigHelper
+from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.events import EventBus
+from boneio.core.manager.action_conditions import precompile_conditions, should_execute_action
 from boneio.core.manager.covers import CoverManager
 from boneio.core.manager.display import DisplayManager
 from boneio.core.manager.inputs import InputManager
 from boneio.core.manager.irrigation import IrrigationManager
 from boneio.core.manager.modbus import ModbusManager
 from boneio.core.manager.outputs import OutputManager
-from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.remote import RemoteDeviceManager
+from boneio.core.manager.sensors import SensorManager
 from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
-from boneio.core.discovery import BlackDiscoveryPublisher
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
-from boneio.core.manager.action_conditions import precompile_conditions, should_execute_action
 from boneio.hardware.i2c.bus import SMBus2I2C
 
 if TYPE_CHECKING:
@@ -474,7 +474,7 @@ class Manager:
         Returns:
             Parsed actions dictionary
         """
-        from boneio.const import TOPIC, REMOTE_OUTPUT, REMOTE_COVER
+        from boneio.const import REMOTE_COVER, REMOTE_OUTPUT, TOPIC
         from boneio.core.utils import strip_accents
         
         def _copy_long_press_meta(parsed_action: dict, action_definition: dict) -> None:
@@ -979,7 +979,7 @@ class Manager:
             reload_sections: Optional list of section names to reload.
                            If None, reloads all supported sections (output, cover, input, modbus_devices).
                            Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 'adc',
-                           'modbus_devices', 'sensor', 'virtual_energy_sensor', 'logger', 'remote_devices'
+                           'modbus_devices', 'sensor', 'virtual_energy_sensor', 'logger', 'remote_devices', 'oled'
         
         Returns:
             dict: Status of reload operation with details:
@@ -1026,6 +1026,7 @@ class Manager:
             "template": self.templates.reload_templates,  # Thermostats and alarm panels
             "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
+            "oled": self.display.reload_oled,  # OLED display screens, screensaver
         }
         
         # If specific sections requested, filter
@@ -1172,6 +1173,42 @@ class Manager:
                 target_device.set_brightness(int(message))
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
+            return
+        
+        # Handle adjustable duration commands (set_duration)
+        if msg_type == OUTPUT and command == "set_duration":
+            target_device = self.outputs.get_output(device_id)
+            if target_device and target_device.adjustable_duration_enabled:
+                try:
+                    value = float(message)
+                    # HA sends value in the user-configured unit — convert to seconds
+                    if target_device.duration_unit == "min":
+                        seconds = value * 60
+                    else:
+                        seconds = value
+                    target_device.set_adjustable_duration(seconds)
+                    # Persist to state manager (always in seconds)
+                    self._state_manager.save_attribute(
+                        attr_type="adjustable_duration",
+                        attribute=device_id,
+                        value=target_device.adjustable_duration,
+                    )
+                    # Publish updated duration back to MQTT (in the user's unit)
+                    if target_device.duration_unit == "min":
+                        publish_value = round(target_device.adjustable_duration / 60, 1)
+                    else:
+                        publish_value = target_device.adjustable_duration
+                    self._message_bus.send_message(
+                        topic=f"{self._topic_prefix}/{OUTPUT}/{device_id}/duration",
+                        payload={"value": publish_value},
+                        retain=True,
+                    )
+                except (TypeError, ValueError):
+                    _LOGGER.warning(
+                        "Invalid duration value '%s' for output '%s'", message, device_id
+                    )
+            else:
+                _LOGGER.debug("Output '%s' does not support adjustable duration", device_id)
             return
         
         if msg_type == COVER:

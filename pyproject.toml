@@ -48,10 +48,8 @@ boneio = "boneio.bonecli:main"
 
 [tool.pdm.dev-dependencies]
 dev = [
-    "black>=25.9.0",
-    "isort>=6.1.0",
+    "ruff>=0.15.0",
     "pre-commit>=4.3.0",
-    "flake8>=7.3.0",
     "bandit>=1.8.6",
     "setuptools>=80.9.0",
 ]
@@ -76,33 +74,38 @@ include = ["boneio*"]
 [tool.setuptools.dynamic]
 version = {attr = "boneio.version.__version__"}
 
-[tool.black]
-line-length = 88
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  | pdm/_vendor
-  | tests/fixtures
-)/
-'''
+[tool.ruff]
+target-version = "py313"
+line-length = 120
 
-[tool.isort]
-profile = "black"
-atomic = true
-filter_files = true
-known_first_party = ["boneio"]
+[tool.ruff.lint]
+# E = pycodestyle errors, F = pyflakes, I = isort, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# Pragmatic ignores for existing codebase
+ignore = [
+    "E402",    # module import not at top — intentional in bonecli (boot timing)
+    "E501",    # line too long — handled by formatter
+    "E741",    # ambiguous variable name (l, O, I)
+    "F401",    # unused imports — too many false positives during refactoring
+    "F841",    # local variable assigned but never used
+    "B008",    # function call in default argument
+    "B905",    # zip without strict
+    "SIM108",  # use ternary operator — readability preference
+    "UP007",   # use X | Y for union — we already use it but some old code doesn't
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["boneio"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
 
 [tool.pdm.scripts]
-lint = "pre-commit run --all-files"
+lint = "ruff check boneio/"
+format = "ruff format boneio/"
+fix = "ruff check --fix boneio/"
 
 [tool.pyright]
 # BasedPyRight configuration - compatibility mode with PyRight

@@ -10,9 +10,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import ALARM_CONTROL_PANEL, CLIMATE, COVER
-from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
-from boneio.components.template.thermostat import BoneIOThermostat
 from boneio.components.template.alarm_panel import (
     AlarmOutput,
     AlarmPinCode,
@@ -21,6 +18,9 @@ from boneio.components.template.alarm_panel import (
     ZoneInput,
 )
 from boneio.components.template.gate_cover import BoneIOGateCover
+from boneio.components.template.thermostat import BoneIOThermostat
+from boneio.const import ALARM_CONTROL_PANEL, CLIMATE, COVER
+from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -38,7 +38,7 @@ class TemplateManager:
 
     def __init__(
         self,
-        manager: "Manager",
+        manager: Manager,
         template_config: list[dict[str, Any]],
     ) -> None:
         self._manager = manager

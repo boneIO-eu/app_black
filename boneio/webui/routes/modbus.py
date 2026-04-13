@@ -652,7 +652,7 @@ async def set_entity_labels(
         # Find matching device config entry
         updated = False
         for device_config in modbus_devices:
-            from boneio.const import ADDRESS, MODEL, ID
+            from boneio.const import ADDRESS, ID, MODEL
             has_custom_id = bool(device_config.get(ID))
             if has_custom_id:
                 device_id = str(device_config[ID]).replace(" ", "").lower()

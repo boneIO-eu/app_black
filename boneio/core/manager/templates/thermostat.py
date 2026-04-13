@@ -4,9 +4,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from boneio.components.template.thermostat import BoneIOThermostat
 from boneio.const import CLIMATE
 from boneio.core.utils.timeperiod import parse_time_to_seconds
-from boneio.components.template.thermostat import BoneIOThermostat
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -21,7 +21,7 @@ class ThermostatManager:
         manager: Reference to the main Manager.
     """
 
-    def __init__(self, manager: "Manager") -> None:
+    def __init__(self, manager: Manager) -> None:
         self._manager = manager
         self._items: list[BoneIOThermostat] = []
         self._sensor_map: dict[str, list[BoneIOThermostat]] = {}

@@ -5,8 +5,8 @@ import logging
 import threading
 import time
 
-from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.components.cover.cover import BaseCover, BaseVenetianCoverABC
+from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.core.utils import TimePeriod
 from boneio.models import PositionDict
 

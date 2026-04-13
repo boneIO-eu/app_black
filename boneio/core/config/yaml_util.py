@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
-from yaml import MarkedYAMLError, SafeLoader, SafeDumper, YAMLError, dump, load
+from yaml import MarkedYAMLError, SafeDumper, SafeLoader, YAMLError, dump, load
 
 from boneio.const import OUTPUT
 from boneio.core.utils import TimePeriod
@@ -692,17 +692,7 @@ class CustomValidator(Validator):
             multiplier = 1_000_000.0
         elif unit == 'wh':
             multiplier = 1.0
-        elif unit == 'mw':
-            multiplier = 1_000_000.0
-        elif unit == 'mw':
-            multiplier = 1_000_000.0
-        elif unit == 'mw':
-            multiplier = 1_000_000.0
-        elif unit == 'mw':
-            multiplier = 1_000_000.0
-        elif unit == 'mw':
-            multiplier = 1_000_000.0
-        elif unit == 'mw':
+        elif unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw':
             multiplier = 1_000_000.0
         else:
             _LOGGER.warning(f"Unknown unit for power value: {unit}")
@@ -932,6 +922,7 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
     TimePeriod and OrderedDict objects.
     """
     import pickle
+
     from boneio.version import __version__
     cache_path = _get_config_cache_path(config_file)
     try:
@@ -966,6 +957,8 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     # Check if config was created by a newer app version (soft block)
     from boneio.core.config.migrations import (
         CURRENT_SCHEMA_VERSION as _CURRENT_SCHEMA,
+    )
+    from boneio.core.config.migrations import (
         get_config_version as _get_cv,
     )
     _cv = _get_cv(config_yaml)

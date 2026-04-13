@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING, Any
 from boneio.const import ALARM_CONTROL_PANEL, STATE
 
 if TYPE_CHECKING:
-    from boneio.core.messaging.basic import MessageBus
-    from boneio.core.events.bus import EventBus
     from boneio.components.output.basic import BasicOutput
+    from boneio.core.events.bus import EventBus
     from boneio.core.manager.inputs import InputManager
+    from boneio.core.messaging.basic import MessageBus
     from boneio.core.state.manager import StateManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ class AlarmOutput:
         output_type: Type of output (siren, notification, light, custom).
     """
 
-    def __init__(self, output: "BasicOutput", output_type: str = OUTPUT_SIREN) -> None:
+    def __init__(self, output: BasicOutput, output_type: str = OUTPUT_SIREN) -> None:
         self.output = output
         self.output_type = output_type
 
@@ -227,12 +227,12 @@ class BoneIOAlarmPanel:
         self,
         id: str,
         name: str,
-        message_bus: "MessageBus",
-        event_bus: "EventBus",
+        message_bus: MessageBus,
+        event_bus: EventBus,
         topic_prefix: str,
         zones: list[AlarmZone],
         outputs: list[AlarmOutput],
-        input_manager: "InputManager | None" = None,
+        input_manager: InputManager | None = None,
         codes: list[AlarmPinCode] | None = None,
         code_arm_required: bool = False,
         allow_frontend_control: bool = False,
@@ -240,7 +240,7 @@ class BoneIOAlarmPanel:
         delay_time_s: float = 30.0,
         trigger_time_s: float = 300.0,
         area: str | None = None,
-        state_manager: "StateManager | None" = None,
+        state_manager: StateManager | None = None,
     ) -> None:
         self._id = id
         self._name = name

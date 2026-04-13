@@ -176,7 +176,7 @@ class WLEDRemoteDevice(RemoteDevice):
                         await response.text(), response.status
                     )
                     return False
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("WLED request timeout for %s", self._host)
             return False
         except aiohttp.ClientError as e:
@@ -422,7 +422,7 @@ class WLEDRemoteDevice(RemoteDevice):
                 
                 return self._device_info
                 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.error("WLED discovery timeout for %s", self._host)
             return {"error": "timeout"}
         except aiohttp.ClientError as e:
