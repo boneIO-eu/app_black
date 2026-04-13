@@ -22,9 +22,9 @@ from boneio.const import (
     HA_DISCOVERY,
     HOST,
     INA219,
+    IRRIGATION,
     LM75,
     MCP23017,
-    VIRTUAL_ENERGY_SENSOR,
     MCP_TEMP_9808,
     MODBUS,
     MQTT,
@@ -37,11 +37,11 @@ from boneio.const import (
     PCA9685,
     PCF8575,
     PORT,
-    IRRIGATION,
     SENSOR,
     TEMPLATE,
     TOPIC_PREFIX,
     USERNAME,
+    VIRTUAL_ENERGY_SENSOR,
 )
 from boneio.core.cloud import CloudRegistration
 from boneio.core.config import ConfigHelper
@@ -59,61 +59,37 @@ warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptogra
 _LOGGER = logging.getLogger(__name__)
 
 
-def _init_early_oled(oled_config: dict) -> Any | None:
-    """Initialize bare OLED device for startup status messages.
-    
-    This creates the I2C connection and SH1106 device early,
-    before Manager.__init__(), so we can display boot progress
-    on the OLED screen immediately.
-    
-    Args:
-        oled_config: OLED configuration dict from config file
-        
-    Returns:
-        sh1106 device instance or None if OLED is not configured or fails
-    """
-    if not oled_config:
-        return None
-    try:
-        from luma.core.interface.serial import i2c
-        from luma.oled.device import sh1106
-        serial = i2c(port=2, address=0x3C)
-        device = sh1106(serial)
-        _LOGGER.debug("Early OLED device initialized for startup messages")
-        return device
-    except Exception as err:
-        _LOGGER.debug("Early OLED init skipped: %s", err)
-        return None
+# Early OLED is initialized in bonecli.py before runner.
+# Import centralized functions here for use during startup sequence.
+# Wrapped in try/except so runner works even without display libraries.
+try:
+    from boneio.hardware.display.early_oled import (
+        draw_crash as _draw_crash,
+    )
+    from boneio.hardware.display.early_oled import (
+        draw_status as _draw_startup_status_impl,
+    )
+    from boneio.hardware.display.early_oled import (
+        get_early_device as _get_early_oled_device,
+    )
+except Exception:
+    _LOGGER.debug("Early OLED module not available in runner")
+    def _get_early_oled_device() -> Any | None: return None  # noqa: E731
+    def _draw_startup_status_impl(msg: str, **kw: Any) -> None: pass  # noqa: E731
+    def _draw_crash(exc: BaseException, **kw: Any) -> None: pass  # noqa: E731
 
 
 def _draw_startup_status(device: Any | None, message: str) -> None:
     """Draw a startup status message on the OLED display.
     
-    Shows the boneIO logo and a status line below it.
+    Thin wrapper that accepts a device argument for backward compatibility
+    but delegates to the centralized early_oled module.
     
     Args:
         device: sh1106 device instance (or None to skip)
         message: Status message to display
     """
-    if device is None:
-        return
-    try:
-        from luma.core.render import canvas
-        from boneio.core.utils.font_util import make_font
-        try:
-            font_logo = make_font("danube__.ttf", 15, local=True)
-            font_status = make_font("DejaVuSans.ttf", 9)
-        except (OSError, IOError):
-            from PIL import ImageFont
-            font_logo = ImageFont.load_default()
-            font_status = ImageFont.load_default()
-
-        with canvas(device) as draw:
-            draw.text((3, 3), "bone", font=font_logo, fill=1)
-            draw.text((53, 3), "iO", font=font_logo, fill=1)
-            draw.text((3, 30), message, font=font_status, fill=1)
-    except Exception as err:
-        _LOGGER.debug("Failed to draw startup status on OLED: %s", err)
+    _draw_startup_status_impl(message, device=device)
 
 
 config_modules = [
@@ -218,9 +194,8 @@ async def async_run(
         for item in config_modules
     }
 
-    # --- Early OLED init (before Manager) for startup status ---
-    oled_config = config.get(OLED, {})
-    early_oled_device = _init_early_oled(oled_config)
+    # --- Reuse early OLED device (initialized in bonecli.py) for startup status ---
+    early_oled_device = _get_early_oled_device()
     _draw_startup_status(early_oled_device, "Initializing...")
 
     manager = Manager(
@@ -407,8 +382,10 @@ async def async_run(
         _LOGGER.info("Restart or graceful exit requested")
     except Exception as e:
         _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
+        _draw_crash(e)
     except BaseException as e:
         _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
+        _draw_crash(e)
     finally:
         _LOGGER.info("Cleaning up resources...")
 

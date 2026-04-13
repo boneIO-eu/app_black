@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time as _boot_time
+
 _BOOT_T0 = _boot_time.monotonic()
 
 import logging
@@ -20,6 +21,7 @@ print(f"[BOOT TIMING] stdlib imports: {_boot_time.monotonic() - _BOOT_T0:.2f}s",
 # startup time. Only version is imported here for --version CLI flag.
 _t_ver = _boot_time.monotonic()
 from boneio.version import __version__
+
 print(f"[BOOT TIMING] ALL imports: {_boot_time.monotonic() - _BOOT_T0:.2f}s", flush=True)
 
 TASK_CANCELATION_TIMEOUT = 1
@@ -205,7 +207,9 @@ def run(
 ) -> int:
     """Run BoneIO."""
     import time as _time
+
     from yaml import MarkedYAMLError
+
     from boneio.core.config import load_config_from_file
     from boneio.core.events import GracefulExit
     from boneio.core.utils.logger import configure_logger, setup_logging
@@ -214,12 +218,33 @@ def run(
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
     _LOGGER.debug("[STARTUP TIMING] after setup_logging: %.2fs", _time.monotonic() - _t0)
+
+    # --- Initialize OLED before anything else (independent of config) ---
+    # This is wrapped in try/except so the app always starts even if
+    # OLED hardware is missing, broken, or display libraries aren't installed.
+    try:
+        from boneio.hardware.display.early_oled import (
+            draw_config_error,
+            draw_crash,
+            draw_status,
+            init_early_oled,
+        )
+        init_early_oled()
+        draw_status("Loading config...")
+    except Exception:
+        # OLED is optional — define no-op stubs so rest of the function works
+        _LOGGER.debug("Early OLED not available, continuing without display")
+        def draw_status(msg: str) -> None: pass  # noqa: E731
+        def draw_config_error(msg: str) -> None: pass  # noqa: E731
+        def draw_crash(exc: BaseException) -> None: pass  # noqa: E731
+
     try:
         _t1 = _time.monotonic()
         _config = load_config_from_file(config_file=config)
         _LOGGER.debug("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
+            draw_config_error("Config file is empty or missing")
             return 1
         configure_logger(log_config=_config.get("logger") or {}, debug=debug)
         # Granular timing of runner sub-imports to find the bottleneck
@@ -242,6 +267,9 @@ def run(
         from boneio.runner import async_run
         _LOGGER.debug("[RUNNER IMPORT] boneio.runner (rest): %.2fs", _time.monotonic() - _t_a)
         _LOGGER.debug("[STARTUP TIMING] total before async_run: %.2fs", _time.monotonic() - _t0)
+
+        draw_status("Starting...")
+
         ret = asyncio.run(
             async_run(
                 config=_config,
@@ -260,6 +288,11 @@ def run(
         return 0
     except (ConfigurationException, MarkedYAMLError) as err:
         _LOGGER.error("Failed to load config. %s Exiting.", err)
+        draw_config_error(str(err)[:100])
+        return 1
+    except Exception as err:
+        _LOGGER.error("Unexpected error during startup: %s", err, exc_info=True)
+        draw_crash(err)
         return 1
 
 
@@ -268,6 +301,7 @@ def run_modbus_command(
 ) -> int:
     """Run BoneIO."""
     from yaml import MarkedYAMLError
+
     from boneio.core.events import GracefulExit
     from boneio.core.utils.logger import configure_logger, setup_logging
     from boneio.exceptions import ConfigurationException, RestartRequestException
