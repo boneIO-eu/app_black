@@ -9,7 +9,10 @@ This package contains all Pydantic models used throughout BoneIO:
 """
 
 from __future__ import annotations
+
 from pydantic import BaseModel
+
+from boneio.models.events import Event
 
 # Import State models from state.py
 from boneio.models.state import (
@@ -25,7 +28,6 @@ from boneio.models.state import (
     SensorState,
 )
 
-from boneio.models.events import Event
 
 class StateUpdate(BaseModel):
     """State update model for WebSocket messages."""

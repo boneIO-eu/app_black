@@ -1,8 +1,8 @@
 """Integration modules for external systems (Home Assistant, etc.)."""
 
 from boneio.integration.homeassistant import (
-    ha_availabilty_message,
     ha_adc_sensor_availabilty_message,
+    ha_availabilty_message,
     ha_binary_sensor_availabilty_message,
     ha_button_availabilty_message,
     ha_cover_availabilty_message,

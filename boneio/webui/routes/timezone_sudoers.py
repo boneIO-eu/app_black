@@ -98,7 +98,7 @@ async def check_sudo_nopasswd_for_timedatectl() -> dict:
                 "Changing timezone/NTP settings will fail."
             )
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         result["error"] = "sudo check timed out"
     except FileNotFoundError:
         result["error"] = "sudo command not found"
@@ -195,7 +195,7 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
             "content": content,
         }
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"status": "error", "message": "sudo command timed out"}
     except Exception as e:
         _LOGGER.error("Failed to create timedatectl sudoers file: %s", e)

@@ -18,8 +18,9 @@ Example usage:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time, date
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import date, datetime, time
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 

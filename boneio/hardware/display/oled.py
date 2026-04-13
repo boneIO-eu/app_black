@@ -35,7 +35,7 @@ try:
         "extraSmall": make_font("DejaVuSans.ttf", 7),
         "danube": make_font("danube__.ttf", 15, local=True),
     }
-except (OSError, IOError):
+except OSError:
     # Fallback to default PIL fonts if TTF fonts are not available
     from PIL import ImageFont
     _LOGGER.warning("TTF fonts not found, using default PIL fonts")

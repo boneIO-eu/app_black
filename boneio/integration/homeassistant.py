@@ -12,6 +12,8 @@ import logging
 
 _LOGGER = logging.getLogger(__name__)
 
+from typing import TYPE_CHECKING, Any
+
 from boneio.const import (
     ADC,
     CLOSE,
@@ -21,6 +23,7 @@ from boneio.const import (
     DOUBLE,
     INPUT,
     IP,
+    IRRIGATION,
     LONG,
     NUMERIC,
     OFF,
@@ -34,10 +37,9 @@ from boneio.const import (
     STATE,
     STOP,
     TRIPLE,
-    IRRIGATION,
 )
 from boneio.version import __version__
-from typing import Any, TYPE_CHECKING
+
 if TYPE_CHECKING:
     from boneio.core.config.config_helper import ConfigHelper
 
@@ -393,6 +395,176 @@ def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_t
     msg["payload_off"] = OFF
     msg["payload_on"] = ON
     msg["value_template"] = "{{ value_json.state }}"
+    return msg
+
+
+def ha_timed_output_switch_message(
+    id: str,
+    name: str,
+    output_type: str,
+    config_helper: ConfigHelper,
+    icon: str | None = None,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """Create switch/valve/light discovery for a timed output.
+
+    The HA entity type depends on the underlying output_type:
+    - 'valve' → valve entity
+    - 'light' → light entity
+    - everything else → switch entity
+
+    Args:
+        id: Timed output entity ID.
+        name: Display name for HA.
+        output_type: Output type of the underlying output.
+        config_helper: ConfigHelper instance.
+        icon: Optional MDI icon.
+        area: Optional area ID.
+    """
+    topic = config_helper.topic_prefix
+    device_type = "timed_output"
+
+    if output_type == "valve":
+        msg = ha_valve_availabilty_message(
+            id=f"timed_{id}", name=name,
+            config_helper=config_helper, device_type=device_type,
+            area=area,
+        )
+    elif output_type == "light":
+        msg = ha_light_availabilty_message(
+            id=f"timed_{id}", name=name,
+            config_helper=config_helper, device_type=device_type,
+            area=area,
+        )
+    else:
+        msg = ha_switch_availabilty_message(
+            id=f"timed_{id}", name=name,
+            config_helper=config_helper, device_type=device_type,
+            area=area,
+        )
+
+    # Override topics to use timed_output namespace
+    msg["state_topic"] = f"{topic}/timed_output/{id}"
+    msg["command_topic"] = f"{topic}/cmd/timed_output/{id}/set"
+
+    if icon:
+        msg["icon"] = icon
+
+    return msg
+
+
+def ha_timed_output_number_message(
+    id: str,
+    name: str,
+    min_val: float,
+    max_val: float,
+    step: float,
+    unit: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """Create number discovery for timed output duration slider.
+
+    Args:
+        id: Timed output entity ID.
+        name: Display name (e.g., "Sprinkler Duration").
+        min_val: Minimum value.
+        max_val: Maximum value.
+        step: Step size.
+        unit: Unit of measurement ("s", "min").
+        config_helper: ConfigHelper instance.
+        area: Optional area ID.
+    """
+    topic = config_helper.topic_prefix
+    device_type = "timed_output"
+
+    msg = ha_availabilty_message(
+        id=f"timed_{id}_duration",
+        name=name,
+        entity_type="number",
+        config_helper=config_helper,
+        device_type=device_type,
+        area=area,
+    )
+    msg["state_topic"] = f"{topic}/timed_output/{id}/duration"
+    msg["command_topic"] = f"{topic}/cmd/timed_output/{id}/duration/set"
+    msg["value_template"] = "{{ value_json.value }}"
+    msg["mode"] = "slider"
+    msg["min"] = min_val
+    msg["max"] = max_val
+    msg["step"] = step
+    msg["icon"] = "mdi:timer-outline"
+    if unit:
+        msg["unit_of_measurement"] = unit
+
+    return msg
+
+
+def ha_output_duration_number_message(
+    id: str,
+    name: str,
+    min_val: float,
+    max_val: float,
+    unit: str,
+    config_helper: ConfigHelper,
+    output_discovery_payload: dict[str, Any] | None = None,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """Create number discovery for output adjustable duration slider.
+
+    The number entity is attached to the SAME HA device as the output itself.
+    This is achieved by copying the ``device`` block from the output's
+    discovery payload when available.
+
+    Args:
+        id: Output entity ID.
+        name: Display name (e.g., "OUT 12 Duration").
+        min_val: Minimum value in seconds.
+        max_val: Maximum value in seconds.
+        unit: Unit of measurement for HA slider ("s" or "min").
+        config_helper: ConfigHelper instance.
+        output_discovery_payload: The output's HA discovery payload — used to
+            extract the ``device`` block so both entities share one HA device.
+        area: Optional area ID (fallback when output_discovery_payload is None).
+    """
+    topic = config_helper.topic_prefix
+
+    # Build base message; we will override the device block below
+    msg = ha_availabilty_message(
+        id=f"{id}_duration",
+        name=name,
+        entity_type="number",
+        config_helper=config_helper,
+        device_type=OUTPUT,
+        area=area,
+    )
+
+    # CRITICAL: Replace the device block with the output's device block so
+    # Home Assistant groups both entities under the same device.
+    if output_discovery_payload and "device" in output_discovery_payload:
+        msg["device"] = output_discovery_payload["device"]
+
+    msg["state_topic"] = f"{topic}/{OUTPUT}/{id}/duration"
+    msg["command_topic"] = f"{topic}/cmd/{OUTPUT}/{id}/set_duration"
+    msg["value_template"] = "{{ value_json.value }}"
+    msg["mode"] = "slider"
+
+    # Convert min/max to the user-selected unit
+    if unit == "min":
+        msg["min"] = round(min_val / 60, 1)
+        msg["max"] = round(max_val / 60, 1)
+        range_size = msg["max"] - msg["min"]
+        msg["step"] = 1 if range_size <= 60 else 5
+        msg["unit_of_measurement"] = "min"
+    else:
+        msg["min"] = min_val
+        msg["max"] = max_val
+        range_size = max_val - min_val
+        msg["step"] = 1 if range_size <= 600 else 5
+        msg["unit_of_measurement"] = "s"
+
+    msg["icon"] = "mdi:timer-outline"
+
     return msg
 
 

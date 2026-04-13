@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.core.manager.templates.thermostat import ThermostatManager
 from boneio.core.manager.templates.alarm import AlarmManager
 from boneio.core.manager.templates.gate_cover import GateCoverManager
+from boneio.core.manager.templates.thermostat import ThermostatManager
 
 if TYPE_CHECKING:
     from boneio.core.manager.manager import Manager
@@ -29,7 +29,7 @@ class TemplateManager:
 
     def __init__(
         self,
-        manager: "Manager",
+        manager: Manager,
         template_config: list[dict[str, Any]],
     ) -> None:
         self._manager = manager

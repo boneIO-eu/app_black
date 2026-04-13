@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
+from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
-from boneio.core.config.yaml_util import load_config_from_file, load_yaml_file, normalize_board_name
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -127,7 +127,7 @@ def _update_progress(progress: int, step: str, log_msg: str | None = None):
 
 
 @router.post("/check_update_now")
-async def check_update_now(manager: "Manager" = Depends(get_manager)):
+async def check_update_now(manager: Manager = Depends(get_manager)):
     """
     Force immediate update check and publish to MQTT.
     
@@ -324,7 +324,7 @@ class UpdateRequest(BaseModel):
 
 
 @router.post("/update")
-async def update_boneio(background_tasks: BackgroundTasks, request: UpdateRequest = UpdateRequest(), manager: "Manager" = Depends(get_manager)):
+async def update_boneio(background_tasks: BackgroundTasks, request: UpdateRequest = UpdateRequest(), manager: Manager = Depends(get_manager)):
     """
     Update the BoneIO package with backup and restart the service.
     
@@ -968,7 +968,7 @@ async def factory_reset(request: FactoryResetRequest):
             
             # For config.yaml, adjust sensors based on hardware version
             if filename == "config.yaml":
-                with open(example_file, 'r') as f:
+                with open(example_file) as f:
                     content = f.read()
                 adjusted_content = _adjust_config_for_hardware_version(content, version, device_type)
                 with open(dest_path, 'w') as f:
@@ -1082,7 +1082,7 @@ async def restore_config_backup(request: RestoreConfigBackupRequest):
         
         return {
             "status": "success",
-            "message": f"Configuration restored from backup",
+            "message": "Configuration restored from backup",
             "restored_files": restored_files,
             "restart_required": True
         }

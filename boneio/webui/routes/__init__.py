@@ -11,8 +11,8 @@ from boneio.webui.routes.outputs import router as outputs_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
 from boneio.webui.routes.sensors import router as sensors_router
 from boneio.webui.routes.system import router as system_router
-from boneio.webui.routes.tools import router as tools_router
 from boneio.webui.routes.templates import router as templates_router
+from boneio.webui.routes.tools import router as tools_router
 from boneio.webui.routes.update import router as update_router
 
 __all__ = [

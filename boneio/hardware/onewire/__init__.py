@@ -6,7 +6,7 @@ This module provides 1-Wire protocol support and sensors:
 - Dallas temperature sensors (DS18B20, etc.)
 """
 
-from boneio.hardware.onewire.bus import OneWire, OneWireBus, OneWireAddress
+from boneio.hardware.onewire.bus import OneWire, OneWireAddress, OneWireBus
 from boneio.hardware.onewire.dallas import DallasSensor
 from boneio.hardware.onewire.ds2482 import DS2482, DS2482_ADDRESS
 

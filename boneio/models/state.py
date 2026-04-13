@@ -37,6 +37,11 @@ class OutputState(BaseModel):
     timestamp: float | None = None
     area: str | None = None
     interlock_groups: list[str] = []
+    # Adjustable duration fields (optional, only present when feature is enabled)
+    adjustable_duration: bool = False
+    adjustable_duration_value: float | None = None
+    duration_min: float | None = None
+    duration_max: float | None = None
 
 
 class CoverState(BaseModel):

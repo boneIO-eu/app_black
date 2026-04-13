@@ -35,7 +35,7 @@ class SMBus2I2C:
             bus_number: I2C bus number (default 2 for BBB I2C-2)
         """
         self._bus_number = bus_number
-        self._bus: Optional[SMBus] = None
+        self._bus: SMBus | None = None
         self._lock = threading.RLock()  # Reentrant lock for thread safety
         self._open_bus()
         _LOGGER.info("Initialized I2C wrapper on bus %d (smbus2)", bus_number)
@@ -87,7 +87,7 @@ class SMBus2I2C:
             # Lock was not held
             pass
 
-    def readfrom_into(self, address: int, buffer: bytearray, *, start: int = 0, end: Optional[int] = None) -> None:
+    def readfrom_into(self, address: int, buffer: bytearray, *, start: int = 0, end: int | None = None) -> None:
         """Read from I2C device into a buffer.
         
         Args:
@@ -116,7 +116,7 @@ class SMBus2I2C:
             _LOGGER.error(f"I2C read error on address 0x{address:02X}: {e}")
             raise
 
-    def writeto(self, address: int, buffer: bytes, *, start: int = 0, end: Optional[int] = None) -> None:
+    def writeto(self, address: int, buffer: bytes, *, start: int = 0, end: int | None = None) -> None:
         """Write data to I2C device.
         
         This method writes raw bytes to the device without treating the first byte
@@ -155,9 +155,9 @@ class SMBus2I2C:
         buffer_in: bytearray,
         *,
         out_start: int = 0,
-        out_end: Optional[int] = None,
+        out_end: int | None = None,
         in_start: int = 0,
-        in_end: Optional[int] = None
+        in_end: int | None = None
     ) -> None:
         """Write data to I2C device then read response using Repeated Start.
         

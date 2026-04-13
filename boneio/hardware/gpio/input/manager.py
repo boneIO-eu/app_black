@@ -17,7 +17,7 @@ from gpiod.line import Bias, Direction, Edge
 from boneio.const import PINS
 
 if TYPE_CHECKING:
-    from boneio.components.input.detectors import MultiClickDetector, BinarySensorDetector
+    from boneio.components.input.detectors import BinarySensorDetector, MultiClickDetector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class GpioInputDefinition:
     chip: int
     line: int
     bias: Bias
-    detector: "MultiClickDetector | BinarySensorDetector"  # Type hints for detectors
+    detector: MultiClickDetector | BinarySensorDetector  # Type hints for detectors
 
 
 class GpioManager:
@@ -57,10 +57,10 @@ class GpioManager:
         self._loop = loop
         self._debounce_ms = debounce_ms
         self._inputs: list[GpioInputDefinition] = []
-        self._requests: Dict[int, gpiod.LineRequest] = {}
+        self._requests: dict[int, gpiod.LineRequest] = {}
         self._file_descriptors: list[int] = []
-        self._aliases: Dict[Tuple[int, int], str] = {}
-        self._detectors: Dict[Tuple[int, int], "MultiClickDetector | BinarySensorDetector"] = {}
+        self._aliases: dict[tuple[int, int], str] = {}
+        self._detectors: dict[tuple[int, int], MultiClickDetector | BinarySensorDetector] = {}
         self._running = False
         self._on_start_callbacks: list[Callable[[], None]] = []
 
@@ -75,7 +75,7 @@ class GpioManager:
         self,
         name: str,
         pin: str,
-        detector: "MultiClickDetector | BinarySensorDetector",
+        detector: MultiClickDetector | BinarySensorDetector,
         gpio_mode: str = "gpio"
     ) -> None:
         """Add a GPIO input to monitor.
@@ -148,9 +148,9 @@ class GpioManager:
         self, 
         chip: int, 
         chip_definitions: list[GpioInputDefinition],
-        config: Dict[Tuple[int, ...], LineSettings],
+        config: dict[tuple[int, ...], LineSettings],
         consumer: str
-    ) -> tuple[Dict[Tuple[int, ...], LineSettings], list[tuple[int, str]]]:
+    ) -> tuple[dict[tuple[int, ...], LineSettings], list[tuple[int, str]]]:
         """Debug mode: Test each line individually to identify problematic ones.
         
         Returns:
@@ -220,14 +220,14 @@ class GpioManager:
         await self._cleanup_stale_requests()
 
         # Group inputs by chip
-        grouped_inputs: Dict[int, list[GpioInputDefinition]] = defaultdict(list)
+        grouped_inputs: dict[int, list[GpioInputDefinition]] = defaultdict(list)
         for input_def in self._inputs:
             grouped_inputs[input_def.chip].append(input_def)
 
         # Create line requests for each chip
         for chip, chip_definitions in grouped_inputs.items():
-            config: Dict[Tuple[int, ...], LineSettings] = {}
-            alias_map: Dict[Tuple[int, int], str] = {}
+            config: dict[tuple[int, ...], LineSettings] = {}
+            alias_map: dict[tuple[int, int], str] = {}
             
             for definition in chip_definitions:
                 settings_kwargs = {

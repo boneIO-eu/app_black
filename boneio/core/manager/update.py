@@ -444,9 +444,7 @@ class UpdateManager(AsyncUpdater):
             
             # Add --pre flag for pre-release versions (dev, alpha, beta, rc)
             needs_pre = False
-            if target_version and self._is_prerelease_version(target_version):
-                needs_pre = True
-            elif not target_version and self._is_prerelease_version(current_version):
+            if target_version and self._is_prerelease_version(target_version) or not target_version and self._is_prerelease_version(current_version):
                 needs_pre = True
             
             if needs_pre:
@@ -535,7 +533,7 @@ class UpdateManager(AsyncUpdater):
                 progress=0,
             )
             if on_progress:
-                on_progress(100, "Update complete!", f"Restarting service in 2 seconds...")
+                on_progress(100, "Update complete!", "Restarting service in 2 seconds...")
             
             await asyncio.sleep(2)
             
