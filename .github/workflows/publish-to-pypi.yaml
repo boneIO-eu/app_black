@@ -85,14 +85,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22'  # Latest LTS
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Build Frontend
         working-directory: frontend
         run: |
-          npm ci
-          npm run build
+          pnpm install --no-frozen-lockfile
+          pnpm build
 
       - name: Inject MASTER_SECRET
         run: |
