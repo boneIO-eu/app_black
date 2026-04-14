@@ -361,7 +361,7 @@ async def fix_compose_permissions(body: SudoFixRequest):
                 return {"status": "error", "message": "Incorrect sudo password"}
             return {"status": "error", "message": f"sudo failed: {stderr_str}"}
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _LOGGER.error("sudo chown timed out for %s", compose_path)
         return {"status": "error", "message": "sudo command timed out"}
     except Exception as e:

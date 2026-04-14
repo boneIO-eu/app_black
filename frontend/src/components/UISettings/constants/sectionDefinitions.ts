@@ -27,6 +27,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'virtual_energy_sensor', icon: '⚡', translationKey: 'sections.virtual_energy_sensor' },
   { name: 'template', icon: '🧩', translationKey: 'sections.template' },
   { name: 'logger', icon: '📝', translationKey: 'sections.logger' },
+  { name: 'oled', icon: '🖥️', translationKey: 'sections.oled' },
 ];
 
 /**

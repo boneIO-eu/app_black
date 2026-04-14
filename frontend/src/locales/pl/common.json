@@ -90,7 +90,20 @@
     "sort_recent": "Sortuj wg Ostatniego Zdarzenia",
     "long_press_to_edit": "Przytrzymaj aby edytować ustawienia",
     "go_to_settings": "Przejdź do Ustawień",
-    "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego wyjścia?"
+    "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego wyjścia?",
+    "divider_adjustable_duration": "Regulowany czas trwania",
+    "adjustable_duration_label": "Regulowany czas trwania",
+    "adjustable_duration_desc": "Tworzy suwak w HA do dynamicznego ustawiania timera auto-wyłączenia. Po włączeniu (ON) wyjście wyłączy się automatycznie po tym czasie.",
+    "duration_default": "Domyślny czas",
+    "duration_min": "Minimalny czas",
+    "duration_max": "Maksymalny czas",
+    "duration_unit": "Jednostka suwaka HA",
+    "duration_unit_seconds": "Sekundy (s)",
+    "duration_unit_minutes": "Minuty (min)",
+    "duration_unit_hint": "Jednostka wyświetlana na suwaku w Home Assistant",
+    "adjustable_duration_info_title": "Timer z regulowanym czasem",
+    "adjustable_duration_info_desc1": "Tworzy encję number (suwak) w Home Assistant do sterowania timerem auto-wyłączenia tego wyjścia.",
+    "adjustable_duration_info_desc2": "Przydatne do ręcznego podlewania, oświetlenia na czas lub dowolnego wyjścia, które powinno wyłączyć się po ustalonym czasie."
   },
   "inputs": {
     "title": "Wejścia",
@@ -604,7 +617,8 @@
       "web": "Konfiguracja Serwera Web",
       "modbus": "Konfiguracja Modbus",
       "can": "Konfiguracja magistrali CAN do komunikacji między urządzeniami przez protokół CANopen.",
-      "board_sensors": "Konfiguruj czujniki I2C na płytce: czujnik temperatury LM75/PCT2075, monitor zasilania INA219 i czujnik temperatury MCP9808."
+      "board_sensors": "Konfiguruj czujniki I2C na płytce: czujnik temperatury LM75/PCT2075, monitor zasilania INA219 i czujnik temperatury MCP9808.",
+      "oled": "Skonfiguruj wyświetlacz OLED: wybierz ekrany, ustaw kolejność, dodaj dodatkowe czujniki i czas wygaszacza."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -613,7 +627,8 @@
     "modbus": "Modbus",
     "can": "Magistrala CAN",
     "mcp23017": "MCP23017 (Zaawansowane)",
-    "board_sensors": "Czujniki sterownika"
+    "board_sensors": "Czujniki sterownika",
+    "oled": "Wyświetlacz OLED"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",
@@ -622,6 +637,37 @@
     "right_description": "Prawy ekspander GPIO (OUT_17-OUT_32 dla 32x10, OUT_13-OUT_24 dla 24x16)",
     "address": "Adres I2C",
     "address_hint": "Wybierz adres I2C dla tego ekspandera"
+  },
+  "oled": {
+    "enabled": "Wyświetlacz OLED włączony",
+    "enabled_hint": "Włącz lub wyłącz wbudowany ekran OLED.",
+    "screens_title": "Ekrany",
+    "screens_hint": "Przeciągnij, aby zmienić kolejność. Wyświetlacz przełącza ekrany po naciśnięciu przycisku.",
+    "add_screen": "Dodaj ekran:",
+    "screen_uptime": "Czas pracy",
+    "screen_network": "Sieć",
+    "screen_ina219": "Zasilanie (INA219)",
+    "screen_cpu": "CPU",
+    "screen_disk": "Dysk",
+    "screen_memory": "Pamięć",
+    "screen_swap": "Swap",
+    "screen_outputs": "Wyjścia",
+    "screen_inputs": "Wejścia",
+    "screen_extra_sensors": "Dodatkowe czujniki",
+    "screen_web": "QR Kod Web",
+    "extra_sensors_title": "Dodatkowe czujniki ekranu",
+    "extra_sensors_hint": "Skonfiguruj czujniki wyświetlane na ekranie dodatkowych czujników.",
+    "sensor_type": "Typ czujnika",
+    "modbus_id": "ID Modbus",
+    "modbus_id_placeholder": "np. energy_meter",
+    "sensor_id": "ID czujnika",
+    "sensor_id_placeholder": "np. temperature_1",
+    "add_sensor": "Dodaj czujnik",
+    "screensaver_title": "Wygaszacz ekranu",
+    "screensaver_timeout": "Czas wygaszacza",
+    "screensaver_timeout_hint": "Czas bezczynności przed uśpieniem wyświetlacza. Ustaw 0, aby wyłączyć wygaszacz.",
+    "screensaver_disabled": "Wyłączony",
+    "screensaver_off": "Wył."
   },
   "covers": {
     "idle": "bezczynny",

@@ -1,8 +1,9 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { FaLightbulb, FaLock } from 'react-icons/fa';
 import { HiLightBulb } from 'react-icons/hi';
 import { RiOutletLine } from "react-icons/ri";
 import { GiValve } from "react-icons/gi";
+import { MdTimer } from "react-icons/md";
 import { formatTimestamp } from '../utils/formatters';
 import { OutputState } from "@/hooks/useWebSocket";
 import { ImSwitch } from "react-icons/im";
@@ -31,9 +32,27 @@ function getInterlockColor(groupName: string): string {
   return INTERLOCK_COLORS[Math.abs(hash) % INTERLOCK_COLORS.length];
 }
 
+/**
+ * Format duration in seconds for display.
+ */
+function formatDuration(seconds: number): string {
+  if (seconds >= 3600) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  return `${Math.round(seconds)}s`;
+}
+
 interface OutputItemProps {
   output: OutputState;
   onToggle?: (id: string, name: string, type: string) => void;
+  onDurationChange?: (id: string, value: number) => void;
   isGrid: boolean;
   error: string | null;
   stateOnly?: boolean;
@@ -64,6 +83,7 @@ function getIconAndOnColor(type: string, isGroup: boolean = false): { Icon: Reac
 const OutputItem: React.FC<OutputItemProps> = ({
   output,
   onToggle,
+  onDurationChange,
   isGrid,
   error,
   stateOnly = false,
@@ -75,6 +95,28 @@ const OutputItem: React.FC<OutputItemProps> = ({
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Local slider value for responsive UI (avoid waiting for server roundtrip)
+  const [localDuration, setLocalDuration] = useState<number | null>(null);
+  
+  // Sync local value with server value when it changes
+  useEffect(() => {
+    if (output.adjustable_duration_value != null) {
+      setLocalDuration(output.adjustable_duration_value);
+    }
+  }, [output.adjustable_duration_value]);
+
+  const handleDurationChange = (value: number) => {
+    setLocalDuration(value);
+    // Debounce API call to avoid spamming
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      onDurationChange?.(output.id, value);
+    }, 300);
+  };
 
   const handlePressStart = () => {
     if (!onLongPress) return;
@@ -91,6 +133,8 @@ const OutputItem: React.FC<OutputItemProps> = ({
       longPressTimer.current = null;
     }
   };
+
+  const showDuration = output.adjustable_duration && localDuration != null;
   
   return (
     <div 
@@ -148,6 +192,30 @@ const OutputItem: React.FC<OutputItemProps> = ({
               after:transition-all dark:border-gray-600 peer-checked:bg-blue-600`}></div>
           </label>
         )}
+
+        {/* Adjustable duration slider */}
+        {showDuration && (
+          <div className="w-full mt-2">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+              <MdTimer className="text-sm" />
+              <span className="font-medium">
+                {formatDuration(localDuration!)}
+              </span>
+            </div>
+            <input
+              type="range"
+              className="range range-xs range-primary w-full"
+              min={output.duration_min ?? 1}
+              max={output.duration_max ?? 3600}
+              step={1}
+              value={localDuration!}
+              onChange={(e) => handleDurationChange(parseInt(e.target.value))}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+
         <p className="text-gray-500 text-xs mt-2">
           {formatTimestamp(output.timestamp ?? null)}
         </p>

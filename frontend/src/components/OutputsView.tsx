@@ -333,6 +333,15 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   };
 
+  const handleDurationChange = useCallback(async (id: string, value: number) => {
+    try {
+      await axios.post(`/api/outputs/${id}/set_duration`, { value });
+    } catch (err) {
+      console.error('Error setting duration:', err);
+      setError('Failed to set duration');
+    }
+  }, []);
+
   const gridClass = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
   const listClass = "flex flex-col gap-4";
 
@@ -356,6 +365,7 @@ export default function OutputsView({error}: {error: string | null}) {
               key={output.id}
               output={output}
               onToggle={isStateOnly ? undefined : onToggle}
+              onDurationChange={handleDurationChange}
               isGrid={isGrid}
               error={error}
               stateOnly={isStateOnly}

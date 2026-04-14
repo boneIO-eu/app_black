@@ -6,12 +6,13 @@ import logging
 import time
 
 from boneio.const import COVER, LIGHT, NONE, OFF, ON, OUTPUT, STATE, SWITCH
-from boneio.core.messaging import BasicMqtt
-from boneio.models.events import OutputEvent
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
-from boneio.integration.interlock import SoftwareInterlockManager
+from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import callback
+from boneio.core.utils.timeperiod import TimePeriod
+from boneio.integration.interlock import SoftwareInterlockManager
 from boneio.models import OutputState
+from boneio.models.events import OutputEvent
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +44,26 @@ class BasicOutput(BasicMqtt):
         """Initialize Basic output."""
         self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
         self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
+
+        # --- Adjustable duration (editable momentary_turn_on via HA number) ---
+        self._adjustable_duration_enabled: bool = kwargs.pop("adjustable_duration", False)
+        _dur_default_raw = kwargs.pop("duration_default", None)
+        _dur_min_raw = kwargs.pop("duration_min", None)
+        _dur_max_raw = kwargs.pop("duration_max", None)
+        self._duration_unit: str = kwargs.pop("duration_unit", "s")
+        # Pop legacy field in case it still exists in config
+        kwargs.pop("duration_step", None)
+
+        from boneio.core.utils.timeperiod import parse_time_to_seconds
+
+        self._duration_min: float = max(1.0, parse_time_to_seconds(_dur_min_raw, 1.0))
+        self._duration_max: float = max(self._duration_min, parse_time_to_seconds(_dur_max_raw, 3600.0))
+        self._duration_default: float = parse_time_to_seconds(_dur_default_raw, 60.0)
+        # Current adjustable duration value in seconds (will be overwritten by restored state)
+        self._adjustable_duration: float = max(
+            self._duration_min, min(self._duration_max, self._duration_default)
+        )
+
         super().__init__(id=id, name=name or id, topic_type=topic_type, topic_prefix=topic_prefix, **kwargs)
         self._output_type: str = output_type
         self._event_bus: EventBus = event_bus
@@ -51,6 +72,7 @@ class BasicOutput(BasicMqtt):
         if output_type == COVER:
             self._momentary_turn_on = None
             self._momentary_turn_off = None
+            self._adjustable_duration_enabled = False
         self._state = ON if restored_state else OFF
         self._momentary_action = None
         self._last_timestamp = 0.0
@@ -139,6 +161,10 @@ class BasicOutput(BasicMqtt):
             expander_id=self.expander_id,
             area=self.area,
             interlock_groups=self._interlock_groups,
+            adjustable_duration=self._adjustable_duration_enabled,
+            adjustable_duration_value=self._adjustable_duration if self._adjustable_duration_enabled else None,
+            duration_min=self._duration_min if self._adjustable_duration_enabled else None,
+            duration_max=self._duration_max if self._adjustable_duration_enabled else None,
         )
         
         output_event = OutputEvent(
@@ -194,15 +220,26 @@ class BasicOutput(BasicMqtt):
         _LOGGER.warning("set_brightness not supported for %s output type", self.output_type)
 
     def _execute_momentary_turn(self, momentary_type: str) -> None:
-        """Execute momentary action."""
+        """Execute momentary action.
+
+        If adjustable_duration is enabled and this is a turn-ON action,
+        use the dynamic duration instead of the static momentary_turn_on.
+        """
         if self._momentary_action:
             _LOGGER.debug("Cancelling momentary action for %s", self.name)
             self._momentary_action()
-        (action, delayed_action) = (
-            (self.async_turn_off, self._momentary_turn_on)
-            if momentary_type == ON
-            else (self.async_turn_on, self._momentary_turn_off)
-        )
+
+        if momentary_type == ON:
+            action = self.async_turn_off
+            if self._adjustable_duration_enabled:
+                # Use dynamic duration from HA number entity
+                delayed_action = TimePeriod(seconds=self._adjustable_duration)
+            else:
+                delayed_action = self._momentary_turn_on
+        else:
+            action = self.async_turn_on
+            delayed_action = self._momentary_turn_off
+
         if delayed_action:
             _LOGGER.debug("Applying momentary action for %s in %s", self.name, delayed_action.as_timedelta)
             self._momentary_action = async_track_point_in_time(
@@ -217,6 +254,59 @@ class BasicOutput(BasicMqtt):
         _LOGGER.info("Momentary callback at %s for output %s", timestamp, self.name)
         await action(timestamp=timestamp)
         self._momentary_action = None
+
+    # -- Adjustable duration -------------------------------------------------
+
+    @property
+    def adjustable_duration_enabled(self) -> bool:
+        """Whether this output has an adjustable duration (HA number entity)."""
+        return self._adjustable_duration_enabled
+
+    @property
+    def adjustable_duration(self) -> float:
+        """Current adjustable duration value in seconds."""
+        return self._adjustable_duration
+
+    @property
+    def duration_min(self) -> float:
+        """Minimum duration in seconds for HA slider."""
+        return self._duration_min
+
+    @property
+    def duration_max(self) -> float:
+        """Maximum duration in seconds for HA slider."""
+        return self._duration_max
+
+    @property
+    def duration_unit(self) -> str:
+        """Unit of measurement for HA number entity ('s' or 'min')."""
+        return self._duration_unit
+
+    def set_adjustable_duration(self, seconds: float) -> None:
+        """Set the adjustable duration value.
+
+        Clamps to [duration_min, duration_max].
+        OutputManager handles persistence and MQTT publishing.
+
+        Args:
+            seconds: New duration in seconds.
+        """
+        self._adjustable_duration = max(
+            self._duration_min, min(self._duration_max, float(seconds))
+        )
+        _LOGGER.debug(
+            "Output '%s' adjustable duration set to %.1fs", self.id, self._adjustable_duration
+        )
+
+    def restore_adjustable_duration(self, seconds: float) -> None:
+        """Restore persisted duration value (called during init by OutputManager).
+
+        Args:
+            seconds: Persisted duration value.
+        """
+        self._adjustable_duration = max(
+            self._duration_min, min(self._duration_max, float(seconds))
+        )
 
     @property
     def is_active(self) -> bool:

@@ -11,6 +11,7 @@ import ModbusForm from '../ModbusForm';
 import CANForm from '../CANForm';
 import LoggerForm from '../LoggerForm';
 import Mcp23017Form from '../Mcp23017Form';
+import OledForm from '../OledForm';
 import { ARRAY_SECTIONS, type ArraySectionType } from '../constants/sectionDefinitions';
 import { normalizeCovers } from '../helpers/coverUtils';
 
@@ -69,7 +70,7 @@ function ArraySectionContent({
   onSaveSection,
 }: Omit<SectionContentProps, 'schemaLoaded'>) {
   const { t } = useTranslation();
-  
+
   return (
     <ArrayTableWidget
       value={formData[activeSection] || []}
@@ -114,7 +115,7 @@ function CustomFormContent({
   onSectionChange,
 }: Pick<SectionContentProps, 'activeSection' | 'formData' | 'onSectionChange'>) {
   const handleChange = (data: any) => onSectionChange(activeSection, data);
-  
+
   switch (activeSection) {
     case 'boneio':
       return (
@@ -165,6 +166,13 @@ function CustomFormContent({
           onChange={handleChange}
         />
       );
+    case 'oled':
+      return (
+        <OledForm
+          data={formData[activeSection] || {}}
+          onChange={handleChange}
+        />
+      );
     default:
       return (
         <div className="alert alert-warning">
@@ -190,13 +198,13 @@ export default function SectionContent({
   onSaveSection,
 }: SectionContentProps) {
   const { t } = useTranslation();
-  
+
   if (isArraySection(activeSection)) {
     // Array sections - wait for schema to load
     if (!schemaLoaded) {
       return <LoadingSpinner message={t('settings.loading_schema')} />;
     }
-    
+
     return (
       <ArraySectionContent
         activeSection={activeSection}
@@ -210,7 +218,7 @@ export default function SectionContent({
       />
     );
   }
-  
+
   // Custom form sections
   return (
     <CustomFormContent

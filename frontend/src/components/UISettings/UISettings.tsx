@@ -852,6 +852,7 @@ export default function UISettings() {
           'logger',
           'remote_devices',
           'template',
+          'oled',
         ];
         if (reloadableSections.includes(sectionName)) {
           try {

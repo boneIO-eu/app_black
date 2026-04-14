@@ -107,3 +107,65 @@ async def toggle_group(group_id: str, manager: Manager = Depends(get_manager)):
     
     await group.async_toggle()
     return {"status": "ok"}
+
+
+@router.post("/outputs/{output_id}/set_duration")
+async def set_output_duration(
+    output_id: str,
+    body: dict,
+    manager: Manager = Depends(get_manager),
+):
+    """Set the adjustable duration for an output.
+
+    Args:
+        output_id: ID of the output.
+        body: Request body with 'value' key (duration in seconds).
+        manager: Manager instance.
+
+    Returns:
+        Status response with new duration value.
+
+    Raises:
+        HTTPException: 404 if output not found, 400 if invalid request.
+    """
+    output = manager.outputs.get_output(output_id)
+    if not output:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    if not output.adjustable_duration_enabled:
+        raise HTTPException(status_code=400, detail="Output does not support adjustable duration")
+
+    value = body.get("value")
+    if value is None:
+        raise HTTPException(status_code=400, detail="Missing 'value' in request body")
+
+    try:
+        seconds = int(float(value))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid duration value")
+
+    output.set_adjustable_duration(seconds)
+
+    # Persist to state manager (always in seconds)
+    manager._state_manager.save_attribute(
+        attr_type="adjustable_duration",
+        attribute=output_id,
+        value=output.adjustable_duration,
+    )
+
+    # Publish via MQTT (in the user's selected unit for HA)
+    from boneio.const import OUTPUT
+    if output.duration_unit == "min":
+        publish_value = round(output.adjustable_duration / 60, 1)
+    else:
+        publish_value = output.adjustable_duration
+    manager._message_bus.send_message(
+        topic=f"{manager._topic_prefix}/{OUTPUT}/{output_id}/duration",
+        payload={"value": publish_value},
+        retain=True,
+    )
+
+    # Trigger WebSocket state update so frontend gets the new value
+    await output.async_send_state()
+
+    return {"status": "ok", "value": output.adjustable_duration}

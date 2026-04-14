@@ -33,6 +33,11 @@ export interface OutputState {
   timestamp: number | null;
   area: string | null;
   interlock_groups: string[];
+  // Adjustable duration fields (optional, only when feature is enabled)
+  adjustable_duration?: boolean;
+  adjustable_duration_value?: number | null;
+  duration_min?: number | null;
+  duration_max?: number | null;
 }
 
 export interface OutputEvent {

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 from jose import jwt
@@ -49,7 +49,7 @@ class WebSocketManager:
                 payload = jwt.decode(token, self._jwt_secret or "", algorithms=[JWT_ALGORITHM])
                 # Check if token has expired
                 exp = payload.get("exp")
-                if not exp or datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
+                if not exp or datetime.fromtimestamp(exp, tz=UTC) < datetime.now(UTC):
                     _LOGGER.debug("Token has expired")
                     return False
                 

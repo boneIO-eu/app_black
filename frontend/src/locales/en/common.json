@@ -90,7 +90,20 @@
     "sort_recent": "Sort by Recent Event",
     "long_press_to_edit": "Long press to edit settings",
     "go_to_settings": "Go to Settings",
-    "go_to_settings_confirm": "Do you want to edit settings for this output?"
+    "go_to_settings_confirm": "Do you want to edit settings for this output?",
+    "divider_adjustable_duration": "Adjustable Duration",
+    "adjustable_duration_label": "Adjustable Duration",
+    "adjustable_duration_desc": "Create an HA slider to dynamically set the auto-off timer. When ON is pressed, the output turns off automatically after this duration.",
+    "duration_default": "Default Duration",
+    "duration_min": "Minimum Duration",
+    "duration_max": "Maximum Duration",
+    "duration_unit": "HA Slider Unit",
+    "duration_unit_seconds": "Seconds (s)",
+    "duration_unit_minutes": "Minutes (min)",
+    "duration_unit_hint": "Unit displayed on the Home Assistant slider",
+    "adjustable_duration_info_title": "Adjustable Duration Timer",
+    "adjustable_duration_info_desc1": "Creates a number entity (slider) in Home Assistant to control the auto-off timer of this output.",
+    "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period."
   },
   "inputs": {
     "title": "Inputs",
@@ -631,7 +644,8 @@
       "web": "Web Server",
       "modbus": "Modbus",
       "can": "CAN bus configuration for inter-device communication via CANopen protocol.",
-      "board_sensors": "Configure I2C sensors on the board: LM75/PCT2075 temperature sensor, INA219 power monitor, and MCP9808 temperature sensor."
+      "board_sensors": "Configure I2C sensors on the board: LM75/PCT2075 temperature sensor, INA219 power monitor, and MCP9808 temperature sensor.",
+      "oled": "Configure the OLED display: choose screens, set order, add extra sensors, and screensaver timeout."
     },
     "logger": "Logger",
     "boneio": "boneIO",
@@ -640,7 +654,8 @@
     "modbus": "Modbus",
     "can": "CAN Bus",
     "mcp23017": "MCP23017 (Advanced)",
-    "board_sensors": "Board Sensors"
+    "board_sensors": "Board Sensors",
+    "oled": "OLED Display"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
@@ -649,6 +664,37 @@
     "right_description": "Right GPIO expander (OUT_17-OUT_32 for 32x10, OUT_13-OUT_24 for 24x16)",
     "address": "I2C Address",
     "address_hint": "Select I2C address for this expander"
+  },
+  "oled": {
+    "enabled": "OLED Display Enabled",
+    "enabled_hint": "Enable or disable the builtin OLED screen.",
+    "screens_title": "Screens",
+    "screens_hint": "Drag to reorder. The display cycles through these screens on button press.",
+    "add_screen": "Add screen:",
+    "screen_uptime": "Uptime",
+    "screen_network": "Network",
+    "screen_ina219": "Power (INA219)",
+    "screen_cpu": "CPU",
+    "screen_disk": "Disk",
+    "screen_memory": "Memory",
+    "screen_swap": "Swap",
+    "screen_outputs": "Outputs",
+    "screen_inputs": "Inputs",
+    "screen_extra_sensors": "Extra Sensors",
+    "screen_web": "Web QR Code",
+    "extra_sensors_title": "Extra Screen Sensors",
+    "extra_sensors_hint": "Configure sensors to display on the Extra Sensors screen.",
+    "sensor_type": "Sensor Type",
+    "modbus_id": "Modbus ID",
+    "modbus_id_placeholder": "e.g., energy_meter",
+    "sensor_id": "Sensor ID",
+    "sensor_id_placeholder": "e.g., temperature_1",
+    "add_sensor": "Add Sensor",
+    "screensaver_title": "Screensaver",
+    "screensaver_timeout": "Screensaver Timeout",
+    "screensaver_timeout_hint": "Time of inactivity before the display goes to sleep. Set to 0 to disable screensaver.",
+    "screensaver_disabled": "Disabled",
+    "screensaver_off": "Off"
   },
   "modbus": {
     "name_id": "Name / ID",
