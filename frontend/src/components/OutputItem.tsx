@@ -93,9 +93,9 @@ const OutputItem: React.FC<OutputItemProps> = ({
 }) => { 
   const { t } = useTranslation();
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Local slider value for responsive UI (avoid waiting for server roundtrip)
   const [localDuration, setLocalDuration] = useState<number | null>(null);

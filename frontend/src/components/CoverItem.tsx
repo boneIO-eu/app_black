@@ -20,7 +20,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
   const { t } = useTranslation();
   
   // Long press handling
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
 
   const handlePressStart = () => {

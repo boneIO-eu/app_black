@@ -12,8 +12,8 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import yamlWorker from '../yaml.worker.ts?worker';
 
 // Configure Monaco workers and loader (lazy-loaded with this component)
-self.MonacoEnvironment = {
-  getWorker(_, label) {
+(self as any).MonacoEnvironment = {
+  getWorker(_: string, label: string) {
     if (label === 'yaml') {
       return new yamlWorker();
     }

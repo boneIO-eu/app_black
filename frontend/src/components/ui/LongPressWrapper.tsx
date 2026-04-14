@@ -25,7 +25,7 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
     title,
     preventDefaultOnTouchStart = false,
 }) => {
-    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+    const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isLongPress = useRef(false);
 
     const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {

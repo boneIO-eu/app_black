@@ -14,7 +14,7 @@ export function useApiAvailability() {
   const [isApiAvailable, setIsApiAvailable] = useState(true);
   const [isChecking, setIsChecking] = useState(true);
   const [nextCheckTime, setNextCheckTime] = useState<Date>(new Date(Date.now() + CHECK_INTERVAL));
-  const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const setupInterval = useCallback(() => {
     if (intervalRef.current) {
