@@ -19,6 +19,8 @@ interface OutputSelectDropdownProps {
   savedOutputGroups?: any[];
   /** IDs to exclude from the list (e.g., to prevent selecting same output twice) */
   excludeIds?: string[];
+  /** Hint message shown when no outputs are available */
+  emptyHint?: string;
 }
 
 /**
@@ -34,6 +36,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
   savedOutputs,
   savedOutputGroups,
   excludeIds = [],
+  emptyHint,
 }) => {
   /**
    * Check if an output is saved (committed) by comparing with saved data.
@@ -100,26 +103,32 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
         </SelectValue>
       </SelectTrigger>
       <SelectContent className="bg-base-100">
-        {normalizedOutputs.map((output) => (
-          <SelectItem 
-            key={output.id} 
-            value={output.id}
-            disabled={!output.isSaved}
-            className={`focus:bg-base-200 hover:bg-base-200 data-highlighted:bg-base-200 ${!output.isSaved ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <div className="flex flex-col">
-              <span className="font-medium">
-                {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
-                {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
-                {output.name}
-              </span>
-              <span className="text-xs opacity-60">
-                ID: {output.id}
-                {output.area && ` • Area: ${getAreaName(output.area)}`}
-              </span>
-            </div>
-          </SelectItem>
-        ))}
+        {normalizedOutputs.length === 0 ? (
+          <div className="px-3 py-4 text-center text-sm text-base-content/50">
+            <p className="font-medium">{emptyHint || 'No outputs available'}</p>
+          </div>
+        ) : (
+          normalizedOutputs.map((output) => (
+            <SelectItem 
+              key={output.id} 
+              value={output.id}
+              disabled={!output.isSaved}
+              className={`focus:bg-base-200 hover:bg-base-200 data-highlighted:bg-base-200 ${!output.isSaved ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div className="flex flex-col">
+                <span className="font-medium">
+                  {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                  {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                  {output.name}
+                </span>
+                <span className="text-xs opacity-60">
+                  ID: {output.id}
+                  {output.area && ` • Area: ${getAreaName(output.area)}`}
+                </span>
+              </div>
+            </SelectItem>
+          ))
+        )}
       </SelectContent>
     </Select>
   );

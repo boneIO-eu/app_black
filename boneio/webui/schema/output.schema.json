@@ -88,6 +88,68 @@
             "description": "How long can this relay be on. Can\"t be used if output_type is \"none\".",
             "title": "Momentary turn off"
           },
+          "adjustable_duration": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enable an HA number entity (slider) to dynamically set the on-timer. When ON is pressed, auto-OFF after this duration.",
+            "title": "Adjustable duration"
+          },
+          "duration_default": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Default adjustable duration (e.g. \"60s\", \"5min\", \"1h\").",
+            "title": "Duration default"
+          },
+          "duration_min": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Minimum adjustable duration (e.g. \"1s\", \"10s\").",
+            "title": "Duration min"
+          },
+          "duration_max": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Maximum adjustable duration (e.g. \"3600s\", \"1h\").",
+            "title": "Duration max"
+          },
+          "duration_unit": {
+            "type": "string",
+            "default": "s",
+            "enum": [
+              "s",
+              "min"
+            ],
+            "examples": [
+              "s"
+            ],
+            "description": "Unit displayed on Home Assistant duration slider.",
+            "title": "Duration unit"
+          },
           "restore_state": {
             "oneOf": [
               {

@@ -37,22 +37,32 @@ async def list_controllers(manager: Manager = Depends(get_manager)):
         active_zone = None
         if ctrl._active_zone_idx is not None and 0 <= ctrl._active_zone_idx < len(ctrl.zones):
             z = ctrl.zones[ctrl._active_zone_idx]
+            end_utc = None
+            remaining_s = ctrl._active_zone_remaining_s
+            if ctrl._run_start_utc and ctrl._active_zone_remaining_s:
+                from datetime import timedelta
+                end_dt = ctrl._run_start_utc + timedelta(seconds=ctrl._active_zone_remaining_s)
+                end_utc = end_dt.isoformat()
+                # Calculate real remaining based on current time
+                from boneio.core.events.bus import utcnow
+                remaining_s = max(0, int((end_dt - utcnow()).total_seconds()))
             active_zone = {
                 "id": z.id,
                 "name": z.name,
-                "remaining_s": ctrl._active_zone_remaining_s,
+                "remaining_s": remaining_s,
+                "end_utc": end_utc,
             }
 
         zones = []
         for z in ctrl.zones:
-            last_run = ctrl._get(f"zone/{z.id}/last_run_utc", None)
+            skip_count = ctrl._get(f"zone/{z.id}/skip_count", 0)
             zones.append({
                 "id": z.id,
                 "name": z.name,
                 "run_duration": z.run_duration,
                 "enabled": z.enabled,
-                "run_every_days": z.run_every_days,
-                "last_run": str(last_run) if last_run else None,
+                "run_every_n": z.run_every_n,
+                "skip_count": int(skip_count),
             })
 
         schedules = []
@@ -73,9 +83,15 @@ async def list_controllers(manager: Manager = Depends(get_manager)):
             "repeat": ctrl._repeat,
             "auto_advance": ctrl._auto_advance,
             "reverse": ctrl._reverse,
+            "standby": ctrl._standby,
             "skip_next_run": ctrl._skip_next_run,
             "zones": zones,
             "schedules": schedules,
+            "water_sources": [
+                {"id": ws.id, "name": ws.name, "output_ids": ws.output_ids}
+                for ws in ctrl.water_sources
+            ],
+            "active_water_source": ctrl.active_water_source.id if ctrl.active_water_source else None,
         })
     return result
 
@@ -131,7 +147,7 @@ async def zone_command(
 ):
     """Send a command to a specific irrigation zone.
 
-    Supported commands: ON (start zone), OFF (stop), ENABLE, DISABLE.
+    Supported commands: ON (start zone), OFF (stop), ENABLE, DISABLE, NEXT_VALVE (skip to next).
     """
     ctrl = manager.irrigation._controllers.get(ctrl_id)
     if not ctrl:
@@ -147,6 +163,8 @@ async def zone_command(
         await ctrl.start_single_zone(zone_id)
     elif command == OFF:
         await ctrl.shutdown()
+    elif command == NEXT_VALVE:
+        await ctrl.next_valve()
     elif command == "ENABLE":
         zone.enabled = True
         ctrl._save(f"zone/{zone_id}/enabled", True)
@@ -171,11 +189,11 @@ async def update_zone_settings(
     data: dict[str, Any] = Body(...),
     manager: Manager = Depends(get_manager),
 ):
-    """Update zone runtime settings (duration, run_every_days).
+    """Update zone runtime settings (duration, run_every_n).
 
     Body fields (all optional):
         run_duration: int  — seconds
-        run_every_days: int — days between runs
+        run_every_n: int — run every Nth scheduled cycle
         enabled: bool
     """
     ctrl = manager.irrigation._controllers.get(ctrl_id)
@@ -193,12 +211,12 @@ async def update_zone_settings(
         zone.run_duration = val
         ctrl._save(f"zone/{zone_id}/duration", val)
 
-    if "run_every_days" in data:
-        val = int(data["run_every_days"])
+    if "run_every_n" in data:
+        val = int(data["run_every_n"])
         if val < 1:
-            raise HTTPException(status_code=400, detail="run_every_days must be >= 1")
-        zone.run_every_days = val
-        ctrl._save(f"zone/{zone_id}/run_every_days", val)
+            raise HTTPException(status_code=400, detail="run_every_n must be >= 1")
+        zone.run_every_n = val
+        ctrl._save(f"zone/{zone_id}/run_every_n", val)
 
     if "enabled" in data:
         zone.enabled = bool(data["enabled"])
@@ -226,6 +244,7 @@ async def update_controller_settings(
         skip_next_run: bool
         auto_advance: bool
         reverse: bool
+        standby: bool
     """
     ctrl = manager.irrigation._controllers.get(ctrl_id)
     if not ctrl:
@@ -256,6 +275,12 @@ async def update_controller_settings(
     if "reverse" in data:
         ctrl._reverse = bool(data["reverse"])
         ctrl._save("reverse", ctrl._reverse)
+
+    if "standby" in data:
+        await ctrl.set_standby(bool(data["standby"]))
+
+    if "water_source" in data:
+        await ctrl.set_water_source(str(data["water_source"]))
 
     return {"status": "ok"}
 

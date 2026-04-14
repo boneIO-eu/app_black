@@ -173,7 +173,23 @@ class BlackDiscoveryPublisher:
     def publish_modbus(self) -> None:
         """Publish modbus devices list to discovery/modbus."""
         self._publish("modbus", self._build_modbus())
-    
+
+    def _build_irrigation(self) -> list[dict[str, Any]]:
+        """Build irrigation controllers list."""
+        controllers = []
+        if hasattr(self._manager, 'irrigation') and self._manager.irrigation:
+            for ctrl_id, ctrl in self._manager.irrigation._controllers.items():
+                controllers.append({
+                    "id": ctrl_id,
+                    "name": ctrl.name,
+                    "zones": [{"id": z.id, "name": z.name} for z in ctrl.zones],
+                })
+        return controllers
+
+    def publish_irrigation(self) -> None:
+        """Publish irrigation controllers list to discovery/irrigation."""
+        self._publish("irrigation", self._build_irrigation())
+
     async def publish_discovery(self) -> None:
         """Publish all discovery sections.
         
@@ -184,6 +200,7 @@ class BlackDiscoveryPublisher:
         - boneio/{device_id}/discovery/inputs
         - boneio/{device_id}/discovery/sensors
         - boneio/{device_id}/discovery/modbus
+        - boneio/{device_id}/discovery/irrigation
         
         All with retain=True.
         
@@ -208,8 +225,10 @@ class BlackDiscoveryPublisher:
             self.publish_inputs()
             self.publish_sensors()
             self.publish_modbus()
+            self.publish_irrigation()
             
             _LOGGER.info("Discovery published successfully")
             
         except Exception as e:
             _LOGGER.error("Failed to publish discovery: %s", e, exc_info=True)
+

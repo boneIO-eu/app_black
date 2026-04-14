@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AreaSelect from './widgets/AreaSelect';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -182,30 +183,12 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                 </div>
 
                 {/* Area */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">{t('outputs.area')}</span>
-                  </label>
-                  <Select
-                    value={data.area || '_none_'}
-                    onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('outputs.no_area')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                      {allAreas.map((area: any) => (
-                        <SelectItem key={area.id} value={area.id}>
-                          {area.name || area.id}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-base-content/60 mt-1">
-                    {t('groups.area_hint')}
-                  </p>
-                </div>
+                <AreaSelect
+                  value={data.area}
+                  onChange={(v) => updateField('area', v)}
+                  areas={allAreas}
+                  hint={t('groups.area_hint')}
+                />
               </div>
             ),
           },

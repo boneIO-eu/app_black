@@ -94,6 +94,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [interlockGroups, setInterlockGroups] = useState<string[]>([]);
   const [availableDallasSensors, setAvailableDallasSensors] = useState<{ address: string, type: string }[]>([]);
+  // Snapshot of item when modal opened — used for dirty tracking
+  const originalItemRef = useRef<string | null>(null);
 
   // State for delete confirmation dialog
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -154,6 +156,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       console.log('🔧 ArrayTableWidget: Auto-opening edit modal for:', item.name || item.id);
       setEditingItem(item);
       setEditingIndex(index);
+      originalItemRef.current = JSON.stringify(item);
+      setHasValidationErrors(false);
       setAttemptedSubmit(false);
       setIsModalOpen(true);
       onEditItemOpened?.();
@@ -210,6 +214,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
     setEditingItem(item);
     setEditingIndex(index);
+    originalItemRef.current = JSON.stringify(item);
+    setHasValidationErrors(false); // Reset validation state from previous form
     setAttemptedSubmit(false); // Reset przy otwieraniu modala
     setIsModalOpen(true);
   };
@@ -220,6 +226,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     // Set default values for remote_devices
     if (sectionType === 'remote_devices') {
       setEditingItem({ protocol: 'mqtt', device_type: 'boneio_black' });
+      originalItemRef.current = null; // New item — always dirty
+      setHasValidationErrors(false);
       setAttemptedSubmit(false);
       setIsModalOpen(true);
     } else if (sectionType === 'template') {
@@ -227,6 +235,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       setShowTemplatePicker(true);
     } else {
       setEditingItem({});
+      originalItemRef.current = null; // New item — always dirty
+      setHasValidationErrors(false);
       setAttemptedSubmit(false);
       setIsModalOpen(true);
     }
@@ -235,6 +245,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const handleTemplatePlatformSelect = (platform: string) => {
     setShowTemplatePicker(false);
     setEditingItem({ platform, _autoId: true });
+    originalItemRef.current = null; // New item — always dirty
+    setHasValidationErrors(false);
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
@@ -288,6 +300,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         },
       });
     }
+    originalItemRef.current = null; // New item from discovery — always dirty
+    setHasValidationErrors(false);
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
@@ -1384,7 +1398,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               type="button"
               onClick={handleSave}
               className="btn btn-primary"
-              disabled={hasValidationErrors}
+              disabled={hasValidationErrors || (editingIndex !== null && originalItemRef.current !== null && JSON.stringify(editingItem) === originalItemRef.current)}
               title={hasValidationErrors ? t('settings.fix_validation_errors') : ''}
             >
               {editingIndex !== null ? t('settings.save_changes') : t('settings.add_item')}

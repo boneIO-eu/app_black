@@ -419,7 +419,7 @@ class OutputManager:
         # Publish initial adjustable duration value (in the user's selected unit)
         if output.adjustable_duration_enabled:
             if output.duration_unit == "min":
-                publish_value = round(output.adjustable_duration / 60, 1)
+                publish_value = round(output.adjustable_duration / 60, 2)
             else:
                 publish_value = output.adjustable_duration
             self._manager._message_bus.send_message(

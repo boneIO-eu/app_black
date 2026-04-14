@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -11,10 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface Area {
-  id: string;
-  name: string;
-}
+import type { AreaOption } from './widgets/AreaSelect';
 
 interface CoverEntity {
   id?: string;
@@ -35,7 +33,7 @@ interface OutputFormProps {
   deviceType?: string;
   allOutputs?: any[];
   editingIndex?: number | null;
-  allAreas?: Area[];
+  allAreas?: AreaOption[];
   interlockGroups?: string[];
   onInterlockGroupCreated?: (groupName: string) => void;
   allCovers?: CoverEntity[];
@@ -418,35 +416,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     </div>
 
                     {/* Area / Room */}
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text font-medium">{t('outputs.area')}</span>
-                      </label>
-                      <Select
-                        value={data.area || '_none_'}
-                        onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t('outputs.no_area')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                          {allAreas.map((area) => (
-                            <SelectItem key={area.id} value={area.id}>
-                              {area.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <label className="label">
-                        <span className="label-text-alt whitespace-normal wrap-break-word">
-                          {allAreas.length === 0 
-                            ? t('outputs.area_empty_hint')
-                            : t('outputs.area_hint')
-                          }
-                        </span>
-                      </label>
-                    </div>
+                    <AreaSelect
+                      value={data.area}
+                      onChange={(v) => updateField('area', v)}
+                      areas={allAreas}
+                    />
                   </div>
 
                   {/* Restore State */}

@@ -23,108 +23,88 @@
             "description": "Display name for the irrigation controller in Home Assistant.",
             "title": "Name"
           },
-          "master_valve": {
-            "type": "string",
-            "description": "Output ID of the master valve (pump). Turned on before any zone opens.",
-            "title": "Master valve"
+          "water_sources": {
+            "type": ["array", "string"],
+            "items": {
+              "type": ["object", "string"],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Unique ID for this water source.",
+                  "title": "Id"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the water source.",
+                  "title": "Name"
+                },
+                "outputs": {
+                  "type": ["array", "string"],
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Output IDs to activate when this water source is used (valves, pumps).",
+                  "title": "Outputs"
+                },
+                "pump_switch_off_during_valve_open_delay": {
+                  "oneOf": [
+                    {"type": "boolean"},
+                    {"type": "string", "enum": ["yes","no","true","false","on","off"], "x-yaml-boolean": true}
+                  ],
+                  "default": false,
+                  "description": "Turn off this source's outputs during valve_open_delay interval.",
+                  "title": "Pump switch off during valve open delay"
+                },
+                "pump_start_pump_delay": {
+                  "type": ["number", "string"],
+                  "x-timeperiod": true,
+                  "description": "Delay from valve open to source activation.",
+                  "title": "Pump start pump delay"
+                },
+                "pump_start_valve_delay": {
+                  "type": ["number", "string"],
+                  "x-timeperiod": true,
+                  "description": "Delay from source activation to valve open.",
+                  "title": "Pump start valve delay"
+                },
+                "pump_stop_pump_delay": {
+                  "type": ["number", "string"],
+                  "x-timeperiod": true,
+                  "description": "Delay from valve close to source deactivation.",
+                  "title": "Pump stop pump delay"
+                },
+                "pump_stop_valve_delay": {
+                  "type": ["number", "string"],
+                  "x-timeperiod": true,
+                  "description": "Delay from source deactivation to valve close.",
+                  "title": "Pump stop valve delay"
+                }
+              },
+              "required": ["outputs"]
+            },
+            "description": "Water sources — each defines outputs to activate and per-source pump timing.",
+            "title": "Water Sources"
           },
           "standby": {
             "oneOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "yes",
-                  "no",
-                  "true",
-                  "false",
-                  "on",
-                  "off"
-                ],
-                "x-yaml-boolean": true
-              }
+              {"type": "boolean"},
+              {"type": "string", "enum": ["yes","no","true","false","on","off"], "x-yaml-boolean": true}
             ],
             "default": false,
             "description": "When enabled, the controller will not start any valves.",
             "title": "Standby"
           },
           "valve_open_delay": {
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": ["number", "string"],
             "x-timeperiod": true,
             "description": "Delay between valve switching. May not be used with valve_overlap.",
             "title": "Valve open delay"
           },
           "valve_overlap": {
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": ["number", "string"],
             "x-timeperiod": true,
             "description": "Time that current and next valve run simultaneously. May not be used with valve_open_delay.",
             "title": "Valve overlap"
-          },
-          "pump_switch_off_during_valve_open_delay": {
-            "oneOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "yes",
-                  "no",
-                  "true",
-                  "false",
-                  "on",
-                  "off"
-                ],
-                "x-yaml-boolean": true
-              }
-            ],
-            "default": false,
-            "description": "Turn off pump during valve_open_delay interval.",
-            "title": "Pump switch off during valve open delay"
-          },
-          "pump_start_pump_delay": {
-            "type": [
-              "number",
-              "string"
-            ],
-            "x-timeperiod": true,
-            "description": "Delay from valve open to pump activation. May not be used with pump_start_valve_delay.",
-            "title": "Pump start pump delay"
-          },
-          "pump_start_valve_delay": {
-            "type": [
-              "number",
-              "string"
-            ],
-            "x-timeperiod": true,
-            "description": "Delay from pump start to valve open. May not be used with pump_start_pump_delay.",
-            "title": "Pump start valve delay"
-          },
-          "pump_stop_pump_delay": {
-            "type": [
-              "number",
-              "string"
-            ],
-            "x-timeperiod": true,
-            "description": "Delay from valve close to pump deactivation. May not be used with pump_stop_valve_delay.",
-            "title": "Pump stop pump delay"
-          },
-          "pump_stop_valve_delay": {
-            "type": [
-              "number",
-              "string"
-            ],
-            "x-timeperiod": true,
-            "description": "Delay from pump deactivation to valve close. May not be used with pump_stop_pump_delay.",
-            "title": "Pump stop valve delay"
           },
           "multiplier": {
             "type": [
@@ -290,14 +270,11 @@
                   "description": "Whether this zone is active.",
                   "title": "Enabled"
                 },
-                "run_every": {
-                  "type": [
-                    "number",
-                    "string"
-                  ],
-                  "x-timeperiod": true,
-                  "description": "Minimum interval between runs. Example 1d, 2d, 3d.",
-                  "title": "Run every"
+                "run_every_n": {
+                  "type": ["integer", "string"],
+                  "default": 1,
+                  "description": "Run zone every Nth scheduled cycle. 1 = every time, 2 = every other time.",
+                  "title": "Run every N"
                 }
               },
               "required": [

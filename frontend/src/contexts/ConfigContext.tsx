@@ -45,8 +45,19 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       // Check if 'boneio' section exists in config
       const hasBoneio = data?.config?.boneio !== undefined;
       setHasBoneioSection(hasBoneio);
-      const irrigation = data?.config?.irrigation;
-      setHasIrrigationSection(Array.isArray(irrigation) && irrigation.length > 0);
+
+      // Check for irrigation controllers:
+      // 1. Direct `irrigation:` section in YAML
+      // 2. Template entries with `platform: irrigation`
+      const irrigationDirect = data?.config?.irrigation;
+      const templates: any[] = data?.config?.template || [];
+      const irrigationFromTemplates = templates.filter(
+        (t: any) => t?.platform === 'irrigation'
+      );
+      const hasIrrigation =
+        (Array.isArray(irrigationDirect) && irrigationDirect.length > 0) ||
+        irrigationFromTemplates.length > 0;
+      setHasIrrigationSection(hasIrrigation);
     } catch (error) {
       console.error('Failed to load config:', error);
       setHasBoneioSection(false);

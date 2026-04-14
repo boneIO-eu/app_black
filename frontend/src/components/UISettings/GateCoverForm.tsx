@@ -1,5 +1,6 @@
 import React from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -96,23 +97,13 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
       </div>
 
       {/* Area */}
-      <div className="form-control">
-        <label className="label py-1">
-          <span className="label-text text-sm font-semibold">{t('outputs.area')}</span>
-        </label>
-        <Select value={data.area || ''} onValueChange={(v) => updateField('area', v || undefined)}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('outputs.no_area')} />
-          </SelectTrigger>
-          <SelectContent>
-            {allAreas.map((area) => (
-              <SelectItem key={area.id} value={area.id}>
-                {area.name || area.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <AreaSelect
+        value={data.area}
+        onChange={(v) => updateField('area', v)}
+        areas={allAreas}
+        compact
+        hideHint
+      />
 
       {/* Device Class */}
       <div className="form-control">

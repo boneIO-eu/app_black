@@ -14,6 +14,7 @@ from boneio.components.irrigation.controller import (
     IrrigationZone,
     _next_fire_time,
 )
+from boneio.components.irrigation.water_source import WaterSource
 from boneio.const import IRRIGATION, ON, OFF
 
 
@@ -59,15 +60,30 @@ def _make_zones(count: int = 3, duration: int = 60) -> list[IrrigationZone]:
                 valve=_mock_valve(f"valve_{i}"),
                 run_duration=duration,
                 enabled=True,
-                run_every_days=1,
+                run_every_n=1,
             )
         )
     return zones
 
 
+def _make_water_source(
+    source_id: str = "ws_default",
+    name: str = "Default Source",
+    outputs: list | None = None,
+    **kwargs,
+) -> WaterSource:
+    """Create a WaterSource with mock outputs for testing."""
+    return WaterSource(
+        id=source_id,
+        name=name,
+        outputs=outputs or [],
+        **kwargs,
+    )
+
+
 def _make_controller(
     zones: list[IrrigationZone] | None = None,
-    master_valve: MagicMock | None = None,
+    water_sources: list[WaterSource] | None = None,
     **kwargs,
 ) -> IrrigationController:
     """Create a controller with common mocks. Extra kwargs forwarded to constructor."""
@@ -82,7 +98,7 @@ def _make_controller(
         state_manager=_mock_state_manager(),
         zones=zones,
         schedule=[],
-        master_valve=master_valve,
+        water_sources=water_sources,
     )
     defaults.update(kwargs)
     with patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock()):
@@ -436,17 +452,18 @@ class TestSkipNextRun:
         assert ctrl.state == ControllerState.RUNNING
 
 
-# ── Master valve ─────────────────────────────────────────────────────────────
+# ── Water source activation ──────────────────────────────────────────────────
 
 
-class TestMasterValve:
+class TestWaterSource:
 
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_master_valve_on_before_zone(self, _utc, _timer, _sleep):
+    async def test_water_source_on_before_zone(self, _utc, _timer, _sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master)
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_full_cycle()
 
         master.async_turn_on.assert_awaited_once()
@@ -455,9 +472,10 @@ class TestMasterValve:
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_master_valve_off_on_shutdown(self, _utc, _timer, _sleep):
+    async def test_water_source_off_on_shutdown(self, _utc, _timer, _sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master)
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_full_cycle()
         await ctrl.shutdown()
 
@@ -466,8 +484,8 @@ class TestMasterValve:
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_no_master_valve_no_error(self, _utc, _timer, _sleep):
-        ctrl = _make_controller(master_valve=None)
+    async def test_no_water_source_no_error(self, _utc, _timer, _sleep):
+        ctrl = _make_controller(water_sources=None)
         await ctrl.start_full_cycle()
         await ctrl.shutdown()  # Should not raise
 
@@ -480,9 +498,10 @@ class TestValveOpenDelay:
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_valve_open_delay_on_start_with_master(self, _utc, _timer, mock_sleep):
+    async def test_valve_open_delay_on_start_with_source(self, _utc, _timer, mock_sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, valve_open_delay_s=5)
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws], valve_open_delay_s=5)
         await ctrl.start_full_cycle()
 
         # Sleep called with delay
@@ -494,7 +513,8 @@ class TestValveOpenDelay:
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_valve_open_delay_between_zones(self, _utc, _timer, mock_sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, valve_open_delay_s=3)
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws], valve_open_delay_s=3)
         await ctrl.start_full_cycle()
         mock_sleep.reset_mock()
 
@@ -506,11 +526,11 @@ class TestValveOpenDelay:
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_pump_off_during_valve_open_delay(self, _utc, _timer, mock_sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(
-            master_valve=master,
-            valve_open_delay_s=3,
+        ws = _make_water_source(
+            outputs=[master],
             pump_switch_off_during_valve_open_delay=True,
         )
+        ctrl = _make_controller(water_sources=[ws], valve_open_delay_s=3)
         await ctrl.start_full_cycle()
         master.reset_mock()
         mock_sleep.reset_mock()
@@ -528,11 +548,11 @@ class TestValveOpenDelay:
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_no_pump_off_during_delay_by_default(self, _utc, _timer, mock_sleep):
         master = _mock_valve("master")
-        ctrl = _make_controller(
-            master_valve=master,
-            valve_open_delay_s=3,
+        ws = _make_water_source(
+            outputs=[master],
             pump_switch_off_during_valve_open_delay=False,
         )
+        ctrl = _make_controller(water_sources=[ws], valve_open_delay_s=3)
         await ctrl.start_full_cycle()
         master.reset_mock()
 
@@ -601,7 +621,8 @@ class TestPumpStartDelays:
     async def test_pump_start_valve_delay_pump_first(self, _utc, _timer, mock_sleep):
         """pump_start_valve_delay: pump on → delay → valve on."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, pump_start_valve_delay_s=3)
+        ws = _make_water_source(outputs=[master], pump_start_valve_delay_s=3)
+        ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
         master.async_turn_on = AsyncMock(
@@ -622,7 +643,8 @@ class TestPumpStartDelays:
     async def test_pump_start_pump_delay_valve_first(self, _utc, _timer, mock_sleep):
         """pump_start_pump_delay: valve on → delay → pump on."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, pump_start_pump_delay_s=4)
+        ws = _make_water_source(outputs=[master], pump_start_pump_delay_s=4)
+        ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
         ctrl._zones[0].valve.async_turn_on = AsyncMock(
@@ -649,7 +671,8 @@ class TestPumpStopDelays:
     async def test_pump_stop_valve_delay_pump_off_first(self, _utc, _timer, mock_sleep):
         """pump_stop_valve_delay: pump off → delay → (valve already off from _stop_current_zone)."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, pump_stop_valve_delay_s=2)
+        ws = _make_water_source(outputs=[master], pump_stop_valve_delay_s=2)
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_full_cycle()
 
         master.reset_mock()
@@ -666,7 +689,8 @@ class TestPumpStopDelays:
     async def test_pump_stop_pump_delay_valve_off_first(self, _utc, _timer, mock_sleep):
         """pump_stop_pump_delay: valve off (from _stop_current_zone) → delay → pump off."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, pump_stop_pump_delay_s=5)
+        ws = _make_water_source(outputs=[master], pump_stop_pump_delay_s=5)
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_full_cycle()
 
         master.reset_mock()
@@ -691,7 +715,8 @@ class TestPumpStopDelays:
     async def test_default_pump_stop_no_delay(self, _utc, _timer, mock_sleep):
         """Without delays, pump just turns off immediately."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master)
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_full_cycle()
         master.reset_mock()
         mock_sleep.reset_mock()
@@ -707,7 +732,8 @@ class TestPumpStopDelays:
     async def test_pump_stop_sequence_on_advance_single_zone(self, _utc, _timer, mock_sleep):
         """After single zone finishes, pump stop sequence should run."""
         master = _mock_valve("master")
-        ctrl = _make_controller(master_valve=master, pump_stop_pump_delay_s=3)
+        ws = _make_water_source(outputs=[master], pump_stop_pump_delay_s=3)
+        ctrl = _make_controller(water_sources=[ws])
         await ctrl.start_single_zone("zone_0")
         master.reset_mock()
         mock_sleep.reset_mock()
@@ -847,7 +873,7 @@ class TestMQTTCommands:
         assert ctrl._zones[0].run_duration == 60  # unchanged
 
 
-# ── Eligible zones / run_every ───────────────────────────────────────────────
+# ── Eligible zones / run_every_n ─────────────────────────────────────────────
 
 
 class TestEligibleZones:
@@ -871,17 +897,16 @@ class TestEligibleZones:
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_zone_run_every_filters_recently_run(self, _utc, _timer):
+    async def test_run_every_n_skips_zone(self, _utc, _timer):
+        """Zone with run_every_n=3 and skip_count=1 should be skipped (needs 2)."""
         zones = _make_zones(2)
-        zones[0].run_every_days = 2
+        zones[0].run_every_n = 3
 
         sm = _mock_state_manager()
-        # zone_0 ran 1 day ago (less than 2 days) → not eligible
+        # skip_count=1, needs 2 to be eligible → NOT eligible
         sm.get = MagicMock(
             side_effect=lambda section, key, default: (
-                (FIXED_NOW - timedelta(days=1)).isoformat()
-                if "zone_0/last_run_utc" in key
-                else default
+                1 if "zone_0/skip_count" in key else default
             )
         )
 
@@ -893,21 +918,30 @@ class TestEligibleZones:
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_zone_run_every_eligible_after_period(self, _utc, _timer):
+    async def test_run_every_n_eligible_after_enough_skips(self, _utc, _timer):
+        """Zone with run_every_n=2 and skip_count=1 should be eligible."""
         zones = _make_zones(1)
-        zones[0].run_every_days = 2
+        zones[0].run_every_n = 2
 
         sm = _mock_state_manager()
-        # zone_0 ran 3 days ago → eligible
+        # skip_count=1 >= run_every_n-1=1 → eligible
         sm.get = MagicMock(
             side_effect=lambda section, key, default: (
-                (FIXED_NOW - timedelta(days=3)).isoformat()
-                if "zone_0/last_run_utc" in key
-                else default
+                1 if "zone_0/skip_count" in key else default
             )
         )
 
         ctrl = _make_controller(zones=zones, state_manager=sm)
+        eligible = ctrl._eligible_zones()
+        assert len(eligible) == 1
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_run_every_n_1_always_eligible(self, _utc, _timer):
+        """Zone with run_every_n=1 (default) is always eligible."""
+        zones = _make_zones(1)
+        zones[0].run_every_n = 1
+        ctrl = _make_controller(zones=zones)
         eligible = ctrl._eligible_zones()
         assert len(eligible) == 1
 
@@ -1004,11 +1038,12 @@ class TestValveErrors:
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
-    async def test_master_valve_error_does_not_crash(self, _utc, _timer, _sleep):
+    async def test_water_source_error_does_not_crash(self, _utc, _timer, _sleep):
         master = _mock_valve("master")
         master.async_turn_on = AsyncMock(side_effect=Exception("pump fault"))
-        ctrl = _make_controller(master_valve=master)
-        # Should not raise — master valve errors are caught
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
+        # Should not raise — water source errors are caught
         await ctrl.start_full_cycle()
 
 

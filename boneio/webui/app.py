@@ -350,14 +350,20 @@ async def send_initial_states(
         for output in boneio_manager.outputs.get_all_outputs().values():
             try:
                 if getattr(output, "adjustable_duration_enabled", False):
-                    adjustable_duration_kwargs={"adjustable_duration_enabled":True,"adjustable_duration":getattr(output, "adjustable_duration", None),"duration_min":getattr(output, "duration_min", None),"duration_max":getattr(output, "duration_max", None),"duration_unit":getattr(output, "duration_unit", None)}
+                    adjustable_duration_kwargs = {
+                        "adjustable_duration": True,
+                        "adjustable_duration_value": getattr(output, "adjustable_duration", None),
+                        "duration_min": getattr(output, "duration_min", None),
+                        "duration_max": getattr(output, "duration_max", None),
+                        "duration_unit": getattr(output, "duration_unit", None),
+                    }
                 else:
-                    adjustable_duration_kwargs={
-                        "adjustable_duration_enabled":False,
-                        "adjustable_duration":None,
-                        "duration_min":None,
-                        "duration_max":None,
-                        "duration_unit":None,
+                    adjustable_duration_kwargs = {
+                        "adjustable_duration": False,
+                        "adjustable_duration_value": None,
+                        "duration_min": None,
+                        "duration_max": None,
+                        "duration_unit": None,
                     }
                 output_state = OutputState(
                     id=output.id,

@@ -156,7 +156,7 @@ async def set_output_duration(
     # Publish via MQTT (in the user's selected unit for HA)
     from boneio.const import OUTPUT
     if output.duration_unit == "min":
-        publish_value = round(output.adjustable_duration / 60, 1)
+        publish_value = round(output.adjustable_duration / 60, 2)
     else:
         publish_value = output.adjustable_duration
     manager._message_bus.send_message(

@@ -17,9 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 
-// Output type categories
-type OutputCategory = 'light' | 'switch' | 'valve' | 'cover' | 'group' | 'state_only';
-type SortMode = 'name' | 'recent';
+import type { OutputCategory, SortMode } from '@/types/outputs';
 
 /**
  * Categorize output by its type

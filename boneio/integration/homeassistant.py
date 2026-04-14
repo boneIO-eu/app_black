@@ -388,6 +388,67 @@ def ha_irrigation_button_message(
     return msg
 
 
+def ha_irrigation_timestamp_sensor_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    suffix: str,
+    name: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create timestamp sensor discovery for irrigation countdown.
+
+    HA shows device_class=timestamp sensors as relative time (e.g. 'in 4 minutes').
+    """
+    topic = config_helper.topic_prefix
+    msg = ha_availabilty_message(
+        device_type=IRRIGATION,
+        config_helper=config_helper,
+        entity_type="sensor",
+        id=f"irrigation_{ctrl_id}_{suffix}",
+        name=name,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
+    msg["value_template"] = "{{ value_json.value }}"
+    msg["device_class"] = "timestamp"
+    msg["icon"] = "mdi:timer-sand"
+    return msg
+
+
+def ha_irrigation_select_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    options: list[str],
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create select entity discovery for irrigation water source.
+
+    Args:
+        ctrl_id: Controller ID.
+        ctrl_name: Controller display name.
+        options: List of water source IDs as select options.
+        config_helper: Config helper for topic prefix and device info.
+
+    Returns:
+        HA discovery payload dict.
+    """
+    topic = config_helper.topic_prefix
+    msg = ha_availabilty_message(
+        device_type=IRRIGATION,
+        config_helper=config_helper,
+        entity_type="select",
+        id=f"irrigation_{ctrl_id}_water_source",
+        name=f"{ctrl_name} Water Source",
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/water_source"
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/water_source/set"
+    msg["value_template"] = "{{ value_json.value }}"
+    msg["options"] = options
+    msg["icon"] = "mdi:water-pump"
+    return msg
+
+
 def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create SWITCH availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, entity_type="switch", id=id, **kwargs)
@@ -398,106 +459,6 @@ def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_t
     return msg
 
 
-def ha_timed_output_switch_message(
-    id: str,
-    name: str,
-    output_type: str,
-    config_helper: ConfigHelper,
-    icon: str | None = None,
-    area: str | None = None,
-) -> dict[str, Any]:
-    """Create switch/valve/light discovery for a timed output.
-
-    The HA entity type depends on the underlying output_type:
-    - 'valve' → valve entity
-    - 'light' → light entity
-    - everything else → switch entity
-
-    Args:
-        id: Timed output entity ID.
-        name: Display name for HA.
-        output_type: Output type of the underlying output.
-        config_helper: ConfigHelper instance.
-        icon: Optional MDI icon.
-        area: Optional area ID.
-    """
-    topic = config_helper.topic_prefix
-    device_type = "timed_output"
-
-    if output_type == "valve":
-        msg = ha_valve_availabilty_message(
-            id=f"timed_{id}", name=name,
-            config_helper=config_helper, device_type=device_type,
-            area=area,
-        )
-    elif output_type == "light":
-        msg = ha_light_availabilty_message(
-            id=f"timed_{id}", name=name,
-            config_helper=config_helper, device_type=device_type,
-            area=area,
-        )
-    else:
-        msg = ha_switch_availabilty_message(
-            id=f"timed_{id}", name=name,
-            config_helper=config_helper, device_type=device_type,
-            area=area,
-        )
-
-    # Override topics to use timed_output namespace
-    msg["state_topic"] = f"{topic}/timed_output/{id}"
-    msg["command_topic"] = f"{topic}/cmd/timed_output/{id}/set"
-
-    if icon:
-        msg["icon"] = icon
-
-    return msg
-
-
-def ha_timed_output_number_message(
-    id: str,
-    name: str,
-    min_val: float,
-    max_val: float,
-    step: float,
-    unit: str,
-    config_helper: ConfigHelper,
-    area: str | None = None,
-) -> dict[str, Any]:
-    """Create number discovery for timed output duration slider.
-
-    Args:
-        id: Timed output entity ID.
-        name: Display name (e.g., "Sprinkler Duration").
-        min_val: Minimum value.
-        max_val: Maximum value.
-        step: Step size.
-        unit: Unit of measurement ("s", "min").
-        config_helper: ConfigHelper instance.
-        area: Optional area ID.
-    """
-    topic = config_helper.topic_prefix
-    device_type = "timed_output"
-
-    msg = ha_availabilty_message(
-        id=f"timed_{id}_duration",
-        name=name,
-        entity_type="number",
-        config_helper=config_helper,
-        device_type=device_type,
-        area=area,
-    )
-    msg["state_topic"] = f"{topic}/timed_output/{id}/duration"
-    msg["command_topic"] = f"{topic}/cmd/timed_output/{id}/duration/set"
-    msg["value_template"] = "{{ value_json.value }}"
-    msg["mode"] = "slider"
-    msg["min"] = min_val
-    msg["max"] = max_val
-    msg["step"] = step
-    msg["icon"] = "mdi:timer-outline"
-    if unit:
-        msg["unit_of_measurement"] = unit
-
-    return msg
 
 
 def ha_output_duration_number_message(
@@ -551,10 +512,16 @@ def ha_output_duration_number_message(
 
     # Convert min/max to the user-selected unit
     if unit == "min":
-        msg["min"] = round(min_val / 60, 1)
-        msg["max"] = round(max_val / 60, 1)
+        msg["min"] = round(min_val / 60, 2)
+        msg["max"] = round(max_val / 60, 2)
         range_size = msg["max"] - msg["min"]
-        msg["step"] = 1 if range_size <= 60 else 5
+        # Step: 0.1min (6s) for ranges ≤10min, 0.5min (30s) for ≤120min, 1min for larger
+        if range_size <= 10:
+            msg["step"] = 0.1
+        elif range_size <= 120:
+            msg["step"] = 0.5
+        else:
+            msg["step"] = 1
         msg["unit_of_measurement"] = "min"
     else:
         msg["min"] = min_val

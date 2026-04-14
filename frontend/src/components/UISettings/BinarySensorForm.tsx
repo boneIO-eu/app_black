@@ -3,6 +3,7 @@ import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
+import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
   BinarySensorEntity, 
@@ -327,35 +328,11 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     )}
                   </div>
 
-                  <div className="form-control">
-                    <label className="label">
-                      <span className="label-text font-medium">{t('outputs.area')}</span>
-                    </label>
-                    <Select
-                      value={data.area || '_none_'}
-                      onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={t('outputs.no_area')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                        {allAreas.map((area) => (
-                          <SelectItem key={area.id} value={area.id}>
-                            {area.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <label className="label">
-                      <span className="label-text-alt">
-                        {allAreas.length === 0 
-                          ? t('outputs.area_empty_hint')
-                          : t('outputs.area_hint')
-                        }
-                      </span>
-                    </label>
-                  </div>
+                  <AreaSelect
+                    value={data.area}
+                    onChange={(v) => updateField('area', v)}
+                    areas={allAreas}
+                  />
 
                   <div className="form-control">
                     <label className="label">

@@ -15,6 +15,7 @@ import {
   COMPOSITE_SECTIONS,
 } from '@/components/UISettings/constants/sectionDefinitions';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
 
 /**
@@ -42,6 +43,7 @@ export default function UISettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { refreshConfig } = useConfig();
 
   // Get edit item name from query param (for deep linking from InputsView/OutputsView)
   const editItemName = searchParams.get('edit');
@@ -867,6 +869,11 @@ export default function UISettings() {
               // This ensures all dependent sections are updated (e.g., output_group depends on output)
               await loadConfiguration();
               console.log(`📥 Reloaded full configuration from backend`);
+
+              // Refresh config context so navigation updates (e.g., irrigation menu visibility)
+              if (sectionName === 'template' || sectionName === 'irrigation') {
+                await refreshConfig();
+              }
             } else {
               console.warn(
                 `⚠️ Failed to reload section ${sectionName}:`,

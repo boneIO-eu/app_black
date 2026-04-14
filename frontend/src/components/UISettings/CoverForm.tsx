@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -12,17 +13,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface Area {
-  id: string;
-  name: string;
-}
+import type { AreaOption } from './widgets/AreaSelect';
 
 interface CoverFormProps {
   data: any;
   onChange: (data: any) => void;
   schema?: any;
   allOutputs?: any[];
-  allAreas?: Area[];
+  allAreas?: AreaOption[];
 }
 
 const CoverForm: React.FC<CoverFormProps> = ({ 
@@ -113,35 +111,11 @@ const CoverForm: React.FC<CoverFormProps> = ({
                 </div>
 
                 {/* Area / Room */}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">{t('outputs.area')}</span>
-                  </label>
-                  <Select
-                    value={data.area || '_none_'}
-                    onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('outputs.no_area')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                      {allAreas.map((area) => (
-                        <SelectItem key={area.id} value={area.id}>
-                          {area.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <label className="label">
-                    <span className="label-text-alt whitespace-normal wrap-break-words">
-                      {allAreas.length === 0 
-                        ? t('outputs.area_empty_hint')
-                        : t('outputs.area_hint')
-                      }
-                    </span>
-                  </label>
-                </div>
+                <AreaSelect
+                  value={data.area}
+                  onChange={(v) => updateField('area', v)}
+                  areas={allAreas}
+                />
 
                 {/* Platform */}
                 <div className="form-control">

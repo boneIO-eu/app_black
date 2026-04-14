@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -168,27 +169,12 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
               </div>
 
               {/* Area */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('outputs.area')}</span>
-                </label>
-                <Select
-                  value={data.area || '_none_'}
-                  onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('outputs.no_area')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none_">{t('outputs.no_area')}</SelectItem>
-                    {allAreas.map((area) => (
-                      <SelectItem key={area.id} value={area.id}>
-                        {area.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <AreaSelect
+                value={data.area}
+                onChange={(v) => updateField('area', v)}
+                areas={allAreas}
+                hideHint
+              />
 
               {/* Temperature Sensors — multi-select checkboxes */}
               <div className="form-control">

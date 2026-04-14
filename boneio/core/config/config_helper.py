@@ -386,12 +386,22 @@ class ConfigHelper:
     def reload_config(self) -> dict[str, Any]:
         """Reload configuration from file and update cache.
         
+        Waits for any background config cache rebuild to complete before
+        loading, so the fast cached path is used instead of full validation.
+        
         Returns:
             dict: Reloaded configuration dictionary
             
         Raises:
             ValueError: If config_file_path is not set
         """
+        # Wait for background cache rebuild (started after config save)
+        try:
+            from boneio.webui.routes.config import wait_for_config_cache
+            wait_for_config_cache(timeout=30.0)
+        except ImportError:
+            pass  # Web module not available (e.g., during tests)
+        
         _LOGGER.info("Reloading config from file: %s", self._config_file_path)
         return self.get_config(force_reload=True)
 

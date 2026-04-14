@@ -42,6 +42,7 @@ class OutputState(BaseModel):
     adjustable_duration_value: float | None = None
     duration_min: float | None = None
     duration_max: float | None = None
+    duration_unit: str | None = None
 
 
 class CoverState(BaseModel):

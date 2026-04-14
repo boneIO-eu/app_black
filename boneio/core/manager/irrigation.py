@@ -5,14 +5,16 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from boneio.components.irrigation import IrrigationController, IrrigationZone
-from boneio.const import IRRIGATION, NEXT_VALVE, OFF, ON, PAUSE, RESUME
+from boneio.components.irrigation import IrrigationController, IrrigationZone, WaterSource
+from boneio.const import NEXT_VALVE, ON, PAUSE, RESUME
 from boneio.core.utils.timeperiod import parse_time_to_seconds
 from boneio.integration.homeassistant import (
     ha_irrigation_button_message,
     ha_irrigation_main_switch_message,
     ha_irrigation_number_message,
+    ha_irrigation_select_message,
     ha_irrigation_switch_message,
+    ha_irrigation_timestamp_sensor_message,
 )
 
 if TYPE_CHECKING:
@@ -59,16 +61,12 @@ class IrrigationManager:
             _LOGGER.warning("Irrigation controller '%s' has no valid zones", ctrl_id)
             return None
 
-        master_valve = None
-        master_valve_id = cfg.get("master_valve")
-        if master_valve_id:
-            master_valve = self._manager.outputs.get_output(str(master_valve_id))
-            if master_valve is None:
-                _LOGGER.warning(
-                    "Irrigation %s: master valve '%s' not found, continuing without master valve",
-                    ctrl_id,
-                    master_valve_id,
-                )
+        # Build water sources
+        water_sources: list[WaterSource] = []
+        for ws_cfg in cfg.get("water_sources", []):
+            ws = self._build_water_source(ws_cfg)
+            if ws is not None:
+                water_sources.append(ws)
 
         schedule = cfg.get("schedule", [])
         if not isinstance(schedule, list):
@@ -83,15 +81,10 @@ class IrrigationManager:
             state_manager=self._manager.state_manager,
             zones=zones,
             schedule=schedule,
-            master_valve=master_valve,
+            water_sources=water_sources,
             valve_open_delay_s=int(parse_time_to_seconds(cfg.get("valve_open_delay"), 0)),
             valve_overlap_s=int(parse_time_to_seconds(cfg.get("valve_overlap"), 0)),
             standby=bool(cfg.get("standby", False)),
-            pump_switch_off_during_valve_open_delay=bool(cfg.get("pump_switch_off_during_valve_open_delay", False)),
-            pump_start_pump_delay_s=int(parse_time_to_seconds(cfg.get("pump_start_pump_delay"), 0)),
-            pump_start_valve_delay_s=int(parse_time_to_seconds(cfg.get("pump_start_valve_delay"), 0)),
-            pump_stop_pump_delay_s=int(parse_time_to_seconds(cfg.get("pump_stop_pump_delay"), 0)),
-            pump_stop_valve_delay_s=int(parse_time_to_seconds(cfg.get("pump_stop_valve_delay"), 0)),
             multiplier=float(cfg.get("multiplier", 1.0)),
             repeat=int(cfg.get("repeat", 0)),
             auto_advance=bool(cfg.get("auto_advance", True)),
@@ -114,8 +107,8 @@ class IrrigationManager:
         run_duration = int(parse_time_to_seconds(zone_cfg.get("run_duration"), 60))
         run_duration = max(1, run_duration)
 
-        run_every_days = int(parse_time_to_seconds(zone_cfg.get("run_every"), 24 * 60 * 60) / (24 * 60 * 60))
-        run_every_days = max(1, run_every_days)
+        run_every_n = int(zone_cfg.get("run_every_n", 1))
+        run_every_n = max(1, run_every_n)
 
         return IrrigationZone(
             id=zone_id,
@@ -123,7 +116,47 @@ class IrrigationManager:
             valve=valve,
             run_duration=run_duration,
             enabled=bool(zone_cfg.get("enabled", True)),
-            run_every_days=run_every_days,
+            run_every_n=run_every_n,
+        )
+
+    def _build_water_source(self, ws_cfg: dict[str, Any]) -> WaterSource | None:
+        """Build a WaterSource from config.
+
+        Args:
+            ws_cfg: Water source configuration dict.
+
+        Returns:
+            WaterSource instance or None if config is invalid.
+        """
+        ws_id = str(ws_cfg.get("id", "")).strip()
+        if not ws_id:
+            _LOGGER.error("Water source missing required field 'id': %s", ws_cfg)
+            return None
+
+        name = str(ws_cfg.get("name", ws_id)).strip() or ws_id
+
+        output_ids = ws_cfg.get("outputs", [])
+        if not isinstance(output_ids, list) or not output_ids:
+            _LOGGER.error("Water source '%s' must have at least one output", ws_id)
+            return None
+
+        outputs = []
+        for oid in output_ids:
+            output = self._manager.outputs.get_output(str(oid))
+            if output is None:
+                _LOGGER.error("Water source '%s': output '%s' not found", ws_id, oid)
+                return None
+            outputs.append(output)
+
+        return WaterSource(
+            id=ws_id,
+            name=name,
+            outputs=outputs,
+            pump_start_pump_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_start_pump_delay"), 0)),
+            pump_start_valve_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_start_valve_delay"), 0)),
+            pump_stop_pump_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_stop_pump_delay"), 0)),
+            pump_stop_valve_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_stop_valve_delay"), 0)),
+            pump_switch_off_during_valve_open_delay=bool(ws_cfg.get("pump_switch_off_during_valve_open_delay", False)),
         )
 
     @property
@@ -151,9 +184,126 @@ class IrrigationManager:
         for ctrl in self._controllers.values():
             await ctrl.shutdown()
 
+    async def reload_irrigation(self) -> None:
+        """Reload irrigation configuration from file.
+
+        Handles adding, removing, and updating irrigation controllers
+        without requiring a full application restart.
+        """
+        _LOGGER.info("Reloading irrigation configuration")
+
+        config = self._manager._config_helper.get_config()
+        # Read from dedicated irrigation section
+        new_irrigation_config: list[dict[str, Any]] = list(config.get("irrigation", []))
+        # Also include irrigation entries from template section
+        for entry in config.get("template", []):
+            if entry.get("platform") == "irrigation":
+                new_irrigation_config.append(entry)
+
+        new_ids = set()
+        for cfg in new_irrigation_config:
+            ctrl_id = str(cfg.get("id", "")).strip()
+            if ctrl_id:
+                new_ids.add(ctrl_id)
+
+        # Stop & remove deleted controllers
+        removed_ids = set(self._controllers.keys()) - new_ids
+        for ctrl_id in removed_ids:
+            ctrl = self._controllers[ctrl_id]
+            _LOGGER.info("Removing irrigation controller '%s'", ctrl_id)
+            ctrl.stop_schedules()
+            await ctrl.shutdown()
+            # Remove HA discovery for this controller
+            self._remove_discovery(ctrl)
+            del self._controllers[ctrl_id]
+
+        # Add new / update existing controllers
+        for cfg in new_irrigation_config:
+            ctrl_id = str(cfg.get("id", "")).strip()
+            if not ctrl_id:
+                continue
+
+            # Remove existing controller (will be re-created)
+            if ctrl_id in self._controllers:
+                old_ctrl = self._controllers[ctrl_id]
+                old_ctrl.stop_schedules()
+                await old_ctrl.shutdown()
+                del self._controllers[ctrl_id]
+
+            # Build new controller
+            ctrl = self._build_controller(cfg)
+            if ctrl is None:
+                _LOGGER.error("Failed to rebuild irrigation controller '%s'", ctrl_id)
+                continue
+            self._controllers[ctrl_id] = ctrl
+
+            # Subscribe, publish discovery, start schedules
+            await self._subscribe_controller(ctrl)
+            self._publish_discovery(ctrl)
+            ctrl.start_schedules()
+            await ctrl.publish_all_states()
+            _LOGGER.info("Reloaded irrigation controller '%s'", ctrl_id)
+
+        # Unsubscribe topics for controllers that no longer exist
+        valid_prefixes = set()
+        for ctrl in self._controllers.values():
+            valid_prefixes.add(f"{ctrl._topic_prefix}/cmd/irrigation/{ctrl.id}")
+        stale_topics = {
+            t for t in self._subscribed_topics
+            if not any(t.startswith(p) for p in valid_prefixes)
+        }
+        for topic in stale_topics:
+            try:
+                await self._manager.message_bus.unsubscribe_and_stop_listen(topic)
+            except Exception:
+                pass
+            self._subscribed_topics.discard(topic)
+
+        _LOGGER.info(
+            "Irrigation reload complete: %d controllers active",
+            len(self._controllers),
+        )
+
+    def _remove_discovery(self, ctrl: IrrigationController) -> None:
+        """Remove HA discovery messages for an irrigation controller.
+
+        Sends empty payload to discovery topics to remove entities from HA.
+        """
+        cfg = self._manager.config_helper
+        serial = cfg.serial_no
+
+        # Build list of discovery IDs to remove
+        discovery_ids: list[tuple[str, str]] = [
+            (f"{ctrl.id}", "switch"),
+            (f"{ctrl.id}_auto_advance", "switch"),
+            (f"{ctrl.id}_reverse", "switch"),
+            (f"{ctrl.id}_skip_next_run", "switch"),
+            (f"{ctrl.id}_standby", "switch"),
+            (f"{ctrl.id}_multiplier", "number"),
+            (f"{ctrl.id}_repeat", "number"),
+            (f"{ctrl.id}_next_valve", "button"),
+            (f"{ctrl.id}_pause", "button"),
+            (f"{ctrl.id}_resume", "button"),
+        ]
+        for zone in ctrl.zones:
+            discovery_ids.append((f"{ctrl.id}_zone_{zone.id}", "switch"))
+            discovery_ids.append((f"{ctrl.id}_zone_{zone.id}_enabled", "switch"))
+            discovery_ids.append((f"{ctrl.id}_zone_{zone.id}_duration", "number"))
+        for idx in range(len(ctrl._schedule)):
+            discovery_ids.append((f"{ctrl.id}_schedule_{idx}_skip", "switch"))
+
+        for disc_id, ha_type in discovery_ids:
+            topic = (
+                f"{cfg.ha_discovery_prefix}/{ha_type}"
+                f"/{serial}/{disc_id}/config"
+            )
+            self._manager.send_message(topic=topic, payload="", retain=True)
+
     async def _subscribe_topic(self, topic: str, handler) -> None:
         if topic in self._subscribed_topics:
+            _LOGGER.debug("Irrigation: topic already subscribed: %s", topic)
             return
+        _LOGGER.debug("Irrigation: subscribing to MQTT topic: %s → handler=%s", topic, handler.__name__)
         await self._manager.message_bus.subscribe_and_listen(topic, handler)
         self._subscribed_topics.add(topic)
 
@@ -195,6 +345,13 @@ class IrrigationManager:
         await self._subscribe_topic(ctrl._setting_cmd_topic("repeat"), handle_repeat)
         await self._subscribe_topic(ctrl._setting_cmd_topic("skip_next_run"), handle_skip_next)
         await self._subscribe_topic(ctrl._setting_cmd_topic("standby"), handle_standby)
+
+        # Water source select handler
+        if ctrl.water_sources:
+            async def handle_water_source(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
+                await _ctrl.set_water_source(payload.strip())
+
+            await self._subscribe_topic(ctrl._setting_cmd_topic("water_source"), handle_water_source)
 
         for zone in ctrl.zones:
             async def handle_zone(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id) -> None:
@@ -394,6 +551,32 @@ class IrrigationManager:
                     ctrl.name,
                     suffix=f"schedule/{idx}/skip",
                     name=f"{ctrl.name} Schedule {idx + 1} Skip",
+                    config_helper=cfg,
+                ),
+            )
+
+        # Zone end time sensor — HA shows countdown automatically
+        self._manager.publish_ha_discovery(
+            id=f"{ctrl.id}_zone_end_time",
+            ha_type="sensor",
+            payload=ha_irrigation_timestamp_sensor_message(
+                ctrl.id,
+                ctrl.name,
+                suffix="zone_end_time",
+                name=f"{ctrl.name} Zone End Time",
+                config_helper=cfg,
+            ),
+        )
+
+        # Water source select — only when multiple sources exist
+        if len(ctrl.water_sources) > 1:
+            self._manager.publish_ha_discovery(
+                id=f"{ctrl.id}_water_source",
+                ha_type="select",
+                payload=ha_irrigation_select_message(
+                    ctrl.id,
+                    ctrl.name,
+                    options=[ws.id for ws in ctrl.water_sources],
                     config_helper=cfg,
                 ),
             )

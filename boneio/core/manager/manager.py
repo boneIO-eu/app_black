@@ -229,9 +229,19 @@ class Manager:
         )
         
         # 10. TemplateManager (thermostats, alarm panels, etc.)
+        # Separate irrigation entries from template list — they are handled
+        # by IrrigationManager, not TemplateManager, even though the frontend
+        # configures them as a template platform.
+        non_irrigation_templates = [
+            e for e in template if e.get("platform") != "irrigation"
+        ]
+        irrigation_from_template = [
+            e for e in template if e.get("platform") == "irrigation"
+        ]
+        
         self.templates = TemplateManager(
             manager=self,
-            template_config=template,
+            template_config=non_irrigation_templates,
         )
         
         # 11. CANopenManager (optional - CAN bus communication)
@@ -243,10 +253,12 @@ class Manager:
                 config=can,
             )
 
-        # 12. IrrigationManager (optional)
+        # 12. IrrigationManager — merge dedicated irrigation section
+        # with irrigation entries from template section.
+        merged_irrigation = list(irrigation) + irrigation_from_template
         self.irrigation = IrrigationManager(
             manager=self,
-            irrigation_config=irrigation,
+            irrigation_config=merged_irrigation,
         )
         
         # Configure virtual energy sensors (must be after outputs are initialized)
@@ -912,6 +924,16 @@ class Manager:
         _LOGGER.info("Reloading remote devices configuration")
         await self.remote_devices.reload(remote_devices_config)
         _LOGGER.info("Remote devices configuration reloaded successfully")
+
+    async def _reload_templates_and_irrigation(self) -> None:
+        """Reload templates and irrigation when the template section changes.
+
+        The template section may contain irrigation-platform entries, so both
+        TemplateManager and IrrigationManager must be reloaded together.
+        TemplateManager.reload_templates filters out irrigation entries internally.
+        """
+        await self.templates.reload_templates()
+        await self.irrigation.reload_irrigation()
     
     async def publish_discovery(self) -> None:
         """Publish all device discovery information to MQTT.
@@ -955,6 +977,7 @@ class Manager:
             "virtual_energy_sensor": publisher.publish_sensors,
             "modbus_devices": publisher.publish_modbus,
             "adc": publisher.publish_sensors,
+            "irrigation": publisher.publish_irrigation,
         }
         
         published = set()
@@ -1023,7 +1046,8 @@ class Manager:
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
-            "template": self.templates.reload_templates,  # Thermostats and alarm panels
+            "template": self._reload_templates_and_irrigation,  # Thermostats, alarm panels, and irrigation
+            "irrigation": self.irrigation.reload_irrigation,  # Irrigation controllers
             "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
             "oled": self.display.reload_oled,  # OLED display screens, screensaver
@@ -1195,7 +1219,7 @@ class Manager:
                     )
                     # Publish updated duration back to MQTT (in the user's unit)
                     if target_device.duration_unit == "min":
-                        publish_value = round(target_device.adjustable_duration / 60, 1)
+                        publish_value = round(target_device.adjustable_duration / 60, 2)
                     else:
                         publish_value = target_device.adjustable_duration
                     self._message_bus.send_message(

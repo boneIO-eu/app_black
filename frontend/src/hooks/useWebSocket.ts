@@ -38,6 +38,7 @@ export interface OutputState {
   adjustable_duration_value?: number | null;
   duration_min?: number | null;
   duration_max?: number | null;
+  duration_unit?: string | null;
 }
 
 export interface OutputEvent {

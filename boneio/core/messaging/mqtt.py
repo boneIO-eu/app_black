@@ -209,12 +209,18 @@ class MQTTClient(MessageBus):
         """Publish messages as they are put on the queue."""
         while True:
             message: MQTTMessageSend = await self.publish_queue.get()
-            await self.publish(
-                topic=message.topic,
-                payload=message.payload,
-                retain=message.retain,
-                qos=message.qos,
-            )
+            try:
+                await self.publish(
+                    topic=message.topic,
+                    payload=message.payload,
+                    retain=message.retain,
+                    qos=message.qos,
+                )
+            except Exception as exc:
+                _LOGGER.error(
+                    "Failed to publish MQTT message to %s: %s",
+                    message.topic, exc,
+                )
             self.publish_queue.task_done()
 
     @override
@@ -333,7 +339,13 @@ class MQTTClient(MessageBus):
             for topic, listener_callback in self._mqtt_energy_listeners.items():
                 if message.topic.matches(topic):
                     callback_start = False
-                    await listener_callback(str(message.topic), payload)
+                    try:
+                        await listener_callback(str(message.topic), payload)
+                    except Exception as exc:
+                        _LOGGER.error(
+                            "Error in MQTT listener callback for topic %s: %s",
+                            message.topic, exc, exc_info=True,
+                        )
                     break
             if callback_start:
                 _LOGGER.debug(
