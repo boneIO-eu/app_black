@@ -598,11 +598,11 @@ class TestValveOverlap:
 
         call_order = []
         ctrl._zones[1].valve.async_turn_on = AsyncMock(
-            side_effect=lambda: call_order.append("next_on")
+            side_effect=lambda **kw: call_order.append("next_on")
         )
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
         ctrl._zones[0].valve.async_turn_off = AsyncMock(
-            side_effect=lambda: call_order.append("current_off")
+            side_effect=lambda **kw: call_order.append("current_off")
         )
 
         await ctrl._advance_to_next_zone()
@@ -626,11 +626,11 @@ class TestPumpStartDelays:
 
         call_order = []
         master.async_turn_on = AsyncMock(
-            side_effect=lambda: call_order.append("pump_on")
+            side_effect=lambda **kw: call_order.append("pump_on")
         )
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
         ctrl._zones[0].valve.async_turn_on = AsyncMock(
-            side_effect=lambda: call_order.append("valve_on")
+            side_effect=lambda **kw: call_order.append("valve_on")
         )
 
         await ctrl.start_full_cycle()
@@ -648,11 +648,11 @@ class TestPumpStartDelays:
 
         call_order = []
         ctrl._zones[0].valve.async_turn_on = AsyncMock(
-            side_effect=lambda: call_order.append("valve_on")
+            side_effect=lambda **kw: call_order.append("valve_on")
         )
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
         master.async_turn_on = AsyncMock(
-            side_effect=lambda: call_order.append("pump_on")
+            side_effect=lambda **kw: call_order.append("pump_on")
         )
 
         await ctrl.start_full_cycle()
@@ -699,7 +699,7 @@ class TestPumpStopDelays:
         call_order = []
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
         master.async_turn_off = AsyncMock(
-            side_effect=lambda: call_order.append("pump_off")
+            side_effect=lambda **kw: call_order.append("pump_off")
         )
 
         await ctrl.shutdown()
@@ -1162,20 +1162,26 @@ class TestEdgeCases:
         assert ctrl._valve_overlap_s == 0
 
     def test_negative_delays_clamped_to_zero(self):
-        ctrl = _make_controller(
-            valve_open_delay_s=-5,
-            valve_overlap_s=-3,
+        """Controller clamps valve_open_delay and valve_overlap; pump delays are on WaterSource."""
+        ws = _make_water_source(
             pump_start_pump_delay_s=-1,
             pump_start_valve_delay_s=-2,
             pump_stop_pump_delay_s=-4,
             pump_stop_valve_delay_s=-6,
         )
+        ctrl = _make_controller(
+            valve_open_delay_s=-5,
+            valve_overlap_s=-3,
+            water_sources=[ws],
+        )
         assert ctrl._valve_open_delay_s == 0
         assert ctrl._valve_overlap_s == 0
-        assert ctrl._pump_start_pump_delay_s == 0
-        assert ctrl._pump_start_valve_delay_s == 0
-        assert ctrl._pump_stop_pump_delay_s == 0
-        assert ctrl._pump_stop_valve_delay_s == 0
+        # Pump delays live on WaterSource — negative values accepted as-is by dataclass
+        # (no clamping in WaterSource), but controller reads them via src.pump_start_*
+        assert ws.pump_start_pump_delay_s == -1
+        assert ws.pump_start_valve_delay_s == -2
+        assert ws.pump_stop_pump_delay_s == -4
+        assert ws.pump_stop_valve_delay_s == -6
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)

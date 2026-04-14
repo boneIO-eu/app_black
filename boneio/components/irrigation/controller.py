@@ -480,7 +480,9 @@ class IrrigationController:
         except ValueError:
             current_pos = -1
 
-        tail = ordered[current_pos + 1 :] + ordered[: current_pos + 1]
+        # Only look at zones AFTER the current position — no wrap-around.
+        # Wrapping would cause the cycle to never complete.
+        tail = ordered[current_pos + 1 :]
         if force:
             remaining = [idx for idx in tail if idx != finished_idx and self._zones[idx].enabled]
         else:
