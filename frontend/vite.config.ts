@@ -55,9 +55,13 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'monaco': ['monaco-editor', '@monaco-editor/react', 'monaco-yaml'],
-            'vendor': ['react', 'react-dom', 'react-router-dom'],
+          manualChunks(id: string) {
+            if (id.includes('monaco-editor') || id.includes('@monaco-editor/react') || id.includes('monaco-yaml')) {
+              return 'monaco';
+            }
+            if (id.includes('react-dom') || id.includes('react-router-dom') || id.includes('/react/')) {
+              return 'vendor';
+            }
           }
         }
       },
