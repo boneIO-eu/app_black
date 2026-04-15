@@ -364,7 +364,10 @@ async def get_modbus_models():
                     dc = reg.get("device_class")
                     if dc:
                         device_classes.add(dc)
-                    if dc == "temperature":
+                    # Only include actual measurement sensors, not
+                    # config/diagnostic registers (e.g. calibration offsets)
+                    entity_category = reg.get("entity_category")
+                    if dc == "temperature" and entity_category not in ("config", "diagnostic"):
                         name = reg.get("name", "Temperature")
                         # Match entity ID suffix generation from BaseEntity:
                         # _decoded_name_low = name.replace(" ", "").lower()
