@@ -338,6 +338,20 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
             </div>
           </div>
 
+          {/* Model description / notes from i18n — full width below the grid */}
+          {selectedModel && (() => {
+            const descKey = `modbus_devices.${selectedModel}.description`;
+            const desc = t(descKey);
+            return desc !== descKey ? (
+              <div className="flex items-start gap-2 rounded-lg bg-warning/10 border border-warning/30 px-3 py-2 text-xs text-warning-content">
+                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-warning shrink-0 h-4 w-4 mt-0.5" fill="none" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{desc}</span>
+              </div>
+            ) : null;
+          })()}
+
           {/* ID - optional */}
           <div className="form-control">
             <label className="label py-1">

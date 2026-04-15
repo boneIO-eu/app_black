@@ -450,6 +450,7 @@ modbus_devices:
             'socomec_e23',
             'sofar',
             'ventclear',
+            'esp32_relay_x4_modbus'
           ]
         meta:
           label: Model to load from database.

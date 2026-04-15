@@ -1,0 +1,10 @@
+{
+  "modbus_devices": {
+    "esp32_relay_x4_modbus": {
+      "description": "Rozszerzenie przekaźnikowe i wejściowe przez Modbus RS485. Wejścia są odpytywane cyklicznie (brak subskrypcji zdarzeń) — przy użyciu jako rozszerzenie wejść spodziewaj się opóźnień równych interwałowi aktualizacji."
+    },
+    "sofar": {
+      "description": "Sofar PV Inverter"
+    }
+  }
+}

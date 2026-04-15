@@ -1,0 +1,10 @@
+{
+  "modbus_devices": {
+    "esp32_relay_x4_modbus": {
+      "description": "Relay and input extension via Modbus RS485. Inputs are polled every update interval (no event subscription) — expect delays when using as input extension."
+    },
+    "sofar": {
+      "description": "Sofar PV Inverter"
+    }
+  }
+}

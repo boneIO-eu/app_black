@@ -3,6 +3,24 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 // Import translations
 import enTranslations from '../locales/en/common.json';
 import plTranslations from '../locales/pl/common.json';
+import enModbusDevices from '../locales/en/modbus_devices.json';
+import plModbusDevices from '../locales/pl/modbus_devices.json';
+
+/**
+ * Deep merge two translation objects. Source values override target values.
+ * Nested objects are merged recursively; arrays and primitives are replaced.
+ */
+function deepMerge(target: any, source: any): any {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(result[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
 
 // Flag components
 export const EnFlag = ({ className }: { className?: string }) => (<svg
@@ -152,8 +170,8 @@ const availableLanguages = [
 
 // Translation mappings
 const translationsMap: Record<string, any> = {
-  en: enTranslations,
-  pl: plTranslations
+  en: deepMerge(enTranslations, enModbusDevices),
+  pl: deepMerge(plTranslations, plModbusDevices),
 };
 
 interface TranslationProviderProps {
