@@ -4,6 +4,7 @@ Creates virtual power/energy or water flow sensors linked to outputs.
 When the linked output is ON, the sensor calculates consumption based on
 configured power_usage or flow_rate.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,10 +27,10 @@ _LOGGER = logging.getLogger(__name__)
 
 class VirtualEnergySensor:
     """Virtual energy/water sensor linked to an output.
-    
+
     Tracks energy consumption (Wh) or water consumption (L) based on
     configured power_usage (W) or flow_rate (L/h) when the linked output is ON.
-    
+
     Args:
         id: Unique sensor identifier
         name: Display name for Home Assistant
@@ -68,23 +69,26 @@ class VirtualEnergySensor:
         self._power_usage = power_usage
         self._flow_rate = flow_rate
         self._area = area
-        
+
         self._virtual_sensors_task = None
-        
+
         # Counters
         self._energy_consumed_Wh = 0.0
         self._water_consumed_L = 0.0
-        self._last_on_timestamp = time.time() if self._output.state == ON else None
-        
+        self._last_on_timestamp = None
+
+        # State restore gate — prevents sending state=0 before
+        # the retained MQTT message with the real value is received.
+        self._restore_done = asyncio.Event()
+
         # MQTT topic for this sensor
         self._sensor_topic = f"{topic_prefix}/energy/{id}"
-        
+
         # Subscribe to restore state from MQTT
         self._subscribe_restore_state()
-        
+
         _LOGGER.info(
-            "Initialized VirtualEnergySensor: id=%s, name=%s, output=%s, type=%s",
-            id, name, output.id, sensor_type
+            "Initialized VirtualEnergySensor: id=%s, name=%s, output=%s, type=%s", id, name, output.id, sensor_type
         )
 
     @property
@@ -140,18 +144,34 @@ class VirtualEnergySensor:
         # Update one last time before stopping
         self._update_consumption()
         self._last_on_timestamp = None
-        
+
         if self._virtual_sensors_task is not None:
             self._virtual_sensors_task.cancel()
             self._virtual_sensors_task = None
-        
-        # Send final state
-        self._send_state()
+
+        # Send final state (only if restore is done)
+        if self._restore_done.is_set():
+            self._send_state()
         _LOGGER.debug("Stopped tracking for virtual sensor %s", self._id)
 
     async def _tracking_loop(self):
         """Periodically update and send state every 30 seconds while output is ON."""
         try:
+            # Wait for state restore before sending any state.
+            # This prevents overwriting the retained MQTT value with 0.
+            # Timeout of 5s ensures we don't hang if MQTT is down.
+            try:
+                await asyncio.wait_for(self._restore_done.wait(), timeout=5.0)
+            except TimeoutError:
+                _LOGGER.warning(
+                    "State restore timeout for %s, starting with energy=%.4f Wh", self._id, self._energy_consumed_Wh
+                )
+                self._restore_done.set()
+
+            # Reset on_timestamp after restore so we don't count
+            # the time elapsed during the restore wait.
+            self._last_on_timestamp = time.time()
+
             while self._output.state == ON:
                 self._update_consumption()
                 self._send_state()
@@ -164,49 +184,42 @@ class VirtualEnergySensor:
         now = time.time()
         if self._output.state == ON and self._last_on_timestamp is not None:
             elapsed = now - self._last_on_timestamp
-            
+
             if self._sensor_type == "power" and self._power_usage is not None:
                 self._energy_consumed_Wh += (self._power_usage * elapsed) / 3600.0
-                _LOGGER.debug(
-                    "Energy updated for %s: %.4f Wh",
-                    self._id, self._energy_consumed_Wh
-                )
+                _LOGGER.debug("Energy updated for %s: %.4f Wh", self._id, self._energy_consumed_Wh)
             elif self._sensor_type == "water" and self._flow_rate is not None:
                 self._water_consumed_L += (self._flow_rate * elapsed) / 3600.0
-                _LOGGER.debug(
-                    "Water updated for %s: %.4f L",
-                    self._id, self._water_consumed_L
-                )
-            
+                _LOGGER.debug("Water updated for %s: %.4f L", self._id, self._water_consumed_L)
+
             self._last_on_timestamp = now
 
     def _subscribe_restore_state(self):
-        """Subscribe to retained MQTT topic to restore state on startup."""
+        """Subscribe to retained MQTT topic to restore state on startup.
+
+        Sets _restore_done event when restore is complete (or if no retained
+        message is available). This gates _send_state() to prevent overwriting
+        the retained value with 0.
+        """
+
         async def on_message(_topic, payload):
             try:
                 data = json.loads(payload)
                 if isinstance(data, dict):
                     if "energy" in data:
                         self._energy_consumed_Wh = float(data["energy"])
-                        _LOGGER.info(
-                            "Restored energy state for %s: %.4f Wh",
-                            self._id, self._energy_consumed_Wh
-                        )
+                        _LOGGER.info("Restored energy state for %s: %.4f Wh", self._id, self._energy_consumed_Wh)
                     if "water" in data:
                         self._water_consumed_L = float(data["water"])
-                        _LOGGER.info(
-                            "Restored water state for %s: %.4f L",
-                            self._id, self._water_consumed_L
-                        )
+                        _LOGGER.info("Restored water state for %s: %.4f L", self._id, self._water_consumed_L)
             except Exception as e:
                 _LOGGER.warning("Failed to restore state for %s: %s", self._id, e)
             finally:
+                self._restore_done.set()
                 await self._message_bus.unsubscribe_and_stop_listen(self._sensor_topic)
-        
+
         if self._message_bus is not None:
-            asyncio.create_task(
-                self._message_bus.subscribe_and_listen(self._sensor_topic, on_message)
-            )
+            asyncio.create_task(self._message_bus.subscribe_and_listen(self._sensor_topic, on_message))
 
     def get_current_power(self) -> float:
         """Get current power usage in W (0 if output is OFF)."""
@@ -232,58 +245,66 @@ class VirtualEnergySensor:
         """Send current state to MQTT and EventBus (for WebSocket/frontend)."""
         payload = {}
         timestamp = int(time.time())
-        
+
         if self._sensor_type == "power":
             payload["power"] = self.get_current_power()
             payload["energy"] = self.get_total_energy()
-            
+
             # Send SensorEvents to frontend via EventBus
-            self._event_bus.trigger_event(SensorEvent(
-                entity_id=f"{self._id}_power",
-                state=SensorState(
-                    id=f"{self._id}_power",
-                    name=f"{self._name} Power",
-                    state=self.get_current_power(),
-                    unit="W",
-                    timestamp=timestamp,
+            self._event_bus.trigger_event(
+                SensorEvent(
+                    entity_id=f"{self._id}_power",
+                    state=SensorState(
+                        id=f"{self._id}_power",
+                        name=f"{self._name} Power",
+                        state=self.get_current_power(),
+                        unit="W",
+                        timestamp=timestamp,
+                    ),
                 )
-            ))
-            self._event_bus.trigger_event(SensorEvent(
-                entity_id=f"{self._id}_energy",
-                state=SensorState(
-                    id=f"{self._id}_energy",
-                    name=f"{self._name} Energy",
-                    state=self.get_total_energy(),
-                    unit="Wh",
-                    timestamp=timestamp,
+            )
+            self._event_bus.trigger_event(
+                SensorEvent(
+                    entity_id=f"{self._id}_energy",
+                    state=SensorState(
+                        id=f"{self._id}_energy",
+                        name=f"{self._name} Energy",
+                        state=self.get_total_energy(),
+                        unit="Wh",
+                        timestamp=timestamp,
+                    ),
                 )
-            ))
+            )
         elif self._sensor_type == "water":
             payload["volume_flow_rate"] = self.get_current_flow_rate()
             payload["water"] = self.get_total_water()
-            
+
             # Send SensorEvents to frontend via EventBus
-            self._event_bus.trigger_event(SensorEvent(
-                entity_id=f"{self._id}_flow",
-                state=SensorState(
-                    id=f"{self._id}_flow",
-                    name=f"{self._name} Flow Rate",
-                    state=self.get_current_flow_rate(),
-                    unit="L/h",
-                    timestamp=timestamp,
+            self._event_bus.trigger_event(
+                SensorEvent(
+                    entity_id=f"{self._id}_flow",
+                    state=SensorState(
+                        id=f"{self._id}_flow",
+                        name=f"{self._name} Flow Rate",
+                        state=self.get_current_flow_rate(),
+                        unit="L/h",
+                        timestamp=timestamp,
+                    ),
                 )
-            ))
-            self._event_bus.trigger_event(SensorEvent(
-                entity_id=f"{self._id}_water",
-                state=SensorState(
-                    id=f"{self._id}_water",
-                    name=f"{self._name} Water",
-                    state=self.get_total_water(),
-                    unit="L",
-                    timestamp=timestamp,
+            )
+            self._event_bus.trigger_event(
+                SensorEvent(
+                    entity_id=f"{self._id}_water",
+                    state=SensorState(
+                        id=f"{self._id}_water",
+                        name=f"{self._name} Water",
+                        state=self.get_total_water(),
+                        unit="L",
+                        timestamp=timestamp,
+                    ),
                 )
-            ))
-        
+            )
+
         self._message_bus.send_message(
             topic=self._sensor_topic,
             payload=payload,
