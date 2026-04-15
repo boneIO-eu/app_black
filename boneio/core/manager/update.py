@@ -269,16 +269,18 @@ class UpdateManager(AsyncUpdater):
         latest_version = update_info.get("latest_version", current_version)
         
         # Build state payload (JSON format for HA Update entity)
+        # Always include in_progress/update_percentage to clear any retained
+        # progress state left by a previous update (e.g., after restart).
         state_payload = {
             "installed_version": current_version,
             "latest_version": latest_version,
             "title": "boneIO Black Firmware",
             "release_url": update_info.get("release_url", ""),
             "release_summary": update_info.get("release_notes", "")[:255],  # HA limit
+            "entity_picture": "http://boneio.eu/logo_fb_circle.png",
+            "in_progress": False,
+            "update_percentage": None,
         }
-        
-        # Add entity_picture (boneIO logo from HA brands)
-        state_payload["entity_picture"] = "http://boneio.eu/logo_fb_circle.png"
         
         # Convert to JSON
         payload_json = json.dumps(state_payload)
@@ -535,7 +537,10 @@ class UpdateManager(AsyncUpdater):
             if on_progress:
                 on_progress(100, "Update complete!", "Restarting service in 2 seconds...")
             
-            await asyncio.sleep(2)
+            # Wait long enough for MQTT to drain the final state message
+            # before killing the process. Short delays risk the retained
+            # "in_progress" message persisting in the broker.
+            await asyncio.sleep(5)
             
             _LOGGER.info("Restarting BoneIO service after update...")
             os._exit(0)
