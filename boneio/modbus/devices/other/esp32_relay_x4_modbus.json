@@ -1,0 +1,172 @@
+{
+  "model": "ESP32 Relay X4 Modbus",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 4,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Relay 1 Command",
+          "address": 0,
+          "write_address": 0,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 2 Command",
+          "address": 1,
+          "write_address": 1,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 3 Command",
+          "address": 2,
+          "write_address": 2,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 4 Command",
+          "address": 3,
+          "write_address": 3,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 0,
+      "length": 4,
+      "register_type": "input",
+      "registers": [
+        {
+          "name": "Relay 1 State",
+          "address": 0,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 2 State",
+          "address": 1,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 3 State",
+          "address": 2,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Relay 4 State",
+          "address": 3,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    },
+    {
+      "base": 10,
+      "length": 4,
+      "register_type": "input",
+      "registers": [
+        {
+          "name": "Input 1",
+          "address": 10,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Input 2",
+          "address": 11,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Input 3",
+          "address": 12,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Input 4",
+          "address": 13,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "Relay 1",
+      "source": "relay_1_command",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 2",
+      "source": "relay_2_command",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 3",
+      "source": "relay_3_command",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Relay 4",
+      "source": "relay_4_command",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    }
+  ]
+}
