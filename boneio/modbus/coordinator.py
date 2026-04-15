@@ -630,7 +630,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             Output dictionary with updated states
         """
         source_sensor = self.get_entity_by_name(entity.source_sensor_decoded_name)
-        if not source_sensor or not source_sensor.write_address:
+        if not source_sensor or source_sensor.write_address is None:
             _LOGGER.error(
                 "Source sensor %s has no write address", 
                 source_sensor.name if source_sensor else "Unknown"
@@ -681,7 +681,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         Returns:
             Output dictionary with updated states
         """
-        if not hasattr(entity, 'write_address') or not entity.write_address:
+        if not hasattr(entity, 'write_address') or entity.write_address is None:
             _LOGGER.error(
                 "Modbus sensor %s has no write address", 
                 entity.name if hasattr(entity, 'name') else 'Unknown'
