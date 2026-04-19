@@ -857,7 +857,8 @@ class TestMQTTCommands:
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_handle_zone_duration_command(self, _utc, _timer):
         ctrl = _make_controller()
-        await ctrl.handle_zone_duration_command("zone_0", "120")
+        # payload is in minutes (from HA number entity), internally stored as seconds
+        await ctrl.handle_zone_duration_command("zone_0", "2")
         assert ctrl._zones[0].run_duration == 120
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
