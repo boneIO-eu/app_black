@@ -954,7 +954,7 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     v = CustomValidator(schema, purge_unknown=True)
     _LOGGER.debug("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
     
-    # Check if config was created by a newer app version (soft block)
+    # Check if config was created by a newer app version (downgrade scenario)
     from boneio.core.config.migrations import (
         CURRENT_SCHEMA_VERSION as _CURRENT_SCHEMA,
     )
@@ -962,7 +962,8 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
         get_config_version as _get_cv,
     )
     _cv = _get_cv(config_yaml)
-    if _cv > _CURRENT_SCHEMA:
+    _is_downgraded = _cv > _CURRENT_SCHEMA
+    if _is_downgraded:
         _LOGGER.warning(
             "Config version %d is newer than supported schema version %d. "
             "This config was created by a newer version of boneIO. "
@@ -989,16 +990,26 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     # Finally validate
     _t6 = _time.monotonic()
     if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
-        error_msg = "Configuration validation failed:\n"
-        for field, errors in v.errors.items():  # type: ignore[attr-defined]
-            error_lines = []
-            if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
-                error_lines = [
-                    f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
-                    for line in config_yaml.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
-                ]
-            error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
-        raise ConfigurationException(error_msg)
+        if _is_downgraded:
+            # Downgrade scenario: log validation errors as warnings and continue
+            # with the validated document (cerberus keeps valid fields).
+            _LOGGER.warning(
+                "Config validation errors (ignored due to downgrade from schema v%d): %s",
+                _cv, v.errors,
+            )
+            # Use the validated document which has unknown fields purged
+            merged_doc = v.document  # type: ignore[attr-defined]
+        else:
+            error_msg = "Configuration validation failed:\n"
+            for field, errors in v.errors.items():  # type: ignore[attr-defined]
+                error_lines = []
+                if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
+                    error_lines = [
+                        f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
+                        for line in config_yaml.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
+                    ]
+                error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
+            raise ConfigurationException(error_msg)
     _LOGGER.debug("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
     
     # Save to cache for next startup

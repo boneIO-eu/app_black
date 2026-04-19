@@ -6,3 +6,6 @@ export { FormInputToggle } from './FormInputToggle';
 export { FormInputList } from './FormInputList';
 // Existing widgets
 export { default as SimpleTimePeriodInput } from './SimpleTimePeriodInput';
+// Select dropdown widgets
+export { default as OutputSelectDropdown } from './OutputSelectDropdown';
+export { default as RemoteDeviceSelect } from './RemoteDeviceSelect';

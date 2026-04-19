@@ -251,7 +251,10 @@ class IrrigationController:
             if skip_count >= zone.run_every_n - 1:
                 _LOGGER.debug(
                     "Irrigation %s: zone %s eligible (skip_count=%d >= %d)",
-                    self.id, zone.id, skip_count, zone.run_every_n - 1,
+                    self.id,
+                    zone.id,
+                    skip_count,
+                    zone.run_every_n - 1,
                 )
                 eligible.append((idx, zone))
                 # Reset counter — will be saved when zone finishes in _advance_to_next_zone
@@ -260,7 +263,10 @@ class IrrigationController:
                 self._save(counter_key, skip_count)
                 _LOGGER.debug(
                     "Irrigation %s: zone %s NOT eligible (skip_count=%d < %d)",
-                    self.id, zone.id, skip_count, zone.run_every_n - 1,
+                    self.id,
+                    zone.id,
+                    skip_count,
+                    zone.run_every_n - 1,
                 )
         return eligible
 
@@ -268,7 +274,10 @@ class IrrigationController:
         controller_state = ON if self._state in (ControllerState.RUNNING, ControllerState.PAUSED) else OFF
         _LOGGER.debug(
             "Irrigation %s publish_all_states: controller=%s (state=%s, active_zone=%s)",
-            self.id, controller_state, self._state.value, self._active_zone_idx,
+            self.id,
+            controller_state,
+            self._state.value,
+            self._active_zone_idx,
         )
         self._publish(self._state_topic(), {"state": controller_state})
         self._publish(
@@ -301,14 +310,18 @@ class IrrigationController:
             active = ON if self._active_zone_idx == idx and self._state == ControllerState.RUNNING else OFF
             _LOGGER.debug(
                 "Irrigation %s: zone %s idx=%d active=%s (active_zone_idx=%s)",
-                self.id, zone.id, idx, active, self._active_zone_idx,
+                self.id,
+                zone.id,
+                idx,
+                active,
+                self._active_zone_idx,
             )
             self._publish(self._zone_state_topic(zone.id), {"state": active})
             self._publish(
                 self._setting_state_topic(f"zone/{zone.id}/enabled"),
                 {"state": ON if zone.enabled else OFF},
             )
-            self._publish(self._zone_duration_topic(zone.id), {"value": zone.run_duration})
+            self._publish(self._zone_duration_topic(zone.id), {"value": max(1, round(zone.run_duration / 60))})
 
         for idx, sched in enumerate(self._schedule):
             self._publish(
@@ -333,7 +346,9 @@ class IrrigationController:
     async def shutdown(self) -> None:
         _LOGGER.debug(
             "Irrigation %s shutdown called (state=%s, active_zone=%s). Caller: %s",
-            self.id, self._state.value, self._active_zone_idx,
+            self.id,
+            self._state.value,
+            self._active_zone_idx,
             "".join(traceback.format_stack(limit=5)),
         )
         self.stop_schedules()
@@ -378,7 +393,10 @@ class IrrigationController:
     async def start_full_cycle(self) -> None:
         _LOGGER.debug(
             "Irrigation %s start_full_cycle: state=%s standby=%s skip_next=%s",
-            self.id, self._state.value, self._standby, self._skip_next_run,
+            self.id,
+            self._state.value,
+            self._standby,
+            self._skip_next_run,
         )
         if self._standby:
             _LOGGER.info("Irrigation %s is in standby mode, not starting", self.id)
@@ -403,7 +421,10 @@ class IrrigationController:
     async def start_single_zone(self, zone_id: str) -> None:
         _LOGGER.debug(
             "Irrigation %s start_single_zone('%s') state=%s standby=%s",
-            self.id, zone_id, self._state.value, self._standby,
+            self.id,
+            zone_id,
+            self._state.value,
+            self._standby,
         )
         if self._standby:
             _LOGGER.info("Irrigation %s is in standby mode, not starting zone", self.id)
@@ -431,7 +452,8 @@ class IrrigationController:
         eligible = self._eligible_zones()
         _LOGGER.debug(
             "Irrigation %s _start_cycle_from_eligible: %d eligible zones: %s",
-            self.id, len(eligible),
+            self.id,
+            len(eligible),
             [(idx, z.id) for idx, z in eligible],
         )
         if not eligible:
@@ -447,7 +469,10 @@ class IrrigationController:
     async def _advance_to_next_zone(self, force: bool = False) -> None:
         _LOGGER.debug(
             "Irrigation %s _advance_to_next_zone(force=%s) active_zone=%s single_zone=%s",
-            self.id, force, self._active_zone_idx, self._single_zone_mode,
+            self.id,
+            force,
+            self._active_zone_idx,
+            self._single_zone_mode,
         )
         if self._active_zone_idx is None:
             _LOGGER.debug("Irrigation %s: no active zone, shutting down", self.id)
@@ -551,8 +576,12 @@ class IrrigationController:
 
         _LOGGER.debug(
             "Irrigation %s _start_zone: idx=%d, zone=%s, valve=%s, duration=%ds, source=%s",
-            self.id, idx, zone.id, zone.valve.id if zone.valve else 'NONE',
-            duration, src.id if src else 'NONE',
+            self.id,
+            idx,
+            zone.id,
+            zone.valve.id if zone.valve else "NONE",
+            duration,
+            src.id if src else "NONE",
         )
 
         self._active_zone_idx = idx
@@ -562,12 +591,19 @@ class IrrigationController:
         if src is not None:
             if src.pump_start_valve_delay_s > 0:
                 # Source first (pump+valve), then zone valve after delay
-                _LOGGER.debug("Irrigation %s: source '%s' ON, then wait %ds", self.id, src.id, src.pump_start_valve_delay_s)
+                _LOGGER.debug(
+                    "Irrigation %s: source '%s' ON, then wait %ds", self.id, src.id, src.pump_start_valve_delay_s
+                )
                 await self._activate_source()
                 await asyncio.sleep(src.pump_start_valve_delay_s)
             elif src.pump_start_pump_delay_s > 0:
                 # Zone valve first, then source after delay
-                _LOGGER.debug("Irrigation %s: zone valve ON first, then source '%s' after %ds", self.id, src.id, src.pump_start_pump_delay_s)
+                _LOGGER.debug(
+                    "Irrigation %s: zone valve ON first, then source '%s' after %ds",
+                    self.id,
+                    src.id,
+                    src.pump_start_pump_delay_s,
+                )
                 try:
                     await zone.valve.async_turn_on(timestamp=time.time())
                 except Exception as err:
@@ -584,7 +620,10 @@ class IrrigationController:
                 except BaseException as err:
                     _LOGGER.error(
                         "Irrigation %s: CRITICAL error after valve ON (pump delay path): %s (%s)",
-                        self.id, err, type(err).__name__, exc_info=True,
+                        self.id,
+                        err,
+                        type(err).__name__,
+                        exc_info=True,
                     )
                 return
             else:
@@ -612,7 +651,10 @@ class IrrigationController:
         except BaseException as err:
             _LOGGER.error(
                 "Irrigation %s: CRITICAL error after valve ON: %s (%s)",
-                self.id, err, type(err).__name__, exc_info=True,
+                self.id,
+                err,
+                type(err).__name__,
+                exc_info=True,
             )
 
     async def _stop_current_zone(self) -> None:
@@ -713,24 +755,28 @@ class IrrigationController:
 
     async def handle_zone_command(self, zone_id: str, payload: str) -> None:
         upper = payload.strip().upper()
-        _LOGGER.debug("Irrigation %s handle_zone_command: zone='%s' payload='%s' → upper='%s'", self.id, zone_id, payload, upper)
+        _LOGGER.debug(
+            "Irrigation %s handle_zone_command: zone='%s' payload='%s' → upper='%s'", self.id, zone_id, payload, upper
+        )
         if upper == ON:
             await self.start_single_zone(zone_id)
         elif upper == OFF:
             await self.shutdown()
 
     async def handle_zone_duration_command(self, zone_id: str, payload: str) -> None:
+        """Handle duration change from HA (value in minutes)."""
         try:
-            duration = int(float(payload))
+            minutes = int(float(payload))
         except (TypeError, ValueError):
             return
-        if duration <= 0:
+        if minutes <= 0:
             return
 
+        duration_s = minutes * 60
         for zone in self._zones:
             if zone.id == zone_id:
-                zone.run_duration = duration
-                self._save(f"zone/{zone.id}/duration", duration)
+                zone.run_duration = duration_s
+                self._save(f"zone/{zone.id}/duration", duration_s)
                 break
         await self.publish_all_states()
 

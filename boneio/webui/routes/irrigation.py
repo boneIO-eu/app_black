@@ -41,10 +41,12 @@ async def list_controllers(manager: Manager = Depends(get_manager)):
             remaining_s = ctrl._active_zone_remaining_s
             if ctrl._run_start_utc and ctrl._active_zone_remaining_s:
                 from datetime import timedelta
+
                 end_dt = ctrl._run_start_utc + timedelta(seconds=ctrl._active_zone_remaining_s)
                 end_utc = end_dt.isoformat()
                 # Calculate real remaining based on current time
                 from boneio.core.events.bus import utcnow
+
                 remaining_s = max(0, int((end_dt - utcnow()).total_seconds()))
             active_zone = {
                 "id": z.id,
@@ -56,43 +58,48 @@ async def list_controllers(manager: Manager = Depends(get_manager)):
         zones = []
         for z in ctrl.zones:
             skip_count = ctrl._get(f"zone/{z.id}/skip_count", 0)
-            zones.append({
-                "id": z.id,
-                "name": z.name,
-                "run_duration": z.run_duration,
-                "enabled": z.enabled,
-                "run_every_n": z.run_every_n,
-                "skip_count": int(skip_count),
-            })
+            zones.append(
+                {
+                    "id": z.id,
+                    "name": z.name,
+                    "run_duration": z.run_duration // 60,
+                    "enabled": z.enabled,
+                    "run_every_n": z.run_every_n,
+                    "skip_count": int(skip_count),
+                }
+            )
 
         schedules = []
         for idx, sched in enumerate(ctrl._schedule):
-            schedules.append({
-                "index": idx,
-                "time": sched.get("time", ""),
-                "days": sched.get("days", "daily"),
-                "skip": sched.get("skip", False),
-            })
+            schedules.append(
+                {
+                    "index": idx,
+                    "time": sched.get("time", ""),
+                    "days": sched.get("days", "daily"),
+                    "skip": sched.get("skip", False),
+                }
+            )
 
-        result.append({
-            "id": ctrl.id,
-            "name": ctrl.name,
-            "state": ctrl.state.value,
-            "active_zone": active_zone,
-            "multiplier": ctrl._multiplier,
-            "repeat": ctrl._repeat,
-            "auto_advance": ctrl._auto_advance,
-            "reverse": ctrl._reverse,
-            "standby": ctrl._standby,
-            "skip_next_run": ctrl._skip_next_run,
-            "zones": zones,
-            "schedules": schedules,
-            "water_sources": [
-                {"id": ws.id, "name": ws.name, "output_ids": ws.output_ids}
-                for ws in ctrl.water_sources
-            ],
-            "active_water_source": ctrl.active_water_source.id if ctrl.active_water_source else None,
-        })
+        result.append(
+            {
+                "id": ctrl.id,
+                "name": ctrl.name,
+                "state": ctrl.state.value,
+                "active_zone": active_zone,
+                "multiplier": ctrl._multiplier,
+                "repeat": ctrl._repeat,
+                "auto_advance": ctrl._auto_advance,
+                "reverse": ctrl._reverse,
+                "standby": ctrl._standby,
+                "skip_next_run": ctrl._skip_next_run,
+                "zones": zones,
+                "schedules": schedules,
+                "water_sources": [
+                    {"id": ws.id, "name": ws.name, "output_ids": ws.output_ids} for ws in ctrl.water_sources
+                ],
+                "active_water_source": ctrl.active_water_source.id if ctrl.active_water_source else None,
+            }
+        )
     return result
 
 
@@ -208,8 +215,8 @@ async def update_zone_settings(
         val = int(data["run_duration"])
         if val < 1:
             raise HTTPException(status_code=400, detail="run_duration must be >= 1")
-        zone.run_duration = val
-        ctrl._save(f"zone/{zone_id}/duration", val)
+        zone.run_duration = val * 60  # Convert minutes to seconds
+        ctrl._save(f"zone/{zone_id}/duration", val * 60)
 
     if "run_every_n" in data:
         val = int(data["run_every_n"])

@@ -105,7 +105,7 @@ class IrrigationManager:
             return None
 
         run_duration = int(parse_time_to_seconds(zone_cfg.get("run_duration"), 60))
-        run_duration = max(1, run_duration)
+        run_duration = max(60, run_duration)
 
         run_every_n = int(zone_cfg.get("run_every_n", 1))
         run_every_n = max(1, run_every_n)
@@ -535,9 +535,9 @@ class IrrigationManager:
                     suffix=f"zone/{zone.id}/duration",
                     name=f"{ctrl.name} {zone.name} Duration",
                     min_val=1,
-                    max_val=86400,
+                    max_val=1440,
                     step=1,
-                    unit="s",
+                    unit="min",
                     config_helper=cfg,
                 ),
             )

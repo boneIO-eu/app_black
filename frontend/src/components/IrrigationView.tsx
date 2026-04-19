@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
 import {
@@ -12,9 +13,18 @@ import {
   FaSync,
   FaClock,
   FaCalendarAlt,
+  FaCog,
 } from 'react-icons/fa';
 import { GiValve } from 'react-icons/gi';
 import { TabsBox } from '@/components/ui/tabs-box';
+import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 import type { ZoneState, IrrigationController } from '@/types/irrigation';
 
@@ -120,6 +130,7 @@ function ZoneRow({
               autoFocus
               type="number"
               min={1}
+              step={1}
               className="input input-xs input-bordered w-16 text-center"
               value={durationInput}
               onChange={(e) => setDurationInput(e.target.value)}
@@ -135,7 +146,7 @@ function ZoneRow({
               title={t('irrigation.edit_duration')}
               onClick={() => { setDurationInput(String(zone.run_duration)); setEditDuration(true); }}
             >
-              {fmtSeconds(zone.run_duration)}
+              {zone.run_duration} min
             </button>
           )}
         </div>
@@ -438,7 +449,7 @@ function ControllerCard({
     // Sum durations of remaining zones (after active) that are enabled
     const remainingZones = ctrl.zones.slice(activeIdx + 1).filter(z => z.enabled);
     const remainingZonesTime = remainingZones.reduce(
-      (sum, z) => sum + z.run_duration * ctrl.multiplier,
+      (sum, z) => sum + z.run_duration * 60 * ctrl.multiplier,
       0
     );
 
@@ -573,6 +584,7 @@ function ControllerCard({
 
 export default function IrrigationView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [data, setData] = useState<IrrigationController[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -644,6 +656,26 @@ export default function IrrigationView() {
     }
   }, []);
 
+  // Long press dialog state
+  const [longPressDialog, setLongPressDialog] = useState<{
+    open: boolean;
+    ctrl: IrrigationController | null;
+  }>({
+    open: false,
+    ctrl: null,
+  });
+
+  const handleLongPress = useCallback((ctrl: IrrigationController) => {
+    setLongPressDialog({ open: true, ctrl });
+  }, []);
+
+  const handleGoToSettings = useCallback(() => {
+    if (!longPressDialog.ctrl) return;
+    const ctrlId = longPressDialog.ctrl.id;
+    navigate(`/settings/irrigation?edit=${encodeURIComponent(ctrlId)}`);
+    setLongPressDialog({ open: false, ctrl: null });
+  }, [longPressDialog.ctrl, navigate]);
+
   if (loading) {
     return (
       <div className="container mx-auto p-4">
@@ -694,17 +726,57 @@ export default function IrrigationView() {
 
       <div className="flex flex-col gap-4 max-w-2xl mx-auto">
         {data.map((ctrl) => (
-          <ControllerCard
+          <LongPressWrapper
             key={ctrl.id}
-            ctrl={ctrl}
-            onCommand={sendCommand}
-            onZoneCommand={sendZoneCommand}
-            onZoneUpdate={updateZone}
-            onSettingUpdate={updateSetting}
-            onScheduleSkip={toggleScheduleSkip}
-          />
+            onLongPress={() => handleLongPress(ctrl)}
+            title={t('irrigation.long_press_to_edit')}
+          >
+            <ControllerCard
+              ctrl={ctrl}
+              onCommand={sendCommand}
+              onZoneCommand={sendZoneCommand}
+              onZoneUpdate={updateZone}
+              onSettingUpdate={updateSetting}
+              onScheduleSkip={toggleScheduleSkip}
+            />
+          </LongPressWrapper>
         ))}
       </div>
+
+      {/* Long press dialog - go to settings */}
+      <Dialog
+        open={longPressDialog.open}
+        onOpenChange={(open) =>
+          setLongPressDialog({ open, ctrl: open ? longPressDialog.ctrl : null })
+        }
+      >
+        <DialogContent className="sm:max-w-md bg-base-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FaCog className="w-5 h-5" />
+              {t('irrigation.go_to_settings')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>{t('irrigation.go_to_settings_confirm')}</p>
+            <p className="font-semibold mt-2">{longPressDialog.ctrl?.name}</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLongPressDialog({ open: false, ctrl: null })}
+            >
+              {t('common.cancel')}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleGoToSettings}
+            >
+              {t('irrigation.go_to_settings')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

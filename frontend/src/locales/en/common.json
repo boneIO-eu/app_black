@@ -1768,6 +1768,9 @@
     "pump_stop_pump_delay_hint": "Valve closes first, pump deactivates after this delay.",
     "pump_stop_valve_delay": "Pump Stop (valve delay)",
     "pump_stop_valve_delay_hint": "Pump deactivates first, valve closes after this delay.",
-    "runtime_settings_hint": "Runtime settings like duration multiplier, repeat, standby, auto-advance, and reverse are controlled from the Irrigation panel, not from the configuration."
+    "runtime_settings_hint": "Runtime settings like duration multiplier, repeat, standby, auto-advance, and reverse are controlled from the Irrigation panel, not from the configuration.",
+    "long_press_to_edit": "Long press to edit settings",
+    "go_to_settings": "Go to Settings",
+    "go_to_settings_confirm": "Do you want to edit settings for this irrigation controller?"
   }
 }

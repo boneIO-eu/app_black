@@ -6,6 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { RemoteCoverActionProps } from './types';
 
 /** Tilt-related cover actions that only apply to covers with tilt support. */
@@ -49,33 +50,13 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
   return (
     <>
       {/* Remote Device Selection */}
-      <div className="form-control mb-3">
-        <label className="label">
-          <span className="label-text font-medium">{t('event_form.remote_device')}</span>
-        </label>
-        <Select
-          value={action.remote_device || ''}
-          onValueChange={(value) => {
-            onUpdate('remote_device', value);
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('event_form.select_remote_device')} />
-          </SelectTrigger>
-          <SelectContent>
-            {allRemoteDevices.filter(device => device.id).map((device) => (
-              <SelectItem key={device.id} value={device.id}>
-                <div className="flex flex-col">
-                  <span>{device.name || device.id}</span>
-                  <span className="text-xs opacity-60">
-                    {device.protocol === 'esphome_api' ? 'ESPHome' : 'MQTT'}
-                  </span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <RemoteDeviceSelect
+        value={action.remote_device || ''}
+        onChange={(value) => onUpdate('remote_device', value)}
+        allRemoteDevices={allRemoteDevices}
+        label={t('event_form.remote_device')}
+        placeholder={t('event_form.select_remote_device')}
+      />
 
       {/* Cover Selection */}
       <div className="form-control mb-3">
