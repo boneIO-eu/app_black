@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -15,12 +15,11 @@ from boneio.components.irrigation.controller import (
     _next_fire_time,
 )
 from boneio.components.irrigation.water_source import WaterSource
-from boneio.const import IRRIGATION, ON, OFF
-
+from boneio.const import IRRIGATION, OFF, ON
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-FIXED_NOW = datetime(2026, 4, 7, 10, 0, 0, tzinfo=timezone.utc)
+FIXED_NOW = datetime(2026, 4, 7, 10, 0, 0, tzinfo=UTC)
 MODULE = "boneio.components.irrigation.controller"
 
 
@@ -172,7 +171,6 @@ class TestBasicLifecycle:
 
 
 class TestPauseResume:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_pause_stops_zone_and_pauses(self, _utc, _timer):
@@ -214,7 +212,6 @@ class TestPauseResume:
 
 
 class TestAutoAdvance:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -278,7 +275,6 @@ class TestAutoAdvance:
 
 
 class TestNextValve:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -313,7 +309,6 @@ class TestNextValve:
 
 
 class TestReverse:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_reverse_starts_from_last_zone(self, _utc, _timer):
@@ -342,7 +337,6 @@ class TestReverse:
 
 
 class TestRepeat:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -371,7 +365,6 @@ class TestRepeat:
 
 
 class TestMultiplier:
-
     def test_scaled_duration_applies_multiplier(self):
         ctrl = _make_controller(multiplier=2.0)
         assert ctrl._scaled_duration(60) == 120
@@ -389,7 +382,6 @@ class TestMultiplier:
 
 
 class TestStandby:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_standby_blocks_full_cycle(self, _utc, _timer):
@@ -424,7 +416,6 @@ class TestStandby:
 
 
 class TestSkipNextRun:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_skip_next_run_blocks_one_cycle(self, _utc, _timer):
@@ -456,7 +447,6 @@ class TestSkipNextRun:
 
 
 class TestWaterSource:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -494,7 +484,6 @@ class TestWaterSource:
 
 
 class TestValveOpenDelay:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -568,7 +557,6 @@ class TestValveOpenDelay:
 
 
 class TestValveOverlap:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -597,13 +585,9 @@ class TestValveOverlap:
         await ctrl.start_full_cycle()
 
         call_order = []
-        ctrl._zones[1].valve.async_turn_on = AsyncMock(
-            side_effect=lambda **kw: call_order.append("next_on")
-        )
+        ctrl._zones[1].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("next_on"))
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        ctrl._zones[0].valve.async_turn_off = AsyncMock(
-            side_effect=lambda **kw: call_order.append("current_off")
-        )
+        ctrl._zones[0].valve.async_turn_off = AsyncMock(side_effect=lambda **kw: call_order.append("current_off"))
 
         await ctrl._advance_to_next_zone()
 
@@ -614,7 +598,6 @@ class TestValveOverlap:
 
 
 class TestPumpStartDelays:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -625,13 +608,9 @@ class TestPumpStartDelays:
         ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
-        master.async_turn_on = AsyncMock(
-            side_effect=lambda **kw: call_order.append("pump_on")
-        )
+        master.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("pump_on"))
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        ctrl._zones[0].valve.async_turn_on = AsyncMock(
-            side_effect=lambda **kw: call_order.append("valve_on")
-        )
+        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("valve_on"))
 
         await ctrl.start_full_cycle()
 
@@ -647,13 +626,9 @@ class TestPumpStartDelays:
         ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
-        ctrl._zones[0].valve.async_turn_on = AsyncMock(
-            side_effect=lambda **kw: call_order.append("valve_on")
-        )
+        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("valve_on"))
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        master.async_turn_on = AsyncMock(
-            side_effect=lambda **kw: call_order.append("pump_on")
-        )
+        master.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("pump_on"))
 
         await ctrl.start_full_cycle()
 
@@ -664,7 +639,6 @@ class TestPumpStartDelays:
 
 
 class TestPumpStopDelays:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -698,9 +672,7 @@ class TestPumpStopDelays:
 
         call_order = []
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        master.async_turn_off = AsyncMock(
-            side_effect=lambda **kw: call_order.append("pump_off")
-        )
+        master.async_turn_off = AsyncMock(side_effect=lambda **kw: call_order.append("pump_off"))
 
         await ctrl.shutdown()
 
@@ -750,15 +722,12 @@ class TestPumpStopDelays:
 
 
 class TestSettingsPersistence:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     async def test_set_multiplier(self, _timer):
         ctrl = _make_controller()
         await ctrl.set_multiplier(2.5)
         assert ctrl._multiplier == 2.5
-        ctrl._state_manager.save_attribute.assert_any_call(
-            IRRIGATION, "test_ctrl/multiplier", 2.5
-        )
+        ctrl._state_manager.save_attribute.assert_any_call(IRRIGATION, "test_ctrl/multiplier", 2.5)
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     async def test_set_repeat(self, _timer):
@@ -783,9 +752,7 @@ class TestSettingsPersistence:
         ctrl = _make_controller()
         await ctrl.set_zone_enabled("zone_1", False)
         assert ctrl._zones[1].enabled is False
-        ctrl._state_manager.save_attribute.assert_any_call(
-            IRRIGATION, "test_ctrl/zone/zone_1/enabled", False
-        )
+        ctrl._state_manager.save_attribute.assert_any_call(IRRIGATION, "test_ctrl/zone/zone_1/enabled", False)
 
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     async def test_set_schedule_skip(self, _timer):
@@ -803,7 +770,6 @@ class TestSettingsPersistence:
 
 
 class TestMQTTCommands:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_handle_main_command_on(self, _utc, _timer):
@@ -878,7 +844,6 @@ class TestMQTTCommands:
 
 
 class TestEligibleZones:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_all_zones_eligible_first_run(self, _utc, _timer):
@@ -905,11 +870,7 @@ class TestEligibleZones:
 
         sm = _mock_state_manager()
         # skip_count=1, needs 2 to be eligible → NOT eligible
-        sm.get = MagicMock(
-            side_effect=lambda section, key, default: (
-                1 if "zone_0/skip_count" in key else default
-            )
-        )
+        sm.get = MagicMock(side_effect=lambda section, key, default: (1 if "zone_0/skip_count" in key else default))
 
         ctrl = _make_controller(zones=zones, state_manager=sm)
         eligible = ctrl._eligible_zones()
@@ -926,11 +887,7 @@ class TestEligibleZones:
 
         sm = _mock_state_manager()
         # skip_count=1 >= run_every_n-1=1 → eligible
-        sm.get = MagicMock(
-            side_effect=lambda section, key, default: (
-                1 if "zone_0/skip_count" in key else default
-            )
-        )
+        sm.get = MagicMock(side_effect=lambda section, key, default: (1 if "zone_0/skip_count" in key else default))
 
         ctrl = _make_controller(zones=zones, state_manager=sm)
         eligible = ctrl._eligible_zones()
@@ -951,7 +908,6 @@ class TestEligibleZones:
 
 
 class TestTopics:
-
     def test_state_topic(self):
         ctrl = _make_controller()
         assert ctrl._state_topic() == "boneio/irrigation/test_ctrl"
@@ -973,7 +929,6 @@ class TestTopics:
 
 
 class TestPublishStates:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     async def test_publish_all_states_sends_controller_state(self, _timer):
         ctrl = _make_controller()
@@ -1013,7 +968,6 @@ class TestPublishStates:
 
 
 class TestValveErrors:
-
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
@@ -1052,11 +1006,10 @@ class TestValveErrors:
 
 
 class TestNextFireTime:
-
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_today_future(self, mock_utc):
         # Monday 2026-04-06 at 05:00 → next 06:00 is today
-        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=UTC)
         result = _next_fire_time("06:00", "daily")
         assert result.hour == 6
         assert result.minute == 0
@@ -1065,14 +1018,14 @@ class TestNextFireTime:
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_today_past(self, mock_utc):
         # Monday 2026-04-06 at 07:00 → next 06:00 is tomorrow
-        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=UTC)
         result = _next_fire_time("06:00", "daily")
         assert result.day == 7
 
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_weekdays_only(self, mock_utc):
         # Saturday 2026-04-11 → next weekday 06:00 is Monday 2026-04-13
-        mock_utc.return_value = datetime(2026, 4, 11, 7, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 11, 7, 0, 0, tzinfo=UTC)
         result = _next_fire_time("06:00", "weekdays")
         assert result.weekday() in {0, 1, 2, 3, 4}  # Mon-Fri
         assert result > mock_utc.return_value
@@ -1080,20 +1033,20 @@ class TestNextFireTime:
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_weekend_only(self, mock_utc):
         # Wednesday 2026-04-08 → next weekend 06:00 is Saturday 2026-04-11
-        mock_utc.return_value = datetime(2026, 4, 8, 7, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 8, 7, 0, 0, tzinfo=UTC)
         result = _next_fire_time("06:00", "weekend")
         assert result.weekday() in {5, 6}  # Sat-Sun
 
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_specific_day(self, mock_utc):
         # Monday 2026-04-06 → next "wed" is 2026-04-08
-        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=UTC)
         result = _next_fire_time("06:00", "wed")
         assert result.weekday() == 2
 
     @patch(f"{MODULE}.utcnow")
     def test_next_fire_time_invalid_time_defaults(self, mock_utc):
-        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=timezone.utc)
+        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=UTC)
         result = _next_fire_time("bad:time", "daily")
         assert result.hour == 6
         assert result.minute == 0
@@ -1103,29 +1056,22 @@ class TestNextFireTime:
 
 
 class TestStateLoading:
-
     def test_load_state_restores_multiplier(self):
         sm = _mock_state_manager()
-        sm.get = MagicMock(
-            side_effect=lambda section, key, default: 3.0 if "multiplier" in key else default
-        )
+        sm.get = MagicMock(side_effect=lambda section, key, default: 3.0 if "multiplier" in key else default)
         ctrl = _make_controller(state_manager=sm)
         assert ctrl._multiplier == 3.0
 
     def test_load_state_restores_standby(self):
         sm = _mock_state_manager()
-        sm.get = MagicMock(
-            side_effect=lambda section, key, default: True if "standby" in key else default
-        )
+        sm.get = MagicMock(side_effect=lambda section, key, default: True if "standby" in key else default)
         ctrl = _make_controller(state_manager=sm)
         assert ctrl._standby is True
 
     def test_load_state_restores_zone_enabled(self):
         sm = _mock_state_manager()
         sm.get = MagicMock(
-            side_effect=lambda section, key, default: (
-                False if "zone/zone_1/enabled" in key else default
-            )
+            side_effect=lambda section, key, default: (False if "zone/zone_1/enabled" in key else default)
         )
         zones = _make_zones(2)
         ctrl = _make_controller(zones=zones, state_manager=sm)
@@ -1136,7 +1082,6 @@ class TestStateLoading:
 
 
 class TestEdgeCases:
-
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
     @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
     async def test_start_cycle_while_running_shuts_down_first(self, _utc, _timer):

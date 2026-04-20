@@ -193,6 +193,7 @@ def ha_virtual_energy_sensor_availabilty_message(
     name: str,
     config_helper: ConfigHelper,
     model: str = "boneIO Black",
+    output_discovery_payload: dict[str, Any] | None = None,
     **kwargs
 ) -> dict[str, str]:
     """Create availability topic for virtual energy sensors.
@@ -202,6 +203,9 @@ def ha_virtual_energy_sensor_availabilty_message(
         name: Sensor name (custom name for HA Energy panel)
         config_helper: ConfigHelper instance
         model: Device model
+        output_discovery_payload: Optional output's HA discovery payload — used to
+            extract the ``device`` block so VES entities share the same HA device
+            as the linked output (used when area is '_same_as_output_').
         **kwargs: Additional fields (unit_of_measurement, device_class, state_class, area)
         
     Returns:
@@ -221,6 +225,11 @@ def ha_virtual_energy_sensor_availabilty_message(
         model=model,
         **kwargs
     )
+    
+    # CRITICAL: Replace the device block with the output's device block so
+    # Home Assistant groups VES entities under the same device as the output.
+    if output_discovery_payload and "device" in output_discovery_payload:
+        msg["device"] = output_discovery_payload["device"]
     
     # Set state topic to the virtual energy sensor topic
     msg["state_topic"] = f"{topic}/energy/{base_id}"

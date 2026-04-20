@@ -1298,8 +1298,9 @@
     "flow_rate_hint": "Przepływ wody, np. 500 L/h",
     "flow_rate_required": "Przepływ jest wymagany dla sensorów wody",
     "area": "Obszar / Pokój",
-    "area_hint": "Opcjonalne przypisanie do obszaru w Home Assistant",
+    "area_hint": "Przypisz do konkretnego obszaru, użyj tego samego urządzenia co powiązane wyjście, lub zostaw na głównym urządzeniu",
     "no_area": "Brak obszaru (główne urządzenie)",
+    "same_area_as_output": "To samo urządzenie co output",
     "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia.",
     "duplicate_id_error": "Wykryto zduplikowane ID sensorów",
     "unique_id_required": "Każdy sensor musi mieć unikalne ID lub nazwę."

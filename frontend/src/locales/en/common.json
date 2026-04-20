@@ -1291,8 +1291,9 @@
     "flow_rate_hint": "Water flow rate, e.g. 500 L/h",
     "flow_rate_required": "Flow rate is required for water sensors",
     "area": "Area",
-    "area_hint": "Optional area assignment for Home Assistant",
+    "area_hint": "Assign to a specific area, use the same device as the linked output, or leave on the main device",
     "no_area": "No area (main device)",
+    "same_area_as_output": "Same device as output",
     "no_outputs_available": "No outputs available. Please configure outputs first.",
     "duplicate_id_error": "Duplicate sensor IDs detected",
     "unique_id_required": "Each sensor must have a unique ID or name."

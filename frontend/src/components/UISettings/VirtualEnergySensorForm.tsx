@@ -295,6 +295,7 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem key="_none_" value="_none_">{t('virtual_energy_sensor.no_area')}</SelectItem>
+            <SelectItem key="_same_as_output_" value="_same_as_output_">{t('virtual_energy_sensor.same_area_as_output')}</SelectItem>
             {allAreas.map((area, index) => (
               <SelectItem key={`area-${index}-${area.id}`} value={area.id}>
                 {area.name}
