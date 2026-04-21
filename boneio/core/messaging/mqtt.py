@@ -251,6 +251,9 @@ class MQTTClient(MessageBus):
                     )
                     self._connection_established = False
                     self.publish_queue.set_connected(False)
+                    # Notify manager about MQTT disconnect for OLED update
+                    if self._manager is not None:
+                        self._manager.display.notify_mqtt_state_changed()
                     await asyncio.sleep(self.reconnect_interval)
                     self.asyncio_client = self.create_client()  # reset connect/reconnect futures
         except (asyncio.CancelledError, GracefulExit):

@@ -306,6 +306,23 @@ class HostData:
         
         self._loop = asyncio.get_running_loop()
 
+    def refresh_mqtt_status(self) -> None:
+        """Force an immediate UPTIME sensor update.
+
+        Called when the MQTT connection state changes so the OLED display
+        reflects the new state without waiting for the next periodic tick.
+        The HostSensor.async_update fires a HostEvent which the OLED
+        already listens for when the UPTIME screen is active.
+        """
+        uptime_sensor = self._data.get(UPTIME)
+        if uptime_sensor is None:
+            return
+        try:
+            self._loop.create_task(uptime_sensor.async_update(time.time()))
+        except RuntimeError:
+            # Event loop not running (during shutdown)
+            pass
+
     @property
     def web_url(self) -> str | None:
         """Get web UI URL if web server is enabled.

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Callable
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
@@ -44,10 +45,10 @@ def _get_board_config(board_file: str):
 
 def clear_config_cache(config_file: str | None = None):
     """Clear all cached YAML configs.
-    
+
     Clears in-memory schema/board caches and optionally removes the
     validated config disk cache (.cache.pkl) for the given config file.
-    
+
     Args:
         config_file: Path to config file whose disk cache should be removed.
                      If None, only in-memory caches are cleared.
@@ -69,23 +70,26 @@ def clear_config_cache(config_file: str | None = None):
 
 class TimePeriodDumper(SafeDumper):
     """Custom dumper that cleanly serializes TimePeriod objects as strings."""
+
     pass
 
+
 def represent_time_period(dumper, data):
-    return dumper.represent_scalar('tag:yaml.org,2002:str', str(data))
+    return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
+
 
 TimePeriodDumper.add_representer(TimePeriod, represent_time_period)
+
 
 class BoneIOLoader(SafeLoader):
     """Loader which support for include in yaml files."""
 
     def __init__(self, stream):
         # Type: ignore[attr-defined] - stream may not have name attribute
-        self._root = os.path.split(stream.name)[0] if hasattr(stream, 'name') else "."  # type: ignore[attr-defined]
+        self._root = os.path.split(stream.name)[0] if hasattr(stream, "name") else "."  # type: ignore[attr-defined]
         super().__init__(stream)
 
     def include(self, node):
-
         filename = os.path.join(self._root, self.construct_scalar(node))
 
         with open(filename) as f:
@@ -97,9 +101,7 @@ class BoneIOLoader(SafeLoader):
     def construct_secret(self, node):
         secrets = load_yaml_file(self._rel_path(SECRET_YAML))
         if node.value not in secrets:
-            raise MarkedYAMLError(
-                f"Secret '{node.value}' not defined", node.start_mark
-            )
+            raise MarkedYAMLError(f"Secret '{node.value}' not defined", node.start_mark)
         val = secrets[node.value]
         _SECRET_VALUES[str(val)] = node.value
         return val
@@ -111,15 +113,11 @@ class BoneIOLoader(SafeLoader):
         )
 
     def construct_include_dir_list(self, node):
-        files = filter_yaml_files(
-            _find_files(self._rel_path(node.value), "*.yaml")
-        )
+        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         return [load_yaml_file(f) for f in files]
 
     def construct_include_dir_merge_list(self, node):
-        files = filter_yaml_files(
-            _find_files(self._rel_path(node.value), "*.yaml")
-        )
+        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         merged_list = []
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
@@ -128,9 +126,7 @@ class BoneIOLoader(SafeLoader):
         return merged_list
 
     def construct_include_dir_named(self, node):
-        files = filter_yaml_files(
-            _find_files(self._rel_path(node.value), "*.yaml")
-        )
+        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         mapping = OrderedDict()
         for fname in files:
             filename = os.path.splitext(os.path.basename(fname))[0]
@@ -138,9 +134,7 @@ class BoneIOLoader(SafeLoader):
         return mapping
 
     def construct_include_dir_merge_named(self, node):
-        files = filter_yaml_files(
-            _find_files(self._rel_path(node.value), "*.yaml")
-        )
+        files = filter_yaml_files(_find_files(self._rel_path(node.value), "*.yaml"))
         mapping = OrderedDict()
         for fname in files:
             loaded_yaml = load_yaml_file(fname)
@@ -160,21 +154,11 @@ class BoneIOLoader(SafeLoader):
 
 BoneIOLoader.add_constructor("!include", BoneIOLoader.include)
 BoneIOLoader.add_constructor("!secret", BoneIOLoader.construct_secret)
-BoneIOLoader.add_constructor(
-    "!include_dir_list", BoneIOLoader.construct_include_dir_list
-)
-BoneIOLoader.add_constructor(
-    "!include_dir_merge_list", BoneIOLoader.construct_include_dir_merge_list
-)
-BoneIOLoader.add_constructor(
-    "!include_dir_named", BoneIOLoader.construct_include_dir_named
-)
-BoneIOLoader.add_constructor(
-    "!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named
-)
-BoneIOLoader.add_constructor(
-    "!include_files", BoneIOLoader.construct_include_files
-)
+BoneIOLoader.add_constructor("!include_dir_list", BoneIOLoader.construct_include_dir_list)
+BoneIOLoader.add_constructor("!include_dir_merge_list", BoneIOLoader.construct_include_dir_merge_list)
+BoneIOLoader.add_constructor("!include_dir_named", BoneIOLoader.construct_include_dir_named)
+BoneIOLoader.add_constructor("!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named)
+BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
 
 
 def filter_yaml_files(files):
@@ -217,9 +201,15 @@ def load_yaml_file(filename: str) -> Any:
                 if hasattr(exception, "context") and exception.context is not None:  # type: ignore[attr-defined]
                     problem = getattr(exception, "problem", "Unknown error")  # type: ignore[attr-defined]
                     context = getattr(exception, "context", "")  # type: ignore[attr-defined]
-                    msg = ('  parser says\n' + str(exception.problem_mark) + '\n  ' +  # type: ignore[attr-defined]
-                        str(problem) + ' ' + str(context) +
-                        '\nPlease correct data and retry.')
+                    msg = (
+                        "  parser says\n"
+                        + str(exception.problem_mark)
+                        + "\n  "  # type: ignore[attr-defined]
+                        + str(problem)
+                        + " "
+                        + str(context)
+                        + "\nPlease correct data and retry."
+                    )
             raise ConfigurationException(f"Error loading yaml{msg}") from exception
 
 
@@ -228,25 +218,23 @@ def get_board_config_path(board_name: str, version: str) -> str:
     base_dir = os.path.join(os.path.dirname(__file__), "../../boards")
     version_dir = os.path.join(base_dir, version)
     version_specific_file = os.path.join(version_dir, f"{board_name}.yaml")
-    
+
     if not os.path.exists(version_dir):
         raise ConfigurationException(
-            f"Board configurations for version {version} not found. "
-            f"Expected directory: {version_dir}"
+            f"Board configurations for version {version} not found. Expected directory: {version_dir}"
         )
-    
+
     if os.path.exists(version_specific_file):
         return version_specific_file
-        
+
     raise ConfigurationException(
-        f"Board configuration '{board_name}' for version {version} not found. "
-        f"Expected file: {version_specific_file}"
+        f"Board configuration '{board_name}' for version {version} not found. Expected file: {version_specific_file}"
     )
 
 
 def normalize_board_name(name: str) -> str:
     """Normalize board name to a standard format.
-    
+
     Examples:
         32x10a, 32x10A, 32x10 -> 32_10
         32x5a, 32x5A, 32x5 -> 32_5
@@ -258,37 +246,37 @@ def normalize_board_name(name: str) -> str:
         return name
 
     name = name.lower().strip()
-    
+
     # Handle cover mix variations
-    if name in ('cm', 'cover mix', 'covermix', "cover_mix"):
-        return 'cover_mix'
-    
+    if name in ("cm", "cover mix", "covermix", "cover_mix"):
+        return "cover_mix"
+
     # Handle simple cover case
-    if name == 'cover':
-        return 'cover'
-    
+    if name == "cover":
+        return "cover"
+
     # Handle 48x4A variations (DISCONTINUED)
-    if name.startswith('48'):
-        return '48_4'
-    
+    if name.startswith("48"):
+        return "48_4"
+
     # Handle 32x5A variations (must check before 32x10 since both start with 32)
-    if name in ('32x5a', '32x5'):
-        return '32_5'
-    
+    if name in ("32x5a", "32x5"):
+        return "32_5"
+
     # Handle 32x10A variations (default for 32 without suffix)
-    if name.startswith('32'):
-        return '32_10'
-    
+    if name.startswith("32"):
+        return "32_10"
+
     # Handle 24x16A variations
-    if name.startswith('24'):
-        return '24_16'
-    
+    if name.startswith("24"):
+        return "24_16"
+
     return name
 
 
 def normalize_version(version: str) -> str:
     """Normalize version to major.minor format.
-    
+
     Examples:
         0.7.1 -> 0.7
         0.8.2 -> 0.8
@@ -296,9 +284,9 @@ def normalize_version(version: str) -> str:
     """
     if not version:
         return version
-    
+
     # Split by dot and take only the first two parts (major.minor)
-    parts = version.split('.')
+    parts = version.split(".")
     if len(parts) >= 2:
         return f"{parts[0]}.{parts[1]}"
     return version
@@ -312,7 +300,7 @@ def merge_board_config(config: dict) -> dict:
     board_name = normalize_board_name(config["boneio"]["device_type"])
     version = normalize_version(config["boneio"]["version"])
     config["boneio"]["version"] = version
-    
+
     try:
         board_file = get_board_config_path(f"output_{board_name}", version)
         input_file = get_board_config_path("input", version)
@@ -321,9 +309,7 @@ def merge_board_config(config: dict) -> dict:
         if not board_config:
             raise ConfigurationException(f"Bottom board configuration file {board_file} is empty")
     except FileNotFoundError:
-        raise ConfigurationException(
-            f"Board configuration for {board_name} version {version} not found"
-        )
+        raise ConfigurationException(f"Board configuration for {board_name} version {version} not found")
     _LOGGER.debug(f"Loaded board configuration: {board_name}")
 
     # Copy MCP configuration if not already defined
@@ -349,7 +335,7 @@ def merge_board_config(config: dict) -> dict:
                     )
                 # Merge mapped output with user config, preserving user-specified values
                 output.update({k: v for k, v in mapped_output.items() if k not in output})
-    if "event" or "binary_sensor" in config:
+    if "event" in config or "binary_sensor" in config:
         input_mapping = input_config.get("input_mapping", {})
         for input in config.get("event", []):
             if "boneio_input" in input:
@@ -390,12 +376,8 @@ def one_of(*values, **kwargs):
             matches = difflib.get_close_matches(option, options_)
             if matches:
                 matches_str = ", ".join(f"'{x}'" for x in matches)
-                raise ConfigurationException(
-                    f"Unknown value '{value}', did you mean {matches_str}?"
-                )
-            raise ConfigurationException(
-                f"Unknown value '{value}', valid options are {options}."
-            )
+                raise ConfigurationException(f"Unknown value '{value}', did you mean {matches_str}?")
+            raise ConfigurationException(f"Unknown value '{value}', valid options are {options}.")
         return value
 
     return validator
@@ -417,7 +399,7 @@ class CustomValidator(Validator):
 
     def _validate_case_insensitive(self, case_insensitive, field, value):
         """Validate field allowing any case but check against lowercase values.
-        
+
         The rule's arguments are validated against this schema:
         {'type': 'boolean'}
         """
@@ -425,13 +407,13 @@ class CustomValidator(Validator):
             self._error(field, "must be a string")  # type: ignore[attr-defined]
             return
 
-        allowed = self.schema[field].get('allowed')  # type: ignore[attr-defined]
+        allowed = self.schema[field].get("allowed")  # type: ignore[attr-defined]
         if allowed and value.lower() not in [a.lower() for a in allowed]:
             self._error(field, f"unallowed value {value}")  # type: ignore[attr-defined]
 
     def _validate_required_if(self, required_if, field, value):
         """Validate that a field is required if a condition is met.
-        
+
         The rule's arguments are validated against this schema:
         {'type' : 'dict'}
         """
@@ -451,7 +433,7 @@ class CustomValidator(Validator):
 
     def _validate_forbidden_if(self, forbidden_if, field, value):
         """Validate that a field is forbidden if a condition is met.
-        
+
         The rule's arguments are validated against this schema:
         {'type': 'dict'}
         """
@@ -465,19 +447,20 @@ class CustomValidator(Validator):
             doc_value = self.document[key]  # type: ignore[attr-defined]
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
-            
+
             if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
                 if field in self.document and value != default_value:  # type: ignore[attr-defined]
                     self._error(field, f"forbidden when {key} is {doc_value}")  # type: ignore[attr-defined]
 
     def _normalize_coerce_action_field(self, value):
         """Handle conditional defaults for action fields."""
-        action = self.document.get('action', '').lower()  # type: ignore[attr-defined]
+        action = self.document.get("action", "").lower()  # type: ignore[attr-defined]
         field_name = self.schema_path[-1]  # type: ignore[attr-defined]
         if value is None:
-            if (field_name == 'action_cover' and action == 'cover') or \
-               (field_name == 'action_output' and action == 'output'):
-                return 'TOGGLE'
+            if (field_name == "action_cover" and action == "cover") or (
+                field_name == "action_output" and action == "output"
+            ):
+                return "TOGGLE"
             return None
         return str(value).upper()
 
@@ -550,10 +533,8 @@ class CustomValidator(Validator):
         if isinstance(value, TimePeriod):
             value = str(value)
         if not isinstance(value, str):
-            raise ConfigurationException(
-                "Expected string for time period with unit."
-            )
-        
+            raise ConfigurationException("Expected string for time period with unit.")
+
         # Handle empty string
         if not value or not value.strip():
             raise ConfigurationException(
@@ -580,9 +561,7 @@ class CustomValidator(Validator):
 
         match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(\w*)$", value)
         if match is None:
-            raise ConfigurationException(
-                f"Expected time period with unit, got {value}"
-            )
+            raise ConfigurationException(f"Expected time period with unit, got {value}")
         kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
@@ -617,7 +596,7 @@ class CustomValidator(Validator):
     def _check_with_output_id_uniqueness(self, field, value):
         """Check if outputs ids are unique if they exist."""
         if self.document[OUTPUT] is not None:  # type: ignore[attr-defined]
-            all_ids = [x.get('id') for x in self.document[OUTPUT] if x.get('id')]  # type: ignore[attr-defined]
+            all_ids = [x.get("id") for x in self.document[OUTPUT] if x.get("id")]  # type: ignore[attr-defined]
             if len(all_ids) != len(set(all_ids)):
                 self._error(field, "Output IDs are not unique.")  # type: ignore[attr-defined]
 
@@ -663,7 +642,7 @@ class CustomValidator(Validator):
             return float(value)
         if not isinstance(value, str):
             raise ValueError(f"Unsupported type for power value: {type(value)}")
-        value = value.strip().replace(' ', '').lower()
+        value = value.strip().replace(" ", "").lower()
         pattern = r"^([-+]?[0-9]*\.?[0-9]+)([a-z]*)$"
         match = re.match(pattern, value)
         if not match:
@@ -671,28 +650,28 @@ class CustomValidator(Validator):
             raise ValueError(f"Could not parse power value: {value}")
         num = float(match.group(1))
         unit = match.group(2) or "w"
-        if unit in ('w', ''):
+        if unit in ("w", ""):
             multiplier = 1.0
-        elif unit == 'kw':
+        elif unit == "kw":
             multiplier = 1000.0
-        elif unit == 'mw':
+        elif unit == "mw":
             multiplier = 1_000_000.0
-        elif unit == 'gw':
+        elif unit == "gw":
             multiplier = 1_000_000_000.0
-        elif unit == 'mw':
+        elif unit == "mw":
             multiplier = 1_000_000.0
-        elif unit == 'kwh':
+        elif unit == "kwh":
             # 1 kWh = 1000 W (for 1h). For config, treat as 1000W average.
             multiplier = 1000.0
-        elif unit == 'mwh':
+        elif unit == "mwh":
             multiplier = 1_000_000.0
-        elif unit == 'gwh':
+        elif unit == "gwh":
             multiplier = 1_000_000_000.0
-        elif unit == 'mw':
+        elif unit == "mw":
             multiplier = 1_000_000.0
-        elif unit == 'wh':
+        elif unit == "wh":
             multiplier = 1.0
-        elif unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw' or unit == 'mw':
+        elif unit == "mw" or unit == "mw" or unit == "mw" or unit == "mw" or unit == "mw" or unit == "mw":
             multiplier = 1_000_000.0
         else:
             _LOGGER.warning(f"Unknown unit for power value: {unit}")
@@ -719,7 +698,7 @@ class CustomValidator(Validator):
             return float(value)
         if not isinstance(value, str):
             raise ValueError(f"Unsupported type for volume flow rate value: {type(value)}")
-        value = value.strip().replace(' ', '').lower()
+        value = value.strip().replace(" ", "").lower()
         pattern = r"^([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z/]*)$"
         match = re.match(pattern, value)
         if not match:
@@ -727,9 +706,9 @@ class CustomValidator(Validator):
             raise ValueError(f"Could not parse volume flow rate value: {value}")
         num = float(match.group(1))
         unit = match.group(2) or "lph"
-        if unit in ('lph', 'l/h', ''):
+        if unit in ("lph", "l/h", ""):
             multiplier = 1.0
-        elif unit in ('lpm', 'l/min'):
+        elif unit in ("lpm", "l/min"):
             multiplier = 60.0
         else:
             _LOGGER.warning(f"Unknown unit for volume flow rate value: {unit}")
@@ -737,7 +716,6 @@ class CustomValidator(Validator):
         result = num * multiplier
         _LOGGER.debug(f"Parsed volume flow rate value '{value}' as {result} L/h")
         return result
-
 
 
 def _run_config_migrations(doc: dict, config_file: str | None = None) -> tuple[dict, bool]:
@@ -779,13 +757,13 @@ def load_config_from_string(config_str: str) -> dict:
     # Apply migrations on raw dict BEFORE normalization/coercion
     # (coerce: positive_time_period would fail on bare int like transition: 2)
     migrated_doc, _ = _run_config_migrations(raw_doc, config_file=None)
-    
+
     # Normalize the document (applies coercion rules)
     doc = v.normalized(migrated_doc, always_return_document=True)  # type: ignore[attr-defined]
-    
+
     # Then merge board config
     merged_doc = merge_board_config(doc)
-    
+
     # Finally validate
     if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
         error_msg = "Configuration validation failed:\n"
@@ -793,18 +771,18 @@ def load_config_from_string(config_str: str) -> dict:
             error_lines = []
             if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
                 error_lines = [
-                    f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
-                    for line in config_str.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
+                    f"{v.errors[field][0]['line'] + 1}: {line}"  # type: ignore[attr-defined]
+                    for line in config_str.splitlines()[v.errors[field][0]["line"] - 1 : v.errors[field][0]["line"] + 1]  # type: ignore[attr-defined]
                 ]
             error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
         raise ConfigurationException(error_msg)
-    
+
     return merged_doc
 
 
 def _get_config_cache_path(config_file: str) -> str:
     """Get path for validated config cache file.
-    
+
     Cache is stored next to the config file with .cache.pkl suffix.
     Uses pickle instead of JSON to handle TimePeriod and OrderedDict objects.
     """
@@ -814,6 +792,7 @@ def _get_config_cache_path(config_file: str) -> str:
 def _compute_file_hash(filepath: str) -> str:
     """Compute SHA256 hash of a file's contents."""
     import hashlib
+
     h = hashlib.sha256()
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -873,40 +852,47 @@ def _compute_config_dir_hash(config_file: str) -> str:
 
 def _try_load_cached_config(config_file: str) -> dict | None:
     """Try to load validated config from cache.
-    
+
     Returns the cached config dict if cache is valid (config file and schema
     file unchanged since cache was written). Returns None if cache is missing,
     corrupt, or stale.
     """
     import pickle
+
     cache_path = _get_config_cache_path(config_file)
     try:
         with open(cache_path, "rb") as f:
             cached = pickle.load(f)
-        
+
         # Verify cache structure
-        if not isinstance(cached, dict) or "config_hash" not in cached or "schema_hash" not in cached or "data" not in cached:
+        if (
+            not isinstance(cached, dict)
+            or "config_hash" not in cached
+            or "schema_hash" not in cached
+            or "data" not in cached
+        ):
             _LOGGER.debug("Config cache has invalid structure, ignoring")
             return None
-        
+
         # Verify app version matches (schema may change between versions)
         from boneio.version import __version__
+
         if cached.get("app_version") != __version__:
             _LOGGER.debug("Config cache version mismatch (%s vs %s), ignoring", cached.get("app_version"), __version__)
             return None
-        
+
         # Verify config files hash (main + all !include YAML files)
         current_config_hash = _compute_config_dir_hash(config_file)
         if cached["config_hash"] != current_config_hash:
             _LOGGER.debug("Config files changed, cache invalidated")
             return None
-        
+
         # Verify schema file hash
         current_schema_hash = _compute_file_hash(schema_file)
         if cached["schema_hash"] != current_schema_hash:
             _LOGGER.debug("Schema file changed, cache invalidated")
             return None
-        
+
         _LOGGER.info("Loading validated config from cache (skipping Cerberus validation)")
         return cached["data"]
     except (FileNotFoundError, pickle.UnpicklingError, OSError, EOFError) as e:
@@ -916,7 +902,7 @@ def _try_load_cached_config(config_file: str) -> dict | None:
 
 def _save_config_cache(config_file: str, validated_config: dict) -> None:
     """Save validated config to cache file.
-    
+
     Stores the validated config along with hashes of the config and schema
     files so we can detect when the cache is stale. Uses pickle to handle
     TimePeriod and OrderedDict objects.
@@ -924,6 +910,7 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
     import pickle
 
     from boneio.version import __version__
+
     cache_path = _get_config_cache_path(config_file)
     try:
         cache_data = {
@@ -939,21 +926,36 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
         _LOGGER.debug("Could not save config cache: %s", e)
 
 
-def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
+def _full_config_validation(
+    config_file: str,
+    config_yaml: dict,
+    progress_callback: "Callable[[str], None] | None" = None,
+) -> dict:
     """Run full Cerberus schema validation on config.
-    
+
     This is the slow path (~20s on BeagleBone). Results are cached
     to disk so subsequent startups can skip this step.
+
+    Args:
+        config_file: Path to config YAML file.
+        config_yaml: Parsed YAML dict.
+        progress_callback: Optional callable(msg: str) invoked at each
+            major step so the caller can update OLED / logs.
     """
     import time as _time
-    
+
+    def _progress(msg: str) -> None:
+        if progress_callback:
+            progress_callback(msg)
+
+    _progress("Loading schema...")
     _t1 = _time.monotonic()
     schema = _get_schema()
     _LOGGER.debug("[STARTUP TIMING] _get_schema: %.2fs", _time.monotonic() - _t1)
     _t2 = _time.monotonic()
     v = CustomValidator(schema, purge_unknown=True)
     _LOGGER.debug("[STARTUP TIMING] CustomValidator init: %.2fs", _time.monotonic() - _t2)
-    
+
     # Check if config was created by a newer app version (downgrade scenario)
     from boneio.core.config.migrations import (
         CURRENT_SCHEMA_VERSION as _CURRENT_SCHEMA,
@@ -961,6 +963,7 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
     from boneio.core.config.migrations import (
         get_config_version as _get_cv,
     )
+
     _cv = _get_cv(config_yaml)
     _is_downgraded = _cv > _CURRENT_SCHEMA
     if _is_downgraded:
@@ -969,25 +972,30 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
             "This config was created by a newer version of boneIO. "
             "Some features may not work correctly. "
             "Consider upgrading the application or restoring an older config backup.",
-            _cv, _CURRENT_SCHEMA,
+            _cv,
+            _CURRENT_SCHEMA,
         )
 
     # Apply migrations on raw dict BEFORE normalization/coercion
+    _progress("Applying migrations...")
     _t3 = _time.monotonic()
     config_yaml, migrations_applied = _run_config_migrations(config_yaml, config_file=config_file)
     _LOGGER.debug("[STARTUP TIMING] migrations: %.2fs", _time.monotonic() - _t3)
-    
+
     # Normalize the document (applies coercion rules)
+    _progress("Normalizing config...")
     _t4 = _time.monotonic()
     doc = v.normalized(config_yaml, always_return_document=True)  # type: ignore[attr-defined]
     _LOGGER.debug("[STARTUP TIMING] v.normalized: %.2fs", _time.monotonic() - _t4)
-    
+
     # Then merge board config
+    _progress("Merging board config...")
     _t5 = _time.monotonic()
     merged_doc = merge_board_config(doc)
     _LOGGER.debug("[STARTUP TIMING] merge_board_config: %.2fs", _time.monotonic() - _t5)
-    
+
     # Finally validate
+    _progress("Validating config...")
     _t6 = _time.monotonic()
     if not v.validate(merged_doc, schema):  # type: ignore[attr-defined]
         if _is_downgraded:
@@ -995,7 +1003,8 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
             # with the validated document (cerberus keeps valid fields).
             _LOGGER.warning(
                 "Config validation errors (ignored due to downgrade from schema v%d): %s",
-                _cv, v.errors,
+                _cv,
+                v.errors,
             )
             # Use the validated document which has unknown fields purged
             merged_doc = v.document  # type: ignore[attr-defined]
@@ -1005,37 +1014,51 @@ def _full_config_validation(config_file: str, config_yaml: dict) -> dict:
                 error_lines = []
                 if "line" in v.errors[field][0]:  # type: ignore[attr-defined]
                     error_lines = [
-                        f"{v.errors[field][0]['line']+1}: {line}"  # type: ignore[attr-defined]
-                        for line in config_yaml.splitlines()[v.errors[field][0]["line"]-1:v.errors[field][0]["line"]+1]  # type: ignore[attr-defined]
+                        f"{v.errors[field][0]['line'] + 1}: {line}"  # type: ignore[attr-defined]
+                        for line in config_yaml.splitlines()[
+                            v.errors[field][0]["line"] - 1 : v.errors[field][0]["line"] + 1
+                        ]  # type: ignore[attr-defined]
                     ]
                 error_msg += f"\n- {field}: {errors}\n{', '.join(error_lines)}"
             raise ConfigurationException(error_msg)
     _LOGGER.debug("[STARTUP TIMING] v.validate: %.2fs", _time.monotonic() - _t6)
-    
+
     # Save to cache for next startup
+    _progress("Saving cache...")
     _save_config_cache(config_file, merged_doc)
-    
+
     return merged_doc
 
 
-def load_config_from_file(config_file: str):
+def load_config_from_file(
+    config_file: str,
+    progress_callback: "Callable[[str], None] | None" = None,
+):
     """Load and validate config from YAML file.
-    
+
     Uses a validated config cache to skip Cerberus validation on subsequent
     startups when config and schema files haven't changed. This saves ~20s
     on BeagleBone Black where Cerberus validation is very slow.
+
+    Args:
+        config_file: Path to config YAML file.
+        progress_callback: Optional callable(msg: str) invoked during
+            validation steps so the caller can update OLED / UI.
     """
     import time as _time
+
     _t0 = _time.monotonic()
-    
+
     # Try loading from cache first (fast path: ~0.5s vs ~20s)
     cached = _try_load_cached_config(config_file)
     if cached is not None:
         _LOGGER.debug("[STARTUP TIMING] load_config_from_file TOTAL (cached): %.2fs", _time.monotonic() - _t0)
         return cached
-    
+
     # Cache miss — full validation (slow path)
     _LOGGER.info("Config cache miss, running full validation...")
+    if progress_callback:
+        progress_callback("Parsing YAML...")
     try:
         config_yaml = load_yaml_file(config_file)
     except FileNotFoundError as err:
@@ -1044,10 +1067,14 @@ def load_config_from_file(config_file: str):
     if not config_yaml:
         _LOGGER.warning("Missing yaml file. %s", config_file)
         return None
-    
-    merged_doc = _full_config_validation(config_file, config_yaml)
+
+    merged_doc = _full_config_validation(
+        config_file,
+        config_yaml,
+        progress_callback=progress_callback,
+    )
     _LOGGER.debug("[STARTUP TIMING] load_config_from_file TOTAL: %.2fs", _time.monotonic() - _t0)
-    
+
     return merged_doc
 
 
@@ -1055,42 +1082,42 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
     """
     Remove fields with default values from data to keep YAML clean.
     Uses Cerberus schema.yaml for default values.
-    
+
     Args:
         data: The data to clean (dict, list, or primitive)
         schema: Optional Cerberus schema dict (if not provided, will load from schema.yaml)
         section: Optional section name to find schema
-        
+
     Returns:
         Cleaned data with default values removed
     """
-    
+
     def get_defaults_from_cerberus_schema(schema_obj: dict) -> dict:
         """Extract default values from Cerberus schema."""
         defaults = {}
         if isinstance(schema_obj, dict):
             # For list schemas, get the item schema
-            if schema_obj.get('type') == 'list' and 'schema' in schema_obj:
-                item_schema = schema_obj['schema']
-                if isinstance(item_schema, dict) and item_schema.get('type') == 'dict':
+            if schema_obj.get("type") == "list" and "schema" in schema_obj:
+                item_schema = schema_obj["schema"]
+                if isinstance(item_schema, dict) and item_schema.get("type") == "dict":
                     # Get defaults from dict schema
-                    dict_schema = item_schema.get('schema', {})
+                    dict_schema = item_schema.get("schema", {})
                     for key, prop in dict_schema.items():
-                        if isinstance(prop, dict) and 'default' in prop:
-                            defaults[key] = prop['default']
+                        if isinstance(prop, dict) and "default" in prop:
+                            defaults[key] = prop["default"]
             # For dict schemas
-            elif 'schema' in schema_obj:
-                for key, prop in schema_obj['schema'].items():
-                    if isinstance(prop, dict) and 'default' in prop:
-                        defaults[key] = prop['default']
+            elif "schema" in schema_obj:
+                for key, prop in schema_obj["schema"].items():
+                    if isinstance(prop, dict) and "default" in prop:
+                        defaults[key] = prop["default"]
         return defaults
-    
+
     def clean_dict(obj: dict, defaults: dict) -> dict:
         """Remove keys with default values from dict."""
         cleaned = {}
         for key, value in obj.items():
             # Special handling for nested structures
-            if key == 'actions' and isinstance(value, dict):
+            if key == "actions" and isinstance(value, dict):
                 # Clean actions recursively
                 cleaned_actions = {}
                 for action_type, action_list in value.items():
@@ -1100,23 +1127,25 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
                             if isinstance(action_item, dict):
                                 # Get defaults for action items
                                 action_defaults = {
-                                    'action_cover': 'TOGGLE',
-                                    'action_output': 'TOGGLE',
-                                    'data': {},
+                                    "action_cover": "TOGGLE",
+                                    "action_output": "TOGGLE",
+                                    "data": {},
                                 }
                                 # Remove transition if 0 or '0s' — not meaningful
-                                t_val = action_item.get('transition')
-                                if t_val is not None and (t_val == 0 or t_val == 0.0 or str(t_val) in ('0s', '0ms', '0')):
-                                    action_item = {k: v for k, v in action_item.items() if k != 'transition'}
+                                t_val = action_item.get("transition")
+                                if t_val is not None and (
+                                    t_val == 0 or t_val == 0.0 or str(t_val) in ("0s", "0ms", "0")
+                                ):
+                                    action_item = {k: v for k, v in action_item.items() if k != "transition"}
                                 cleaned_action = clean_dict(action_item, action_defaults)
                                 # Only add if action field exists (required)
-                                if 'action' in cleaned_action or cleaned_action:
+                                if "action" in cleaned_action or cleaned_action:
                                     cleaned_list.append(cleaned_action)
                         if cleaned_list:
                             cleaned_actions[action_type] = cleaned_list
                 if cleaned_actions:
                     cleaned[key] = cleaned_actions
-            elif key == 'data' and value == {}:
+            elif key == "data" and value == {}:
                 # Skip empty data objects
                 continue
             elif key in defaults and value == defaults[key]:
@@ -1143,18 +1172,18 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
                 # Keep non-default values
                 cleaned[key] = value
         return cleaned
-    
+
     # Get schema for section
     defaults: dict = {}
     if section:
         # Load Cerberus schema if not provided
         loaded_schema = schema if schema is not None else _get_schema()
-        
+
         # Get section schema from Cerberus
         if loaded_schema:
             section_schema = loaded_schema.get(section, {})
             defaults = get_defaults_from_cerberus_schema(section_schema)
-    
+
     # Process data
     if isinstance(data, list):
         return [clean_dict(item, defaults) if isinstance(item, dict) else item for item in data]
@@ -1167,96 +1196,98 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
 def update_config_section(config_file: str, section: str, data: dict | list) -> dict:
     """
     Update content of a configuration section with intelligent !include handling.
-    
+
     Args:
         config_file: Path to the main config.yaml file
         section: Name of the section to update
         data: New data for the section (dict for single-value sections, list for array sections)
-        
+
     Returns:
         dict: Status response with success/error message
     """
     import os
     from pathlib import Path
-    
+
     config_dir = Path(config_file).parent
-    
+
     _LOGGER.info(f"Updating section '{section}' with data: {data}")
-    
+
     # Special handling for mcp23017 - convert hex strings to integers
     # This ensures YAML writes them as integers which are then read back as hex
-    if section == 'mcp23017' and isinstance(data, list):
+    if section == "mcp23017" and isinstance(data, list):
         for entry in data:
-            if isinstance(entry, dict) and 'address' in entry:
-                addr = entry['address']
+            if isinstance(entry, dict) and "address" in entry:
+                addr = entry["address"]
                 if isinstance(addr, str):
-                    if addr.startswith('0x') or addr.startswith('0X'):
-                        entry['address'] = int(addr, 16)
+                    if addr.startswith("0x") or addr.startswith("0X"):
+                        entry["address"] = int(addr, 16)
                     else:
                         try:
-                            entry['address'] = int(addr, 10)
+                            entry["address"] = int(addr, 10)
                         except ValueError:
                             pass  # Keep as string if conversion fails
-    
+
     # Strip default values to keep YAML clean
     cleaned_data = strip_default_values(data, {}, section)
     _LOGGER.info(f"Cleaned data (defaults removed): {cleaned_data}")
-    
+
     # Custom YAML loader that preserves !include tags
     class IncludeLoader(SafeLoader):
         pass
-    
+
     def include_constructor(loader, node):
         """Constructor for !include tag that preserves the tag info."""
         filename = loader.construct_scalar(node)
         # Return a special object that preserves the include info
-        include_obj = type('Include', (), {'filename': filename, 'tag': '!include'})()
+        include_obj = type("Include", (), {"filename": filename, "tag": "!include"})()
         return include_obj
-    
-    IncludeLoader.add_constructor('!include', include_constructor)
-    
+
+    IncludeLoader.add_constructor("!include", include_constructor)
+
     try:
         # Read current config.yaml with custom loader
-        with open(config_file, encoding='utf-8') as f:
+        with open(config_file, encoding="utf-8") as f:
             config_content = load(f, Loader=IncludeLoader)
-        
+
         if config_content is None:
             config_content = {}
-        
+
         # Check if section exists in config
         if section in config_content:
             section_value = config_content[section]
-            
+
             # Check if it's an !include directive
-            if hasattr(section_value, 'tag') and section_value.tag == '!include':
+            if hasattr(section_value, "tag") and section_value.tag == "!include":
                 # It's an !include - update the included file
                 include_filename = section_value.filename
                 include_file_path = os.path.join(config_dir, include_filename)
-                
+
                 _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
-                
+
                 # Save cleaned data to the included file
-                content = dump(cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                with open(include_file_path, 'w', encoding='utf-8') as f:
+                content = dump(
+                    cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
+                )
+                with open(include_file_path, "w", encoding="utf-8") as f:
                     f.write(content)
-                    
+
                 _LOGGER.info(f"Successfully updated included file: {include_file_path}")
-                
+
             else:
                 # It's a regular section - replace in config.yaml
                 _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
                 config_content[section] = cleaned_data
-                
+
                 # Save updated config.yaml (need to handle !include when saving)
                 # Read original file as text to preserve !include syntax
-                with open(config_file, encoding='utf-8') as f:
+                with open(config_file, encoding="utf-8") as f:
                     original_lines = f.readlines()
-                
+
                 # Find and replace the section in the original text
                 updated_lines = []
                 in_section = False
                 section_indent = 0
-                
+
                 for line in original_lines:
                     stripped = line.strip()
                     # Check if this line starts the target section
@@ -1265,44 +1296,56 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         in_section = True
                         section_indent = len(line) - len(line.lstrip())
                         # Add the complete new section (header + data)
-                        section_yaml = dump({section: cleaned_data}, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
+                        section_yaml = dump(
+                            {section: cleaned_data},
+                            Dumper=TimePeriodDumper,
+                            default_flow_style=False,
+                            allow_unicode=True,
+                            sort_keys=False,
+                        )
                         # Add proper indentation if section was indented
                         if section_indent > 0:
                             indented_lines = []
-                            for yaml_line in section_yaml.split('\n'):
+                            for yaml_line in section_yaml.split("\n"):
                                 if yaml_line.strip():
-                                    indented_lines.append(' ' * section_indent + yaml_line)
-                            section_yaml = '\n'.join(indented_lines)
-                        updated_lines.append(section_yaml + '\n')
+                                    indented_lines.append(" " * section_indent + yaml_line)
+                            section_yaml = "\n".join(indented_lines)
+                        updated_lines.append(section_yaml + "\n")
                     elif in_section:
                         # Check if we're still in the same section
                         line_indent = len(line) - len(line.lstrip())
-                        if stripped and line_indent <= section_indent and not stripped.startswith('-'):
+                        if stripped and line_indent <= section_indent and not stripped.startswith("-"):
                             # We've moved to a new section (non-empty line at same or lower indent, not a list item)
                             in_section = False
                             updated_lines.append(line)
                         # Skip lines that are part of the old section
                     else:
                         updated_lines.append(line)
-                
+
                 # Write updated config
-                with open(config_file, 'w', encoding='utf-8') as f:
+                with open(config_file, "w", encoding="utf-8") as f:
                     f.writelines(updated_lines)
-                    
+
                 _LOGGER.info(f"Successfully updated section '{section}' in config.yaml")
         else:
             # Section doesn't exist - add it to config.yaml
             _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
-            
+
             # Append new section to the end of the file
-            section_yaml = dump({section: cleaned_data}, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False)
-            with open(config_file, 'a', encoding='utf-8') as f:
-                f.write('\n' + section_yaml)
-                
+            section_yaml = dump(
+                {section: cleaned_data},
+                Dumper=TimePeriodDumper,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+            with open(config_file, "a", encoding="utf-8") as f:
+                f.write("\n" + section_yaml)
+
             _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
-        
+
         return {"status": "success", "message": f"Section '{section}' saved successfully"}
-        
+
     except Exception as e:
         _LOGGER.error(f"Error saving section '{section}': {str(e)}")
         return {"status": "error", "message": f"Error saving section: {str(e)}"}
@@ -1356,9 +1399,7 @@ def update_yaml_field(config_file: str, section: str, field: str, value: str) ->
             # Try to match next section part
             if matched_depth < len(section_parts):
                 expected = section_parts[matched_depth]
-                expected_pattern = re.compile(
-                    rf"^{re.escape(expected)}:\s*(.*)?$"
-                )
+                expected_pattern = re.compile(rf"^{re.escape(expected)}:\s*(.*)?$")
                 if expected_pattern.match(stripped):
                     expected_indent = matched_depth * 2
                     if matched_depth == 0 or line_indent > 0:

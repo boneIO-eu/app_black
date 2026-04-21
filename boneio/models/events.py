@@ -152,10 +152,25 @@ class InputsReloadedEvent(BaseModel):
     event_type: Literal["inputs_reloaded"] = "inputs_reloaded"
 
 
+class MqttStateEvent(BaseModel):
+    """MQTT state event - triggered when MQTT connection state changes.
+
+    Fired by MQTTClient on connect/disconnect so subscribers (e.g. HostData)
+    can react immediately without polling.
+
+    Attributes:
+        event_type: Type of event (always "mqtt_state")
+        connected: Whether MQTT is currently connected
+    """
+
+    event_type: Literal["mqtt_state"] = "mqtt_state"
+    connected: bool
+
+
 # Discriminated union for all events
 # The discriminator field "event_type" allows Pydantic to automatically
 # determine which event type to use when parsing
-Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent | InputsReloadedEvent
+Event = InputEvent | OutputEvent | CoverEvent | SensorEvent | ModbusDeviceEvent | HostEvent | GroupEvent | ConfigReloadEvent | InputsReloadedEvent | MqttStateEvent
 
 __all__ = [
     "InputEvent",
@@ -167,6 +182,7 @@ __all__ = [
     "GroupEvent",
     "ConfigReloadEvent",
     "InputsReloadedEvent",
+    "MqttStateEvent",
     "Event",
 ]
 

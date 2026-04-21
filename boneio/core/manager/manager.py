@@ -1123,6 +1123,9 @@ class Manager:
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
         
+        # Immediately refresh OLED MQTT status (event-driven, no polling delay)
+        self.display.notify_mqtt_state_changed()
+        
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()
         await self.irrigation.start()

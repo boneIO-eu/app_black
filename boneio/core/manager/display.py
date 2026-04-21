@@ -46,6 +46,7 @@ class DisplayManager:
         """
         self._manager = manager
         self._oled = None
+        self._host_data = None
         self._screens = []
         self._configured_screen_order = []
         self._input_groups = []
@@ -158,7 +159,7 @@ class DisplayManager:
                 ),
                 extra_sensors=extra_sensors,
             )
-            
+            self._host_data = host_data
             # Configure screen order (replace placeholders)
             self._configured_screen_order = self._configure_screen_order(
                 screen_order=raw_screen_order,
@@ -258,6 +259,15 @@ class DisplayManager:
             List of input group names
         """
         return self._input_groups
+
+    def notify_mqtt_state_changed(self) -> None:
+        """Notify that MQTT connection state has changed.
+
+        Triggers an immediate UPTIME sensor refresh so the OLED shows
+        the updated MQTT status without waiting for the next polling tick.
+        """
+        if self._host_data is not None:
+            self._host_data.refresh_mqtt_status()
 
     def reload_oled(self) -> None:
         """Hot-reload OLED configuration from file.

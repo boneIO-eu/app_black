@@ -240,13 +240,16 @@ def run(
 
     try:
         _t1 = _time.monotonic()
-        _config = load_config_from_file(config_file=config)
+        _config = load_config_from_file(
+            config_file=config, progress_callback=draw_status,
+        )
         _LOGGER.debug("[STARTUP TIMING] load_config_from_file: %.2fs", _time.monotonic() - _t1)
         if not _config:
             _LOGGER.error("Config not loaded. Exiting.")
             draw_config_error("Config file is empty or missing")
             return 1
         configure_logger(log_config=_config.get("logger") or {}, debug=debug)
+        draw_status("Importing modules...")
         # Granular timing of runner sub-imports to find the bottleneck
         _t_a = _time.monotonic()
         from boneio.const import ACTION
