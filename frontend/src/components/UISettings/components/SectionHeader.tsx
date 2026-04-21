@@ -9,6 +9,7 @@ interface SectionHeaderProps {
   sectionTitle: string;
   showYamlPreview: boolean;
   hasUnsavedChanges: boolean;
+  saveDisabled?: boolean;
   saveStatus: 'idle' | 'saving' | 'success' | 'error';
   onToggleYamlPreview: () => void;
   onRestore: () => void;
@@ -24,6 +25,7 @@ export default function SectionHeader({
   sectionTitle,
   showYamlPreview,
   hasUnsavedChanges,
+  saveDisabled,
   saveStatus,
   onToggleYamlPreview,
   onRestore,
@@ -69,7 +71,7 @@ export default function SectionHeader({
           )}
           <button
             onClick={onSave}
-            disabled={!hasUnsavedChanges}
+            disabled={!hasUnsavedChanges || saveDisabled}
             className="btn btn-primary btn-sm"
           >
             {saveStatus === 'saving' ? (

@@ -361,6 +361,19 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
                 detail={"message": "Invalid action configuration", "errors": errors},
             )
 
+    # Validate lox_udp host as valid IPv4 or hostname when enabled
+    if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):
+        import re
+
+        host = str(data.get("host", "")).strip()
+        ipv4_re = r"^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+        hostname_re = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+        if not host or (not re.match(ipv4_re, host) and not re.match(hostname_re, host)):
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Invalid lox_udp configuration", "errors": [f"Invalid host: '{host}'. Use an IPv4 address or hostname."]},
+            )
+
     try:
         app_state = _get_app_state()
         result = update_config_section(app_state.yaml_config_file, section, data)

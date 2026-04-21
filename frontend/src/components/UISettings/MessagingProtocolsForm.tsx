@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import MqttForm from './MqttForm';
 import LoxForm from './LoxForm';
@@ -8,6 +8,7 @@ interface MessagingProtocolsFormProps {
   loxData: any;
   onMqttChange: (data: any) => void;
   onLoxChange: (data: any) => void;
+  onLoxValidationChange?: (isValid: boolean) => void;
 }
 
 /**
@@ -20,6 +21,7 @@ const MessagingProtocolsForm: React.FC<MessagingProtocolsFormProps> = ({
   loxData,
   onMqttChange,
   onLoxChange,
+  onLoxValidationChange,
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'mqtt' | 'lox_udp'>('mqtt');
@@ -37,8 +39,14 @@ const MessagingProtocolsForm: React.FC<MessagingProtocolsFormProps> = ({
       onLoxChange({ enabled: true, ...(loxData || {}), });
     } else {
       onLoxChange({ ...loxData, enabled: false });
+      // When disabled, form is always valid (no host required)
+      onLoxValidationChange?.(true);
     }
   };
+
+  const handleLoxValidation = useCallback((isValid: boolean) => {
+    onLoxValidationChange?.(isValid);
+  }, [onLoxValidationChange]);
 
   return (
     <div className="space-y-4">
@@ -119,7 +127,11 @@ const MessagingProtocolsForm: React.FC<MessagingProtocolsFormProps> = ({
           </div>
 
           {loxEnabled ? (
-            <LoxForm data={loxData} onChange={onLoxChange} />
+            <LoxForm
+              data={loxData}
+              onChange={onLoxChange}
+              onValidationChange={handleLoxValidation}
+            />
           ) : (
             <div className="alert">
               <span>{t('messaging.lox_disabled_info')}</span>

@@ -60,7 +60,7 @@ class CompositeMessageBus(MessageBus):
         if tasks:
             await asyncio.gather(*tasks)
 
-    def set_manager(self, manager: "Manager") -> None:
+    def set_manager(self, manager: Manager) -> None:
         """Set manager on all buses."""
         for bus in self._buses:
             bus.set_manager(manager)

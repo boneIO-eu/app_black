@@ -5,7 +5,11 @@ from boneio.core.messaging.basic_mqtt import BasicMqtt
 from boneio.core.messaging.composite import CompositeMessageBus
 from boneio.core.messaging.local import LocalMessageBus
 from boneio.core.messaging.lox import LoxUDPClient
-from boneio.core.messaging.mqtt import MQTTClient
+
+try:
+    from boneio.core.messaging.mqtt import MQTTClient
+except ImportError:
+    MQTTClient = None  # type: ignore[assignment,misc]
 
 __all__ = [
     "LocalMessageBus",

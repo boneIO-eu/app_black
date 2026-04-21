@@ -49,7 +49,7 @@ class LoxoneUDPClient(MessageBus):
 
     def __init__(
         self,
-        config_helper: "ConfigHelper",
+        config_helper: ConfigHelper,
         host: str,
         send_port: int,
         listen_port: int,
@@ -126,7 +126,7 @@ class LoxoneUDPClient(MessageBus):
             if self._transport:
                 self._transport.close()
 
-    def set_manager(self, manager: "Manager") -> None:
+    def set_manager(self, manager: Manager) -> None:
         """Set manager."""
         self._manager = manager
 

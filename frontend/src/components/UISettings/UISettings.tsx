@@ -67,6 +67,7 @@ export default function UISettings() {
   const [isRestarting, setIsRestarting] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [schemaLoaded, setSchemaLoaded] = useState(false);
+  const [loxFormValid, setLoxFormValid] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Get active section from URL parameter or default to first section
@@ -566,7 +567,7 @@ export default function UISettings() {
     // Check if a value is "effectively empty" (only false/null/undefined/empty values)
     // e.g. { enabled: false } is semantically the same as no section at all
     const isEffectivelyEmpty = (obj: any): boolean => {
-      if (obj === null || obj === undefined || obj === '' || obj === false) return true;
+      if (obj === null || obj === undefined || obj === '') return true;
       if (Array.isArray(obj)) return obj.length === 0;
       if (typeof obj === 'object') {
         return Object.values(obj).every(v => isEffectivelyEmpty(v));
@@ -1224,13 +1225,31 @@ export default function UISettings() {
             {/* Header */}
             <SectionHeader
               sectionName={activeSection}
-              sectionTitle={activeSection_data.name}
+              sectionTitle={t(`sections.${activeSection}`) || activeSection_data.name}
               showYamlPreview={showYamlPreview}
-              hasUnsavedChanges={unsavedChanges[activeSection] || false}
+              hasUnsavedChanges={
+                activeSection === 'mqtt'
+                  ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
+                  : (unsavedChanges[activeSection] || false)
+              }
+              saveDisabled={
+                activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid
+              }
               saveStatus={saveStatus[activeSection] || 'idle'}
               onToggleYamlPreview={() => setShowYamlPreview(!showYamlPreview)}
-              onRestore={() => restoreSection(activeSection)}
-              onSave={() => saveSection(activeSection)}
+              onRestore={() => {
+                restoreSection(activeSection);
+                if (activeSection === 'mqtt') restoreSection('lox_udp');
+              }}
+              onSave={async () => {
+                if (activeSection === 'mqtt') {
+                  // Save both mqtt and lox_udp when in messaging protocols view
+                  if (unsavedChanges['mqtt']) await saveSection('mqtt');
+                  if (unsavedChanges['lox_udp']) await saveSection('lox_udp');
+                } else {
+                  await saveSection(activeSection);
+                }
+              }}
               hideYamlPreview={!!COMPOSITE_SECTIONS[activeSection]}
             />
 
@@ -1250,6 +1269,7 @@ export default function UISettings() {
                       onEditItemOpened={clearEditParam}
                       onSectionChange={handleSectionChange}
                       onSaveSection={saveSection}
+                      onLoxValidationChange={setLoxFormValid}
                     />
                   </div>
 
@@ -1260,7 +1280,15 @@ export default function UISettings() {
                     </div>
                     <div className="p-4 h-full overflow-y-auto">
                       <pre className="text-sm font-mono text-base-content bg-base-100 p-4 rounded-lg overflow-x-auto">
-                        {convertToYaml(formData[activeSection], activeSection)}
+                        {activeSection === 'mqtt'
+                          ? [
+                              `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
+                              formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
+                                ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
+                                : null,
+                            ].filter(Boolean).join('\n')
+                          : convertToYaml(formData[activeSection], activeSection)
+                        }
                       </pre>
                     </div>
                   </div>
@@ -1277,6 +1305,7 @@ export default function UISettings() {
                     onEditItemOpened={clearEditParam}
                     onSectionChange={handleSectionChange}
                     onSaveSection={saveSection}
+                    onLoxValidationChange={setLoxFormValid}
                   />
                 </div>
               )}

@@ -43,8 +43,10 @@ lox_udp:
     host:
       required: True
       type: string
+      regex: '^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)$'
       meta:
-        label: Target IP address
+        label: Target host
+        description: "IPv4 address or hostname of the Lox Miniserver (e.g. 192.168.1.100 or miniserver.local)"
     send_port:
       required: False
       type: integer

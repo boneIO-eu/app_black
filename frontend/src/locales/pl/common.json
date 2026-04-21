@@ -896,7 +896,9 @@
   },
   "lox_config": {
     "host": "Host",
-    "host_help": "Adres IP urządzenia docelowego do komunikacji UDP",
+    "host_help": "Adres IP lub nazwa hosta urządzenia docelowego do komunikacji UDP",
+    "host_required": "Adres hosta jest wymagany",
+    "host_invalid": "Wprowadź poprawny adres IPv4 (np. 192.168.1.100) lub nazwę hosta (np. miniserver.local)",
     "send_port": "Port wysyłania",
     "send_port_help": "Port do wysyłania wiadomości UDP (domyślnie: 4444)",
     "listen_port": "Port nasłuchiwania",

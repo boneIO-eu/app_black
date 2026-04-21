@@ -31,18 +31,38 @@ def test_lox_send_message(config_helper_mock):
     client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
     client._transport = MagicMock()
 
-    # Valid output topic
-    client.send_message("boneio/output/relay1/state", "ON")
+    # Valid output topic with dict payload (as MQTT sends it)
+    client.send_message("boneio/blk123/output/relay1", {"state": "ON"})
     client._transport.sendto.assert_called_once_with(b"relay1=ON", ("127.0.0.1", 4444))
 
     client._transport.reset_mock()
 
-    # Ignore command topics
-    client.send_message("boneio/output/relay1/set", "ON")
+    # String payload also works
+    client.send_message("boneio/blk123/output/relay1", "ON")
+    client._transport.sendto.assert_called_once_with(b"relay1=ON", ("127.0.0.1", 4444))
+
+    client._transport.reset_mock()
+
+    # Cover entity type
+    client.send_message("boneio/blk123/cover/cover1", {"state": "open"})
+    client._transport.sendto.assert_called_once_with(b"cover1=open", ("127.0.0.1", 4444))
+
+    client._transport.reset_mock()
+
+    # Ignore command topics (set)
+    client.send_message("boneio/blk123/cmd/output/relay1/set", "ON")
     client._transport.sendto.assert_not_called()
 
-    # Ignore discovery payloads (dicts)
+    # Ignore discovery payloads (config in topic)
     client.send_message("homeassistant/switch/test/config", {"name": "test"})
+    client._transport.sendto.assert_not_called()
+
+    # Ignore None payload
+    client.send_message("boneio/blk123/output/relay1", None)
+    client._transport.sendto.assert_not_called()
+
+    # Ignore unsupported entity types (e.g. update)
+    client.send_message("boneio/blk123/update/firmware", {"state": "ready"})
     client._transport.sendto.assert_not_called()
 
 

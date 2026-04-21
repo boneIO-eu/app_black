@@ -33,6 +33,7 @@ interface SectionContentProps {
   onEditItemOpened?: () => void;
   onSectionChange: (sectionName: string, data: any) => void;
   onSaveSection: (sectionName: string, data?: any) => Promise<void>;
+  onLoxValidationChange?: (isValid: boolean) => void;
 }
 
 /**
@@ -113,7 +114,8 @@ function CustomFormContent({
   activeSection,
   formData,
   onSectionChange,
-}: Pick<SectionContentProps, 'activeSection' | 'formData' | 'onSectionChange'>) {
+  onLoxValidationChange,
+}: Pick<SectionContentProps, 'activeSection' | 'formData' | 'onSectionChange' | 'onLoxValidationChange'>) {
   const handleChange = (data: any) => onSectionChange(activeSection, data);
 
   switch (activeSection) {
@@ -131,6 +133,7 @@ function CustomFormContent({
           loxData={formData['lox_udp']}
           onMqttChange={(data) => onSectionChange('mqtt', data)}
           onLoxChange={(data) => onSectionChange('lox_udp', data)}
+          onLoxValidationChange={onLoxValidationChange}
         />
       );
     case 'web':
@@ -198,6 +201,7 @@ export default function SectionContent({
   onEditItemOpened,
   onSectionChange,
   onSaveSection,
+  onLoxValidationChange,
 }: SectionContentProps) {
   const { t } = useTranslation();
 
@@ -227,6 +231,7 @@ export default function SectionContent({
       activeSection={activeSection}
       formData={formData}
       onSectionChange={onSectionChange}
+      onLoxValidationChange={onLoxValidationChange}
     />
   );
 }

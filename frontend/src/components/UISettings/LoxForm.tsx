@@ -1,22 +1,64 @@
-import React from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
 
 interface LoxFormProps {
   data: any;
   onChange: (data: any) => void;
+  onValidationChange?: (isValid: boolean) => void;
+}
+
+/**
+ * Validate an IPv4 address string.
+ */
+function isValidIPv4(ip: string): boolean {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return false;
+  return parts.every(part => {
+    const num = Number(part);
+    return Number.isInteger(num) && num >= 0 && num <= 255 && part === String(num);
+  });
+}
+
+/**
+ * Validate a hostname string (RFC 1123).
+ * Accepts formats like: miniserver.local, loxone.home, my-server
+ */
+function isValidHostname(host: string): boolean {
+  if (host.length > 253) return false;
+  const labelPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
+  return host.split('.').every(label => labelPattern.test(label));
+}
+
+/**
+ * Validate host as either a valid IPv4 address or a valid hostname.
+ */
+function isValidHost(host: string): boolean {
+  return isValidIPv4(host) || isValidHostname(host);
 }
 
 /**
  * Custom form for Lox UDP section configuration.
- * Fields: host, send_port, listen_port + download template button.
+ * Fields: host (required, validated as IPv4 or hostname), send_port, listen_port + download template button.
  */
-const LoxForm: React.FC<LoxFormProps> = ({ data, onChange }) => {
+const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange }) => {
   const { t } = useTranslation();
+  const [hostTouched, setHostTouched] = useState(false);
 
-  const handleChange = (field: string, value: any) => {
+  const host = data?.host || '';
+  const hostEmpty = !host.trim();
+  const hostInvalid = !hostEmpty && !isValidHost(host.trim());
+  const hostError = hostTouched && (hostEmpty || hostInvalid);
+  const isValid = !hostEmpty && !hostInvalid;
+
+  // Notify parent about validation state
+  useEffect(() => {
+    onValidationChange?.(isValid);
+  }, [isValid, onValidationChange]);
+
+  const handleChange = useCallback((field: string, value: any) => {
     onChange({ ...data, [field]: value });
-  };
+  }, [data, onChange]);
 
   const handleDownloadTemplate = () => {
     window.open('/api/config/lox-template', '_blank');
@@ -35,13 +77,26 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange }) => {
         </label>
         <input
           type="text"
-          className="input input-bordered w-full"
-          value={data?.host || ''}
+          className={`input input-bordered w-full ${hostError ? 'input-error' : ''}`}
+          value={host}
           onChange={(e) => handleChange('host', e.target.value)}
+          onBlur={() => setHostTouched(true)}
           placeholder="192.168.1.100"
           required
         />
-        <HelpLabel>{t('lox_config.host_help')}</HelpLabel>
+        {hostError && hostEmpty && (
+          <label className="label">
+            <span className="label-text-alt text-error">{t('lox_config.host_required')}</span>
+          </label>
+        )}
+        {hostError && hostInvalid && (
+          <label className="label">
+            <span className="label-text-alt text-error">{t('lox_config.host_invalid')}</span>
+          </label>
+        )}
+        {!hostError && (
+          <HelpLabel>{t('lox_config.host_help')}</HelpLabel>
+        )}
       </div>
 
       {/* Send Port */}
@@ -54,6 +109,8 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange }) => {
           className="input input-bordered w-full"
           value={data?.send_port ?? 4444}
           onChange={(e) => handleChange('send_port', parseInt(e.target.value) || 4444)}
+          min={1}
+          max={65535}
           placeholder="4444"
         />
         <HelpLabel>{t('lox_config.send_port_help')}</HelpLabel>
@@ -69,6 +126,8 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange }) => {
           className="input input-bordered w-full"
           value={data?.listen_port ?? 4445}
           onChange={(e) => handleChange('listen_port', parseInt(e.target.value) || 4445)}
+          min={1}
+          max={65535}
           placeholder="4445"
         />
         <HelpLabel>{t('lox_config.listen_port_help')}</HelpLabel>

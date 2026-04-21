@@ -49,7 +49,7 @@ class LoxUDPClient(MessageBus):
 
     def __init__(
         self,
-        config_helper: "ConfigHelper",
+        config_helper: ConfigHelper,
         host: str,
         send_port: int,
         listen_port: int,
@@ -71,27 +71,64 @@ class LoxUDPClient(MessageBus):
         retain: bool = False,
         qos: int = 0,
     ) -> None:
-        """Send a message via UDP."""
-        if isinstance(payload, dict) or payload is None:
+        """Send a message via UDP.
+
+        Converts MQTT-style messages to simple UDP datagrams.
+        Topic format: boneio/{serial}/{type}/{device_id}
+        Payload: dict {"state": "ON"} or string "ON"
+
+        Sent UDP message format: {device_id}={state_value}
+        """
+        if payload is None:
             return
 
-        if not str(topic).endswith("/state"):
+        # Skip HA Discovery messages (they have complex payloads not relevant for Lox)
+        if isinstance(payload, dict) and "config" in str(topic):
+            return
+
+        # Extract device_id from topic: boneio/{serial}/{type}/{device_id}
+        parts = str(topic).split("/")
+        if len(parts) < 4:
+            return
+
+        device_id = parts[-1]
+        entity_type = parts[-2] if len(parts) >= 3 else ""
+
+        # Skip command topics (cmd/), availability, and discovery
+        if "cmd" in parts or device_id in ("state", "config", "set"):
+            return
+
+        # Only send state for outputs, covers, and sensors
+        if entity_type not in ("output", "cover", "sensor"):
+            return
+
+        # Extract state value from payload
+        if isinstance(payload, dict):
+            # {"state": "ON"} → "ON"
+            state_value = payload.get("state", payload.get("value", ""))
+            if not state_value and payload:
+                # Fallback: use first value
+                state_value = str(next(iter(payload.values()), ""))
+        elif isinstance(payload, bytes):
+            state_value = payload.decode("utf-8")
+        else:
+            state_value = str(payload)
+
+        if not state_value:
             return
 
         try:
-            parts = str(topic).split("/")
-            if len(parts) >= 3:
-                device_id = parts[-2]
-                payload_str = payload.decode("utf-8") if isinstance(payload, bytes) else str(payload)
-                udp_msg = f"{device_id}={payload_str}".encode()
+            udp_msg = f"{device_id}={state_value}".encode()
 
-                if self._transport:
-                    self._transport.sendto(udp_msg, (self.host, self.send_port))
-                    _LOGGER.debug(
-                        "Sent Lox UDP message: %s to %s:%s", udp_msg.decode("utf-8"), self.host, self.send_port
-                    )
+            if self._transport:
+                self._transport.sendto(udp_msg, (self.host, self.send_port))
+                _LOGGER.debug(
+                    "Sent Lox UDP message: %s to %s:%s", udp_msg.decode("utf-8"), self.host, self.send_port
+                )
+            else:
+                _LOGGER.debug("Lox UDP transport not ready yet, dropping: %s", udp_msg.decode("utf-8"))
         except Exception as e:
-            _LOGGER.error("Error formatting/sending Lox UDP message for topic %s: %s", topic, e)
+            _LOGGER.error("Error sending Lox UDP message for topic %s: %s", topic, e)
 
     @property
     def state(self) -> bool:
@@ -114,6 +151,9 @@ class LoxUDPClient(MessageBus):
                 self.send_port,
             )
 
+            # Announce online status so Lox Miniserver knows we are alive
+            self._transport.sendto(b"boneio=online", (self.host, self.send_port))
+
             while True:
                 await asyncio.sleep(3600)
 
@@ -126,7 +166,7 @@ class LoxUDPClient(MessageBus):
             if self._transport:
                 self._transport.close()
 
-    def set_manager(self, manager: "Manager") -> None:
+    def set_manager(self, manager: Manager) -> None:
         """Set manager."""
         self._manager = manager
 
