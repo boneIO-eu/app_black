@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import signal
@@ -54,7 +55,7 @@ from boneio.exceptions import RestartRequestException
 from boneio.hardware.gpio.input import get_gpio_manager
 
 # Filter out cryptography deprecation warning
-warnings.filterwarnings('ignore', category=DeprecationWarning, module='cryptography')
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="cryptography")
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,17 +75,23 @@ try:
     )
 except Exception:
     _LOGGER.debug("Early OLED module not available in runner")
-    def _get_early_oled_device() -> Any | None: return None  # noqa: E731
-    def _draw_startup_status_impl(msg: str, **kw: Any) -> None: pass  # noqa: E731
-    def _draw_crash(exc: BaseException, **kw: Any) -> None: pass  # noqa: E731
+
+    def _get_early_oled_device() -> Any | None:
+        return None  # noqa: E731
+
+    def _draw_startup_status_impl(msg: str, **kw: Any) -> None:
+        pass  # noqa: E731
+
+    def _draw_crash(exc: BaseException, **kw: Any) -> None:
+        pass  # noqa: E731
 
 
 def _draw_startup_status(device: Any | None, message: str) -> None:
     """Draw a startup status message on the OLED display.
-    
+
     Thin wrapper that accepts a device argument for backward compatibility
     but delegates to the centralized early_oled module.
-    
+
     Args:
         device: sh1106 device instance (or None to skip)
         message: Status message to display
@@ -109,11 +116,7 @@ config_modules = [
 
 
 async def async_run(
-    config: dict,
-    config_file: str,
-    mqttusername: str = "",
-    mqttpassword: str = "",
-    debug: int = 0
+    config: dict, config_file: str, mqttusername: str = "", mqttpassword: str = "", debug: int = 0
 ) -> int:
     """Run BoneIO."""
     web_server = None
@@ -166,7 +169,7 @@ async def async_run(
         ha_child_devices=main_config.get("ha_child_devices", False),
         ha_child_devices_naming=main_config.get("ha_child_devices_naming", "default"),
     )
-    
+
     # Load areas configuration
     _config_helper.set_areas(areas_config=config.get("areas", []))
 
@@ -175,24 +178,53 @@ async def async_run(
     is_can_slave = can_config.get(ENABLED, False) and can_config.get("mode", "master") == "slave"
 
     # Initialize message bus based on config
-    if MQTT in config and not is_can_slave:
-        message_bus = MQTTClient(
-            host=config[MQTT][HOST],
-            username=config[MQTT].get(USERNAME, mqttusername),
-            password=config[MQTT].get(PASSWORD, mqttpassword),
-            port=config[MQTT].get(PORT, 1883),
-            config_helper=_config_helper,
-        )
-    else:
-        from boneio.core.messaging import LocalMessageBus
-        message_bus = LocalMessageBus()
-        if is_can_slave:
-            _LOGGER.info("CAN slave mode: using LocalMessageBus (no MQTT required)")
+    from boneio.core.messaging.composite import CompositeMessageBus
 
-    manager_kwargs = {
-        item["name"]: config.get(item["name"], item["default"])
-        for item in config_modules
-    }
+    message_bus = CompositeMessageBus()
+    has_mqtt = False
+
+    if MQTT in config and not is_can_slave:
+        mqtt_config = config[MQTT]
+        if mqtt_config.get("enabled", True):
+            from boneio.core.messaging.mqtt import MQTTClient
+
+            mqtt_bus = MQTTClient(
+                host=mqtt_config[HOST],
+                username=mqtt_config.get(USERNAME, mqttusername),
+                password=mqtt_config.get(PASSWORD, mqttpassword),
+                port=mqtt_config.get(PORT, 1883),
+                config_helper=_config_helper,
+            )
+            message_bus.add_bus(mqtt_bus)
+            has_mqtt = True
+        else:
+            _LOGGER.info("MQTT protocol disabled in configuration")
+
+    lox_config = config.get("lox_udp")
+    if lox_config and lox_config.get("enabled", False) and not is_can_slave:
+        from boneio.core.messaging.lox import LoxUDPClient
+
+        lox_bus = LoxUDPClient(
+            config_helper=_config_helper,
+            host=lox_config.get("host", "127.0.0.1"),
+            send_port=lox_config.get("send_port", 4444),
+            listen_port=lox_config.get("listen_port", 4445),
+        )
+        message_bus.add_bus(lox_bus)
+
+    # Lox UDP doesn't provide internal loopback routing like MQTT broker does.
+    # Therefore, if MQTT is not enabled, we MUST use LocalMessageBus to route
+    # internal messages (e.g. from WebUI to Thermostat templates).
+    if not has_mqtt:
+        from boneio.core.messaging import LocalMessageBus
+
+        message_bus.add_bus(LocalMessageBus())
+        if is_can_slave:
+            _LOGGER.info("CAN slave mode: using LocalMessageBus for internal routing")
+        else:
+            _LOGGER.info("MQTT disabled: using LocalMessageBus for internal routing")
+
+    manager_kwargs = {item["name"]: config.get(item["name"], item["default"]) for item in config_modules}
 
     # --- Reuse early OLED device (initialized in bonecli.py) for startup status ---
     early_oled_device = _get_early_oled_device()
@@ -206,9 +238,7 @@ async def async_run(
         binary_pins=config.get(BINARY_SENSOR, []),
         remote_devices=config.get("remote_devices", []),
         config_file_path=config_file,
-        state_manager=StateManager(
-            state_file=f"{os.path.split(config_file)[0]}state.json"
-        ),
+        state_manager=StateManager(state_file=f"{os.path.split(config_file)[0]}state.json"),
         config_helper=_config_helper,
         sensors={
             LM75: config.get(LM75, []),
@@ -236,13 +266,13 @@ async def async_run(
         _LOGGER.info("Starting Web server.")
         # Lazy import WebServer only when needed (saves ~4s on startup)
         from boneio.webui.web_server import WebServer
-        
+
         web_server = WebServer(
             config_file=config_file,
             config_helper=_config_helper,
             manager=manager,
-            port=web_config.get("port", 8090),  
-            auth=web_config.get("auth", {}),  
+            port=web_config.get("port", 8090),
+            auth=web_config.get("auth", {}),
             logger=config.get("logger", {}),
             debug_level=debug,
             initial_config=config,  # Pre-populate cache for fast first request
@@ -253,8 +283,8 @@ async def async_run(
         # Store websocket_manager reference for startup status broadcasts
         # (available after first await yields to event loop and init_app runs)
         await asyncio.sleep(0)  # Yield to let web server task start
-        if hasattr(web_server, 'app') and hasattr(web_server.app, 'state'):
-            manager._websocket_manager = getattr(web_server.app.state, 'websocket_manager', None)
+        if hasattr(web_server, "app") and hasattr(web_server.app, "state"):
+            manager._websocket_manager = getattr(web_server.app.state, "websocket_manager", None)
     else:
         _LOGGER.info("Web server not configured.")
 
@@ -271,7 +301,7 @@ async def async_run(
             _LOGGER.error("If lines are busy, run: sudo pkill -9 -f boneio")
             # Don't fail the entire application, continue without GPIO
             pass
-    
+
     # Start CAN bus if configured (non-blocking)
     if manager.canopen is not None:
         can_task = asyncio.create_task(manager.start_canopen())
@@ -280,21 +310,17 @@ async def async_run(
 
     # Initialize remote devices in background (configure + start connections)
     # This defers heavy module imports (aioesphomeapi, aiohttp) to background
-    remote_task = manager.append_task(
-        coro=manager.remote_devices.initialize,
-        name="remote_devices_init"
-    )
+    remote_task = manager.append_task(coro=manager.remote_devices.initialize, name="remote_devices_init")
     tasks.add(remote_task)
 
     # --- Start MQTT and discovery in background ---
-    _draw_startup_status(early_oled_device, "Connecting MQTT...")
-    await manager.set_startup_status("connecting_mqtt", "Connecting to MQTT...")
-    message_bus_type = "MQTT" if isinstance(message_bus, MQTTClient) else "Local"
-    _LOGGER.info("Starting message bus %s.", message_bus_type)
+    _draw_startup_status(early_oled_device, "Connecting messaging...")
+    await manager.set_startup_status("connecting_messaging", "Connecting messaging buses...")
+    _LOGGER.info("Starting message bus.")
     message_bus_task = asyncio.create_task(message_bus.start_client())
     tasks.add(message_bus_task)
     message_bus_task.add_done_callback(tasks.discard)
-    
+
     # Publish discovery after message bus is started (non-blocking)
     async def _delayed_discovery() -> None:
         """Wait for MQTT connection and publish discovery in background."""
@@ -314,7 +340,7 @@ async def async_run(
             _LOGGER.error("Error during delayed discovery: %s", e)
             await manager.mark_startup_complete()
 
-    if isinstance(message_bus, MQTTClient):
+    if has_mqtt:
         discovery_task = asyncio.create_task(_delayed_discovery())
         tasks.add(discovery_task)
         discovery_task.add_done_callback(tasks.discard)
@@ -322,7 +348,7 @@ async def async_run(
         # No MQTT — mark startup complete immediately
         await manager.mark_startup_complete()
         _draw_startup_status(early_oled_device, "Ready")
-    
+
     # Start cloud registration if enabled
     cloud_reg = None
     if _config_helper.cloud_registration:
@@ -338,59 +364,59 @@ async def async_run(
             _LOGGER.info("Cloud registration started for %s (IP: %s)", serial, local_ip)
         else:
             _LOGGER.warning("Cloud registration enabled but missing serial or IP")
-    
+
     try:
         # Convert tasks set to list for main gather
         task_list = list(tasks)
         main_gather = asyncio.gather(*task_list)
-        
-        # Wait for either shutdown signal or main task completion
-        await asyncio.wait([
-            main_gather,
-            asyncio.create_task(shutdown_event.wait())
-        ], return_when=asyncio.FIRST_COMPLETED)
 
+        # Wait for either shutdown signal or main task completion
+        await asyncio.wait(
+            [main_gather, asyncio.create_task(shutdown_event.wait())], return_when=asyncio.FIRST_COMPLETED
+        )
 
         if shutdown_event.is_set():
             _LOGGER.info("Starting graceful shutdown...")
             await message_bus.announce_offline()
-            
+
             # Cancel all manager tasks (including those added later by AsyncUpdater)
             all_manager_tasks = list(manager.get_tasks().values())
             _LOGGER.debug("Cancelling %d manager tasks...", len(all_manager_tasks))
             for task in all_manager_tasks:
                 if not task.done():
                     task.cancel()
-            
+
             # Wait for manager tasks to finish
             if all_manager_tasks:
                 try:
                     await asyncio.gather(*all_manager_tasks, return_exceptions=True)
                 except Exception as e:
                     _LOGGER.debug("Manager tasks cancelled: %s", e)
-            
+
             main_gather.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await main_gather
-            except asyncio.CancelledError:
-                pass
 
         return 0
     except asyncio.CancelledError:
         _LOGGER.info("Main task cancelled")
+        return 0
     except (RestartRequestException, GracefulExit):
         _LOGGER.info("Restart or graceful exit requested")
+        raise
     except Exception as e:
         _LOGGER.error(f"Unexpected error: {type(e).__name__} - {e}")
         _draw_crash(e)
+        return 1
     except BaseException as e:
         _LOGGER.error(f"Unexpected BaseException: {type(e).__name__} - {e}")
         _draw_crash(e)
+        return 1
     finally:
         _LOGGER.info("Cleaning up resources...")
 
         # Trigger web server shutdown if it's running
-        if web_server and hasattr(web_server, 'trigger_shutdown'):
+        if web_server and hasattr(web_server, "trigger_shutdown"):
             try:
                 _LOGGER.info("Requesting web server shutdown...")
                 await web_server.trigger_shutdown()
@@ -412,17 +438,17 @@ async def async_run(
                 await gpio_manager.stop()
         except Exception as e:
             _LOGGER.error(f"Error stopping GPIO manager: {e}")
-        
+
         # Stop manager async tasks (ESPHome connections, etc.)
         try:
             _LOGGER.info("Stopping manager async tasks...")
             await manager.stop()
         except Exception as e:
             _LOGGER.error(f"Error stopping manager: {e}")
-        
+
         # Stop the event bus (this invokes sigterm listeners which turn off Cover relays)
         await event_bus.stop()
-        
+
         # Create a copy of tasks set to avoid modification during iteration
         remaining_tasks = list(tasks)
         if remaining_tasks:
@@ -432,12 +458,11 @@ async def async_run(
                 if not task.done():
                     _LOGGER.debug(f"Cancelling task: {task.get_name()}")
                     task.cancel()
-            
+
             # Wait for all tasks to complete
             try:
                 await asyncio.gather(*remaining_tasks, return_exceptions=True)
             except Exception as e:
                 _LOGGER.error(f"Error during cleanup: {type(e).__name__} - {e}")
-        
+
         _LOGGER.info("Shutdown complete")
-        return 0
