@@ -1,5 +1,7 @@
 """Lox UDP Client for BoneIO."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
