@@ -27,12 +27,49 @@ areas:
 # Remote devices - control outputs/covers on other devices via MQTT, CAN, etc.
 remote_devices: !include remote_devices.yaml
 
+lox_udp:
+  type: dict
+  required: False
+  meta:
+    label: "Lox UDP Messaging"
+    description: "Send and receive UDP messages via Lox protocol"
+  schema:
+    enabled:
+      required: False
+      type: boolean
+      default: false
+      meta:
+        label: Enable Lox UDP protocol
+    host:
+      required: True
+      type: string
+      meta:
+        label: Target IP address
+    send_port:
+      required: False
+      type: integer
+      default: 4444
+      meta:
+        label: Port to send UDP messages
+    listen_port:
+      required: False
+      type: integer
+      default: 4445
+      meta:
+        label: Port to listen for incoming UDP messages
+
 mqtt:
   type: dict
   required: False
   meta:
     label: "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system."
   schema:
+    enabled:
+      required: False
+      type: boolean
+      default: true
+      meta:
+        label: Enable MQTT protocol
     host:
       required: True
       type: string

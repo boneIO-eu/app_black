@@ -640,7 +640,8 @@
       "mcp23017": "Configure I2C addresses of GPIO expanders. Default addresses are set automatically by board configuration. Change only if your board has different addresses.",
       "logger": "Configure log levels for specific Python modules (e.g., boneio.modbus, pymodbus).",
       "boneio": "boneIO configuration. If you want to change boneIO settings like device type or hardware version and load default working config, use the System State page!",
-      "mqtt": "MQTT",
+      "mqtt": "Messaging Protocols",
+      "lox_udp": "Configure Lox UDP protocol for sending and receiving device state via UDP datagrams.",
       "web": "Web Server",
       "modbus": "Modbus",
       "can": "CAN bus configuration for inter-device communication via CANopen protocol.",
@@ -649,7 +650,8 @@
     },
     "logger": "Logger",
     "boneio": "boneIO",
-    "mqtt": "MQTT",
+    "mqtt": "Messaging Protocols",
+    "lox_udp": "Lox UDP",
     "web": "Web Server",
     "modbus": "Modbus",
     "can": "CAN Bus",
@@ -885,6 +887,26 @@
     "resend_ha_discovery_btn": "Remove & re-send HA Discovery",
     "confirm_resend_ha_discovery": "Remove and re-send all HA Discovery entries? Devices will be briefly removed and then re-created.",
     "resend_ha_discovery_failed": "Failed to resend HA discovery entries."
+  },
+  "lox_config": {
+    "host": "Host",
+    "host_help": "IP address of the target device for UDP communication",
+    "send_port": "Send Port",
+    "send_port_help": "Port to send UDP messages to (default: 4444)",
+    "listen_port": "Listen Port",
+    "listen_port_help": "Port to listen for incoming UDP messages (default: 4445)",
+    "template_section": "Lox Config Integration",
+    "download_template": "Download Lox Config Template",
+    "view_commands": "View UDP Commands",
+    "template_help": "Download an XML template to import into Lox Config software. The template includes Virtual Output commands (to control BoneIO) and Virtual Input commands (to receive BoneIO state). You can also view a JSON summary of all available UDP commands."
+  },
+  "messaging": {
+    "enable_mqtt": "Enable MQTT",
+    "enable_mqtt_help": "Connect to an MQTT broker for Home Assistant integration and inter-device communication",
+    "mqtt_disabled_info": "MQTT protocol is disabled. Enable it to connect to Home Assistant and other smart home systems.",
+    "enable_lox": "Enable Lox UDP",
+    "enable_lox_help": "Send and receive device states via UDP datagrams",
+    "lox_disabled_info": "Lox UDP protocol is disabled. Enable it and configure the target host to start communication."
   },
   "webserver": {
     "port": "Port",

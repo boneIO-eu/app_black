@@ -5,5 +5,5 @@ Supports multiple protocols:
 - ESPHome API: Native ESPHome API via TCP/IP
 - WLED: WLED HTTP JSON API for LED strips
 - CAN: CAN bus communication (future)
-- Loxone: Loxone Miniserver integration (future)
+- Lox: Lox UDP integration (future)
 """

@@ -86,7 +86,7 @@ def _get_config_yaml_files(config_dir: Path) -> list[Path]:
             if yaml_file.is_file():
                 files.append(yaml_file)
     for subdir in config_dir.iterdir():
-        if subdir.is_dir() and not subdir.name.startswith('.'):
+        if subdir.is_dir() and not subdir.name.startswith("."):
             for pattern in ["*.yaml", "*.yml"]:
                 for yaml_file in subdir.glob(pattern):
                     if yaml_file.is_file():
@@ -115,8 +115,7 @@ def _recompute_config_checksum() -> None:
 
         _checksum_cache["sha256"] = hasher.hexdigest()
         _checksum_cache["file_count"] = len(files)
-        _LOGGER.debug("Config checksum recomputed: %s (%d files)",
-                      _checksum_cache["sha256"][:12], len(files))
+        _LOGGER.debug("Config checksum recomputed: %s (%d files)", _checksum_cache["sha256"][:12], len(files))
     except Exception as exc:
         _LOGGER.warning("Failed to compute config checksum: %s", exc)
         _checksum_cache["sha256"] = None
@@ -125,7 +124,7 @@ def _recompute_config_checksum() -> None:
 
 def invalidate_config_cache():
     """Invalidate in-memory config cache and disk validation cache, recompute checksum.
-    
+
     After clearing, triggers a background rebuild of the disk cache so that
     the next reload_config() call hits the fast path (~0.5s) instead of
     running full Cerberus validation (~20s on BeagleBone).
@@ -149,13 +148,13 @@ _cache_rebuild_event.set()  # Initially "done" — no rebuild pending
 
 def wait_for_config_cache(timeout: float = 30.0) -> bool:
     """Wait for a background config cache rebuild to complete.
-    
+
     Called by reload_config before loading config so it hits the
     fast cached path instead of running full validation in parallel.
-    
+
     Args:
         timeout: Maximum seconds to wait.
-        
+
     Returns:
         True if cache is ready, False if timed out.
     """
@@ -167,7 +166,7 @@ def wait_for_config_cache(timeout: float = 30.0) -> bool:
 
 def _rebuild_config_cache_background(config_file: str) -> None:
     """Rebuild validated config disk cache in a background thread.
-    
+
     Runs the full Cerberus validation and saves the result to .cache.pkl.
     This way, when reload_config() is called shortly after, it will
     find a fresh cache and skip the slow validation.
@@ -196,16 +195,16 @@ def _rebuild_config_cache_background(config_file: str) -> None:
 def _get_config_mtime(config_file: str) -> float:
     """
     Get the latest mtime of config file and all included files.
-    
+
     Args:
         config_file: Path to main config file.
-        
+
     Returns:
         Maximum modification time of all config files.
     """
     config_dir = Path(config_file).parent
     max_mtime = os.path.getmtime(config_file)
-    
+
     for pattern in ["*.yaml", "*.yml"]:
         for f in config_dir.glob(pattern):
             try:
@@ -214,7 +213,7 @@ def _get_config_mtime(config_file: str) -> float:
                     max_mtime = mtime
             except OSError:
                 pass
-    
+
     return max_mtime
 
 
@@ -222,24 +221,25 @@ def _get_config_mtime(config_file: str) -> float:
 async def get_parsed_config():
     """
     Get parsed configuration data with !include resolved (cached with mtime check).
-    
+
     Returns:
         Dictionary with parsed config data.
     """
     import time
+
     try:
         config_file = _get_app_state().yaml_config_file
         current_mtime = _get_config_mtime(config_file)
-        
+
         if _config_cache["data"] is not None and _config_cache["mtime"] >= current_mtime:
             _LOGGER.debug("Returning cached configuration (mtime unchanged)")
             return {"config": _config_cache["data"]}
-        
+
         start = time.time()
         # Use load_yaml_file instead of load_config_from_file to get raw YAML data
         # without TimePeriod parsing - frontend expects strings like "220ms", not objects
         config_data = load_yaml_file(config_file)
-        
+
         # Enrich output entities with generated IDs if not explicitly defined
         # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
         if "output" in config_data and isinstance(config_data["output"], list):
@@ -251,10 +251,11 @@ async def get_parsed_config():
                     elif output.get("name"):
                         # Slugify name as fallback
                         import re
+
                         name = output["name"].lower()
-                        name = re.sub(r'[^a-z0-9]+', '_', name)
-                        output["id"] = name.strip('_')
-        
+                        name = re.sub(r"[^a-z0-9]+", "_", name)
+                        output["id"] = name.strip("_")
+
         # Enrich cover entities with generated IDs if not explicitly defined
         if "cover" in config_data and isinstance(config_data["cover"], list):
             for cover in config_data["cover"]:
@@ -264,29 +265,29 @@ async def get_parsed_config():
                     close_relay = cover.get("close_relay", "")
                     if open_relay and close_relay:
                         cover["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
-        
+
         # Enrich output_group entities with generated IDs if not explicitly defined
         # Strategy: explicit 'id' > 'name' (slugified)
         if "output_group" in config_data and isinstance(config_data["output_group"], list):
             import re
+
             for group in config_data["output_group"]:
-                if not group.get("id"):
-                    if group.get("name"):
-                        name = group["name"].lower()
-                        name = re.sub(r'[^a-z0-9]+', '_', name)
-                        group["id"] = name.strip('_')
-        
+                if not group.get("id") and group.get("name"):
+                    name = group["name"].lower()
+                    name = re.sub(r"[^a-z0-9]+", "_", name)
+                    group["id"] = name.strip("_")
+
         elapsed = time.time() - start
-        
+
         _config_cache["data"] = config_data
         _config_cache["mtime"] = current_mtime
-        
+
         _LOGGER.info("Loaded and cached configuration in %.2fs (mtime: %.0f)", elapsed, current_mtime)
         return {"config": config_data}
-        
+
     except Exception as e:
         _LOGGER.error(f"Error loading parsed configuration: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading configuration: {str(e)}") from e
 
 
 def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -> None:
@@ -301,7 +302,7 @@ def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -
     """
     from boneio.const import ADDRESS, ID, MODEL
 
-    if not hasattr(manager, 'modbus') or manager.modbus is None:
+    if not hasattr(manager, "modbus") or manager.modbus is None:
         return
 
     coordinators = manager.modbus.get_all_coordinators()
@@ -331,15 +332,26 @@ def _apply_entity_labels_to_coordinators(manager: Manager, devices_data: list) -
 async def update_section_content(section: str, data: dict | list = Body(...)):
     """
     Update content of a configuration section.
-    
+
     Args:
         section: Name of the config section (e.g., 'mqtt', 'output_group').
         data: Section data - dict or list depending on section type.
-        
+
     Returns:
         Status response with optional restart_required flag.
     """
-    RESTART_REQUIRED_SECTIONS = {'boneio', 'mqtt', 'web', 'modbus', 'mcp23017', 'lm75', 'ina219', 'mcp9808', 'can'}
+    RESTART_REQUIRED_SECTIONS = {
+        "boneio",
+        "mqtt",
+        "lox_udp",
+        "web",
+        "modbus",
+        "mcp23017",
+        "lm75",
+        "ina219",
+        "mcp9808",
+        "can",
+    }
 
     if section in ("event", "binary_sensor") and isinstance(data, list):
         errors = _validate_section_actions(section, data)
@@ -354,70 +366,68 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         result = update_config_section(app_state.yaml_config_file, section, data)
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
-        
+
         invalidate_config_cache()
-        
+
         if section in RESTART_REQUIRED_SECTIONS:
             manager: Manager = app_state.manager
             manager.config_helper.set_restart_required(section)
             result["restart_required"] = True
             result["restart_required_sections"] = manager.config_helper.restart_required_sections
-        
+
         # Hot-apply entity_labels to running Modbus coordinators
         if section == "modbus_devices" and isinstance(data, list):
             try:
                 _apply_entity_labels_to_coordinators(app_state.manager, data)
             except Exception as e:
                 _LOGGER.warning("Failed to hot-apply entity labels: %s", e)
-        
+
         return result
-        
+
     except Exception as e:
         _LOGGER.error(f"Error saving section '{section}': {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving section: {str(e)}") from e
 
 
 @router.post("/config/reload")
 async def reload_configuration(
-    sections: list[str] | None = Body(None, description="Optional list of sections to reload")
+    sections: list[str] | None = Body(None, description="Optional list of sections to reload"),
 ):
     """
     Reload configuration from file.
-    
+
     Supports hot-reloading of: output, cover, input, event, binary_sensor, modbus_devices, sensor, oled.
-    
+
     Args:
         sections: Optional list of section names to reload.
-        
+
     Returns:
         Status of reload operation.
     """
     manager: Manager = _get_app_state().manager
-    
+
     try:
         # Send ConfigReloadEvent BEFORE reload starts
         # Frontend will clear old states and wait for fresh ones
         from boneio.models.events import ConfigReloadEvent
+
         reload_event = ConfigReloadEvent(sections=sections or ["all"])
         if _websocket_manager:
             await _websocket_manager.broadcast(reload_event.model_dump())
-        
+
         # Execute reload - each manager's reload_* method broadcasts states
         result = await manager.reload_config(reload_sections=sections)
-        
+
         if result.get("status") == "error":
-            raise HTTPException(
-                status_code=500,
-                detail=result.get("message", "Failed to reload configuration")
-            )
-        
+            raise HTTPException(status_code=500, detail=result.get("message", "Failed to reload configuration"))
+
         return result
-        
+
     except HTTPException:
         raise
     except Exception as e:
         _LOGGER.error(f"Error reloading config: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error reloading config: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reloading config: {str(e)}") from e
 
 
 @router.post("/config/remove_ha_discovery")
@@ -507,9 +517,7 @@ async def resend_ha_discovery():
             manager.send_message(topic=topic, payload=payload, retain=True)
             resent += 1
 
-    _LOGGER.info(
-        "HA Discovery resend: removed %d, re-sent %d topics", removed, resent
-    )
+    _LOGGER.info("HA Discovery resend: removed %d, re-sent %d topics", removed, resent)
     return {
         "status": "success",
         "removed_topics": removed,
@@ -522,45 +530,43 @@ async def resend_ha_discovery():
 async def download_config():
     """
     Download current configuration as a tar.gz archive.
-    
+
     Returns:
         StreamingResponse with compressed config archive.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
-    
+
     buffer = io.BytesIO()
-    
-    with tarfile.open(fileobj=buffer, mode='w:gz') as tar:
+
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
         for pattern in ["*.yaml", "*.yml"]:
             for yaml_file in config_dir.glob(pattern):
                 if yaml_file.is_file():
                     arcname = yaml_file.name
                     tar.add(str(yaml_file), arcname=arcname)
                     _LOGGER.debug(f"Added {arcname} to config archive")
-        
+
         for subdir in config_dir.iterdir():
-            if subdir.is_dir() and not subdir.name.startswith('.'):
+            if subdir.is_dir() and not subdir.name.startswith("."):
                 for pattern in ["*.yaml", "*.yml"]:
                     for yaml_file in subdir.glob(pattern):
                         if yaml_file.is_file():
                             arcname = f"{subdir.name}/{yaml_file.name}"
                             tar.add(str(yaml_file), arcname=arcname)
                             _LOGGER.debug(f"Added {arcname} to config archive")
-    
+
     buffer.seek(0)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     manager: Manager = _get_app_state().manager
     device_name = manager.config_helper.serial_no
     filename = f"{device_name}_config_{timestamp}.tar.gz"
-    
+
     _LOGGER.info(f"Downloading config archive: {filename}")
-    
+
     return StreamingResponse(
-        buffer,
-        media_type="application/gzip",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        buffer, media_type="application/gzip", headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 
@@ -584,82 +590,76 @@ async def get_config_checksum():
 async def restore_config(file: UploadFile = File(...)):
     """
     Restore configuration from a tar.gz archive.
-    
+
     Creates a backup of current config before restoring.
-    
+
     Args:
         file: Uploaded tar.gz archive.
-        
+
     Returns:
         Status response with list of restored files.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
-    
+
     try:
-        if not file.filename or not file.filename.endswith(('.tar.gz', '.tgz')):
-            return {
-                "status": "error",
-                "message": "Invalid file type. Please upload a .tar.gz or .tgz file."
-            }
-        
+        if not file.filename or not file.filename.endswith((".tar.gz", ".tgz")):
+            return {"status": "error", "message": "Invalid file type. Please upload a .tar.gz or .tgz file."}
+
         contents = await file.read()
         buffer = io.BytesIO(contents)
-        
+
         # Create backup with version in filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = config_dir / "backups"
         backup_dir.mkdir(exist_ok=True)
         backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
-        
-        with tarfile.open(backup_path, mode='w:gz') as tar:
+
+        with tarfile.open(backup_path, mode="w:gz") as tar:
             for pattern in ["*.yaml", "*.yml"]:
                 for yaml_file in config_dir.glob(pattern):
                     if yaml_file.is_file():
                         tar.add(str(yaml_file), arcname=yaml_file.name)
-            
+
             for subdir in config_dir.iterdir():
-                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                if subdir.is_dir() and not subdir.name.startswith(".") and subdir.name != "backups":
                     for pattern in ["*.yaml", "*.yml"]:
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
-        
+
         _LOGGER.info(f"Created backup before restore: {backup_path}")
-        
+
         # Extract and restore
         restored_files = []
-        with tarfile.open(fileobj=buffer, mode='r:gz') as tar:
+        with tarfile.open(fileobj=buffer, mode="r:gz") as tar:
             members = tar.getmembers()
             for member in members:
-                if '..' in member.name or member.name.startswith('/'):
-                    return {
-                        "status": "error",
-                        "message": f"Invalid file path in archive: {member.name}"
-                    }
-                
-                if not (member.name.endswith('.yaml') or member.name.endswith('.yml')):
+                if ".." in member.name or member.name.startswith("/"):
+                    return {"status": "error", "message": f"Invalid file path in archive: {member.name}"}
+
+                if not (member.name.endswith(".yaml") or member.name.endswith(".yml")):
                     _LOGGER.warning(f"Skipping non-YAML file: {member.name}")
                     continue
-            
+
             for member in members:
-                if member.name.endswith('.yaml') or member.name.endswith('.yml'):
+                if member.name.endswith(".yaml") or member.name.endswith(".yml"):
                     target_path = config_dir / member.name
                     target_path.parent.mkdir(parents=True, exist_ok=True)
-                    
+
                     source = tar.extractfile(member)
                     if source is None:
                         _LOGGER.warning(f"Could not extract {member.name}")
                         continue
-                    
-                    with source, open(target_path, 'wb') as target:
+
+                    with source, open(target_path, "wb") as target:
                         target.write(source.read())
-                    
+
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
-        
+
         invalidate_config_cache()
-        
+
         # Validate
         try:
             load_config_from_file(config_file=_get_app_state().yaml_config_file)
@@ -669,7 +669,7 @@ async def restore_config(file: UploadFile = File(...)):
             validation_status = "warning"
             validation_message = f"Configuration restored but validation failed: {str(e)}"
             _LOGGER.warning(f"Restored config validation failed: {e}")
-        
+
         return {
             "status": "success",
             "message": f"Restored {len(restored_files)} files from backup",
@@ -677,9 +677,9 @@ async def restore_config(file: UploadFile = File(...)):
             "backup_path": str(backup_path),
             "validation_status": validation_status,
             "validation_message": validation_message,
-            "restart_required": True
+            "restart_required": True,
         }
-        
+
     except tarfile.TarError as e:
         _LOGGER.error(f"Failed to extract archive: {e}")
         return {"status": "error", "message": f"Failed to extract archive: {str(e)}"}
@@ -692,18 +692,18 @@ async def restore_config(file: UploadFile = File(...)):
 async def get_interlock_groups():
     """
     Get list of all registered interlock group names.
-    
+
     Returns:
         List of unique interlock group names.
     """
     manager = _get_app_state().manager
-    if not manager or not hasattr(manager, '_output_manager'):
+    if not manager or not hasattr(manager, "_output_manager"):
         return {"groups": []}
-    
+
     output_manager = manager._output_manager
-    if not output_manager or not hasattr(output_manager, '_interlock_manager'):
+    if not output_manager or not hasattr(output_manager, "_interlock_manager"):
         return {"groups": []}
-    
+
     groups = output_manager._interlock_manager.get_all_groups()
     return {"groups": groups}
 
@@ -712,10 +712,10 @@ async def get_interlock_groups():
 async def list_files(path: str | None = None):
     """
     List files in the config directory.
-    
+
     Args:
         path: Optional subdirectory path.
-        
+
     Returns:
         Tree structure of YAML files.
     """
@@ -724,10 +724,10 @@ async def list_files(path: str | None = None):
 
     if not os.path.exists(base_dir):
         raise HTTPException(status_code=404, detail="Path not found")
-    
+
     if not os.path.isdir(base_dir):
         raise HTTPException(status_code=400, detail="Path is not a directory")
-    
+
     def scan_directory(directory: Path):
         items = []
         for entry in os.scandir(directory):
@@ -737,104 +737,95 @@ async def list_files(path: str | None = None):
             if entry.is_dir():
                 children = scan_directory(Path(entry.path))
                 if children:
-                    items.append({
-                        "name": entry.name,
-                        "path": relative_path,
-                        "type": "directory",
-                        "children": children
-                    })
+                    items.append({"name": entry.name, "path": relative_path, "type": "directory", "children": children})
             elif entry.is_file():
-                if entry.name.endswith(('.yaml', '.yml')):
-                    items.append({
-                        "name": entry.name,
-                        "path": relative_path,
-                        "type": "file"
-                    })
+                if entry.name.endswith((".yaml", ".yml")):
+                    items.append({"name": entry.name, "path": relative_path, "type": "file"})
         return items
 
     try:
         items = [{"name": "config", "path": "", "type": "directory", "children": scan_directory(base_dir)}]
         return {"items": items}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/files/{file_path:path}")
 async def get_file_content(file_path: str):
     """
     Get content of a file.
-    
+
     Args:
         file_path: Relative path to file.
-        
+
     Returns:
         File content as string.
     """
     config_dir = Path(_get_app_state().yaml_config_file).parent
     full_path = os.path.join(config_dir, file_path)
-    
+
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     if not os.path.isfile(full_path):
         raise HTTPException(status_code=400, detail="Path is not a file")
-    
-    if not full_path.endswith(('.yaml', '.yml', '.json')):
+
+    if not full_path.endswith((".yaml", ".yml", ".json")):
         raise HTTPException(status_code=400, detail="Invalid file type")
-    
+
     try:
         with open(full_path) as f:
             content = f.read()
         return {"content": content}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/files/{file_path:path}")
 async def update_file_content(file_path: str, content: dict = Body(...)):
     """
     Update content of a file.
-    
+
     Args:
         file_path: Relative path to file.
         content: Dictionary with 'content' key containing file content.
-        
+
     Returns:
         Status response.
     """
     config_dir = Path(_get_app_state().yaml_config_file).parent
     full_path = os.path.join(config_dir, file_path)
-    
+
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     if not os.path.isfile(full_path):
         raise HTTPException(status_code=400, detail="Path is not a file")
-    
-    if not full_path.endswith(('.yaml', '.yml', '.json')):
+
+    if not full_path.endswith((".yaml", ".yml", ".json")):
         raise HTTPException(status_code=400, detail="Invalid file type")
-    
+
     try:
-        with open(full_path, 'w') as f:
+        with open(full_path, "w") as f:
             f.write(content["content"])
         return {"status": "success"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/config/validate_device_type_change")
 async def validate_device_type_change(request: dict = Body(...)):
     """
     Validate if changing device_type will cause compatibility issues.
-    
+
     Checks if current boneio_output/boneio_input references are compatible
     with the new device type's output_mapping/input_mapping.
-    
+
     Args:
         request: Dictionary with:
             - new_device_type: Target device type
             - version: Hardware version (default: 0.8)
-            
+
     Returns:
         Dictionary with:
             - compatible: True if all references are compatible
@@ -844,22 +835,22 @@ async def validate_device_type_change(request: dict = Body(...)):
     """
     new_device_type = request.get("new_device_type")
     version = request.get("version", "0.8")
-    
+
     if not new_device_type:
         raise HTTPException(status_code=400, detail="new_device_type is required")
-    
+
     # Normalize names
     normalized_type = normalize_board_name(new_device_type)
     normalized_version = normalize_version(version)
-    
+
     # Load current config
     try:
         config_file = _get_app_state().yaml_config_file
         current_config = load_config_from_file(config_file)
     except Exception as e:
         _LOGGER.error("Failed to load current config: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to load config: {e}")
-    
+        raise HTTPException(status_code=500, detail=f"Failed to load config: {e}") from e
+
     # Load new board config
     try:
         board_file = get_board_config_path(f"output_{normalized_type}", normalized_version)
@@ -869,45 +860,46 @@ async def validate_device_type_change(request: dict = Body(...)):
     except Exception as e:
         _LOGGER.error("Failed to load board config for %s: %s", normalized_type, e)
         raise HTTPException(
-            status_code=400, 
-            detail=f"Board config not found for {new_device_type} version {version}"
-        )
-    
+            status_code=400, detail=f"Board config not found for {new_device_type} version {version}"
+        ) from e
+
     output_mapping = board_config.get("output_mapping", {})
     input_mapping = input_config.get("input_mapping", {})
-    
+
     # Check incompatible outputs
     incompatible_outputs = []
     for output in (current_config or {}).get("output", []):
         boneio_output = output.get("boneio_output")
-        if boneio_output:
-            if boneio_output.lower() not in output_mapping:
-                incompatible_outputs.append({
-                    "boneio_output": boneio_output,
-                    "id": output.get("id", boneio_output),
-                    "name": output.get("name", output.get("id", boneio_output)),
-                })
-    
+        if boneio_output and boneio_output.lower() not in output_mapping:
+                incompatible_outputs.append(
+                    {
+                        "boneio_output": boneio_output,
+                        "id": output.get("id", boneio_output),
+                        "name": output.get("name", output.get("id", boneio_output)),
+                    }
+                )
+
     # Check incompatible inputs (events and binary_sensors)
     incompatible_inputs = []
     config_data = current_config or {}
     for section in ["event", "binary_sensor"]:
         for input_item in config_data.get(section, []):
             boneio_input = input_item.get("boneio_input")
-            if boneio_input:
-                if boneio_input.lower() not in input_mapping:
-                    incompatible_inputs.append({
-                        "boneio_input": boneio_input,
-                        "id": input_item.get("id", boneio_input),
-                        "section": section,
-                    })
-    
+            if boneio_input and boneio_input.lower() not in input_mapping:
+                    incompatible_inputs.append(
+                        {
+                            "boneio_input": boneio_input,
+                            "id": input_item.get("id", boneio_input),
+                            "section": section,
+                        }
+                    )
+
     # Get available example files for this device type (relative to this file: boneio/webui/routes/config.py)
     boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     # Convert normalized_type back to example_config folder name format (24_16 -> 24x16)
     example_folder_name = normalized_type.replace("_", "x")
     example_dir = os.path.join(boneio_path, "example_config", example_folder_name)
-    
+
     available_example_files = []
     if os.path.isdir(example_dir):
         for filename in os.listdir(example_dir):
@@ -930,15 +922,17 @@ async def validate_device_type_change(request: dict = Body(...)):
                     category = "adc"
                 else:
                     category = "other"
-                
-                available_example_files.append({
-                    "filename": filename,
-                    "category": category,
-                    "path": os.path.join(example_dir, filename),
-                })
-    
+
+                available_example_files.append(
+                    {
+                        "filename": filename,
+                        "category": category,
+                        "path": os.path.join(example_dir, filename),
+                    }
+                )
+
     compatible = len(incompatible_outputs) == 0 and len(incompatible_inputs) == 0
-    
+
     return {
         "compatible": compatible,
         "incompatible_outputs": incompatible_outputs,
@@ -953,23 +947,23 @@ async def validate_device_type_change(request: dict = Body(...)):
 async def list_config_backups():
     """
     List available configuration backups from disk.
-    
+
     Returns:
         List of backup information with timestamps and file counts.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
     backup_dir = config_dir / "backups"
-    
+
     if not backup_dir.exists():
         return {"backups": []}
-    
+
     backups = []
     for backup_file in sorted(backup_dir.glob("config_backup_*.tar.gz"), reverse=True):
         try:
             # Parse filename: config_backup_v1.0.0dev26_20260106_112345.tar.gz
             filename_parts = backup_file.stem.replace("config_backup_", "")
-            
+
             # Extract version if present
             version = None
             timestamp_str = filename_parts
@@ -979,35 +973,37 @@ async def list_config_backups():
                 if len(parts) == 2:
                     version = parts[0][1:]  # Remove 'v' prefix
                     timestamp_str = parts[1]
-            
+
             # Parse timestamp: YYYYMMDD_HHMMSS
             formatted_timestamp = timestamp_str
             if len(timestamp_str) == 15 and timestamp_str[8] == "_":
                 date_part = timestamp_str[:8]
                 time_part = timestamp_str[9:]
                 formatted_timestamp = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]} {time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
-            
+
             # Count files in backup
             file_count = 0
             try:
-                with tarfile.open(backup_file, 'r:gz') as tar:
+                with tarfile.open(backup_file, "r:gz") as tar:
                     file_count = len(tar.getmembers())
             except Exception:
                 pass
-            
-            backups.append({
-                "path": str(backup_file),
-                "filename": backup_file.name,
-                "version": version or "unknown",
-                "timestamp": formatted_timestamp,
-                "timestamp_raw": timestamp_str,
-                "size": backup_file.stat().st_size,
-                "file_count": file_count,
-            })
+
+            backups.append(
+                {
+                    "path": str(backup_file),
+                    "filename": backup_file.name,
+                    "version": version or "unknown",
+                    "timestamp": formatted_timestamp,
+                    "timestamp_raw": timestamp_str,
+                    "size": backup_file.stat().st_size,
+                    "file_count": file_count,
+                }
+            )
         except Exception as e:
             _LOGGER.warning(f"Error processing backup {backup_file}: {e}")
             continue
-    
+
     return {"backups": backups}
 
 
@@ -1015,17 +1011,17 @@ async def list_config_backups():
 async def restore_config_backup(backup_path: str = Body(..., embed=True)):
     """
     Restore configuration from a backup file on disk.
-    
+
     Args:
         backup_path: Path to the backup file to restore.
-        
+
     Returns:
         Status response with list of restored files.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
     backup_file = Path(backup_path)
-    
+
     # Security: ensure backup is in the backups directory
     backup_dir = config_dir / "backups"
     try:
@@ -1035,54 +1031,54 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
             return {"status": "error", "message": "Invalid backup path"}
     except Exception:
         return {"status": "error", "message": "Invalid backup path"}
-    
+
     if not backup_file.exists():
         return {"status": "error", "message": "Backup file not found"}
-    
+
     try:
         # Create a new backup before restoring
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         new_backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
-        
-        with tarfile.open(new_backup_path, mode='w:gz') as tar:
+
+        with tarfile.open(new_backup_path, mode="w:gz") as tar:
             for pattern in ["*.yaml", "*.yml"]:
                 for yaml_file in config_dir.glob(pattern):
                     if yaml_file.is_file():
                         tar.add(str(yaml_file), arcname=yaml_file.name)
-            
+
             for subdir in config_dir.iterdir():
-                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                if subdir.is_dir() and not subdir.name.startswith(".") and subdir.name != "backups":
                     for pattern in ["*.yaml", "*.yml"]:
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
-        
+
         _LOGGER.info(f"Created backup before restore: {new_backup_path}")
-        
+
         # Restore from selected backup
         restored_files = []
-        with tarfile.open(backup_file, mode='r:gz') as tar:
+        with tarfile.open(backup_file, mode="r:gz") as tar:
             members = tar.getmembers()
             for member in members:
-                if '..' in member.name or member.name.startswith('/'):
+                if ".." in member.name or member.name.startswith("/"):
                     continue
-                
-                if member.name.endswith(('.yaml', '.yml')):
+
+                if member.name.endswith((".yaml", ".yml")):
                     target_path = config_dir / member.name
                     target_path.parent.mkdir(parents=True, exist_ok=True)
-                    
+
                     source = tar.extractfile(member)
                     if source is None:
                         continue
-                    
-                    with source, open(target_path, 'wb') as target:
+
+                    with source, open(target_path, "wb") as target:
                         target.write(source.read())
-                    
+
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
-        
+
         invalidate_config_cache()
-        
+
         # Validate
         try:
             load_config_from_file(config_file=_get_app_state().yaml_config_file)
@@ -1092,7 +1088,7 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
             validation_status = "warning"
             validation_message = f"Configuration restored but validation failed: {str(e)}"
             _LOGGER.warning(f"Restored config validation failed: {e}")
-        
+
         return {
             "status": "success",
             "message": f"Restored {len(restored_files)} files from backup",
@@ -1100,9 +1096,9 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
             "backup_created": str(new_backup_path),
             "validation_status": validation_status,
             "validation_message": validation_message,
-            "restart_required": True
+            "restart_required": True,
         }
-        
+
     except tarfile.TarError as e:
         _LOGGER.error(f"Failed to extract backup: {e}")
         return {"status": "error", "message": f"Failed to extract backup: {str(e)}"}
@@ -1119,25 +1115,25 @@ async def create_config_backup():
     """
     Create a configuration backup on disk with version in filename.
     Automatically removes oldest backups if more than MAX_BACKUPS exist.
-    
+
     Returns:
         Status response with backup path.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
-    
+
     try:
         backup_dir = config_dir / "backups"
         backup_dir.mkdir(exist_ok=True)
-        
+
         # Clean up old backups BEFORE creating new one - keep only MAX_BACKUPS - 1
         all_backups = sorted(backup_dir.glob("config_backup_*.tar.gz"), reverse=True)
         _LOGGER.debug(f"Found {len(all_backups)} existing backups, max allowed: {MAX_BACKUPS}")
-        
+
         if len(all_backups) >= MAX_BACKUPS:
             # Remove oldest backups to make room for new one
             # Sorting by filename (reverse=True) puts newest first (timestamp in filename)
-            backups_to_remove = all_backups[MAX_BACKUPS - 1:]
+            backups_to_remove = all_backups[MAX_BACKUPS - 1 :]
             _LOGGER.info(f"Removing {len(backups_to_remove)} old backups to maintain limit of {MAX_BACKUPS}")
             for old_backup in backups_to_remove:
                 try:
@@ -1145,43 +1141,43 @@ async def create_config_backup():
                     _LOGGER.info(f"Removed old backup: {old_backup.name}")
                 except Exception as e:
                     _LOGGER.warning(f"Failed to remove old backup {old_backup.name}: {e}")
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = backup_dir / f"config_backup_v{__version__}_{timestamp}.tar.gz"
-        
-        with tarfile.open(backup_path, mode='w:gz') as tar:
+
+        with tarfile.open(backup_path, mode="w:gz") as tar:
             for pattern in ["*.yaml", "*.yml"]:
                 for yaml_file in config_dir.glob(pattern):
                     if yaml_file.is_file():
                         tar.add(str(yaml_file), arcname=yaml_file.name)
-            
+
             for subdir in config_dir.iterdir():
-                if subdir.is_dir() and not subdir.name.startswith('.') and subdir.name != 'backups':
+                if subdir.is_dir() and not subdir.name.startswith(".") and subdir.name != "backups":
                     for pattern in ["*.yaml", "*.yml"]:
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
-        
+
         _LOGGER.info(f"Created config backup: {backup_path}")
-        
+
         # Final count for response
         final_count = len(list(backup_dir.glob("config_backup_*.tar.gz")))
         _LOGGER.debug(f"Total backups after creation: {final_count}")
-        
+
         # Count files
         file_count = 0
-        with tarfile.open(backup_path, 'r:gz') as tar:
+        with tarfile.open(backup_path, "r:gz") as tar:
             file_count = len(tar.getmembers())
-        
+
         return {
             "status": "success",
             "message": f"Backup created with {file_count} files",
             "backup_path": str(backup_path),
             "filename": backup_path.name,
             "version": __version__,
-            "file_count": file_count
+            "file_count": file_count,
         }
-        
+
     except Exception as e:
         _LOGGER.error(f"Failed to create backup: {e}")
         return {"status": "error", "message": f"Failed to create backup: {str(e)}"}
@@ -1191,17 +1187,17 @@ async def create_config_backup():
 async def download_config_backup(backup_path: str):
     """
     Download a specific configuration backup from disk.
-    
+
     Args:
         backup_path: Path to the backup file.
-        
+
     Returns:
         StreamingResponse with backup file.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
     backup_file = Path(backup_path)
-    
+
     # Security: ensure backup is in the backups directory
     backup_dir = config_dir / "backups"
     try:
@@ -1209,18 +1205,18 @@ async def download_config_backup(backup_path: str):
         backup_dir = backup_dir.resolve()
         if not str(backup_file).startswith(str(backup_dir)):
             raise HTTPException(status_code=403, detail="Invalid backup path")
-    except Exception:
-        raise HTTPException(status_code=403, detail="Invalid backup path")
-    
+    except Exception as e:
+        raise HTTPException(status_code=403, detail="Invalid backup path") from e
+
     if not backup_file.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
-    
+
     _LOGGER.info(f"Downloading backup: {backup_file.name}")
-    
+
     return StreamingResponse(
-        open(backup_file, 'rb'),
+        open(backup_file, "rb"),
         media_type="application/gzip",
-        headers={"Content-Disposition": f"attachment; filename={backup_file.name}"}
+        headers={"Content-Disposition": f"attachment; filename={backup_file.name}"},
     )
 
 
@@ -1228,17 +1224,17 @@ async def download_config_backup(backup_path: str):
 async def delete_config_backup(backup_path: str = Body(..., embed=True)):
     """
     Delete a specific configuration backup from disk.
-    
+
     Args:
         backup_path: Path to the backup file to delete.
-        
+
     Returns:
         Status response.
     """
     config_file = _get_app_state().yaml_config_file
     config_dir = Path(config_file).parent
     backup_file = Path(backup_path)
-    
+
     # Security: ensure backup is in the backups directory
     backup_dir = config_dir / "backups"
     try:
@@ -1248,18 +1244,66 @@ async def delete_config_backup(backup_path: str = Body(..., embed=True)):
             return {"status": "error", "message": "Invalid backup path"}
     except Exception:
         return {"status": "error", "message": "Invalid backup path"}
-    
+
     if not backup_file.exists():
         return {"status": "error", "message": "Backup file not found"}
-    
+
     try:
         backup_file.unlink()
         _LOGGER.info(f"Deleted backup: {backup_file.name}")
-        
-        return {
-            "status": "success",
-            "message": f"Backup {backup_file.name} deleted successfully"
-        }
+
+        return {"status": "success", "message": f"Backup {backup_file.name} deleted successfully"}
     except Exception as e:
         _LOGGER.error(f"Failed to delete backup: {e}")
         return {"status": "error", "message": f"Failed to delete backup: {str(e)}"}
+
+
+@router.get("/config/lox-template")
+async def get_lox_template():
+    """Generate and download Lox Config XML template.
+
+    The template contains Virtual UDP Output commands (Miniserver → BoneIO)
+    and Virtual UDP Input commands (BoneIO → Miniserver) for all configured
+    outputs, covers, and output groups.
+
+    Returns:
+        XML file download as attachment.
+    """
+    from boneio.integration.lox_template import generate_lox_template
+
+    manager: Manager = _get_app_state().manager
+
+    try:
+        xml_content = generate_lox_template(manager)
+        serial = manager.config_helper.serial_no or "boneio"
+        filename = f"boneio_{serial}_lox_template.xml"
+
+        return StreamingResponse(
+            io.BytesIO(xml_content.encode("utf-8")),
+            media_type="application/xml",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        _LOGGER.error("Failed to generate Lox template: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate Lox template: {e}") from e
+
+
+@router.get("/config/lox-commands")
+async def get_lox_commands():
+    """Get JSON summary of all available Lox UDP commands.
+
+    Returns a structured list of all commands BoneIO accepts (for controlling
+    outputs and covers) and all status messages BoneIO sends.
+
+    Returns:
+        JSON with commands and status_messages arrays.
+    """
+    from boneio.integration.lox_template import generate_lox_summary
+
+    manager: Manager = _get_app_state().manager
+
+    try:
+        return generate_lox_summary(manager)
+    except Exception as e:
+        _LOGGER.error("Failed to generate Lox commands: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate Lox commands: {e}") from e

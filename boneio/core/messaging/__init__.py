@@ -2,7 +2,9 @@
 
 from boneio.core.messaging.basic import MessageBus
 from boneio.core.messaging.basic_mqtt import BasicMqtt
+from boneio.core.messaging.composite import CompositeMessageBus
 from boneio.core.messaging.local import LocalMessageBus
+from boneio.core.messaging.lox import LoxUDPClient
 from boneio.core.messaging.mqtt import MQTTClient
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "MQTTClient",
     "MessageBus",
     "BasicMqtt",
+    "CompositeMessageBus",
+    "LoxUDPClient",
 ]

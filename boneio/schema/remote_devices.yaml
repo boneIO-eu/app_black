@@ -1,6 +1,6 @@
 # Remote Devices Schema
 # Currently supported: mqtt
-# Planned for future: loxone, esphome_udp, esphome_api, can
+# Planned for future: lox, esphome_udp, esphome_api, can
 
 type: list
 required: False
@@ -30,7 +30,7 @@ schema:
       type: string
       required: True
       # Supported: mqtt, esphome_api, wled
-      # Future: 'loxone', 'esphome_udp', 'can'
+      # Future: 'lox', 'esphome_udp', 'can'
       allowed: ['mqtt', 'esphome_api', 'wled']
       meta:
         label: Protocol
@@ -431,21 +431,21 @@ schema:
                 meta:
                   label: Palette Name
     
-    # # Loxone Parameters (future)
-    # loxone:
+    # # Lox Parameters (future)
+    # lox:
     #   type: dict
     #   required: False
     #   dependencies:
-    #     protocol: ['loxone']
+    #     protocol: ['lox']
     #   meta:
-    #     label: Loxone Settings
+    #     label: Lox Settings
     #   schema:
     #     host:
     #       type: string
     #       required: True
     #       meta:
-    #         label: Miniserver Host
-    #         description: "IP address or hostname of Loxone Miniserver"
+    #         label: Server Host
+    #         description: "IP address or hostname of Lox server"
     #     port:
     #       type: integer
     #       required: False

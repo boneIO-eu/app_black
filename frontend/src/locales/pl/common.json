@@ -613,7 +613,8 @@
       "mcp23017": "Skonfiguruj adresy I2C ekspanderów MCP23017. Domyślne adresy są ustawiane automatycznie przez konfigurację płytki. Zmień tylko jeśli Twoja płytka ma inne adresy.",
       "logger": "Skonfiguruj poziomy logowania dla konkretnych modułów Python (np., boneio.modbus, pymodbus).",
       "boneio": "Konfiguracja boneIO. Jeśli chcesz zmienić ustawienia boneIO takie jak typ urządzenia lub wersję sprzętową i załadować domyślną konfigurację, użyj strony System!",
-      "mqtt": "Konfiguracja MQTT",
+      "mqtt": "Protokoły komunikacyjne",
+      "lox_udp": "Konfiguracja protokołu Lox UDP do wysyłania i odbierania stanów urządzeń przez datagramy UDP.",
       "web": "Konfiguracja Serwera Web",
       "modbus": "Konfiguracja Modbus",
       "can": "Konfiguracja magistrali CAN do komunikacji między urządzeniami przez protokół CANopen.",
@@ -622,7 +623,8 @@
     },
     "logger": "Logger",
     "boneio": "boneIO",
-    "mqtt": "MQTT",
+    "mqtt": "Protokoły komunikacyjne",
+    "lox_udp": "Lox UDP",
     "web": "Serwer Web",
     "modbus": "Modbus",
     "can": "Magistrala CAN",
@@ -891,6 +893,26 @@
     "resend_ha_discovery_btn": "Usuń i wyślij ponownie HA Discovery",
     "confirm_resend_ha_discovery": "Usunąć i wysłać ponownie wszystkie wpisy HA Discovery? Urządzenia zostaną chwilowo usunięte i ponownie utworzone.",
     "resend_ha_discovery_failed": "Nie udało się ponownie wysłać wpisów HA discovery."
+  },
+  "lox_config": {
+    "host": "Host",
+    "host_help": "Adres IP urządzenia docelowego do komunikacji UDP",
+    "send_port": "Port wysyłania",
+    "send_port_help": "Port do wysyłania wiadomości UDP (domyślnie: 4444)",
+    "listen_port": "Port nasłuchiwania",
+    "listen_port_help": "Port nasłuchiwania przychodzących wiadomości UDP (domyślnie: 4445)",
+    "template_section": "Integracja z Lox Config",
+    "download_template": "Pobierz szablon Lox Config",
+    "view_commands": "Podgląd komend UDP",
+    "template_help": "Pobierz szablon XML do importu w oprogramowaniu Lox Config. Szablon zawiera komendy Virtual Output (sterowanie BoneIO) i Virtual Input (odbiór stanów BoneIO). Możesz też podejrzeć listę wszystkich dostępnych komend UDP w formacie JSON."
+  },
+  "messaging": {
+    "enable_mqtt": "Włącz MQTT",
+    "enable_mqtt_help": "Połącz się z brokerem MQTT w celu integracji z Home Assistant i komunikacji między urządzeniami",
+    "mqtt_disabled_info": "Protokół MQTT jest wyłączony. Włącz go, aby połączyć się z Home Assistant i innymi systemami smart home.",
+    "enable_lox": "Włącz Lox UDP",
+    "enable_lox_help": "Wysyłaj i odbieraj stany urządzeń przez datagramy UDP",
+    "lox_disabled_info": "Protokół Lox UDP jest wyłączony. Włącz go i skonfiguruj adres hosta, aby rozpocząć komunikację."
   },
   "webserver": {
     "port": "Port",

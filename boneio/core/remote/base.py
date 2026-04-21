@@ -1,7 +1,7 @@
 """Base classes for remote device support.
 
 This module defines the abstract base class for all remote device implementations.
-Each protocol (MQTT, CAN, Loxone, ESPHome) will have its own implementation.
+Each protocol (MQTT, CAN, Lox, ESPHome) will have its own implementation.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class RemoteDeviceProtocol(str, Enum):
     
     MQTT = "mqtt"
     CAN = "can"
-    LOXONE = "loxone"
+    LOX = "lox"
     ESPHOME_UDP = "esphome_udp"
     ESPHOME_API = "esphome_api"
     WLED = "wled"
@@ -33,7 +33,7 @@ class RemoteDeviceType(str, Enum):
     
     BONEIO_BLACK = "boneio_black"
     ESPHOME = "esphome"
-    LOXONE_MINISERVER = "loxone_miniserver"
+    LOX_SERVER = "lox_server"
     WLED = "wled"
     GENERIC = "generic"
 
