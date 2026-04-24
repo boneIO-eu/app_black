@@ -43,7 +43,7 @@ class TimeBasedCover(BaseCover):
 
     def _move_cover(self, direction: str, duration: float, target_position: int | None = None):
         """Run in sepearate thread.
-        
+
         Args:
             direction: Direction of movement (OPEN or CLOSE)
             duration: Full time for 0-100% movement in milliseconds
@@ -60,7 +60,10 @@ class TimeBasedCover(BaseCover):
 
         if total_steps == 0 or duration == 0:
             self._current_operation = IDLE
-            self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
+            try:
+                self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
+            except RuntimeError:
+                pass
             return
 
         # Calculate actual duration based on remaining distance
@@ -69,7 +72,10 @@ class TimeBasedCover(BaseCover):
 
         relay.turn_on()
         # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        try:
+            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        except RuntimeError:
+            pass
         start_time = time.monotonic()
 
         while not self._stop_event.is_set():
@@ -84,7 +90,10 @@ class TimeBasedCover(BaseCover):
 
             self._last_timestamp = current_time # Użyj pobranego czasu
             if current_time - self._last_update_time >= 1:
-                self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
+                try:
+                    self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
+                except RuntimeError:
+                    break
                 self._last_update_time = current_time
 
             if target_position is not None:
@@ -98,9 +107,15 @@ class TimeBasedCover(BaseCover):
             time.sleep(0.05)  # Małe opóźnienie, aby nie blokować CPU
         relay.turn_off()
         # Send relay state to WebSocket (not MQTT - that's handled by output_type check)
-        self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        try:
+            self._loop.call_soon_threadsafe(lambda r=relay: asyncio.ensure_future(r.async_send_state()))
+        except RuntimeError:
+            pass
         self._current_operation = IDLE
-        self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
+        try:
+            self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
+        except RuntimeError:
+            pass
         self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
     async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:

@@ -87,9 +87,16 @@ class CoverManager:
             for cid in removed_ids:
                 _LOGGER.info("Cover %s removed from config, cleaning up", cid)
                 cover = self._covers.pop(cid)
-                # Stop cover movement if running
+                # Stop cover movement if running (synchronous - no running loop guaranteed)
                 try:
-                    asyncio.ensure_future(cover.stop())
+                    if hasattr(cover, '_stop_event'):
+                        cover._stop_event.set()
+                    if hasattr(cover, '_movement_thread') and cover._movement_thread and cover._movement_thread.is_alive():
+                        cover._movement_thread.join(timeout=1.0)
+                    if hasattr(cover, '_open_relay'):
+                        cover._open_relay.turn_off()
+                    if hasattr(cover, '_close_relay'):
+                        cover._close_relay.turn_off()
                 except Exception:
                     pass
                 # Remove HA autodiscovery

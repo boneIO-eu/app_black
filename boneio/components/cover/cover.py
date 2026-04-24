@@ -187,13 +187,17 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
         self._event_bus.add_sigterm_listener(self.on_exit)
 
-        self._loop.call_soon_threadsafe(
-            self._loop.call_later,
-            0.5,
-            self.send_state,
-            self.state,
-            self.json_position
-        )
+        try:
+            self._loop.call_soon_threadsafe(
+                self._loop.call_later,
+                0.5,
+                self.send_state,
+                self.state,
+                self.json_position
+            )
+        except RuntimeError:
+            # Event loop is closed (e.g. during tests)
+            pass
 
     async def on_exit(self) -> None:
         """Stop on exit."""
@@ -206,8 +210,12 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             self._open_relay.turn_off()
             self._close_relay.turn_off()
             # Send relay states to WebSocket (not MQTT - that's handled by output_type check)
-            asyncio.create_task(self._open_relay.async_send_state())
-            asyncio.create_task(self._close_relay.async_send_state())
+            try:
+                asyncio.create_task(self._open_relay.async_send_state())
+                asyncio.create_task(self._close_relay.async_send_state())
+            except RuntimeError:
+                # Event loop is closed (e.g. during tests or shutdown)
+                pass
             if self._current_operation in (OPENING, CLOSING):
                 self._last_operation = self._current_operation
             self._current_operation = IDLE
