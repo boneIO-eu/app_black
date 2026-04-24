@@ -1,0 +1,14 @@
+[Unit]
+Description=boneIO
+After=multi-user.target network.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/oled_msg.sh "boneIO Black App" "is starting..."
+ExecStart=${BONEIO_HOME}/boneio/venv/bin/boneio run -c ${BONEIO_HOME}/boneio/config.yaml
+User=${BONEIO_USER}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
-import { FaThermometerHalf, FaShieldAlt, FaDoorOpen, FaCog } from 'react-icons/fa';
+import { FaThermometerHalf, FaShieldAlt, FaDoorOpen, FaCog, FaTint } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,19 @@ import type { TemplatesData } from './templates/types';
 import ThermostatCard from './templates/ThermostatCard';
 import AlarmCard from './templates/AlarmCard';
 import GateCard from './templates/GateCard';
+import IrrigationView from './IrrigationView';
+import { useConfig } from '../contexts/ConfigContext';
 
+/**
+ * TemplatesView - Combined view for Templates and Irrigation.
+ * Shows tabs: "Szablony" (Templates) and "Nawadnianie" (Irrigation).
+ * Irrigation tab is only visible when irrigation controllers exist in config.
+ */
 export default function TemplatesView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { hasIrrigationSection } = useConfig();
+  const [activeTab, setActiveTab] = useState<'templates' | 'irrigation'>('templates');
   const [data, setData] = useState<TemplatesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +112,7 @@ export default function TemplatesView() {
     }
   }, []);
 
-  if (loading) {
+  if (loading && activeTab === 'templates') {
     return (
       <div className="container mx-auto p-4">
         <div className="flex justify-center items-center h-64">
@@ -113,7 +122,7 @@ export default function TemplatesView() {
     );
   }
 
-  if (error && !data) {
+  if (error && !data && activeTab === 'templates') {
     return (
       <div className="container mx-auto p-4">
         <div className="alert alert-error">
@@ -130,79 +139,113 @@ export default function TemplatesView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="card bg-base-200 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title mb-4">{t('templates.title')}</h2>
-
-          {isEmpty && (
-            <div className="alert alert-info">
-              <span>{t('templates.no_templates')}</span>
-            </div>
-          )}
-
-          {/* Thermostats */}
-          {thermostats.length > 0 && (
-            <>
-              <div className="divider">
-                <FaThermometerHalf className="text-orange-500" />
-                {t('templates.thermostats')}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {thermostats.map((th) => (
-                  <LongPressWrapper key={th.id} onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
-                    <ThermostatCard
-                      data={th}
-                      onSetMode={setThermostatMode}
-                      onSetTemp={setThermostatTemp}
-                    />
-                  </LongPressWrapper>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Alarms */}
-          {alarms.length > 0 && (
-            <>
-              <div className="divider">
-                <FaShieldAlt className="text-red-500" />
-                {t('templates.alarms')}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {alarms.map((al) => (
-                  <LongPressWrapper key={al.id} onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
-                    <AlarmCard
-                      data={al}
-                      onCommand={sendAlarmCommand}
-                    />
-                  </LongPressWrapper>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Gates */}
-          {gates.length > 0 && (
-            <>
-              <div className="divider">
-                <FaDoorOpen className="text-blue-500" />
-                {t('templates.gates')}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {gates.map((g) => (
-                  <LongPressWrapper key={g.id} onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
-                    <GateCard
-                      data={g}
-                      onCommand={sendGateCommand}
-                    />
-                  </LongPressWrapper>
-                ))}
-              </div>
-            </>
-          )}
+      {/* Tabs - show irrigation tab only when irrigation controllers exist */}
+      {hasIrrigationSection && (
+        <div role="tablist" className="tabs tabs-bordered tabs-lg mb-4">
+          <button
+            role="tab"
+            className={`tab ${activeTab === 'templates' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('templates')}
+          >
+            <span className="flex items-center gap-2">
+              🧩 {t('navigation.templates')}
+            </span>
+          </button>
+          <button
+            role="tab"
+            className={`tab ${activeTab === 'irrigation' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('irrigation')}
+          >
+            <span className="flex items-center gap-2">
+              <FaTint className="text-blue-400" />
+              {t('navigation.irrigation')}
+            </span>
+          </button>
         </div>
-      </div>
-      {error && (
+      )}
+
+      {/* Templates tab content */}
+      {activeTab === 'templates' && (
+        <div className="card bg-base-200 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title mb-4">{t('templates.title')}</h2>
+
+            {isEmpty && (
+              <div className="alert alert-info">
+                <span>{t('templates.no_templates')}</span>
+              </div>
+            )}
+
+            {/* Thermostats */}
+            {thermostats.length > 0 && (
+              <>
+                <div className="divider">
+                  <FaThermometerHalf className="text-orange-500" />
+                  {t('templates.thermostats')}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {thermostats.map((th) => (
+                    <LongPressWrapper key={th.id} onLongPress={() => handleLongPress(th.id, th.name || th.id)}>
+                      <ThermostatCard
+                        data={th}
+                        onSetMode={setThermostatMode}
+                        onSetTemp={setThermostatTemp}
+                      />
+                    </LongPressWrapper>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Alarms */}
+            {alarms.length > 0 && (
+              <>
+                <div className="divider">
+                  <FaShieldAlt className="text-red-500" />
+                  {t('templates.alarms')}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {alarms.map((al) => (
+                    <LongPressWrapper key={al.id} onLongPress={() => handleLongPress(al.id, al.name || al.id)}>
+                      <AlarmCard
+                        data={al}
+                        onCommand={sendAlarmCommand}
+                      />
+                    </LongPressWrapper>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Gates */}
+            {gates.length > 0 && (
+              <>
+                <div className="divider">
+                  <FaDoorOpen className="text-blue-500" />
+                  {t('templates.gates')}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {gates.map((g) => (
+                    <LongPressWrapper key={g.id} onLongPress={() => handleLongPress(g.id, g.name || g.id)}>
+                      <GateCard
+                        data={g}
+                        onCommand={sendGateCommand}
+                      />
+                    </LongPressWrapper>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Irrigation tab content */}
+      {activeTab === 'irrigation' && (
+        <IrrigationView />
+      )}
+
+      {error && activeTab === 'templates' && (
         <div className="toast">
           <div className="alert alert-error">{error}</div>
         </div>

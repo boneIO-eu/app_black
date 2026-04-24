@@ -344,7 +344,17 @@ class UpdateManager(AsyncUpdater):
         if self._update_running:
             _LOGGER.warning("Update already in progress, ignoring install command")
             return
-        
+
+        # Block update if migration bootstrap is required
+        migration_runner = getattr(self._manager, "migration_runner", None)
+        if migration_runner and migration_runner.bootstrap_required:
+            _LOGGER.warning(
+                "Cannot install update: system migration bootstrap required. "
+                "Open the WebUI and complete the migration bootstrap first."
+            )
+            await self._publish_bootstrap_required_state()
+            return
+
         # Check if update is available
         if not self._last_check_result:
             _LOGGER.warning("No update check result available, checking now...")
@@ -609,6 +619,33 @@ class UpdateManager(AsyncUpdater):
         )
         
         _LOGGER.debug("Published update progress: %d%%", progress)
+
+    async def _publish_bootstrap_required_state(self) -> None:
+        """Publish a special update state indicating migration bootstrap is required.
+
+        This informs Home Assistant that the update cannot proceed until the user
+        completes the one-time migration bootstrap via the WebUI.
+        """
+        current_version = __version__
+        state_payload = {
+            "installed_version": current_version,
+            "latest_version": current_version,
+            "title": "boneIO Black Firmware",
+            "release_url": "",
+            "release_summary": (
+                "System migration bootstrap required. "
+                "Open the BoneIO WebUI → System → Migrations to complete setup."
+            ),
+            "entity_picture": "http://boneio.eu/logo_fb_circle.png",
+            "in_progress": False,
+            "update_percentage": None,
+        }
+        topic_prefix = self._manager._config_helper.topic_prefix
+        self._manager.send_message(
+            topic=f"{topic_prefix}/update/state",
+            payload=json.dumps(state_payload),
+            retain=True,
+        )
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for Update entity."""

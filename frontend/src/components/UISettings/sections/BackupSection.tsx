@@ -39,9 +39,9 @@ export const BackupSection: React.FC<BackupSectionProps> = ({
       <div className="card-body">
         <h3 className="card-title">
           <FaFileArchive />
-          {t('system_update.configuration_backup')}
+          {t('device_management.configuration_backup')}
         </h3>
-        <p className="text-sm opacity-70 mb-4">{t('system_update.backup_description')}</p>
+        <p className="text-sm opacity-70 mb-4">{t('device_management.backup_description')}</p>
 
         <div className="flex gap-2 flex-wrap">
           <button
@@ -52,12 +52,12 @@ export const BackupSection: React.FC<BackupSectionProps> = ({
             {isCreatingBackup ? (
               <>
                 <FaSpinner className="animate-spin" />
-                {t('system_update.creating_backup')}
+                {t('device_management.create_backup') || 'Create Backup'}
               </>
             ) : (
               <>
                 <FaDownload />
-                {t('system_update.download_backup')}
+                {t('device_management.download_config')}
               </>
             )}
           </button>
@@ -70,12 +70,12 @@ export const BackupSection: React.FC<BackupSectionProps> = ({
             {isRestoringBackup ? (
               <>
                 <FaSpinner className="animate-spin" />
-                {t('system_update.restoring')}
+                {t('device_management.restoring')}
               </>
             ) : (
               <>
                 <FaUpload />
-                {t('system_update.restore_backup')}
+                {t('device_management.restore_config')}
               </>
             )}
           </button>
@@ -101,7 +101,7 @@ export const BackupSection: React.FC<BackupSectionProps> = ({
         <div className="alert alert-warning mt-4">
           <FaExclamationTriangle />
           <div className="text-sm">
-            <p>{t('system_update.backup_warning')}</p>
+            <p>{t('device_management.backup_warning') || 'Warning: Restoring will replace current configuration. A backup of current config will be created automatically.'}</p>
           </div>
         </div>
       </div>

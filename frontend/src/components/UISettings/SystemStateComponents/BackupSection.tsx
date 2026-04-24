@@ -190,9 +190,9 @@ export default function BackupSection() {
       <div className="card-body">
         <h3 className="card-title">
           <FaFileArchive />
-          {t('system_update.configuration_backup')}
+          {t('device_management.configuration_backup')}
         </h3>
-        <p className="text-sm opacity-70 mb-4">{t('system_update.backup_description')}</p>
+        <p className="text-sm opacity-70 mb-4">{t('device_management.backup_description')}</p>
 
         {/* Error Alert */}
         {error && (
@@ -215,12 +215,12 @@ export default function BackupSection() {
             {isDownloading ? (
               <>
                 <FaSpinner className="animate-spin" />
-                {t('system_update.preparing')}
+                {t('device_management.preparing')}
               </>
             ) : (
               <>
                 <FaDownload />
-                {t('system_update.download_config')}
+                {t('device_management.download_config')}
               </>
             )}
           </button>
@@ -233,12 +233,12 @@ export default function BackupSection() {
             {isRestoring ? (
               <>
                 <FaSpinner className="animate-spin" />
-                {t('system_update.restoring')}
+                {t('device_management.restoring')}
               </>
             ) : (
               <>
                 <FaUpload />
-                {t('system_update.restore_config')}
+                {t('device_management.restore_config')}
               </>
             )}
           </button>
@@ -286,9 +286,9 @@ export default function BackupSection() {
             ></path>
           </svg>
           <div className="text-sm">
-            <p>{t('system_update.backup_info_1')}</p>
-            <p>{t('system_update.backup_info_2')}</p>
-            <p className="mt-2 font-semibold">{t('system_update.restore_info')}</p>
+            <p>{t('device_management.backup_info_1')}</p>
+            <p>{t('device_management.backup_info_2')}</p>
+            <p className="mt-2 font-semibold">{t('device_management.restore_info')}</p>
           </div>
         </div>
 
@@ -303,12 +303,12 @@ export default function BackupSection() {
               {isDownloading ? (
                 <>
                   <FaSpinner className="animate-spin" />
-                  {t('system_update.preparing')}
+                  {t('device_management.preparing')}
                 </>
               ) : (
                 <>
                   <FaFileArchive />
-                  {t('system_update.create_backup') || 'Create Backup'}
+                  {t('device_management.create_backup') || 'Create Backup'}
                 </>
               )}
             </button>
@@ -342,7 +342,7 @@ export default function BackupSection() {
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               ></path>
             </svg>
-            <span>{t('system_update.backup_limit_info') || 'Maximum 10 backups are kept. Oldest backups are automatically removed when creating new ones.'}</span>
+            <span>{t('device_management.backup_limit_info') || 'Maximum 10 backups are kept. Oldest backups are automatically removed when creating new ones.'}</span>
           </div>
 
           {showAvailableBackups && availableBackups.length > 0 && (
@@ -350,10 +350,10 @@ export default function BackupSection() {
               <table className="table table-sm">
                 <thead>
                   <tr>
-                    <th>{t('system_update.version')}</th>
-                    <th>{t('system_update.date')}</th>
-                    <th>{t('system_update.files')}</th>
-                    <th>{t('system_update.actions')}</th>
+                    <th>{t('device_management.version')}</th>
+                    <th>{t('device_management.date')}</th>
+                    <th>{t('device_management.files')}</th>
+                    <th>{t('device_management.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,29 +361,29 @@ export default function BackupSection() {
                     <tr key={backup.path}>
                       <td className="font-mono">{backup.version}</td>
                       <td className="text-xs">{backup.timestamp}</td>
-                      <td>{backup.file_count} {t('system_update.yaml_files')}</td>
+                      <td>{backup.file_count} {t('device_management.yaml_files')}</td>
                       <td>
                         <div className="flex gap-1">
                           <button
                             className="btn btn-warning btn-xs"
                             onClick={() => restoreFromBackup(backup.path)}
                             disabled={isRestoring}
-                            title={t('system_update.restore')}
+                            title={t('device_management.restore')}
                           >
                             <FaUndo />
-                            {t('system_update.restore')}
+                            {t('device_management.restore')}
                           </button>
                           <button
                             className="btn btn-info btn-xs"
                             onClick={() => downloadBackupFromDisk(backup.path, backup.filename)}
-                            title={t('system_update.download_config')}
+                            title={t('device_management.download_config')}
                           >
                             <FaDownload />
                           </button>
                           <button
                             className="btn btn-error btn-xs"
                             onClick={() => deleteBackup(backup.path, backup.filename)}
-                            title={t('system_update.delete') || 'Delete'}
+                            title={t('device_management.delete') || 'Delete'}
                           >
                             <FaTrash />
                           </button>

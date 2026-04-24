@@ -70,6 +70,13 @@ include = ["boneio*"]
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "*.yml", "*.ttf", "*.sh"]
 "boneio.webui" = ["frontend-dist/**/*"]
+"boneio.migrations" = [
+    "assets/**/*",
+    "assets/MANIFEST.sha256",
+    "bootstrap/boneio-migrate",
+    "bootstrap/sudoers-migrate",
+    "bootstrap/install-helper.sh",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "boneio.version.__version__"}
@@ -106,6 +113,7 @@ skip-magic-trailing-comma = false
 lint = "ruff check boneio/"
 format = "ruff format boneio/"
 fix = "ruff check --fix boneio/"
+manifest = "python scripts/generate_manifest.py"
 
 [tool.pyright]
 # BasedPyRight configuration - compatibility mode with PyRight

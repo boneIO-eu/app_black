@@ -1,0 +1,15 @@
+# Allow mosquitto_passwd command for password file (any password)
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -c -b /etc/mosquitto/passwd boneio *
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd homeassistant *
+boneio ALL=(ALL) NOPASSWD: /usr/bin/mosquitto_passwd -b /etc/mosquitto/passwd mqtt *
+
+# Allow mosquitto service reload
+boneio ALL=(ALL) NOPASSWD: /bin/systemctl reload mosquitto
+boneio ALL=(ALL) NOPASSWD: /usr/bin/hostnamectl set-hostname *
+
+# Allow CAN interface management
+boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can0 *
+boneio ALL=(ALL) NOPASSWD: /sbin/ip link set can1 *
+
+boneio ALL=(ALL) NOPASSWD: /sbin/reboot
+boneio ALL=(ALL) NOPASSWD: /sbin/shutdown -h now

@@ -50,6 +50,7 @@ from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
+from boneio.migrations import MigrationRunner, MigrationStatus
 from boneio.hardware.i2c.bus import SMBus2I2C
 
 if TYPE_CHECKING:
@@ -227,6 +228,9 @@ class Manager:
         self.update_manager = UpdateManager(
             manager=self,
         )
+
+        # 10. MigrationRunner (system-level OS migrations)
+        self.migration_runner = MigrationRunner()
         
         # 10. TemplateManager (thermostats, alarm panels, etc.)
         # Separate irrigation entries from template list — they are handled
@@ -266,7 +270,21 @@ class Manager:
         
         # NOTE: Input event listener is registered in InputManager.__init__
         # (removing duplicate registration here that caused double event handling)
-        
+
+        # Run system migration startup check (discovers pending migrations,
+        # detects bootstrap_required, applies if helper is installed).
+        try:
+            migration_status = self.migration_runner.startup_check()
+            _LOGGER.info(
+                "Migration startup_check finished: status=%s, pending=%d, "
+                "bootstrap_required=%s",
+                migration_status.value,
+                self.migration_runner.pending_count,
+                self.migration_runner.bootstrap_required,
+            )
+        except Exception as exc:
+            _LOGGER.error("Migration startup_check failed: %s", exc, exc_info=True)
+
         _LOGGER.info("Manager initialization complete")
     
     async def start_canopen(self) -> None:

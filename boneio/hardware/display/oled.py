@@ -38,6 +38,7 @@ try:
 except OSError:
     # Fallback to default PIL fonts if TTF fonts are not available
     from PIL import ImageFont
+
     _LOGGER.warning("TTF fonts not found, using default PIL fonts")
     fonts = {
         "big": ImageFont.load_default(),
@@ -77,7 +78,7 @@ class Oled:
         device: "sh1106 | None" = None,
     ):
         """Initialize OLED display.
-        
+
         Args:
             host_data: Host system data
             grouped_outputs_by_expander: List of grouped output names
@@ -91,12 +92,12 @@ class Oled:
         self._host_data: HostData = host_data
         self._grouped_outputs_by_expander = grouped_outputs_by_expander
         self._event_bus = event_bus
-        
+
         # Screen order is already configured by DisplayManager
         self._screen_order = screen_order
         self._input_groups = input_groups
         _LOGGER.debug("OLED initialized with screen order: %s", self._screen_order)
-        
+
         self._current_screen = self._screen_order[0] if self._screen_order else UPTIME
         self._screen_cycle = cycle(self._screen_order) if self._screen_order else cycle([UPTIME])
         # Skip the first element so that next() shows the second screen on first click
@@ -104,14 +105,14 @@ class Oled:
         self._sleep = False
         self._cancel_sleep_handle = None
         self._sleep_timeout = sleep_timeout
-        
+
         # Shutdown confirmation state machine
         # States: None -> "wait_release" -> "confirm" -> "progress" -> shutdown
-        # - First long press → show confirm screen, enter "wait_release"
+        # - Long press held 2s+ → show confirm screen, enter "wait_release"
         # - Release after first long → enter "confirm" (waiting for second long)
         # - Second long press → enter "progress" with filling progress bar
-        # - Hold 5s → execute shutdown
-        # - Single click or 10s timeout → cancel
+        # - Hold 3s → execute shutdown
+        # - Single click or 30s timeout → cancel
         self._shutdown_state: str | None = None
         self._shutdown_cancel_handle = None
         # Timer to detect button release (no LONG event for 300ms = released)
@@ -119,10 +120,12 @@ class Oled:
         # Last seen long press duration — used to detect new press cycle (duration resets)
         self._shutdown_last_long_duration: float = 0.0
         # Duration (seconds) the user must hold the button to confirm shutdown
-        self._shutdown_hold_duration: float = 5.0
+        self._shutdown_hold_duration: float = 3.0
         # Timeout (seconds) to cancel shutdown confirmation if no action
-        self._shutdown_confirm_timeout: float = 10.0
-        
+        self._shutdown_confirm_timeout: float = 30.0
+        # Minimum long press duration (seconds) before shutdown flow starts
+        self._shutdown_long_press_threshold: float = 2.0
+
         # Initialize I2C display (reuse early device if provided)
         if device is not None:
             self._device = device
@@ -134,7 +137,7 @@ class Oled:
                 _LOGGER.debug("OLED display initialized successfully")
             except (DeviceNotFoundError, OSError) as err:
                 raise I2CError(f"OLED display not found: {err}")
-        
+
         # Subscribe to OLED button events
         self._event_bus.add_event_listener(
             event_type="input",
@@ -142,7 +145,7 @@ class Oled:
             listener_id="oled_button_handler",
             target=self._handle_button_press,
         )
-    
+
     async def _output_callback(self, event: OutputState) -> None:
         """Callback for output events."""
         if self._grouped_outputs_by_expander and self._current_screen in self._grouped_outputs_by_expander:
@@ -207,31 +210,31 @@ class Oled:
         """Draw QR code on the OLED display."""
         if not url:
             return
-            
+
         # Create QR code with box_size 2 and scale down later
         qr = qrcode.QRCode(version=1, box_size=2, border=1)
         qr.add_data(url)
         qr.make(fit=True)
-        
+
         # Create QR code image
         # For mode "1", colors must be int: 0=black, 1=white
         qr_image = qr.make_image(fill_color="white", back_color="black", mode="1")
-        qr_image = qr_image.convert("1") # type: ignore
-        
+        qr_image = qr_image.convert("1")  # type: ignore
+
         # Create a blank image with OLED dimensions
         display_image = Image.new("1", (128, 64), 0)  # Mode 1, size 128x64, black background
         draw = ImageDraw.Draw(display_image)
-        
+
         # Add title text on the left side
         draw.text((2, 2), "Scan to", font=fonts["small"], fill=WHITE)
         draw.text((2, 12), "access", font=fonts["small"], fill=WHITE)
         draw.text((2, 22), "webui", font=fonts["small"], fill=WHITE)
-        
+
         # Calculate position to align QR code to right and center vertically
-        qr_size = qr_image.size if hasattr(qr_image, 'size') else (32, 32)  # Default size  # type: ignore
+        qr_size = qr_image.size if hasattr(qr_image, "size") else (32, 32)  # Default size  # type: ignore
         x = 128 - qr_size[0] - 2  # Align to right with 2 pixels padding
-        y = ((64 - qr_size[1]) // 2)  # Center vertically
-        
+        y = (64 - qr_size[1]) // 2  # Center vertically
+
         # Paste QR code onto center of display image
         # Use bounding box format: (left, top, right, bottom)
         try:
@@ -239,7 +242,7 @@ class Oled:
         except Exception as e:
             _LOGGER.error(f"Failed to paste QR code: {e}")
             return
-        
+
         # Display the centered QR code
         self._device.display(display_image)
 
@@ -247,10 +250,10 @@ class Oled:
         """Handle button press event from input.
 
         Supports shutdown flow via long press:
-        1. First long press → show confirmation screen
+        1. Long press held for 2s+ → show confirmation screen
         2. User releases button → state moves to "confirm"
-        3. Second long press (held 5s) → progress bar fills, then shutdown
-        4. Any single click or 10s timeout → cancel shutdown
+        3. Second long press (held 3s) → progress bar fills, then shutdown
+        4. Any single click or 30s timeout → cancel shutdown
 
         The detector emits periodic LONG events (every 200ms) with growing
         duration while the button is held. A new press cycle is detected
@@ -262,8 +265,12 @@ class Oled:
         click_type = getattr(event, "click_type", None)
         duration = getattr(event, "duration", None) or 0.0
 
-        _LOGGER.debug("OLED button event: click_type=%s, duration=%.2f, shutdown_state=%s",
-                       click_type, duration, self._shutdown_state)
+        _LOGGER.debug(
+            "OLED button event: click_type=%s, duration=%.2f, shutdown_state=%s",
+            click_type,
+            duration,
+            self._shutdown_state,
+        )
 
         # --- Shutdown state machine ---
 
@@ -325,8 +332,8 @@ class Oled:
             self.wake_up()
             return
 
-        if click_type == LONG and duration < 1.0:
-            # First long press event — show confirmation, enter wait_release
+        if click_type == LONG and duration >= self._shutdown_long_press_threshold:
+            # Long press held beyond threshold — show confirmation, enter wait_release
             self._shutdown_state = "wait_release"
             self._shutdown_last_long_duration = duration
             self._draw_shutdown_confirm()
@@ -352,7 +359,7 @@ class Oled:
 
     def _draw_shutdown_confirm(self) -> None:
         """Draw shutdown confirmation screen on OLED.
-        
+
         Shows a warning message asking the user to hold the button
         for 5 seconds to confirm system shutdown.
         """
@@ -362,15 +369,15 @@ class Oled:
             draw.text((61, 5), "!", font=fonts["small"], fill=WHITE)
             # Message
             draw.text((10, 24), "Shutdown system?", font=fonts["small"], fill=WHITE)
-            draw.text((4, 38), "Hold button 5s to confirm", font=fonts["extraSmall"], fill=WHITE)
-            draw.text((8, 52), "Click to cancel (10s)", font=fonts["extraSmall"], fill=WHITE)
+            draw.text((4, 38), "Hold button 3s to confirm", font=fonts["extraSmall"], fill=WHITE)
+            draw.text((8, 52), "Click to cancel (30s)", font=fonts["extraSmall"], fill=WHITE)
 
     def _draw_shutdown_progress(self, duration: float) -> None:
         """Draw shutdown progress bar on OLED.
-        
+
         Shows a progress bar that fills proportionally to how long
         the user has been holding the button vs the required duration.
-        
+
         Args:
             duration: How long the button has been held (seconds)
         """
@@ -391,7 +398,7 @@ class Oled:
 
     def _start_shutdown_timeout(self) -> None:
         """Start a 10-second timeout that cancels the shutdown confirmation.
-        
+
         If the user doesn't interact within the timeout period,
         the shutdown flow is cancelled and the normal screen is restored.
         """
@@ -405,9 +412,7 @@ class Oled:
             self._shutdown_cancel_handle = None
             self.render_display()
 
-        self._shutdown_cancel_handle = loop.call_later(
-            self._shutdown_confirm_timeout, _timeout_callback
-        )
+        self._shutdown_cancel_handle = loop.call_later(self._shutdown_confirm_timeout, _timeout_callback)
 
     def _cancel_shutdown_timeout(self) -> None:
         """Cancel the pending shutdown timeout timer."""
@@ -417,7 +422,7 @@ class Oled:
 
     def _reset_release_timer(self) -> None:
         """Reset the 300ms release-detection timer.
-        
+
         Called on each periodic LONG event during wait_release state.
         If no more LONG events arrive within 300ms, the timer fires
         and transitions to 'confirm' state (button was released).
@@ -444,7 +449,7 @@ class Oled:
 
     def _cancel_shutdown(self) -> None:
         """Cancel the shutdown flow and return to normal display.
-        
+
         Resets the shutdown state machine and restores the current screen.
         """
         _LOGGER.info("Shutdown cancelled by user")
@@ -456,7 +461,7 @@ class Oled:
 
     async def _execute_shutdown(self) -> None:
         """Execute system shutdown.
-        
+
         Draws a final 'Goodbye' message on the OLED, then runs
         'sudo shutdown -h now' to power off the device.
         """
@@ -494,53 +499,50 @@ class Oled:
 
     def render_display(self) -> None:
         """Render display - main method that decides what to display."""
-        
+
         data = self._host_data.get(self._current_screen)
         if data:
             if self._current_screen == "web":
                 self._draw_qr_code(url=str(data))
             elif isinstance(data, dict):
                 with canvas(self._device) as draw:
-                    if (
-                        self._grouped_outputs_by_expander
-                        and self._current_screen in self._grouped_outputs_by_expander
-                    ):
+                    if self._grouped_outputs_by_expander and self._current_screen in self._grouped_outputs_by_expander:
                         self._draw_output(data, draw)
                         for id in data.keys():
                             self._event_bus.add_event_listener(
-                                event_type="output", 
-                                entity_id=id, 
-                                listener_id=f"oled_{self._current_screen}", 
-                                target=self._output_callback
+                                event_type="output",
+                                entity_id=id,
+                                listener_id=f"oled_{self._current_screen}",
+                                target=self._output_callback,
                             )
                     elif self._current_screen == UPTIME:
                         self._draw_uptime(draw)
                         self._event_bus.add_event_listener(
-                            event_type="host", 
-                            entity_id=f"{self._current_screen}_hoststats", 
-                            listener_id=f"oled_{self._current_screen}", 
-                            target=self._standard_callback
+                            event_type="host",
+                            entity_id=f"{self._current_screen}_hoststats",
+                            listener_id=f"oled_{self._current_screen}",
+                            target=self._standard_callback,
                         )
                     elif self._input_groups and self._current_screen in self._input_groups:
                         self._draw_input(data, draw)
                         for id in data.keys():
                             self._event_bus.add_event_listener(
-                                event_type="input", 
-                                entity_id=id, 
-                                listener_id=f"oled_{self._current_screen}", 
-                                target=self._input_callback
+                                event_type="input",
+                                entity_id=id,
+                                listener_id=f"oled_{self._current_screen}",
+                                target=self._input_callback,
                             )
                     else:
                         self._draw_standard(data, draw)
                         self._event_bus.add_event_listener(
-                            event_type="host", 
-                            entity_id=f"{self._current_screen}_hoststats", 
-                            listener_id=f"oled_{self._current_screen}", 
-                            target=self._standard_callback
+                            event_type="host",
+                            entity_id=f"{self._current_screen}_hoststats",
+                            listener_id=f"oled_{self._current_screen}",
+                            target=self._standard_callback,
                         )
         else:
             self._next_screen()
-        
+
         if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds > 0:
             self.start_sleep_timer()
 
@@ -548,20 +550,17 @@ class Oled:
         """Update OLED display without re-registering listeners."""
         if self._sleep:
             return
-        
+
         try:
             data = self._host_data.get(self._current_screen)
             if not data:
                 return
-            
+
             if self._current_screen == "web":
                 self._draw_qr_code(url=str(data))
             elif isinstance(data, dict):
                 with canvas(self._device) as draw:
-                    if (
-                        self._grouped_outputs_by_expander
-                        and self._current_screen in self._grouped_outputs_by_expander
-                    ):
+                    if self._grouped_outputs_by_expander and self._current_screen in self._grouped_outputs_by_expander:
                         self._draw_output(data, draw)
                     elif self._current_screen == UPTIME:
                         self._draw_uptime(draw)
@@ -593,29 +592,29 @@ class Oled:
     def _draw_uptime(self, draw: ImageDrawType) -> None:
         """Draw uptime screen with boneIO logo."""
         uptime_data = self._host_data.get(UPTIME)
-        
+
         if not isinstance(uptime_data, dict):
             # Fallback for simple string data
             draw.text((1, 1), "Uptime", font=fonts["big"], fill=WHITE)
             draw.text((3, START_ROW), str(uptime_data), font=fonts["small"], fill=WHITE)
             return
-        
+
         # Draw boneIO logo at the top (split into two parts)
         draw.text((3, 3), "bone", font=fonts["danube"], fill=WHITE)
         draw.text((53, 3), "iO", font=fonts["danube"], fill=WHITE)
-        
+
         # Check if data follows the format with position info
-        if all(isinstance(v, dict) and 'data' in v for v in uptime_data.values()):
+        if all(isinstance(v, dict) and "data" in v for v in uptime_data.values()):
             for k in uptime_data:
                 text = uptime_data[k]["data"]
                 font_size_key = uptime_data[k]["fontSize"]
                 font_to_use = fonts.get(font_size_key, fonts["small"])
                 col = uptime_data[k]["col"]
                 row = uptime_data[k]["row"]
-                
+
                 # Use UPTIME_ROWS for Y positioning
                 y_position = UPTIME_ROWS[row] if row < len(UPTIME_ROWS) else 22 + row * 10
-                
+
                 # Display as "key: value" format
                 draw.text(
                     (col, y_position),
@@ -639,7 +638,7 @@ class Oled:
         """Start sleep timer."""
         if self._cancel_sleep_handle:
             self._cancel_sleep_handle()
-        
+
         self._cancel_sleep_handle = async_track_point_in_time(
             loop=asyncio.get_running_loop(),
             job=self._sleep_callback,
@@ -651,9 +650,7 @@ class Oled:
         self._sleep = True
         self._cancel_sleep_handle = None
         with canvas(self._device) as draw:
-            draw.rectangle(
-                self._device.bounding_box, outline="black", fill="black"
-            )
+            draw.rectangle(self._device.bounding_box, outline="black", fill="black")
         _LOGGER.debug("OLED display sleeping")
 
     def wake_up(self) -> None:

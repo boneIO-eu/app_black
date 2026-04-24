@@ -1,0 +1,2 @@
+# Allow boneio user to run boneio-migrate helper without password
+boneio ALL=(ALL) NOPASSWD: /usr/sbin/boneio-migrate
