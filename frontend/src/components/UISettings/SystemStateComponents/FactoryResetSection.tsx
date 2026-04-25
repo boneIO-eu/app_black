@@ -97,8 +97,8 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
   return (
     <SettingsCard
       icon={<FaRedo />}
-      title={t('system_update.factory_reset')}
-      toggleButtonText={t('system_update.show_factory_reset')}
+      title={t('device_management.factory_reset')}
+      toggleButtonText={t('device_management.show_factory_reset')}
       toggleButtonTextExpanded={t('common.close')}
       isExpanded={showFactoryReset}
       onToggle={() => {
@@ -113,13 +113,13 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
         <div className="space-y-4">
           <div className="alert alert-warning">
             <FaExclamationTriangle />
-            <span>{t('system_update.factory_reset_warning')}</span>
+            <span>{t('device_management.factory_reset_warning')}</span>
           </div>
 
           <div className="form-control">
             <label className="label">
               <span className="label-text font-medium">
-                {t('system_update.select_device_type')}
+                {t('device_management.select_device_type')}
               </span>
             </label>
             <select
@@ -128,7 +128,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
               onChange={e => setSelectedDeviceType(e.target.value || null)}
             >
               <option value="">
-                {t('system_update.select_device_type_placeholder')}
+                {t('device_management.select_device_type_placeholder')}
               </option>
               {deviceTypes.map(type => (
                 <option key={type} value={type}>
@@ -151,7 +151,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
           <div className="form-control">
             <label className="label">
               <span className="label-text font-medium">
-                {t('system_update.select_hardware_version')}
+                {t('device_management.select_hardware_version')}
               </span>
             </label>
             <select
@@ -168,7 +168,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                 </option>
               ))}
             </select>
-            <HelpLabel>{t('system_update.hardware_version_help')}</HelpLabel>
+            <HelpLabel>{t('device_management.hardware_version_help')}</HelpLabel>
           </div>
 
           <button
@@ -179,12 +179,12 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
             {isResettingFactory ? (
               <>
                 <FaSpinner className="animate-spin mr-2" />
-                {t('system_update.resetting')}
+                {t('device_management.resetting')}
               </>
             ) : (
               <>
                 <FaRedo className="mr-2" />
-                {t('system_update.reset_to_factory')}
+                {t('device_management.reset_to_factory')}
               </>
             )}
           </button>
@@ -202,18 +202,18 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                 <p className="wrap-break-word">{factoryResetResult.message}</p>
                 {factoryResetResult.backup_path && (
                   <p className="text-xs opacity-70 mt-1 break-all">
-                    {t('system_update.backup_created')}: {factoryResetResult.backup_path}
+                    {t('device_management.backup_created')}: {factoryResetResult.backup_path}
                   </p>
                 )}
                 {factoryResetResult.copied_files && (
                   <p className="text-xs opacity-70 mt-1 wrap-break-word">
-                    {t('system_update.copied_files')}:{' '}
+                    {t('device_management.copied_files')}:{' '}
                     {factoryResetResult.copied_files.join(', ')}
                   </p>
                 )}
                 {factoryResetResult.restart_required && (
                   <p className="text-xs font-semibold mt-2">
-                    {t('system_update.restart_required')}
+                    {t('device_management.restart_required')}
                   </p>
                 )}
               </div>
@@ -221,7 +221,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
           )}
 
           {/* Config Backups */}
-          <div className="divider">{t('system_update.config_backups')}</div>
+          <div className="divider">{t('device_management.config_backups')}</div>
 
           <button
             className="btn btn-ghost btn-sm"
@@ -231,11 +231,11 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
             }}
           >
             {showConfigBackups
-              ? t('system_update.hide_config_backups').replace(
+              ? t('device_management.hide_config_backups').replace(
                   '{count}',
                   String(configBackups.length)
                 )
-              : t('system_update.show_config_backups').replace(
+              : t('device_management.show_config_backups').replace(
                   '{count}',
                   String(configBackups.length)
                 )}
@@ -245,16 +245,16 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
             <div className="mt-2">
               {configBackups.length === 0 ? (
                 <p className="text-sm opacity-70">
-                  {t('system_update.no_config_backups')}
+                  {t('device_management.no_config_backups')}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="table table-sm">
                     <thead>
                       <tr>
-                        <th>{t('system_update.date')}</th>
-                        <th>{t('system_update.files')}</th>
-                        <th>{t('system_update.actions')}</th>
+                        <th>{t('device_management.date')}</th>
+                        <th>{t('device_management.files')}</th>
+                        <th>{t('device_management.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -262,7 +262,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                         <tr key={backup.path}>
                           <td>{backup.timestamp.replace('_', ' ')}</td>
                           <td>
-                            {backup.file_count} {t('system_update.yaml_files')}
+                            {backup.file_count} {t('device_management.yaml_files')}
                           </td>
                           <td>
                             <button
@@ -270,7 +270,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                               onClick={() => restoreConfigBackup(backup.path)}
                             >
                               <FaUndo />
-                              {t('system_update.restore')}
+                              {t('device_management.restore')}
                             </button>
                           </td>
                         </tr>
