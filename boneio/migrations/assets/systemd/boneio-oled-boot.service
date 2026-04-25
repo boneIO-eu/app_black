@@ -2,12 +2,14 @@
 Description=boneIO OLED boot splash
 DefaultDependencies=no
 After=local-fs.target systemd-modules-load.service
-Before=multi-user.target
+Before=sysinit.target multi-user.target BoneIO.service
+ConditionPathExists=/usr/sbin/oled_msg.sh
 
 [Service]
 Type=oneshot
 ExecStart=/usr/sbin/oled_msg.sh "boneIO Black" "is starting." "Please wait..."
 RemainAfterExit=yes
+ExecStop=/usr/sbin/oled_msg.sh "boneIO Black App" "is loading..."
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=sysinit.target

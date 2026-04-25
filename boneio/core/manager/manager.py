@@ -403,6 +403,18 @@ class Manager:
         self._startup_complete = True
         self._startup_status = "ready"
         _LOGGER.info("Startup complete")
+
+        # Always hand off early_oled so it stops drawing boot status messages.
+        # DisplayManager.handoff() is only called when oled: is in config,
+        # but early_oled can still be painting if the OLED section is absent.
+        try:
+            from boneio.hardware.display.early_oled import handoff, is_taken_over
+            if not is_taken_over():
+                handoff()
+                _LOGGER.debug("Early OLED handed off at startup completion")
+        except Exception:
+            pass
+
         if self._websocket_manager:
             await self._websocket_manager.broadcast({
                 "event_type": "startup_status",

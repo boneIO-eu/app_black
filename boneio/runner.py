@@ -330,10 +330,10 @@ async def async_run(
             await manager.set_startup_status("ha_discovery", "Publishing HA Discovery...")
             _LOGGER.info("Publishing device discovery information")
             await manager.publish_discovery()
-            await manager.mark_startup_complete()
             _draw_startup_status(early_oled_device, "Ready")
-            # Brief pause so user sees "Ready" before normal screen takes over
+            # Brief pause so user sees "Ready" before handoff stops drawing
             await asyncio.sleep(1)
+            await manager.mark_startup_complete()
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -346,8 +346,8 @@ async def async_run(
         discovery_task.add_done_callback(tasks.discard)
     else:
         # No MQTT — mark startup complete immediately
-        await manager.mark_startup_complete()
         _draw_startup_status(early_oled_device, "Ready")
+        await manager.mark_startup_complete()
 
     # Start cloud registration if enabled
     cloud_reg = None
