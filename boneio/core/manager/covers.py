@@ -246,12 +246,19 @@ class CoverManager:
                 raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
             _LOGGER.debug("Configuring tilt cover %s", cover_id)
             restored_state = self._manager._state_manager.get(
-                attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt_position": 100}
+                attr_type=COVER, attr=cover_id, default_value={"position": 100, "tilt": 100}
             )
+            if isinstance(restored_state, str):
+                try:
+                    restored_state = json.loads(restored_state)
+                except (json.JSONDecodeError, TypeError):
+                    _LOGGER.warning(
+                        "Cover %s: corrupted saved state '%s', resetting to default",
+                        cover_id, restored_state,
+                    )
+                    restored_state = {"position": 100, "tilt": 100}
             if isinstance(restored_state, (float, int)):
-                restored_state = {"position": restored_state, "tilt_position": 100}
-            elif isinstance(restored_state, str):
-                restored_state = {"position": 100, "tilt_position": 100}
+                restored_state = {"position": restored_state, "tilt": 100}
             cover = VenetianCover(
                 id=cover_id,
                 name=cover_name,
@@ -270,10 +277,17 @@ class CoverManager:
             restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
+            if isinstance(restored_state, str):
+                try:
+                    restored_state = json.loads(restored_state)
+                except (json.JSONDecodeError, TypeError):
+                    _LOGGER.warning(
+                        "Cover %s: corrupted saved state '%s', resetting to default",
+                        cover_id, restored_state,
+                    )
+                    restored_state = {"position": 100}
             if isinstance(restored_state, (float, int)):
                 restored_state = {"position": restored_state}
-            elif isinstance(restored_state, str):
-                restored_state = {"position": 100}
             cover = TimeBasedCover(
                 id=cover_id,
                 name=cover_name,
@@ -293,10 +307,17 @@ class CoverManager:
             restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
+            if isinstance(restored_state, str):
+                try:
+                    restored_state = json.loads(restored_state)
+                except (json.JSONDecodeError, TypeError):
+                    _LOGGER.warning(
+                        "Cover %s: corrupted saved state '%s', resetting to default",
+                        cover_id, restored_state,
+                    )
+                    restored_state = {"position": 100}
             if isinstance(restored_state, (float, int)):
                 restored_state = {"position": restored_state}
-            elif isinstance(restored_state, str):
-                restored_state = {"position": 100}
             cover = TimeBasedCover(
                 id=cover_id,
                 name=cover_name,

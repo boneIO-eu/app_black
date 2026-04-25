@@ -467,3 +467,5 @@ class TestSmartToggle:
         assert stop_called, "stop() should be called when cover is moving"
         assert cover._current_operation == "idle"
         cover.stop = original_stop
+
+
