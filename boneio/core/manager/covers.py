@@ -28,14 +28,14 @@ _LOGGER = logging.getLogger(__name__)
 
 class CoverManager:
     """Manages all covers (time-based, venetian).
-    
+
     This manager handles:
     - Cover configuration and initialization
     - Cover state management
     - Cover actions (open, close, stop, position)
     - Dynamic cover reconfiguration
     - Home Assistant autodiscovery
-    
+
     Args:
         manager: Parent Manager instance
         cover_config: List of cover configurations
@@ -50,19 +50,16 @@ class CoverManager:
         self._manager = manager
         self._covers: dict[str, TimeBasedCover | VenetianCover] = {}
         self._config_covers = cover_config
-        
+
         # Configure covers if outputs exist
         if self._manager.outputs.get_all_outputs():
             self._configure_covers()
-        
-        _LOGGER.info(
-            "CoverManager initialized with %d covers",
-            len(self._covers)
-        )
+
+        _LOGGER.info("CoverManager initialized with %d covers", len(self._covers))
 
     def _configure_covers(self, reload_config: bool = False) -> None:
         """Configure covers.
-        
+
         Args:
             reload_config: If True, reload configuration from file
         """
@@ -89,66 +86,63 @@ class CoverManager:
                 cover = self._covers.pop(cid)
                 # Stop cover movement if running (synchronous - no running loop guaranteed)
                 try:
-                    if hasattr(cover, '_stop_event'):
+                    if hasattr(cover, "_stop_event"):
                         cover._stop_event.set()
-                    if hasattr(cover, '_movement_thread') and cover._movement_thread and cover._movement_thread.is_alive():
+                    if (
+                        hasattr(cover, "_movement_thread")
+                        and cover._movement_thread
+                        and cover._movement_thread.is_alive()
+                    ):
                         cover._movement_thread.join(timeout=1.0)
-                    if hasattr(cover, '_open_relay'):
+                    if hasattr(cover, "_open_relay"):
                         cover._open_relay.turn_off()
-                    if hasattr(cover, '_close_relay'):
+                    if hasattr(cover, "_close_relay"):
                         cover._close_relay.turn_off()
                 except Exception:
                     pass
                 # Remove HA autodiscovery
                 self._remove_cover_ha_discovery(cid)
-        
+
         for _config in self._config_covers:
             # Get relay outputs for cover
             open_relay_id = str(_config.get("open_relay", ""))
             close_relay_id = str(_config.get("close_relay", ""))
-            
+
             open_relay = self._manager.outputs.get_output(open_relay_id)
             close_relay = self._manager.outputs.get_output(close_relay_id)
-            
+
             # Generate ID from relays if not provided
             if _config.get(ID):
                 _id = strip_accents(_config[ID])
             else:
                 # Auto-generate ID from open_relay and close_relay
                 _id = f"cover_{open_relay_id}_{close_relay_id}".lower().replace(" ", "_")
-            
+
             # Get display name (falls back to ID)
             _name = _config.get(NAME) or _id
-            
+
             if not open_relay:
-                _LOGGER.error(
-                    "Can't configure cover %s. Open relay doesn't exist.",
-                    _id
-                )
+                _LOGGER.error("Can't configure cover %s. Open relay doesn't exist.", _id)
                 continue
-            
+
             if not close_relay:
-                _LOGGER.error(
-                    "Can't configure cover %s. Close relay doesn't exist.",
-                    _id
-                )
+                _LOGGER.error("Can't configure cover %s. Close relay doesn't exist.", _id)
                 continue
-            
+
             try:
                 # Update existing cover or create new one
                 if _id in self._covers:
                     _cover = self._covers[_id]
                     new_platform = _config.get("platform", "time_based")
-                    
+
                     # Check if platform (cover type) changed - need to recreate cover
                     current_kind = _cover.kind
                     new_kind = "venetian" if new_platform == "venetian" else "time"
-                    
+
                     if current_kind != new_kind:
                         # Platform changed - remove old cover and create new one
                         _LOGGER.info(
-                            "Cover %s platform changed from %s to %s, recreating cover",
-                            _id, current_kind, new_kind
+                            "Cover %s platform changed from %s to %s, recreating cover", _id, current_kind, new_kind
                         )
                         # Remove old HA autodiscovery
                         self._remove_cover_ha_discovery(_id)
@@ -158,17 +152,18 @@ class CoverManager:
                         # Same platform - update name, relays, times and autodiscovery
                         _new_name = _config.get(NAME) or _id
                         if _cover._name != _new_name:
-                            _LOGGER.info(
-                                "Cover %s name changed: '%s' -> '%s'",
-                                _id, _cover._name, _new_name
-                            )
+                            _LOGGER.info("Cover %s name changed: '%s' -> '%s'", _id, _cover._name, _new_name)
                             _cover._name = _new_name
-                        old_open = getattr(_cover._open_relay, 'id', None)
-                        old_close = getattr(_cover._close_relay, 'id', None)
+                        old_open = getattr(_cover._open_relay, "id", None)
+                        old_close = getattr(_cover._close_relay, "id", None)
                         if old_open != open_relay_id or old_close != close_relay_id:
                             _LOGGER.info(
                                 "Cover %s relays changed: open %s->%s, close %s->%s",
-                                _id, old_open, open_relay_id, old_close, close_relay_id
+                                _id,
+                                old_open,
+                                open_relay_id,
+                                old_close,
+                                close_relay_id,
                             )
                         _cover._open_relay = open_relay
                         _cover._close_relay = close_relay
@@ -190,10 +185,12 @@ class CoverManager:
                                 area=_config.get("area"),
                             )
                             self._manager.publish_ha_discovery(
-                                id=_cover.id, ha_type=COVER, payload=payload,
+                                id=_cover.id,
+                                ha_type=COVER,
+                                payload=payload,
                             )
                         continue
-                
+
                 self._covers[_id] = self._configure_cover(
                     cover_id=_id,
                     cover_name=_name,
@@ -204,7 +201,7 @@ class CoverManager:
                     },
                     tilt_duration=_config.get("tilt_duration"),
                 )
-                
+
             except CoverConfigurationException as err:
                 _LOGGER.error("Failed to configure cover %s: %s", _id, err)
 
@@ -216,31 +213,31 @@ class CoverManager:
         tilt_duration: TimePeriod | None,
     ) -> TimeBasedCover | VenetianCover:
         """Configure a cover instance.
-        
+
         Args:
             cover_id: Cover identifier (technical ID for MQTT topics)
             cover_name: Display name for Home Assistant
             config: Cover configuration dictionary
             tilt_duration: Tilt duration for venetian covers
-            
+
         Returns:
             Configured cover instance
-            
+
         Raises:
             CoverConfigurationException: If cover configuration is invalid
         """
         from boneio.components.cover import TimeBasedCover, VenetianCover
-        
+
         platform = config.get("platform", "time_based")
-        
+
         def state_save(value: dict[str, int]):
             if config[RESTORE_STATE]:
                 self._manager._state_manager.save_attribute(
                     attr_type=COVER,
                     attribute=cover_id,
-                    value=json.dumps(value),
+                    value=value,
                 )
-        
+
         if platform == "venetian":
             if not tilt_duration:
                 raise CoverConfigurationException("Tilt duration must be configured for tilt cover.")
@@ -254,7 +251,8 @@ class CoverManager:
                 except (json.JSONDecodeError, TypeError):
                     _LOGGER.warning(
                         "Cover %s: corrupted saved state '%s', resetting to default",
-                        cover_id, restored_state,
+                        cover_id,
+                        restored_state,
                     )
                     restored_state = {"position": 100, "tilt": 100}
             if isinstance(restored_state, (float, int)):
@@ -269,7 +267,21 @@ class CoverManager:
                 restored_state=restored_state,
                 tilt_duration=tilt_duration,
                 actuator_activation_duration=config.get("actuator_activation_duration", TimePeriod(milliseconds=0)),
-                **{k: v for k, v in config.items() if k not in ("id", "platform", "actuator_activation_duration", "tilt_duration", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{
+                    k: v
+                    for k, v in config.items()
+                    if k
+                    not in (
+                        "id",
+                        "platform",
+                        "actuator_activation_duration",
+                        "tilt_duration",
+                        RESTORE_STATE,
+                        SHOW_HA,
+                        DEVICE_CLASS,
+                        NAME,
+                    )
+                },
             )
             availability_msg_func = ha_cover_with_tilt_availabilty_message
         elif platform == "time_based":
@@ -283,7 +295,8 @@ class CoverManager:
                 except (json.JSONDecodeError, TypeError):
                     _LOGGER.warning(
                         "Cover %s: corrupted saved state '%s', resetting to default",
-                        cover_id, restored_state,
+                        cover_id,
+                        restored_state,
                     )
                     restored_state = {"position": 100}
             if isinstance(restored_state, (float, int)):
@@ -296,14 +309,15 @@ class CoverManager:
                 event_bus=self._manager._event_bus,
                 topic_prefix=self._manager._topic_prefix,
                 restored_state=restored_state,
-                **{k: v for k, v in config.items() if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{
+                    k: v
+                    for k, v in config.items()
+                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)
+                },
             )
             availability_msg_func = ha_cover_availabilty_message
         else:
-            _LOGGER.warning(
-                "Unknown cover platform '%s' for %s, falling back to time_based",
-                platform, cover_id
-            )
+            _LOGGER.warning("Unknown cover platform '%s' for %s, falling back to time_based", platform, cover_id)
             restored_state = self._manager._state_manager.get(
                 attr_type=COVER, attr=cover_id, default_value={"position": 100}
             )
@@ -313,7 +327,8 @@ class CoverManager:
                 except (json.JSONDecodeError, TypeError):
                     _LOGGER.warning(
                         "Cover %s: corrupted saved state '%s', resetting to default",
-                        cover_id, restored_state,
+                        cover_id,
+                        restored_state,
                     )
                     restored_state = {"position": 100}
             if isinstance(restored_state, (float, int)):
@@ -326,10 +341,14 @@ class CoverManager:
                 event_bus=self._manager._event_bus,
                 topic_prefix=self._manager._topic_prefix,
                 restored_state=restored_state,
-                **{k: v for k, v in config.items() if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)},
+                **{
+                    k: v
+                    for k, v in config.items()
+                    if k not in ("id", "platform", RESTORE_STATE, SHOW_HA, DEVICE_CLASS, NAME)
+                },
             )
             availability_msg_func = ha_cover_availabilty_message
-        
+
         # Send HA autodiscovery
         if config.get(SHOW_HA, True):
             payload = availability_msg_func(
@@ -340,25 +359,27 @@ class CoverManager:
                 area=config.get("area"),
             )
             self._manager.publish_ha_discovery(
-                id=cover.id, ha_type=COVER, payload=payload,
+                id=cover.id,
+                ha_type=COVER,
+                payload=payload,
             )
-        
+
         _LOGGER.debug("Configured cover %s", cover_id)
         return cover
 
     def _remove_cover_ha_discovery(self, cover_id: str) -> None:
         """Remove HA Discovery entries for a cover.
-        
+
         This sends empty payloads to all discovery topics for the cover,
         which removes the entity from Home Assistant. This is needed when
         a cover's area changes.
-        
+
         Args:
             cover_id: ID of the cover to remove from HA Discovery
         """
         # Find all autodiscovery topics for this cover ID
         matching_topics = self._manager._config_helper.get_autodiscovery_topics_for_id(cover_id)
-        
+
         for ha_type, topic in matching_topics:
             _LOGGER.debug("Removing HA Discovery for cover %s: %s", cover_id, topic)
             # Send empty/null payload to remove from HA (HA requires zero-length retained message)
@@ -368,10 +389,10 @@ class CoverManager:
 
     def get_cover(self, id: str) -> TimeBasedCover | VenetianCover | None:
         """Get cover by ID.
-        
+
         Args:
             id: Cover identifier
-            
+
         Returns:
             Cover instance or None if not found
         """
@@ -379,7 +400,7 @@ class CoverManager:
 
     def get_all_covers(self) -> dict[str, TimeBasedCover | VenetianCover]:
         """Get all covers.
-        
+
         Returns:
             Dictionary of all covers
         """
@@ -387,24 +408,19 @@ class CoverManager:
 
     def reload_covers(self) -> None:
         """Reload cover configuration from file.
-        
+
         This updates cover timings and creates new covers if needed.
         After reload, broadcasts all cover states to WebSocket clients.
         """
         _LOGGER.info("Reloading cover configuration")
         self._configure_covers(reload_config=True)
-        
+
         # Broadcast updated states to WebSocket clients
         self._broadcast_all_states()
 
-    async def handle_cover_action(
-        self,
-        cover_id: str,
-        action: str,
-        extra_data: dict[str, Any] | None = None
-    ) -> None:
+    async def handle_cover_action(self, cover_id: str, action: str, extra_data: dict[str, Any] | None = None) -> None:
         """Handle cover action.
-        
+
         Args:
             cover_id: Cover identifier
             action: Action to execute (open, close, stop, set_position)
@@ -414,12 +430,12 @@ class CoverManager:
         if not cover:
             _LOGGER.warning("Cover %s not found for action", cover_id)
             return
-        
+
         action_to_execute = cover_actions.get(action)
         if not action_to_execute:
             _LOGGER.warning("Unknown cover action: %s", action)
             return
-        
+
         try:
             _f = getattr(cover, action_to_execute)
             # Filter extra_data to only pass params accepted by the action
@@ -429,16 +445,11 @@ class CoverManager:
             else:
                 await _f()
         except Exception as err:
-            _LOGGER.error(
-                "Error executing cover action %s on %s: %s",
-                action,
-                cover_id,
-                err
-            )
+            _LOGGER.error("Error executing cover action %s on %s: %s", action, cover_id, err)
 
     def handle_cover_command(self, device_id: str, command: str, message: str) -> None:
         """Handle MQTT cover command.
-        
+
         Args:
             device_id: Cover identifier
             command: Command type ('set')
@@ -447,7 +458,7 @@ class CoverManager:
         cover = self._covers.get(device_id)
         if not cover:
             return
-        
+
         if command == "set":
             action_from_msg = cover_actions.get(message.upper())
             if action_from_msg:
@@ -458,7 +469,7 @@ class CoverManager:
 
     def _broadcast_all_states(self) -> None:
         """Broadcast current state of all covers via WebSocket.
-        
+
         This is called after reload to ensure frontend receives
         the state of all covers, including newly created ones.
         """
@@ -472,17 +483,19 @@ class CoverManager:
         """Send Home Assistant autodiscovery for all covers."""
         for cover_id, cover in self._covers.items():
             # Use tilt variant if cover supports tilt
-            if hasattr(cover, 'tilt_position'):
+            if hasattr(cover, "tilt_position"):
                 msg_func = ha_cover_with_tilt_availabilty_message
             else:
                 msg_func = ha_cover_availabilty_message
             payload = msg_func(
                 id=cover_id,
-                name=cover.name if hasattr(cover, 'name') else cover_id,
+                name=cover.name if hasattr(cover, "name") else cover_id,
                 config_helper=self._manager._config_helper,
-                device_class=getattr(cover, 'device_class', None),
-                area=getattr(cover, 'area', None),
+                device_class=getattr(cover, "device_class", None),
+                area=getattr(cover, "area", None),
             )
             self._manager.publish_ha_discovery(
-                id=cover_id, ha_type=COVER, payload=payload,
+                id=cover_id,
+                ha_type=COVER,
+                payload=payload,
             )

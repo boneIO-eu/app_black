@@ -170,18 +170,22 @@ class TestStateSaveCallback:
     """Tests for the state_save closure used by CoverManager."""
 
     def test_state_save_calls_save_attribute_when_restore_enabled(self):
-        """When restore_state=True, state_save persists the position."""
+        """When restore_state=True, state_save persists the position as a dict.
+
+        After the fix, save_attribute receives a native dict — NOT a
+        json.dumps string. StateManager.save_state() handles JSON serialization.
+        """
         mock_state_manager = MagicMock()
         cover_id = "living_room"
         config_restore_state = True
 
-        # Reproduce the closure from CoverManager._configure_cover
+        # Reproduce the FIXED closure from CoverManager._configure_cover
         def state_save(value: dict[str, int]):
             if config_restore_state:
                 mock_state_manager.save_attribute(
                     attr_type="cover",
                     attribute=cover_id,
-                    value=json.dumps(value),
+                    value=value,
                 )
 
         state_save({"position": 55})
@@ -189,11 +193,11 @@ class TestStateSaveCallback:
         mock_state_manager.save_attribute.assert_called_once_with(
             attr_type="cover",
             attribute="living_room",
-            value=json.dumps({"position": 55}),
+            value={"position": 55},
         )
 
     def test_state_save_skips_when_restore_disabled(self):
-        """When restore_state=False, state_save does NOT persist."""
+        """When restore_state=False, state_save should NOT persist."""
         mock_state_manager = MagicMock()
         cover_id = "living_room"
         config_restore_state = False
@@ -203,7 +207,7 @@ class TestStateSaveCallback:
                 mock_state_manager.save_attribute(
                     attr_type="cover",
                     attribute=cover_id,
-                    value=json.dumps(value),
+                    value=value,
                 )
 
         state_save({"position": 55})
@@ -212,23 +216,36 @@ class TestStateSaveCallback:
     def test_roundtrip_save_then_restore(self):
         """Full roundtrip: save position → simulate restart → restore position.
 
-        This test proves the complete flow works end-to-end:
-        1. Cover moves to position 42
-        2. state_save persists json.dumps({"position": 42})
-        3. On restart, StateManager returns that string
-        4. Deserialization correctly restores position=42
+        After the fix, save stores a dict directly (not json.dumps string).
+        StateManager's json.dump() serializes the entire state dict to JSON,
+        and json.load() deserializes it back to native Python types.
+        So on restart, StateManager.get() returns a dict, not a string.
         """
-        # Save phase
-        saved_store: dict[str, str] = {}
+        # Save phase — store dict directly
+        saved_store: dict[str, dict] = {}
 
         def save_attribute(attr_type, attribute, value):
             saved_store[f"{attr_type}/{attribute}"] = value
 
-        save_attribute("cover", "my_cover", json.dumps({"position": 42}))
+        save_attribute("cover", "my_cover", {"position": 42})
 
-        # Restore phase (simulating restart)
+        # Restore phase (simulating restart — json.load returns dict)
         raw_value = saved_store["cover/my_cover"]
         restored = _deserialize_restored_state(raw_value, {"position": 100})
+        assert restored == {"position": 42}
+
+    def test_roundtrip_backward_compat_legacy_string(self):
+        """Backward compatibility: old state files have json.dumps strings.
+
+        Before the fix, state_save wrote json.dumps({"position": 42}) which
+        became a double-serialized string in the JSON file. On load,
+        json.load() returns a string, not a dict. The restore logic must
+        handle this by calling json.loads() on the string.
+        """
+        # Simulate legacy state file content (double-serialized)
+        legacy_value = json.dumps({"position": 42})  # str: '{"position": 42}'
+
+        restored = _deserialize_restored_state(legacy_value, {"position": 100})
         assert restored == {"position": 42}
 
 
@@ -245,7 +262,7 @@ class TestCoverRestoreSourceCode:
         covers_path = pathlib.Path(__file__).resolve().parents[3] / "boneio" / "core" / "manager" / "covers.py"
         source = covers_path.read_text()
 
-        # The fix: isinstance(str) check followed by json.loads
+        # The backward-compat fix: isinstance(str) check followed by json.loads
         assert "json.loads(restored_state)" in source, (
             "covers.py must use json.loads() to deserialize saved cover state strings"
         )
@@ -255,3 +272,10 @@ class TestCoverRestoreSourceCode:
         assert bug_pattern not in source, (
             "The old buggy pattern that discards JSON strings must not exist"
         )
+
+        # Root cause fix: state_save should NOT use json.dumps
+        assert "value=json.dumps(value)" not in source, (
+            "state_save must NOT double-serialize with json.dumps — "
+            "StateManager.save_state() handles JSON serialization"
+        )
+

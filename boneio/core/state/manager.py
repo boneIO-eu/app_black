@@ -88,9 +88,19 @@ class StateManager:
             del self._state[attr_type][attribute]
 
     def save_attribute(
-        self, attr_type: str, attribute: str, value: str | bool
+        self, attr_type: str, attribute: str, value: Any
     ) -> None:
-        """Save single attribute to file."""
+        """Save single attribute to state dict, scheduling async disk write.
+
+        The value can be any JSON-serializable type (str, bool, int, float,
+        dict, list). It is stored directly in the in-memory state dict and
+        serialized to JSON when save_state() writes to disk.
+
+        Args:
+            attr_type: Category key (e.g. 'output', 'cover', 'irrigation').
+            attribute: Entity identifier within the category.
+            value: Any JSON-serializable value to persist.
+        """
         if attr_type not in self._state:
             self._state[attr_type] = {}
         self._state[attr_type][attribute] = value
