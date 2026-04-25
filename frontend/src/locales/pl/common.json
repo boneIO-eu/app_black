@@ -1497,7 +1497,8 @@
     "i2c_no_devices": "Nie znaleziono urządzeń I2C na tej magistrali.",
     "i2c_raw_output": "Surowe wyjście i2cdetect",
     "copy": "Kopiuj",
-    "copied": "Skopiowano!"
+    "copied": "Skopiowano!",
+    "modbus_paused": "Odpytywanie urządzeń Modbus wstrzymane na czas pracy z narzędziami"
   },
   "template": {
     "entity_id": "ID Encji",

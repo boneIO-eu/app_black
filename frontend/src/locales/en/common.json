@@ -1492,7 +1492,8 @@
     "i2c_no_devices": "No I2C devices found on this bus.",
     "i2c_raw_output": "Raw i2cdetect output",
     "copy": "Copy",
-    "copied": "Copied!"
+    "copied": "Copied!",
+    "modbus_paused": "Modbus device polling paused while tools are active"
   },
   "template": {
     "entity_id": "Entity ID",

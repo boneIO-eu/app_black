@@ -90,6 +90,8 @@ VALUE_TYPES = {
 MAX_WORKERS = 4
 # Timeout for Modbus operations in seconds
 OPERATION_TIMEOUT = 5
+# Auto-resume timeout in seconds (safety net if frontend disconnects)
+SUSPEND_AUTO_TIMEOUT = 300  # 5 minutes
 
 
 class Modbus:
@@ -128,6 +130,9 @@ class Modbus:
         self._uart = uart
         self._loop = asyncio.get_event_loop()
         self._lock = asyncio.Lock()
+        # Suspend mechanism: when True, coordinator polling is skipped
+        self._suspended = False
+        self._suspend_timeout_handle: asyncio.TimerHandle | None = None
         # Clamp inter_device_delay to 0-200ms, timeout to 0.1-10s
         clamped_delay = max(0, min(200, inter_device_delay))
         if clamped_delay != inter_device_delay:
@@ -171,6 +176,68 @@ class Modbus:
     def client(self) -> ModbusSerialClient | None:
         """Return client. May be None after async_close()."""
         return self._client
+
+    @property
+    def is_suspended(self) -> bool:
+        """Return True if coordinator polling is suspended (Tools active)."""
+        return self._suspended
+
+    def suspend(self) -> None:
+        """Suspend coordinator polling.
+
+        Called when the Tools Modbus page is opened. Coordinators
+        check ``is_suspended`` and skip their update cycle so they
+        don't compete for the UART with manual read/write operations.
+
+        An auto-resume timer is started as a safety net in case the
+        frontend disconnects without calling ``resume()``.
+        """
+        if self._suspended:
+            # Already suspended, just reset the timeout
+            self._reset_suspend_timeout()
+            return
+        self._suspended = True
+        self._reset_suspend_timeout()
+        _LOGGER.info("Modbus coordinator polling suspended (Tools active)")
+
+    def resume(self) -> None:
+        """Resume coordinator polling.
+
+        Called when the Tools Modbus page is closed or the user
+        navigates away.
+        """
+        if not self._suspended:
+            return
+        self._suspended = False
+        self._cancel_suspend_timeout()
+        _LOGGER.info("Modbus coordinator polling resumed")
+
+    def _reset_suspend_timeout(self) -> None:
+        """Reset the auto-resume safety timer."""
+        self._cancel_suspend_timeout()
+        try:
+            self._suspend_timeout_handle = self._loop.call_later(
+                SUSPEND_AUTO_TIMEOUT, self._auto_resume
+            )
+        except RuntimeError:
+            # Loop might be closed during shutdown
+            pass
+
+    def _cancel_suspend_timeout(self) -> None:
+        """Cancel the auto-resume safety timer."""
+        if self._suspend_timeout_handle is not None:
+            self._suspend_timeout_handle.cancel()
+            self._suspend_timeout_handle = None
+
+    def _auto_resume(self) -> None:
+        """Auto-resume after timeout (safety net)."""
+        if self._suspended:
+            self._suspended = False
+            self._suspend_timeout_handle = None
+            _LOGGER.warning(
+                "Modbus coordinator polling auto-resumed after %ds timeout",
+                SUSPEND_AUTO_TIMEOUT,
+            )
 
     async def async_close(self) -> None:
         """Disconnect client."""
@@ -370,9 +437,36 @@ class Modbus:
         count: int = 2,  # number of registers to read
         method: str = "input",  # type of register: input, holding
     ):
-        """Call async pymodbus."""
+        """Call async pymodbus.
+
+        Returns None immediately when suspended (Tools active) so that
+        coordinators treat the cycle as a no-response and retry later.
+        """
+        if self._suspended:
+            return None
         async with self._lock:
             result = await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result
+
+    async def read_registers_direct(
+        self,
+        unit: int | str,
+        address: int,
+        count: int = 2,
+        method: str = "input",
+    ):
+        """Read registers bypassing the suspend check.
+
+        Used by Tools API for manual reads while coordinators are
+        suspended.  Still acquires the UART lock to serialize access.
+        """
+        async with self._lock:
+            result = await self._loop.run_in_executor(
+                self._executor, self.read_registers_blocking,
+                unit, address, count, method,
+            )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result
@@ -458,9 +552,29 @@ class Modbus:
         return value
 
     async def write_register(self, unit: int | str, address: int, value: int | float):
-        """Write register async."""
+        """Write register async.
+
+        Returns None immediately when suspended.
+        """
+        if self._suspended:
+            return None
         async with self._lock:
             result = await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result
+
+    async def write_register_direct(self, unit: int | str, address: int, value: int | float):
+        """Write register bypassing the suspend check.
+
+        Used by Tools API for manual writes while coordinators are
+        suspended.  Still acquires the UART lock to serialize access.
+        """
+        async with self._lock:
+            result = await self._loop.run_in_executor(
+                self._executor, self.write_register_blocking,
+                unit, address, value,
+            )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result

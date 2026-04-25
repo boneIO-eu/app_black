@@ -121,6 +121,9 @@ async def modbus_get(
     """
     Read a register from a Modbus device.
     
+    Automatically suspends coordinator polling during the operation
+    and uses the direct read path that bypasses suspend checks.
+    
     Args:
         request: ModbusGetRequest with device address and register info.
         
@@ -134,13 +137,14 @@ async def modbus_get(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    modbus_client.suspend()
     async with _modbus_helper_lock:
         try:
             value_size = 1 if request.value_type in ["S_WORD", "U_WORD"] else 2
             if request.value_type in ["U_QWORD", "S_QWORD", "U_QWORD_R"]:
                 value_size = 4
             
-            result = await modbus_client.read_registers(
+            result = await modbus_client.read_registers_direct(
                 unit=request.address,
                 address=request.register_address,
                 count=value_size,
@@ -178,6 +182,8 @@ async def modbus_set(
     """
     Write to a Modbus device register.
     
+    Automatically suspends coordinator polling during the operation.
+    
     Args:
         request: ModbusSetRequest with device address, register and value.
         
@@ -191,9 +197,10 @@ async def modbus_set(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    modbus_client.suspend()
     async with _modbus_helper_lock:
         try:
-            result = await modbus_client.write_register(
+            result = await modbus_client.write_register_direct(
                 unit=request.address,
                 address=request.register_address,
                 value=int(request.value),
@@ -252,6 +259,7 @@ async def modbus_search_stream(
         
         _modbus_search_cancel = False
         
+        modbus_client.suspend()
         async with _modbus_helper_lock:
             found_devices = []
             total = end_address - start_address + 1
@@ -306,6 +314,60 @@ async def modbus_search_cancel():
     _modbus_search_cancel = True
     _LOGGER.info("Modbus search cancel requested")
     return {"success": True, "message": "Cancel requested"}
+
+
+@router.post("/modbus/pause")
+async def modbus_pause(
+    boneio_manager: Manager = Depends(get_manager),
+):
+    """Suspend coordinator polling.
+
+    Called by the frontend when the Tools Modbus page is opened.
+    Coordinators will skip their update cycles until resume is called.
+    A safety timeout auto-resumes after 5 minutes.
+
+    Returns:
+        Current suspended status.
+    """
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {"success": False, "error": "Modbus is not configured."}
+    modbus_client.suspend()
+    return {"success": True, "suspended": True}
+
+
+@router.post("/modbus/resume")
+async def modbus_resume(
+    boneio_manager: Manager = Depends(get_manager),
+):
+    """Resume coordinator polling.
+
+    Called by the frontend when the Tools Modbus page is closed.
+
+    Returns:
+        Current suspended status.
+    """
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {"success": False, "error": "Modbus is not configured."}
+    modbus_client.resume()
+    return {"success": True, "suspended": False}
+
+
+@router.get("/modbus/status")
+async def modbus_status(
+    boneio_manager: Manager = Depends(get_manager),
+):
+    """Get current Modbus status including suspend state.
+
+    Returns:
+        Dictionary with configured and suspended flags.
+    """
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    return {
+        "configured": modbus_client is not None,
+        "suspended": modbus_client.is_suspended if modbus_client else False,
+    }
 
 
 @router.get("/modbus/config")
@@ -485,6 +547,7 @@ async def modbus_configure_device(
             "error": "Modbus is not configured. Add 'modbus' section to your config.",
         }
     
+    modbus_client.suspend()
     async with _modbus_helper_lock:
         original_baudrate = None
         try:

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { FaPlay, FaSearch, FaCog, FaPlus } from 'react-icons/fa';
+import { FaPlay, FaSearch, FaCog, FaPlus, FaPause } from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
 
@@ -32,6 +32,10 @@ interface ModbusResult {
 /**
  * ModbusHelper - UI component for Modbus operations (GET, SET, SEARCH)
  * Uses the existing Modbus client from the manager.
+ *
+ * When this component is mounted, coordinator polling is automatically
+ * paused so manual operations don't conflict with background reads on
+ * the same UART bus.
  */
 export default function ModbusHelper() {
   const { t } = useTranslation();
@@ -39,6 +43,7 @@ export default function ModbusHelper() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ModbusResult | null>(null);
   const [config, setConfig] = useState<ModbusConfig | null>(null);
+  const [suspended, setSuspended] = useState(false);
 
   // Common parameters
   const [address, setAddress] = useState(1);
@@ -74,6 +79,31 @@ export default function ModbusHelper() {
     axios.get('/api/modbus/config')
       .then(res => setConfig(res.data))
       .catch(err => console.error('Failed to load modbus config:', err));
+  }, []);
+
+  // Pause coordinator polling on mount, resume on unmount
+  useEffect(() => {
+    let cancelled = false;
+
+    const pausePolling = async () => {
+      try {
+        const { data } = await axios.post('/api/modbus/pause');
+        if (!cancelled && data.success) {
+          setSuspended(true);
+        }
+      } catch (err) {
+        console.error('Failed to pause Modbus polling:', err);
+      }
+    };
+
+    pausePolling();
+
+    return () => {
+      cancelled = true;
+      // Fire-and-forget resume on unmount
+      axios.post('/api/modbus/resume').catch(() => {});
+      setSuspended(false);
+    };
   }, []);
 
   const handleGet = async () => {
@@ -242,6 +272,14 @@ export default function ModbusHelper() {
 
   return (
     <div>
+
+      {/* Suspended banner */}
+      {suspended && (
+        <div className="alert alert-info mb-4 shadow-sm">
+          <FaPause className="shrink-0" />
+          <span>{t('tools.modbus_paused')}</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="tabs tabs-boxed mb-6">

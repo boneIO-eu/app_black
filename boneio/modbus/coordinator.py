@@ -954,6 +954,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     async def async_update(self, timestamp: float) -> float | None:
         """Fetch state periodically and send to MQTT."""
+        # Skip update when Tools Modbus page is active
+        if self._modbus.is_suspended:
+            _LOGGER.debug(
+                "Modbus suspended (Tools active), skipping update for %s",
+                self._name,
+            )
+            return self._update_interval.total_in_seconds
         update_interval = self._update_interval.total_in_seconds
         await self.check_availability()
         self._update_cycle_count += 1
