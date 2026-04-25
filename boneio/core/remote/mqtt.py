@@ -220,9 +220,21 @@ class MQTTRemoteDevice(RemoteDevice):
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
         
+        Nests outputs/covers under 'mqtt' key to match frontend
+        RemoteDeviceEntity type (mqtt.outputs, mqtt.covers).
+        
         Returns:
             Dictionary with device information
         """
-        data = super().to_dict()
-        data["topic_prefix"] = self._topic_prefix
+        data = {
+            "id": self._id,
+            "name": self._name,
+            "protocol": self._protocol.value,
+            "device_type": self._device_type.value,
+            "topic_prefix": self._topic_prefix,
+            "mqtt": {
+                "outputs": self._outputs,
+                "covers": self._covers,
+            },
+        }
         return data

@@ -129,12 +129,25 @@ class RemoteDevice(ABC):
         """Set list of known covers.
         
         Args:
-            covers: List of cover definitions with 'id' and optional 'name'
+            covers: List of cover definitions with 'id', optional 'name',
+                    optional 'kind' (time/venetian), optional 'supports_tilt'
         """
-        self._covers = [
-            {"id": c.get("id", ""), "name": c.get("name", c.get("id", ""))}
-            for c in covers if c.get("id")
-        ]
+        self._covers = []
+        for c in covers:
+            if not c.get("id"):
+                continue
+            cover_entry: dict[str, Any] = {
+                "id": c["id"],
+                "name": c.get("name", c["id"]),
+            }
+            # Preserve tilt support info from discovery
+            if "kind" in c:
+                cover_entry["kind"] = c["kind"]
+            if "supports_tilt" in c:
+                cover_entry["supports_tilt"] = c["supports_tilt"]
+            elif "kind" in c:
+                cover_entry["supports_tilt"] = c["kind"] == "venetian"
+            self._covers.append(cover_entry)
     
     @abstractmethod
     async def control_output(

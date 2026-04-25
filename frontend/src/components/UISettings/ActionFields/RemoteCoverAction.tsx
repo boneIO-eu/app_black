@@ -8,9 +8,7 @@ import {
 } from '@/components/ui/select';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { RemoteCoverActionProps } from './types';
-
-/** Tilt-related cover actions that only apply to covers with tilt support. */
-const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+import { TILT_ACTIONS, coverSupportsTilt, filterCoverActionsByTilt } from './helpers';
 
 /**
  * Remote Cover Action component - handles ESPHome and MQTT remote covers.
@@ -25,27 +23,17 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
 }) => {
   const selectedDevice = allRemoteDevices.find(d => d.id === action.remote_device);
   const isEspHome = selectedDevice?.protocol === 'esphome_api';
-  const covers = isEspHome 
+  const covers = isEspHome
     ? (selectedDevice?.esphome_api?.covers || [])
     : (selectedDevice?.mqtt?.covers || []);
   const selectedCover = covers.find((c: any) => c.id === action.cover_id);
 
-  /** Check if selected cover supports tilt (ESPHome provides this info). */
-  const supportsTilt = useMemo(() => {
-    if (!selectedCover) return false;
-    // ESPHome covers have explicit supports_tilt flag
-    if ('supports_tilt' in selectedCover) return !!selectedCover.supports_tilt;
-    // For MQTT remote covers, we can't know — show all options
-    return !isEspHome;
-  }, [selectedCover, isEspHome]);
 
   /** Filter action options: show tilt actions only when cover supports tilt. */
-  const filteredCoverOptions = useMemo(() => {
-    // If no cover selected yet, or device is MQTT (unknown tilt support), show all
-    if (!selectedCover && !isEspHome) return actionCoverOptions;
-    if (supportsTilt) return actionCoverOptions;
-    return actionCoverOptions.filter(opt => !TILT_ACTIONS.includes(opt));
-  }, [actionCoverOptions, supportsTilt, selectedCover, isEspHome]);
+  const filteredCoverOptions = useMemo(
+    () => filterCoverActionsByTilt(actionCoverOptions, selectedCover),
+    [actionCoverOptions, selectedCover],
+  );
 
   return (
     <>
@@ -67,10 +55,9 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           value={action.cover_id || ''}
           onValueChange={(value) => {
             onUpdate('cover_id', value);
-            // When changing cover, check if new cover supports tilt
+            // When changing cover, reset tilt action if new cover doesn't support it
             const newCover = covers.find((c: any) => c.id === value);
-            const newSupportsTilt = newCover && 'supports_tilt' in newCover ? !!newCover.supports_tilt : !isEspHome;
-            if (!newSupportsTilt && TILT_ACTIONS.includes(action.action_cover)) {
+            if (!coverSupportsTilt(newCover) && TILT_ACTIONS.includes(action.action_cover)) {
               onUpdate('action_cover', 'TOGGLE');
               onUpdate('data', undefined);
             }
@@ -82,7 +69,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
               {selectedCover ? (
                 <div className="flex flex-col items-start">
                   <span className="font-medium">
-                    {isEspHome && (
+                    {'supports_tilt' in selectedCover && (
                       <span className={`badge badge-xs ${(selectedCover as any).supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
                         {(selectedCover as any).supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
                       </span>
@@ -101,7 +88,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
               <SelectItem key={cover.id} value={cover.id}>
                 <div className="flex flex-col">
                   <span className="font-medium">
-                    {isEspHome && (
+                    {'supports_tilt' in cover && (
                       <span className={`badge badge-xs ${cover.supports_tilt ? 'badge-accent' : 'badge-info'} mr-1`}>
                         {cover.supports_tilt ? t('covers.type_venetian') : t('covers.type_time_based')}
                       </span>
@@ -146,7 +133,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           <SelectContent>
             {filteredCoverOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.split('_').map(word => 
+                {option.split('_').map(word =>
                   word.charAt(0) + word.slice(1).toLowerCase()
                 ).join(' ')}
               </SelectItem>

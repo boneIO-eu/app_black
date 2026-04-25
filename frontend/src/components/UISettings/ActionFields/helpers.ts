@@ -204,3 +204,45 @@ export const hexToRgb = (hex: string): number[] => {
     parseInt(result[3], 16)
   ] : [255, 255, 255];
 };
+
+// ---------------------------------------------------------------------------
+// Remote Cover Tilt Support Utilities
+// ---------------------------------------------------------------------------
+
+/** Tilt-related cover actions that only apply to covers with tilt support. */
+export const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+
+/**
+ * Determines if a cover supports tilt based on discovery data.
+ * Checks supports_tilt flag first, then falls back to kind field.
+ * Returns false when tilt support is unknown (safe default).
+ * @param cover - Cover object from remote device (ESPHome or MQTT)
+ * @returns true if the cover supports tilt control
+ */
+export const coverSupportsTilt = (cover: any): boolean => {
+  if (!cover) return false;
+  // Both ESPHome and MQTT covers may provide supports_tilt from discovery
+  if ('supports_tilt' in cover) return !!cover.supports_tilt;
+  // Fallback: check 'kind' field from BoneIO discovery
+  if ('kind' in cover) return cover.kind === 'venetian';
+  // Unknown — hide tilt by default (safer UX)
+  return false;
+};
+
+/**
+ * Filters cover action options based on tilt support.
+ * Removes TILT, TILT_OPEN, TILT_CLOSE when cover does not support tilt.
+ * @param actionOptions - Full list of cover action option strings
+ * @param selectedCover - Currently selected cover object (or null/undefined)
+ * @returns Filtered list of action options
+ */
+export const filterCoverActionsByTilt = (
+  actionOptions: string[],
+  selectedCover: any,
+): string[] => {
+  // If no cover selected yet, show all options
+  if (!selectedCover) return actionOptions;
+  if (coverSupportsTilt(selectedCover)) return actionOptions;
+  return actionOptions.filter(opt => !TILT_ACTIONS.includes(opt));
+};
+

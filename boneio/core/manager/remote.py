@@ -857,10 +857,26 @@ class RemoteDeviceManager:
             # Only update if device has no manually configured outputs
             device.set_outputs(data)
             _LOGGER.info("Updated configured device %s with autodiscovered outputs: %d", device_id, len(data))
-        elif discovery_type == "covers" and not device.covers:
-            # Only update if device has no manually configured covers
-            device.set_covers(data)
-            _LOGGER.info("Updated configured device %s with autodiscovered covers: %d", device_id, len(data))
+        elif discovery_type == "covers":
+            if not device.covers:
+                # No manually configured covers — use discovery data as-is
+                device.set_covers(data)
+                _LOGGER.info("Updated configured device %s with autodiscovered covers: %d", device_id, len(data))
+            else:
+                # Covers exist — enrich with tilt support info from discovery
+                discovery_map = {c.get("id"): c for c in data if c.get("id")}
+                updated = False
+                for cover in device.covers:
+                    disc = discovery_map.get(cover.get("id"))
+                    if disc:
+                        if "supports_tilt" not in cover and "supports_tilt" in disc:
+                            cover["supports_tilt"] = disc["supports_tilt"]
+                            updated = True
+                        if "kind" not in cover and "kind" in disc:
+                            cover["kind"] = disc["kind"]
+                            updated = True
+                if updated:
+                    _LOGGER.debug("Enriched configured covers on %s with tilt info from discovery", device_id)
 
     def _remove_autodiscovered_device(self, device_id: str) -> None:
         """Remove autodiscovered device from memory only.

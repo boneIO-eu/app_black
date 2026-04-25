@@ -563,6 +563,8 @@
     "restart_required": "Wymagany restart aby zastosować zmiany",
     "config_backups": "Kopie Zapasowe Konfiguracji",
     "no_config_backups": "Brak dostępnych kopii zapasowych konfiguracji.",
+    "show_config_backups": "Pokaż kopie zapasowe ({count})",
+    "hide_config_backups": "Ukryj kopie zapasowe ({count})",
     "files": "Pliki",
     "yaml_files": "plików YAML",
     "restore": "Przywróć",

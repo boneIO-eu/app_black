@@ -454,7 +454,7 @@ export interface RemoteDeviceEntity {
   /** MQTT configuration (for protocol: mqtt) */
   mqtt?: {
     outputs?: { id: string; name?: string }[];
-    covers?: { id: string; name?: string }[];
+    covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
   };
   /** ESPHome API configuration (for protocol: esphome_api) */
   esphome_api?: ESPHomeApiConfig;

@@ -590,6 +590,8 @@
     "restart_required": "Restart required to apply changes",
     "config_backups": "Configuration Backups",
     "no_config_backups": "No configuration backups available.",
+    "show_config_backups": "Show Backups ({count})",
+    "hide_config_backups": "Hide Backups ({count})",
     "files": "Files",
     "yaml_files": "YAML files",
     "restore": "Restore",

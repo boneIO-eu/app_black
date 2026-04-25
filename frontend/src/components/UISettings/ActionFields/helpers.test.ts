@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { cleanActionFields, validateAction, validateCondition } from './helpers';
+import {
+  cleanActionFields,
+  validateAction,
+  validateCondition,
+  coverSupportsTilt,
+  filterCoverActionsByTilt,
+  TILT_ACTIONS,
+} from './helpers';
 
 // ---------------------------------------------------------------------------
 // cleanActionFields
@@ -409,5 +416,138 @@ describe('validateAction with conditions', () => {
     };
     const result = cleanActionFields('mqtt', prior);
     expect(result.condition).toEqual({ type: 'time', after: '05:00', before: '22:00' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// coverSupportsTilt
+// ---------------------------------------------------------------------------
+
+describe('coverSupportsTilt', () => {
+  it('returns false for null/undefined cover', () => {
+    expect(coverSupportsTilt(null)).toBe(false);
+    expect(coverSupportsTilt(undefined)).toBe(false);
+  });
+
+  it('returns true when supports_tilt is true (ESPHome style)', () => {
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: true })).toBe(true);
+  });
+
+  it('returns false when supports_tilt is false (ESPHome style)', () => {
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: false })).toBe(false);
+  });
+
+  it('returns true when kind is venetian (BoneIO discovery)', () => {
+    expect(coverSupportsTilt({ id: 'c1', kind: 'venetian' })).toBe(true);
+  });
+
+  it('returns false when kind is time (BoneIO discovery)', () => {
+    expect(coverSupportsTilt({ id: 'c1', kind: 'time' })).toBe(false);
+  });
+
+  it('supports_tilt takes precedence over kind', () => {
+    // If both present, supports_tilt wins
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: true, kind: 'time' })).toBe(true);
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: false, kind: 'venetian' })).toBe(false);
+  });
+
+  it('returns false when no tilt info is available (unknown cover)', () => {
+    expect(coverSupportsTilt({ id: 'c1', name: 'My Cover' })).toBe(false);
+  });
+
+  it('returns false for empty object', () => {
+    expect(coverSupportsTilt({})).toBe(false);
+  });
+
+  it('handles supports_tilt with truthy non-boolean values', () => {
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: 1 })).toBe(true);
+    expect(coverSupportsTilt({ id: 'c1', supports_tilt: 0 })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterCoverActionsByTilt
+// ---------------------------------------------------------------------------
+
+const ALL_COVER_ACTIONS = ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+const NON_TILT_ACTIONS = ALL_COVER_ACTIONS.filter(a => !TILT_ACTIONS.includes(a));
+
+describe('filterCoverActionsByTilt', () => {
+  it('returns all actions when no cover is selected (null)', () => {
+    expect(filterCoverActionsByTilt(ALL_COVER_ACTIONS, null)).toEqual(ALL_COVER_ACTIONS);
+  });
+
+  it('returns all actions when no cover is selected (undefined)', () => {
+    expect(filterCoverActionsByTilt(ALL_COVER_ACTIONS, undefined)).toEqual(ALL_COVER_ACTIONS);
+  });
+
+  it('returns all actions for venetian cover (supports_tilt=true)', () => {
+    const venetian = { id: 'blind1', supports_tilt: true };
+    expect(filterCoverActionsByTilt(ALL_COVER_ACTIONS, venetian)).toEqual(ALL_COVER_ACTIONS);
+  });
+
+  it('filters tilt actions for time-based cover (supports_tilt=false)', () => {
+    const timeBased = { id: 'roller1', supports_tilt: false };
+    const result = filterCoverActionsByTilt(ALL_COVER_ACTIONS, timeBased);
+    expect(result).toEqual(NON_TILT_ACTIONS);
+    expect(result).not.toContain('TILT');
+    expect(result).not.toContain('TILT_OPEN');
+    expect(result).not.toContain('TILT_CLOSE');
+  });
+
+  it('filters tilt actions when kind=time (BoneIO discovery)', () => {
+    const timeBased = { id: 'roller1', kind: 'time' };
+    const result = filterCoverActionsByTilt(ALL_COVER_ACTIONS, timeBased);
+    expect(result).not.toContain('TILT');
+    expect(result).toContain('TOGGLE');
+    expect(result).toContain('OPEN');
+    expect(result).toContain('CLOSE');
+  });
+
+  it('shows all actions when kind=venetian (BoneIO discovery)', () => {
+    const venetian = { id: 'blind1', kind: 'venetian' };
+    expect(filterCoverActionsByTilt(ALL_COVER_ACTIONS, venetian)).toEqual(ALL_COVER_ACTIONS);
+  });
+
+  it('filters tilt actions for unknown cover (no tilt info)', () => {
+    const unknown = { id: 'cover_x', name: 'Unknown Cover' };
+    const result = filterCoverActionsByTilt(ALL_COVER_ACTIONS, unknown);
+    expect(result).toEqual(NON_TILT_ACTIONS);
+  });
+
+  it('preserves order of non-tilt actions', () => {
+    const timeBased = { id: 'r1', supports_tilt: false };
+    const result = filterCoverActionsByTilt(ALL_COVER_ACTIONS, timeBased);
+    const expectedOrder = ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE'];
+    expect(result).toEqual(expectedOrder);
+  });
+
+  it('handles empty action list', () => {
+    const cover = { id: 'c1', supports_tilt: false };
+    expect(filterCoverActionsByTilt([], cover)).toEqual([]);
+  });
+
+  it('handles action list with only tilt actions', () => {
+    const cover = { id: 'c1', supports_tilt: false };
+    expect(filterCoverActionsByTilt(['TILT', 'TILT_OPEN', 'TILT_CLOSE'], cover)).toEqual([]);
+  });
+
+  it('returns all actions with only tilt actions for venetian cover', () => {
+    const cover = { id: 'c1', supports_tilt: true };
+    expect(filterCoverActionsByTilt(['TILT', 'TILT_OPEN', 'TILT_CLOSE'], cover)).toEqual(['TILT', 'TILT_OPEN', 'TILT_CLOSE']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TILT_ACTIONS constant
+// ---------------------------------------------------------------------------
+
+describe('TILT_ACTIONS', () => {
+  it('contains exactly TILT, TILT_OPEN, TILT_CLOSE', () => {
+    expect(TILT_ACTIONS).toEqual(['TILT', 'TILT_OPEN', 'TILT_CLOSE']);
+  });
+
+  it('has 3 entries', () => {
+    expect(TILT_ACTIONS).toHaveLength(3);
   });
 });
