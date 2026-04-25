@@ -672,7 +672,7 @@ export default function IrrigationView() {
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.ctrl) return;
     const ctrlId = longPressDialog.ctrl.id;
-    navigate(`/settings/irrigation?edit=${encodeURIComponent(ctrlId)}`);
+    navigate(`/settings/template?edit=${encodeURIComponent(ctrlId)}`);
     setLongPressDialog({ open: false, ctrl: null });
   }, [longPressDialog.ctrl, navigate]);
 
