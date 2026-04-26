@@ -50,6 +50,18 @@ export default function HelpView() {
         </p>
         
         <p className="text-lg flex flex-col">
+          {t('help.forum_community')}{' '}
+          <a 
+            href="https://forum.boneio.eu" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="link link-primary"
+          >
+            https://forum.boneio.eu
+          </a>
+        </p>
+        
+        <p className="text-lg flex flex-col">
           {t('help.app_repository')}:{' '}
           <a 
             href="https://github.com/boneIO-eu/app_black" 
