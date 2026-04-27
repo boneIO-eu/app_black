@@ -65,8 +65,8 @@ class CoverManager:
         """
         # Reload configuration if requested
         if reload_config:
-            # Get config from ConfigHelper (uses cache, reloads if needed)
-            config = self._manager._config_helper.reload_config()
+            # Get config from ConfigHelper (already reloaded by Manager)
+            config = self._manager._config_helper.get_config()
             self._config_covers = config.get(COVER, [])
             self._manager._config_helper.clear_autodiscovery_type(ha_type=COVER)
 

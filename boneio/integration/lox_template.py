@@ -227,7 +227,7 @@ def _get_lox_config(manager: Manager) -> dict[str, Any]:
         Dictionary with lox_udp configuration values.
     """
     try:
-        config = manager.config_helper.reload_config()
+        config = manager.config_helper.get_config()
         lox = config.get("lox_udp", {})
         return {
             "boneio_ip": lox.get("host", "0.0.0.0"),

@@ -744,8 +744,10 @@ async def set_entity_labels(
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=result.get("message", "Failed to save config"))
 
-        # Invalidate config cache
-        manager.config_helper.reload_config()
+        # Invalidate disk cache and refresh in-memory config
+        from boneio.webui.routes.config import invalidate_config_cache
+        invalidate_config_cache()
+        manager.config_helper.get_config(force_reload=True)
 
     except HTTPException:
         raise

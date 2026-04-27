@@ -721,8 +721,8 @@ class OutputManager:
             current_states[output_id] = output.is_active
             _LOGGER.debug(f"Preserving state for {output_id}: {output.is_active}")
         
-        # Get config from ConfigHelper (uses cache, reloads if needed)
-        config = self._manager._config_helper.reload_config()
+        # Get config from ConfigHelper (already reloaded by Manager)
+        config = self._manager._config_helper.get_config()
         
         # Get new relay pins and output groups
         relay_pins = config.get(OUTPUT, [])

@@ -280,7 +280,7 @@ class DisplayManager:
             return
 
         try:
-            config = self._manager._config_helper.reload_config()
+            config = self._manager._config_helper.get_config()
             oled_config = config.get("oled", {})
 
             if not oled_config or oled_config.get("enabled") is False:

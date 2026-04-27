@@ -569,8 +569,8 @@ class SensorManager:
 
         _LOGGER.info("Reloading Dallas sensors configuration")
 
-        # Get fresh config
-        config = self._manager._config_helper.reload_config()
+        # Get config from ConfigHelper (already reloaded by Manager)
+        config = self._manager._config_helper.get_config()
         new_sensors_config = config.get(SENSOR_SECTION, [])
         ds2482_config = config.get(DS2482, [])
 
@@ -687,8 +687,8 @@ class SensorManager:
 
         _LOGGER.info("Reloading ADC sensors configuration")
 
-        # Get fresh config
-        config = self._manager._config_helper.reload_config()
+        # Get config from ConfigHelper (already reloaded by Manager)
+        config = self._manager._config_helper.get_config()
         new_adc_config = config.get(ADC, [])
 
         # Get current sensor pins
@@ -1037,8 +1037,8 @@ class SensorManager:
 
         _LOGGER.info("Reloading virtual energy sensors configuration")
 
-        # Get fresh config - virtual_energy_sensor is a top-level section
-        config = self._manager._config_helper.reload_config()
+        # Get config from ConfigHelper (already reloaded by Manager)
+        config = self._manager._config_helper.get_config()
         new_configs = config.get(VIRTUAL_ENERGY_SENSOR, [])
 
         # Get current and new sensor IDs, detecting duplicates

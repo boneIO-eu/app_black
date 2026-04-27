@@ -386,8 +386,14 @@ class ConfigHelper:
     def reload_config(self) -> dict[str, Any]:
         """Reload configuration from file and update cache.
         
-        Waits for any background config cache rebuild to complete before
-        loading, so the fast cached path is used instead of full validation.
+        Loads config from file using load_config_from_file() which tries the
+        disk cache first (~0.5s) and falls back to full Cerberus validation
+        (~20s) on cache miss. This method does NOT wait for any background
+        cache rebuild — it's independent.
+        
+        NOTE: This method may take up to ~20s on BeagleBone if disk cache
+        is not available. Callers should run it via asyncio.to_thread() to
+        avoid blocking the event loop.
         
         Returns:
             dict: Reloaded configuration dictionary
@@ -395,13 +401,6 @@ class ConfigHelper:
         Raises:
             ValueError: If config_file_path is not set
         """
-        # Wait for background cache rebuild (started after config save)
-        try:
-            from boneio.webui.routes.config import wait_for_config_cache
-            wait_for_config_cache(timeout=30.0)
-        except ImportError:
-            pass  # Web module not available (e.g., during tests)
-        
         _LOGGER.info("Reloading config from file: %s", self._config_file_path)
         return self.get_config(force_reload=True)
 

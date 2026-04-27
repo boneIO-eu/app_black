@@ -1045,8 +1045,12 @@ class Manager:
         _LOGGER.info("Starting config reload")
         
         # Reload config cache in ConfigHelper
+        # NOTE: reload_config() calls load_config_from_file() which may run
+        # full Cerberus validation (~20s) on disk cache miss. Run in a thread
+        # executor to keep the event loop responsive (MQTT, WS, modbus).
         try:
-            config = self._config_helper.reload_config()
+            import asyncio
+            config = await asyncio.to_thread(self._config_helper.reload_config)
             # Update areas mapping from reloaded config
             self._config_helper.set_areas(config.get("areas", []))
         except Exception as e:

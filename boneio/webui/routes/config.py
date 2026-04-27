@@ -125,71 +125,87 @@ def _recompute_config_checksum() -> None:
 def invalidate_config_cache():
     """Invalidate in-memory config cache and disk validation cache, recompute checksum.
 
-    After clearing, triggers a background rebuild of the disk cache so that
-    the next reload_config() call hits the fast path (~0.5s) instead of
-    running full Cerberus validation (~20s on BeagleBone).
+    Clears both in-memory and disk caches, then schedules a debounced
+    background rebuild of the disk cache. The rebuild runs 30 seconds after
+    the last config change so that rapid edits don't trigger multiple slow
+    Cerberus validations (~20s each on BeagleBone).
+
+    Hot reload does NOT wait for this rebuild — it loads config independently.
+    The disk cache is only an optimization for faster application startup.
     """
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
     try:
         config_file = _get_app_state().yaml_config_file
         clear_config_cache(config_file)
-        # Rebuild disk cache in background thread so reload is fast
-        _rebuild_config_cache_background(config_file)
+        # Schedule debounced rebuild — not immediate
+        _schedule_debounced_cache_rebuild(config_file)
     except Exception:
         clear_config_cache()
     _recompute_config_checksum()
 
 
-# Event to signal that background cache rebuild is done
-_cache_rebuild_event: threading.Event = threading.Event()
-_cache_rebuild_event.set()  # Initially "done" — no rebuild pending
+# Debounced cache rebuild timer — cancels previous timer on each config change
+_cache_rebuild_timer: threading.Timer | None = None
+_cache_rebuild_lock: threading.Lock = threading.Lock()
+
+# How long to wait after the last config edit before rebuilding disk cache
+_CACHE_REBUILD_DELAY_SECONDS: float = 30.0
 
 
-def wait_for_config_cache(timeout: float = 30.0) -> bool:
-    """Wait for a background config cache rebuild to complete.
+def _schedule_debounced_cache_rebuild(config_file: str) -> None:
+    """Schedule a debounced background cache rebuild.
 
-    Called by reload_config before loading config so it hits the
-    fast cached path instead of running full validation in parallel.
+    Each call cancels any previously scheduled rebuild and starts a new
+    timer. The actual rebuild runs only after ``_CACHE_REBUILD_DELAY_SECONDS``
+    of inactivity (no more config edits).
 
     Args:
-        timeout: Maximum seconds to wait.
-
-    Returns:
-        True if cache is ready, False if timed out.
+        config_file: Path to the main config YAML file.
     """
-    if _cache_rebuild_event.is_set():
-        return True
-    _LOGGER.info("Waiting for background config cache rebuild to complete...")
-    return _cache_rebuild_event.wait(timeout=timeout)
+    global _cache_rebuild_timer
+
+    with _cache_rebuild_lock:
+        # Cancel any pending timer
+        if _cache_rebuild_timer is not None:
+            _cache_rebuild_timer.cancel()
+            _LOGGER.debug("Cancelled pending config cache rebuild timer")
+
+        # Schedule new rebuild
+        _cache_rebuild_timer = threading.Timer(
+            _CACHE_REBUILD_DELAY_SECONDS,
+            _do_cache_rebuild,
+            args=(config_file,),
+        )
+        _cache_rebuild_timer.daemon = True
+        _cache_rebuild_timer.name = "config-cache-rebuild-timer"
+        _cache_rebuild_timer.start()
+        _LOGGER.debug(
+            "Scheduled config cache rebuild in %.0fs",
+            _CACHE_REBUILD_DELAY_SECONDS,
+        )
 
 
-def _rebuild_config_cache_background(config_file: str) -> None:
-    """Rebuild validated config disk cache in a background thread.
+def _do_cache_rebuild(config_file: str) -> None:
+    """Execute the actual disk cache rebuild.
 
-    Runs the full Cerberus validation and saves the result to .cache.pkl.
-    This way, when reload_config() is called shortly after, it will
-    find a fresh cache and skip the slow validation.
+    Runs full Cerberus validation and saves the result to ``.cache.pkl``.
+    Called by the debounced timer after edits settle.
+
+    Args:
+        config_file: Path to the main config YAML file.
     """
-    _cache_rebuild_event.clear()  # Signal: rebuild in progress
+    global _cache_rebuild_timer
 
-    def _do_rebuild():
-        try:
-            _LOGGER.info("Background config cache rebuild started")
-            # This runs full validation and saves cache to disk
-            load_config_from_file(config_file)
-            _LOGGER.info("Background config cache rebuild completed")
-        except Exception as e:
-            _LOGGER.warning("Background config cache rebuild failed: %s", e)
-        finally:
-            _cache_rebuild_event.set()  # Signal: rebuild done (success or failure)
-
-    thread = threading.Thread(
-        target=_do_rebuild,
-        name="config-cache-rebuild",
-        daemon=True,
-    )
-    thread.start()
+    try:
+        _LOGGER.info("Background config cache rebuild started")
+        load_config_from_file(config_file)
+        _LOGGER.info("Background config cache rebuild completed")
+    except Exception as e:
+        _LOGGER.warning("Background config cache rebuild failed: %s", e)
+    finally:
+        with _cache_rebuild_lock:
+            _cache_rebuild_timer = None
 
 
 def _get_config_mtime(config_file: str) -> float:

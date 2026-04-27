@@ -151,7 +151,7 @@ class TestCoverManagerRelayReload:
         assert cover._close_relay.id == "OUT_02"
 
         # Simulate reload: ConfigHelper returns new config with different relays
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: updated_cover_config,
         }
 
@@ -175,7 +175,7 @@ class TestCoverManagerRelayReload:
         original_close = cover._close_relay
 
         # Reload with same config
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: initial_cover_config,
         }
 
@@ -212,7 +212,7 @@ class TestCoverManagerRelayReload:
             }
         ]
 
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: venetian_config,
         }
 
@@ -248,7 +248,7 @@ class TestCoverManagerRelayReload:
             }
         ]
 
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: new_config,
         }
 
@@ -292,7 +292,7 @@ class TestCoverManagerRelayReload:
         assert len(cover_mgr.get_all_covers()) == 1
 
         # Reload with empty config (cover deleted by user)
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: [],
         }
 
@@ -334,7 +334,7 @@ class TestCoverManagerRelayReload:
         assert len(cover_mgr.get_all_covers()) == 2
 
         # Reload with only cover_b (cover_a deleted)
-        manager._config_helper.reload_config.return_value = {
+        manager._config_helper.get_config.return_value = {
             COVER: [two_covers_config[1]],
         }
 

@@ -5,6 +5,7 @@ import TableActions from './TableActions';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import { formatTimeperiod } from '@/utils/formatters';
 
 interface Area {
   id: string;
@@ -66,6 +67,7 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
                 ...(item.address ? [{ label: t('sensors.address'), value: <span className="font-mono text-xs">{item.address}</span> }] : []),
                 { label: t('sensors.platform'), value: <span className="badge badge-info badge-xs">{item.platform || 'gpio_onewire'}</span> },
                 ...(areaName ? [{ label: t('sensors.area'), value: areaName }] : []),
+                ...(item.update_interval ? [{ label: t('sensors.update_interval'), value: formatTimeperiod(item.update_interval) }] : []),
               ]}
             />
           );
@@ -81,6 +83,7 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
               <SortableHeader column="address" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.address')}</SortableHeader>
               <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.area')}</SortableHeader>
               <SortableHeader column="platform" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('sensors.platform')}</SortableHeader>
+              <Th>{t('sensors.update_interval')}</Th>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
           </Thead>
@@ -107,6 +110,7 @@ const SensorTable: React.FC<SensorTableProps> = ({ items, allAreas, onEdit, onDe
                   <Td>
                     <span className="badge badge-info badge-sm">{item.platform || 'gpio_onewire'}</span>
                   </Td>
+                  <Td>{item.update_interval ? formatTimeperiod(item.update_interval) : '-'}</Td>
                   <Td>
                     <TableActions
                       onEdit={() => onEdit(originalIndex)}

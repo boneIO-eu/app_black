@@ -289,8 +289,8 @@ class ModbusManager:
         
         _LOGGER.info("Reloading Modbus devices configuration")
         
-        # Get config from ConfigHelper (uses cache, reloads if needed)
-        config = self._manager._config_helper.reload_config()
+        # Get config from ConfigHelper (already reloaded by Manager)
+        config = self._manager._config_helper.get_config()
         
         # Get new modbus_devices config
         new_devices = config.get("modbus_devices", [])
