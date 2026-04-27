@@ -4,6 +4,7 @@ After=multi-user.target network.target boneio-oled-boot.service
 
 [Service]
 Type=simple
+ExecStartPre=-/usr/sbin/oled_msg.sh "boneIO Black" "is starting..." "Please wait..."
 ExecStart=${BONEIO_HOME}/boneio/venv/bin/boneio run -c ${BONEIO_HOME}/boneio/config.yaml
 ExecStopPost=/usr/sbin/oled_msg.sh "boneIO Black" "has stopped."
 User=${BONEIO_USER}

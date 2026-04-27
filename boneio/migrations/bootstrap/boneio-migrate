@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import logging.handlers
 import os
 import pwd
 import subprocess
@@ -41,7 +42,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stderr),
-        logging.FileHandler(LOG_FILE, mode="a", encoding="utf-8"),
+        logging.handlers.RotatingFileHandler(
+            LOG_FILE, maxBytes=1_048_576, backupCount=1, encoding="utf-8"
+        ),
     ],
 )
 _LOGGER = logging.getLogger("boneio-migrate")

@@ -71,16 +71,16 @@ def plan() -> list[MigrationAction]:
         SystemctlEnable(unit="boneio-oled-boot.service"),
 
         # ----------------------------------------------------------------
-        # 3. BoneIO main systemd service
+        # 3. boneIO main systemd service
         # ----------------------------------------------------------------
         InstallFile(
-            src="systemd/BoneIO.service",
-            dst="/etc/systemd/system/BoneIO.service",
+            src="systemd/boneio.service",
+            dst="/etc/systemd/system/boneio.service",
             mode=0o644,
             template_vars=template_vars,
             on_change=SystemctlDaemonReload(),
         ),
-        SystemctlEnable(unit="BoneIO.service"),
+        SystemctlEnable(unit="boneio.service"),
 
         # ----------------------------------------------------------------
         # 4. Hostname-once helper + service

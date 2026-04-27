@@ -1,15 +1,17 @@
 [Unit]
 Description=boneIO OLED boot splash
 DefaultDependencies=no
-After=local-fs.target systemd-modules-load.service
-Before=sysinit.target multi-user.target BoneIO.service
-ConditionPathExists=/usr/sbin/oled_msg.sh
+After=systemd-modules-load.service
+Before=sysinit.target multi-user.target boneio.service
+ConditionPathExists=/usr/sbin/oled_boot_splash.sh
+# Skip if initramfs already showed the splash (marker created by initramfs hook)
+ConditionPathExists=!/dev/.boneio-oled-done
 
 [Service]
 Type=oneshot
-ExecStart=/usr/sbin/oled_msg.sh "boneIO Black" "is starting." "Please wait..."
+ExecStart=/usr/sbin/oled_boot_splash.sh "boneIO Black" "OS is starting." "Please wait..."
 RemainAfterExit=yes
-ExecStop=/usr/sbin/oled_msg.sh "boneIO Black App" "is loading..."
+ExecStop=/usr/sbin/oled_boot_splash.sh "boneIO Black" "App is loading..."
 
 [Install]
 WantedBy=sysinit.target

@@ -724,7 +724,7 @@ export default function IrrigationView() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-4 max-w-2xl mx-auto">
+      <div className="flex flex-col gap-4 max-w-2xl">
         {data.map((ctrl) => (
           <LongPressWrapper
             key={ctrl.id}

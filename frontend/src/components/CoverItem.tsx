@@ -24,8 +24,11 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
 
-  const handlePressStart = () => {
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!onLongPress) return;
+    // Don't trigger long press when interacting with sliders
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'range') return;
     isLongPress.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
@@ -185,6 +188,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
         <div className="w-full mt-3 bg-secondary p-2 rounded-lg">
           <div className="flex justify-between text-xs text-gray-500 mb-1">
             <span>0%</span>
+            {isSliderActive && <span className="font-semibold text-primary">{sliderPosition}%</span>}
             <span>100%</span>
           </div>
           <div className="relative pt-1">
@@ -202,6 +206,11 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           {/* TiltBar pod głównym sliderem */}
           {isVenetian && (
             <>
+              {isTiltActive && (
+                <div className="text-xs text-center font-semibold text-accent mt-1">
+                  {t('covers.tilt')}: {tilt}%
+                </div>
+              )}
               <input
                 type="range"
                 min="0"
