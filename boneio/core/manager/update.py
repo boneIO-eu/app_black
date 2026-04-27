@@ -258,16 +258,27 @@ class UpdateManager(AsyncUpdater):
 
     async def _publish_state_to_mqtt(self, update_info: dict) -> None:
         """Publish update state to MQTT for Home Assistant.
-        
+
+        Includes pending system migration details in the release summary
+        so the user is aware of pending changes directly from HA.
+
         Args:
             update_info: Update information from GitHub check
         """
         if update_info.get("status") != "success":
             return
-        
+
         current_version = update_info.get("current_version", __version__)
         latest_version = update_info.get("latest_version", current_version)
-        
+
+        # Build release summary with optional migration info
+        release_summary = update_info.get("release_notes", "")
+
+        migration_note = self._get_migration_summary()
+        if migration_note:
+            # Prepend migration info to release notes
+            release_summary = f"{migration_note}\n{release_summary}" if release_summary else migration_note
+
         # Build state payload (JSON format for HA Update entity)
         # Always include in_progress/update_percentage to clear any retained
         # progress state left by a previous update (e.g., after restart).
@@ -276,38 +287,60 @@ class UpdateManager(AsyncUpdater):
             "latest_version": latest_version,
             "title": "boneIO Black Firmware",
             "release_url": update_info.get("release_url", ""),
-            "release_summary": update_info.get("release_notes", "")[:255],  # HA limit
+            "release_summary": release_summary[:255],  # HA limit
             "entity_picture": "http://boneio.eu/logo_fb_circle.png",
             "in_progress": False,
             "update_percentage": None,
         }
-        
+
         # Convert to JSON
         payload_json = json.dumps(state_payload)
-        
+
         # Only publish if state changed (avoid unnecessary MQTT traffic)
         if payload_json == self._last_published_state:
             _LOGGER.debug("Update state unchanged, skipping MQTT publish")
             return
-        
+
         # Publish to MQTT
         topic_prefix = self._manager._config_helper.topic_prefix
         state_topic = f"{topic_prefix}/update/state"
-        
+
         self._manager.send_message(
             topic=state_topic,
             payload=payload_json,
             retain=True,
         )
-        
+
         self._last_published_state = payload_json
-        
+
         _LOGGER.info(
             "Published update state to MQTT: %s -> %s (update available: %s)",
             current_version,
             latest_version,
             update_info.get("update_available", False)
         )
+
+    def _get_migration_summary(self) -> str:
+        """Build a short summary of pending system migrations.
+
+        Returns:
+            Human-readable string for HA release_summary, or empty if none pending.
+        """
+        migration_runner = getattr(self._manager, "migration_runner", None)
+        if not migration_runner:
+            return ""
+
+        try:
+            pending = migration_runner._get_pending()
+        except Exception:
+            return ""
+
+        if not pending:
+            return ""
+
+        descriptions = ", ".join(m.description for m in pending[:3])
+        suffix = f" (+{len(pending) - 3} more)" if len(pending) > 3 else ""
+        return f"⚠️ {len(pending)} pending system migration(s): {descriptions}{suffix}"
 
     def get_last_check_result(self) -> dict | None:
         """Get the last update check result.
@@ -648,7 +681,7 @@ class UpdateManager(AsyncUpdater):
         )
 
     async def send_ha_autodiscovery(self) -> None:
-        """Send Home Assistant autodiscovery for Update entity."""
+        """Send Home Assistant autodiscovery for Update and Migration Alert entities."""
         from boneio.integration.homeassistant import ha_update_availability_message
 
         _LOGGER.debug("Sending HA autodiscovery for Update entity")
@@ -660,7 +693,7 @@ class UpdateManager(AsyncUpdater):
         self._manager.publish_ha_discovery(
             id="firmware", ha_type="update", payload=payload,
         )
-        
+
         # Subscribe to command topic for install commands
         command_topic = f"{self._manager._topic_prefix}/update/install"
         await self._manager._message_bus.subscribe_and_listen(
@@ -668,3 +701,87 @@ class UpdateManager(AsyncUpdater):
             callback=self._manager._handle_update_install_command
         )
         _LOGGER.info("Subscribed to update command topic: %s", command_topic)
+
+        # Migration alert event entity — fires when system migrations are pending
+        await self._send_migration_event_discovery()
+        await self._fire_migration_event_if_pending()
+
+    async def _send_migration_event_discovery(self) -> None:
+        """Register HA event entity for system migration alerts.
+
+        The event entity fires ``migration_pending`` when pending migrations
+        are detected at startup.  Users can build automations like::
+
+            automation:
+              trigger:
+                - platform: state
+                  entity_id: event.boneio_migration_alert
+                  attribute: event_type
+                  to: migration_pending
+              action:
+                - service: persistent_notification.create
+                  data:
+                    title: "boneIO System Migration"
+                    message: >
+                      {{ state_attr('event.boneio_migration_alert', 'description') }}
+        """
+        from boneio.integration.homeassistant import ha_availabilty_message
+
+        config = self._manager._config_helper
+        topic = config.topic_prefix
+
+        msg = ha_availabilty_message(
+            id="migration_alert",
+            name="Migration Alert",
+            entity_type="event",
+            config_helper=config,
+            device_type="update",
+        )
+        msg["event_types"] = ["migration_pending", "migration_ok"]
+        msg["state_topic"] = f"{topic}/migration/event"
+        msg["icon"] = "mdi:alert-decagram"
+        msg["entity_category"] = "diagnostic"
+
+        self._manager.publish_ha_discovery(
+            id="migration_alert", ha_type="event", payload=msg,
+        )
+        _LOGGER.debug("Migration alert event entity registered")
+
+    async def _fire_migration_event_if_pending(self) -> None:
+        """Fire a migration_pending event if there are pending system migrations.
+
+        Called once after HA discovery is sent. If no migrations are pending,
+        fires ``migration_ok`` so automations can also react to the clear state.
+        """
+        migration_runner = getattr(self._manager, "migration_runner", None)
+        if not migration_runner:
+            return
+
+        try:
+            pending = migration_runner._get_pending()
+        except Exception:
+            return
+
+        topic = f"{self._manager._topic_prefix}/migration/event"
+
+        if pending:
+            descriptions = "; ".join(
+                f"{m.version}: {m.description}" for m in pending[:5]
+            )
+            payload = json.dumps({
+                "event_type": "migration_pending",
+                "count": len(pending),
+                "description": descriptions,
+            })
+            _LOGGER.info(
+                "Firing migration_pending event: %d pending migration(s)", len(pending)
+            )
+        else:
+            payload = json.dumps({
+                "event_type": "migration_ok",
+                "count": 0,
+                "description": "All system migrations applied",
+            })
+
+        self._manager.send_message(topic=topic, payload=payload, retain=False)
+
