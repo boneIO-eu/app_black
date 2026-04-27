@@ -19,7 +19,7 @@ from boneio.migrations.actions import (
     SystemctlDaemonReload,
 )
 
-VERSION = "1.3.0dev18"
+VERSION = "1.3.1"
 DESCRIPTION = "Fast OLED boot splash and stale display fix"
 REQUIRES_ROOT = True
 
