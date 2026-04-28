@@ -17,6 +17,7 @@
   },
   "outputs": {
     "title": "Wyjścia",
+    "output_group": "Grupa Wyjść",
     "name": "Nazwa",
     "id": "ID",
     "type": "Typ",
@@ -377,7 +378,8 @@
     "item": "Element",
     "sensor": "Sensor",
     "items": "Elementy",
-    "no_form_available": "Brak formularza dla typu sekcji: {sectionType}"
+    "no_form_available": "Brak formularza dla typu sekcji: {sectionType}",
+    "unknown": "Nieznany"
   },
   "binary_sensor_form": {
     "action_type_required": "Typ akcji jest wymagany",
@@ -506,7 +508,15 @@
     "rollback_message": "{message}\n\nKliknij OK aby zrestartować aplikację.",
     "rollback_failed": "Cofanie nie powiodło się",
     "config_incompatible": "Konfiguracja może być niekompatybilna!",
-    "force_rollback_prompt": "Czy mimo to chcesz wymusić cofnięcie? Może to spowodować błędy konfiguracji."
+    "force_rollback_prompt": "Czy mimo to chcesz wymusić cofnięcie? Może to spowodować błędy konfiguracji.",
+    "confirm_rollback": "Czy na pewno chcesz cofnąć do tej wersji?",
+    "version": "Wersja",
+    "date": "Data",
+    "actions": "Akcje"
+  },
+  "backup": {
+    "title": "Kopia Zapasowa",
+    "error": "Wystąpił błąd podczas operacji kopii zapasowej."
   },
   "device_management": {
     "title": "Zarządzanie Urządzeniem",
@@ -680,6 +690,7 @@
     "screensaver_off": "Wył."
   },
   "covers": {
+    "title": "Rolety",
     "idle": "bezczynny",
     "closing": "zamykanie",
     "opening": "otwieranie",
@@ -944,6 +955,8 @@
     "delete": "Usuń",
     "edit": "Edytuj",
     "add": "Dodaj",
+    "remove": "Usuń",
+    "unsaved": "Niezapisane",
     "name": "Nazwa",
     "required": "Wymagane",
     "optional": "Opcjonalne",
@@ -1075,9 +1088,13 @@
     "draft_found": "Masz niezapisany szkic z poprzedniej sesji.",
     "restore_draft": "Przywróć",
     "discard_draft": "Odrzuć",
-    "invalid_json_file": "Nieprawidłowy plik JSON. Wybierz poprawną konfigurację urządzenia Modbus."
+    "invalid_json_file": "Nieprawidłowy plik JSON. Wybierz poprawną konfigurację urządzenia Modbus.",
+    "test_register": "Testuj rejestr",
+    "remove_register": "Usuń rejestr"
   },
   "event_form": {
+    "title": "Zdarzenia",
+    "select_action_type": "Wybierz typ akcji...",
     "single_click": "Pojedyncze",
     "double_click": "Podwójne",
     "triple_click": "Potrójne",
@@ -1306,6 +1323,7 @@
     "validation_condition_state_required": "Oczekiwany stan jest wymagany dla warunku stanu"
   },
   "virtual_energy_sensor": {
+    "title": "Wirtualne Sensory Energii",
     "name": "Nazwa",
     "name_required": "Nazwa jest wymagana",
     "name_placeholder": "np. Lampa Salon - Energia",

@@ -1,132 +1,207 @@
 #!/usr/bin/env node
 /**
- * Script to check for missing translation keys in the codebase.
- * Usage: node scripts/check-translations.js
+ * Translation key completeness checker.
+ *
+ * Scans all .tsx/.ts source files (excluding node_modules and locales)
+ * for t('some.key') calls and verifies that every extracted key exists
+ * in every locale JSON file (en/common.json, pl/common.json, etc.).
+ *
+ * Usage:
+ *   node scripts/check-translations.js          # check all source files
+ *   node scripts/check-translations.js --staged  # check only git-staged files
+ *
+ * Exit code:
+ *   0 — all keys present in all locales
+ *   1 — missing keys found (prints report to stderr)
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-const LOCALES_DIR = path.join(__dirname, '../src/locales');
-const SRC_DIR = path.join(__dirname, '../src');
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
 
-// Load translation files
-function loadTranslations(lang) {
-  const filePath = path.join(LOCALES_DIR, lang, 'common.json');
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return JSON.parse(content);
+const FRONTEND_ROOT = path.resolve(__dirname, '..');
+const SRC_DIR = path.join(FRONTEND_ROOT, 'src');
+const LOCALES_DIR = path.join(SRC_DIR, 'locales');
+
+// Regex that captures dot-separated keys inside t('...') or t("...")
+// Handles both single and double quotes.
+const T_CALL_RE = /\bt\(\s*['"]([a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*)['"][\s,)]/g;
+
+// Directories/files to ignore (dead code not imported anywhere).
+// Relative to SRC_DIR, matched via path.includes().
+const IGNORE_PATTERNS = [
+  path.join('UISettings', 'sections'),
+  path.join('UISettings', 'hooks', 'useSystemUpdate'),
+  path.join('UISettings', 'hooks', 'useConfigBackup'),
+];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Recursively collect .ts / .tsx files under `dir`, skipping node_modules and locales.
+ */
+function collectSourceFiles(dir) {
+  const results = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules' || entry.name === 'locales') continue;
+      results.push(...collectSourceFiles(full));
+    } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
+      results.push(full);
+    }
+  }
+  return results;
 }
 
-// Extract all translation keys used in code
-function extractTranslationKeysFromCode() {
+/**
+ * Load and flatten a JSON translation file into a Set of dot-keys.
+ * E.g. { "a": { "b": "x" } } -> Set(["a.b"])
+ */
+function flattenKeys(obj, prefix = '') {
   const keys = new Set();
-  const codeFiles = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const full = prefix ? `${prefix}.${k}` : k;
+    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+      for (const sub of flattenKeys(v, full)) {
+        keys.add(sub);
+      }
+    } else {
+      keys.add(full);
+    }
+  }
+  return keys;
+}
 
-  function findTsxFiles(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && !entry.name.includes('node_modules') && !entry.name.startsWith('.')) {
-        findTsxFiles(fullPath);
-      } else if (entry.isFile() && (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts'))) {
-        codeFiles.push(fullPath);
+/**
+ * Extract all t('key') calls from a source file string.
+ * Returns an array of { key, line } objects.
+ */
+function extractKeys(source) {
+  const results = [];
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    let match;
+    const lineRe = new RegExp(T_CALL_RE.source, 'g');
+    while ((match = lineRe.exec(lines[i])) !== null) {
+      results.push({ key: match[1], line: i + 1 });
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+function main() {
+  const stagedOnly = process.argv.includes('--staged');
+
+  // 1. Discover all locale files
+  const locales = {};
+  for (const lang of fs.readdirSync(LOCALES_DIR)) {
+    const jsonPath = path.join(LOCALES_DIR, lang, 'common.json');
+    if (fs.existsSync(jsonPath)) {
+      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+      locales[lang] = flattenKeys(data);
+    }
+  }
+  const langNames = Object.keys(locales);
+  if (langNames.length === 0) {
+    console.error('❌ No locale files found!');
+    process.exit(1);
+  }
+
+  // 2. Collect source files
+  let files;
+  if (stagedOnly) {
+    // In staged mode, check if ANY frontend files are staged.
+    // If so, scan ALL source files (a new t() call could reference a missing key).
+    try {
+      const stdout = execSync('git diff --cached --name-only --diff-filter=ACM', {
+        cwd: path.resolve(FRONTEND_ROOT, '..'),
+        encoding: 'utf-8',
+      });
+      const hasFrontendChanges = stdout
+        .split('\n')
+        .some(f => f.startsWith('frontend/src/'));
+
+      if (hasFrontendChanges) {
+        files = collectSourceFiles(SRC_DIR);
+      } else {
+        // No frontend source changes staged — nothing to check.
+        files = [];
+      }
+    } catch {
+      files = [];
+    }
+  } else {
+    files = collectSourceFiles(SRC_DIR);
+  }
+
+  // Exclude locale files and dead code
+  files = files.filter(f => {
+    if (f.includes(path.join('src', 'locales'))) return false;
+    for (const pattern of IGNORE_PATTERNS) {
+      if (f.includes(pattern)) return false;
+    }
+    return true;
+  });
+
+  if (files.length === 0) {
+    console.log('ℹ️  No source files to check.');
+    process.exit(0);
+  }
+
+  // 3. Extract keys and check
+  const missing = []; // { file, line, key, langs[] }
+
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf-8');
+    const keys = extractKeys(source);
+    for (const { key, line } of keys) {
+      const missingLangs = langNames.filter(lang => !locales[lang].has(key));
+      if (missingLangs.length > 0) {
+        const relPath = path.relative(FRONTEND_ROOT, file);
+        missing.push({ file: relPath, line, key, langs: missingLangs });
       }
     }
   }
 
-  findTsxFiles(SRC_DIR);
+  if (missing.length === 0) {
+    console.log(`✅ All translation keys found in ${langNames.join(', ')} (checked ${files.length} files).`);
+    process.exit(0);
+  }
 
-  // Pattern to match t('namespace.key') or t("namespace.key")
-  const tPattern = /t\(['"]([^'"]+)['"]\)/g;
+  // 4. Report
+  console.error(`\n❌ Found ${missing.length} missing translation key(s):\n`);
 
-  for (const file of codeFiles) {
-    const content = fs.readFileSync(file, 'utf-8');
-    let match;
-
-    while ((match = tPattern.exec(content)) !== null) {
-      keys.add(match[1]);
+  // Group by key for cleaner output
+  const byKey = new Map();
+  for (const m of missing) {
+    if (!byKey.has(m.key)) {
+      byKey.set(m.key, { langs: m.langs, locations: [] });
     }
+    byKey.get(m.key).locations.push(`${m.file}:${m.line}`);
   }
 
-  return keys;
-}
-
-// Check if a key exists in translations
-function keyExists(translations, fullKey) {
-  const parts = fullKey.split('.');
-  let current = translations;
-
-  for (const part of parts) {
-    if (current === undefined || current === null) {
-      return false;
+  for (const [key, { langs, locations }] of byKey) {
+    console.error(`  🔑 ${key}`);
+    console.error(`     Missing in: ${langs.join(', ')}`);
+    for (const loc of locations) {
+      console.error(`     Used at: ${loc}`);
     }
-    current = current[part];
+    console.error('');
   }
 
-  return current !== undefined && (typeof current === 'string' || typeof current === 'object');
-}
-
-// Main function
-function main() {
-  console.log('🔍 Checking translations...\n');
-
-  const enTranslations = loadTranslations('en');
-  const plTranslations = loadTranslations('pl');
-  const usedKeys = extractTranslationKeysFromCode();
-
-  const missingInEn = [];
-  const missingInPl = [];
-
-  for (const key of usedKeys) {
-    if (!keyExists(enTranslations, key)) {
-      missingInEn.push(key);
-    }
-    if (!keyExists(plTranslations, key)) {
-      missingInPl.push(key);
-    }
-  }
-
-  // Report results
-  let hasErrors = false;
-
-  if (missingInEn.length > 0) {
-    console.log('❌ Missing in English (en/common.json):');
-    missingInEn.forEach(key => console.log(`   - ${key}`));
-    hasErrors = true;
-  }
-
-  if (missingInPl.length > 0) {
-    console.log('\n❌ Missing in Polish (pl/common.json):');
-    missingInPl.forEach(key => console.log(`   - ${key}`));
-    hasErrors = true;
-  }
-
-  // Check for keys that still exist only in system_update but are used in code
-  const usedSystemUpdateKeys = Array.from(usedKeys).filter(k => k.startsWith('system_update.'));
-  if (usedSystemUpdateKeys.length > 0) {
-    console.log('\n⚠️  Still using legacy system_update namespace:');
-    usedSystemUpdateKeys.forEach(key => console.log(`   - ${key}`));
-    hasErrors = true;
-  }
-
-  // Summary
-  console.log('\n📊 Summary:');
-  const softwareUpdateKeys = Object.keys(enTranslations.software_update || {}).length;
-  const deviceManagementKeys = Object.keys(enTranslations.device_management || {}).length;
-  const systemUpdateKeys = Object.keys(enTranslations.system_update || {}).length;
-
-  console.log(`   - software_update: ${softwareUpdateKeys} keys`);
-  console.log(`   - device_management: ${deviceManagementKeys} keys`);
-  console.log(`   - system_update (legacy): ${systemUpdateKeys} keys`);
-  console.log(`   - Total keys used in code: ${usedKeys.size}`);
-
-  if (!hasErrors) {
-    console.log('\n✅ All translation keys are present!');
-  } else {
-    console.log('\n⚠️  Some translation keys are missing. Please fix them.');
-  }
-
-  process.exit(hasErrors ? 1 : 0);
+  console.error(`Add the missing keys to: ${langNames.map(l => `src/locales/${l}/common.json`).join(', ')}`);
+  process.exit(1);
 }
 
 main();

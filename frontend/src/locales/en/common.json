@@ -17,6 +17,7 @@
   },
   "outputs": {
     "title": "Outputs",
+    "output_group": "Output Group",
     "name": "Name",
     "id": "ID",
     "type": "Type",
@@ -180,6 +181,11 @@
     "add_filter": "Add Filter",
     "filter_value": "Value",
     "filters_hint": "Filters are applied in order: offset, round, multiply, filter_out",
+    "name_placeholder": "e.g., Temperature Sensor",
+    "output_name_placeholder": "e.g., Kitchen Light",
+    "binary_sensor_name_placeholder": "e.g., Door Sensor",
+    "cover_name_placeholder": "e.g., Living Room Blinds",
+    "event_name_placeholder": "e.g., Wall Switch",
     "groups": {
       "adc": "ADC Sensors",
       "board": "Board Sensors",
@@ -372,7 +378,8 @@
     "item": "Item",
     "sensor": "Sensor",
     "items": "Items",
-    "no_form_available": "No form available for section type: {sectionType}"
+    "no_form_available": "No form available for section type: {sectionType}",
+    "unknown": "Unknown"
   },
   "binary_sensor_form": {
     "action_type_required": "Action type is required",
@@ -418,7 +425,8 @@
     "password_changed": "Password changed successfully",
     "http_warning": "⚠️ You are using HTTP. Passwords will be sent unencrypted. Use HTTPS for secure password changes.",
     "https_secure": "✓ Secure HTTPS connection",
-    "boneio_user_warning": "⚠️ This is the user that the application uses to connect to MQTT. After changing this password, you must update the password in the application configuration and restart the application."
+    "boneio_user_warning": "⚠️ This is the user that the application uses to connect to MQTT. After changing this password, you must update the password in the application configuration and restart the application.",
+    "changing": "Changing..."
   },
   "ssl_certificates": {
     "title": "SSL/TLS Certificates",
@@ -457,6 +465,7 @@
     "certificate_status": "Certificate Status"
   },
   "covers": {
+    "title": "Covers",
     "idle": "idle",
     "closing": "closing",
     "opening": "opening",
@@ -533,7 +542,15 @@
     "rollback_message": "{message}\n\nClick OK to restart the application.",
     "rollback_failed": "Rollback failed",
     "config_incompatible": "Configuration may be incompatible!",
-    "force_rollback_prompt": "Do you want to force the rollback anyway? This may cause configuration errors."
+    "force_rollback_prompt": "Do you want to force the rollback anyway? This may cause configuration errors.",
+    "confirm_rollback": "Are you sure you want to rollback to this version?",
+    "version": "Version",
+    "date": "Date",
+    "actions": "Actions"
+  },
+  "backup": {
+    "title": "Backup",
+    "error": "An error occurred during the backup operation."
   },
   "device_management": {
     "title": "Device Management",
@@ -938,6 +955,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "add": "Add",
+    "remove": "Remove",
+    "unsaved": "Unsaved",
     "name": "Name",
     "required": "Required",
     "optional": "Optional",
@@ -1068,9 +1087,13 @@
     "draft_found": "You have an unsaved draft from a previous session.",
     "restore_draft": "Restore",
     "discard_draft": "Discard",
-    "invalid_json_file": "Invalid JSON file. Please select a valid Modbus device configuration."
+    "invalid_json_file": "Invalid JSON file. Please select a valid Modbus device configuration.",
+    "test_register": "Test Register",
+    "remove_register": "Remove Register"
   },
   "event_form": {
+    "title": "Events",
+    "select_action_type": "Select action type...",
     "single_click": "Single",
     "double_click": "Double",
     "triple_click": "Triple",
@@ -1299,6 +1322,7 @@
     "validation_condition_state_required": "Expected state is required for state condition"
   },
   "virtual_energy_sensor": {
+    "title": "Virtual Energy Sensors",
     "name": "Name",
     "name_required": "Name is required",
     "name_placeholder": "e.g. Living Room Light - Energy",

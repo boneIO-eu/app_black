@@ -50,7 +50,7 @@ export default function BackupSection() {
         setError(data.message);
       }
     } catch (err) {
-      setError(t('system_update.failed_to_check_updates'));
+      setError(t('backup.error'));
       console.error('Error creating backup:', err);
     } finally {
       setIsDownloading(false);
@@ -70,13 +70,13 @@ export default function BackupSection() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError(t('system_update.failed_to_check_updates'));
+      setError(t('backup.error'));
       console.error('Error downloading backup:', err);
     }
   };
 
   const deleteBackup = async (backupPath: string, filename: string) => {
-    if (!confirm(`${t('system_update.confirm_delete_backup') || 'Delete backup'} ${filename}?`)) return;
+    if (!confirm(`${t('device_management.confirm_delete_backup') || 'Delete backup'} ${filename}?`)) return;
     try {
       const { data } = await axios.delete('/api/config/delete_backup', { data: { backup_path: backupPath } });
       if (data.status === 'success') {
@@ -86,13 +86,13 @@ export default function BackupSection() {
         setError(data.message);
       }
     } catch (err) {
-      setError(t('system_update.failed_to_check_updates'));
+      setError(t('backup.error'));
       console.error('Error deleting backup:', err);
     }
   };
 
   const restoreFromBackup = async (backupPath: string) => {
-    if (!confirm(t('system_update.confirm_restore'))) return;
+    if (!confirm(t('device_management.confirm_restore'))) return;
     setIsRestoring(true);
     setError(null);
     setRestoreResult(null);
@@ -101,16 +101,16 @@ export default function BackupSection() {
       if (data.status === 'success') {
         setRestoreResult(data);
         if (data.restart_required) {
-          if (confirm(t('system_update.restore_success_restart'))) {
+          if (confirm(t('device_management.restore_success_restart'))) {
             await axios.post('/api/restart');
             setTimeout(() => window.location.reload(), 3000);
           }
         }
       } else {
-        setError(data.message || t('system_update.restore_failed'));
+        setError(data.message || t('device_management.restore_failed'));
       }
     } catch (err) {
-      setError(t('system_update.restore_failed'));
+      setError(t('device_management.restore_failed'));
       console.error('Error restoring from backup:', err);
     } finally {
       setIsRestoring(false);
@@ -138,7 +138,7 @@ export default function BackupSection() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError(t('system_update.failed_to_check_updates'));
+      setError(t('backup.error'));
       console.error('Error downloading config:', err);
     } finally {
       setIsDownloading(false);
@@ -158,15 +158,15 @@ export default function BackupSection() {
       });
       if (data.status === 'success') {
         setRestoreResult(data);
-        if (confirm(t('system_update.restore_success_restart'))) {
+        if (confirm(t('device_management.restore_success_restart'))) {
           await axios.post('/api/restart');
           setTimeout(() => window.location.reload(), 3000);
         }
       } else {
-        setError(data.message || t('system_update.restore_failed'));
+        setError(data.message || t('device_management.restore_failed'));
       }
     } catch (err) {
-      setError(t('system_update.restore_failed'));
+      setError(t('device_management.restore_failed'));
       console.error('Error restoring config:', err);
     } finally {
       setIsRestoring(false);
@@ -176,7 +176,7 @@ export default function BackupSection() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (confirm(t('system_update.confirm_restore'))) {
+      if (confirm(t('device_management.confirm_restore'))) {
         restoreConfig(file);
       }
     }
@@ -262,7 +262,7 @@ export default function BackupSection() {
             <div className="text-sm">
               <p>{restoreResult.message}</p>
               <p className="text-xs opacity-70 mt-1">
-                {t('system_update.backup_created')}: {restoreResult.backup_path}
+                {t('device_management.backup_created')}: {restoreResult.backup_path}
               </p>
               {restoreResult.validation_status === 'warning' && (
                 <p className="text-xs mt-1">{restoreResult.validation_message}</p>
@@ -322,8 +322,8 @@ export default function BackupSection() {
                 }}
               >
                 {showAvailableBackups
-                  ? (t('system_update.hide_backups') || 'Hide backups ({count})').replace('{count}', String(availableBackups.length))
-                  : (t('system_update.show_backups') || 'Show backups ({count})').replace('{count}', String(availableBackups.length))}
+                  ? (t('device_management.hide_backups') || 'Hide backups ({count})').replace('{count}', String(availableBackups.length))
+                  : (t('device_management.show_backups') || 'Show backups ({count})').replace('{count}', String(availableBackups.length))}
               </button>
             )}
           </div>

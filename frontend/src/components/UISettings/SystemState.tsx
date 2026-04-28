@@ -608,8 +608,6 @@ const SystemState: React.FC = () => {
               </div>
             )}
 
-            <BackupSection />
-
             {/* Available Versions Section */}
             <SettingsCard
               icon={<FaHistory />}
@@ -674,6 +672,14 @@ const SystemState: React.FC = () => {
               </div>
             </SettingsCard>
           </div>
+        </div>
+      </div>
+
+      {/* Backup Card */}
+      <div className="card bg-base-200 shadow-xl">
+        <div className="card-body">
+          <h2 className="text-2xl font-bold">{t('backup.title')}</h2>
+          <BackupSection />
         </div>
       </div>
 
@@ -804,8 +810,6 @@ const SystemState: React.FC = () => {
             </div>
 
             <DeviceControlSection />
-
-            <BackupSection />
 
             <HostnameSection />
 

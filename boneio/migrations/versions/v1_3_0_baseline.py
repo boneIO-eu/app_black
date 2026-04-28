@@ -17,6 +17,7 @@ from boneio.migrations.actions import (
     MigrationAction,
     RemoveFile,
     SystemctlDaemonReload,
+    SystemctlDisable,
     SystemctlEnable,
     SystemctlReload,
     SystemctlRestart,
@@ -72,7 +73,11 @@ def plan() -> list[MigrationAction]:
 
         # ----------------------------------------------------------------
         # 3. boneIO main systemd service
+        #    Clean up legacy "BoneIO.service" (uppercase) from old setup scripts
+        #    before installing the canonical lowercase name.
         # ----------------------------------------------------------------
+        SystemctlDisable(unit="BoneIO.service"),
+        RemoveFile(path="/etc/systemd/system/BoneIO.service"),
         InstallFile(
             src="systemd/boneio.service",
             dst="/etc/systemd/system/boneio.service",
