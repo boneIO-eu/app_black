@@ -1,6 +1,7 @@
 """OLED Display driver using I2C."""
 
 import asyncio
+import contextlib
 import logging
 import subprocess
 from itertools import cycle
@@ -347,11 +348,8 @@ class Oled:
     def _next_screen(self) -> None:
         """Switch to next screen."""
         # Remove old listeners before switching screen (only if exists)
-        try:
+        with contextlib.suppress(KeyError):
             self._event_bus.remove_event_listener(listener_id=f"oled_{self._current_screen}")
-        except KeyError:
-            # Listener doesn't exist yet, skip removal
-            pass
         self._current_screen = next(self._screen_cycle)
         self.render_display()
 
@@ -508,7 +506,7 @@ class Oled:
                 with canvas(self._device) as draw:
                     if self._grouped_outputs_by_expander and self._current_screen in self._grouped_outputs_by_expander:
                         self._draw_output(data, draw)
-                        for id in data.keys():
+                        for id in data:
                             self._event_bus.add_event_listener(
                                 event_type="output",
                                 entity_id=id,
@@ -525,7 +523,7 @@ class Oled:
                         )
                     elif self._input_groups and self._current_screen in self._input_groups:
                         self._draw_input(data, draw)
-                        for id in data.keys():
+                        for id in data:
                             self._event_bus.add_event_listener(
                                 event_type="input",
                                 entity_id=id,

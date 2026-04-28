@@ -40,7 +40,7 @@ class ConfigHelper:
         device_type: str = "boneIO Black",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
-        network_info: dict = {},
+        network_info: dict | None = None,
         is_web_active: bool = False,
         web_port: int = 8090,
         proxy_port: int | None = None,
@@ -56,7 +56,7 @@ class ConfigHelper:
         self._name = name
         
         # Generate serial number from MAC - always required for topic prefix
-        self._serial_no = get_serial_from_mac(network_info)
+        self._serial_no = get_serial_from_mac(network_info or {})
         
         # Build fixed topic prefix: boneio/blk_{serial}
         # This is no longer configurable - always uses this format
@@ -309,10 +309,7 @@ class ConfigHelper:
     def is_topic_in_autodiscovery(self, topic: str) -> bool:
         topic_parts_raw = topic[len(f"{self._ha_discovery_prefix}/") :].split("/")
         ha_type = topic_parts_raw[0]
-        if ha_type in self._autodiscovery_messages:
-            if topic in self._autodiscovery_messages[ha_type]:
-                return True
-        return False
+        return ha_type in self._autodiscovery_messages and topic in self._autodiscovery_messages[ha_type]
     
     def clear_autodiscovery_type(self, ha_type: str):
         self._autodiscovery_messages[ha_type] = {}

@@ -16,6 +16,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from boneio.core.manager.remote import RemoteDeviceManager
+
 # Mock gpiod before importing boneio modules
 mock_gpiod = MagicMock()
 mock_gpiod.line = MagicMock()
@@ -29,7 +31,6 @@ sys.modules.setdefault("gpiod.line", mock_gpiod.line)
 
 from boneio.core.remote.base import RemoteDeviceProtocol, RemoteDeviceType
 from boneio.core.remote.mqtt import MQTTRemoteDevice
-
 
 # ==================== Fixtures ====================
 
@@ -176,10 +177,12 @@ class TestSetCoversPreservesTiltInfo:
     def test_set_covers_with_supports_tilt(self):
         """set_covers should preserve supports_tilt field from discovery data."""
         device = MQTTRemoteDevice(id="blk_test", name="Test Device")
-        device.set_covers([
-            {"id": "cover1", "name": "Cover 1", "kind": "time", "supports_tilt": False},
-            {"id": "cover2", "name": "Cover 2", "kind": "venetian", "supports_tilt": True},
-        ])
+        device.set_covers(
+            [
+                {"id": "cover1", "name": "Cover 1", "kind": "time", "supports_tilt": False},
+                {"id": "cover2", "name": "Cover 2", "kind": "venetian", "supports_tilt": True},
+            ]
+        )
 
         assert len(device.covers) == 2
         cover_map = {c["id"]: c for c in device.covers}
@@ -192,10 +195,12 @@ class TestSetCoversPreservesTiltInfo:
     def test_set_covers_derives_supports_tilt_from_kind(self):
         """When supports_tilt is missing, it should be derived from kind."""
         device = MQTTRemoteDevice(id="blk_test", name="Test Device")
-        device.set_covers([
-            {"id": "cover1", "name": "Cover 1", "kind": "time"},
-            {"id": "cover2", "name": "Cover 2", "kind": "venetian"},
-        ])
+        device.set_covers(
+            [
+                {"id": "cover1", "name": "Cover 1", "kind": "time"},
+                {"id": "cover2", "name": "Cover 2", "kind": "venetian"},
+            ]
+        )
 
         cover_map = {c["id"]: c for c in device.covers}
 
@@ -205,9 +210,11 @@ class TestSetCoversPreservesTiltInfo:
     def test_set_covers_without_tilt_info(self):
         """Covers without kind/supports_tilt should not have these fields."""
         device = MQTTRemoteDevice(id="blk_test", name="Test Device")
-        device.set_covers([
-            {"id": "cover1", "name": "Cover 1"},
-        ])
+        device.set_covers(
+            [
+                {"id": "cover1", "name": "Cover 1"},
+            ]
+        )
 
         assert len(device.covers) == 1
         assert "supports_tilt" not in device.covers[0]
@@ -216,11 +223,13 @@ class TestSetCoversPreservesTiltInfo:
     def test_set_covers_skips_entries_without_id(self):
         """Entries without 'id' should be silently skipped."""
         device = MQTTRemoteDevice(id="blk_test", name="Test Device")
-        device.set_covers([
-            {"name": "No ID Cover"},
-            {"id": "valid", "name": "Valid Cover"},
-            {"id": "", "name": "Empty ID"},
-        ])
+        device.set_covers(
+            [
+                {"name": "No ID Cover"},
+                {"id": "valid", "name": "Valid Cover"},
+                {"id": "", "name": "Empty ID"},
+            ]
+        )
 
         assert len(device.covers) == 1
         assert device.covers[0]["id"] == "valid"
@@ -228,9 +237,11 @@ class TestSetCoversPreservesTiltInfo:
     def test_set_covers_uses_id_as_default_name(self):
         """When name is missing, id should be used as fallback."""
         device = MQTTRemoteDevice(id="blk_test", name="Test Device")
-        device.set_covers([
-            {"id": "cover_abc"},
-        ])
+        device.set_covers(
+            [
+                {"id": "cover_abc"},
+            ]
+        )
 
         assert device.covers[0]["name"] == "cover_abc"
 
@@ -306,9 +317,7 @@ class TestMQTTRemoteDeviceToDict:
 class TestDiscoveryEnrichesConfiguredCovers:
     """Test _update_configured_device_from_discovery enriches tilt info."""
 
-    def _make_remote_manager_with_device(
-        self, device: MQTTRemoteDevice
-    ) -> "RemoteDeviceManager":
+    def _make_remote_manager_with_device(self, device: MQTTRemoteDevice) -> RemoteDeviceManager:
         """Create a RemoteDeviceManager with a single configured device.
 
         Args:

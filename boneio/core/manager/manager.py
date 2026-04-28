@@ -107,31 +107,50 @@ class Manager:
         state_manager: StateManager,
         config_helper: ConfigHelper,
         config_file_path: str,
-        relay_pins: list[dict] = [],
-        event_pins: list[dict] = [],
-        binary_pins: list[dict] = [],
-        output_group: list[dict] = [],
-        sensors: dict[str, list] = {},
-        modbus: dict[str, Any] = {},
-        modbus_devices: list[dict[str, Any]] = [],
-        pca9685: list[dict] = [],
-        mcp23017: list[dict] = [],
-        pcf8575: list[dict] = [],
-        ds2482: list[dict] | None = [],
+        relay_pins: list[dict] | None = None,
+        event_pins: list[dict] | None = None,
+        binary_pins: list[dict] | None = None,
+        output_group: list[dict] | None = None,
+        sensors: dict[str, list] | None = None,
+        modbus: dict[str, Any] | None = None,
+        modbus_devices: list[dict[str, Any]] | None = None,
+        pca9685: list[dict] | None = None,
+        mcp23017: list[dict] | None = None,
+        pcf8575: list[dict] | None = None,
+        ds2482: list[dict] | None = None,
         dallas: dict[str, Any] | None = None,
-        oled: dict[str, Any] = {},
+        oled: dict[str, Any] | None = None,
         adc: list[dict] | None = None,
-        cover: list[dict] = [],
-        template: list[dict] = [],
-        irrigation: list[dict] = [],
-        remote_devices: list[dict] = [],
-        can: dict[str, Any] = {},
+        cover: list[dict] | None = None,
+        template: list[dict] | None = None,
+        irrigation: list[dict] | None = None,
+        remote_devices: list[dict] | None = None,
+        can: dict[str, Any] | None = None,
         web_active: bool = False,
         web_port: int = 8090,
         early_oled_device: Any | None = None,
     ) -> None:
         """Initialize the manager and all subsystems."""
         _LOGGER.info("Initializing Manager with modular architecture")
+
+        # Resolve mutable defaults
+        relay_pins = relay_pins or []
+        event_pins = event_pins or []
+        binary_pins = binary_pins or []
+        output_group = output_group or []
+        sensors = sensors or {}
+        modbus = modbus or {}
+        modbus_devices = modbus_devices or []
+        pca9685 = pca9685 or []
+        mcp23017 = mcp23017 or []
+        pcf8575 = pcf8575 or []
+        ds2482 = ds2482 or []
+        oled = oled or {}
+        cover = cover or []
+        template = template or []
+        irrigation = irrigation or []
+        remote_devices = remote_devices or []
+        can = can or {}
 
         # Core components
         self._loop = None
@@ -891,14 +910,13 @@ class Manager:
 
             # Check conditions (time, date, state) — uses pre-compiled fast path
             compiled_cond = action_definition.get("_compiled_conditions")
-            if compiled_cond is not None:
-                if not should_execute_action(
-                    compiled_cond,
-                    now_dt,
-                    self._resolve_entity_state,
-                ):
-                    _LOGGER.debug("Action %d: condition not met, skipping", idx)
-                    continue
+            if compiled_cond is not None and not should_execute_action(
+                compiled_cond,
+                now_dt,
+                self._resolve_entity_state,
+            ):
+                _LOGGER.debug("Action %d: condition not met, skipping", idx)
+                continue
 
             action = action_definition.get("action")
 
@@ -1164,7 +1182,6 @@ class Manager:
         # full Cerberus validation (~20s) on disk cache miss. Run in a thread
         # executor to keep the event loop responsive (MQTT, WS, modbus).
         try:
-
             config = await asyncio.to_thread(self._config_helper.reload_config)
             # Update areas mapping from reloaded config
             self._config_helper.set_areas(config.get("areas", []))
@@ -1437,18 +1454,17 @@ class Manager:
 
         if msg_type == "modbus" and command == "set":
             target_device = self.modbus.get_all_coordinators().get(device_id)
-            if target_device:
-                if isinstance(message, str):
-                    try:
-                        parsed_msg: dict = json.loads(message)
-                        device_name = parsed_msg.get("device")
-                        value = parsed_msg.get("value")
-                        if device_name and value is not None:
-                            entity = target_device.find_entity(device_name)
-                            if entity:
-                                await target_device.write_register(value=value, entity=entity)
-                    except json.JSONDecodeError:
-                        _LOGGER.warning("Invalid JSON in modbus message: %s", message)
+            if target_device and isinstance(message, str):
+                try:
+                    parsed_msg: dict = json.loads(message)
+                    device_name = parsed_msg.get("device")
+                    value = parsed_msg.get("value")
+                    if device_name and value is not None:
+                        entity = target_device.find_entity(device_name)
+                        if entity:
+                            await target_device.write_register(value=value, entity=entity)
+                except json.JSONDecodeError:
+                    _LOGGER.warning("Invalid JSON in modbus message: %s", message)
             return
 
         _LOGGER.debug("Unknown message type %s.", msg_type)

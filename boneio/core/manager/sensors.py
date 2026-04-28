@@ -1008,8 +1008,6 @@ class SensorManager:
 
     def _on_output_state_change(self, event: OutputEvent, sensor: VirtualEnergySensor) -> None:
         """Handle output state change for virtual energy sensor."""
-        from boneio.const import ON
-
         if not event:
             return
 

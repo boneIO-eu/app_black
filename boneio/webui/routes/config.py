@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import logging
@@ -387,7 +388,10 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         if not host or (not re.match(ipv4_re, host) and not re.match(hostname_re, host)):
             raise HTTPException(
                 status_code=422,
-                detail={"message": "Invalid lox_udp configuration", "errors": [f"Invalid host: '{host}'. Use an IPv4 address or hostname."]},
+                detail={
+                    "message": "Invalid lox_udp configuration",
+                    "errors": [f"Invalid host: '{host}'. Use an IPv4 address or hostname."],
+                },
             )
 
     try:
@@ -545,6 +549,14 @@ async def resend_ha_discovery():
         if payload:
             manager.send_message(topic=topic, payload=payload, retain=True)
             resent += 1
+
+    # 4. Re-publish all entity states after a short delay.
+    #    HA needs time to process discovery before receiving states.
+    async def _delayed_republish():
+        await asyncio.sleep(2)
+        await manager.republish_all_entity_states()
+
+    asyncio.ensure_future(_delayed_republish())
 
     _LOGGER.info("HA Discovery resend: removed %d, re-sent %d topics", removed, resent)
     return {
@@ -900,13 +912,13 @@ async def validate_device_type_change(request: dict = Body(...)):
     for output in (current_config or {}).get("output", []):
         boneio_output = output.get("boneio_output")
         if boneio_output and boneio_output.lower() not in output_mapping:
-                incompatible_outputs.append(
-                    {
-                        "boneio_output": boneio_output,
-                        "id": output.get("id", boneio_output),
-                        "name": output.get("name", output.get("id", boneio_output)),
-                    }
-                )
+            incompatible_outputs.append(
+                {
+                    "boneio_output": boneio_output,
+                    "id": output.get("id", boneio_output),
+                    "name": output.get("name", output.get("id", boneio_output)),
+                }
+            )
 
     # Check incompatible inputs (events and binary_sensors)
     incompatible_inputs = []
@@ -915,13 +927,13 @@ async def validate_device_type_change(request: dict = Body(...)):
         for input_item in config_data.get(section, []):
             boneio_input = input_item.get("boneio_input")
             if boneio_input and boneio_input.lower() not in input_mapping:
-                    incompatible_inputs.append(
-                        {
-                            "boneio_input": boneio_input,
-                            "id": input_item.get("id", boneio_input),
-                            "section": section,
-                        }
-                    )
+                incompatible_inputs.append(
+                    {
+                        "boneio_input": boneio_input,
+                        "id": input_item.get("id", boneio_input),
+                        "section": section,
+                    }
+                )
 
     # Get available example files for this device type (relative to this file: boneio/webui/routes/config.py)
     boneio_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

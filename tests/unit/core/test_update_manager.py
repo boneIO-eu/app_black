@@ -13,23 +13,21 @@ the update.py file directly via importlib.util.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
-import os
 import sys
 import types
 from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import asyncio
-
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Module-level import isolation
 # ---------------------------------------------------------------------------
+
 
 def _load_update_module():
     """Load boneio/core/manager/update.py in isolation.
@@ -90,19 +88,16 @@ def _load_update_module():
 
         ha = sys.modules["boneio.integration.homeassistant"]
         ha.ha_update_availability_message = MagicMock(return_value={"test": True})
-        ha.ha_availabilty_message = MagicMock(return_value={
-            "name": "Migration Alert",
-            "unique_id": "test_migration_alert",
-        })
+        ha.ha_availabilty_message = MagicMock(
+            return_value={
+                "name": "Migration Alert",
+                "unique_id": "test_migration_alert",
+            }
+        )
 
         # Load the file directly
-        update_path = (
-            Path(__file__).resolve().parents[3]
-            / "boneio" / "core" / "manager" / "update.py"
-        )
-        spec = importlib.util.spec_from_file_location(
-            "_test_update_stub_module", str(update_path)
-        )
+        update_path = Path(__file__).resolve().parents[3] / "boneio" / "core" / "manager" / "update.py"
+        spec = importlib.util.spec_from_file_location("_test_update_stub_module", str(update_path))
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return mod
@@ -125,9 +120,11 @@ UpdateManager = _update_mod.UpdateManager
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FakeMigrationInfo:
     """Minimal stand-in for MigrationInfo."""
+
     version: str
     description: str
 
@@ -189,6 +186,7 @@ def _make_update_manager(
 # ---------------------------------------------------------------------------
 # _get_migration_summary
 # ---------------------------------------------------------------------------
+
 
 class TestGetMigrationSummary:
     """Tests for _get_migration_summary."""
@@ -252,10 +250,10 @@ class TestGetMigrationSummary:
 # _fire_migration_event_if_pending
 # ---------------------------------------------------------------------------
 
+
 class TestFireMigrationEvent:
     """Tests for _fire_migration_event_if_pending."""
 
-    
     def test_fires_pending_event(self):
         """Fires migration_pending when migrations exist."""
         pending = [FakeMigrationInfo("1.3.1", "OLED fix")]
@@ -274,7 +272,6 @@ class TestFireMigrationEvent:
         assert data["count"] == 1
         assert "OLED fix" in data["description"]
 
-    
     def test_fires_ok_event_when_no_pending(self):
         """Fires migration_ok when all migrations are applied."""
         um = _make_update_manager(pending=[])
@@ -288,14 +285,12 @@ class TestFireMigrationEvent:
         assert data["event_type"] == "migration_ok"
         assert data["count"] == 0
 
-    
     def test_no_runner_does_nothing(self):
         """No migration runner = no event fired."""
         um = _make_update_manager(migration_runner_exists=False)
         asyncio.run(um._fire_migration_event_if_pending())
         um._manager.send_message.assert_not_called()
 
-    
     def test_runner_exception_does_nothing(self):
         """Exception in _get_pending() = no event fired (fail-safe)."""
         um = _make_update_manager(pending=[])
@@ -303,7 +298,6 @@ class TestFireMigrationEvent:
         asyncio.run(um._fire_migration_event_if_pending())
         um._manager.send_message.assert_not_called()
 
-    
     def test_event_not_retained(self):
         """Migration events should NOT be retained (fire-and-forget)."""
         pending = [FakeMigrationInfo("1.3.1", "Fix")]
@@ -315,7 +309,6 @@ class TestFireMigrationEvent:
         retain = call_kwargs.kwargs.get("retain", call_kwargs[1].get("retain"))
         assert retain is False
 
-    
     def test_five_pending_truncates_descriptions(self):
         """At most 5 migration descriptions in the event payload."""
         pending = [FakeMigrationInfo(f"1.3.{i}", f"Fix {i}") for i in range(7)]
@@ -336,10 +329,10 @@ class TestFireMigrationEvent:
 # _send_migration_event_discovery
 # ---------------------------------------------------------------------------
 
+
 class TestMigrationEventDiscovery:
     """Tests for _send_migration_event_discovery."""
 
-    
     def test_publishes_discovery(self):
         """Discovery message is published for migration_alert event entity."""
         um = _make_update_manager(pending=[])
@@ -351,7 +344,6 @@ class TestMigrationEventDiscovery:
         assert call_args.kwargs["id"] == "migration_alert"
         assert call_args.kwargs["ha_type"] == "event"
 
-    
     def test_discovery_payload_has_event_types(self):
         """Discovery payload includes both event types."""
         um = _make_update_manager(pending=[])
@@ -362,7 +354,6 @@ class TestMigrationEventDiscovery:
         assert "migration_pending" in payload["event_types"]
         assert "migration_ok" in payload["event_types"]
 
-    
     def test_discovery_state_topic(self):
         """State topic uses the correct prefix."""
         um = _make_update_manager(pending=[])
@@ -372,7 +363,6 @@ class TestMigrationEventDiscovery:
         payload = um._manager.publish_ha_discovery.call_args.kwargs["payload"]
         assert payload["state_topic"] == "boneio_test/migration/event"
 
-    
     def test_discovery_entity_category(self):
         """Event entity should be diagnostic category."""
         um = _make_update_manager(pending=[])
@@ -387,10 +377,10 @@ class TestMigrationEventDiscovery:
 # _publish_state_to_mqtt (integration: release_summary includes migrations)
 # ---------------------------------------------------------------------------
 
+
 class TestPublishStateWithMigrations:
     """Tests for release_summary including migration info."""
 
-    
     def test_release_summary_includes_migration_note(self):
         """When migrations are pending, release_summary includes the note."""
         pending = [FakeMigrationInfo("1.3.1", "OLED fix")]
@@ -408,15 +398,12 @@ class TestPublishStateWithMigrations:
         asyncio.run(um._publish_state_to_mqtt(update_info))
 
         call_kwargs = um._manager.send_message.call_args
-        payload = json.loads(
-            call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload")
-        )
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
         summary = payload["release_summary"]
         assert "pending" in summary.lower()
         assert "OLED fix" in summary
         assert "Bug fixes" in summary
 
-    
     def test_release_summary_no_migrations(self):
         """When no migrations pending, release_summary has only release notes."""
         um = _make_update_manager(pending=[])
@@ -433,18 +420,12 @@ class TestPublishStateWithMigrations:
         asyncio.run(um._publish_state_to_mqtt(update_info))
 
         call_kwargs = um._manager.send_message.call_args
-        payload = json.loads(
-            call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload")
-        )
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
         assert payload["release_summary"] == "Bug fixes"
 
-    
     def test_release_summary_truncated_to_255(self):
         """release_summary must not exceed 255 chars (HA limit)."""
-        pending = [
-            FakeMigrationInfo(f"1.3.{i}", f"Very long migration name {i}" * 5)
-            for i in range(5)
-        ]
+        pending = [FakeMigrationInfo(f"1.3.{i}", f"Very long migration name {i}" * 5) for i in range(5)]
         um = _make_update_manager(pending=pending)
 
         update_info = {
@@ -459,12 +440,9 @@ class TestPublishStateWithMigrations:
         asyncio.run(um._publish_state_to_mqtt(update_info))
 
         call_kwargs = um._manager.send_message.call_args
-        payload = json.loads(
-            call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload")
-        )
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
         assert len(payload["release_summary"]) <= 255
 
-    
     def test_skips_publish_when_status_not_success(self):
         """Don't publish when status is not 'success'."""
         um = _make_update_manager(pending=[])

@@ -177,7 +177,7 @@ class InputManager:
         gpio: dict,
         pin: str,
         existing_input: GpioEventButton | None = None,
-        actions: dict = {},
+        actions: dict | None = None,
     ) -> GpioEventButton | None:
         """Configure event input sensor with multiclick detection.
 
@@ -190,6 +190,7 @@ class InputManager:
         Returns:
             Configured GpioEventButton instance or None on error
         """
+        actions = actions or {}
         try:
             # Determine display name (ensure it's always a string)
             if "name" in gpio:
@@ -313,7 +314,7 @@ class InputManager:
         gpio: dict,
         pin: str,
         existing_input: GpioInputBinarySensor | None = None,
-        actions: dict = {},
+        actions: dict | None = None,
     ) -> GpioInputBinarySensor | None:
         """Configure binary sensor input with state detection.
 
@@ -326,6 +327,7 @@ class InputManager:
         Returns:
             Configured GpioInputBinarySensor instance or None on error
         """
+        actions = actions or {}
         try:
             # Determine display name (ensure it's always a string)
             if "name" in gpio:
@@ -564,7 +566,6 @@ class InputManager:
         import time
 
         from boneio.models import InputState
-        from boneio.models.events import InputEvent
 
         timestamp = time.time()
 

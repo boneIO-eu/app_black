@@ -114,6 +114,7 @@ lint = "ruff check boneio/"
 format = "ruff format boneio/"
 fix = "ruff check --fix boneio/"
 manifest = "python scripts/generate_manifest.py"
+check-imports = "python scripts/check_duplicate_imports.py boneio/"
 
 [tool.pyright]
 # BasedPyRight configuration - compatibility mode with PyRight

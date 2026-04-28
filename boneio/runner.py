@@ -186,8 +186,6 @@ async def async_run(
     if MQTT in config and not is_can_slave:
         mqtt_config = config[MQTT]
         if mqtt_config.get("enabled", True):
-            from boneio.core.messaging.mqtt import MQTTClient
-
             mqtt_bus = MQTTClient(
                 host=mqtt_config[HOST],
                 username=mqtt_config.get(USERNAME, mqttusername),

@@ -13,7 +13,7 @@ logic via a lightweight stub that replicates the relevant behaviour.
 """
 
 import asyncio
-import time
+import contextlib
 
 import pytest
 
@@ -51,12 +51,8 @@ class _SuspendMixin:
 
     def _reset_suspend_timeout(self):
         self._cancel_suspend_timeout()
-        try:
-            self._suspend_timeout_handle = self._loop.call_later(
-                self.SUSPEND_AUTO_TIMEOUT, self._auto_resume
-            )
-        except RuntimeError:
-            pass
+        with contextlib.suppress(RuntimeError):
+            self._suspend_timeout_handle = self._loop.call_later(self.SUSPEND_AUTO_TIMEOUT, self._auto_resume)
 
     def _cancel_suspend_timeout(self):
         if self._suspend_timeout_handle is not None:
@@ -198,8 +194,12 @@ class TestCoordinatorSuspendCheck:
 
         coordinator_path = os.path.join(
             os.path.dirname(__file__),
-            "..", "..", "..",
-            "boneio", "modbus", "coordinator.py",
+            "..",
+            "..",
+            "..",
+            "boneio",
+            "modbus",
+            "coordinator.py",
         )
         coordinator_path = os.path.normpath(coordinator_path)
 
@@ -211,4 +211,3 @@ class TestCoordinatorSuspendCheck:
             "coordinator.py must contain 'if self._modbus.is_suspended:' "
             "check in async_update to skip polling when Tools are active"
         )
-

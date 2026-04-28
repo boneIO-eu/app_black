@@ -88,8 +88,6 @@ async def set_modbus_value(
     Returns:
         Status response.
     """
-    from fastapi import HTTPException
-    
     value = value_data.get("value")
     if value is None:
         raise HTTPException(status_code=400, detail="Value is required")
@@ -110,7 +108,7 @@ async def set_modbus_value(
         return {"status": "success", "message": f"Value set to {value}"}
     except Exception as e:
         _LOGGER.error(f"Error setting Modbus value: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/modbus/get")
@@ -480,7 +478,7 @@ async def get_model_entities(model_name: str):
                     db = json.load(fh)
                 break
             except Exception as exc:
-                raise HTTPException(status_code=500, detail=f"Failed to read model file: {exc}")
+                raise HTTPException(status_code=500, detail=f"Failed to read model file: {exc}") from exc
 
     if db is None:
         raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")

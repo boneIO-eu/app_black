@@ -1,3 +1,4 @@
+import contextlib
 import fnmatch
 import logging
 import os
@@ -309,7 +310,7 @@ def merge_board_config(config: dict) -> dict:
         if not board_config:
             raise ConfigurationException(f"Bottom board configuration file {board_file} is empty")
     except FileNotFoundError:
-        raise ConfigurationException(f"Board configuration for {board_name} version {version} not found")
+        raise ConfigurationException(f"Board configuration for {board_name} version {version} not found") from None
     _LOGGER.debug(f"Loaded board configuration: {board_name}")
 
     # Copy MCP configuration if not already defined
@@ -427,9 +428,8 @@ class CustomValidator(Validator):
             doc_value = self.document[key]  # type: ignore[attr-defined]
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
-            if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
-                if field not in self.document:  # type: ignore[attr-defined]
-                    self._error(field, f"required when {key} is {doc_value}")  # type: ignore[attr-defined]
+            if doc_value in [v.lower() if isinstance(v, str) else v for v in values] and field not in self.document:  # type: ignore[attr-defined]
+                self._error(field, f"required when {key} is {doc_value}")  # type: ignore[attr-defined]
 
     def _validate_forbidden_if(self, forbidden_if, field, value):
         """Validate that a field is forbidden if a condition is met.
@@ -448,9 +448,12 @@ class CustomValidator(Validator):
             if isinstance(doc_value, str):
                 doc_value = doc_value.lower()
 
-            if doc_value in [v.lower() if isinstance(v, str) else v for v in values]:
-                if field in self.document and value != default_value:  # type: ignore[attr-defined]
-                    self._error(field, f"forbidden when {key} is {doc_value}")  # type: ignore[attr-defined]
+            if (
+                doc_value in [v.lower() if isinstance(v, str) else v for v in values]
+                and field in self.document
+                and value != default_value
+            ):  # type: ignore[attr-defined]
+                self._error(field, f"forbidden when {key} is {doc_value}")  # type: ignore[attr-defined]
 
     def _normalize_coerce_action_field(self, value):
         """Handle conditional defaults for action fields."""
@@ -809,7 +812,6 @@ def _compute_config_dir_hash(config_file: str) -> str:
     hashed — other files in the directory (e.g. ``state.json``) are ignored.
     """
     import hashlib
-    import re
     from pathlib import Path
 
     config_path = Path(config_file)
@@ -1062,7 +1064,7 @@ def load_config_from_file(
     try:
         config_yaml = load_yaml_file(config_file)
     except FileNotFoundError as err:
-        raise ConfigurationException(err)
+        raise ConfigurationException(err) from err
     _LOGGER.debug("[STARTUP TIMING] load_yaml_file: %.2fs", _time.monotonic() - _t0)
     if not config_yaml:
         _LOGGER.warning("Missing yaml file. %s", config_file)
@@ -1205,7 +1207,6 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
     Returns:
         dict: Status response with success/error message
     """
-    import os
     from pathlib import Path
 
     config_dir = Path(config_file).parent
@@ -1222,10 +1223,8 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                     if addr.startswith("0x") or addr.startswith("0X"):
                         entry["address"] = int(addr, 16)
                     else:
-                        try:
+                        with contextlib.suppress(ValueError):
                             entry["address"] = int(addr, 10)
-                        except ValueError:
-                            pass  # Keep as string if conversion fails
 
     # Strip default values to keep YAML clean
     cleaned_data = strip_default_values(data, {}, section)
@@ -1366,8 +1365,6 @@ def update_yaml_field(config_file: str, section: str, field: str, value: str) ->
     Returns:
         dict: Status response with success/error message.
     """
-    import re
-
     try:
         with open(config_file, encoding="utf-8") as f:
             lines = f.readlines()
@@ -1382,7 +1379,7 @@ def update_yaml_field(config_file: str, section: str, field: str, value: str) ->
         insert_index = -1
         updated_lines = []
 
-        for i, line in enumerate(lines):
+        for line in lines:
             stripped = line.strip()
             line_indent = len(line) - len(line.lstrip())
 

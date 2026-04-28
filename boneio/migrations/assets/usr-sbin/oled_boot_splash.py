@@ -223,7 +223,7 @@ def main(argv: list[str]) -> int:
             bus.write_byte_data(_ADDR, 0x00, 0xB0 | page)
             bus.write_byte_data(_ADDR, 0x00, _COL_OFFSET & 0x0F)
             bus.write_byte_data(_ADDR, 0x00, 0x10 | (_COL_OFFSET >> 4))
-            for i in range(0, _WIDTH, 32):
+            for _ in range(0, _WIDTH, 32):
                 bus.write_i2c_block_data(_ADDR, 0x40, blank)
 
         # Write text lines

@@ -710,8 +710,6 @@ class OutputManager:
         NOTE: Current output states are preserved during reload to avoid
         unwanted switching. The actual hardware state is maintained.
         """
-        import asyncio
-        
         _LOGGER.info("Reloading output configuration")
         
         # PRESERVE current output states before reload

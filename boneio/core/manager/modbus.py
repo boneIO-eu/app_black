@@ -264,7 +264,7 @@ class ModbusManager:
             
             # Find topics that contain this device_id
             topics_to_remove = []
-            for topic in type_messages.keys():
+            for topic in type_messages:
                 # Topic format: homeassistant/{type}/{topic_prefix}{device_id}/{entity_id}/config
                 # We need to match device_id in the topic
                 if f"/{device_id}" in topic or f"{device_id}_" in topic or f"{device_id}/" in topic:
