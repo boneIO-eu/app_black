@@ -22,6 +22,8 @@ from boneio.const import (
     ENABLED,
     MQTT,
     NONE,
+    OFF,
+    ON,
     ONLINE,
     OUTPUT,
     OUTPUT_OVER_MQTT,
@@ -50,8 +52,8 @@ from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
-from boneio.migrations import MigrationRunner, MigrationStatus
 from boneio.hardware.i2c.bus import SMBus2I2C
+from boneio.migrations import MigrationRunner, MigrationStatus
 
 if TYPE_CHECKING:
     pass
@@ -61,7 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class Manager:
     """Main application manager - orchestrates all subsystems.
-    
+
     This class coordinates:
     - Outputs (relay, switch, light, LED, valve)
     - Inputs (event, binary_sensor)
@@ -69,10 +71,10 @@ class Manager:
     - Sensors (temperature, power, analog)
     - Modbus (RTU/TCP devices)
     - Display (OLED)
-    
+
     Each subsystem is managed by a dedicated sub-manager for better
     separation of concerns and maintainability.
-    
+
     Args:
         message_bus: MQTT message bus
         event_bus: Internal event bus
@@ -130,7 +132,7 @@ class Manager:
     ) -> None:
         """Initialize the manager and all subsystems."""
         _LOGGER.info("Initializing Manager with modular architecture")
-        
+
         # Core components
         self._loop = None
         self._tasks: list[asyncio.Task] = []
@@ -140,30 +142,30 @@ class Manager:
         self._config_helper = config_helper
         self._config_file_path = config_file_path
         self._topic_prefix = config_helper.topic_prefix
-        
+
         # Hardware errors storage for WebUI
         self._hardware_errors: list[dict[str, Any]] = []
-        
+
         # Startup status tracking
         self._startup_status: str = "initializing"
         self._startup_complete: bool = False
         self._websocket_manager: Any | None = None
         self._early_oled_device = early_oled_device
-        
+
         # Web server info
         self._web_active = web_active
         self._web_port = web_port
-        
+
         # MQTT shortcuts
         self.send_message = message_bus.send_message
-        
+
         # Initialize I2C bus
         _LOGGER.debug("Initializing I2C bus with smbus2")
         self._i2cbusio = SMBus2I2C(bus_number=2)
-        
+
         # Initialize subsystem managers
         _LOGGER.info("Initializing subsystem managers")
-        
+
         # 1. OutputManager - must be first (covers depend on it)
         self.outputs = OutputManager(
             manager=self,
@@ -173,7 +175,7 @@ class Manager:
             pcf8575=pcf8575,
             output_group=output_group,
         )
-        
+
         # 2. SensorManager
         self.sensors = SensorManager(
             manager=self,
@@ -182,48 +184,48 @@ class Manager:
             ds2482=ds2482,
             adc=adc,
         )
-        
+
         # 3. ModbusManager (optional)
         self.modbus = ModbusManager(
             manager=self,
             modbus_config=modbus,
             modbus_devices=modbus_devices,
         )
-        
+
         # 4. CoverManager (depends on outputs)
         self.covers = CoverManager(
             manager=self,
             cover_config=cover,
         )
-        
+
         # 5. InputManager
         self.inputs = InputManager(
             manager=self,
             event_pins=event_pins,
             binary_pins=binary_pins,
         )
-        
+
         # 6. DisplayManager (depends on sensors, inputs, outputs)
         self.display = DisplayManager(
             manager=self,
             oled_config=oled,
             early_oled_device=self._early_oled_device,
         )
-        
+
         # 7. RemoteDeviceManager (optional - for controlling remote devices)
         self.remote_devices = RemoteDeviceManager(
             message_bus=message_bus,
             remote_devices_config=remote_devices,
             own_serial=config_helper.serial_no,
-            name=self.config_helper.name
+            name=self.config_helper.name,
         )
-        
+
         # 8. BlackDiscoveryPublisher (publishes device info for autodiscovery of neighboring BoneIO devices)
         self._discovery_publisher = BlackDiscoveryPublisher(
             manager=self,
             message_bus=message_bus,
         )
-        
+
         # 9. UpdateManager (checks for software updates and publishes to HA)
         self.update_manager = UpdateManager(
             manager=self,
@@ -231,27 +233,24 @@ class Manager:
 
         # 10. MigrationRunner (system-level OS migrations)
         self.migration_runner = MigrationRunner()
-        
+
         # 10. TemplateManager (thermostats, alarm panels, etc.)
         # Separate irrigation entries from template list — they are handled
         # by IrrigationManager, not TemplateManager, even though the frontend
         # configures them as a template platform.
-        non_irrigation_templates = [
-            e for e in template if e.get("platform") != "irrigation"
-        ]
-        irrigation_from_template = [
-            e for e in template if e.get("platform") == "irrigation"
-        ]
-        
+        non_irrigation_templates = [e for e in template if e.get("platform") != "irrigation"]
+        irrigation_from_template = [e for e in template if e.get("platform") == "irrigation"]
+
         self.templates = TemplateManager(
             manager=self,
             template_config=non_irrigation_templates,
         )
-        
+
         # 11. CANopenManager (optional - CAN bus communication)
         self.canopen = None
         if can.get(ENABLED, False):
             from boneio.core.manager.canopen import CANopenManager
+
             self.canopen = CANopenManager(
                 manager=self,
                 config=can,
@@ -264,10 +263,10 @@ class Manager:
             manager=self,
             irrigation_config=merged_irrigation,
         )
-        
+
         # Configure virtual energy sensors (must be after outputs are initialized)
         self.sensors.configure_virtual_energy_sensors()
-        
+
         # NOTE: Input event listener is registered in InputManager.__init__
         # (removing duplicate registration here that caused double event handling)
 
@@ -276,8 +275,7 @@ class Manager:
         try:
             migration_status = self.migration_runner.startup_check()
             _LOGGER.info(
-                "Migration startup_check finished: status=%s, pending=%d, "
-                "bootstrap_required=%s",
+                "Migration startup_check finished: status=%s, pending=%d, bootstrap_required=%s",
                 migration_status.value,
                 self.migration_runner.pending_count,
                 self.migration_runner.bootstrap_required,
@@ -286,7 +284,7 @@ class Manager:
             _LOGGER.error("Migration startup_check failed: %s", exc, exc_info=True)
 
         _LOGGER.info("Manager initialization complete")
-    
+
     async def start_canopen(self) -> None:
         """Start CANopen manager if configured."""
         if self.canopen is not None:
@@ -299,14 +297,14 @@ class Manager:
 
     async def stop(self) -> None:
         """Stop manager async tasks.
-        
+
         This should be called during shutdown to cleanly stop:
         - CANopen manager
         - ESPHome connections
         - Other async tasks
         """
         _LOGGER.info("Stopping manager async tasks")
-        
+
         # Stop CANopen manager
         if self.canopen is not None:
             try:
@@ -319,10 +317,10 @@ class Manager:
             await self.irrigation.stop()
         except Exception as e:
             _LOGGER.error("Error stopping irrigation manager: %s", e)
-        
+
         # Stop ESPHome connections
         await self.remote_devices.stop_all_connections()
-        
+
         _LOGGER.info("Manager async tasks stopped")
 
     @property
@@ -353,12 +351,11 @@ class Manager:
     @property
     def config_helper(self) -> ConfigHelper:
         return self._config_helper
-        
+
     @property
     def is_web_on(self) -> bool:
         """Check if web server is active."""
         return self._web_active
-
 
     @property
     def web_bind_port(self) -> int:
@@ -372,7 +369,7 @@ class Manager:
 
     def set_web_server_status(self, status: bool, bind: int) -> None:
         """Set web server status and port.
-        
+
         Args:
             status: Web server active status
             bind: Web server bind port
@@ -383,7 +380,7 @@ class Manager:
 
     async def set_startup_status(self, status: str, message: str) -> None:
         """Set and broadcast startup status to WebSocket clients.
-        
+
         Args:
             status: Machine-readable status key (e.g. 'connecting_mqtt')
             message: Human-readable status message
@@ -391,12 +388,14 @@ class Manager:
         self._startup_status = status
         _LOGGER.info("Startup status: %s", message)
         if self._websocket_manager:
-            await self._websocket_manager.broadcast({
-                "event_type": "startup_status",
-                "status": status,
-                "message": message,
-                "complete": False,
-            })
+            await self._websocket_manager.broadcast(
+                {
+                    "event_type": "startup_status",
+                    "status": status,
+                    "message": message,
+                    "complete": False,
+                }
+            )
 
     async def mark_startup_complete(self) -> None:
         """Mark startup as complete and notify WebSocket clients."""
@@ -409,6 +408,7 @@ class Manager:
         # but early_oled can still be painting if the OLED section is absent.
         try:
             from boneio.hardware.display.early_oled import handoff, is_taken_over
+
             if not is_taken_over():
                 handoff()
                 _LOGGER.debug("Early OLED handed off at startup completion")
@@ -416,26 +416,23 @@ class Manager:
             pass
 
         if self._websocket_manager:
-            await self._websocket_manager.broadcast({
-                "event_type": "startup_status",
-                "status": "ready",
-                "message": "",
-                "complete": True,
-            })
+            await self._websocket_manager.broadcast(
+                {
+                    "event_type": "startup_status",
+                    "status": "ready",
+                    "message": "",
+                    "complete": True,
+                }
+            )
 
-    def append_task(
-        self,
-        coro: Callable[..., Coroutine],
-        name: str = "Unknown",
-        **kwargs
-    ) -> asyncio.Task:
+    def append_task(self, coro: Callable[..., Coroutine], name: str = "Unknown", **kwargs) -> asyncio.Task:
         """Add task to run with asyncio loop.
-        
+
         Args:
             coro: Callable that returns a coroutine
             name: Task name for debugging
             **kwargs: Arguments passed to coro
-            
+
         Returns:
             Created asyncio.Task
         """
@@ -446,9 +443,9 @@ class Manager:
 
     def get_tasks(self) -> dict[str, asyncio.Task]:
         """Get all registered tasks.
-        
+
         All tasks are registered via append_task() which is called by AsyncUpdater.
-        
+
         Returns:
             Dictionary of all tasks
         """
@@ -457,7 +454,7 @@ class Manager:
     async def send_all_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all entities."""
         _LOGGER.info("Sending HA autodiscovery messages")
-        
+
         await self.outputs.send_ha_autodiscovery()
         await self.inputs.send_ha_autodiscovery()
         await self.covers.send_ha_autodiscovery()
@@ -467,6 +464,117 @@ class Manager:
         await self.update_manager.send_ha_autodiscovery()
         await self.templates.send_ha_autodiscovery()
         await self.irrigation.send_ha_autodiscovery()
+
+    async def republish_all_entity_states(self) -> None:
+        """Re-publish current state of all entities to MQTT only.
+
+        After HA autodiscovery is re-sent, Home Assistant creates new entities
+        but they have no state data until the next state change. This method
+        forces an immediate re-publication of the known state of every entity
+        (outputs, covers, binary sensors, sensors, etc.) so that HA picks up
+        the current values right away instead of showing 'unknown'.
+
+        IMPORTANT: This publishes ONLY to MQTT topics — it does NOT trigger
+        EventBus events, so WebSocket clients (frontend) are unaffected.
+        The frontend already holds correct state; only HA needs re-sync.
+        """
+        _LOGGER.info("Re-publishing all entity states to MQTT")
+        topic_prefix = self._config_helper.topic_prefix
+
+        # 1. Outputs & groups — publish ON/OFF state on MQTT only
+        for output in self.outputs.get_all_outputs().values():
+            if output.output_type not in (COVER, NONE):
+                try:
+                    state = ON if output.is_active else OFF
+                    self._message_bus.send_message(
+                        topic=f"{topic_prefix}/{OUTPUT}/{output.id}",
+                        payload={STATE: state},
+                        retain=True,
+                    )
+                except Exception as e:
+                    _LOGGER.debug("Error re-publishing output state %s: %s", output.id, e)
+
+        for group in self.outputs.get_all_output_groups().values():
+            try:
+                state = ON if group.is_active else OFF
+                self._message_bus.send_message(
+                    topic=f"{topic_prefix}/{OUTPUT}/{group.id}",
+                    payload={STATE: state},
+                    retain=True,
+                )
+            except Exception as e:
+                _LOGGER.debug("Error re-publishing group state %s: %s", group.id, e)
+
+        # 2. Covers — publish position + state on MQTT only
+        for cover in self.covers.get_all_covers().values():
+            try:
+                self._message_bus.send_message(
+                    topic=f"{topic_prefix}/{COVER}/{cover.id}/state",
+                    payload=cover.state,
+                )
+                self._message_bus.send_message(
+                    topic=f"{topic_prefix}/{COVER}/{cover.id}/pos",
+                    payload=json.dumps(cover.json_position),
+                )
+            except Exception as e:
+                _LOGGER.debug("Error re-publishing cover state %s: %s", cover.id, e)
+
+        # 3. Binary sensors — publish pressed/released state via MQTT only
+        self._republish_binary_sensor_states()
+
+        # 4. Sensors (Dallas, ADC, system) — re-publish last known value
+        await self._republish_sensor_states_mqtt()
+
+        # 5. Online status
+        self.send_message(
+            topic=f"{self._config_helper.topic_prefix}/state",
+            payload="online",
+            retain=True,
+        )
+
+        _LOGGER.info("All entity states re-published to MQTT")
+
+    def _republish_binary_sensor_states(self) -> None:
+        """Re-publish the last known state of all binary sensors to MQTT.
+
+        Binary sensors don't have a periodic update loop — their state
+        is only published on GPIO change events. After an HA discovery
+        re-send we need to push the current state once so HA doesn't
+        show 'unknown'.
+        """
+        from boneio.components.input.binary_sensor import GpioInputBinarySensor
+
+        topic_prefix = self._config_helper.topic_prefix
+        for input_id, inp in self.inputs.get_all_inputs().items():
+            if isinstance(inp, GpioInputBinarySensor):
+                try:
+                    state = inp.last_state  # "pressed" or "released"
+                    if state:
+                        self.send_message(
+                            topic=f"{topic_prefix}/input/{input_id}",
+                            payload=str(state),
+                        )
+                except Exception as e:
+                    _LOGGER.debug(
+                        "Error re-publishing binary sensor state %s: %s",
+                        input_id,
+                        e,
+                    )
+
+    async def _republish_sensor_states_mqtt(self) -> None:
+        """Re-publish last known sensor values to MQTT only.
+
+        Triggers an async update on each sensor which publishes to MQTT
+        via the message_bus. This does NOT fire EventBus events.
+        """
+        timestamp = time.time()
+
+        # Dallas and I2C temperature sensors
+        for sensor in self.sensors.get_all_temp_sensors():
+            try:
+                await sensor.async_update(timestamp)
+            except Exception as e:
+                _LOGGER.debug("Error re-publishing sensor state %s: %s", sensor.id, e)
 
     def publish_ha_discovery(
         self,
@@ -486,19 +594,14 @@ class Manager:
             ha_type: Home Assistant entity type (sensor, light, cover …).
             payload: Ready-to-publish discovery payload dict.
         """
-        topic = (
-            f"{self._config_helper.ha_discovery_prefix}/{ha_type}"
-            f"/{self._config_helper.serial_no}/{id}/config"
-        )
+        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_no}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity %s.", ha_type, id)
-        self._config_helper.add_autodiscovery_msg(
-            topic=topic, ha_type=ha_type, payload=payload
-        )
+        self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)
 
     async def _handle_update_install_command(self, topic: str, payload: str) -> None:
         """Handle update install command from Home Assistant.
-        
+
         Args:
             topic: MQTT topic
             payload: MQTT payload (should be "INSTALL")
@@ -508,17 +611,17 @@ class Manager:
 
     def parse_actions(self, pin: str, actions: dict) -> dict:
         """Parse actions configuration.
-        
+
         Args:
             pin: Pin identifier
             actions: Actions dictionary
-            
+
         Returns:
             Parsed actions dictionary
         """
-        from boneio.const import REMOTE_COVER, REMOTE_OUTPUT, TOPIC
+        from boneio.const import TOPIC
         from boneio.core.utils import strip_accents
-        
+
         def _copy_long_press_meta(parsed_action: dict, action_definition: dict) -> None:
             """Copy long press meta fields (duration thresholds, repeat) and conditions to parsed action."""
             for key in ("min_duration", "max_duration"):
@@ -540,20 +643,22 @@ class Manager:
             compiled = precompile_conditions(parsed_action)
             if compiled is not None:
                 parsed_action["_compiled_conditions"] = compiled
-        
+
         parsed_actions = {}
         for click_type in actions:
             if click_type not in parsed_actions:
                 parsed_actions[click_type] = []
             for action_definition in actions.get(click_type, []):
                 action = action_definition.get("action")
-                
+
                 if action == OUTPUT:
                     # Support both new 'boneio_output' and legacy 'pin' for backward compatibility
                     entity_id = action_definition.get("boneio_output") or action_definition.get("pin")
                     stripped_entity_id = strip_accents(entity_id)
                     action_output = action_definition.get("action_output", TOGGLE)
-                    output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(stripped_entity_id)
+                    output = self.outputs.get_output(stripped_entity_id) or self.outputs.get_output_group(
+                        stripped_entity_id
+                    )
                     action_to_execute = output_actions.get(action_output)
                     if output and action_to_execute:
                         _f = getattr(output, action_to_execute, None)
@@ -566,13 +671,16 @@ class Manager:
                             _copy_long_press_meta(parsed_action, action_definition)
                             _LOGGER.debug(
                                 "Parsed OUTPUT action for %s: output=%s, action=%s, min_dur=%s, max_dur=%s",
-                                pin, stripped_entity_id, action_to_execute,
-                                parsed_action.get("min_duration"), parsed_action.get("max_duration")
+                                pin,
+                                stripped_entity_id,
+                                action_to_execute,
+                                parsed_action.get("min_duration"),
+                                parsed_action.get("max_duration"),
                             )
                             parsed_actions[click_type].append(parsed_action)
                             continue
                     _LOGGER.warning("Device %s for action in %s not found. Omitting.", entity_id, pin)
-                    
+
                 elif action == COVER:
                     # Support both new 'boneio_cover' and legacy 'pin' for backward compatibility
                     entity_id = action_definition.get("boneio_cover") or action_definition.get("pin")
@@ -594,7 +702,7 @@ class Manager:
                             parsed_actions[click_type].append(parsed_action)
                             continue
                     _LOGGER.warning("Device %s for action not found. Omitting.", entity_id)
-                    
+
                 elif action == MQTT:
                     action_mqtt_msg = action_definition.get("action_mqtt_msg")
                     action_topic = action_definition.get(TOPIC)
@@ -608,7 +716,7 @@ class Manager:
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("MQTT action missing topic or message for %s", pin)
-                    
+
                 elif action == OUTPUT_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
                     action_output = action_definition.get("action_output")
@@ -623,7 +731,7 @@ class Manager:
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("OUTPUT_OVER_MQTT action missing data for %s", pin)
-                    
+
                 elif action == COVER_OVER_MQTT:
                     boneio_id = action_definition.get("boneio_id")
                     action_cover = action_definition.get("action_cover")
@@ -638,7 +746,7 @@ class Manager:
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("COVER_OVER_MQTT action missing data for %s", pin)
-                
+
                 elif action == REMOTE_OUTPUT:
                     # Remote output on another device (via remote_devices)
                     remote_device = action_definition.get("remote_device")
@@ -653,9 +761,16 @@ class Manager:
                         }
                         # Copy optional light/WLED parameters
                         for opt_key in (
-                            "brightness", "color_temp", "rgb", "transition",
-                            "effect", "palette", "effect_speed", "effect_intensity",
-                            "colors", "presets",
+                            "brightness",
+                            "color_temp",
+                            "rgb",
+                            "transition",
+                            "effect",
+                            "palette",
+                            "effect_speed",
+                            "effect_intensity",
+                            "colors",
+                            "presets",
                         ):
                             val = action_definition.get(opt_key)
                             if val is not None:
@@ -671,7 +786,7 @@ class Manager:
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_OUTPUT action missing remote_device or output_id for %s", pin)
-                
+
                 elif action == REMOTE_COVER:
                     # Remote cover on another device (via remote_devices)
                     remote_device = action_definition.get("remote_device")
@@ -690,26 +805,23 @@ class Manager:
                         parsed_actions[click_type].append(parsed_action)
                         continue
                     _LOGGER.warning("REMOTE_COVER action missing remote_device or cover_id for %s", pin)
-                    
+
         return parsed_actions
 
     def _resolve_entity_state(self, entity_type: str, entity_id: str) -> Any:
         """Resolve a boneIO entity by type and ID for condition evaluation.
-        
+
         Used by the conditions system to check entity states.
-        
+
         Args:
             entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light')
             entity_id: Entity ID
-            
+
         Returns:
             Entity object or None if not found
         """
         if entity_type in ("output", "light"):
-            return (
-                self.outputs.get_output(entity_id) 
-                or self.outputs.get_output_group(entity_id)
-            )
+            return self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
         elif entity_type == "cover":
             return self.covers.get_cover(entity_id)
         elif entity_type == "binary_sensor":
@@ -726,13 +838,13 @@ class Manager:
         last_repeat_times: dict[int, float] | None = None,
     ) -> set[int]:
         """Execute list of actions.
-        
+
         Args:
             actions: List of actions to execute
             duration: Current duration in seconds (for long press threshold checking)
             executed_actions: Set of action indices already executed (for long press)
             last_repeat_times: Dict mapping action index to last execution duration_ms (for repeat throttling)
-        
+
         Returns:
             Set of action indices that were executed
         """
@@ -740,25 +852,25 @@ class Manager:
             executed_actions = set()
         if last_repeat_times is None:
             last_repeat_times = {}
-        
+
         duration_ms = (duration or 0) * 1000  # Convert to ms
-        
+
         start_time = time.time()
         # Compute datetime once for all condition evaluations in this batch
         now_dt = datetime.now()
-        
+
         for idx, action_definition in enumerate(actions):
             is_repeat = action_definition.get("repeat", False)
             repeat_interval_ms = action_definition.get("repeat_interval", 1000)
-            
+
             # Skip if already executed (unless it's a repeat action)
             if idx in executed_actions and not is_repeat:
                 continue
-            
+
             # Check duration thresholds
             min_dur = action_definition.get("min_duration")  # ms
             max_dur = action_definition.get("max_duration")  # ms
-            
+
             if min_dur is not None or max_dur is not None:
                 # Action has duration thresholds
                 if min_dur is not None and duration_ms < min_dur:
@@ -781,24 +893,22 @@ class Manager:
             compiled_cond = action_definition.get("_compiled_conditions")
             if compiled_cond is not None:
                 if not should_execute_action(
-                    compiled_cond, now_dt, self._resolve_entity_state,
+                    compiled_cond,
+                    now_dt,
+                    self._resolve_entity_state,
                 ):
                     _LOGGER.debug("Action %d: condition not met, skipping", idx)
                     continue
 
             action = action_definition.get("action")
-            
+
             if action == MQTT:
                 action_topic = action_definition.get("action_topic")
                 action_payload = action_definition.get("action_mqtt_msg")
                 if action_topic and action_payload:
-                    self.send_message(
-                        topic=action_topic,
-                        payload=action_payload,
-                        retain=False
-                    )
+                    self.send_message(topic=action_topic, payload=action_payload, retain=False)
                 continue
-                
+
             elif action == OUTPUT:
                 output_id = action_definition.get("pin") or action_definition.get("boneio_output")
                 output = self.outputs.get_output(output_id) or self.outputs.get_output_group(output_id)
@@ -809,12 +919,12 @@ class Manager:
                 _LOGGER.debug(
                     "Executing action %s for output %s. Duration: %s",
                     action_to_execute,
-                    output.name if hasattr(output, 'name') else output_id,
+                    output.name if hasattr(output, "name") else output_id,
                     time.time() - start_time,
                 )
                 _f = getattr(output, action_to_execute)
                 await _f()
-                
+
             elif action == COVER:
                 cover_id = action_definition.get("pin") or action_definition.get("boneio_cover")
                 cover = self.covers.get_cover(cover_id)
@@ -828,12 +938,12 @@ class Manager:
                 _LOGGER.debug(
                     "Executing action %s for cover %s. Duration: %s",
                     action_to_execute,
-                    cover.name if hasattr(cover, 'name') else cover_id,
+                    cover.name if hasattr(cover, "name") else cover_id,
                     time.time() - start_time,
                 )
                 _f = getattr(cover, action_to_execute)
                 await _f(**filtered_data)
-                
+
             elif action == OUTPUT_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
                 output_id = action_definition.get("boneio_output") or action_definition.get("pin")
@@ -843,7 +953,7 @@ class Manager:
                     payload=action_output,
                     retain=False,
                 )
-                
+
             elif action == COVER_OVER_MQTT:
                 boneio_id = action_definition.get("boneio_id")
                 cover_id = action_definition.get("boneio_cover") or action_definition.get("pin")
@@ -853,27 +963,32 @@ class Manager:
                     payload=action_cover,
                     retain=False,
                 )
-            
+
             elif action == REMOTE_OUTPUT:
                 # Control output on remote device (supports ESPHome lights with brightness/color and WLED effects)
                 remote_device_id = action_definition.get("remote_device")
                 output_id = action_definition.get("output_id")
                 action_output = action_definition.get("action_output", "TOGGLE")
-                
+
                 # Clamp transition to repeat_interval to avoid overlapping animations
                 transition_val = action_definition.get("transition")
                 if transition_val and action_definition.get("repeat"):
                     repeat_interval = action_definition.get("repeat_interval")
                     if repeat_interval:
-                        ri_seconds = repeat_interval.total_in_seconds if hasattr(repeat_interval, "total_in_seconds") else repeat_interval / 1000.0
+                        ri_seconds = (
+                            repeat_interval.total_in_seconds
+                            if hasattr(repeat_interval, "total_in_seconds")
+                            else repeat_interval / 1000.0
+                        )
                         if transition_val > ri_seconds:
                             _LOGGER.debug(
                                 "Clamping transition %.3fs to repeat_interval %.3fs",
-                                transition_val, ri_seconds,
+                                transition_val,
+                                ri_seconds,
                             )
                             transition_val = ri_seconds
                     action_definition = {**action_definition, "transition": transition_val}
-                
+
                 if action_output == "CYCLE_COLOR":
                     await self.remote_devices.cycle_color(
                         device_id=remote_device_id,
@@ -882,7 +997,7 @@ class Manager:
                         action_idx=idx,
                         transition=action_definition.get("transition"),
                     )
-                
+
                 elif action_output == "CYCLE_PRESET":
                     await self.remote_devices.cycle_preset(
                         device_id=remote_device_id,
@@ -891,7 +1006,7 @@ class Manager:
                         action_idx=idx,
                         transition=action_definition.get("transition"),
                     )
-                
+
                 else:
                     await self.remote_devices.control_output(
                         device_id=remote_device_id,
@@ -906,7 +1021,7 @@ class Manager:
                         effect_speed=action_definition.get("effect_speed"),
                         effect_intensity=action_definition.get("effect_intensity"),
                     )
-            
+
             elif action == REMOTE_COVER:
                 # Control cover on remote device (BoneIO MQTT or ESPHome API)
                 remote_device_id = action_definition.get("remote_device")
@@ -919,38 +1034,38 @@ class Manager:
                     action=action_cover,
                     **extra_data,
                 )
-            
+
             # Mark action as executed
             if is_repeat:
                 # For repeat actions, track timing instead of marking as permanently executed
                 last_repeat_times[idx] = duration_ms
             executed_actions.add(idx)
-        
+
         return executed_actions
 
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.
-        
+
         This allows hot-reloading of log levels without restarting the application.
         """
         from boneio.core.utils.logger import configure_logger
-        
+
         config = self._config_helper.get_config()
         log_config = config.get("logger", {})
-        
+
         _LOGGER.info("Reloading logger configuration")
         configure_logger(log_config, debug=0)
         _LOGGER.info("Logger configuration reloaded successfully")
 
     async def _reload_remote_devices(self) -> None:
         """Reload remote devices configuration from config file.
-        
+
         This allows hot-reloading of remote devices without restarting the application.
         Handles ESPHome connections properly (stops old, starts new).
         """
         config = self._config_helper.get_config()
         remote_devices_config = config.get("remote_devices", [])
-        
+
         _LOGGER.info("Reloading remote devices configuration")
         await self.remote_devices.reload(remote_devices_config)
         _LOGGER.info("Remote devices configuration reloaded successfully")
@@ -964,38 +1079,38 @@ class Manager:
         """
         await self.templates.reload_templates()
         await self.irrigation.reload_irrigation()
-    
+
     async def publish_discovery(self) -> None:
         """Publish all device discovery information to MQTT.
-        
+
         This should be called after manager is fully initialized.
         """
         await self.send_all_ha_autodiscovery()
 
-        if hasattr(self, '_discovery_publisher'):
+        if hasattr(self, "_discovery_publisher"):
             await self._discovery_publisher.publish_discovery()
         else:
             _LOGGER.warning("Discovery publisher not initialized")
-    
+
     async def _publish_discovery_for_sections(self, sections: list[str]) -> None:
         """Publish discovery only for specific sections.
-        
+
         Maps config sections to discovery topics:
         - output -> outputs
         - cover -> covers
         - input, event, binary_sensor -> inputs
         - sensor, virtual_energy_sensor -> sensors
         - modbus_devices -> modbus
-        
+
         Args:
             sections: List of reloaded config section names
         """
-        if not hasattr(self, '_discovery_publisher'):
+        if not hasattr(self, "_discovery_publisher"):
             _LOGGER.warning("Discovery publisher not initialized")
             return
-        
+
         publisher = self._discovery_publisher
-        
+
         # Map config sections to discovery methods
         section_to_discovery = {
             "output": publisher.publish_outputs,
@@ -1009,7 +1124,7 @@ class Manager:
             "adc": publisher.publish_sensors,
             "irrigation": publisher.publish_irrigation,
         }
-        
+
         published = set()
         for section in sections:
             if section in section_to_discovery:
@@ -1018,55 +1133,50 @@ class Manager:
                 if method_name not in published:
                     method()
                     published.add(method_name)
-        
+
         if published:
             _LOGGER.info("Published discovery for sections: %s", list(published))
 
     async def reload_config(self, reload_sections: list[str] | None = None) -> dict:
         """Reload configuration from file.
-        
+
         This method allows hot-reloading of specific configuration sections
         without requiring a full application restart.
-        
+
         Args:
             reload_sections: Optional list of section names to reload.
                            If None, reloads all supported sections (output, cover, input, modbus_devices).
                            Supported sections: 'output', 'cover', 'input', 'event', 'binary_sensor', 'adc',
                            'modbus_devices', 'sensor', 'virtual_energy_sensor', 'logger', 'remote_devices', 'oled'
-        
+
         Returns:
             dict: Status of reload operation with details:
                 - status: 'success', 'partial', or 'error'
                 - reloaded_sections: List of successfully reloaded sections
                 - failed_sections: List of sections that failed to reload
         """
-        from boneio.const import BINARY_SENSOR, COVER, EVENT_ENTITY, OUTPUT
-        
+        from boneio.const import BINARY_SENSOR, EVENT_ENTITY
+
         _LOGGER.info("Starting config reload")
-        
+
         # Reload config cache in ConfigHelper
         # NOTE: reload_config() calls load_config_from_file() which may run
         # full Cerberus validation (~20s) on disk cache miss. Run in a thread
         # executor to keep the event loop responsive (MQTT, WS, modbus).
         try:
-            import asyncio
+
             config = await asyncio.to_thread(self._config_helper.reload_config)
             # Update areas mapping from reloaded config
             self._config_helper.set_areas(config.get("areas", []))
         except Exception as e:
             _LOGGER.error(f"Failed to reload config: {e}")
-            return {
-                "status": "error",
-                "message": str(e),
-                "reloaded_sections": [],
-                "failed_sections": []
-            }
-        
+            return {"status": "error", "message": str(e), "reloaded_sections": [], "failed_sections": []}
+
         reloaded_sections = []
         failed_sections = []
-        
+
         import inspect
-        
+
         # Sections that support hot reload (some are async, some are sync)
         hot_reloadable_sections = {
             OUTPUT: self.outputs.reload_outputs,
@@ -1086,7 +1196,7 @@ class Manager:
             "areas": lambda: None,  # Areas are already reloaded in reload_config above
             "oled": self.display.reload_oled,  # OLED display screens, screensaver
         }
-        
+
         # If specific sections requested, filter
         if reload_sections:
             sections_to_reload = {}
@@ -1104,7 +1214,7 @@ class Manager:
                 "modbus_devices": hot_reloadable_sections["modbus_devices"],
                 "sensor": hot_reloadable_sections["sensor"],
             }
-        
+
         # Execute reloads (handle both sync and async functions)
         for section, reload_func in sections_to_reload.items():
             try:
@@ -1117,19 +1227,19 @@ class Manager:
             except Exception as e:
                 _LOGGER.error(f"Failed to reload section {section}: {e}", exc_info=True)
                 failed_sections.append({"section": section, "error": str(e)})
-        
+
         # Determine status
         if failed_sections:
             status = "partial" if reloaded_sections else "error"
         else:
             status = "success"
-        
+
         result = {
             "status": status,
             "reloaded_sections": reloaded_sections,
             "failed_sections": failed_sections,
         }
-        
+
         if status == "success":
             _LOGGER.info("Config reload completed successfully")
             # Publish updated discovery for reloaded sections
@@ -1140,7 +1250,7 @@ class Manager:
             await self._publish_discovery_for_sections(reloaded_sections)
         else:
             _LOGGER.error("Config reload failed")
-        
+
         return result
 
     def resend_autodiscovery(self) -> None:
@@ -1150,70 +1260,67 @@ class Manager:
 
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established.
-        
+
         Sends online status to MQTT and starts template MQTT subscriptions.
         """
         _LOGGER.info("Sending online state.")
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
         self.send_message(topic=topic, payload=ONLINE, retain=True)
-        
+
         # Immediately refresh OLED MQTT status (event-driven, no polling delay)
         self.display.notify_mqtt_state_changed()
-        
+
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()
         await self.irrigation.start()
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving MQTT messages.
-        
+
         Handles:
         - HA status messages (online/offline)
         - BoneIO discovery messages (autodiscovery of neighboring devices)
         - Relay/output commands (set, brightness)
         - Cover commands
-        
+
         Args:
             topic: MQTT topic
             message: MQTT message payload
         """
         _LOGGER.debug("Processing topic %s with message %s.", topic, message)
-        
+
         # Handle HA status messages
         if topic.startswith(f"{self._config_helper.ha_discovery_prefix}/status"):
             if message == ONLINE:
                 self.resend_autodiscovery()
                 self._event_bus.signal_ha_online()
             return
-        
+
         # Handle BoneIO discovery messages (autodiscovery of neighboring devices)
         if self._config_helper.receive_boneio_autodiscovery and self.remote_devices.is_discovery_topic(topic):
             self.remote_devices.handle_discovery_message(topic, message)
             return
-        
+
         # Verify topic starts with command prefix
         try:
             assert topic.startswith(self._config_helper.cmd_topic_prefix)
         except AssertionError as err:
             _LOGGER.error("Wrong topic %s. Error %s", topic, err)
             return
-        
+
         # Parse topic parts
-        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix):].split("/")
+        topic_parts_raw = topic[len(self._config_helper.cmd_topic_prefix) :].split("/")
         topic_parts = deque(topic_parts_raw)
-        
+
         try:
             msg_type = topic_parts.popleft()
             device_id = topic_parts.popleft()
             command = topic_parts.pop()
-            _LOGGER.debug(
-                "Divide topic to: msg_type: %s, device_id: %s, command: %s",
-                msg_type, device_id, command
-            )
+            _LOGGER.debug("Divide topic to: msg_type: %s, device_id: %s, command: %s", msg_type, device_id, command)
         except IndexError:
             _LOGGER.error("Part of topic is missing. Not invoking command.")
             return
-        
+
         # Handle relay/output commands
         if msg_type == OUTPUT and command == "set":
             target_device = self.outputs.get_output(device_id)
@@ -1227,7 +1334,7 @@ class Manager:
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
             return
-        
+
         if msg_type == OUTPUT and command == SET_BRIGHTNESS:
             target_device = self.outputs.get_output(device_id)
             if target_device and target_device.output_type != "none" and message != "":
@@ -1235,7 +1342,7 @@ class Manager:
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
             return
-        
+
         # Handle adjustable duration commands (set_duration)
         if msg_type == OUTPUT and command == "set_duration":
             target_device = self.outputs.get_output(device_id)
@@ -1265,13 +1372,11 @@ class Manager:
                         retain=True,
                     )
                 except (TypeError, ValueError):
-                    _LOGGER.warning(
-                        "Invalid duration value '%s' for output '%s'", message, device_id
-                    )
+                    _LOGGER.warning("Invalid duration value '%s' for output '%s'", message, device_id)
             else:
                 _LOGGER.debug("Output '%s' does not support adjustable duration", device_id)
             return
-        
+
         if msg_type == COVER:
             cover = self.covers.get_cover(device_id)
             if cover:
@@ -1285,6 +1390,7 @@ class Manager:
                 elif command == "tilt":
                     # Set cover tilt position (only for VenetianCover)
                     from boneio.components.cover.venetian import VenetianCover
+
                     if isinstance(cover, VenetianCover):
                         try:
                             tilt = int(message)
@@ -1304,7 +1410,7 @@ class Manager:
             else:
                 _LOGGER.debug("Cover not found %s.", device_id)
             return
-        
+
         if msg_type == "group" and command == "set":
             target_device = self.outputs.get_output_group(device_id)
             if target_device and target_device.output_type != NONE:
@@ -1346,4 +1452,3 @@ class Manager:
             return
 
         _LOGGER.debug("Unknown message type %s.", msg_type)
-            
