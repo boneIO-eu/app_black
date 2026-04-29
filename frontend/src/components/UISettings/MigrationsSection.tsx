@@ -5,6 +5,8 @@ import {
   FaLock,
   FaPlay,
   FaSpinner,
+  FaChevronDown,
+  FaChevronRight,
 } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -23,6 +25,7 @@ const MigrationsSection: React.FC = () => {
   const [busy, setBusy] = useState<boolean>(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState<boolean>(false);
+  const [showApplied, setShowApplied] = useState<boolean>(false);
 
   const setFeedback = (msg: string, error: boolean) => {
     setMessage(msg);
@@ -69,9 +72,12 @@ const MigrationsSection: React.FC = () => {
 
   if (loading && !status) {
     return (
-      <div className="card bg-base-200">
+      <div className="card bg-base-200 shadow-xl">
         <div className="card-body">
-          <FaSpinner className="animate-spin" />
+          <div className="flex items-center gap-2">
+            <FaSpinner className="animate-spin" />
+            <span className="text-sm opacity-70">{t('migrations.title')}...</span>
+          </div>
         </div>
       </div>
     );
@@ -79,7 +85,7 @@ const MigrationsSection: React.FC = () => {
 
   if (!status) return null;
 
-  // Hide entirely when nothing to do
+  // Hide entirely when nothing to do and no history
   const nothingToDo =
     status.pending_count === 0 && !status.bootstrap_required && status.status === 'ok';
 
@@ -88,7 +94,7 @@ const MigrationsSection: React.FC = () => {
   return (
     <div
       id="migrations"
-      className={`card ${
+      className={`card shadow-xl ${
         status.bootstrap_required
           ? 'bg-warning/10 border border-warning'
           : status.pending_count > 0
@@ -97,61 +103,96 @@ const MigrationsSection: React.FC = () => {
       }`}
     >
       <div className="card-body">
-        <h3 className="card-title">
-          {status.bootstrap_required ? (
-            <FaLock className="text-warning" />
-          ) : status.pending_count > 0 ? (
-            <FaPlay className="text-info" />
-          ) : (
-            <FaCheck className="text-success" />
-          )}
-          {t('migrations.title')}
-        </h3>
+        {/* Header */}
+        <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
+          <h3 className="card-title">
+            {status.bootstrap_required ? (
+              <FaLock className="text-warning" />
+            ) : status.pending_count > 0 ? (
+              <FaPlay className="text-info" />
+            ) : (
+              <FaCheck className="text-success" />
+            )}
+            {t('migrations.title')}
+          </h3>
 
-        {/* Status summary */}
-        <div className="text-sm opacity-80">
-          {status.bootstrap_required && (
-            <p className="mb-2">{t('migrations.explain_bootstrap')}</p>
-          )}
-          {!status.bootstrap_required && status.pending_count > 0 && (
-            <p className="mb-2">
-              {t('migrations.explain_pending', { count: status.pending_count })}
-            </p>
-          )}
+          {/* Applied count badge */}
           {nothingToDo && status.applied.length > 0 && (
-            <p className="mb-2">{t('migrations.all_applied')}</p>
+            <button
+              className="btn btn-outline btn-sm w-fit"
+              onClick={() => setShowApplied(!showApplied)}
+            >
+              {showApplied ? <FaChevronDown /> : <FaChevronRight />}
+              {t('migrations.applied_count', { count: status.applied.length })}
+            </button>
           )}
         </div>
+
+        {/* Status summary */}
+        {status.bootstrap_required && (
+          <p className="text-sm opacity-80">{t('migrations.explain_bootstrap')}</p>
+        )}
+        {!status.bootstrap_required && status.pending_count > 0 && (
+          <p className="text-sm opacity-80">
+            {t('migrations.explain_pending', { count: status.pending_count })}
+          </p>
+        )}
+        {nothingToDo && status.applied.length > 0 && (
+          <p className="text-sm opacity-70">{t('migrations.all_applied')}</p>
+        )}
 
         {/* Pending list */}
         {status.pending.length > 0 && (
           <div className="mt-2">
-            <p className="text-sm font-medium">{t('migrations.pending_list')}:</p>
-            <ul className="list-disc list-inside text-sm">
-              {status.pending.map((m) => (
-                <li key={m.version}>
-                  <span className="font-mono">{m.version}</span>
-                  {m.description && <span className="opacity-70"> — {m.description}</span>}
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm font-medium mb-2">{t('migrations.pending_list')}:</p>
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{t('software_update.version')}</th>
+                    <th>{t('migrations.description') || 'Description'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.pending.map((m) => (
+                    <tr key={m.version}>
+                      <td className="font-mono">{m.version}</td>
+                      <td className="opacity-70">{m.description || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* Applied list */}
-        {status.applied.length > 0 && (
-          <details className="mt-2">
-            <summary className="text-sm cursor-pointer opacity-70">
-              {t('migrations.applied_count', { count: status.applied.length })}
-            </summary>
-            <ul className="list-disc list-inside text-sm mt-1 opacity-70">
-              {status.applied.map((v) => (
-                <li key={v} className="font-mono">
-                  {v}
-                </li>
-              ))}
-            </ul>
-          </details>
+        {/* Applied list (collapsible) */}
+        {showApplied && status.applied.length > 0 && (
+          <div className="mt-2">
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>{t('software_update.version')}</th>
+                    <th>{t('software_update.type') || 'Status'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.applied.map((v) => (
+                    <tr key={v}>
+                      <td className="font-mono">{v}</td>
+                      <td>
+                        <span className="badge badge-success badge-sm">
+                          <FaCheck className="mr-1" />
+                          {t('migrations.applied') || 'Applied'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* Last error */}

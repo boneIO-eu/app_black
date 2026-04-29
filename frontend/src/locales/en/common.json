@@ -1842,6 +1842,8 @@
     "all_applied": "All system migrations have been applied.",
     "pending_list": "Pending",
     "applied_count": "Applied ({{count}})",
+    "applied": "Applied",
+    "description": "Description",
     "bootstrap_title": "Bootstrap required",
     "bootstrap_description": "Enter the sudo password for the 'boneio' user. It will be used once to install the privileged helper and is never stored.",
     "sudo_password_label": "Sudo password",

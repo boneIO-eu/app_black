@@ -26,3 +26,13 @@ repos:
           - --format=custom
           - --configfile=tests/bandit.yaml
         files: ^(boneio)/.+\.py$
+
+  # Auto-regenerate migration assets MANIFEST.sha256
+  - repo: local
+    hooks:
+      - id: migration-manifest
+        name: Regenerate migration MANIFEST.sha256
+        language: script
+        entry: scripts/update-migration-manifest.sh
+        files: ^boneio/migrations/assets/
+        exclude: MANIFEST\.sha256$

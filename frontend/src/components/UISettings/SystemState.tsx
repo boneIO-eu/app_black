@@ -14,7 +14,7 @@ import FixAppPermissions from './FixAppPermissions';
 import FixCanSudoers from './FixCanSudoers';
 import HardwareErrors from './HardwareErrors';
 import MigrationsSection from './MigrationsSection';
-import SettingsCard from './components/SettingsCard';
+
 import {
   DeviceControlSection,
   MqttPasswordsSection,
@@ -369,23 +369,21 @@ const SystemState: React.FC = () => {
               </div>
             )}
 
-            {/* Current Version Card */}
-            <div className="card bg-base-200">
-              <div className="card-body">
-                <h3 className="card-title">{t('software_update.current_version')}</h3>
-                <div className="flex lg:items-center gap-4 flex-col lg:flex-row">
-                  <span className="text-3xl font-mono font-bold text-primary">
-                    {updateInfo?.current_version || '...'}
+            {/* Current Version */}
+            <div>
+              <h3 className="text-sm font-medium opacity-70 mb-1">{t('software_update.current_version')}</h3>
+              <div className="flex lg:items-center gap-4 flex-col lg:flex-row">
+                <span className="text-3xl font-mono font-bold text-primary">
+                  {updateInfo?.current_version || '...'}
+                </span>
+                {updateInfo?.update_available && (
+                  <span className="badge badge-success badge-lg">
+                    {t('software_update.update_available')}
                   </span>
-                  {updateInfo?.update_available && (
-                    <span className="badge badge-success badge-lg">
-                      {t('software_update.update_available')}
-                    </span>
-                  )}
-                  {updateInfo?.status === 'success' && !updateInfo?.update_available && (
-                    <span className="badge badge-info">{t('software_update.up_to_date')}</span>
-                  )}
-                </div>
+                )}
+                {updateInfo?.status === 'success' && !updateInfo?.update_available && (
+                  <span className="badge badge-info">{t('software_update.up_to_date')}</span>
+                )}
               </div>
             </div>
 
@@ -609,68 +607,74 @@ const SystemState: React.FC = () => {
             )}
 
             {/* Available Versions Section */}
-            <SettingsCard
-              icon={<FaHistory />}
-              title={t('software_update.available_versions') || 'Available Versions'}
-              toggleButtonText={(t('software_update.show_versions') || 'Show versions ({count})').replace('{count}', String(availableVersions.length))}
-              toggleButtonTextExpanded={(t('software_update.hide_versions') || 'Hide versions ({count})').replace('{count}', String(availableVersions.length))}
-              isExpanded={showVersions}
-              onToggle={() => setShowVersions(!showVersions)}
-              expandableContent={
-                availableVersions.length === 0 ? (
-                  <p className="text-sm opacity-70">{t('software_update.no_versions') || 'No versions available'}</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>{t('software_update.version')}</th>
-                          <th>{t('software_update.date')}</th>
-                          <th>{t('software_update.type') || 'Type'}</th>
-                          <th>{t('software_update.actions')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {availableVersions.map((ver: AvailableVersion) => (
-                          <tr key={ver.version} className={ver.is_current ? 'bg-base-200' : ''}>
-                            <td className="font-mono">
-                              {ver.version}
-                              {ver.is_current && <span className="badge badge-success badge-sm ml-2">{t('software_update.current') || 'Current'}</span>}
-                            </td>
-                            <td>{ver.published_at ? new Date(ver.published_at).toLocaleDateString() : '-'}</td>
-                            <td>
-                              {ver.prerelease ? (
-                                <span className="badge badge-warning badge-sm">Pre-release</span>
-                              ) : (
-                                <span className="badge badge-success badge-sm">Stable</span>
-                              )}
-                            </td>
-                            <td>
-                              {!ver.is_current && (
-                                <button
-                                  className="btn btn-warning btn-xs"
-                                  onClick={() => performRollback(ver.version)}
-                                  disabled={isUpdating}
-                                >
-                                  <FaUndo />
-                                  {t('software_update.install') || 'Install'}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              }
-            >
-              <div className="alert alert-info">
-                <div>
-                  <p>{t('software_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
-                </div>
+            <div className="divider"></div>
+            <div>
+              <div className="flex lg:items-center justify-between flex-col lg:flex-row gap-2">
+                <h3 className="card-title">
+                  <FaHistory />
+                  {t('software_update.available_versions') || 'Available Versions'}
+                </h3>
+                <button
+                  className="btn btn-outline btn-sm w-fit"
+                  onClick={() => setShowVersions(!showVersions)}
+                >
+                  {showVersions
+                    ? (t('software_update.hide_versions') || 'Hide versions ({count})').replace('{count}', String(availableVersions.length))
+                    : (t('software_update.show_versions') || 'Show versions ({count})').replace('{count}', String(availableVersions.length))}
+                </button>
               </div>
-            </SettingsCard>
+              <p className="text-sm opacity-70 mt-2">{t('software_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
+              {showVersions && (
+                <div className="mt-4">
+                  {availableVersions.length === 0 ? (
+                    <p className="text-sm opacity-70">{t('software_update.no_versions') || 'No versions available'}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>{t('software_update.version')}</th>
+                            <th>{t('software_update.date')}</th>
+                            <th>{t('software_update.type') || 'Type'}</th>
+                            <th>{t('software_update.actions')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {availableVersions.map((ver: AvailableVersion) => (
+                            <tr key={ver.version} className={ver.is_current ? 'bg-base-200' : ''}>
+                              <td className="font-mono">
+                                {ver.version}
+                                {ver.is_current && <span className="badge badge-success badge-sm ml-2">{t('software_update.current') || 'Current'}</span>}
+                              </td>
+                              <td>{ver.published_at ? new Date(ver.published_at).toLocaleDateString() : '-'}</td>
+                              <td>
+                                {ver.prerelease ? (
+                                  <span className="badge badge-warning badge-sm">Pre-release</span>
+                                ) : (
+                                  <span className="badge badge-success badge-sm">Stable</span>
+                                )}
+                              </td>
+                              <td>
+                                {!ver.is_current && (
+                                  <button
+                                    className="btn btn-warning btn-xs"
+                                    onClick={() => performRollback(ver.version)}
+                                    disabled={isUpdating}
+                                  >
+                                    <FaUndo />
+                                    {t('software_update.install') || 'Install'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

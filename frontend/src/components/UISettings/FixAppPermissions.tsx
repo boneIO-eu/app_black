@@ -51,12 +51,12 @@ export default function FixAppPermissions() {
   };
 
   return (
-    <div className="card bg-base-200 shadow-sm mt-4">
-      <div className="card-body p-4">
-        <h3 className="card-title text-sm">{t('sudo_dialog.fix_app_permissions')}</h3>
+    <div className="card bg-base-200 shadow-xl">
+      <div className="card-body">
+        <h3 className="card-title">{t('sudo_dialog.fix_app_permissions')}</h3>
 
         <button
-          className={`btn btn-sm btn-outline ${loading ? 'loading' : ''}`}
+          className={`btn btn-sm btn-outline w-fit ${loading ? 'loading' : ''}`}
           onClick={testPermissions}
           disabled={loading}
         >
