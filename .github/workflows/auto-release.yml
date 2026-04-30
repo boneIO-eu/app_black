@@ -32,43 +32,109 @@ jobs:
           # Check if prerelease (dev, alpha, beta, rc in version)
           if echo "$VERSION" | grep -qiE '(dev|alpha|beta|rc)'; then
             echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "is_stable=false" >> $GITHUB_OUTPUT
           else
             echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "is_stable=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Find previous tag
         id: prev_tag
         run: |
-          # Get the previous tag (the one before current)
-          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | sed -n '2p')
+          TAG="${{ steps.tag_info.outputs.tag }}"
+          IS_STABLE="${{ steps.tag_info.outputs.is_stable }}"
+
+          if [ "$IS_STABLE" = "true" ]; then
+            # For stable releases: find the previous STABLE tag (skip dev/alpha/beta/rc)
+            # This gives a full changelog covering the entire dev cycle
+            PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | grep -viE '(dev|alpha|beta|rc)' | sed -n '2p')
+          else
+            # For dev/prerelease: find the immediately previous tag (any kind)
+            PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v' | sed -n '2p')
+          fi
+
           if [ -z "$PREV_TAG" ]; then
-            # No previous tag, use first commit
+            # No previous tag found, use first commit
             PREV_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "Previous tag: $PREV_TAG"
+          echo "Previous tag: $PREV_TAG (stable=$IS_STABLE)"
 
       - name: Generate changelog
         id: changelog
         run: |
           PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
           TAG="${{ steps.tag_info.outputs.tag }}"
+          IS_STABLE="${{ steps.tag_info.outputs.is_stable }}"
 
-          echo "## What's Changed" > changelog.md
-          echo "" >> changelog.md
+          # Check if RELEASE_NOTES.md exists — if so, use it as the release body
+          if [ -f "RELEASE_NOTES.md" ]; then
+            echo "Using RELEASE_NOTES.md for release body."
+            cp RELEASE_NOTES.md changelog.md
+            echo "" >> changelog.md
+            echo "---" >> changelog.md
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}" >> changelog.md
+          else
+            echo "## What's Changed" > changelog.md
+            echo "" >> changelog.md
 
-          # Group commits by type (based on common prefixes)
-          # Collect all commits
-          git log "${PREV_TAG}..${TAG}" --pretty=format:"%s|%h" --no-merges | while IFS='|' read -r msg hash; do
-            # Skip version bump commits
-            if echo "$msg" | grep -qiE '^(bump version|v[0-9])'; then
-              continue
+            if [ "$IS_STABLE" = "true" ]; then
+              # For stable releases: group changes by category
+              declare -A CATEGORIES
+              CATEGORIES=(
+                ["feat"]="### ✨ New Features"
+                ["fix"]="### 🐛 Bug Fixes"
+                ["refactor"]="### ♻️ Refactoring"
+                ["docs"]="### 📝 Documentation"
+                ["other"]="### 📦 Other Changes"
+              )
+
+              FEATS=""
+              FIXES=""
+              REFACTORS=""
+              DOCS=""
+              OTHERS=""
+
+              while IFS='|' read -r msg hash; do
+                # Skip version bump / release commits
+                if echo "$msg" | grep -qiE '^(bump version|release v|v[0-9])'; then
+                  continue
+                fi
+
+                lower_msg=$(echo "$msg" | tr '[:upper:]' '[:lower:]')
+                if echo "$lower_msg" | grep -qE '^(feat|add|new|implement)'; then
+                  FEATS="${FEATS}- ${msg} (\`${hash}\`)\n"
+                elif echo "$lower_msg" | grep -qE '^(fix|bug|patch|hotfix)'; then
+                  FIXES="${FIXES}- ${msg} (\`${hash}\`)\n"
+                elif echo "$lower_msg" | grep -qE '^(refactor|clean|rename)'; then
+                  REFACTORS="${REFACTORS}- ${msg} (\`${hash}\`)\n"
+                elif echo "$lower_msg" | grep -qE '^(doc|readme)'; then
+                  DOCS="${DOCS}- ${msg} (\`${hash}\`)\n"
+                else
+                  OTHERS="${OTHERS}- ${msg} (\`${hash}\`)\n"
+                fi
+              done < <(git log "${PREV_TAG}..${TAG}" --pretty=format:"%s|%h" --no-merges)
+
+              [ -n "$FEATS" ] && echo -e "### ✨ New Features\n\n${FEATS}" >> changelog.md
+              [ -n "$FIXES" ] && echo -e "### 🐛 Bug Fixes\n\n${FIXES}" >> changelog.md
+              [ -n "$REFACTORS" ] && echo -e "### ♻️ Refactoring\n\n${REFACTORS}" >> changelog.md
+              [ -n "$DOCS" ] && echo -e "### 📝 Documentation\n\n${DOCS}" >> changelog.md
+              [ -n "$OTHERS" ] && echo -e "### 📦 Other Changes\n\n${OTHERS}" >> changelog.md
+
+            else
+              # For dev/prerelease: simple flat list
+              git log "${PREV_TAG}..${TAG}" --pretty=format:"%s|%h" --no-merges | while IFS='|' read -r msg hash; do
+                # Skip version bump commits
+                if echo "$msg" | grep -qiE '^(bump version|v[0-9])'; then
+                  continue
+                fi
+                echo "- ${msg} (\`${hash}\`)" >> changelog.md
+              done
             fi
-            echo "- ${msg} (\`${hash}\`)" >> changelog.md
-          done
 
-          echo "" >> changelog.md
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}" >> changelog.md
+            echo "" >> changelog.md
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}" >> changelog.md
+          fi
 
           cat changelog.md
 
