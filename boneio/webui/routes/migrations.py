@@ -44,7 +44,7 @@ class MigrationStatusResponse(BaseModel):
     helper_installed: bool
     pending_count: int
     pending: list[dict]
-    applied: list[str]
+    applied: list[dict]
     last_error: str | None
 
 

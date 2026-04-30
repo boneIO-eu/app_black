@@ -1843,6 +1843,7 @@
     "applied_count": "Zastosowane ({{count}})",
     "applied": "Zastosowana",
     "description": "Opis",
+    "source": "Źródło",
     "bootstrap_title": "Wymagany bootstrap",
     "bootstrap_description": "Wpisz hasło sudo użytkownika 'boneio'. Zostanie użyte jednorazowo do instalacji uprzywilejowanego helpera i nie jest nigdzie zapisywane.",
     "sudo_password_label": "Hasło sudo",

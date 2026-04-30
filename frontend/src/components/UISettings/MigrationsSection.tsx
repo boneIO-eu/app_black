@@ -7,10 +7,23 @@ import {
   FaSpinner,
   FaChevronDown,
   FaChevronRight,
+  FaExternalLinkAlt,
 } from 'react-icons/fa';
 import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useMigrations } from '@/hooks/useMigrations';
+import { useMigrations, type AppliedMigration } from '@/hooks/useMigrations';
+
+const GITHUB_BASE = 'https://github.com/boneIO-eu/app_black/blob/dev-debian13';
+
+/**
+ * Convert a Python module name like 'boneio.migrations.versions.v1_3_0_baseline'
+ * to a GitHub source URL.
+ */
+function moduleToGithubUrl(moduleName: string): string | null {
+  if (!moduleName) return null;
+  const filePath = moduleName.replace(/\./g, '/') + '.py';
+  return `${GITHUB_BASE}/${filePath}`;
+}
 
 /**
  * SystemState sub-section that displays pending system migrations and
@@ -174,21 +187,33 @@ const MigrationsSection: React.FC = () => {
                 <thead>
                   <tr>
                     <th>{t('software_update.version')}</th>
-                    <th>{t('software_update.type') || 'Status'}</th>
+                    <th>{t('migrations.description') || 'Description'}</th>
+                    <th>{t('migrations.source') || 'Source'}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {status.applied.map((v) => (
-                    <tr key={v}>
-                      <td className="font-mono">{v}</td>
-                      <td>
-                        <span className="badge badge-success badge-sm">
-                          <FaCheck className="mr-1" />
-                          {t('migrations.applied') || 'Applied'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {status.applied.map((m: AppliedMigration) => {
+                    const githubUrl = moduleToGithubUrl(m.module_name);
+                    return (
+                      <tr key={m.version}>
+                        <td className="font-mono">{m.version}</td>
+                        <td className="opacity-70">{m.description || '—'}</td>
+                        <td>
+                          {githubUrl && (
+                            <a
+                              href={githubUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-ghost btn-xs gap-1"
+                            >
+                              <FaExternalLinkAlt className="h-3 w-3" />
+                              {t('migrations.source') || 'Source'}
+                            </a>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

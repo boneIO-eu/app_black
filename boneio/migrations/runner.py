@@ -195,13 +195,24 @@ class MigrationRunner:
         self._load_applied_flags()
         pending = self._get_pending()
 
+        # Build applied list with descriptions from discovered migrations
+        migration_by_version = {m.version: m for m in self._all_migrations}
+        applied_list = []
+        for version in sorted(self._applied):
+            migration = migration_by_version.get(version)
+            applied_list.append({
+                "version": version,
+                "description": migration.description if migration else "",
+                "module_name": migration.module_name if migration else "",
+            })
+
         return {
             "status": self.status.value,
             "bootstrap_required": self.bootstrap_required,
             "helper_installed": self._helper_installed(),
             "pending_count": len(pending),
             "pending": [{"version": m.version, "description": m.description} for m in pending],
-            "applied": sorted(self._applied),
+            "applied": applied_list,
             "last_error": self.last_error,
         }
 

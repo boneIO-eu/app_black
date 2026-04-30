@@ -1844,6 +1844,7 @@
     "applied_count": "Applied ({{count}})",
     "applied": "Applied",
     "description": "Description",
+    "source": "Source",
     "bootstrap_title": "Bootstrap required",
     "bootstrap_description": "Enter the sudo password for the 'boneio' user. It will be used once to install the privileged helper and is never stored.",
     "sudo_password_label": "Sudo password",

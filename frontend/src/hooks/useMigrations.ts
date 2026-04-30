@@ -10,6 +10,15 @@ export interface PendingMigration {
 }
 
 /**
+ * Status of a single applied migration.
+ */
+export interface AppliedMigration {
+  version: string;
+  description: string;
+  module_name: string;
+}
+
+/**
  * Full migration status returned by /api/migrations/status.
  */
 export interface MigrationStatus {
@@ -18,7 +27,7 @@ export interface MigrationStatus {
   helper_installed: boolean;
   pending_count: number;
   pending: PendingMigration[];
-  applied: string[];
+  applied: AppliedMigration[];
   last_error: string | null;
 }
 
