@@ -6,6 +6,14 @@ description: Procedura Release dla app_black
 
 Gdy użytkownik powie "wydaj vX.Y.Z" lub "wydaj vX.Y.ZdevN", wykonaj:
 
+### 0. Sprawdź RELEASE_NOTES.md (tylko dla stabilnych release'ów)
+
+**Jeśli release jest stabilny** (nie devN), sprawdź czy istnieje `RELEASE_NOTES.md` w katalogu głównym repo:
+- **Jeśli istnieje** — przeczytaj go, upewnij się że jest aktualny i kompletny
+- **Jeśli nie istnieje** — **OSTRZEŻ użytkownika** i zaproponuj wygenerowanie go z `git log` lub napisanie ręcznie. Bez `RELEASE_NOTES.md` GitHub Release będzie miał tylko auto-generowany changelog z commit messages, co jest słabe dla stabilnych wydań.
+
+Dla **dev release'ów** ten krok jest pomijany — dev release'y nie potrzebują ręcznych notatek.
+
 ### 1. Zmień wersję w version.py
 
 Plik: `boneio/version.py`
