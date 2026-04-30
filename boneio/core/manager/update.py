@@ -14,10 +14,15 @@ import subprocess
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from pathlib import Path
+
 from boneio.core.utils.async_updater import AsyncUpdater
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.version import __version__
 from boneio.webui.services.logs import is_running_as_service
+
+# Flag file created before restart so the new process knows it was an update
+UPDATE_FLAG_PATH = Path("/tmp/boneio_update_in_progress")
 
 if TYPE_CHECKING:
     from boneio.core.manager import Manager
@@ -532,19 +537,27 @@ class UpdateManager(AsyncUpdater):
             await _report(90, "Installation verified", f"Updated from {current_version} to {new_version}")
             await _report(95, "Finalizing...")
 
-            # Publish final success state (no longer in progress)
-            current_version = new_version  # update for final MQTT publish
+            # Keep in_progress=true as retained so HA shows "Updating"
+            # even during the restart window. The new process will clear
+            # this via _check_post_update_flag() on startup.
             await self._publish_update_progress(
-                current_version=new_version,
-                target_version=None,
-                progress=0,
+                current_version=current_version,
+                target_version=new_version,
+                progress=95,
             )
+
+            # Write a flag file so the new process knows to immediately
+            # publish "up to date" on startup.
+            try:
+                UPDATE_FLAG_PATH.write_text(new_version, encoding="utf-8")
+            except OSError:
+                _LOGGER.warning("Could not write update flag file at %s", UPDATE_FLAG_PATH)
+
             if on_progress:
                 on_progress(100, "Update complete!", "Restarting service in 2 seconds...")
 
-            # Wait long enough for MQTT to drain the final state message
-            # before killing the process. Short delays risk the retained
-            # "in_progress" message persisting in the broker.
+            # Wait long enough for MQTT to drain the retained in_progress
+            # message before killing the process.
             await asyncio.sleep(5)
 
             _LOGGER.info("Restarting BoneIO service after update...")
@@ -664,9 +677,45 @@ class UpdateManager(AsyncUpdater):
         )
         _LOGGER.info("Subscribed to update command topic: %s", command_topic)
 
+        # If we just restarted after an update, immediately clear the
+        # retained in_progress state so HA transitions from "Updating"
+        # to "Up to date" as fast as possible.
+        await self._check_post_update_flag()
+
         # Migration alert event entity — fires when system migrations are pending
         await self._send_migration_event_discovery()
         await self._fire_migration_event_if_pending()
+
+    async def _check_post_update_flag(self) -> None:
+        """Check if we just restarted after a firmware update.
+
+        If the flag file exists, publish an immediate 'up to date' state
+        to clear the retained ``in_progress: true`` message left by the
+        previous process before it called ``os._exit()``.  This minimises
+        the window in which HA shows "unavailable" for the update entity.
+        """
+        if not UPDATE_FLAG_PATH.exists():
+            return
+
+        try:
+            new_version = UPDATE_FLAG_PATH.read_text(encoding="utf-8").strip()
+            UPDATE_FLAG_PATH.unlink(missing_ok=True)
+        except OSError as exc:
+            _LOGGER.warning("Failed to read/remove update flag: %s", exc)
+            return
+
+        _LOGGER.info(
+            "Post-update restart detected (updated to %s). "
+            "Publishing 'up to date' state to clear retained in_progress.",
+            new_version,
+        )
+
+        # Publish idle state with the new version
+        await self._publish_update_progress(
+            current_version=new_version,
+            target_version=None,
+            progress=0,
+        )
 
     async def _send_migration_event_discovery(self) -> None:
         """Register HA event entity for system migration alerts.
