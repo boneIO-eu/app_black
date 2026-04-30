@@ -27,7 +27,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from boneio.migrations.actions import InstallFile, MigrationAction, sha256_of_content, render_template
+from boneio.migrations.actions import InstallFile, MigrationAction, render_template, sha256_of_content
 
 if TYPE_CHECKING:
     pass
@@ -53,6 +53,7 @@ BOOTSTRAP_INSTALL_SCRIPT = Path(__file__).parent / "bootstrap" / "install-helper
 # Status enum
 # ---------------------------------------------------------------------------
 
+
 class MigrationStatus(str, Enum):
     """High-level migration subsystem status."""
 
@@ -65,6 +66,7 @@ class MigrationStatus(str, Enum):
 # ---------------------------------------------------------------------------
 # Migration descriptor
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MigrationInfo:
@@ -93,6 +95,7 @@ class MigrationInfo:
 # ---------------------------------------------------------------------------
 # MigrationRunner
 # ---------------------------------------------------------------------------
+
 
 class MigrationRunner:
     """Discovers, tracks and applies boneio system migrations.
@@ -145,8 +148,7 @@ class MigrationRunner:
 
             if not self._helper_installed():
                 _LOGGER.warning(
-                    "boneio-migrate helper not found at %s. "
-                    "Bootstrap required — open WebUI to install.",
+                    "boneio-migrate helper not found at %s. Bootstrap required — open WebUI to install.",
                     HELPER_PATH,
                 )
                 self.bootstrap_required = True
@@ -200,11 +202,13 @@ class MigrationRunner:
         applied_list = []
         for version in sorted(self._applied):
             migration = migration_by_version.get(version)
-            applied_list.append({
-                "version": version,
-                "description": migration.description if migration else "",
-                "module_name": migration.module_name if migration else "",
-            })
+            applied_list.append(
+                {
+                    "version": version,
+                    "description": migration.description if migration else "",
+                    "module_name": migration.module_name if migration else "",
+                }
+            )
 
         return {
             "status": self.status.value,
@@ -236,8 +240,11 @@ class MigrationRunner:
             return False, f"Bootstrap install script not found: {BOOTSTRAP_INSTALL_SCRIPT}"
 
         cmd = [
-            "sudo", "-S", "-k",
-            "bash", str(BOOTSTRAP_INSTALL_SCRIPT),
+            "sudo",
+            "-S",
+            "-k",
+            "bash",
+            str(BOOTSTRAP_INSTALL_SCRIPT),
             str(BOOTSTRAP_HELPER_SRC),
             str(BOOTSTRAP_SUDOERS_SRC),
         ]
@@ -318,12 +325,14 @@ class MigrationRunner:
                     _LOGGER.warning("Migration module %s has no VERSION, skipping.", full_name)
                     continue
 
-                migrations.append(MigrationInfo(
-                    version=version,
-                    module_name=full_name,
-                    description=description,
-                    requires_root=requires_root,
-                ))
+                migrations.append(
+                    MigrationInfo(
+                        version=version,
+                        module_name=full_name,
+                        description=description,
+                        requires_root=requires_root,
+                    )
+                )
             except Exception as exc:
                 _LOGGER.error("Failed to import migration module %s: %s", full_name, exc)
 
