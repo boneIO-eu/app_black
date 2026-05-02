@@ -103,6 +103,8 @@ export interface Action {
   action_esphome_cover?: CoverAction;
   /** Brightness (0-255) for light actions */
   brightness?: number;
+  /** Brightness step (1-50%) for brightness up/down actions */
+  brightness_step?: number;
   /** Color temperature in mireds */
   color_temp?: number;
   /** Transition time in seconds */

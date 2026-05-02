@@ -1190,6 +1190,7 @@
     "select_light": "Select light...",
     "light_action": "Light Action",
     "brightness": "Brightness",
+    "brightness_step": "Brightness Step",
     "set_brightness": "Set brightness when turning on",
     "color_temp": "Color Temperature",
     "set_color_temp": "Set color temperature",

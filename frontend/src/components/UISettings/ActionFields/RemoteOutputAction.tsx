@@ -12,6 +12,8 @@ import SimpleTimePeriodInput from '../widgets/SimpleTimePeriodInput';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { RemoteOutputActionProps, RemoteDevice } from './types';
 
+const STEP_BRIGHTNESS_ACTIONS = ['BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE'];
+
 /**
  * Gets all entities (switches, lights, segments) from a remote device.
  */
@@ -314,12 +316,17 @@ const WledControls: React.FC<WledControlsProps> = ({
   effectiveAction,
 }) => {
   const showBrightness = ['ON', 'TOGGLE', 'SET_BRIGHTNESS'].includes(effectiveAction);
+  const showStepBrightness = STEP_BRIGHTNESS_ACTIONS.includes(effectiveAction);
   const showRgb = ['ON', 'TOGGLE'].includes(effectiveAction);
 
   return (
     <>
       {showBrightness && (
         <BrightnessControl action={action} onUpdate={onUpdate} t={t} />
+      )}
+
+      {showStepBrightness && (
+        <BrightnessStepControl action={action} onUpdate={onUpdate} t={t} />
       )}
       
       {showRgb && (
@@ -487,6 +494,36 @@ const BrightnessControl: React.FC<BrightnessControlProps> = ({ action, onUpdate,
         </div>
       </div>
     )}
+  </div>
+);
+
+/**
+ * WLED-specific Brightness Step Control component (1-50%).
+ */
+const BrightnessStepControl: React.FC<BrightnessControlProps> = ({ action, onUpdate, t }) => (
+  <div className="form-control mb-3">
+    <label className="label justify-start gap-2 pb-1">
+      <span className="label-text font-medium">{t('event_form.brightness_step') || 'Brightness Step'}</span>
+      <span className="label-text-alt ml-auto">{action.brightness_step ?? 10}%</span>
+    </label>
+    <div className="px-1">
+      <input
+        type="range"
+        min="1"
+        max="50"
+        value={action.brightness_step ?? 10}
+        onChange={(e) => {
+          const val = parseInt(e.target.value);
+          onUpdate('brightness_step', val === 10 ? undefined : val);
+        }}
+        className="range range-primary range-sm w-full"
+      />
+      <div className="w-full flex justify-between text-xs opacity-50 px-1">
+        <span>1%</span>
+        <span>25%</span>
+        <span>50%</span>
+      </div>
+    </div>
   </div>
 );
 

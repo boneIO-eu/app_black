@@ -498,6 +498,14 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
+                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -912,6 +920,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
