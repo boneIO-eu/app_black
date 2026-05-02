@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/migrations", tags=["migrations"])
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+
 class BootstrapRequest(BaseModel):
     """Bootstrap request body carrying the sudo password."""
 
@@ -52,7 +53,8 @@ class MigrationStatusResponse(BaseModel):
 # Dependency helper
 # ---------------------------------------------------------------------------
 
-def _get_manager() -> "Manager":
+
+def _get_manager() -> Manager:
     """FastAPI dependency — overridden in app startup."""
     raise HTTPException(status_code=503, detail="Manager not available")
 
@@ -61,9 +63,10 @@ def _get_manager() -> "Manager":
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/status", response_model=MigrationStatusResponse)
 async def get_migration_status(
-    manager: "Manager" = Depends(_get_manager),
+    manager: Manager = Depends(_get_manager),
 ) -> dict:
     """Return the current migration status.
 
@@ -88,7 +91,7 @@ async def get_migration_status(
 async def bootstrap_migration_helper(
     request: BootstrapRequest,
     background_tasks: BackgroundTasks,
-    manager: "Manager" = Depends(_get_manager),
+    manager: Manager = Depends(_get_manager),
 ) -> dict:
     """Install the boneio-migrate helper using the user's sudo password.
 
@@ -137,7 +140,7 @@ async def bootstrap_migration_helper(
 @router.post("/apply")
 async def apply_migrations(
     background_tasks: BackgroundTasks,
-    manager: "Manager" = Depends(_get_manager),
+    manager: Manager = Depends(_get_manager),
 ) -> dict:
     """Trigger migration apply (helper must already be installed).
 
@@ -166,7 +169,8 @@ async def apply_migrations(
 # Background task
 # ---------------------------------------------------------------------------
 
-async def _apply_pending_background(manager: "Manager") -> None:
+
+async def _apply_pending_background(manager: Manager) -> None:
     """Apply pending migrations in the background.
 
     Args:

@@ -12,9 +12,8 @@ import logging
 import os
 import subprocess
 from collections.abc import Callable
-from typing import TYPE_CHECKING
-
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from boneio.core.utils.async_updater import AsyncUpdater
 from boneio.core.utils.timeperiod import TimePeriod

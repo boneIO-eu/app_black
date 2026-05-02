@@ -6,9 +6,9 @@ import SudoPasswordDialog from './SudoPasswordDialog';
 
 /**
  * Component for checking and fixing timedatectl sudoers configuration.
- * Mirrors FixCanSudoers pattern — checks if NOPASSWD rules exist for
- * `timedatectl set-timezone` and `timedatectl set-ntp`, and allows
- * creating the sudoers file via SudoPasswordDialog.
+ * Checks if NOPASSWD rules exist for `timedatectl set-timezone` and
+ * `timedatectl set-ntp`, and allows creating the sudoers file via
+ * SudoPasswordDialog.
  */
 export default function FixTimezoneSudoers() {
   const { t } = useTranslation();

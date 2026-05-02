@@ -294,7 +294,7 @@ async def get_can_status(interface: str = DEFAULT_INTERFACE):
         }
     except Exception as e:
         _LOGGER.error("Error checking CAN status: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/interface-up")
@@ -425,7 +425,7 @@ async def can_send(body: CanSendRequest):
         return {"status": "error", "message": "cansend timed out"}
     except Exception as e:
         _LOGGER.error("cansend error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/dump")
@@ -498,39 +498,3 @@ async def can_dump(interface: str = DEFAULT_INTERFACE, duration: int = 30):
         },
     )
 
-
-class SudoersFixRequest(BaseModel):
-    """Request body for creating CAN sudoers file.
-
-    Args:
-        password: Sudo password for writing to /etc/sudoers.d/
-    """
-
-    password: str
-
-
-@router.get("/sudoers/check")
-async def check_can_sudoers():
-    """Check if sudoers NOPASSWD is configured for CAN interface commands.
-
-    Returns:
-        Dict with needs_password, sudoers_file_exists, and error fields.
-    """
-    from boneio.hardware.can.sudoers import check_sudo_nopasswd_for_ip
-
-    return await check_sudo_nopasswd_for_ip()
-
-
-@router.post("/sudoers/fix")
-async def fix_can_sudoers(body: SudoersFixRequest):
-    """Create /etc/sudoers.d/boneio-can with NOPASSWD rules for CAN interface.
-
-    Accepts the user's sudo password, validates the sudoers content,
-    and installs it. The password is never logged or stored.
-
-    Returns:
-        Status response with success or error message.
-    """
-    from boneio.hardware.can.sudoers import create_sudoers_file
-
-    return await create_sudoers_file(body.password)

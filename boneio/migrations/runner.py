@@ -313,7 +313,7 @@ class MigrationRunner:
 
         migrations: list[MigrationInfo] = []
 
-        for finder, module_name, _ in pkgutil.iter_modules([str(versions_path)]):
+        for _, module_name, _ in pkgutil.iter_modules([str(versions_path)]):
             full_name = f"{VERSIONS_PKG}.{module_name}"
             try:
                 mod = importlib.import_module(full_name)

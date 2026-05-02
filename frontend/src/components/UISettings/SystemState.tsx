@@ -11,7 +11,6 @@ import {
 } from 'react-icons/fa';
 import SelfTest from './SelfTest';
 import FixAppPermissions from './FixAppPermissions';
-import FixCanSudoers from './FixCanSudoers';
 import HardwareErrors from './HardwareErrors';
 import MigrationsSection from './MigrationsSection';
 
@@ -831,8 +830,6 @@ const SystemState: React.FC = () => {
       {/* Fix App Permissions */}
       <FixAppPermissions />
 
-      {/* Fix CAN Sudoers */}
-      <FixCanSudoers />
 
       {/* Self Test Modal */}
       <SelfTest isOpen={showSelfTest} onClose={() => setShowSelfTest(false)} />

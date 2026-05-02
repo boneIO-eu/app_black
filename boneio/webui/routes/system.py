@@ -99,7 +99,7 @@ async def get_logs(
 
     except Exception as e:
         _LOGGER.warning("Error fetching logs: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/restart")
@@ -432,8 +432,7 @@ async def get_hardware_errors():
     Get hardware initialization errors.
     
     Returns list of hardware errors that occurred during startup,
-    such as I2C communication failures with MCP23017/PCF8575/PCA9685,
-    and CAN interface sudoers configuration issues.
+    such as I2C communication failures with MCP23017/PCF8575/PCA9685.
     
     Returns:
         Dictionary with errors list.
@@ -444,22 +443,6 @@ async def get_hardware_errors():
         manager = _app_state.manager
         hw_errors = getattr(manager, '_hardware_errors', [])
         errors.extend(hw_errors)
-        
-        # Check CAN sudoers if CAN is enabled
-        canopen = getattr(manager, 'canopen', None)
-        if canopen and canopen._enabled:
-            try:
-                from boneio.hardware.can.sudoers import check_sudo_nopasswd_for_ip
-                sudoers_check = await check_sudo_nopasswd_for_ip()
-                if sudoers_check.get("needs_password"):
-                    errors.append({
-                        "type": "can_sudoers",
-                        "id": "can_sudoers",
-                        "error": "sudo_password_required",
-                        "message": sudoers_check.get("error") or "sudo requires a password for /sbin/ip commands. CAN interface auto-setup will fail.",
-                    })
-            except Exception as e:
-                _LOGGER.debug("Failed to check CAN sudoers: %s", e)
     
     return {"errors": errors}
 
@@ -487,11 +470,11 @@ async def get_hostname():
         hostname = result.stdout.strip()
         return {"hostname": hostname}
     except subprocess.CalledProcessError as e:
-        _LOGGER.error(f"Failed to get hostname: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get hostname")
+        _LOGGER.error("Failed to get hostname: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to get hostname") from e
     except Exception as e:
-        _LOGGER.error(f"Error getting hostname: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        _LOGGER.error("Error getting hostname: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/hostname")
@@ -527,11 +510,11 @@ async def set_hostname(request: HostnameRequest):
         _LOGGER.info(f"Hostname changed to: {new_hostname}")
         return {"status": "success", "hostname": new_hostname}
     except subprocess.CalledProcessError as e:
-        _LOGGER.error(f"Failed to set hostname: {e.stderr}")
-        raise HTTPException(status_code=500, detail=f"Failed to set hostname: {e.stderr}")
+        _LOGGER.error("Failed to set hostname: %s", e.stderr)
+        raise HTTPException(status_code=500, detail=f"Failed to set hostname: {e.stderr}") from e
     except Exception as e:
-        _LOGGER.error(f"Error setting hostname: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        _LOGGER.error("Error setting hostname: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/reboot")
@@ -799,10 +782,10 @@ async def set_timezone(request: TimezoneRequest):
         _LOGGER.error("Failed to set timezone: %s", e.stderr)
         raise HTTPException(
             status_code=500, detail=f"Failed to set timezone: {e.stderr}"
-        )
+        ) from e
     except Exception as e:
         _LOGGER.error("Error setting timezone: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/ntp")
@@ -830,10 +813,10 @@ async def set_ntp(request: NtpRequest):
         _LOGGER.error("Failed to set NTP: %s", e.stderr)
         raise HTTPException(
             status_code=500, detail=f"Failed to set NTP: {e.stderr}"
-        )
+        ) from e
     except Exception as e:
         _LOGGER.error("Error setting NTP: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/timezones")
@@ -855,10 +838,10 @@ async def list_timezones():
         return {"timezones": timezones}
     except subprocess.CalledProcessError as e:
         _LOGGER.error("Failed to list timezones: %s", e.stderr)
-        raise HTTPException(status_code=500, detail="Failed to list timezones")
+        raise HTTPException(status_code=500, detail="Failed to list timezones") from e
     except Exception as e:
         _LOGGER.error("Error listing timezones: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ── Timezone Sudoers ─────────────────────────────────────────────────────
