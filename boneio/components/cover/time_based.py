@@ -88,7 +88,7 @@ class TimeBasedCover(BaseCover):
             elif direction == CLOSE:
                 self._position = max(0.0, self._initial_position - progress * total_steps)
 
-            self._last_timestamp = current_time # Użyj pobranego czasu
+            self._last_timestamp = time.time() # Użyj czasu rzeczywistego (Unix epoch)
             if current_time - self._last_update_time >= 1:
                 try:
                     self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))

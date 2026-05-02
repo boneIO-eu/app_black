@@ -45,7 +45,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         # self._actuator_activation_duration = (
         #     actuator_activation_duration.total_milliseconds
         # )  # ms
-        self._last_tilt_update = 0.0
+        self._last_tilt_update = time.time()
 
         super().__init__(
             position=position,
@@ -152,7 +152,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                         0.0, self._initial_tilt_position - tilt_progress * self._initial_tilt_position
                     )
 
-            self._last_timestamp = current_time  # Użyj pobranego czasu
+            self._last_timestamp = time.time()  # Użyj czasu rzeczywistego (Unix epoch)
             if current_time - self._last_update_time >= 1:
                 self._loop.call_soon_threadsafe(
                     self.send_state, self.state, self.json_position
