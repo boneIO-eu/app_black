@@ -792,7 +792,8 @@ const EventForm: React.FC<EventFormProps> = ({
                 label={t('event_form.max_long_press_duration')}
                 value={data.max_long_press_duration || '120s'}
                 onChange={(value) => updateField('max_long_press_duration', value)}
-                maximum={600}
+                maximum={600000}
+                minimum={1000}
                 allowedUnits={['s']}
               />
               <label className="label">
@@ -833,6 +834,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 updateField('double_click_duration', '220ms');
                 updateField('long_press_duration', '400ms');
                 updateField('sequence_window_duration', '500ms');
+                updateField('max_long_press_duration', '120s');
               }}
             >
               {t('event_form.restore_defaults')}
