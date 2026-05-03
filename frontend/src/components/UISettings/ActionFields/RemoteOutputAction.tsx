@@ -267,6 +267,8 @@ const EspHomeLightControls: React.FC<EspHomeLightControlsProps> = ({
 }) => {
   const showBrightness = selectedLight?.supports_brightness && 
     ['ON', 'TOGGLE', 'SET_BRIGHTNESS'].includes(effectiveAction);
+  const showStepBrightness = selectedLight?.supports_brightness && 
+    STEP_BRIGHTNESS_ACTIONS.includes(effectiveAction);
   const showColorTemp = selectedLight?.supports_color_temp && 
     ['ON', 'TOGGLE'].includes(effectiveAction);
   const showRgb = (selectedLight?.supports_rgb || selectedLight?.supports_rgbw) && 
@@ -276,6 +278,10 @@ const EspHomeLightControls: React.FC<EspHomeLightControlsProps> = ({
     <>
       {showBrightness && (
         <BrightnessControl action={action} onUpdate={onUpdate} t={t} />
+      )}
+      
+      {showStepBrightness && (
+        <BrightnessStepControl action={action} onUpdate={onUpdate} t={t} />
       )}
       
       {showColorTemp && (

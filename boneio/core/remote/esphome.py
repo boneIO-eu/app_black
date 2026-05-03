@@ -636,6 +636,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         light_id: str,
         action: str,
         brightness: int | None = None,
+        brightness_step: int | None = None,
         color_temp: int | None = None,
         rgb: tuple[int, int, int] | None = None,
         transition: float = 0.0,
@@ -720,23 +721,21 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 )
                 
             elif action_upper in ("BRIGHTNESS_UP", "BRIGHTNESS_UP_CYCLE"):
-                # Increase brightness by 10%, capped at 100%
-                # CYCLE variant wraps around: after 100% -> 10%
+                step_val = (brightness_step or 10) / 100.0
                 light_state = self._light_states.get(light_id, {})
                 is_on = light_state.get("state", False)
                 if not is_on:
-                    # Light is OFF — turn on at 10%
-                    new_brightness = 0.1
+                    new_brightness = step_val
                     self._client.light_command(
                         light_key, state=True, brightness=new_brightness,
                         transition_length=transition
                     )
                 else:
                     current_brightness = light_state.get("brightness", 0.5)
-                    new_brightness = round(current_brightness + 0.1, 2)
+                    new_brightness = round(current_brightness + step_val, 3)
                     if new_brightness > 1.0:
                         if action_upper == "BRIGHTNESS_UP_CYCLE":
-                            new_brightness = 0.1
+                            new_brightness = step_val
                         else:
                             new_brightness = 1.0
                     self._client.light_command(
@@ -751,13 +750,11 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     self._light_states[light_id]["brightness"] = new_brightness
 
             elif action_upper in ("BRIGHTNESS_DOWN", "BRIGHTNESS_DOWN_CYCLE"):
-                # Decrease brightness by 10%
-                # At <=10% turn off the light (or wrap to 100% for CYCLE)
+                step_val = (brightness_step or 10) / 100.0
                 light_state = self._light_states.get(light_id, {})
                 is_on = light_state.get("state", False)
                 if not is_on:
                     if action_upper == "BRIGHTNESS_DOWN_CYCLE":
-                        # Light is OFF — turn on at 100%
                         new_brightness = 1.0
                         self._client.light_command(
                             light_key, state=True, brightness=new_brightness,
@@ -769,13 +766,12 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     else:
                         _LOGGER.debug("Light '%s' is OFF, ignoring BRIGHTNESS_DOWN", light_id)
                     return True
+                
                 current_brightness = light_state.get("brightness", 0.5)
-                if current_brightness <= 0.11:
+                if current_brightness <= step_val + 0.001:
                     if action_upper == "BRIGHTNESS_DOWN_CYCLE":
-                        # Wrap around to 100%
                         new_brightness = 1.0
                     else:
-                        # At minimum — turn off
                         self._client.light_command(
                             light_key, state=False, transition_length=transition
                         )
@@ -784,7 +780,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         _LOGGER.debug("Sent light command: %s -> OFF (brightness was at minimum)", light_id)
                         return True
                 else:
-                    new_brightness = round(max(0.1, current_brightness - 0.1), 2)
+                    new_brightness = round(max(step_val, current_brightness - step_val), 3)
                 self._client.light_command(
                     light_key,
                     state=True,

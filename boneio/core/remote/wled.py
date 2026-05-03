@@ -185,6 +185,25 @@ class WLEDRemoteDevice(RemoteDevice):
         except Exception as e:
             _LOGGER.error("WLED unexpected error for %s: %s", self._host, e)
             return False
+
+    async def _get_current_brightness(self, segment_id: int | None = None) -> int | None:
+        if not AIOHTTP_AVAILABLE:
+            return None
+        
+        url = f"{self.base_url}/json/state"
+        try:
+            session = await self._get_session()
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if segment_id is not None:
+                        for seg in data.get("seg", []):
+                            if seg.get("id") == segment_id:
+                                return seg.get("bri")
+                    return data.get("bri")
+        except Exception as e:
+            _LOGGER.error("WLED failed to get brightness for %s: %s", self._host, e)
+        return None
     
     async def control_light(
         self,
@@ -197,6 +216,7 @@ class WLEDRemoteDevice(RemoteDevice):
         palette: int | None = None,
         effect_speed: int | None = None,
         effect_intensity: int | None = None,
+        brightness_step: int | None = None,
     ) -> bool:
         """Control WLED light or segment.
         
@@ -219,6 +239,22 @@ class WLEDRemoteDevice(RemoteDevice):
         # Add transition if specified (WLED uses 100ms units)
         if transition > 0:
             state["transition"] = int(transition * 10)
+
+        # Convert percentage (1-100) to 0-255 range for WLED
+        step_val = int(round((brightness_step or 10) * 2.55))
+        
+        if action in ("BRIGHTNESS_UP", "BRIGHTNESS_UP_CYCLE", "BRIGHTNESS_DOWN", "BRIGHTNESS_DOWN_CYCLE"):
+            current_bri = await self._get_current_brightness(segment_id)
+            if current_bri is not None:
+                if action in ("BRIGHTNESS_UP", "BRIGHTNESS_UP_CYCLE"):
+                    new_bri = current_bri + step_val
+                    if new_bri > 255:
+                        new_bri = 1 if action == "BRIGHTNESS_UP_CYCLE" else 255
+                else: # DOWN
+                    new_bri = current_bri - step_val
+                    if new_bri < 1:
+                        new_bri = 255 if action == "BRIGHTNESS_DOWN_CYCLE" else 1
+                brightness = int(new_bri)
         
         if segment_id is not None:
             # Control specific segment
