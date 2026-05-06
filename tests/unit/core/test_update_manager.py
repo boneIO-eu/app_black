@@ -2,8 +2,8 @@
 
 Tests cover:
 - _get_migration_summary: building pending migration text for HA release_summary
-- _fire_migration_event_if_pending: firing MQTT events for HA event entity
-- _send_migration_event_discovery: registering event entity via HA MQTT discovery
+- _fire_migration_event_if_pending: publishing binary_sensor state for migration alerts
+- _send_migration_event_discovery: registering binary_sensor entity via HA MQTT discovery
 - _publish_state_to_mqtt: release_summary includes migration info
 
 These tests avoid importing the full boneio.core.manager package (which
@@ -92,6 +92,20 @@ def _load_update_module():
             return_value={
                 "name": "Migration Alert",
                 "unique_id": "test_migration_alert",
+            }
+        )
+        ha.ha_migration_alert_availability_message = MagicMock(
+            return_value={
+                "name": "Migration Alert",
+                "unique_id": "test_migration_alert",
+                "state_topic": "boneio_test/migration/state",
+                "value_template": "{{ value_json.state }}",
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "json_attributes_topic": "boneio_test/migration/attributes",
+                "icon": "mdi:alert-decagram",
+                "entity_category": "diagnostic",
+                "device_class": "problem",
             }
         )
 
@@ -252,62 +266,69 @@ class TestGetMigrationSummary:
 
 
 class TestFireMigrationEvent:
-    """Tests for _fire_migration_event_if_pending."""
+    """Tests for _fire_migration_event_if_pending (binary_sensor state)."""
 
     def test_fires_pending_event(self):
-        """Fires migration_pending when migrations exist."""
+        """Sets binary_sensor to ON when migrations are pending."""
         pending = [FakeMigrationInfo("1.3.1", "OLED fix")]
         um = _make_update_manager(pending=pending)
 
         asyncio.run(um._fire_migration_event_if_pending())
 
-        um._manager.send_message.assert_called_once()
-        call_kwargs = um._manager.send_message.call_args
-        topic = call_kwargs.kwargs.get("topic") or call_kwargs[1].get("topic")
-        payload_str = call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload")
+        # Two calls: state_topic + attributes_topic
+        assert um._manager.send_message.call_count == 2
+        state_call = um._manager.send_message.call_args_list[0]
+        attr_call = um._manager.send_message.call_args_list[1]
 
-        assert topic == "boneio_test/migration/event"
-        data = json.loads(payload_str)
-        assert data["event_type"] == "migration_pending"
-        assert data["count"] == 1
-        assert "OLED fix" in data["description"]
+        state_topic = state_call.kwargs.get("topic") or state_call[1].get("topic")
+        state_payload = json.loads(state_call.kwargs.get("payload") or state_call[1].get("payload"))
+        assert state_topic == "boneio_test/migration/state"
+        assert state_payload["state"] == "ON"
+
+        attr_topic = attr_call.kwargs.get("topic") or attr_call[1].get("topic")
+        attr_payload = json.loads(attr_call.kwargs.get("payload") or attr_call[1].get("payload"))
+        assert attr_topic == "boneio_test/migration/attributes"
+        assert attr_payload["count"] == 1
+        assert "OLED fix" in attr_payload["description"]
 
     def test_fires_ok_event_when_no_pending(self):
-        """Fires migration_ok when all migrations are applied."""
+        """Sets binary_sensor to OFF when all migrations are applied."""
         um = _make_update_manager(pending=[])
 
         asyncio.run(um._fire_migration_event_if_pending())
 
-        um._manager.send_message.assert_called_once()
-        call_kwargs = um._manager.send_message.call_args
-        payload_str = call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload")
-        data = json.loads(payload_str)
-        assert data["event_type"] == "migration_ok"
-        assert data["count"] == 0
+        assert um._manager.send_message.call_count == 2
+        state_call = um._manager.send_message.call_args_list[0]
+        state_payload = json.loads(state_call.kwargs.get("payload") or state_call[1].get("payload"))
+        assert state_payload["state"] == "OFF"
+
+        attr_call = um._manager.send_message.call_args_list[1]
+        attr_payload = json.loads(attr_call.kwargs.get("payload") or attr_call[1].get("payload"))
+        assert attr_payload["count"] == 0
 
     def test_no_runner_does_nothing(self):
-        """No migration runner = no event fired."""
+        """No migration runner = no message sent."""
         um = _make_update_manager(migration_runner_exists=False)
         asyncio.run(um._fire_migration_event_if_pending())
         um._manager.send_message.assert_not_called()
 
     def test_runner_exception_does_nothing(self):
-        """Exception in _get_pending() = no event fired (fail-safe)."""
+        """Exception in _get_pending() = no message sent (fail-safe)."""
         um = _make_update_manager(pending=[])
         um._manager.migration_runner._get_pending.side_effect = RuntimeError("fail")
         asyncio.run(um._fire_migration_event_if_pending())
         um._manager.send_message.assert_not_called()
 
-    def test_event_not_retained(self):
-        """Migration events should NOT be retained (fire-and-forget)."""
+    def test_state_is_retained(self):
+        """Migration binary_sensor state should be retained."""
         pending = [FakeMigrationInfo("1.3.1", "Fix")]
         um = _make_update_manager(pending=pending)
 
         asyncio.run(um._fire_migration_event_if_pending())
 
-        call_kwargs = um._manager.send_message.call_args
-        retain = call_kwargs.kwargs.get("retain", call_kwargs[1].get("retain"))
-        assert retain is False
+        for call in um._manager.send_message.call_args_list:
+            retain = call.kwargs.get("retain", call[1].get("retain"))
+            assert retain is True
 
     def test_five_pending_truncates_descriptions(self):
         """At most 5 migration descriptions in the event payload."""
@@ -331,10 +352,10 @@ class TestFireMigrationEvent:
 
 
 class TestMigrationEventDiscovery:
-    """Tests for _send_migration_event_discovery."""
+    """Tests for _send_migration_event_discovery (binary_sensor)."""
 
     def test_publishes_discovery(self):
-        """Discovery message is published for migration_alert event entity."""
+        """Discovery message is published for migration_alert binary_sensor."""
         um = _make_update_manager(pending=[])
 
         asyncio.run(um._send_migration_event_discovery())
@@ -342,35 +363,48 @@ class TestMigrationEventDiscovery:
         um._manager.publish_ha_discovery.assert_called_once()
         call_args = um._manager.publish_ha_discovery.call_args
         assert call_args.kwargs["id"] == "migration_alert"
-        assert call_args.kwargs["ha_type"] == "event"
+        assert call_args.kwargs["ha_type"] == "binary_sensor"
 
-    def test_discovery_payload_has_event_types(self):
-        """Discovery payload includes both event types."""
+    def test_removes_legacy_event_entity(self):
+        """Publishes empty payload on old event topic to remove legacy entity."""
         um = _make_update_manager(pending=[])
 
         asyncio.run(um._send_migration_event_discovery())
 
-        payload = um._manager.publish_ha_discovery.call_args.kwargs["payload"]
-        assert "migration_pending" in payload["event_types"]
-        assert "migration_ok" in payload["event_types"]
+        # First send_message call should be the legacy cleanup
+        legacy_call = um._manager.send_message.call_args_list[0]
+        topic = legacy_call.kwargs.get("topic") or legacy_call[1].get("topic")
+        payload = legacy_call.kwargs.get("payload") or legacy_call[1].get("payload")
+        assert "event" in topic
+        assert "migration_alert" in topic
+        assert payload == ""
 
     def test_discovery_state_topic(self):
-        """State topic uses the correct prefix."""
+        """State topic uses /migration/state path."""
         um = _make_update_manager(pending=[])
 
         asyncio.run(um._send_migration_event_discovery())
 
         payload = um._manager.publish_ha_discovery.call_args.kwargs["payload"]
-        assert payload["state_topic"] == "boneio_test/migration/event"
+        assert payload["state_topic"] == "boneio_test/migration/state"
 
     def test_discovery_entity_category(self):
-        """Event entity should be diagnostic category."""
+        """Binary sensor should be diagnostic category."""
         um = _make_update_manager(pending=[])
 
         asyncio.run(um._send_migration_event_discovery())
 
         payload = um._manager.publish_ha_discovery.call_args.kwargs["payload"]
         assert payload["entity_category"] == "diagnostic"
+
+    def test_discovery_device_class(self):
+        """Binary sensor should have device_class 'problem'."""
+        um = _make_update_manager(pending=[])
+
+        asyncio.run(um._send_migration_event_discovery())
+
+        payload = um._manager.publish_ha_discovery.call_args.kwargs["payload"]
+        assert payload["device_class"] == "problem"
 
 
 # ---------------------------------------------------------------------------

@@ -717,53 +717,47 @@ class UpdateManager(AsyncUpdater):
         )
 
     async def _send_migration_event_discovery(self) -> None:
-        """Register HA event entity for system migration alerts.
+        """Register HA binary_sensor (diagnostic) for system migration alerts.
 
-        The event entity fires ``migration_pending`` when pending migrations
-        are detected at startup.  Users can build automations like::
+        The sensor is ON when pending migrations are detected at startup,
+        OFF when all migrations have been applied.  Attributes include
+        ``count`` and ``description`` of pending migrations.
 
-            automation:
-              trigger:
-                - platform: state
-                  entity_id: event.boneio_migration_alert
-                  attribute: event_type
-                  to: migration_pending
-              action:
-                - service: persistent_notification.create
-                  data:
-                    title: "boneIO System Migration"
-                    message: >
-                      {{ state_attr('event.boneio_migration_alert', 'description') }}
+        Also removes the legacy ``event.migration_alert`` entity that was
+        registered in earlier versions — HA does not auto-remove entities
+        when the discovery ha_type changes, so we publish an empty payload
+        on the old topic.
         """
-        from boneio.integration.homeassistant import ha_availabilty_message
+        from boneio.integration.homeassistant import (
+            ha_migration_alert_availability_message,
+        )
 
         config = self._manager._config_helper
-        topic = config.topic_prefix
 
-        msg = ha_availabilty_message(
-            id="migration_alert",
-            name="Migration Alert",
-            entity_type="event",
-            config_helper=config,
-            device_type="update",
+        # --- Remove legacy event entity discovery (if any) ---
+        old_event_topic = (
+            f"{config.ha_discovery_prefix}/event/"
+            f"{config.serial_no}/migration_alert/config"
         )
-        msg["event_types"] = ["migration_pending", "migration_ok"]
-        msg["state_topic"] = f"{topic}/migration/event"
-        msg["icon"] = "mdi:alert-decagram"
-        msg["entity_category"] = "diagnostic"
+        self._manager.send_message(topic=old_event_topic, payload="", retain=True)
+        _LOGGER.debug("Removed legacy migration_alert event entity discovery")
+
+        # --- Register new binary_sensor entity ---
+        msg = ha_migration_alert_availability_message(config_helper=config)
 
         self._manager.publish_ha_discovery(
             id="migration_alert",
-            ha_type="event",
+            ha_type="binary_sensor",
             payload=msg,
         )
-        _LOGGER.debug("Migration alert event entity registered")
+        _LOGGER.debug("Migration alert binary_sensor entity registered")
 
     async def _fire_migration_event_if_pending(self) -> None:
-        """Fire a migration_pending event if there are pending system migrations.
+        """Publish migration binary_sensor state based on pending migrations.
 
-        Called once after HA discovery is sent. If no migrations are pending,
-        fires ``migration_ok`` so automations can also react to the clear state.
+        Called once after HA discovery is sent. Sets state to ON if there are
+        pending migrations, OFF otherwise.  Attributes (count, description)
+        are published on a separate JSON attributes topic.
         """
         migration_runner = getattr(self._manager, "migration_runner", None)
         if not migration_runner:
@@ -774,25 +768,29 @@ class UpdateManager(AsyncUpdater):
         except Exception:
             return
 
-        topic = f"{self._manager._topic_prefix}/migration/event"
+        topic = self._manager._topic_prefix
+        state_topic = f"{topic}/migration/state"
+        attr_topic = f"{topic}/migration/attributes"
 
         if pending:
             descriptions = "; ".join(f"{m.version}: {m.description}" for m in pending[:5])
-            payload = json.dumps(
+            state_payload = json.dumps({"state": "ON"})
+            attr_payload = json.dumps(
                 {
-                    "event_type": "migration_pending",
                     "count": len(pending),
                     "description": descriptions,
                 }
             )
-            _LOGGER.info("Firing migration_pending event: %d pending migration(s)", len(pending))
+            _LOGGER.info("Migration alert ON: %d pending migration(s)", len(pending))
         else:
-            payload = json.dumps(
+            state_payload = json.dumps({"state": "OFF"})
+            attr_payload = json.dumps(
                 {
-                    "event_type": "migration_ok",
                     "count": 0,
                     "description": "All system migrations applied",
                 }
             )
 
-        self._manager.send_message(topic=topic, payload=payload, retain=False)
+        self._manager.send_message(topic=state_topic, payload=state_payload, retain=True)
+        self._manager.send_message(topic=attr_topic, payload=attr_payload, retain=True)
+
