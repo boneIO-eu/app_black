@@ -1,10 +1,8 @@
 input_mapping:
   in_01:
     pin: P8_37
-    gpio_mode: gpio_pu
   in_02:
     pin: P8_38
-    gpio_mode: gpio_pu
   in_03:
     pin: P8_39
   in_04:
@@ -19,10 +17,8 @@ input_mapping:
     pin: P8_44
   in_09:
     pin: P8_45
-    gpio_mode: gpio_pu
   in_10:
     pin: P8_46
-    gpio_mode: gpio_pu
   in_11:
     pin: P9_42
   in_12:
@@ -41,10 +37,8 @@ input_mapping:
     pin: P9_23
   in_19:
     pin: P9_22
-    gpio_mode: gpio_pu
   in_20:
     pin: P9_21
-    gpio_mode: gpio_pu
   in_21:
     pin: P9_18
   in_22:
@@ -59,28 +53,20 @@ input_mapping:
     pin: P9_13
   in_27:
     pin: P9_12
-    gpio_mode: gpio_pu
   in_28:
     pin: P9_11
-    gpio_mode: gpio_pu
   in_29:
     pin: P8_36
-    gpio_mode: gpio_pu
   in_30:
     pin: P8_35
-    gpio_mode: gpio_pu
   in_31:
     pin: P8_34
-    gpio_mode: gpio_pu
   in_32:
     pin: P8_33
-    gpio_mode: gpio_pu
   in_33:
     pin: P8_32
-    gpio_mode: gpio_pu
   in_34:
     pin: P8_31
-    gpio_mode: gpio_pu
   in_35:
     pin: P8_30
   in_36:

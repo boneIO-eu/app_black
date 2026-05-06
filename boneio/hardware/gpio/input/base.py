@@ -21,15 +21,15 @@ _LOGGER = logging.getLogger(__name__)
 
 class GpioBaseClass:
     """Base class for GPIO inputs.
-    
+
     This class provides common functionality for all GPIO input types:
     - Pin configuration and reading
     - Bounce time handling
     - Event publishing to EventBus
     - Action management
-    
+
     Subclasses should implement specific input behavior (binary sensor, event button, etc.)
-    
+
     Args:
         pin: GPIO pin name (e.g., "P8_30")
         name: Human-readable name
@@ -38,7 +38,7 @@ class GpioBaseClass:
         event_bus: EventBus instance for publishing events
         boneio_input: Optional BoneIO input identifier
         **kwargs: Additional options (bounce_time, etc.)
-        
+
     Example:
         >>> class MyInput(GpioBaseClass):
         ...     def __init__(self, **kwargs):
@@ -58,9 +58,7 @@ class GpioBaseClass:
     ) -> None:
         """Initialize GPIO input base class."""
         self._pin = pin
-        bounce_time: TimePeriod = kwargs.get(
-            "bounce_time", TimePeriod(milliseconds=50)
-        )
+        bounce_time: TimePeriod = kwargs.get("bounce_time", TimePeriod(milliseconds=50))
         self._bounce_time = bounce_time.total_in_seconds
         self._loop = asyncio.get_running_loop()
         self._name = name
@@ -89,7 +87,7 @@ class GpioBaseClass:
     @property
     def boneio_input(self) -> str:
         """Get BoneIO input identifier.
-        
+
         Returns:
             BoneIO input identifier string
         """
@@ -99,28 +97,25 @@ class GpioBaseClass:
         self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None
     ) -> None:
         """Handle press callback - schedule async processing.
-        
+
         This method is called from GpioManager when a GPIO event occurs.
         It schedules async processing to avoid blocking the GPIO event loop.
-        
+
         Args:
             click_type: Type of click (pressed, released, single, double, long)
             duration: Duration of the press in seconds (for long press)
             start_time: Start time of the press (for duration calculation)
         """
         asyncio.create_task(self._handle_press_with_lock(click_type, duration, start_time))
-        
+
     async def _handle_press_with_lock(
-        self, 
-        click_type: ClickTypes, 
-        duration: float | None = None, 
-        start_time: float | None = None
+        self, click_type: ClickTypes, duration: float | None = None, start_time: float | None = None
     ):
         """Handle press event with a lock to ensure sequential execution.
-        
+
         This method publishes the event to EventBus for any listeners
         (Manager, MQTT, etc.) to process.
-        
+
         Args:
             click_type: Type of click
             duration: Duration of the press
@@ -129,7 +124,7 @@ class GpioBaseClass:
         async with self._event_lock:
             self._last_timestamp = time.time()
             self._last_state = click_type
-            
+
             _LOGGER.debug(
                 "Input event: %s on %s (%s), entity_id=%s, duration=%s",
                 click_type.upper(),
@@ -138,7 +133,7 @@ class GpioBaseClass:
                 self.id,
                 duration,
             )
-            
+
             # Create event state
             event = InputState(
                 name=self.name,
@@ -149,17 +144,19 @@ class GpioBaseClass:
                 boneio_input=self.boneio_input,
                 area=self.area,
             )
-            
-            self._event_bus.trigger_event(InputEvent(
-                entity_id=self.id,
-                click_type=click_type,
-                duration=duration,
-                state=event,
-            ))
+
+            self._event_bus.trigger_event(
+                InputEvent(
+                    entity_id=self.id,
+                    click_type=click_type,
+                    duration=duration,
+                    state=event,
+                )
+            )
 
     def set_actions(self, actions: dict) -> None:
         """Set actions for this input.
-        
+
         Args:
             actions: Dictionary mapping click types to action lists
         """
@@ -167,10 +164,10 @@ class GpioBaseClass:
 
     def get_actions_of_click(self, click_type: ClickTypes) -> list:
         """Get actions for a specific click type.
-        
+
         Args:
             click_type: Type of click
-            
+
         Returns:
             List of actions for the click type
         """
@@ -179,7 +176,7 @@ class GpioBaseClass:
     @property
     def name(self) -> str:
         """Get input name.
-        
+
         Returns:
             Human-readable name
         """
@@ -188,7 +185,7 @@ class GpioBaseClass:
     @property
     def pin(self) -> str:
         """Get configured pin.
-        
+
         Returns:
             Pin name (e.g., "P8_30")
         """
@@ -197,9 +194,9 @@ class GpioBaseClass:
     @property
     def id(self) -> str:
         """Get input ID.
-        
+
         Returns user-defined ID, boneio_input, or pin as fallback.
-        
+
         Returns:
             Input identifier (e.g., "IN_01" or user-defined ID)
         """
@@ -217,7 +214,7 @@ class GpioBaseClass:
     @property
     def last_state(self) -> str:
         """Get last state.
-        
+
         Returns:
             Last click type or "Unknown"
         """
@@ -226,10 +223,10 @@ class GpioBaseClass:
     @property
     def is_active(self) -> bool:
         """Whether the input is currently in the active (pressed) state.
-        
+
         Used by the action conditions system to evaluate ``is_on`` / ``is_off``
         checks for binary sensors.
-        
+
         Returns:
             True if the input is currently pressed/active.
         """
@@ -238,7 +235,7 @@ class GpioBaseClass:
     @property
     def input_type(self) -> str:
         """Get input type.
-        
+
         Returns:
             Input type string (e.g., "event", "binary_sensor")
         """
@@ -247,7 +244,7 @@ class GpioBaseClass:
     @property
     def last_press_timestamp(self) -> float:
         """Get timestamp of last press.
-        
+
         Returns:
             Unix timestamp
         """
@@ -256,7 +253,7 @@ class GpioBaseClass:
     @property
     def long_press_mqtt_mode(self) -> str:
         """Get long press MQTT mode.
-        
+
         Returns:
             'single' (first + final only) or 'periodic' (all events with duration)
         """
@@ -265,7 +262,7 @@ class GpioBaseClass:
     @property
     def mqtt_sequences(self) -> dict[str, bool]:
         """Get MQTT sequences configuration.
-        
+
         Returns:
             Dictionary mapping sequence types to boolean (publish to MQTT or not)
         """
@@ -274,7 +271,7 @@ class GpioBaseClass:
     @property
     def sequence_mode(self) -> str:
         """Get sequence mode.
-        
+
         Returns:
             'immediate' or 'exclusive'
         """
@@ -282,10 +279,10 @@ class GpioBaseClass:
 
     def should_publish_sequence_to_mqtt(self, sequence_type: str) -> bool:
         """Check if a sequence type should be published to MQTT.
-        
+
         Args:
             sequence_type: Type of sequence (e.g., 'double_then_long')
-            
+
         Returns:
             True if the sequence should be published to MQTT
         """

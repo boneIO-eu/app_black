@@ -377,6 +377,9 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
                 status_code=422,
                 detail={"message": "Invalid action configuration", "errors": errors},
             )
+        # Strip deprecated gpio_mode — now handled by kernel overlay
+        for entry in data:
+            entry.pop("gpio_mode", None)
 
     # Validate lox_udp host as valid IPv4 or hostname when enabled
     if section == "lox_udp" and isinstance(data, dict) and data.get("enabled"):

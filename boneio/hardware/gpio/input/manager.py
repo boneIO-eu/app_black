@@ -116,14 +116,15 @@ class GpioManager:
             )
             return
 
-        # Map gpio_mode to gpiod.Bias
-        bias_map = {
-            "gpio": Bias.AS_IS,
-            "gpio_pu": Bias.AS_IS,
-            "gpio_pd": Bias.PULL_DOWN,
-            "gpio_input": Bias.AS_IS,
-        }
-        bias = bias_map.get(gpio_mode, Bias.AS_IS)
+        # gpio_mode is deprecated — kernel overlay handles pull-up/pull-down.
+        # All modes now map to Bias.AS_IS. Accept silently for backward compat.
+        if gpio_mode != "gpio":
+            _LOGGER.debug(
+                "gpio_mode='%s' for %s is deprecated and ignored — "
+                "kernel overlay handles GPIO configuration",
+                gpio_mode, name,
+            )
+        bias = Bias.AS_IS
 
         input_def = GpioInputDefinition(
             name=name,
@@ -134,14 +135,14 @@ class GpioManager:
             detector=detector,
         )
         self._inputs.append(input_def)
-        
+
         # Store detector for later use
         self._detectors[key] = detector
         self._aliases[key] = f"{name} ({pin})"
-        
+
         _LOGGER.debug(
-            "Registered input %s on pin %s (chip%d, line%d) with mode %s",
-            name, pin, chip, line, gpio_mode
+            "Registered input %s on pin %s (chip%d, line%d)",
+            name, pin, chip, line
         )
 
     async def _start_debug_mode(

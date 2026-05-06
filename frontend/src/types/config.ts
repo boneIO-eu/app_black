@@ -142,7 +142,7 @@ export interface EventEntity {
   pin?: string;
   /** BoneIO predefined input reference */
   boneio_input?: BoneioInput;
-  /** GPIO mode configuration */
+  /** @deprecated GPIO mode — now handled by kernel overlay, ignored at runtime */
   gpio_mode?: GpioMode;
   /** Bounce time in milliseconds */
   bounce_time?: number | string;
@@ -213,7 +213,7 @@ export interface BinarySensorEntity {
   pin?: string;
   /** BoneIO predefined input reference */
   boneio_input?: BoneioInput;
-  /** GPIO mode configuration */
+  /** @deprecated GPIO mode — now handled by kernel overlay, ignored at runtime */
   gpio_mode?: GpioMode;
   /** Bounce time in milliseconds */
   bounce_time?: number | string;

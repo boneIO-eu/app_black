@@ -1020,11 +1020,12 @@ binary_sensor:
           label: PIN to use.
       gpio_mode:
         type: string
-        required: True
+        required: False
         default: 'gpio'
         allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
-          label: What mode to use in config PIN.
+          label: "[Deprecated] GPIO mode — now handled by kernel overlay. Ignored at runtime."
+          hidden: true
       clear_message:
         type: boolean
         default: False
@@ -1143,11 +1144,12 @@ event:
           label: PIN to use.
       gpio_mode:
         type: string
-        required: True
+        required: False
         default: 'gpio'
         allowed: ['gpio', 'gpio_pu', 'gpio_pd', 'gpio_input']
         meta:
-          label: What mode to use in config PIN.
+          label: "[Deprecated] GPIO mode — now handled by kernel overlay. Ignored at runtime."
+          hidden: true
       clear_message:
         type: boolean
         default: False

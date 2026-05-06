@@ -1,12 +1,10 @@
 input_mapping:
   in_01:
     pin: P8_37
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 14
   in_02:
     pin: P8_38
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 15
   in_03:
@@ -38,12 +36,10 @@ input_mapping:
     line: 9
   in_09:
     pin: P8_45
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 6
   in_10:
     pin: P8_46
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 7
   in_11:
@@ -80,12 +76,10 @@ input_mapping:
     line: 17
   in_19:
     pin: P9_22
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 2
   in_20:
     pin: P9_21
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 3
   in_21:
@@ -122,32 +116,26 @@ input_mapping:
     line: 5
   in_29:
     pin: P8_36
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 16
   in_30:
     pin: P8_35
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 8
   in_31:
     pin: P8_34
-    gpio_mode: gpio_pu
     gpiochip: 1
     line: 17
   in_32:
     pin: P8_33
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 9
   in_33:
     pin: P8_32
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 11
   in_34:
     pin: P8_31
-    gpio_mode: gpio_pu
     gpiochip: 3
     line: 10
   in_35:
