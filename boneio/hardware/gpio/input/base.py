@@ -206,6 +206,15 @@ class GpioBaseClass:
         return self._id
 
     @property
+    def device_class(self) -> str | None:
+        """Get HA device class.
+
+        Returns:
+            Device class string (e.g., "button", "doorbell", "motion") or None
+        """
+        return self._device_class
+
+    @property
     def last_state(self) -> str:
         """Get last state.
         

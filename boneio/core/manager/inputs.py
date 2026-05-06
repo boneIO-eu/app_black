@@ -235,6 +235,9 @@ class InputManager:
                 # Store area on input
                 existing_input.area = area
 
+                # Update device_class from new config
+                existing_input._device_class = gpio.get(DEVICE_CLASS)
+
                 # Update mqtt_sequences configuration
                 if hasattr(existing_input, "_mqtt_sequences"):
                     existing_input._mqtt_sequences = new_mqtt_sequences
@@ -260,7 +263,7 @@ class InputManager:
                         id=input_id,
                         name=name,
                         config_helper=self._manager._config_helper,
-                        device_class=gpio.get(DEVICE_CLASS),
+                        device_class=existing_input.device_class,
                         area=area,
                         mqtt_sequences=gpio.get("mqtt_sequences"),
                         enable_triple_click=gpio.get("enable_triple_click", False),
@@ -292,7 +295,7 @@ class InputManager:
                     id=input_id,
                     name=name,
                     config_helper=self._manager._config_helper,
-                    device_class=gpio.get(DEVICE_CLASS),
+                    device_class=input_device.device_class,
                     area=area,
                     mqtt_sequences=gpio.get("mqtt_sequences"),
                     enable_triple_click=gpio.get("enable_triple_click", False),
@@ -366,6 +369,9 @@ class InputManager:
                 # Store area on input
                 existing_input.area = area
 
+                # Update device_class from new config
+                existing_input._device_class = gpio.get(DEVICE_CLASS)
+
                 # Re-send HA discovery only if HA-relevant fields changed (name, area)
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
@@ -374,7 +380,7 @@ class InputManager:
                         id=input_id,
                         name=name,
                         config_helper=self._manager._config_helper,
-                        device_class=gpio.get(DEVICE_CLASS),
+                        device_class=existing_input.device_class,
                         area=area,
                     )
                     self._manager.publish_ha_discovery(
@@ -410,7 +416,7 @@ class InputManager:
                     id=input_id,
                     name=name,
                     config_helper=self._manager._config_helper,
-                    device_class=gpio.get(DEVICE_CLASS),
+                    device_class=input_device.device_class,
                     area=area,
                 )
                 self._manager.publish_ha_discovery(
@@ -830,7 +836,7 @@ class InputManager:
                         id=input_id,
                         name=input_name,
                         config_helper=self._manager._config_helper,
-                        device_class=getattr(input_device, "_device_class", None),
+                        device_class=input_device.device_class,
                         area=input_area,
                         mqtt_sequences=input_device.mqtt_sequences,
                         enable_triple_click=getattr(input_device._detector, "_enable_triple_click", False),
@@ -845,7 +851,7 @@ class InputManager:
                         id=input_id,
                         name=input_name,
                         config_helper=self._manager._config_helper,
-                        device_class=getattr(input_device, "_device_class", None),
+                        device_class=input_device.device_class,
                         area=input_area,
                     )
                     self._manager.publish_ha_discovery(
