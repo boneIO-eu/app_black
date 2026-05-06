@@ -1,6 +1,6 @@
 /**
  * ConfigContext - provides configuration state across the application.
- * 
+ *
  * This context checks if the 'boneio' section exists in the configuration
  * and exposes this information to components that need it (e.g., Navigation).
  */
@@ -9,6 +9,20 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import axios from '@/api/axios';
 import { useAuth } from '@/hooks/useAuth';
 
+/** Board versions that support CAN bus (0.5+) */
+const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8'];
+
+/** Max inputs per board version */
+const MAX_INPUTS: Record<string, number> = {
+  '0.2': 52,
+  '0.3': 52,
+  '0.4': 52,
+  '0.5': 49,
+  '0.6': 49,
+  '0.7': 49,
+  '0.8': 49,
+};
+
 interface ConfigContextType {
   /** Whether the 'boneio' section exists in config */
   hasBoneioSection: boolean;
@@ -16,6 +30,12 @@ interface ConfigContextType {
   hasIrrigationSection: boolean;
   /** Whether the config is still loading */
   isLoading: boolean;
+  /** Hardware board version (e.g., '0.7') or null if not set */
+  boardVersion: string | null;
+  /** Whether CAN bus is supported on this board version */
+  canSupported: boolean;
+  /** Maximum number of inputs for this board version */
+  maxInputs: number;
   /** Refresh the config state */
   refreshConfig: () => Promise<void>;
 }
@@ -30,6 +50,9 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
   const [hasBoneioSection, setHasBoneioSection] = useState(false);
   const [hasIrrigationSection, setHasIrrigationSection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [boardVersion, setBoardVersion] = useState<string | null>(null);
+  const [canSupported, setCanSupported] = useState(true);
+  const [maxInputs, setMaxInputs] = useState(49);
   const { isAuthenticated, isAuthRequired } = useAuth();
 
   const refreshConfig = useCallback(async () => {
@@ -38,13 +61,21 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       setIsLoading(false);
       return;
     }
-    
+
     try {
       setIsLoading(true);
       const { data } = await axios.get('/api/config');
       // Check if 'boneio' section exists in config
       const hasBoneio = data?.config?.boneio !== undefined;
       setHasBoneioSection(hasBoneio);
+
+      // Extract board version and compute capabilities
+      const version = data?.config?.boneio?.version
+        ? String(data.config.boneio.version)
+        : null;
+      setBoardVersion(version);
+      setCanSupported(version ? CAN_SUPPORTED_VERSIONS.includes(version) : true);
+      setMaxInputs(version && MAX_INPUTS[version] ? MAX_INPUTS[version] : 49);
 
       // Check for irrigation controllers:
       // 1. Direct `irrigation:` section in YAML
@@ -72,7 +103,15 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
   }, [refreshConfig]);
 
   return (
-    <ConfigContext.Provider value={{ hasBoneioSection, hasIrrigationSection, isLoading, refreshConfig }}>
+    <ConfigContext.Provider value={{
+      hasBoneioSection,
+      hasIrrigationSection,
+      isLoading,
+      boardVersion,
+      canSupported,
+      maxInputs,
+      refreshConfig,
+    }}>
       {children}
     </ConfigContext.Provider>
   );

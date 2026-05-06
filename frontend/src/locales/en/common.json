@@ -1518,7 +1518,9 @@
     "i2c_raw_output": "Raw i2cdetect output",
     "copy": "Copy",
     "copied": "Copied!",
-    "modbus_paused": "Modbus device polling paused while tools are active"
+    "modbus_paused": "Modbus device polling paused while tools are active",
+    "can_not_supported_title": "CAN Bus Not Supported",
+    "can_not_supported_desc": "CAN bus is not available on hardware version {{version}}. CAN support requires board version 0.5 or newer. On this board, CAN pins (P8_7, P8_8, P8_9) are available as additional GPIO inputs (IN_50–IN_52)."
   },
   "template": {
     "entity_id": "Entity ID",
@@ -1626,7 +1628,7 @@
   },
   "templates": {
     "title": "Templates",
-    "no_templates": "No template entities configured. Add thermostats, alarm panels, or gate covers in the YAML configuration.",
+    "no_templates": "No template entities configured. Add thermostats, alarm panels, or gate covers in the settings.",
     "fetch_error": "Failed to load template data.",
     "thermostats": "Thermostats",
     "alarms": "Alarm Panels",

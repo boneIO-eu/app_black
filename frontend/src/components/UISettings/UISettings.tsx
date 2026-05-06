@@ -253,6 +253,15 @@ export default function UISettings() {
           }
 
           // Update sections with proper schemas
+          // Filter boneio_input enum based on board version:
+          // Boards 0.5+ have 49 inputs (CAN uses 3 pins)
+          // Boards 0.2-0.4 have 52 inputs (CAN pins repurposed as GPIO)
+          const version = configData?.boneio?.version ? String(configData.boneio.version) : null;
+          const maxInputs = version ? ({ '0.2': 52, '0.3': 52, '0.4': 52 }[version] ?? 49) : 49;
+          const allowedInputs = Array.from({ length: maxInputs }, (_, i) =>
+            `in_${String(i + 1).padStart(2, '0')}`
+          );
+
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
             let sectionSchema = mainSchema.properties?.[sectionConfig.name];
 
@@ -285,6 +294,28 @@ export default function UISettings() {
               } else {
                 sectionSchema = { type: 'object', properties: {} };
               }
+            }
+
+            // Filter boneio_input enum for event/binary_sensor based on board version
+            if (
+              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor') &&
+              sectionSchema?.items?.properties?.boneio_input?.enum
+            ) {
+              sectionSchema = {
+                ...sectionSchema,
+                items: {
+                  ...sectionSchema.items,
+                  properties: {
+                    ...sectionSchema.items.properties,
+                    boneio_input: {
+                      ...sectionSchema.items.properties.boneio_input,
+                      enum: sectionSchema.items.properties.boneio_input.enum.filter(
+                        (v: string) => allowedInputs.includes(v)
+                      ),
+                    },
+                  },
+                },
+              };
             }
 
             return {

@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useConfig } from '@/contexts/ConfigContext';
 import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
 import { GiElectric } from 'react-icons/gi';
+import { IoWarning } from 'react-icons/io5';
 import ModbusHelper from './ModbusHelper';
 import CANHelper from './CANHelper';
 import CANNetwork from './CANNetwork';
@@ -23,6 +25,7 @@ interface I2CScanResult {
 
 export default function Tools() {
   const { t } = useTranslation();
+  const { canSupported, boardVersion } = useConfig();
   const [activeSection, setActiveSection] = useState<'modbus' | 'i2c' | 'can' | 'can_network'>('modbus');
 
   return (
@@ -46,12 +49,14 @@ export default function Tools() {
         <button
           className={`tab tab-lg gap-2 ${activeSection === 'can_network' ? 'tab-active' : ''}`}
           onClick={() => setActiveSection('can_network')}
+          disabled={!canSupported}
         >
           <GiElectric /> CAN Network
         </button>
         <button
           className={`tab tab-lg gap-2 ${activeSection === 'can' ? 'tab-active' : ''}`}
           onClick={() => setActiveSection('can')}
+          disabled={!canSupported}
         >
           <GiElectric /> CAN Sniffer
         </button>
@@ -59,8 +64,25 @@ export default function Tools() {
 
       {activeSection === 'modbus' && <ModbusHelper />}
       {activeSection === 'i2c' && <I2CSection />}
-      {activeSection === 'can' && <CANHelper />}
-      {activeSection === 'can_network' && <CANNetwork />}
+      {activeSection === 'can' && (canSupported ? <CANHelper /> : <CANNotSupported boardVersion={boardVersion} />)}
+      {activeSection === 'can_network' && (canSupported ? <CANNetwork /> : <CANNotSupported boardVersion={boardVersion} />)}
+    </div>
+  );
+}
+
+/** Alert shown when CAN is not supported on the current board version. */
+function CANNotSupported({ boardVersion }: { boardVersion: string | null }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="alert alert-warning shadow-lg">
+      <IoWarning className="w-6 h-6 shrink-0" />
+      <div>
+        <h3 className="font-bold">{t('tools.can_not_supported_title')}</h3>
+        <div className="text-sm">
+          {t('tools.can_not_supported_desc', { version: boardVersion || '?' })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1061,6 +1061,46 @@ def ha_update_availability_message(
     return result
 
 
+def ha_migration_alert_availability_message(
+    config_helper: ConfigHelper,
+    **kwargs,
+) -> HomeAssistantDiscoveryMessage:
+    """Create Migration Alert binary_sensor (diagnostic) for HA.
+
+    Returns a binary_sensor with ``device_class: problem`` that is ON when
+    system migrations are pending and OFF when all migrations are applied.
+    Attributes (count, description) are published on a separate JSON
+    attributes topic.
+
+    Args:
+        config_helper: ConfigHelper instance.
+        **kwargs: Additional fields forwarded to ``ha_availabilty_message``.
+
+    Returns:
+        HA discovery message dict for the migration alert binary_sensor.
+    """
+    topic = config_helper.topic_prefix
+
+    msg = ha_availabilty_message(
+        id="migration_alert",
+        name="Migration Alert",
+        entity_type="binary_sensor",
+        config_helper=config_helper,
+        device_type="update",
+        **kwargs,
+    )
+    msg["state_topic"] = f"{topic}/migration/state"
+    msg["value_template"] = "{{ value_json.state }}"
+    msg["payload_on"] = "ON"
+    msg["payload_off"] = "OFF"
+    msg["json_attributes_topic"] = f"{topic}/migration/attributes"
+    msg["icon"] = "mdi:alert-decagram"
+    msg["entity_category"] = "diagnostic"
+    msg["device_class"] = "problem"
+
+    return msg
+
+
 def ha_climate_availability_message(
     id: str,
     name: str,

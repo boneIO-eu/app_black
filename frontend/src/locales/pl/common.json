@@ -1517,7 +1517,9 @@
     "i2c_raw_output": "Surowe wyjście i2cdetect",
     "copy": "Kopiuj",
     "copied": "Skopiowano!",
-    "modbus_paused": "Odpytywanie urządzeń Modbus wstrzymane na czas pracy z narzędziami"
+    "modbus_paused": "Odpytywanie urządzeń Modbus wstrzymane na czas pracy z narzędziami",
+    "can_not_supported_title": "Magistrala CAN niedostępna",
+    "can_not_supported_desc": "Magistrala CAN nie jest dostępna na płycie w wersji {{version}}. Obsługa CAN wymaga wersji 0.5 lub nowszej. Na tej płycie piny CAN (P8_7, P8_8, P8_9) są dostępne jako dodatkowe wejścia GPIO (IN_50–IN_52)."
   },
   "template": {
     "entity_id": "ID Encji",
@@ -1625,7 +1627,7 @@
   },
   "templates": {
     "title": "Szablony",
-    "no_templates": "Brak skonfigurowanych encji szablonowych. Dodaj termostaty, panele alarmowe lub bramy w konfiguracji YAML.",
+    "no_templates": "Brak skonfigurowanych encji szablonowych. Dodaj termostaty, panele alarmowe lub bramy w ustawieniach.",
     "fetch_error": "Nie udało się załadować danych szablonów.",
     "thermostats": "Termostaty",
     "alarms": "Panele alarmowe",

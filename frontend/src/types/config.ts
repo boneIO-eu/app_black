@@ -42,7 +42,7 @@ export type CoverAction =
   | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' | 'SMART_TOGGLE'
   | 'TILT' | 'TILT_OPEN' | 'TILT_CLOSE';
 
-/** BoneIO input pin identifiers (IN_01 to IN_49, case-insensitive) */
+/** BoneIO input pin identifiers (IN_01 to IN_49 on boards 0.5+, IN_01 to IN_52 on boards 0.2–0.4) */
 export type BoneioInput = string;
 
 // ============================================
