@@ -83,6 +83,8 @@ class GpioBaseClass:
         self._sequence_mode: str = kwargs.get("sequence_mode", "exclusive")
         # Long press MQTT mode: 'single' (only first + final) or 'periodic' (all events with duration)
         self._long_press_mqtt_mode: str = kwargs.get("long_press_mqtt_mode", "single")
+        # Device class for HA discovery (e.g. "button", "doorbell", "motion")
+        self._device_class: str | None = kwargs.get("device_class")
 
     @property
     def boneio_input(self) -> str:
