@@ -15,8 +15,10 @@ from boneio.core.utils import TimePeriod
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
 
+
 class TimeBasedCover(BaseCover):
     """Time-based cover algorithm similar to ESPHome."""
+
     def __init__(
         self,
         open_relay: BasicOutput,
@@ -39,7 +41,6 @@ class TimeBasedCover(BaseCover):
             position=position,
             **kwargs,
         )
-
 
     def _move_cover(self, direction: str, duration: float, target_position: int | None = None):
         """Run in sepearate thread.
@@ -88,7 +89,7 @@ class TimeBasedCover(BaseCover):
             elif direction == CLOSE:
                 self._position = max(0.0, self._initial_position - progress * total_steps)
 
-            self._last_timestamp = current_time # Użyj pobranego czasu
+            self._last_timestamp = time.time()  # Wall clock for display
             if current_time - self._last_update_time >= 1:
                 try:
                     self._loop.call_soon_threadsafe(lambda: self.send_state(self.state, self.json_position))
@@ -97,8 +98,9 @@ class TimeBasedCover(BaseCover):
                 self._last_update_time = current_time
 
             if target_position is not None:
-                if (direction == OPEN and self._position >= target_position) or \
-                   (direction == CLOSE and self._position <= target_position):
+                if (direction == OPEN and self._position >= target_position) or (
+                    direction == CLOSE and self._position <= target_position
+                ):
                     break
 
             if progress >= 1.0:
@@ -116,13 +118,13 @@ class TimeBasedCover(BaseCover):
             self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
         except RuntimeError:
             pass
-        self._last_update_time = time.monotonic() # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
+        self._last_update_time = time.monotonic()  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
     async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:
         if self._movement_thread and self._movement_thread.is_alive():
             _LOGGER.warning("Cover movement already in progress. Stopping first.")
             await self.stop()
-        
+
         # If STOP was requested, don't start new movement
         if current_operation == STOP:
             await self.stop()
@@ -131,15 +133,18 @@ class TimeBasedCover(BaseCover):
         self._current_operation = current_operation
         self._initial_position = self._position
         self._stop_event.clear()
-        self._last_update_time = time.monotonic() - 1 # Inicjalizacja czasu ostatniej aktualizacji
+        self._last_update_time = time.monotonic() - 1  # Inicjalizacja czasu ostatniej aktualizacji
 
         if current_operation == OPENING:
-            self._movement_thread = threading.Thread(target=self._move_cover, args=("open", self._open_time, target_position))
+            self._movement_thread = threading.Thread(
+                target=self._move_cover, args=("open", self._open_time, target_position)
+            )
             self._movement_thread.start()
         elif current_operation == CLOSING:
-            self._movement_thread = threading.Thread(target=self._move_cover, args=("close", self._close_time, target_position))
+            self._movement_thread = threading.Thread(
+                target=self._move_cover, args=("close", self._close_time, target_position)
+            )
             self._movement_thread.start()
-
 
     @property
     def kind(self) -> str:
@@ -147,7 +152,7 @@ class TimeBasedCover(BaseCover):
 
     def update_config_times(self, config: dict) -> None:
         """Update cover timing configuration.
-        
+
         Args:
             config: Dictionary with timing values as TimePeriod objects.
                    Keys: open_time, close_time
@@ -156,4 +161,3 @@ class TimeBasedCover(BaseCover):
             self._open_time = config["open_time"].total_milliseconds
         if "close_time" in config:
             self._close_time = config["close_time"].total_milliseconds
-    

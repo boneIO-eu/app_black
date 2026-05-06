@@ -177,7 +177,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             id, self._open_time, self._close_time, position
         )
 
-        self._last_timestamp = time.monotonic()
+        self._last_timestamp = time.time()
 
         self._last_update_time = 0
         self._closed = position <= 0

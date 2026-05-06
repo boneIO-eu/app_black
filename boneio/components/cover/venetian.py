@@ -152,7 +152,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                         0.0, self._initial_tilt_position - tilt_progress * self._initial_tilt_position
                     )
 
-            self._last_timestamp = current_time  # Użyj pobranego czasu
+            self._last_timestamp = time.time()  # Wall clock for display
             if current_time - self._last_update_time >= 1:
                 self._loop.call_soon_threadsafe(
                     self.send_state, self.state, self.json_position
