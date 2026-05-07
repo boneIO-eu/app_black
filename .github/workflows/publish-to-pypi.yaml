@@ -10,9 +10,15 @@ on:
       - edited
 
 jobs:
+  # Run tests before publishing
+  run-tests:
+    name: Run Tests
+    uses: ./.github/workflows/test.yml
+
   # Legacy build for v0.* tags (Python 3.7, Debian 10 compatibility)
   build-legacy:
     name: Build Legacy (Python 3.7) for v0.* tags
+    needs: run-tests
     runs-on: ubuntu-20.04
     if: startsWith(github.ref, 'refs/tags/v0.') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v0.'))
     steps:
@@ -63,6 +69,7 @@ jobs:
   # Modern build for v1.* tags (Python 3.13+)
   build-modern:
     name: Build Modern (Python 3.13) for v1.* tags
+    needs: run-tests
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v1.') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v1.'))
     steps:
