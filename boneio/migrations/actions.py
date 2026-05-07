@@ -11,15 +11,14 @@ before writing/enabling, so running a migration twice is safe.
 from __future__ import annotations
 
 import hashlib
-import os
 from dataclasses import dataclass, field
 from string import Template
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Base class
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class MigrationAction:
@@ -30,7 +29,7 @@ class MigrationAction:
         raise NotImplementedError
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MigrationAction":
+    def from_dict(cls, data: dict[str, Any]) -> MigrationAction:
         """Deserialize action from dict (used inside boneio-migrate)."""
         raise NotImplementedError
 
@@ -38,6 +37,7 @@ class MigrationAction:
 # ---------------------------------------------------------------------------
 # File installation
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class InstallFile(MigrationAction):
@@ -68,7 +68,7 @@ class InstallFile(MigrationAction):
     group: str = "root"
     template_vars: dict[str, str] = field(default_factory=dict)
     validate_cmd: str | None = None
-    on_change: "MigrationAction | None" = None
+    on_change: MigrationAction | None = None
     expected_sha256: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,6 +94,7 @@ class InstallFile(MigrationAction):
 # ---------------------------------------------------------------------------
 # Systemctl actions
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SystemctlDaemonReload(MigrationAction):
@@ -168,6 +169,7 @@ class SystemctlReload(MigrationAction):
 # File removal
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RemoveFile(MigrationAction):
     """Remove a file from the system (no-op if it does not exist).
@@ -186,6 +188,7 @@ class RemoveFile(MigrationAction):
 # ---------------------------------------------------------------------------
 # Append a line if missing
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AppendLineIfMissing(MigrationAction):
@@ -209,6 +212,7 @@ class AppendLineIfMissing(MigrationAction):
 # ---------------------------------------------------------------------------
 # Helper utilities (used by runner, not sent to boneio-migrate)
 # ---------------------------------------------------------------------------
+
 
 def sha256_of_content(content: bytes) -> str:
     """Return lower-case hex SHA-256 of *content*."""

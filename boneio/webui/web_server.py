@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 
     from boneio.webui.app import BoneIOApp
 
+import contextlib
+
 from boneio.core.config import ConfigHelper
 from boneio.core.manager import Manager
 
@@ -29,8 +31,8 @@ class WebServer:
         config_helper: ConfigHelper,
         manager: Manager,
         port: int = 8080,
-        auth: dict = {},
-        logger: dict = {},
+        auth: dict = None,
+        logger: dict = None,
         debug_level: int = 0,
         initial_config: dict | None = None,
     ) -> None:
@@ -39,6 +41,10 @@ class WebServer:
         Args:
             initial_config: Pre-parsed config to populate cache (avoids slow first request)
         """
+        if logger is None:
+            logger = {}
+        if auth is None:
+            auth = {}
         self.config_file = config_file
         self.config_helper = config_helper
         self.manager = manager
@@ -130,10 +136,8 @@ class WebServer:
                 pass
             finally:
                 writer.close()
-                try:
+                with contextlib.suppress(Exception):
                     await writer.wait_closed()
-                except Exception:
-                    pass
 
         try:
             dummy_server = await asyncio.start_server(

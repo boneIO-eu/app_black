@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from contextlib import suppress
 from typing import Optional
 
 from smbus2 import SMBus, i2c_msg
@@ -69,23 +70,18 @@ class SMBus2I2C:
             True if lock was acquired, False otherwise
         """
         acquired = self._lock.acquire(blocking=False)
-        if acquired:
-            # Ensure bus is open
-            if self._bus is None:
-                try:
-                    self._open_bus()
-                except OSError:
-                    self._lock.release()
-                    return False
+        if acquired and self._bus is None:
+            try:
+                self._open_bus()
+            except OSError:
+                self._lock.release()
+                return False
         return acquired
 
     def unlock(self) -> None:
         """Release the I2C bus lock (but keep bus open)."""
-        try:
+        with suppress(RuntimeError):
             self._lock.release()
-        except RuntimeError:
-            # Lock was not held
-            pass
 
     def readfrom_into(self, address: int, buffer: bytearray, *, start: int = 0, end: int | None = None) -> None:
         """Read from I2C device into a buffer.

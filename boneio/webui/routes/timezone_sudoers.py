@@ -7,6 +7,7 @@ for timezone / NTP management commands (timedatectl set-timezone, set-ntp).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 
@@ -183,10 +184,8 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
         )
 
         # Clean up temp file
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
 
         _LOGGER.info("Successfully created sudoers file for timedatectl: %s", SUDOERS_FILE)
         return {

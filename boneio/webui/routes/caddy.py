@@ -334,7 +334,7 @@ async def get_caddy_config():
         
     except Exception as e:
         _LOGGER.error("Error getting Caddy config: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from None
 
 
 @router.post("/config", response_model=CaddyStatus)
@@ -434,7 +434,7 @@ async def update_caddy_config(config: CaddyConfig):
         raise
     except Exception as e:
         _LOGGER.error("Error updating Caddy config: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from None
 
 
 @router.post("/reload")
@@ -627,7 +627,7 @@ async def start_dns_challenge(request: DNSChallengeRequest):
         raise
     except Exception as e:
         _LOGGER.error("Error starting DNS challenge: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from None
 
 
 @router.post("/dns-challenge/verify")
@@ -738,4 +738,4 @@ async def verify_dns_challenge(request: DNSChallengeRequest):
         raise
     except Exception as e:
         _LOGGER.error("Error verifying DNS challenge: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from None

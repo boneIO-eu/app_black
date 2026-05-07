@@ -23,7 +23,7 @@ import pkgutil
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -54,7 +54,7 @@ BOOTSTRAP_INSTALL_SCRIPT = Path(__file__).parent / "bootstrap" / "install-helper
 # ---------------------------------------------------------------------------
 
 
-class MigrationStatus(str, Enum):
+class MigrationStatus(StrEnum):
     """High-level migration subsystem status."""
 
     OK = "ok"

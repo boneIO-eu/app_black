@@ -195,15 +195,9 @@ class _ConditionGroup:
             return True
 
         if self.use_all:
-            for item in self.items:
-                if not _eval_single(item, now, state_resolver):
-                    return False
-            return True
+            return all(_eval_single(item, now, state_resolver) for item in self.items)
         # OR mode
-        for item in self.items:
-            if _eval_single(item, now, state_resolver):
-                return True
-        return False
+        return any(_eval_single(item, now, state_resolver) for item in self.items)
 
 
 def _eval_single(

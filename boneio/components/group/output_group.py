@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from contextlib import suppress
 from typing import override
 
 from boneio.components.output.basic import BasicOutput
@@ -147,14 +148,12 @@ class OutputGroup(BasicOutput):
         """
         # Remove event listeners for member state changes
         for member in self._group_members:
-            try:
+            with suppress(Exception):
                 self._event_bus.remove_event_listener(
                     event_type="output",
                     entity_id=member.id,
                     listener_id=self.id,
                 )
-            except Exception:
-                pass  # Ignore errors if listener already removed
         
         # Cancel any pending timer
         if self._timer_handle:

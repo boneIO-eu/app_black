@@ -26,7 +26,7 @@ class ModbusNumericSensor(ModbusBaseEntity):
         filters: list,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
-        user_filters: list | None = [],
+        user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
         """Initialize single sensor.
@@ -42,6 +42,8 @@ class ModbusNumericSensor(ModbusBaseEntity):
             user_filters: list of user filters
             filters: list of filters
         """
+        if user_filters is None:
+            user_filters = []
         super().__init__(
             name=name,
             parent=parent,

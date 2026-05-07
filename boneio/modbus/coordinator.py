@@ -88,7 +88,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         manager: Manager,
         id: str = DefaultName,
         name: str = DefaultName,
-        additional_data: dict = {},
+        additional_data: dict = None,
         update_interval: TimePeriod = TimePeriod(seconds=60),
         area: str | None = None,
         has_custom_id: bool = False,
@@ -96,6 +96,8 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
     ):
         """Initialize Modbus coordinator class."""
         # Store manager reference first - needed by other init methods
+        if additional_data is None:
+            additional_data = {}
         self.manager = manager
         self._area = area
         self._has_custom_id = has_custom_id
@@ -544,7 +546,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
             if entity_id in entities:
                 return entities[entity_id]
             # Try to find by full entity.id
-            for entity_key, potential_entity in entities.items():
+            for _entity_key, potential_entity in entities.items():
                 if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
                     return potential_entity
         
@@ -565,7 +567,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Also check all additional entities by their full ID
         if not additional_entity:
             for additional_entities_list in self.get_all_additional_entities():
-                for entity_key, potential_entity in additional_entities_list.items():
+                for _entity_key, potential_entity in additional_entities_list.items():
                     if potential_entity.id == entity_id or potential_entity.id.lower() == entity_id.lower():
                         return potential_entity
         
@@ -709,15 +711,14 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         # Update additional entities if they exist
         if self._additional_entities:
             sensor_value = entity.get_value()
-            if sensor_value is not None:
-                if entity.decoded_name in self._additional_entities_by_source_name:
-                    for additional_entity in self._additional_entities_by_source_name[
-                        entity.decoded_name
-                    ]:
-                        additional_entity.evaluate_state(sensor_value, timestamp)
-                        output[additional_entity.decoded_name] = additional_entity.state
-                        # Trigger event for each derived sensor
-                        self._trigger_entity_events(additional_entity)
+            if sensor_value is not None and entity.decoded_name in self._additional_entities_by_source_name:
+                for additional_entity in self._additional_entities_by_source_name[
+                    entity.decoded_name
+                ]:
+                    additional_entity.evaluate_state(sensor_value, timestamp)
+                    output[additional_entity.decoded_name] = additional_entity.state
+                    # Trigger event for each derived sensor
+                    self._trigger_entity_events(additional_entity)
                     
         # Trigger event for direct sensor
         self._trigger_entity_events(entity)
@@ -935,17 +936,20 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         
         # Update additional entities if they exist
         sensor_value = sensor.get_value()
-        if self._additional_entities and sensor_value is not None:
-            if sensor.decoded_name in self._additional_entities_by_source_name:
-                for additional_entity in self._additional_entities_by_source_name[
-                    sensor.decoded_name
-                ]:
-                    additional_entity.evaluate_state(
-                        sensor_value, timestamp
-                    )
-                    output[additional_entity.decoded_name] = additional_entity.state
-                    # Trigger event for derived sensor
-                    self._trigger_entity_events(additional_entity)
+        if (
+            self._additional_entities
+            and sensor_value is not None
+            and sensor.decoded_name in self._additional_entities_by_source_name
+        ):
+            for additional_entity in self._additional_entities_by_source_name[
+                sensor.decoded_name
+            ]:
+                additional_entity.evaluate_state(
+                    sensor_value, timestamp
+                )
+                output[additional_entity.decoded_name] = additional_entity.state
+                # Trigger event for derived sensor
+                self._trigger_entity_events(additional_entity)
                     
         # Trigger event for main sensor
         self._trigger_entity_events(sensor)

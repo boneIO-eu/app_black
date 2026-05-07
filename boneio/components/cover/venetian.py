@@ -159,19 +159,18 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                 )
                 self._last_update_time = current_time
 
-            if target_tilt_position is not None:
-                if (
-                    direction == OPEN and self._tilt_position >= target_tilt_position
-                ) or (
-                    direction == CLOSE and self._tilt_position <= target_tilt_position
-                ):
-                    break
+            if target_tilt_position is not None and ((
+                direction == OPEN and self._tilt_position >= target_tilt_position
+            ) or (
+                direction == CLOSE and self._tilt_position <= target_tilt_position
+            )):
+                break
 
-            if target_position is not None:
-                if (direction == OPEN and self._position >= target_position) or (
-                    direction == CLOSE and self._position <= target_position
-                ):
-                    break
+            if target_position is not None and (
+                (direction == OPEN and self._position >= target_position)
+                or (direction == CLOSE and self._position <= target_position)
+            ):
+                break
 
             if progress >= 1.0 or (target_tilt_position and tilt_progress >= 1.0):
                 break

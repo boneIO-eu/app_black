@@ -249,14 +249,13 @@ class BoneIOThermostat:
                     "Thermostat %s: %.1f°C <= %.1f°C (low), heating ON",
                     self._id, self._current_temperature, low,
                 )
-        elif self._current_temperature >= high:
-            if self._action != ACTION_IDLE:
-                self._action = ACTION_IDLE
-                asyncio.ensure_future(self._turn_output_off())
-                _LOGGER.debug(
-                    "Thermostat %s: %.1f°C >= %.1f°C (high), heating OFF",
-                    self._id, self._current_temperature, high,
-                )
+        elif self._current_temperature >= high and self._action != ACTION_IDLE:
+            self._action = ACTION_IDLE
+            asyncio.ensure_future(self._turn_output_off())
+            _LOGGER.debug(
+                "Thermostat %s: %.1f°C >= %.1f°C (high), heating OFF",
+                self._id, self._current_temperature, high,
+            )
 
     async def _turn_output_on(self) -> None:
         """Turn the heating output ON."""

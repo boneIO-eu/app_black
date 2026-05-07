@@ -81,9 +81,7 @@ class ModbusHelper:
         _LOGGER.info(
             f"Checked {name} with address {address} and value {decoded_value}"
         )
-        if not decoded_value:
-            return False
-        return True
+        return decoded_value
 
     def set_connection_speed(self, new_baudrate: int) -> int:
         """Set new baudrate for the Modbus device."""
@@ -154,7 +152,7 @@ async def async_run_modbus_set(
     """Run Modbus Set Function."""
     if new_address and new_baudrate:
         _LOGGER.error("Can't set both methods new_address and new_baudrate.")
-    custom_cmd = True if device == "custom" else False
+    custom_cmd = device == "custom"
     set_base = {}
     if not custom_cmd:
         _db = open_json(path=os.path.dirname(__file__), model=device)

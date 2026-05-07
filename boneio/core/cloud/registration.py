@@ -13,8 +13,9 @@ import logging
 import os
 import shutil
 import subprocess
+from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import aiohttp
@@ -123,10 +124,8 @@ class CloudRegistration:
         """Stop the cloud registration service."""
         if self._task:
             self._task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
             self._task = None
 
         if self._session:
@@ -158,9 +157,7 @@ class CloudRegistration:
         import aiohttp
 
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
-            )
+            self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
         return self._session
 
     async def _registration_loop(self) -> None:
@@ -170,9 +167,7 @@ class CloudRegistration:
                 # Refresh local IP in case it changed (e.g. DHCP renewal)
                 current_ip = get_network_info().get("ip", "")
                 if current_ip and current_ip != "none" and current_ip != self._local_ip:
-                    _LOGGER.info(
-                        "Local IP changed: %s -> %s", self._local_ip, current_ip
-                    )
+                    _LOGGER.info("Local IP changed: %s -> %s", self._local_ip, current_ip)
                     self._local_ip = current_ip
 
                 # Register DNS
@@ -364,10 +359,7 @@ class CloudRegistration:
         compose_file = _DOCKER_DIR / "docker-compose.yaml"
         if compose_file.exists() and not os.access(compose_file, os.W_OK):
             compose_path = str(compose_file)
-            self._last_error = (
-                f"Permission denied writing {compose_path}. "
-                f"Run via SSH: sudo chown $USER {compose_path}"
-            )
+            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
             _LOGGER.error(
                 "Permission denied for %s. Fix with: sudo chown $USER %s",
                 compose_path,
@@ -418,23 +410,16 @@ class CloudRegistration:
             # Replace with bundled cloud template
             from importlib.resources import files
 
-            cloud_src = files("boneio.core.cloud.data").joinpath(
-                "docker-compose-cloud.yaml"
-            )
+            cloud_src = files("boneio.core.cloud.data").joinpath("docker-compose-cloud.yaml")
             cloud_content = cloud_src.read_text(encoding="utf-8")
             compose_file.write_text(cloud_content)
-            _LOGGER.info(
-                "Replaced docker-compose.yaml with cloud template from package"
-            )
+            _LOGGER.info("Replaced docker-compose.yaml with cloud template from package")
 
             return await self._recreate_caddy()
 
         except PermissionError:
             compose_path = str(compose_file)
-            self._last_error = (
-                f"Permission denied writing {compose_path}. "
-                f"Run via SSH: sudo chown $USER {compose_path}"
-            )
+            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
             _LOGGER.error(
                 "Permission denied for %s. Fix with: sudo chown $USER %s",
                 compose_path,
@@ -479,10 +464,7 @@ class CloudRegistration:
 
         except PermissionError:
             compose_path = str(compose_file)
-            self._last_error = (
-                f"Permission denied writing {compose_path}. "
-                f"Run via SSH: sudo chown $USER {compose_path}"
-            )
+            self._last_error = f"Permission denied writing {compose_path}. Run via SSH: sudo chown $USER {compose_path}"
             _LOGGER.error(
                 "Permission denied for %s. Fix with: sudo chown $USER %s",
                 compose_path,

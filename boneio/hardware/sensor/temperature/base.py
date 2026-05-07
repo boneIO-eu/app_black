@@ -105,7 +105,7 @@ class TempSensor(BaseSensor):
                 raise I2CError(
                     f"Failed to initialize {self.__class__.__name__} "
                     f"at address {address}: {err}"
-                )
+                ) from err
 
     @property
     def temperature(self) -> float | None:

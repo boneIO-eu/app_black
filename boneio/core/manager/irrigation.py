@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -175,10 +176,8 @@ class IrrigationManager:
 
     async def stop(self) -> None:
         for topic in list(self._subscribed_topics):
-            try:
+            with contextlib.suppress(Exception):
                 await self._manager.message_bus.unsubscribe_and_stop_listen(topic)
-            except Exception:
-                pass
         self._subscribed_topics.clear()
 
         for ctrl in self._controllers.values():
@@ -248,15 +247,10 @@ class IrrigationManager:
         valid_prefixes = set()
         for ctrl in self._controllers.values():
             valid_prefixes.add(f"{ctrl._topic_prefix}/cmd/irrigation/{ctrl.id}")
-        stale_topics = {
-            t for t in self._subscribed_topics
-            if not any(t.startswith(p) for p in valid_prefixes)
-        }
+        stale_topics = {t for t in self._subscribed_topics if not any(t.startswith(p) for p in valid_prefixes)}
         for topic in stale_topics:
-            try:
+            with contextlib.suppress(Exception):
                 await self._manager.message_bus.unsubscribe_and_stop_listen(topic)
-            except Exception:
-                pass
             self._subscribed_topics.discard(topic)
 
         _LOGGER.info(
@@ -293,10 +287,7 @@ class IrrigationManager:
             discovery_ids.append((f"{ctrl.id}_schedule_{idx}_skip", "switch"))
 
         for disc_id, ha_type in discovery_ids:
-            topic = (
-                f"{cfg.ha_discovery_prefix}/{ha_type}"
-                f"/{serial}/{disc_id}/config"
-            )
+            topic = f"{cfg.ha_discovery_prefix}/{ha_type}/{serial}/{disc_id}/config"
             self._manager.send_message(topic=topic, payload="", retain=True)
 
     async def _subscribe_topic(self, topic: str, handler) -> None:
@@ -348,19 +339,27 @@ class IrrigationManager:
 
         # Water source select handler
         if ctrl.water_sources:
+
             async def handle_water_source(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
                 await _ctrl.set_water_source(payload.strip())
 
             await self._subscribe_topic(ctrl._setting_cmd_topic("water_source"), handle_water_source)
 
         for zone in ctrl.zones:
-            async def handle_zone(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id) -> None:
+
+            async def handle_zone(
+                _topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id
+            ) -> None:
                 await _ctrl.handle_zone_command(_zone_id, payload)
 
-            async def handle_zone_enable(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id) -> None:
+            async def handle_zone_enable(
+                _topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id
+            ) -> None:
                 await _ctrl.set_zone_enabled(_zone_id, payload.strip().upper() == ON)
 
-            async def handle_zone_duration(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id) -> None:
+            async def handle_zone_duration(
+                _topic: str, payload: str, _ctrl: IrrigationController = ctrl, _zone_id: str = zone.id
+            ) -> None:
                 await _ctrl.handle_zone_duration_command(_zone_id, payload)
 
             await self._subscribe_topic(ctrl._zone_cmd_topic(zone.id), handle_zone)
@@ -368,7 +367,10 @@ class IrrigationManager:
             await self._subscribe_topic(ctrl._zone_duration_cmd_topic(zone.id), handle_zone_duration)
 
         for idx, _schedule in enumerate(ctrl._schedule):
-            async def handle_sched_skip(_topic: str, payload: str, _ctrl: IrrigationController = ctrl, _idx: int = idx) -> None:
+
+            async def handle_sched_skip(
+                _topic: str, payload: str, _ctrl: IrrigationController = ctrl, _idx: int = idx
+            ) -> None:
                 await _ctrl.set_schedule_skip(_idx, payload.strip().upper() == ON)
 
             await self._subscribe_topic(ctrl._schedule_skip_cmd_topic(idx), handle_sched_skip)

@@ -9,6 +9,7 @@ autodiscovery.  Code validation is delegated to HA (``REMOTE_CODE``).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -748,8 +749,6 @@ class BoneIOAlarmPanel:
         """Stop alarm panel — cancel timers and unsubscribe."""
         self._cancel_all_timers()
         await self._deactivate_outputs()
-        try:
+        with contextlib.suppress(Exception):
             await self._message_bus.unsubscribe_and_stop_listen(self._cmd_topic)
-        except Exception:
-            pass
         _LOGGER.info("Alarm panel %s stopped", self._id)

@@ -1,6 +1,7 @@
 import asyncio
+import contextlib
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from jose import jwt
@@ -14,10 +15,12 @@ _LOGGER = logging.getLogger(__name__)
 # JWT settings
 JWT_ALGORITHM = "HS256"
 
+
 class WebSocketDisconnectWithMessage(WebSocketDisconnect):
     def __init__(self, message):
         super().__init__()
         self.message = message
+
 
 class WebSocketManager:
     def __init__(self, jwt_secret: str | None = None, auth_required: bool = False):
@@ -39,7 +42,7 @@ class WebSocketManager:
                 if protocol.startswith("token."):
                     token = protocol[6:]  # Remove "token." prefix
                     break
-            
+
             if not token:
                 _LOGGER.debug("No authentication token provided")
                 return False
@@ -52,10 +55,10 @@ class WebSocketManager:
                 if not exp or datetime.fromtimestamp(exp, tz=UTC) < datetime.now(UTC):
                     _LOGGER.debug("Token has expired")
                     return False
-                
+
                 _LOGGER.debug("WebSocket token verified successfully")
                 return True
-                
+
             except JWTError as e:
                 _LOGGER.debug(f"Invalid token: {e}")
                 return False
@@ -89,10 +92,8 @@ class WebSocketManager:
 
         except Exception as e:
             _LOGGER.error(f"Failed to establish WebSocket connection: {e}")
-            try:
+            with contextlib.suppress(Exception):
                 await websocket.close(code=4000, reason="Connection failed")
-            except Exception:
-                pass
             return False
 
     async def disconnect(self, websocket: WebSocket):
@@ -119,11 +120,8 @@ class WebSocketManager:
         _LOGGER.info("Closing all WebSocket connections...")
 
         for websocket in list(self.active_connections):
-            try:
+            with contextlib.suppress(Exception):
                 await self.disconnect(websocket)
-            except Exception:
-                pass
-        
 
     async def broadcast_state(self, event: Event):
         if self._closing:
@@ -148,7 +146,7 @@ class WebSocketManager:
 
     async def broadcast(self, data: dict[str, Any]):
         """Broadcast a raw dict message to all connected WebSocket clients.
-        
+
         Args:
             data: Dictionary to send as JSON to all clients
         """

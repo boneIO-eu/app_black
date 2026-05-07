@@ -28,9 +28,11 @@ Control modes:
   - ``separate``: dedicated open/close/stop outputs
   - ``open_only``: electric lock — each pulse opens, gate closes by itself
 """
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from typing import TYPE_CHECKING
@@ -146,8 +148,12 @@ class BoneIOGateCover:
         _LOGGER.info(
             "Initialized BoneIOGateCover: id=%s, mode=%s, device_class=%s, "
             "pulse_duration=%s, closed_sensor=%s, open_sensor=%s",
-            id, control_mode, device_class,
-            pulse_duration_ms, closed_sensor_id, open_sensor_id,
+            id,
+            control_mode,
+            device_class,
+            pulse_duration_ms,
+            closed_sensor_id,
+            open_sensor_id,
         )
 
     # -- Properties ----------------------------------------------------------
@@ -186,19 +192,15 @@ class BoneIOGateCover:
 
     async def start(self) -> None:
         """Subscribe to MQTT command topic."""
-        await self._message_bus.subscribe_and_listen(
-            self._cmd_topic, self.handle_command
-        )
+        await self._message_bus.subscribe_and_listen(self._cmd_topic, self.handle_command)
         self._publish_state()
         _LOGGER.info("GateCover %s started, subscribed to %s", self._id, self._cmd_topic)
 
     async def stop(self) -> None:
         """Unsubscribe from MQTT and cancel timers."""
         self._cancel_pulse_timer()
-        try:
+        with contextlib.suppress(Exception):
             await self._message_bus.unsubscribe_and_stop_listen(self._cmd_topic)
-        except Exception:
-            pass
         _LOGGER.info("GateCover %s stopped", self._id)
 
     async def handle_command(self, _topic: str, payload: str) -> None:
@@ -338,13 +340,9 @@ class BoneIOGateCover:
                 lambda: asyncio.ensure_future(self._relay_off(output)),
             )
         elif self._control_mode == MODE_OPEN_ONLY:
-            _LOGGER.debug(
-                "GateCover %s: relay held on until open_sensor triggers", self._id
-            )
+            _LOGGER.debug("GateCover %s: relay held on until open_sensor triggers", self._id)
         else:
-            _LOGGER.warning(
-                "GateCover %s: no pulse_duration, turning off immediately", self._id
-            )
+            _LOGGER.warning("GateCover %s: no pulse_duration, turning off immediately", self._id)
             await output.async_turn_off()
 
     async def _relay_off(self, output: BasicOutput) -> None:
@@ -378,9 +376,7 @@ class BoneIOGateCover:
             sensor_id: The input entity ID.
             is_closed: True if the contact is closed (GPIO pressed).
         """
-        _LOGGER.debug(
-            "GateCover %s: sensor %s state=%s", self._id, sensor_id, is_closed
-        )
+        _LOGGER.debug("GateCover %s: sensor %s state=%s", self._id, sensor_id, is_closed)
 
         if sensor_id == self._closed_sensor_id:
             if is_closed:
@@ -423,11 +419,7 @@ class BoneIOGateCover:
         self._cycle_next = CYCLE_CLOSE
 
         # For open_only without pulse_duration — turn off relay when open detected
-        if (
-            self._control_mode == MODE_OPEN_ONLY
-            and self._pulse_duration_ms is None
-            and self._pulse_output is not None
-        ):
+        if self._control_mode == MODE_OPEN_ONLY and self._pulse_duration_ms is None and self._pulse_output is not None:
             asyncio.ensure_future(self._relay_off(self._pulse_output))
 
         self._publish_state()
@@ -436,9 +428,7 @@ class BoneIOGateCover:
 
     def _publish_state(self) -> None:
         """Publish current state to MQTT."""
-        self._message_bus.send_message(
-            topic=self._state_topic, payload=self._state
-        )
+        self._message_bus.send_message(topic=self._state_topic, payload=self._state)
         _LOGGER.debug("GateCover %s: state=%s", self._id, self._state)
 
     def _publish_attributes(self) -> None:

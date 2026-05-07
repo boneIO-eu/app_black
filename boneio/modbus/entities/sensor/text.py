@@ -29,8 +29,8 @@ class ModbusTextSensor(ModbusBaseEntity):
         filters: list,
         message_bus: MessageBus,
         config_helper: ConfigHelper,
-        value_mapping: dict = {},
-        user_filters: list | None = [],
+        value_mapping: dict = None,
+        user_filters: list | None = None,
         ha_filter: str = "",
     ) -> None:
         """Initialize single sensor.
@@ -51,6 +51,10 @@ class ModbusTextSensor(ModbusBaseEntity):
             user_filters: list of user filters
             ha_filter: HA filter string
         """
+        if user_filters is None:
+            user_filters = []
+        if value_mapping is None:
+            value_mapping = {}
         super().__init__(
             name=name,
             parent=parent,

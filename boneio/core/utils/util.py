@@ -8,7 +8,7 @@ CALLABLE_T = TypeVar("CALLABLE_T", bound=Callable[..., Any])
 CALLBACK_TYPE = Callable[[], None]
 
 
-def callback(func: CALLABLE_T) -> CALLABLE_T:
+def callback[CALLABLE_T: Callable[..., Any]](func: CALLABLE_T) -> CALLABLE_T:
     """Annotation to mark method as safe to call from within the event loop."""
     func._boneio_callback = True
     return func
@@ -81,7 +81,7 @@ def open_json(path: str, model: str) -> dict:
             return json.load(db_file)
     
     # Search in subdirectories (for new devices/ structure)
-    for root, dirs, files in os.walk(path):
+    for root, _dirs, files in os.walk(path):
         if filename in files:
             file_path = os.path.join(root, filename)
             with open(file_path) as db_file:

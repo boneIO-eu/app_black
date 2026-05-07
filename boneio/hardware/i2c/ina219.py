@@ -169,13 +169,15 @@ class INA219(AsyncUpdater):
     """
 
     def __init__(
-        self, address: int, id: str, sensors: list[dict] = [], **kwargs
+        self, address: int, id: str, sensors: list[dict] = None, **kwargs
     ) -> None:
         """Initialize INA219 sensor coordinator.
         
         Raises:
             I2CError: If sensor is not found or communication fails
         """
+        if sensors is None:
+            sensors = []
         self._loop = asyncio.get_event_loop()
         self._sensors = {}
         self._id = id
@@ -184,7 +186,7 @@ class INA219(AsyncUpdater):
         try:
             self._ina_219 = INA219_I2C(address=address)
         except OSError as err:
-            raise I2CError(f"Failed to initialize INA219 at address 0x{address:02X}: {err}")
+            raise I2CError(f"Failed to initialize INA219 at address 0x{address:02X}: {err}") from err
         
         # Create individual sensor instances for each measurement type
         for sensor in sensors:

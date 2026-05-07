@@ -142,7 +142,7 @@ async def set_output_duration(
     try:
         seconds = int(float(value))
     except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid duration value")
+        raise HTTPException(status_code=400, detail="Invalid duration value") from None
 
     output.set_adjustable_duration(seconds)
 

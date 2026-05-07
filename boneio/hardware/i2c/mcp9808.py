@@ -47,7 +47,7 @@ class MCP9808:
             
             _LOGGER.debug("Initialized MCP9808 at address 0x%02X", address)
         except Exception as e:
-            raise RuntimeError(f"Failed to communicate with MCP9808: {e}")
+            raise RuntimeError(f"Failed to communicate with MCP9808: {e}") from e
         finally:
             self._i2c.unlock()
     

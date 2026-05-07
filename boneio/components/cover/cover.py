@@ -7,6 +7,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from contextlib import suppress
 
 from boneio.components.output import BasicOutput
 from boneio.const import (
@@ -25,11 +26,14 @@ from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class BaseCoverABC(ABC):
     """Base cover class."""
 
     @abstractmethod
-    def __init__(self, id: str,
+    def __init__(
+        self,
+        id: str,
         open_relay: BasicOutput,
         close_relay: BasicOutput,
         state_save: Callable,
@@ -40,11 +44,10 @@ class BaseCoverABC(ABC):
         **kwargs,
     ) -> None:
         pass
-        
 
     @abstractmethod
     async def stop(self) -> None:
-        """Stop cover.""" 
+        """Stop cover."""
         pass
 
     @abstractmethod
@@ -77,7 +80,6 @@ class BaseCoverABC(ABC):
         """Set cover position."""
         pass
 
-
     @property
     @abstractmethod
     def state(self) -> str:
@@ -103,15 +105,17 @@ class BaseCoverABC(ABC):
     def kind(self) -> str:
         pass
 
-
     @abstractmethod
-    async def run_cover(self, current_operation: str, target_position: float | None = None,  target_tilt: float | None = None) -> None:
+    async def run_cover(
+        self, current_operation: str, target_position: float | None = None, target_tilt: float | None = None
+    ) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
         pass
 
     @abstractmethod
     async def send_state(self, state: str, position: float) -> None:
         pass
+
 
 class BaseVenetianCoverABC:
     @property
@@ -146,7 +150,9 @@ class BaseVenetianCoverABC:
 
 
 class BaseCover(BaseCoverABC, BasicMqtt):
-    def __init__(self, id: str,
+    def __init__(
+        self,
+        id: str,
         open_relay: BasicOutput,
         close_relay: BasicOutput,
         state_save: Callable,
@@ -174,7 +180,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._last_operation = CLOSING
         _LOGGER.debug(
             "BaseCover %s initialized: open_time=%dms, close_time=%dms, initial_position=%d%%",
-            id, self._open_time, self._close_time, position
+            id,
+            self._open_time,
+            self._close_time,
+            position,
         )
 
         self._last_timestamp = time.time()
@@ -187,17 +196,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
         self._event_bus.add_sigterm_listener(self.on_exit)
 
-        try:
-            self._loop.call_soon_threadsafe(
-                self._loop.call_later,
-                0.5,
-                self.send_state,
-                self.state,
-                self.json_position
-            )
-        except RuntimeError:
-            # Event loop is closed (e.g. during tests)
-            pass
+        with suppress(RuntimeError):
+            self._loop.call_soon_threadsafe(self._loop.call_later, 0.5, self.send_state, self.state, self.json_position)
 
     async def on_exit(self) -> None:
         """Stop on exit."""
@@ -210,12 +210,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             self._open_relay.turn_off()
             self._close_relay.turn_off()
             # Send relay states to WebSocket (not MQTT - that's handled by output_type check)
-            try:
+            with suppress(RuntimeError):
                 asyncio.create_task(self._open_relay.async_send_state())
                 asyncio.create_task(self._close_relay.async_send_state())
-            except RuntimeError:
-                # Event loop is closed (e.g. during tests or shutdown)
-                pass
             if self._current_operation in (OPENING, CLOSING):
                 self._last_operation = self._current_operation
             self._current_operation = IDLE
@@ -228,7 +225,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         estimated_time_s = (100 - self._position) / 100 * self._open_time / 1000
         _LOGGER.info(
             "Opening cover %s from position %d%%. Estimated time: %.1fs (open_time=%dms)",
-            self._id, self._position, estimated_time_s, self._open_time
+            self._id,
+            self._position,
+            estimated_time_s,
+            self._open_time,
         )
         self._last_operation = OPENING
         await self.run_cover(current_operation=OPENING)
@@ -240,7 +240,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         estimated_time_s = self._position / 100 * self._close_time / 1000
         _LOGGER.info(
             "Closing cover %s from position %d%%. Estimated time: %.1fs (close_time=%dms)",
-            self._id, self._position, estimated_time_s, self._close_time
+            self._id,
+            self._position,
+            estimated_time_s,
+            self._close_time,
         )
         self._last_operation = CLOSING
         await self.run_cover(current_operation=CLOSING)
@@ -258,14 +261,22 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             estimated_time_s = position_diff / 100 * self._open_time / 1000
             _LOGGER.info(
                 "Setting cover %s position from %d%% to %d%% (OPENING). Estimated time: %.1fs (open_time=%dms)",
-                self._id, self._position, position, estimated_time_s, self._open_time
+                self._id,
+                self._position,
+                position,
+                estimated_time_s,
+                self._open_time,
             )
             await self.run_cover(current_operation=OPENING, target_position=position)
         elif position < self._position:
             estimated_time_s = position_diff / 100 * self._close_time / 1000
             _LOGGER.info(
                 "Setting cover %s position from %d%% to %d%% (CLOSING). Estimated time: %.1fs (close_time=%dms)",
-                self._id, self._position, position, estimated_time_s, self._close_time
+                self._id,
+                self._position,
+                position,
+                estimated_time_s,
+                self._close_time,
             )
             await self.run_cover(current_operation=CLOSING, target_position=position)
 
@@ -307,7 +318,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         """
         _LOGGER.debug(
             "Smart toggle cover %s (position=%d%%, threshold=%d%%)",
-            self._id, self._position, always_open_till,
+            self._id,
+            self._position,
+            always_open_till,
         )
         if self._current_operation != IDLE:
             await self.stop()
@@ -332,10 +345,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
     @property
     def is_open(self) -> bool:
         """Whether the cover is currently open (position > 0).
-        
+
         Used by the action conditions system to evaluate ``is_open`` / ``is_closed``
         checks for covers.
-        
+
         Returns:
             True if the cover is not fully closed.
         """
@@ -365,12 +378,9 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             kind=self.kind,
             timestamp=self._last_timestamp,
             current_operation=self._current_operation,
-            **json_position
+            **json_position,
         )
-        self._event_bus.trigger_event(CoverEvent(
-            entity_id=self.id,
-            state=event
-        ))
+        self._event_bus.trigger_event(CoverEvent(entity_id=self.id, state=event))
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
         self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json.dumps(json_position))
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
-class RemoteDeviceProtocol(str, Enum):
+class RemoteDeviceProtocol(StrEnum):
     """Supported remote device protocols."""
     
     MQTT = "mqtt"
@@ -28,7 +28,7 @@ class RemoteDeviceProtocol(str, Enum):
     WLED = "wled"
 
 
-class RemoteDeviceType(str, Enum):
+class RemoteDeviceType(StrEnum):
     """Supported remote device types."""
     
     BONEIO_BLACK = "boneio_black"

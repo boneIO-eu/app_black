@@ -33,10 +33,14 @@ class BaseEntity(Filter):
         device_class: str | None = None,
         entity_category: str | None = None,
         value_type: str | None = None,
-        filters: list = [],
-        user_filters: list | None = [],
+        filters: list = None,
+        user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
+        if user_filters is None:
+            user_filters = []
+        if filters is None:
+            filters = []
         self._name = name
         self._custom_label: str | None = None
         self._parent = parent
@@ -223,7 +227,7 @@ class ModbusBaseEntity(BaseEntity):
         value_type: str | None = None,
         entity_category: str | None = None,
         filters: list | None = None,
-        user_filters: list | None = [],
+        user_filters: list | None = None,
         ha_filter: str = "",
     ) -> None:
         """
@@ -240,6 +244,8 @@ class ModbusBaseEntity(BaseEntity):
             user_filters: list of user filters
             filters: list of filters
         """
+        if user_filters is None:
+            user_filters = []
         super().__init__(
             name=name,
             parent=parent,

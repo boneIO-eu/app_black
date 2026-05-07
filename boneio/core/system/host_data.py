@@ -11,6 +11,7 @@ import logging
 import socket
 import time
 from collections.abc import Callable
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from boneio.const import (
@@ -317,11 +318,8 @@ class HostData:
         uptime_sensor = self._data.get(UPTIME)
         if uptime_sensor is None:
             return
-        try:
+        with suppress(RuntimeError):
             self._loop.create_task(uptime_sensor.async_update(time.time()))
-        except RuntimeError:
-            # Event loop not running (during shutdown)
-            pass
 
     @property
     def web_url(self) -> str | None:

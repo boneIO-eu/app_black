@@ -60,10 +60,9 @@ def migrate(doc: dict) -> dict:
         Migrated config dict.
     """
     # web.nginx_proxy_port -> web.proxy_port
-    if "web" in doc and isinstance(doc["web"], dict):
-        if "nginx_proxy_port" in doc["web"]:
-            _LOGGER.info("Migrating 'web.nginx_proxy_port' to 'web.proxy_port'")
-            doc["web"]["proxy_port"] = doc["web"].pop("nginx_proxy_port")
+    if "web" in doc and isinstance(doc["web"], dict) and "nginx_proxy_port" in doc["web"]:
+        _LOGGER.info("Migrating 'web.nginx_proxy_port' to 'web.proxy_port'")
+        doc["web"]["proxy_port"] = doc["web"].pop("nginx_proxy_port")
 
     # modbus_sensors -> modbus_devices (warning only)
     if "modbus_sensors" in doc:

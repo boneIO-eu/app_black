@@ -38,10 +38,12 @@ class BasicOutput(BasicMqtt):
         restored_state: bool = False,
         topic_type: str = OUTPUT,
         interlock_manager: SoftwareInterlockManager | None = None,
-        interlock_groups: list[str] = [],
+        interlock_groups: list[str] = None,
         **kwargs,
     ) -> None:
         """Initialize Basic output."""
+        if interlock_groups is None:
+            interlock_groups = []
         self._momentary_turn_on = kwargs.pop("momentary_turn_on", None)
         self._momentary_turn_off = kwargs.pop("momentary_turn_off", None)
 

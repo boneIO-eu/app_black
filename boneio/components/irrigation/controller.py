@@ -6,7 +6,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
 
 from boneio.components.irrigation.water_source import WaterSource
@@ -29,7 +29,7 @@ _DAYS_MAP = {
 }
 
 
-class ControllerState(str, Enum):
+class ControllerState(StrEnum):
     IDLE = "IDLE"
     RUNNING = "RUNNING"
     PAUSED = "PAUSED"

@@ -178,20 +178,18 @@ class MCP23017:
         Args:
             pin_number: Pin number (0-15)
         """
-        with self._lock:
-            # ATOMIC Read-Modify-Write for IODIR register
-            with self._i2c:
-                if pin_number < 8:
-                    # Port A (pins 0-7)
-                    iodir = self._read_register_unlocked(IODIRA)
-                    iodir &= ~(1 << pin_number)  # Clear bit = output
-                    self._write_register_unlocked(IODIRA, iodir)
-                else:
-                    # Port B (pins 8-15)
-                    pin_bit = pin_number - 8
-                    iodir = self._read_register_unlocked(IODIRB)
-                    iodir &= ~(1 << pin_bit)  # Clear bit = output
-                    self._write_register_unlocked(IODIRB, iodir)
+        with self._lock, self._i2c:
+            if pin_number < 8:
+                # Port A (pins 0-7)
+                iodir = self._read_register_unlocked(IODIRA)
+                iodir &= ~(1 << pin_number)  # Clear bit = output
+                self._write_register_unlocked(IODIRA, iodir)
+            else:
+                # Port B (pins 8-15)
+                pin_bit = pin_number - 8
+                iodir = self._read_register_unlocked(IODIRB)
+                iodir &= ~(1 << pin_bit)  # Clear bit = output
+                self._write_register_unlocked(IODIRB, iodir)
 
     def _write_pin(self, pin_number: int, value: bool) -> None:
         """Write value to a pin using ATOMIC hardware Read-Modify-Write.

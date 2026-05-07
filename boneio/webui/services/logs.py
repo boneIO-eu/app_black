@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -78,10 +79,8 @@ def parse_systemd_log_entry(entry: dict) -> dict:
     
     for ts_field in ('__REALTIME_TIMESTAMP', '__MONOTONIC_TIMESTAMP'):
         if ts_field in entry:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 entry[ts_field] = int(entry[ts_field])
-            except (TypeError, ValueError):
-                pass
     
     return entry
 

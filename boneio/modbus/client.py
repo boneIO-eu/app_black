@@ -5,6 +5,7 @@ import logging
 import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from typing import Any
 
 from pymodbus.client import ModbusSerialClient
@@ -138,14 +139,16 @@ class Modbus:
         if clamped_delay != inter_device_delay:
             _LOGGER.warning(
                 "inter_device_delay %dms out of range (0-200), clamped to %dms",
-                inter_device_delay, clamped_delay,
+                inter_device_delay,
+                clamped_delay,
             )
         self._inter_device_delay = clamped_delay / 1000.0  # ms -> seconds
         clamped_timeout = max(0.1, min(10.0, timeout))
         if clamped_timeout != timeout:
             _LOGGER.warning(
                 "timeout %.2fs out of range (0.1-10), clamped to %.2fs",
-                timeout, clamped_timeout,
+                timeout,
+                clamped_timeout,
             )
         timeout = clamped_timeout
         self._executor = ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="modbus_worker")
@@ -156,7 +159,7 @@ class Modbus:
         # 3.5 chars = ~4ms, we use slightly more for safety
         char_time_ms = (11 * 1000) / baudrate  # Time for 1 character in ms
         inter_char_timeout = (char_time_ms * 3.5) / 1000  # Convert to seconds
-        
+
         self._client = ModbusSerialClient(
             port=self._uart[ID],
             framer=FramerType.RTU,
@@ -169,7 +172,8 @@ class Modbus:
         )
         _LOGGER.debug(
             "ModbusSerialClient created successfully with timeout=%.2fs, retries=2, inter_device_delay=%dms",
-            timeout, inter_device_delay,
+            timeout,
+            inter_device_delay,
         )
 
     @property
@@ -215,13 +219,8 @@ class Modbus:
     def _reset_suspend_timeout(self) -> None:
         """Reset the auto-resume safety timer."""
         self._cancel_suspend_timeout()
-        try:
-            self._suspend_timeout_handle = self._loop.call_later(
-                SUSPEND_AUTO_TIMEOUT, self._auto_resume
-            )
-        except RuntimeError:
-            # Loop might be closed during shutdown
-            pass
+        with suppress(RuntimeError):
+            self._suspend_timeout_handle = self._loop.call_later(SUSPEND_AUTO_TIMEOUT, self._auto_resume)
 
     def _cancel_suspend_timeout(self) -> None:
         """Cancel the auto-resume safety timer."""
@@ -258,10 +257,10 @@ class Modbus:
 
     def _pymodbus_connect(self, silent: bool = False) -> bool:
         """Connect to Modbus device.
-        
+
         This method ensures the client is ready and connected.
         Returns False if client was closed.
-        
+
         Args:
             silent: If True, suppress debug logging (useful for scanning)
         """
@@ -270,14 +269,14 @@ class Modbus:
                 if not silent:
                     _LOGGER.error("Modbus client was closed")
                 return False
-            
+
             # Check if already connected
             if self._client.connected:
                 return True
-            
+
             # Try to connect (pymodbus 3.x handles this automatically on first request)
             result = self._client.connect()
-            
+
             if result:
                 if not silent:
                     _LOGGER.debug("Modbus client connected successfully")
@@ -286,7 +285,7 @@ class Modbus:
                 if not silent:
                     _LOGGER.error(f"Failed to connect Modbus client to {self._uart[ID]}")
                 return False
-                
+
         except ModbusException as exception_error:
             if not silent:
                 _LOGGER.error(f"ModbusException during connect: {exception_error}")
@@ -305,23 +304,19 @@ class Modbus:
         method: str = "input",
     ) -> float | None:
         """Call read_registers and decode."""
-        result = await self.read_registers(
-            unit=unit, address=address, count=count, method=method
-        )
+        result = await self.read_registers(unit=unit, address=address, count=count, method=method)
         if not result or isinstance(result, ExceptionResponse):
             return None
-        if not hasattr(result, 'registers'):
+        if not hasattr(result, "registers"):
             return None
-        decoded_value = self.decode_value(
-            payload=result.registers, value_type=payload_type
-        )
+        decoded_value = self.decode_value(payload=result.registers, value_type=payload_type)
         return decoded_value
 
     def read_registers_blocking(self, unit: int | str, address: int, count: int = 2, method: str = "input"):
         """Read registers blocking (synchronous)."""
         start_time = time.perf_counter()
         result = None
-        
+
         try:
             # In pymodbus 3.x, connection is automatic
             connected = self._pymodbus_connect()
@@ -341,7 +336,7 @@ class Modbus:
             # _pymodbus_connect() guarantees self._client is not None here
             assert self._client is not None
             kwargs = {"address": address, "count": count, "device_id": int(unit)}
-            
+
             if method == "input":
                 result = self._client.read_input_registers(**kwargs, no_response_expected=False)
             elif method == "holding":
@@ -358,19 +353,20 @@ class Modbus:
 
         except ValueError as exception_error:
             _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
-            pass
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error("Error reading registers from device %s at address %s: %s", unit, address, exception_error)
-            pass
         except TimeoutError:
             _LOGGER.error("Timeout reading registers from device %s at address %s", unit, address)
-            pass
         except asyncio.CancelledError as err:
             _LOGGER.error("Operation cancelled reading registers from device %s at address %s: %s", unit, address, err)
-            pass
         except Exception as e:
-            _LOGGER.error("Unexpected error reading registers from device %s at address %s: %s - %s", unit, address, type(e).__name__, e)
-            pass
+            _LOGGER.error(
+                "Unexpected error reading registers from device %s at address %s: %s - %s",
+                unit,
+                address,
+                type(e).__name__,
+                e,
+            )
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(
@@ -378,7 +374,7 @@ class Modbus:
                 end_time - start_time,
                 result.registers if result and hasattr(result, REGISTERS) else None,
             )
-            return result
+        return result
 
     def write_register_blocking(self, unit: int | str, address: int, value: int | float):
         """Write register blocking (synchronous)."""
@@ -409,26 +405,21 @@ class Modbus:
 
         except ValueError as exception_error:
             _LOGGER.error("ValueError: Error writing registers: %s", exception_error)
-            pass
         except (ModbusException, struct.error) as exception_error:
             _LOGGER.error("ModbusException: Error writing registers: %s", exception_error)
-            pass
         except TimeoutError:
             _LOGGER.error("Timeout writing registers to device %s", unit)
-            pass
         except asyncio.CancelledError as err:
             _LOGGER.error("Operation cancelled writing registers to device %s with error %s", unit, err)
-            pass
         except Exception as e:
             _LOGGER.error(f"Unexpected error writing registers: {type(e).__name__} - {e}")
-            pass
         finally:
             end_time = time.perf_counter()
             _LOGGER.debug(
                 "Write completed in %.3f seconds.",
                 end_time - start_time,
             )
-            return result
+        return result
 
     async def read_registers(
         self,
@@ -445,7 +436,9 @@ class Modbus:
         if self._suspended:
             return None
         async with self._lock:
-            result = await self._loop.run_in_executor(self._executor, self.read_registers_blocking, unit, address, count, method)
+            result = await self._loop.run_in_executor(
+                self._executor, self.read_registers_blocking, unit, address, count, method
+            )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result
@@ -464,8 +457,12 @@ class Modbus:
         """
         async with self._lock:
             result = await self._loop.run_in_executor(
-                self._executor, self.read_registers_blocking,
-                unit, address, count, method,
+                self._executor,
+                self.read_registers_blocking,
+                unit,
+                address,
+                count,
+                method,
             )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
@@ -473,45 +470,45 @@ class Modbus:
 
     def scan_device_blocking(self, unit: int, address: int = 1, method: str = "input", timeout: float = 0.3) -> bool:
         """Quick scan to check if device exists at address.
-        
+
         Uses short timeout and no retries for fast scanning.
-        
+
         Args:
             unit: Device address to scan
             address: Register address to read
             method: Register type (input/holding)
             timeout: Timeout in seconds (default 0.3s)
-            
+
         Returns:
             True if device responds, False otherwise
         """
         if self._client is None:
             return False
-            
+
         # Save original settings
         original_timeout = self._client.comm_params.timeout_connect
         original_retries = self._client.retries
-        
+
         try:
             # Set fast scan settings
             self._client.comm_params.timeout_connect = timeout
             self._client.retries = 0
-            
+
             # Ensure connected (silent mode - no logging during scan)
             if not self._pymodbus_connect(silent=True):
                 return False
-            
+
             # Try to read one register
             kwargs = {"address": address, "count": 1, "device_id": int(unit)}
-            
+
             if method == "input":
                 result = self._client.read_input_registers(**kwargs, no_response_expected=False)
             else:
                 result = self._client.read_holding_registers(**kwargs, no_response_expected=False)
-            
+
             # Check if we got a valid response
             return result is not None and hasattr(result, REGISTERS)
-            
+
         except Exception:
             return False
         finally:
@@ -523,32 +520,30 @@ class Modbus:
         """Async wrapper for scan_device_blocking."""
         async with self._lock:
             return await self._loop.run_in_executor(
-                self._executor, 
-                self.scan_device_blocking, 
-                unit, address, method, timeout
+                self._executor, self.scan_device_blocking, unit, address, method, timeout
             )
 
     def decode_value(self, payload, value_type):
         """Decode modbus registers to value using struct.
-        
+
         Similar to Home Assistant's approach but with type conversion.
         HA reads raw registers and leaves decoding to sensors.
         We decode here for convenience.
         """
         _payload_type = VALUE_TYPES[value_type]
-        
+
         # Convert registers (16-bit values) to bytes
         byte_list = []
         for register in payload:
             byte_list.append((register >> 8) & 0xFF)  # High byte
             byte_list.append(register & 0xFF)  # Low byte
-        
+
         byte_string = bytes(byte_list)
-        
+
         # Unpack using struct with appropriate format and byte order
         format_string = _payload_type["byteorder"] + _payload_type["format"]
-        value = struct.unpack(format_string, byte_string[:_payload_type["size"]])[0]
-        
+        value = struct.unpack(format_string, byte_string[: _payload_type["size"]])[0]
+
         return value
 
     async def write_register(self, unit: int | str, address: int, value: int | float):
@@ -559,7 +554,9 @@ class Modbus:
         if self._suspended:
             return None
         async with self._lock:
-            result = await self._loop.run_in_executor(self._executor, self.write_register_blocking, unit, address, value)
+            result = await self._loop.run_in_executor(
+                self._executor, self.write_register_blocking, unit, address, value
+            )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result
@@ -572,8 +569,11 @@ class Modbus:
         """
         async with self._lock:
             result = await self._loop.run_in_executor(
-                self._executor, self.write_register_blocking,
-                unit, address, value,
+                self._executor,
+                self.write_register_blocking,
+                unit,
+                address,
+                value,
             )
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)

@@ -16,7 +16,9 @@ class ModbusNumericWriteableEntityDiscrete(ModbusNumericSensor):
 
     _entity_type = SENSOR
 
-    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = [], step: float | str | None = None, **kwargs):
+    def __init__(self, coordinator: ModbusCoordinator, write_address: int | None = None, write_filters: list | None = None, step: float | str | None = None, **kwargs):
+        if write_filters is None:
+            write_filters = []
         ModbusNumericSensor.__init__(self, **kwargs)
         self._coordinator = coordinator
         self._write_address = write_address

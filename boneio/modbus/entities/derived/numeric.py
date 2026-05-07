@@ -24,9 +24,11 @@ class ModbusDerivedNumericSensor(ModbusDerivedEntity):
         config_helper: ConfigHelper,
         source_sensor_base_address: int,
         source_sensor_decoded_name: str,
-        user_filters: list | None = [],
+        user_filters: list | None = None,
         ha_filter: str = "round(2)",
     ) -> None:
+        if user_filters is None:
+            user_filters = []
         ModbusDerivedEntity.__init__(
             self,
             name=name,

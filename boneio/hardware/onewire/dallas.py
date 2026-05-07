@@ -71,9 +71,11 @@ class DallasSensor(TempSensor):
         if filters is None:
             filters = [{"round": 2}]
         
+        from contextlib import suppress
+
         # Initialize TempSensor (which doesn't use i2c parameter for Dallas)
         # We pass None as i2c since Dallas uses 1-Wire
-        try:
+        with suppress(Exception):
             super().__init__(
                 i2c=None,
                 address=address,
@@ -81,10 +83,6 @@ class DallasSensor(TempSensor):
                 filters=filters,
                 **kwargs,
             )
-        except Exception:
-            # TempSensor will try to initialize with SensorClass if set
-            # We need to handle Dallas specially since it uses different API
-            pass
         
         # Store address for later reference
         self._address = address
@@ -96,7 +94,7 @@ class DallasSensor(TempSensor):
             self._pct.get_temperature()
             _LOGGER.info("Dallas sensor %s initialized successfully", address)
         except (ValueError, W1ThermSensorError) as err:
-            raise OneWireError(f"Error initializing sensor {address}: {err}")
+            raise OneWireError(f"Error initializing sensor {address}: {err}") from err
 
     @property
     def address(self) -> str:

@@ -7,6 +7,7 @@ Handles node discovery, heartbeat monitoring, and PDO exchange.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -127,9 +128,7 @@ class CANopenManager:
 
         try:
             # Resolve node_id if set to 'auto'
-            if self._node_id == "auto" or (
-                isinstance(self._node_id, str) and self._node_id.lower() == "auto"
-            ):
+            if self._node_id == "auto" or (isinstance(self._node_id, str) and self._node_id.lower() == "auto"):
                 from boneio.hardware.can.node_id import resolve_node_id
 
                 mac = ""
@@ -147,14 +146,10 @@ class CANopenManager:
                 )
 
                 if not interface_exists(self._channel):
-                    _LOGGER.error(
-                        "CAN interface %s does not exist in the system", self._channel
-                    )
+                    _LOGGER.error("CAN interface %s does not exist in the system", self._channel)
                     return False
                 if not await setup_can_interface(self._channel, self._bitrate):
-                    _LOGGER.error(
-                        "Failed to auto-setup CAN interface %s", self._channel
-                    )
+                    _LOGGER.error("Failed to auto-setup CAN interface %s", self._channel)
                     return False
 
             # Create and connect client (node_id is guaranteed int after resolve)
@@ -239,16 +234,11 @@ class CANopenManager:
         if self._client is not None:
             self._client.add_heartbeat_callback(_collision_cb)
 
-        _LOGGER.info(
-            "Checking for node_id %d collision (%0.1fs)...", own_id, listen_seconds
-        )
+        _LOGGER.info("Checking for node_id %d collision (%0.1fs)...", own_id, listen_seconds)
         await asyncio.sleep(listen_seconds)
 
         # Remove temporary callback
-        if (
-            self._client is not None
-            and _collision_cb in self._client._heartbeat_callbacks
-        ):
+        if self._client is not None and _collision_cb in self._client._heartbeat_callbacks:
             self._client._heartbeat_callbacks.remove(_collision_cb)
 
         if collision_detected:
@@ -273,18 +263,14 @@ class CANopenManager:
         # Cancel background tasks
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._heartbeat_task
-            except asyncio.CancelledError:
-                pass
             self._heartbeat_task = None
 
         if self._monitor_task:
             self._monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitor_task
-            except asyncio.CancelledError:
-                pass
             self._monitor_task = None
 
         # Disconnect client
@@ -339,9 +325,7 @@ class CANopenManager:
         if not self.is_connected or self._client is None:
             return False
 
-        return await self._client.send_command_to_node(
-            target_node_id, output_index, state, brightness
-        )
+        return await self._client.send_command_to_node(target_node_id, output_index, state, brightness)
 
     async def assign_node_id(self, target_node_id: int, new_node_id: int) -> bool:
         """Assign a new Node ID to a target slave via SDO.
@@ -360,9 +344,7 @@ class CANopenManager:
         data = bytes([new_node_id])
         success = await self._client.send_sdo_download(target_node_id, 0x2000, data)
         if success:
-            _LOGGER.info(
-                "Assigned new Node ID %d to Node %d", new_node_id, target_node_id
-            )
+            _LOGGER.info("Assigned new Node ID %d to Node %d", new_node_id, target_node_id)
         return success
 
     async def send_config(self, target_node_id: int, config_yaml: str) -> bool:
@@ -383,13 +365,9 @@ class CANopenManager:
         success = await self._client.send_sdo_download(target_node_id, 0x2001, data)
         if success:
             # 0x2002 is Trigger Configuration Update
-            success = await self._client.send_sdo_download(
-                target_node_id, 0x2002, bytes([1])
-            )
+            success = await self._client.send_sdo_download(target_node_id, 0x2002, bytes([1]))
             if success:
-                _LOGGER.info(
-                    "Successfully pushed configuration to Node %d", target_node_id
-                )
+                _LOGGER.info("Successfully pushed configuration to Node %d", target_node_id)
         return success
 
     def add_output_state_callback(
@@ -473,13 +451,9 @@ class CANopenManager:
                         from boneio.hardware.can.interface import restart_can_interface
 
                         if await restart_can_interface(self._channel, self._bitrate):
-                            _LOGGER.info(
-                                "CAN interface %s restarted successfully", self._channel
-                            )
+                            _LOGGER.info("CAN interface %s restarted successfully", self._channel)
                         else:
-                            _LOGGER.error(
-                                "Failed to restart CAN interface %s", self._channel
-                            )
+                            _LOGGER.error("Failed to restart CAN interface %s", self._channel)
 
                 await asyncio.sleep(1.0)
             except asyncio.CancelledError:
@@ -506,15 +480,11 @@ class CANopenManager:
         if self._manager is not None:
             config_dir = os.path.dirname(self._manager._config_file_path)
             if persist_node_id(config_dir, new_node_id):
-                _LOGGER.info(
-                    "Successfully persisted new Node ID. Restarting interface."
-                )
+                _LOGGER.info("Successfully persisted new Node ID. Restarting interface.")
                 if self._auto_setup:
                     from boneio.hardware.can.interface import restart_can_interface
 
-                    asyncio.create_task(
-                        restart_can_interface(self._channel, self._bitrate)
-                    )
+                    asyncio.create_task(restart_can_interface(self._channel, self._bitrate))
                 # Also, we should restart boneIO, or update `self._node_id`.
                 # Since restart_can_interface doesn't restart the app, we need to restart the CANopenClient.
                 asyncio.create_task(self._restart_canopen_manager())
@@ -614,9 +584,7 @@ class CANopenManager:
             )
             # Execute locally via Manager
             if self._manager is not None:
-                asyncio.get_event_loop().create_task(
-                    self._execute_local_output_command(output_index, state)
-                )
+                asyncio.get_event_loop().create_task(self._execute_local_output_command(output_index, state))
             return
 
         # TPDO1: 0x180 + node_id — output state broadcast from other nodes
@@ -649,9 +617,7 @@ class CANopenManager:
             except Exception as e:
                 _LOGGER.error("Failed to parse PDO data: %s", e)
 
-    async def _execute_local_output_command(
-        self, output_index: int, state: int
-    ) -> None:
+    async def _execute_local_output_command(self, output_index: int, state: int) -> None:
         """Execute output command locally (slave receiving RPDO from master).
 
         Finds the output by index and toggles/sets it.

@@ -224,11 +224,10 @@ def convert_cerberus_to_json_schema(cerberus_schema: dict[str, Any]) -> dict[str
             # field_schema["examples"] = [schema["allowed"][0]] if schema["allowed"] else []
 
         # Handle descriptions from meta
-        if "meta" in schema and isinstance(schema["meta"], dict):
-            if "label" in schema["meta"]:
-                field_schema["description"] = schema["meta"]["label"]
-                # Add title for better IDE support
-                field_schema["title"] = field.replace("_", " ").capitalize()
+        if "meta" in schema and isinstance(schema["meta"], dict) and "label" in schema["meta"]:
+            field_schema["description"] = schema["meta"]["label"]
+            # Add title for better IDE support
+            field_schema["title"] = field.replace("_", " ").capitalize()
 
         # Handle dependencies - convert to x-dependencies for custom handling in UI
         if "dependencies" in schema:

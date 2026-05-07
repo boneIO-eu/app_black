@@ -67,7 +67,7 @@ async def test_action(
         parsed = manager.parse_actions(pin="__test__", actions=fake_actions)
     except Exception as e:
         _LOGGER.warning("Test-action parse error: %s", e)
-        raise HTTPException(status_code=400, detail=f"Failed to parse action: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse action: {e}") from None
 
     actions_list = parsed.get("single", [])
     if not actions_list:
@@ -80,7 +80,7 @@ async def test_action(
         await manager.execute_actions(actions=actions_list)
     except Exception as e:
         _LOGGER.error("Test-action execution error: %s", e)
-        raise HTTPException(status_code=500, detail=f"Action execution failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Action execution failed: {e}") from None
 
     return {"status": "success"}
 
@@ -199,7 +199,7 @@ async def scan_i2c(bus: int = 2) -> I2CScanResponse:
         return I2CScanResponse(bus=bus, devices=[], raw_output="", error=error_msg)
     except Exception as e:
         _LOGGER.warning("Error scanning I2C bus %d: %s", bus, e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from None
 
 
 def _parse_i2cdetect_output(output: str) -> list[I2CDevice]:
@@ -230,7 +230,7 @@ def _parse_i2cdetect_output(output: str) -> list[I2CDevice]:
             continue
 
         cells = parts[1].split()
-        for col, cell in enumerate(cells):
+        for _col, cell in enumerate(cells):
             cell = cell.strip()
             if cell == "--" or cell == "UU" or not cell:
                 continue

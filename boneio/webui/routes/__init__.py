@@ -6,6 +6,7 @@ from boneio.webui.routes.can import router as can_router
 from boneio.webui.routes.config import router as config_router
 from boneio.webui.routes.covers import router as covers_router
 from boneio.webui.routes.irrigation import router as irrigation_router
+from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
 from boneio.webui.routes.outputs import router as outputs_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
@@ -13,7 +14,6 @@ from boneio.webui.routes.sensors import router as sensors_router
 from boneio.webui.routes.system import router as system_router
 from boneio.webui.routes.templates import router as templates_router
 from boneio.webui.routes.tools import router as tools_router
-from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.update import router as update_router
 
 __all__ = [

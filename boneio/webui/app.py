@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import secrets
 from pathlib import Path
@@ -49,13 +50,13 @@ from boneio.webui.routes import (
     config_router,
     covers_router,
     irrigation_router,
+    migrations_router,
     modbus_router,
     outputs_router,
     remote_devices_router,
     sensors_router,
     system_router,
     templates_router,
-    migrations_router,
     tools_router,
     update_router,
 )
@@ -95,33 +96,25 @@ class BoneIOApp(FastAPI):
                         try:
                             await send({"type": "lifespan.startup.complete"})
                         except Exception as e:
-                            await send(
-                                {"type": "lifespan.startup.failed", "message": str(e)}
-                            )
+                            await send({"type": "lifespan.startup.failed", "message": str(e)})
                     elif message["type"] == "lifespan.shutdown":
                         try:
                             _LOGGER.debug("Starting lifespan shutdown...")
                             await self.shutdown_handler()
-                            _LOGGER.debug(
-                                "WebSocket connections closed, sending shutdown complete..."
-                            )
+                            _LOGGER.debug("WebSocket connections closed, sending shutdown complete...")
                             await send({"type": "lifespan.shutdown.complete"})
                             _LOGGER.debug("Lifespan shutdown complete sent.")
                         except Exception as e:
                             _LOGGER.error("Error during lifespan shutdown: %s", e)
-                            await send(
-                                {"type": "lifespan.shutdown.failed", "message": str(e)}
-                            )
+                            await send({"type": "lifespan.shutdown.failed", "message": str(e)})
                         return
             except (asyncio.CancelledError, GracefulExit):
                 _LOGGER.debug("GracefulExit during lifespan, cleaning up...")
                 await self.shutdown_handler()
                 _LOGGER.debug("Lifespan cleanup complete.")
                 return
-        try:
+        with contextlib.suppress(Exception):
             await super().__call__(scope, receive, send)
-        except Exception:
-            pass
 
 
 # Create FastAPI application
@@ -164,13 +157,13 @@ app.include_router(migrations_router)
 # Override get_manager dependency in routers using FastAPI dependency_overrides
 from boneio.webui.routes import covers as covers_module
 from boneio.webui.routes import irrigation as irrigation_module
+from boneio.webui.routes import migrations as migrations_module
 from boneio.webui.routes import modbus as modbus_module
 from boneio.webui.routes import outputs as outputs_module
 from boneio.webui.routes import remote_devices as remote_devices_module
 from boneio.webui.routes import sensors as sensors_module
 from boneio.webui.routes import templates as templates_module
 from boneio.webui.routes import tools as tools_module
-from boneio.webui.routes import migrations as migrations_module
 from boneio.webui.routes import update as update_module
 
 # Use dependency_overrides to replace the placeholder get_manager functions
@@ -256,24 +249,12 @@ def add_all_websocket_listeners(boneio_manager: Manager):
 
 def remove_all_websocket_listeners(boneio_manager: Manager):
     """Remove all global WebSocket listeners."""
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="output", listener_id="ws_output_global"
-    )
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="group", listener_id="ws_group_global"
-    )
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="cover", listener_id="ws_cover_global"
-    )
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="input", listener_id="ws_input_global"
-    )
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="modbus_device", listener_id="ws_modbus_global"
-    )
-    boneio_manager.event_bus.remove_event_listener(
-        event_type="sensor", listener_id="ws_sensor_global"
-    )
+    boneio_manager.event_bus.remove_event_listener(event_type="output", listener_id="ws_output_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="group", listener_id="ws_group_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="cover", listener_id="ws_cover_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="input", listener_id="ws_input_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="modbus_device", listener_id="ws_modbus_global")
+    boneio_manager.event_bus.remove_event_listener(event_type="sensor", listener_id="ws_sensor_global")
 
 
 # ============================================================================
@@ -379,7 +360,7 @@ async def send_initial_states(
                     timestamp=output.last_timestamp,
                     area=getattr(output, "area", None),
                     interlock_groups=getattr(output, "_interlock_groups", []),
-                    **adjustable_duration_kwargs
+                    **adjustable_duration_kwargs,
                 )
                 update = OutputEvent(entity_id=output.id, state=output_state)
                 if not await send_state_update(update):
@@ -441,15 +422,11 @@ async def send_initial_states(
                             coordinator_id=modbus_coordinator._id,
                             step=getattr(entity, "step", None),
                         )
-                        update = ModbusDeviceEvent(
-                            entity_id=entity.id, state=sensor_state
-                        )
+                        update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                         if not await send_state_update(update):
                             return False
                     except Exception as e:
-                        _LOGGER.error(
-                            f"Error preparing modbus sensor state: {type(e).__name__} - {e}"
-                        )
+                        _LOGGER.error(f"Error preparing modbus sensor state: {type(e).__name__} - {e}")
 
             for additional_entities in modbus_coordinator.get_all_additional_entities():
                 for entity in additional_entities.values():
@@ -463,9 +440,7 @@ async def send_initial_states(
                             name=entity.name,
                             state=entity.state,
                             unit=None,
-                            timestamp=entity.last_timestamp
-                            if hasattr(entity, "last_timestamp")
-                            else None,
+                            timestamp=entity.last_timestamp if hasattr(entity, "last_timestamp") else None,
                             device_group=modbus_coordinator.name,
                             coordinator_id=modbus_coordinator._id,
                             entity_type=entity.entity_type,
@@ -474,15 +449,11 @@ async def send_initial_states(
                             payload_off=payload_off,
                             step=getattr(entity, "step", None),
                         )
-                        update = ModbusDeviceEvent(
-                            entity_id=entity.id, state=sensor_state
-                        )
+                        update = ModbusDeviceEvent(entity_id=entity.id, state=sensor_state)
                         if not await send_state_update(update):
                             return False
                     except Exception as e:
-                        _LOGGER.error(
-                            f"Error preparing modbus additional entity state: {type(e).__name__} - {e}"
-                        )
+                        _LOGGER.error(f"Error preparing modbus additional entity state: {type(e).__name__} - {e}")
 
         # Send INA219 sensor states
         for single_ina_device in boneio_manager.sensors.get_ina219_sensors():
@@ -499,9 +470,7 @@ async def send_initial_states(
                     if not await send_state_update(update):
                         return False
                 except Exception as e:
-                    _LOGGER.error(
-                        f"Error preparing INA219 sensor state: {type(e).__name__} - {e}"
-                    )
+                    _LOGGER.error(f"Error preparing INA219 sensor state: {type(e).__name__} - {e}")
 
         # Send temperature sensor states
         for sensor in boneio_manager.sensors.get_all_temp_sensors():
@@ -517,9 +486,7 @@ async def send_initial_states(
                 if not await send_state_update(update):
                     return False
             except Exception as e:
-                _LOGGER.error(
-                    f"Error preparing temperature sensor state: {type(e).__name__} - {e}"
-                )
+                _LOGGER.error(f"Error preparing temperature sensor state: {type(e).__name__} - {e}")
 
         # Send ADC sensor states
         for sensor in boneio_manager.sensors.get_adc_sensors():
@@ -529,15 +496,13 @@ async def send_initial_states(
                     name=sensor.name,
                     state=sensor.state,
                     unit="V",
-                    timestamp=getattr(sensor, '_timestamp', None),
+                    timestamp=getattr(sensor, "_timestamp", None),
                 )
                 update = SensorEvent(entity_id=sensor.id, state=sensor_state)
                 if not await send_state_update(update):
                     return False
             except Exception as e:
-                _LOGGER.error(
-                    f"Error preparing ADC sensor state: {type(e).__name__} - {e}"
-                )
+                _LOGGER.error(f"Error preparing ADC sensor state: {type(e).__name__} - {e}")
 
         # Send virtual energy sensor states
         for ve_sensor in boneio_manager.sensors.get_virtual_energy_sensors():
@@ -554,9 +519,7 @@ async def send_initial_states(
                         unit="W",
                         timestamp=int(time.time()),
                     )
-                    update = SensorEvent(
-                        entity_id=f"{ve_sensor.id}_power", state=power_state
-                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_power", state=power_state)
                     if not await send_state_update(update):
                         return False
                     # Total energy (Wh)
@@ -567,9 +530,7 @@ async def send_initial_states(
                         unit="Wh",
                         timestamp=int(time.time()),
                     )
-                    update = SensorEvent(
-                        entity_id=f"{ve_sensor.id}_energy", state=energy_state
-                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_energy", state=energy_state)
                     if not await send_state_update(update):
                         return False
                 # For water sensors: send current flow rate and total water
@@ -582,9 +543,7 @@ async def send_initial_states(
                         unit="L/h",
                         timestamp=int(time.time()),
                     )
-                    update = SensorEvent(
-                        entity_id=f"{ve_sensor.id}_flow", state=flow_state
-                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_flow", state=flow_state)
                     if not await send_state_update(update):
                         return False
                     # Total water (L)
@@ -595,15 +554,11 @@ async def send_initial_states(
                         unit="L",
                         timestamp=int(time.time()),
                     )
-                    update = SensorEvent(
-                        entity_id=f"{ve_sensor.id}_water", state=water_state
-                    )
+                    update = SensorEvent(entity_id=f"{ve_sensor.id}_water", state=water_state)
                     if not await send_state_update(update):
                         return False
             except Exception as e:
-                _LOGGER.error(
-                    f"Error preparing virtual energy sensor state: {type(e).__name__} - {e}"
-                )
+                _LOGGER.error(f"Error preparing virtual energy sensor state: {type(e).__name__} - {e}")
 
         return True
 
@@ -616,9 +571,7 @@ async def send_initial_states(
 
 
 @app.websocket("/ws/state")
-async def websocket_endpoint(
-    websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)
-):
+async def websocket_endpoint(websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)):
     """WebSocket endpoint for all state updates."""
     try:
         websocket_manager: WebSocketManager = app.state.websocket_manager
@@ -636,9 +589,7 @@ async def websocket_endpoint(
                 # Keep connection alive and handle messages
                 while True:
                     try:
-                        data = await asyncio.wait_for(
-                            websocket.receive_text(), timeout=1.0
-                        )
+                        data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
                         if data == "ping":
                             await websocket.send_text("pong")
                         elif data == "request_state":
@@ -661,9 +612,7 @@ async def websocket_endpoint(
     except KeyboardInterrupt:
         _LOGGER.info("WebSocket connection interrupted by user.")
     except Exception as e:
-        _LOGGER.error(
-            f"Unexpected error in WebSocket handler: {type(e).__name__} - {e}"
-        )
+        _LOGGER.error(f"Unexpected error in WebSocket handler: {type(e).__name__} - {e}")
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
         if not app.state.websocket_manager.active_connections:
@@ -679,7 +628,7 @@ def init_app(
     manager: Manager,
     yaml_config_file: str,
     config_helper: ConfigHelper,
-    auth_config: dict = {},
+    auth_config: dict = None,
     jwt_secret: str | None = None,
     web_server: WebServer | None = None,
     initial_config: dict | None = None,
@@ -700,6 +649,8 @@ def init_app(
         Configured BoneIOApp instance.
     """
     # Set JWT secret
+    if auth_config is None:
+        auth_config = {}
     if not jwt_secret:
         jwt_secret = secrets.token_hex(32)
 
@@ -712,9 +663,7 @@ def init_app(
     app.state.yaml_config_file = yaml_config_file
     app.state.web_server = web_server
     app.state.config_helper = config_helper
-    app.state.websocket_manager = WebSocketManager(
-        jwt_secret=jwt_secret, auth_required=bool(auth_config)
-    )
+    app.state.websocket_manager = WebSocketManager(jwt_secret=jwt_secret, auth_required=bool(auth_config))
 
     # Configure route modules with app state
     config_module.set_app_state(app.state)
@@ -840,12 +789,7 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         being served through Cloudflare Tunnel or other caching proxies.
         """
         file_path = (FRONTEND_DIR / filename).resolve()
-        if (
-            filename
-            and file_path.is_relative_to(FRONTEND_DIR.resolve())
-            and file_path.exists()
-            and file_path.is_file()
-        ):
+        if filename and file_path.is_relative_to(FRONTEND_DIR.resolve()) and file_path.exists() and file_path.is_file():
             # Hashed assets can be cached forever
             if filename.startswith("assets/"):
                 return FileResponse(
