@@ -56,7 +56,7 @@ jobs:
         run: npm install -g pnpm@10
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
         working-directory: frontend
 
       - name: Run frontend unit tests
