@@ -87,7 +87,7 @@ jobs:
           node-version: '22'  # Latest LTS
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: npm install -g pnpm@10
 
       - name: Build Frontend
         working-directory: frontend
