@@ -652,12 +652,16 @@ class Oled:
         _LOGGER.debug("OLED display sleeping")
 
     def wake_up(self) -> None:
-        """Wake up display."""
+        """Wake up display and restart sleep timer."""
         self._sleep = False
         if self._cancel_sleep_handle:
             self._cancel_sleep_handle()
             self._cancel_sleep_handle = None
-        self._update_display()
+        # Use render_display() (not _update_display) so the sleep timer
+        # is restarted.  Previously _update_display() was used, which
+        # never schedules start_sleep_timer() — causing the screen to
+        # stay on forever after a single-click wake-up.
+        self.render_display()
 
     def shutdown(self) -> None:
         """Shutdown OLED display."""

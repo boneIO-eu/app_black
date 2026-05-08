@@ -24,6 +24,7 @@ from boneio.core.config.yaml_util import (
     get_board_config_path,
     load_config_from_file,
     load_yaml_file,
+    merge_board_config,
     normalize_board_name,
     normalize_version,
     update_config_section,
@@ -253,46 +254,81 @@ async def get_parsed_config():
             return {"config": _config_cache["data"]}
 
         start = time.time()
-        # Use load_yaml_file instead of load_config_from_file to get raw YAML data
-        # without TimePeriod parsing - frontend expects strings like "220ms", not objects
-        config_data = load_yaml_file(config_file)
+        # Use ConfigHelper.get_config() to get the fully validated config.
+        # This includes board defaults (output_type, kind, mcp_id, pin) from
+        # merge_board_config AND Cerberus schema defaults (restore_state: true).
+        # Previously used load_yaml_file() which returns raw YAML without
+        # board/schema defaults — causing output_type and restore_state to
+        # disappear after config cache invalidation (e.g., after saving covers).
+        # The frontend already handles TimePeriod objects from the initial cache.
+        try:
+            manager: Manager = _get_app_state().manager
+            source_config = manager.config_helper.get_config()
+        except Exception:
+            # Fallback to raw YAML + board merge if manager not ready
+            source_config = load_yaml_file(config_file)
+            try:
+                source_config = merge_board_config(source_config)
+            except Exception as merge_err:
+                _LOGGER.warning("Failed to merge board config for API response: %s", merge_err)
+
+        # Shallow copy top-level dict so we can replace list values without
+        # mutating ConfigHelper's internal cache.  Only sections that receive
+        # ID enrichment below need their items shallow-copied; everything
+        # else is shared by reference (zero-cost).
+        config_data = dict(source_config)
 
         # Enrich output entities with generated IDs if not explicitly defined
         # Strategy: explicit 'id' > 'boneio_output' > 'name' (slugified)
         if "output" in config_data and isinstance(config_data["output"], list):
+            import re
+
+            enriched: list[dict] = []
             for output in config_data["output"]:
                 if not output.get("id"):
-                    # Use boneio_output as id if available
-                    if output.get("boneio_output"):
-                        output["id"] = output["boneio_output"]
-                    elif output.get("name"):
-                        # Slugify name as fallback
-                        import re
-
-                        name = output["name"].lower()
+                    out = dict(output)  # shallow copy — only this item
+                    if out.get("boneio_output"):
+                        out["id"] = out["boneio_output"]
+                    elif out.get("name"):
+                        name = out["name"].lower()
                         name = re.sub(r"[^a-z0-9]+", "_", name)
-                        output["id"] = name.strip("_")
+                        out["id"] = name.strip("_")
+                    enriched.append(out)
+                else:
+                    enriched.append(output)
+            config_data["output"] = enriched
 
         # Enrich cover entities with generated IDs if not explicitly defined
         if "cover" in config_data and isinstance(config_data["cover"], list):
+            enriched_covers: list[dict] = []
             for cover in config_data["cover"]:
                 if not cover.get("id"):
-                    # Generate ID from open_relay and close_relay (same logic as CoverManager)
-                    open_relay = cover.get("open_relay", "")
-                    close_relay = cover.get("close_relay", "")
+                    cov = dict(cover)
+                    open_relay = cov.get("open_relay", "")
+                    close_relay = cov.get("close_relay", "")
                     if open_relay and close_relay:
-                        cover["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
+                        cov["id"] = f"cover_{open_relay}_{close_relay}".lower().replace(" ", "_")
+                    enriched_covers.append(cov)
+                else:
+                    enriched_covers.append(cover)
+            config_data["cover"] = enriched_covers
 
         # Enrich output_group entities with generated IDs if not explicitly defined
         # Strategy: explicit 'id' > 'name' (slugified)
         if "output_group" in config_data and isinstance(config_data["output_group"], list):
             import re
 
+            enriched_groups: list[dict] = []
             for group in config_data["output_group"]:
                 if not group.get("id") and group.get("name"):
-                    name = group["name"].lower()
+                    grp = dict(group)
+                    name = grp["name"].lower()
                     name = re.sub(r"[^a-z0-9]+", "_", name)
-                    group["id"] = name.strip("_")
+                    grp["id"] = name.strip("_")
+                    enriched_groups.append(grp)
+                else:
+                    enriched_groups.append(group)
+            config_data["output_group"] = enriched_groups
 
         elapsed = time.time() - start
 
