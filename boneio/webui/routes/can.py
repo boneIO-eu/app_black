@@ -11,12 +11,22 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from typing import TypedDict
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from boneio.core.manager import Manager
+
+
+class _SudoStep(TypedDict):
+    """Typed definition of a sudo command step."""
+
+    name: str
+    cmd: list[str]
+    ignore_error: bool
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -196,9 +206,7 @@ async def get_can_nodes(manager: Manager = Depends(get_manager)):
 
 
 @router.post("/nodes/assign")
-async def assign_node_id(
-    body: NodeAssignRequest, manager: Manager = Depends(get_manager)
-):
+async def assign_node_id(body: NodeAssignRequest, manager: Manager = Depends(get_manager)):
     """Assign a new Node ID to an Unconfigured Node (ID 127)."""
     canopen = manager.canopen
     if not canopen or not canopen.is_enabled:
@@ -215,9 +223,7 @@ async def assign_node_id(
 
 
 @router.post("/nodes/{node_id}/config")
-async def send_node_config(
-    node_id: int, body: NodeConfigRequest, manager: Manager = Depends(get_manager)
-):
+async def send_node_config(node_id: int, body: NodeConfigRequest, manager: Manager = Depends(get_manager)):
     """Push YAML config over CAN bus to Slave using SDO."""
     canopen = manager.canopen
     if not canopen or not canopen.is_enabled:
@@ -263,11 +269,7 @@ async def get_can_status(interface: str = DEFAULT_INTERFACE):
             }
 
         output = stdout.decode()
-        is_up = (
-            "UP" in output and "NOARP" not in output.split("UP")[0].split("<")[-1]
-            if "UP" in output
-            else False
-        )
+        is_up = "UP" in output and "NOARP" not in output.split("UP")[0].split("<")[-1] if "UP" in output else False
         # Simpler check: look for state UP
         is_up = ",UP," in output or "<UP," in output or ",UP>" in output
 
@@ -313,7 +315,7 @@ async def bring_interface_up(body: InterfaceUpRequest):
     """
     _validate_interface(body.interface)
 
-    steps = [
+    steps: list[_SudoStep] = [
         {
             "name": "link down",
             "cmd": ["ip", "link", "set", body.interface, "down"],
@@ -406,9 +408,7 @@ async def can_send(body: CanSendRequest):
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=5)
 
         if proc.returncode != 0:
-            error_msg = (
-                stderr.decode().strip() or f"cansend exited with code {proc.returncode}"
-            )
+            error_msg = stderr.decode().strip() or f"cansend exited with code {proc.returncode}"
             return {"status": "error", "message": error_msg}
 
         return {
@@ -497,4 +497,3 @@ async def can_dump(interface: str = DEFAULT_INTERFACE, duration: int = 30):
             "X-Accel-Buffering": "no",
         },
     )
-

@@ -21,8 +21,8 @@ mock_gpiod.line.Direction = MagicMock()
 mock_gpiod.line.Edge = MagicMock()
 mock_gpiod.EdgeEvent = MagicMock()
 mock_gpiod.LineRequest = MagicMock()
-sys.modules['gpiod'] = mock_gpiod
-sys.modules['gpiod.line'] = mock_gpiod.line
+sys.modules["gpiod"] = mock_gpiod
+sys.modules["gpiod.line"] = mock_gpiod.line
 
 from boneio.const import COVER
 from boneio.core.utils import TimePeriod
@@ -131,6 +131,7 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         cover = cover_mgr.get_cover("test_cover")
@@ -144,9 +145,11 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
         assert cover._open_relay.id == "OUT_01"
         assert cover._close_relay.id == "OUT_02"
 
@@ -159,6 +162,7 @@ class TestCoverManagerRelayReload:
 
         # Same cover object, but relays should be updated
         cover_after = cover_mgr.get_cover("test_cover")
+        assert cover_after is not None
         assert cover_after is cover, "Should be the same cover instance (not recreated)"
         assert cover_after._open_relay.id == "OUT_03", "Open relay should be updated to OUT_03"
         assert cover_after._close_relay.id == "OUT_04", "Close relay should be updated to OUT_04"
@@ -168,9 +172,11 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
         original_open = cover._open_relay
         original_close = cover._close_relay
 
@@ -182,6 +188,7 @@ class TestCoverManagerRelayReload:
         cover_mgr.reload_covers()
 
         cover_after = cover_mgr.get_cover("test_cover")
+        assert cover_after is not None
         assert cover_after is cover
         # Relay objects are replaced (same id though), that's fine
         assert cover_after._open_relay.id == "OUT_01"
@@ -192,9 +199,11 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         cover_before = cover_mgr.get_cover("test_cover")
+        assert cover_before is not None
         assert cover_before.kind == "time"
 
         venetian_config = [
@@ -219,6 +228,7 @@ class TestCoverManagerRelayReload:
         cover_mgr.reload_covers()
 
         cover_after = cover_mgr.get_cover("test_cover")
+        assert cover_after is not None
         assert cover_after is not cover_before, "Cover should be recreated when platform changes"
         assert cover_after.kind == "venetian"
         assert cover_after._open_relay.id == "OUT_03"
@@ -229,9 +239,11 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         cover = cover_mgr.get_cover("test_cover")
+        assert cover is not None
         assert cover._open_time == 10000  # 10s in ms
         assert cover._close_time == 10000
 
@@ -275,6 +287,7 @@ class TestCoverManagerRelayReload:
         ]
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=config)
 
         cover = cover_mgr.get_cover("test_cover")
@@ -286,6 +299,7 @@ class TestCoverManagerRelayReload:
         manager = _make_mock_manager(relays)
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
 
         assert cover_mgr.get_cover("test_cover") is not None
@@ -329,6 +343,7 @@ class TestCoverManagerRelayReload:
         ]
 
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=two_covers_config)
 
         assert len(cover_mgr.get_all_covers()) == 2
@@ -384,6 +399,7 @@ class TestSmartToggle:
         """When position <= threshold, smart_toggle should open."""
         manager = _make_mock_manager(relays)
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None
@@ -401,6 +417,7 @@ class TestSmartToggle:
         """When position == threshold, smart_toggle should open."""
         manager = _make_mock_manager(relays)
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None
@@ -416,6 +433,7 @@ class TestSmartToggle:
         """When position > threshold and last_operation was closing, should open (normal toggle)."""
         manager = _make_mock_manager(relays)
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None
@@ -431,6 +449,7 @@ class TestSmartToggle:
         """When position > threshold and last_operation was opening, should close (normal toggle)."""
         manager = _make_mock_manager(relays)
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None
@@ -446,6 +465,7 @@ class TestSmartToggle:
         """When cover is moving, smart_toggle should stop (not open/close)."""
         manager = _make_mock_manager(relays)
         from boneio.core.manager.covers import CoverManager
+
         cover_mgr = CoverManager(manager=manager, cover_config=initial_cover_config)
         cover = cover_mgr.get_cover("test_cover")
         assert cover is not None
@@ -457,9 +477,10 @@ class TestSmartToggle:
         stop_called = False
         original_stop = cover.stop
 
-        async def mock_stop():
+        async def mock_stop(on_exit=False):
             nonlocal stop_called
             stop_called = True
+            assert cover is not None
             cover._current_operation = "idle"
 
         cover.stop = mock_stop
@@ -467,5 +488,3 @@ class TestSmartToggle:
         assert stop_called, "stop() should be called when cover is moving"
         assert cover._current_operation == "idle"
         cover.stop = original_stop
-
-

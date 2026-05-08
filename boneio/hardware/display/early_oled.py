@@ -28,7 +28,7 @@ _taken_over: bool = False  # Set True when DisplayManager takes control
 
 def _get_fonts() -> dict[str, Any] | None:
     """Lazily load fonts for OLED display.
-    
+
     Returns:
         Dictionary with font objects keyed by size name, or None if
         no font libraries are available (PIL/Pillow not installed).
@@ -39,6 +39,7 @@ def _get_fonts() -> dict[str, Any] | None:
 
     try:
         from boneio.core.utils.font_util import make_font
+
         _fonts = {
             "big": make_font("DejaVuSans.ttf", 12),
             "small": make_font("DejaVuSans.ttf", 9),
@@ -48,6 +49,7 @@ def _get_fonts() -> dict[str, Any] | None:
     except (OSError, ImportError):
         try:
             from PIL import ImageFont
+
             _LOGGER.debug("TTF fonts not found, using default PIL fonts")
             _fonts = {
                 "big": ImageFont.load_default(),
@@ -63,13 +65,13 @@ def _get_fonts() -> dict[str, Any] | None:
 
 def init_early_oled() -> Any | None:
     """Initialize bare OLED device for startup status messages.
-    
+
     Creates the I2C connection and SH1106 device early, before the Manager
     or even config validation. This allows displaying boot progress,
     config errors, and crash info on the OLED screen.
-    
+
     Call this once at the very start of the application.
-    
+
     Returns:
         sh1106 device instance or None if OLED hardware is not available.
     """
@@ -80,6 +82,7 @@ def init_early_oled() -> Any | None:
     try:
         from luma.core.interface.serial import i2c
         from luma.oled.device import sh1106
+
         serial = i2c(port=2, address=0x3C)
         _early_device = sh1106(serial)
         _LOGGER.debug("Early OLED device initialized for startup messages")
@@ -91,7 +94,7 @@ def init_early_oled() -> Any | None:
 
 def get_early_device() -> Any | None:
     """Get the early-initialized OLED device singleton.
-    
+
     Returns:
         sh1106 device instance or None if not initialized.
     """
@@ -100,7 +103,7 @@ def get_early_device() -> Any | None:
 
 def handoff() -> None:
     """Signal that DisplayManager has taken over the OLED.
-    
+
     After this call, draw_status/draw_error/draw_config_error become no-ops.
     Only draw_crash still works (safety — must always show fatal errors).
     """
@@ -116,9 +119,9 @@ def is_taken_over() -> bool:
 
 def draw_status(message: str, device: Any | None = None) -> None:
     """Draw a startup/status message on the OLED display.
-    
+
     Shows the boneIO logo at the top and a status line below.
-    
+
     Args:
         message: Status message to display (max ~20 chars for good readability).
         device: Optional device override; uses singleton if not provided.
@@ -128,6 +131,7 @@ def draw_status(message: str, device: Any | None = None) -> None:
         return
     try:
         from luma.core.render import canvas
+
         fonts = _get_fonts()
         if fonts is None:
             return
@@ -141,10 +145,10 @@ def draw_status(message: str, device: Any | None = None) -> None:
 
 def draw_error(title: str, detail: str, device: Any | None = None) -> None:
     """Draw an error message on the OLED display.
-    
+
     Shows a warning icon, error title, and up to 4 lines of wrapped detail.
     The screen stays visible until manually cleared or the app restarts.
-    
+
     Args:
         title: Short error title (e.g., "Config Error", "Runtime Error").
         detail: Detailed error description (will be word-wrapped).
@@ -155,6 +159,7 @@ def draw_error(title: str, detail: str, device: Any | None = None) -> None:
         return
     try:
         from luma.core.render import canvas
+
         fonts = _get_fonts()
         if fonts is None:
             return
@@ -182,26 +187,26 @@ def draw_error(title: str, detail: str, device: Any | None = None) -> None:
 
 def draw_config_error(error_message: str, device: Any | None = None) -> None:
     """Draw a configuration error on the OLED display.
-    
+
     Specialized version of draw_error for config validation failures.
-    
+
     Args:
         error_message: The configuration error description.
         device: Optional device override; uses singleton if not provided.
     """
     draw_error(
         title="Config Error",
-        detail=str(error_message),
+        detail=error_message,
         device=device,
     )
 
 
 def draw_crash(exception: BaseException, device: Any | None = None) -> None:
     """Draw a crash/runtime error on the OLED display.
-    
+
     This function ALWAYS works, even after handoff() — crashes must be
     visible to the user regardless of which component owns the screen.
-    
+
     Args:
         exception: The exception that caused the crash.
         device: Optional device override; uses singleton if not provided.
@@ -223,7 +228,7 @@ def draw_crash(exception: BaseException, device: Any | None = None) -> None:
 
 def clear_display(device: Any | None = None) -> None:
     """Clear the OLED display (turn all pixels off).
-    
+
     Args:
         device: Optional device override; uses singleton if not provided.
     """
@@ -232,6 +237,7 @@ def clear_display(device: Any | None = None) -> None:
         return
     try:
         from luma.core.render import canvas
+
         with canvas(dev) as draw:
             draw.rectangle([0, 0, 127, 63], outline=0, fill=0)
     except Exception as err:

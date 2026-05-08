@@ -277,13 +277,15 @@ class GpioBaseClass:
         """
         return self._sequence_mode
 
-    def should_publish_sequence_to_mqtt(self, sequence_type: str) -> bool:
+    def should_publish_sequence_to_mqtt(self, sequence_type: ClickTypes | None) -> bool:
         """Check if a sequence type should be published to MQTT.
 
         Args:
-            sequence_type: Type of sequence (e.g., 'double_then_long')
+            sequence_type: Type of sequence (e.g., 'double_then_long'), or None
 
         Returns:
             True if the sequence should be published to MQTT
         """
+        if sequence_type is None:
+            return False
         return self._mqtt_sequences.get(sequence_type, False)
