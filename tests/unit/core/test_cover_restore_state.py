@@ -165,6 +165,12 @@ class TestVenetianRestoreDeserialization:
         result = _deserialize_restored_state(saved, default)
         assert result["tilt"] == 0
 
+    def test_venetian_float_tilt_roundtrip(self):
+        """Venetian float tilt is preserved through save/restore."""
+        saved = {"position": 60.3, "tilt": 45.7}
+        result = _deserialize_restored_state(saved, {"position": 100, "tilt": 100})
+        assert result == {"position": 60.3, "tilt": 45.7}
+
 
 class TestStateSaveCallback:
     """Tests for the state_save closure used by CoverManager."""
@@ -180,7 +186,7 @@ class TestStateSaveCallback:
         config_restore_state = True
 
         # Reproduce the FIXED closure from CoverManager._configure_cover
-        def state_save(value: dict[str, int]):
+        def state_save(value: dict[str, float]):
             if config_restore_state:
                 mock_state_manager.save_attribute(
                     attr_type="cover",
@@ -202,7 +208,7 @@ class TestStateSaveCallback:
         cover_id = "living_room"
         config_restore_state = False
 
-        def state_save(value: dict[str, int]):
+        def state_save(value: dict[str, float]):
             if config_restore_state:
                 mock_state_manager.save_attribute(
                     attr_type="cover",
@@ -233,6 +239,12 @@ class TestStateSaveCallback:
         raw_value = saved_store["cover/my_cover"]
         restored = _deserialize_restored_state(raw_value, {"position": 100})
         assert restored == {"position": 42}
+
+    def test_roundtrip_float_precision(self):
+        """Saved float position is restored without precision loss."""
+        saved = {"position": 73.456}
+        result = _deserialize_restored_state(saved, {"position": 100})
+        assert result == {"position": 73.456}
 
     def test_roundtrip_backward_compat_legacy_string(self):
         """Backward compatibility: old state files have json.dumps strings.

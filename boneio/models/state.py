@@ -116,9 +116,15 @@ class CoverResponse(BaseModel):
 
 # Utility types
 class PositionDict(TypedDict, total=False):
-    """Position dictionary for covers."""
+    """Position dictionary for covers — used for API/MQTT/WebUI (rounded int values)."""
     position: int
     tilt: int
+
+
+class SavedPositionDict(TypedDict, total=False):
+    """Position dictionary for covers — used for disk persistence (full float precision)."""
+    position: float
+    tilt: float
 
 
 __all__ = [
@@ -135,6 +141,7 @@ __all__ = [
     "CoverResponse",
     # Utility
     "PositionDict",
+    "SavedPositionDict",
     "ModbusDeviceState",
 ]
 

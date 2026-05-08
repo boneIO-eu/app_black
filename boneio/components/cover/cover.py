@@ -21,7 +21,7 @@ from boneio.const import (
 from boneio.core.events import EventBus
 from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import TimePeriod
-from boneio.models import CoverState, PositionDict
+from boneio.models import CoverState, PositionDict, SavedPositionDict
 from boneio.models.events import CoverEvent
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class BaseCoverABC(ABC):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
-        position: int = 100,
+        position: float = 100.0,
         **kwargs,
     ) -> None:
         pass
@@ -106,14 +106,12 @@ class BaseCoverABC(ABC):
         pass
 
     @abstractmethod
-    async def run_cover(
-        self, current_operation: str, target_position: float | None = None, target_tilt: float | None = None
-    ) -> None:
+    async def run_cover(self, current_operation: str, target_position: int | None = None, **kwargs) -> None:
         """This function is called to run cover after calling open, close, toggle, toggle_open, toggle_close, set_cover_position"""
         pass
 
     @abstractmethod
-    async def send_state(self, state: str, position: float) -> None:
+    def send_state(self, state: str, json_position: PositionDict) -> None:
         pass
 
 
@@ -159,7 +157,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         open_time: TimePeriod,
         close_time: TimePeriod,
         event_bus: EventBus,
-        position: int = 100,
+        position: float = 100.0,
         name: str | None = None,
         **kwargs,
     ) -> None:
@@ -175,7 +173,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._open_time = open_time.total_milliseconds
         self._close_time = close_time.total_milliseconds
         self._position = position
-        self._initial_position = None
+        self._initial_position: float = position
         self._current_operation = IDLE
         self._last_operation = CLOSING
         _LOGGER.debug(
@@ -188,7 +186,7 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
         self._last_timestamp = time.time()
 
-        self._last_update_time = 0
+        self._last_update_time = 0.0
         self._closed = position <= 0
 
         self._movement_thread = None
@@ -356,7 +354,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
 
     @property
     def position(self) -> int:
-        return round(self._position, 0)
+        """Return current cover position as integer (0-100)."""
+        return round(self._position)
 
     @property
     def json_position(self) -> PositionDict:
@@ -384,6 +383,12 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
         self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json.dumps(json_position))
 
+    @property
+    def saved_position(self) -> SavedPositionDict:
+        """Raw float position for disk persistence."""
+        return {"position": self._position}
+
     def send_state_and_save(self, json_position: PositionDict):
+        """Send state to MQTT/WebSocket and save raw float position to disk."""
         self.send_state(self.state, json_position)
-        self._state_save(json_position)
+        self._state_save(self.saved_position)

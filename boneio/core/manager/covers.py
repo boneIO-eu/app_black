@@ -230,7 +230,7 @@ class CoverManager:
 
         platform = config.get("platform", "time_based")
 
-        def state_save(value: dict[str, int]):
+        def state_save(value: dict[str, float]):
             if config[RESTORE_STATE]:
                 self._manager._state_manager.save_attribute(
                     attr_type=COVER,

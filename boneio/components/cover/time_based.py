@@ -31,7 +31,7 @@ class TimeBasedCover(BaseCover):
         restored_state: dict = DEFAULT_RESTORED_STATE,
         **kwargs,
     ) -> None:
-        position = int(restored_state.get("position", DEFAULT_RESTORED_STATE["position"]))
+        position = float(restored_state.get("position", DEFAULT_RESTORED_STATE["position"]))
         super().__init__(
             open_relay=open_relay,
             close_relay=close_relay,
@@ -113,7 +113,7 @@ class TimeBasedCover(BaseCover):
             self._loop.call_soon_threadsafe(lambda: self.send_state_and_save(self.json_position))
         self._last_update_time = time.monotonic()  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
-    async def run_cover(self, current_operation: str, target_position: int | None = None) -> None:
+    async def run_cover(self, current_operation: str, target_position: int | None = None, **kwargs) -> None:
         if self._movement_thread and self._movement_thread.is_alive():
             _LOGGER.warning("Cover movement already in progress. Stopping first.")
             await self.stop()

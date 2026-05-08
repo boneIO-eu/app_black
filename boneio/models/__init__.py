@@ -25,6 +25,7 @@ from boneio.models.state import (
     OutputsResponse,
     OutputState,
     PositionDict,
+    SavedPositionDict,
     SensorState,
 )
 
@@ -52,4 +53,5 @@ __all__ = [
     "StateUpdate",
     # Utility
     "PositionDict",
+    "SavedPositionDict",
 ]
