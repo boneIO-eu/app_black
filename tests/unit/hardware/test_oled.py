@@ -309,7 +309,7 @@ class TestOledShutdownFlow:
         event = SimpleNamespace(click_type="single", duration=0.0)
         await oled._handle_button_press(event)
 
-        assert oled._shutdown_state is None, "Single click during confirm must cancel shutdown"
+        assert not oled._shutdown_state, "Single click during confirm must cancel shutdown"
 
     @pytest.mark.asyncio
     async def test_long_press_during_sleep_wakes_only(self):
