@@ -2706,6 +2706,14 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
+                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -3112,6 +3120,14 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
                     },
                     "brightness": {
                       "type": [
@@ -3856,6 +3872,14 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
+                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -4262,6 +4286,14 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
                     },
                     "brightness": {
                       "type": [
@@ -5076,6 +5108,14 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
                     },
                     "brightness": {
                       "type": [
@@ -6297,6 +6337,14 @@
                       "type": "string",
                       "description": "Remote Cover ID",
                       "title": "Cover id"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50)",
+                      "title": "Brightness step"
                     },
                     "brightness": {
                       "type": [

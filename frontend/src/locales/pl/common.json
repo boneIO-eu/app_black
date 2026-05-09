@@ -1191,6 +1191,7 @@
     "select_light": "Wybierz światło...",
     "light_action": "Akcja Światła",
     "brightness": "Jasność",
+    "brightness_step": "Krok jasności",
     "set_brightness": "Ustaw jasność przy włączaniu",
     "color_temp": "Temperatura barwowa",
     "set_color_temp": "Ustaw temperaturę barwową",

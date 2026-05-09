@@ -122,6 +122,7 @@ const ACTION_ALLOWED_FIELDS = new Set([
   'cover_id',
   'data',
   'brightness',
+  'brightness_step',
   'color_temp',
   'transition',
   'presets',

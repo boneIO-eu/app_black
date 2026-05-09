@@ -155,6 +155,16 @@ schema:
       description: |
         Brightness level for SET_BRIGHTNESS action or initial brightness for ON action.
         Only used for ESPHome light entities. 0 = off, 255 = full brightness.
+  brightness_step:
+    type: integer
+    required: False
+    min: 1
+    max: 50
+    meta:
+      label: Brightness step (1-50%)
+      description: |
+        Step size (in percent) for BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE 
+        and BRIGHTNESS_DOWN_CYCLE actions. Default is 10. 
   color_temp:
     type: integer
     required: False

@@ -496,6 +496,14 @@
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
+                    },
                     "color_temp": {
                       "type": [
                         "integer",
@@ -902,6 +910,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -1310,6 +1326,14 @@
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
+                    },
                     "color_temp": {
                       "type": [
                         "integer",
@@ -1716,6 +1740,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -2124,6 +2156,14 @@
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
+                    },
                     "color_temp": {
                       "type": [
                         "integer",
@@ -2531,6 +2571,14 @@
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
                     },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
+                    },
                     "color_temp": {
                       "type": [
                         "integer",
@@ -2937,6 +2985,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (0-255)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [

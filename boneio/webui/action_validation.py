@@ -20,7 +20,7 @@ ACTION_ALLOWED_FIELDS: dict[str, set[str]] = {
     "cover_over_mqtt": {"boneio_id", "boneio_cover", "action_cover", "action_mqtt_msg"},
     "remote_output": {
         "remote_device", "output_id", "action_output",
-        "brightness", "color_temp", "rgb", "transition",
+        "brightness","brightness_step", "color_temp", "rgb", "transition",
         "effect", "palette", "effect_speed", "effect_intensity",
         "colors", "presets",
     },
