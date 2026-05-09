@@ -10,11 +10,11 @@ interface HelpLabelProps {
  * Replaces the pattern: <label className="label"><span className="label-text-alt ...">
  */
 const HelpLabel: React.FC<HelpLabelProps> = ({ children, className = '' }) => (
-  <label className={`label whitespace-normal ${className}`.trim()}>
-    <span className="label-text-alt text-base-content/60 wrap-break-word">
+  <div className={`pt-1 pb-0.5 ${className}`.trim()}>
+    <span className="text-xs text-base-content/60 block max-w-prose">
       {children}
     </span>
-  </label>
+  </div>
 );
 
 export default HelpLabel;
