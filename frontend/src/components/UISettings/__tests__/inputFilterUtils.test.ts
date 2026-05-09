@@ -157,7 +157,7 @@ describe('getInputAvailability', () => {
       { boneio_input: 'IN_03' },
     ];
 
-    const { usedInputs, availableInputs } = getInputAvailability(
+    const { availableInputs } = getInputAvailability(
       ALL_PINS, binarySensors, events, 0, 'event',
     );
 

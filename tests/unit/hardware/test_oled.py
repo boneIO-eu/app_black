@@ -113,8 +113,8 @@ def _make_oled(loop: asyncio.AbstractEventLoop, sleep_seconds: float = 60):
             sleep_timeout=sleep_timeout,
             screen_order=["uptime"],
             input_groups=[],
-            event_bus=event_bus,
-            device=FakeDevice(),
+            event_bus=event_bus,  # type: ignore[arg-type]  # duck-typed test double
+            device=FakeDevice(),  # type: ignore[arg-type]  # duck-typed test double
         )
 
     return oled, event_bus
