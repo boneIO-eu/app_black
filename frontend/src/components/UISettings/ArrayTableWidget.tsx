@@ -326,13 +326,14 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       return usedOutputs >= outputCount;
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
       // Check if all inputs are used (shared between binary_sensor and event)
+      // Normalize to uppercase — YAML data may use mixed case
       const usedInputsFromBinarySensors = allBinarySensors
         .filter(sensor => sensor.boneio_input)
-        .map(sensor => sensor.boneio_input);
+        .map(sensor => sensor.boneio_input.toUpperCase());
 
       const usedInputsFromEvents = allEvents
         .filter(event => event.boneio_input)
-        .map(event => event.boneio_input);
+        .map(event => event.boneio_input.toUpperCase());
 
       const allUsedInputs = [...new Set([...usedInputsFromBinarySensors, ...usedInputsFromEvents])];
 

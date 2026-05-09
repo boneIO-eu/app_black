@@ -3,6 +3,7 @@ import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
+import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
@@ -103,30 +104,11 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];
   
   // Filter out already used inputs from both binary_sensor and event (except current one)
-  const usedInputsFromBinarySensors = allBinarySensors
-    .filter((sensor, index) => {
-      // Skip current item being edited
-      if (editingIndex !== null && index === editingIndex) {
-        return false;
-      }
-      // For new items, filter out any used inputs
-      return sensor.boneio_input;
-    })
-    .map(sensor => sensor.boneio_input);
-  
-  const usedInputsFromEvents = allEvents
-    .filter(event => event.boneio_input)
-    .map(event => event.boneio_input);
-  
-  const usedInputs = [...new Set([...usedInputsFromBinarySensors, ...usedInputsFromEvents])];
-
-  const availableInputs = allBoneioInputs.filter((input: string) => !usedInputs.includes(input));
-  
-  // If current input is used by this item, include it in options
-  const currentInput = data.boneio_input;
-  const boneioInputOptions = currentInput && !availableInputs.includes(currentInput)
-    ? [...new Set([currentInput, ...availableInputs])].sort()
-    : availableInputs;
+  // Case-insensitive comparison — see inputFilterUtils.ts for details
+  const { usedInputs, availableInputs } = getInputAvailability(
+    allBoneioInputs, allBinarySensors, allEvents, editingIndex, 'binary_sensor',
+  );
+  const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
 
   const actionTypeOptions = schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum || [
     'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
