@@ -782,7 +782,9 @@
     "enter_value": "Enter value",
     "error_setting_value": "Failed to set value",
     "go_to_settings": "Go to Settings",
-    "go_to_settings_confirm": "Do you want to open the settings for this device?"
+    "go_to_settings_confirm": "Do you want to open the settings for this device?",
+    "polling_enabled": "Polling enabled",
+    "polling_disabled": "Polling disabled — values are frozen"
   },
   "modbus_config": {
     "uart": "UART",

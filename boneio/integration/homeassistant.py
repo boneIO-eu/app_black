@@ -738,6 +738,74 @@ def modbus_availabilty_message(
         **kwargs,
     }
 
+
+def modbus_polling_switch_message(
+    device_id: str,
+    device_name: str,
+    model: str,
+    manufacturer: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+) -> dict[str, Any]:
+    """Create HA MQTT autodiscovery message for the per-device polling switch.
+
+    The switch lets the user temporarily enable/disable Modbus register polling
+    for a specific device without removing it from the configuration.
+
+    The entity appears under entity_category 'config' in HA, grouped with
+    the same Modbus device as its sensor entities.
+
+    Args:
+        device_id: Modbus coordinator ID (e.g., "sdm630").
+        device_name: Human-readable device name (e.g., "SDM630 Energy Meter").
+        model: Device model string.
+        manufacturer: Device manufacturer.
+        config_helper: ConfigHelper instance.
+        area: Optional area for sub-device grouping.
+
+    Returns:
+        Discovery payload dict with an extra ``_topic`` key containing the
+        discovery topic (caller should pop it before publishing).
+    """
+    topic_prefix = config_helper.topic_prefix
+    entity_id = f"{device_id}_polling"
+
+    discovery_topic = (
+        f"{config_helper.ha_discovery_prefix}/switch/"
+        f"{config_helper.serial_no}/{entity_id}/config"
+    )
+
+    area_name = config_helper.get_area_name(area) if area else None
+
+    device_info: dict[str, Any] = {
+        "identifiers": [device_id],
+        "manufacturer": manufacturer,
+        "model": model,
+        "name": device_name,
+        "sw_version": __version__,
+        "via_device": topic_prefix,
+    }
+    if area_name:
+        device_info["suggested_area"] = area_name
+
+    return {
+        "_topic": discovery_topic,
+        "availability": [{"topic": f"{topic_prefix}/{STATE}"}],
+        "device": device_info,
+        "name": "Polling",
+        "unique_id": f"{topic_prefix.replace('/', '_')}_modbus_{entity_id}",
+        "default_entity_id": f"switch.{config_helper.serial_number}_{entity_id}",
+        "state_topic": f"{topic_prefix}/modbus/{device_id}/polling",
+        "command_topic": f"{topic_prefix}/cmd/modbus/{device_id}/set_polling",
+        "payload_on": ON,
+        "payload_off": OFF,
+        "value_template": "{{ value_json.state }}",
+        "icon": "mdi:sync",
+        "entity_category": "config",
+        "optimistic": False,
+    }
+
+
 def modbus_sensor_availabilty_message(
     entity_id: str,
     entity_name: str,

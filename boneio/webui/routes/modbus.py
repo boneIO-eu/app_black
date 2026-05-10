@@ -362,9 +362,63 @@ async def modbus_status(
         Dictionary with configured and suspended flags.
     """
     modbus_client = boneio_manager.modbus.get_modbus_client()
+    coordinators = boneio_manager.modbus.get_all_coordinators()
+
+    polling_status = {
+        cid: {
+            "name": coord.name,
+            "polling_enabled": coord.polling_enabled,
+        }
+        for cid, coord in coordinators.items()
+    }
+
     return {
         "configured": modbus_client is not None,
         "suspended": modbus_client.is_suspended if modbus_client else False,
+        "coordinators": polling_status,
+    }
+
+
+class ModbusPollingRequest(BaseModel):
+    """Request model for Modbus polling toggle."""
+    enabled: bool
+
+
+@router.post("/modbus/{coordinator_id}/polling")
+async def set_modbus_polling(
+    coordinator_id: str,
+    request: ModbusPollingRequest,
+    manager: Manager = Depends(get_manager),
+):
+    """Enable or disable polling for a specific Modbus device.
+
+    This is a runtime-only toggle — state does NOT persist across restarts.
+    When disabled, the coordinator keeps last known sensor values but
+    stops reading registers.
+
+    Args:
+        coordinator_id: Modbus coordinator ID.
+        request: Body with 'enabled' boolean.
+
+    Returns:
+        Updated polling state.
+    """
+    coordinator = manager.modbus.get_all_coordinators().get(coordinator_id.lower())
+    if not coordinator:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Modbus coordinator '{coordinator_id}' not found",
+        )
+
+    coordinator.set_polling_enabled(request.enabled)
+    _LOGGER.info(
+        "Modbus polling for %s set to %s via REST API",
+        coordinator_id,
+        "enabled" if request.enabled else "disabled",
+    )
+    return {
+        "coordinator_id": coordinator_id,
+        "polling_enabled": coordinator.polling_enabled,
     }
 
 

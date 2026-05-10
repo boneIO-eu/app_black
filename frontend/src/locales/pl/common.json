@@ -782,7 +782,9 @@
     "enter_value": "Wprowadź wartość",
     "error_setting_value": "Nie udało się ustawić wartości",
     "go_to_settings": "Przejdź do ustawień",
-    "go_to_settings_confirm": "Czy chcesz otworzyć ustawienia tego urządzenia?"
+    "go_to_settings_confirm": "Czy chcesz otworzyć ustawienia tego urządzenia?",
+    "polling_enabled": "Odpytywanie włączone",
+    "polling_disabled": "Odpytywanie wyłączone — wartości zamrożone"
   },
   "modbus_config": {
     "uart": "UART",

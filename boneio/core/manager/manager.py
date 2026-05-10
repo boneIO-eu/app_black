@@ -1454,6 +1454,20 @@ class Manager:
                 asyncio.create_task(self.outputs.reload_outputs())
             return
 
+        if msg_type == "modbus" and command == "set_polling":
+            target_device = self.modbus.get_all_coordinators().get(device_id)
+            if target_device and isinstance(message, str):
+                enabled = message.upper() == ON
+                target_device.set_polling_enabled(enabled)
+                _LOGGER.info(
+                    "Modbus polling for %s set to %s via MQTT",
+                    device_id,
+                    "enabled" if enabled else "disabled",
+                )
+            else:
+                _LOGGER.debug("Modbus coordinator not found: %s", device_id)
+            return
+
         if msg_type == "modbus" and command == "set":
             target_device = self.modbus.get_all_coordinators().get(device_id)
             if target_device and isinstance(message, str):

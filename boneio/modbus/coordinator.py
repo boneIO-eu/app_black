@@ -15,7 +15,9 @@ from boneio.const import (
     LENGTH,
     MODEL,
     NAME,
+    OFF,
     OFFLINE,
+    ON,
     ONLINE,
     REGISTERS,
     SELECT,
@@ -28,6 +30,7 @@ from boneio.core.messaging import BasicMqtt
 from boneio.core.utils import AsyncUpdater, Filter
 from boneio.core.utils.timeperiod import TimePeriod
 from boneio.core.utils.util import open_json
+from boneio.integration.homeassistant import modbus_polling_switch_message
 from boneio.modbus.entities.base import BaseEntity, ModbusBaseEntity, ModbusDerivedEntity, ModbusParentInfo
 from boneio.models.state import ModbusDeviceState
 
@@ -88,7 +91,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         manager: Manager,
         id: str = DefaultName,
         name: str = DefaultName,
-        additional_data: dict = None,
+        additional_data: dict | None = None,
         update_interval: TimePeriod = TimePeriod(seconds=60),
         area: str | None = None,
         has_custom_id: bool = False,
@@ -114,7 +117,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._db = open_json(path=os.path.dirname(__file__), model=model)
         self._model = self._db[MODEL]
         self._address = address
-        self._discovery_sent = False
+        self._discovery_sent: bool | datetime = False
         self._payload_online = OFFLINE
         self._sensors_filters = {k.lower(): v for k, v in sensors_filters.items()}
         self._entity_labels: dict[str, str] = (
@@ -130,6 +133,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         self._additional_data = additional_data
         self._update_cycle_count = 0
         self._failed_groups: set[int] = set()  # Track register group indices that failed last read
+        self._polling_enabled: bool = True  # Runtime toggle for temporarily disabling polling
 
         self.__init_modbus_entities__()
         # Additional entities
@@ -573,6 +577,40 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         
         return additional_entity
 
+    @property
+    def polling_enabled(self) -> bool:
+        """Return whether polling is currently enabled for this device."""
+        return self._polling_enabled
+
+    def set_polling_enabled(self, enabled: bool) -> None:
+        """Enable or disable periodic polling for this Modbus device.
+
+        This is a runtime-only toggle — state does NOT persist across restarts.
+        When disabled, the coordinator keeps last known sensor values but
+        stops reading registers. Entities remain available in HA with stale data.
+
+        Args:
+            enabled: True to enable polling, False to disable.
+        """
+        if enabled == self._polling_enabled:
+            return
+        self._polling_enabled = enabled
+        state = ON if enabled else OFF
+        _LOGGER.info(
+            "Polling %s for Modbus device %s",
+            "enabled" if enabled else "disabled",
+            self._name,
+        )
+        # Publish new switch state to MQTT
+        self._message_bus.send_message(
+            topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/polling",
+            payload={"state": state},
+            retain=True,
+        )
+        if enabled:
+            # Force immediate update when re-enabled
+            self.request_update(seconds=0)
+
     def set_payload_offline(self):
         self._payload_online = OFFLINE
 
@@ -607,6 +645,33 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         except Exception as e:
             _LOGGER.debug("Could not send online status for %s: %s", self._name, e)
 
+    def _send_polling_switch_discovery(self) -> None:
+        """Send HA MQTT autodiscovery for the polling enable/disable switch.
+
+        The switch appears under the Modbus device in HA with entity_category
+        'config' and allows the user to temporarily stop/start register polling.
+        """
+
+        payload = modbus_polling_switch_message(
+            device_id=self._id,
+            device_name=self._name,
+            model=self._model,
+            manufacturer=self._db.get("manufacturer", "boneIO"),
+            config_helper=self.manager.config_helper,
+            area=self._area,
+        )
+        topic = payload.pop("_topic")
+        self.manager.config_helper.add_autodiscovery_msg(
+            topic=topic, payload=payload, ha_type="switch",
+        )
+        self._message_bus.send_message(topic=topic, payload=payload, retain=True)
+        # Publish current state so HA shows correct initial value
+        self._message_bus.send_message(
+            topic=f"{self.manager.config_helper.topic_prefix}/modbus/{self._id}/polling",
+            payload={"state": ON if self._polling_enabled else OFF},
+            retain=True,
+        )
+
     def _send_discovery_for_all_registers(self) -> datetime:
         """Send discovery message to HA for each register."""
         for sensors in self._modbus_entities:
@@ -615,6 +680,7 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
         for sensors in self._additional_entities:
             for sensor in sensors.values():
                 sensor.send_ha_discovery()
+        self._send_polling_switch_discovery()
         return datetime.now()
 
     async def _write_derived_sensor(
@@ -958,6 +1024,13 @@ class ModbusCoordinator(BasicMqtt, AsyncUpdater, Filter):
 
     async def async_update(self, timestamp: float) -> float | None:
         """Fetch state periodically and send to MQTT."""
+        # Skip update when polling is disabled by user
+        if not self._polling_enabled:
+            _LOGGER.debug(
+                "Polling disabled, skipping update for %s",
+                self._name,
+            )
+            return self._update_interval.total_in_seconds
         # Skip update when Tools Modbus page is active
         if self._modbus.is_suspended:
             _LOGGER.debug(

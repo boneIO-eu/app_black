@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState, useCallback } from 'react';
+import { useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '@/api/axios';
 import { WebSocketContext } from '../App';
@@ -8,7 +8,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
-import { FaCog } from 'react-icons/fa';
+import { FaCog, FaSyncAlt } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,37 @@ export default function ModbusView() {
     return saved ? saved === 'grid' : true;
   });
   const [error, setError] = useState<string | null>(null);
+  const [pollingState, setPollingState] = useState<Record<string, boolean>>({});
+
+  // Fetch initial polling state from API
+  useEffect(() => {
+    const fetchPollingState = async () => {
+      try {
+        const { data } = await axios.get('/api/modbus/status');
+        if (data.coordinators) {
+          const state: Record<string, boolean> = {};
+          for (const [id, info] of Object.entries(data.coordinators)) {
+            state[id] = (info as any).polling_enabled;
+          }
+          setPollingState(state);
+        }
+      } catch {
+        // Non-critical — polling state defaults to enabled
+      }
+    };
+    fetchPollingState();
+  }, []);
+
+  const handlePollingToggle = useCallback(async (coordinatorId: string, enabled: boolean) => {
+    try {
+      const { data } = await axios.post(`/api/modbus/${coordinatorId}/polling`, { enabled });
+      setPollingState(prev => ({ ...prev, [coordinatorId]: data.polling_enabled }));
+      setError(null);
+    } catch (err: any) {
+      console.error('Error toggling polling:', err);
+      setError(err.response?.data?.detail || t('modbus_view.error_setting_value'));
+    }
+  }, [t]);
 
   const validModbusDevices = useMemo(
     () => modbus_devices.filter(isModbusDeviceEvent).map(e => e.state),
@@ -190,7 +221,23 @@ export default function ModbusView() {
           return (
             <div key={groupKey} className={`card bg-base-200/80 shadow-lg mb-6 border-l-4 ${accentColor}`}>
               <div className="card-body">
-                <h3 className="card-title text-lg font-semibold text-base-content/80 mb-4">{groupName}</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="card-title text-lg font-semibold text-base-content/80">{groupName}</h3>
+                  <label
+                    className="flex items-center gap-2 cursor-pointer"
+                    title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
+                  >
+                    <FaSyncAlt className={`w-3.5 h-3.5 transition-colors ${
+                      pollingState[groupKey] === false ? 'text-base-content/30' : 'text-success'
+                    }`} />
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-sm toggle-success"
+                      checked={pollingState[groupKey] !== false}
+                      onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
+                    />
+                  </label>
+                </div>
 
                 {/* Sensors Section */}
                 {sensors.length > 0 && (
