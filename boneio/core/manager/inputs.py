@@ -12,9 +12,14 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from boneio.components.input import GpioEventButton, GpioInputBinarySensor
+from boneio.components.input import (
+    ESPHomeBinarySensorInput,
+    GpioEventButton,
+    GpioInputBinarySensor,
+    RemoteInputBase,
+)
 from boneio.const import (
     ACTIONS,
     BINARY_SENSOR,
@@ -846,6 +851,39 @@ class InputManager:
                         ha_type=EVENT_ENTITY,
                         payload=payload,
                     )
+                elif isinstance(input_device, RemoteInputBase):
+                    # Remote input (ESPHome, CAN, …) — mode determines HA entity type
+                    if input_device.mode == "event":
+                        payload = ha_event_availabilty_message(
+                            id=input_id,
+                            name=input_name,
+                            config_helper=self._manager._config_helper,
+                            device_class=input_device.device_class,
+                            area=input_area,
+                            mqtt_sequences=input_device.mqtt_sequences,
+                            enable_triple_click=getattr(
+                                getattr(input_device, "_detector", None),
+                                "_enable_triple_click", False,
+                            ),
+                        )
+                        self._manager.publish_ha_discovery(
+                            id=input_id,
+                            ha_type=EVENT_ENTITY,
+                            payload=payload,
+                        )
+                    else:
+                        payload = ha_binary_sensor_availabilty_message(
+                            id=input_id,
+                            name=input_name,
+                            config_helper=self._manager._config_helper,
+                            device_class=input_device.device_class,
+                            area=input_area,
+                        )
+                        self._manager.publish_ha_discovery(
+                            id=input_id,
+                            ha_type=BINARY_SENSOR,
+                            payload=payload,
+                        )
                 elif isinstance(input_device, GpioInputBinarySensor):
                     payload = ha_binary_sensor_availabilty_message(
                         id=input_id,
@@ -861,3 +899,148 @@ class InputManager:
                     )
             except Exception as err:
                 _LOGGER.error("Failed to send HA discovery for input %s: %s", pin, err)
+
+    def register_esphome_binary_sensors(self, remote_device_manager: Any) -> None:
+        """Register binary sensors from ESPHome remote devices as local inputs.
+
+        For each ESPHome remote device that has ``binary_sensors`` configured,
+        this method creates an :class:`ESPHomeBinarySensorInput` instance and
+        registers its callback on the remote device so that state changes are
+        routed through the standard ``InputManager`` event pipeline.
+
+        Should be called **after** :meth:`RemoteDeviceManager.initialize` so
+        that ESPHome devices and their connections are ready.
+
+        Args:
+            remote_device_manager: Initialized :class:`RemoteDeviceManager`.
+        """
+        from boneio.core.remote.base import RemoteDeviceProtocol
+
+        count = 0
+        for device_id, device in remote_device_manager.get_all_devices().items():
+            if device.protocol != RemoteDeviceProtocol.ESPHOME_API:
+                continue
+
+            binary_sensors = getattr(device, "binary_sensors", [])
+            if not binary_sensors:
+                continue
+
+            for bs_cfg in binary_sensors:
+                sensor_id = bs_cfg.get("id")
+                if not sensor_id:
+                    continue
+
+                # Build input ID: custom id or auto-generated
+                input_id = bs_cfg.get("input_id") or f"{device_id}_{sensor_id}"
+                if input_id in self._inputs:
+                    _LOGGER.debug(
+                        "ESPHome binary sensor input '%s' already registered, skipping",
+                        input_id,
+                    )
+                    continue
+
+                name = bs_cfg.get("name") or input_id
+                mode = bs_cfg.get("mode", "binary_sensor")
+                raw_actions = bs_cfg.get("actions", {})
+
+                # Parse actions through Manager (resolves outputs, covers, etc.)
+                parsed_actions = self._manager.parse_actions(
+                    pin=input_id, actions=raw_actions
+                ) if raw_actions else {}
+
+                esphome_input = ESPHomeBinarySensorInput(
+                    id=input_id,
+                    name=name,
+                    device_id=device_id,
+                    sensor_id=sensor_id,
+                    event_bus=self._manager._event_bus,
+                    actions=parsed_actions,
+                    mode=mode,
+                    device_class=bs_cfg.get("device_class"),
+                    area=bs_cfg.get("area"),
+                    inverted=bs_cfg.get("inverted", False),
+                    show_in_ha=bs_cfg.get("show_in_ha", True),
+                    double_click_duration=bs_cfg.get("double_click_duration", 220),
+                    long_press_duration=bs_cfg.get("long_press_duration", 400),
+                    mqtt_sequences=bs_cfg.get("mqtt_sequences"),
+                    sequence_mode=bs_cfg.get("sequence_mode", "exclusive"),
+                    long_press_mqtt_mode=bs_cfg.get("long_press_mqtt_mode", "single"),
+                    enable_triple_click=bs_cfg.get("enable_triple_click", False),
+                )
+
+                # Register callback on the ESPHome device
+                device.register_binary_sensor_callback(
+                    sensor_id, esphome_input.on_remote_state_change
+                )
+
+                # Store as a regular input
+                self._inputs[input_id] = esphome_input
+
+                # HA Autodiscovery
+                if bs_cfg.get("show_in_ha", True):
+                    self._send_esphome_ha_discovery(esphome_input)
+
+                count += 1
+                _LOGGER.info(
+                    "Registered ESPHome binary sensor '%s' (device=%s, sensor=%s, mode=%s)",
+                    input_id, device_id, sensor_id, mode,
+                )
+
+        if count:
+            _LOGGER.info("Registered %d ESPHome binary sensor input(s)", count)
+
+    def unregister_remote_inputs(self) -> None:
+        """Remove all remote (virtual) input instances.
+
+        Used during remote device reload to clean up before re-registering.
+        Removes any input that is a :class:`RemoteInputBase` subclass.
+        """
+        to_remove = [
+            k for k, v in self._inputs.items()
+            if isinstance(v, RemoteInputBase)
+        ]
+        for key in to_remove:
+            del self._inputs[key]
+        if to_remove:
+            _LOGGER.info("Unregistered %d remote input(s)", len(to_remove))
+
+    # Keep backward-compatible alias
+    unregister_esphome_binary_sensors = unregister_remote_inputs
+
+    def _send_esphome_ha_discovery(self, esphome_input: ESPHomeBinarySensorInput) -> None:
+        """Send HA autodiscovery for a single ESPHome binary sensor input.
+
+        Args:
+            esphome_input: The ESPHome binary sensor input to advertise.
+        """
+        input_id = esphome_input.id
+        input_name = esphome_input.name
+        input_area = esphome_input.area
+
+        if esphome_input.mode == "event":
+            payload = ha_event_availabilty_message(
+                id=input_id,
+                name=input_name,
+                config_helper=self._manager._config_helper,
+                device_class=esphome_input.device_class,
+                area=input_area,
+                mqtt_sequences=esphome_input.mqtt_sequences,
+                enable_triple_click=getattr(
+                    getattr(esphome_input, "_detector", None),
+                    "_enable_triple_click", False,
+                ),
+            )
+            self._manager.publish_ha_discovery(
+                id=input_id, ha_type=EVENT_ENTITY, payload=payload,
+            )
+        else:
+            payload = ha_binary_sensor_availabilty_message(
+                id=input_id,
+                name=input_name,
+                config_helper=self._manager._config_helper,
+                device_class=esphome_input.device_class,
+                area=input_area,
+            )
+            self._manager.publish_ha_discovery(
+                id=input_id, ha_type=BINARY_SENSOR, payload=payload,
+            )

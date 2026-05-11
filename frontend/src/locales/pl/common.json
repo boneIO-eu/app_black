@@ -1448,6 +1448,8 @@
     "esphome_switches": "Przełączniki",
     "esphome_lights": "Światła",
     "esphome_covers": "Rolety",
+    "esphome_binary_sensors": "Czujniki binarne",
+    "device_class": "Klasa urządzenia",
     "capabilities": "Możliwości",
     "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj ESPHome\", \"Skanuj WLED\" lub \"Skanuj CAN\" aby znaleźć urządzenia.",
     "scan_esphome": "Skanuj ESPHome",

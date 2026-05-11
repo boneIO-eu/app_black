@@ -1447,6 +1447,8 @@
     "esphome_switches": "Switches",
     "esphome_lights": "Lights",
     "esphome_covers": "Covers",
+    "esphome_binary_sensors": "Binary Sensors",
+    "device_class": "Device Class",
     "capabilities": "Capabilities",
     "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\", \"Scan WLED\" or \"Scan CAN\" to find devices.",
     "scan_esphome": "Scan ESPHome",

@@ -327,6 +327,115 @@ schema:
                 default: false
                 meta:
                   label: Supports Tilt
+        binary_sensors:
+          type: list
+          required: False
+          meta:
+            label: Available Binary Sensors
+            description: |
+              List of binary sensors to monitor from the ESPHome device.
+              State changes trigger local actions (same as GPIO inputs).
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Binary Sensor ID (object_id)
+                  description: "object_id of the binary sensor on the ESPHome device"
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Display Name
+              key:
+                type: integer
+                required: False
+                meta:
+                  label: Entity Key (from discovery)
+              input_id:
+                type: string
+                required: False
+                meta:
+                  label: Custom Input ID
+                  description: |
+                    Override auto-generated input ID ({device_id}_{sensor_id}).
+                    Used in MQTT topics and action references.
+              mode:
+                type: string
+                required: False
+                default: "binary_sensor"
+                allowed: ['binary_sensor', 'event']
+                meta:
+                  label: Mode
+                  description: |
+                    - binary_sensor: pressed/released events
+                    - event: single/double/long click detection
+              device_class:
+                type: string
+                required: False
+                meta:
+                  label: Device Class (for HA)
+                  description: "e.g. door, motion, window, opening"
+              area:
+                type: string
+                required: False
+                meta:
+                  label: Area (for HA)
+              show_in_ha:
+                type: boolean
+                required: False
+                default: true
+                meta:
+                  label: Show in Home Assistant
+              inverted:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Invert state
+              double_click_duration:
+                type: integer
+                required: False
+                meta:
+                  label: Double Click Window (ms)
+                  description: "Time window to detect double click (event mode, default: 220ms)"
+              long_press_duration:
+                type: integer
+                required: False
+                meta:
+                  label: Long Press Threshold (ms)
+                  description: "Time to detect long press (event mode, default: 400ms)"
+              sequence_mode:
+                type: string
+                required: False
+                allowed: ['immediate', 'exclusive']
+                meta:
+                  label: Sequence Mode
+              long_press_mqtt_mode:
+                type: string
+                required: False
+                allowed: ['single', 'periodic']
+                meta:
+                  label: Long Press MQTT Mode
+              enable_triple_click:
+                type: boolean
+                required: False
+                default: false
+                meta:
+                  label: Enable Triple Click
+              actions:
+                type: dict
+                required: False
+                allow_unknown: True
+                meta:
+                  label: Actions
+                  description: |
+                    Actions to execute on state change.
+                    Keys depend on mode:
+                    - binary_sensor: pressed, released
+                    - event: single, double, long
     
     # WLED Protocol Parameters
     wled:

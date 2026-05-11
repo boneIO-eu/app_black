@@ -256,6 +256,7 @@ class RemoteDeviceManager:
         switches = esphome_config.get("switches", [])
         lights = esphome_config.get("lights", [])
         covers = esphome_config.get("covers", [])
+        binary_sensors = esphome_config.get("binary_sensors", [])
 
         return ESPHomeRemoteDevice(
             id=device_id,
@@ -267,6 +268,7 @@ class RemoteDeviceManager:
             switches=switches,
             lights=lights,
             covers=covers,
+            binary_sensors=binary_sensors,
         )
 
     def _create_wled_device(

@@ -571,7 +571,7 @@ class Manager:
                     if state:
                         self.send_message(
                             topic=f"{topic_prefix}/input/{input_id}",
-                            payload=str(state),
+                            payload=state,
                         )
                 except Exception as e:
                     _LOGGER.debug(
@@ -1082,13 +1082,26 @@ class Manager:
 
         This allows hot-reloading of remote devices without restarting the application.
         Handles ESPHome connections properly (stops old, starts new).
+        Also re-registers ESPHome binary sensor inputs.
         """
         config = self._config_helper.get_config()
         remote_devices_config = config.get("remote_devices", [])
 
         _LOGGER.info("Reloading remote devices configuration")
+        # Clean up old ESPHome binary sensor inputs before reload
+        self.inputs.unregister_esphome_binary_sensors()
         await self.remote_devices.reload(remote_devices_config)
+        # Re-register binary sensors from newly configured ESPHome devices
+        self.register_esphome_binary_sensors()
         _LOGGER.info("Remote devices configuration reloaded successfully")
+
+    def register_esphome_binary_sensors(self) -> None:
+        """Register binary sensors from ESPHome remote devices as local inputs.
+
+        Delegates to :meth:`InputManager.register_esphome_binary_sensors`.
+        Should be called after :meth:`RemoteDeviceManager.initialize`.
+        """
+        self.inputs.register_esphome_binary_sensors(self.remote_devices)
 
     async def _reload_templates_and_irrigation(self) -> None:
         """Reload templates and irrigation when the template section changes.

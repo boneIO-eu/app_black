@@ -373,6 +373,40 @@ export interface ESPHomeCoverEntity {
   supports_tilt?: boolean;
 }
 
+/** ESPHome binary sensor entity */
+export interface ESPHomeBinarySensorEntity {
+  /** Binary sensor ID (object_id) */
+  id: string;
+  /** Display name */
+  name?: string;
+  /** Entity key (from discovery) */
+  key?: number;
+  /** Custom input ID (overrides auto-generated {device_id}_{sensor_id}) */
+  input_id?: string;
+  /** Operating mode: binary_sensor (pressed/released) or event (single/double/long) */
+  mode?: 'binary_sensor' | 'event';
+  /** Device class for HA (e.g. door, motion, window) */
+  device_class?: BinarySensorDeviceClass;
+  /** Area/Room assignment */
+  area?: string;
+  /** Show in Home Assistant */
+  show_in_ha?: boolean;
+  /** Invert state */
+  inverted?: boolean;
+  /** Double click window in ms (event mode) */
+  double_click_duration?: number;
+  /** Long press threshold in ms (event mode) */
+  long_press_duration?: number;
+  /** Sequence mode: immediate or exclusive (event mode) */
+  sequence_mode?: 'immediate' | 'exclusive';
+  /** Long press MQTT mode (event mode) */
+  long_press_mqtt_mode?: 'single' | 'periodic';
+  /** Enable triple click detection (event mode) */
+  enable_triple_click?: boolean;
+  /** Actions on state change */
+  actions?: BinarySensorActions | EventActions;
+}
+
 /** ESPHome API configuration */
 export interface ESPHomeApiConfig {
   /** IP address or hostname */
@@ -389,6 +423,8 @@ export interface ESPHomeApiConfig {
   lights?: ESPHomeLightEntity[];
   /** Discovered/configured covers */
   covers?: ESPHomeCoverEntity[];
+  /** Discovered/configured binary sensors */
+  binary_sensors?: ESPHomeBinarySensorEntity[];
 }
 
 /** WLED segment entity */

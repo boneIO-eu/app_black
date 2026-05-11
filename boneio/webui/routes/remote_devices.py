@@ -164,13 +164,13 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
     Discover entities on an ESPHome device.
     
     Connects to the ESPHome device via native API and retrieves
-    available switches, lights, and covers with their capabilities.
+    available switches, lights, covers, and binary sensors with their capabilities.
     
     Args:
         request: ESPHome connection parameters (host, port, password, encryption_key)
         
     Returns:
-        Dictionary with 'switches', 'lights', 'covers' lists.
+        Dictionary with 'switches', 'lights', 'covers', 'binary_sensors' lists.
         Each entity includes id, name, key, and capability flags.
         
     Raises:
@@ -195,10 +195,11 @@ async def discover_esphome(request: ESPHomeDiscoverRequest):
         raise HTTPException(status_code=500, detail=result["error"])
     
     _LOGGER.info(
-        "Discovered %d switches, %d lights, %d covers at %s",
+        "Discovered %d switches, %d lights, %d covers, %d binary_sensors at %s",
         len(result.get("switches", [])),
         len(result.get("lights", [])),
         len(result.get("covers", [])),
+        len(result.get("binary_sensors", [])),
         request.host
     )
     

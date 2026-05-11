@@ -1,7 +1,7 @@
 """ESPHome API-based remote device implementation.
 
-Supports controlling switches, lights, and covers on ESPHome devices
-via the native ESPHome API (TCP/IP, port 6053).
+Supports controlling switches, lights, covers, and monitoring binary sensors
+on ESPHome devices via the native ESPHome API (TCP/IP, port 6053).
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ try:
     from aioesphomeapi import (
         APIClient,
         APIConnectionError,
+        BinarySensorInfo,
+        BinarySensorState,
         CoverInfo,
         CoverState,
         InvalidAuthAPIError,
@@ -90,6 +92,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
     """ESPHome API-based remote device.
     
     Controls switches, lights, and covers on ESPHome devices via native API.
+    Monitors binary sensors and notifies registered callbacks on state changes.
     Supports autodiscovery of entities and their capabilities.
     
     Args:
@@ -102,6 +105,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         switches: Optional list of known switches
         lights: Optional list of known lights with capabilities
         covers: Optional list of known covers
+        binary_sensors: Optional list of known binary sensors
     """
     
     def __init__(
@@ -115,6 +119,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         switches: list[dict[str, Any]] | None = None,
         lights: list[dict[str, Any]] | None = None,
         covers: list[dict[str, Any]] | None = None,
+        binary_sensors: list[dict[str, Any]] | None = None,
     ) -> None:
         """Initialize ESPHome remote device.
         
@@ -128,6 +133,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
             switches: Optional list of known switches
             lights: Optional list of known lights
             covers: Optional list of known covers
+            binary_sensors: Optional list of known binary sensors
         """
         super().__init__(
             id=id,
@@ -156,16 +162,23 @@ class ESPHomeRemoteDevice(RemoteDevice):
         self._switches: list[dict[str, Any]] = []
         self._lights: list[dict[str, Any]] = []
         self._covers_list: list[dict[str, Any]] = []
+        self._binary_sensors: list[dict[str, Any]] = []
         
-        # Entity key mappings (for sending commands)
+        # Entity key mappings (for sending commands / state tracking)
         self._switch_keys: dict[str, int] = {}
         self._light_keys: dict[str, int] = {}
         self._cover_keys: dict[str, int] = {}
+        self._binary_sensor_keys: dict[str, int] = {}
         
         # Current states (updated via subscription)
         self._switch_states: dict[str, bool] = {}
         self._light_states: dict[str, dict[str, Any]] = {}
         self._cover_states: dict[str, dict[str, Any]] = {}
+        self._binary_sensor_states: dict[str, bool] = {}
+        
+        # Callbacks for binary sensor state changes.
+        # Keyed by sensor_id → callable(new_state: bool)
+        self._binary_sensor_callbacks: dict[str, Any] = {}
         
         # Load configured entities
         if switches:
@@ -176,6 +189,8 @@ class ESPHomeRemoteDevice(RemoteDevice):
             self._covers_list = covers
             # Also set parent class covers for compatibility
             self.set_covers(covers)
+        if binary_sensors:
+            self._binary_sensors = binary_sensors
         
         _LOGGER.info(
             "Configured ESPHome remote device '%s' (host=%s:%d)",
@@ -211,6 +226,48 @@ class ESPHomeRemoteDevice(RemoteDevice):
     def esphome_covers(self) -> list[dict[str, Any]]:
         """Get list of known covers."""
         return self._covers_list
+    
+    @property
+    def binary_sensors(self) -> list[dict[str, Any]]:
+        """Get list of known binary sensors."""
+        return self._binary_sensors
+    
+    def has_binary_sensor(self, entity_id: str) -> bool:
+        """Check if entity_id is a binary sensor on this device.
+        
+        Args:
+            entity_id: Entity ID to check
+            
+        Returns:
+            True if entity_id is a binary sensor
+        """
+        for bs in self._binary_sensors:
+            if bs.get("id") == entity_id or bs.get("object_id") == entity_id:
+                return True
+        return entity_id in self._binary_sensor_keys
+    
+    def register_binary_sensor_callback(
+        self, sensor_id: str, callback: Any
+    ) -> None:
+        """Register a callback for binary sensor state changes.
+        
+        Args:
+            sensor_id: Binary sensor object_id.
+            callback: Callable(new_state: bool) invoked on state change.
+        """
+        self._binary_sensor_callbacks[sensor_id] = callback
+        _LOGGER.debug(
+            "Registered binary sensor callback for '%s' on device '%s'",
+            sensor_id, self._name,
+        )
+    
+    def unregister_binary_sensor_callback(self, sensor_id: str) -> None:
+        """Remove a binary sensor state callback.
+        
+        Args:
+            sensor_id: Binary sensor object_id.
+        """
+        self._binary_sensor_callbacks.pop(sensor_id, None)
     
     def has_light(self, entity_id: str) -> bool:
         """Check if entity_id is a light on this device.
@@ -368,6 +425,30 @@ class ESPHomeRemoteDevice(RemoteDevice):
                             cover_id, state.position, current_op, last_op,
                         )
                         break
+            
+            elif isinstance(state, BinarySensorState):
+                # Find binary sensor by key
+                for bs in self._binary_sensors:
+                    if bs.get("key") == state.key:
+                        bs_id = bs.get("id", "")
+                        old_state = self._binary_sensor_states.get(bs_id)
+                        self._binary_sensor_states[bs_id] = state.state
+                        _LOGGER.debug(
+                            "Binary sensor '%s' state: %s (was %s)",
+                            bs_id, state.state, old_state,
+                        )
+                        # Notify registered callback on actual change
+                        if old_state != state.state:
+                            cb = self._binary_sensor_callbacks.get(bs_id)
+                            if cb is not None:
+                                try:
+                                    cb(state.state)
+                                except Exception as cb_err:
+                                    _LOGGER.error(
+                                        "Error in binary sensor callback for '%s': %s",
+                                        bs_id, cb_err,
+                                    )
+                        break
         except Exception as e:
             _LOGGER.debug("Error processing state change: %s", e)
     
@@ -376,6 +457,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         self._switch_keys.clear()
         self._light_keys.clear()
         self._cover_keys.clear()
+        self._binary_sensor_keys.clear()
         
         for switch in self._switches:
             if "id" in switch and "key" in switch:
@@ -389,8 +471,15 @@ class ESPHomeRemoteDevice(RemoteDevice):
             if "id" in cover and "key" in cover:
                 self._cover_keys[cover["id"]] = cover["key"]
         
-        _LOGGER.debug("Built entity keys: %d switches, %d lights, %d covers",
-                     len(self._switch_keys), len(self._light_keys), len(self._cover_keys))
+        for bs in self._binary_sensors:
+            if "id" in bs and "key" in bs:
+                self._binary_sensor_keys[bs["id"]] = bs["key"]
+        
+        _LOGGER.debug(
+            "Built entity keys: %d switches, %d lights, %d covers, %d binary_sensors",
+            len(self._switch_keys), len(self._light_keys),
+            len(self._cover_keys), len(self._binary_sensor_keys),
+        )
     
     async def connect(self) -> bool:
         """Ensure connection is established.
@@ -448,19 +537,20 @@ class ESPHomeRemoteDevice(RemoteDevice):
         """Discover all entities on the ESPHome device.
         
         Connects to the device, retrieves entity list, and returns
-        switches, lights, and covers with their capabilities.
+        switches, lights, covers, and binary sensors with their capabilities.
         
         Returns:
-            Dictionary with 'switches', 'lights', 'covers' lists
+            Dictionary with 'switches', 'lights', 'covers', 'binary_sensors' lists
         """
         if not ESPHOME_API_AVAILABLE:
             _LOGGER.error("aioesphomeapi not installed")
-            return {"switches": [], "lights": [], "covers": [], "error": "aioesphomeapi not installed"}
+            return {"switches": [], "lights": [], "covers": [], "binary_sensors": [], "error": "aioesphomeapi not installed"}
         
-        result = {
+        result: dict[str, Any] = {
             "switches": [],
             "lights": [],
             "covers": [],
+            "binary_sensors": [],
         }
         
         try:
@@ -547,24 +637,35 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         "supports_tilt": getattr(entity, 'supports_tilt', False),
                     })
                     _LOGGER.debug("Found cover: %s (%s)", entity.name, entity.object_id)
+                
+                elif isinstance(entity, BinarySensorInfo):
+                    result["binary_sensors"].append({
+                        "id": entity.object_id,
+                        "name": entity.name,
+                        "key": entity.key,
+                        "device_class": getattr(entity, 'device_class', None) or None,
+                    })
+                    _LOGGER.debug("Found binary sensor: %s (%s)", entity.name, entity.object_id)
             
             await client.disconnect()
             
-            _LOGGER.info("Discovered %d switches, %d lights, %d covers on '%s'",
-                        len(result["switches"]), len(result["lights"]), 
-                        len(result["covers"]), self._name)
+            _LOGGER.info(
+                "Discovered %d switches, %d lights, %d covers, %d binary_sensors on '%s'",
+                len(result["switches"]), len(result["lights"]),
+                len(result["covers"]), len(result["binary_sensors"]), self._name,
+            )
             
             return result
             
         except InvalidAuthAPIError as e:
             _LOGGER.error("Authentication failed during discovery: %s", e)
-            return {"switches": [], "lights": [], "covers": [], "error": f"Authentication failed: {e}"}
+            return {"switches": [], "lights": [], "covers": [], "binary_sensors": [], "error": f"Authentication failed: {e}"}
         except APIConnectionError as e:
             _LOGGER.error("Connection failed during discovery: %s", e)
-            return {"switches": [], "lights": [], "covers": [], "error": f"Connection failed: {e}"}
+            return {"switches": [], "lights": [], "covers": [], "binary_sensors": [], "error": f"Connection failed: {e}"}
         except Exception as e:
             _LOGGER.error("Discovery failed: %s", e)
-            return {"switches": [], "lights": [], "covers": [], "error": str(e)}
+            return {"switches": [], "lights": [], "covers": [], "binary_sensors": [], "error": str(e)}
     
     async def control_output(
         self,
@@ -1004,6 +1105,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         data["switches"] = self._switches
         data["lights"] = self._lights
         data["esphome_covers"] = self._covers_list
+        data["binary_sensors"] = self._binary_sensors
         return data
 
 
@@ -1032,6 +1134,7 @@ async def discover_esphome_entities(
             "switches": [],
             "lights": [],
             "covers": [],
+            "binary_sensors": [],
             "error": "aioesphomeapi not installed"
         }
     

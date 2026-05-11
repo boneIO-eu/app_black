@@ -14,7 +14,8 @@ import {
 import type { 
   ESPHomeSwitchEntity, 
   ESPHomeLightEntity, 
-  ESPHomeCoverEntity 
+  ESPHomeCoverEntity,
+  ESPHomeBinarySensorEntity,
 } from '@/types/config';
 
 // Supported protocols
@@ -89,6 +90,7 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           switches: result.switches || [],
           lights: result.lights || [],
           covers: result.covers || [],
+          binary_sensors: result.binary_sensors || [],
         },
       });
     } catch (error) {
@@ -400,6 +402,44 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                           <td>
                             {cover.supports_position && <span className="badge badge-xs badge-info mr-1">Position</span>}
                             {cover.supports_tilt && <span className="badge badge-xs badge-warning mr-1">Tilt</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Discovered Binary Sensors */}
+          {(data?.esphome_api?.binary_sensors?.length > 0) && (
+            <div className="collapse collapse-arrow bg-base-300">
+              <input type="checkbox" defaultChecked />
+              <div className="collapse-title font-medium">
+                {t('remote_devices.esphome_binary_sensors') || 'Binary Sensors'}
+                <span className="badge badge-sm ml-2">{data.esphome_api.binary_sensors.length}</span>
+              </div>
+              <div className="collapse-content">
+                <div className="overflow-x-auto">
+                  <table className="table table-xs">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>{t('common.name') || 'Name'}</th>
+                        <th>{t('remote_devices.device_class') || 'Device Class'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.esphome_api.binary_sensors.map((bs: ESPHomeBinarySensorEntity, idx: number) => (
+                        <tr key={idx}>
+                          <td className="font-mono text-xs">{bs.id}</td>
+                          <td>{bs.name || '-'}</td>
+                          <td>
+                            {bs.device_class 
+                              ? <span className="badge badge-xs badge-info">{bs.device_class}</span>
+                              : <span className="badge badge-xs badge-ghost">-</span>
+                            }
                           </td>
                         </tr>
                       ))}

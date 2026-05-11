@@ -603,6 +603,93 @@ class MultiClickDetector:
                 )
 
 
+    def handle_raw_state(self, is_pressed: bool) -> None:
+        """Process a raw state change for virtual/remote inputs.
+
+        Uses wall-clock time instead of kernel GPIO timestamps.
+        Suitable for ESPHome binary sensors and other network-based inputs
+        that don't generate gpiod edge events.
+
+        Args:
+            is_pressed: True if the input is now active (pressed)
+        """
+        import time
+
+        timestamp_s = time.time()
+
+        if is_pressed:
+            # Debounce
+            if (
+                self._state.last_press_ts
+                and (timestamp_s - self._state.last_press_ts) < self._debounce_seconds
+            ):
+                return
+
+            _LOGGER.debug("RAW PRESSED: %s (%s)", self._name, self._pin)
+            self._state.last_press_ts = timestamp_s
+            self._state.last_press_loop_ts = self._loop.time()
+            self._state.last_release_ts = None
+
+            if self._state.finalizer:
+                self._state.finalizer.cancel()
+                self._state.finalizer = None
+                self._state.finalizer_scheduled_loop_ts = None
+
+            if self._sequence_mode == "exclusive" and self._state.pending_click_timer:
+                self._state.pending_click_timer.cancel()
+                self._state.pending_click_timer = None
+
+            self._state.long_press_scheduled_loop_ts = self._loop.time()
+            self._state.long_press_timer = self._loop.call_later(
+                self._hold_threshold,
+                self._detect_long_press,
+            )
+        else:
+            # Debounce
+            if (
+                self._state.last_release_ts
+                and (timestamp_s - self._state.last_release_ts)
+                < self._debounce_seconds
+            ):
+                return
+            if (
+                self._state.last_press_ts
+                and (timestamp_s - self._state.last_press_ts)
+                < self._debounce_seconds
+            ):
+                return
+
+            _LOGGER.debug("RAW RELEASED: %s (%s)", self._name, self._pin)
+            self._state.last_release_ts = timestamp_s
+
+            if self._state.long_hold_periodic_timer:
+                self._state.long_hold_periodic_timer.cancel()
+                self._state.long_hold_periodic_timer = None
+
+                if self._state.last_press_loop_ts:
+                    duration = self._loop.time() - self._state.last_press_loop_ts
+                    self._emit_click(LONG, duration)
+
+                def _reset():
+                    self._state.executed_long_actions = set()
+                    self._state.last_repeat_times = {}
+
+                self._loop.call_later(0.05, _reset)
+
+            if self._state.long_press_timer:
+                self._state.long_press_timer.cancel()
+                self._state.long_press_timer = None
+                self._state.long_press_scheduled_loop_ts = None
+
+                self._state.click_count += 1
+
+                self._state.finalizer_scheduled_loop_ts = self._loop.time()
+                self._state.finalizer = self._loop.call_later(
+                    self._multiclick_window,
+                    self._finalize_clicks,
+                )
+
+
 class BinarySensorDetector:
     """Detects binary state changes (PRESSED/RELEASED) with software debounce."""
 

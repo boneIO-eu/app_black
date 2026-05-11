@@ -308,7 +308,12 @@ async def async_run(
 
     # Initialize remote devices in background (configure + start connections)
     # This defers heavy module imports (aioesphomeapi, aiohttp) to background
-    remote_task = manager.append_task(coro=manager.remote_devices.initialize, name="remote_devices_init")
+    async def _init_remote_devices_and_inputs() -> None:
+        """Initialize remote devices, then register ESPHome binary sensor inputs."""
+        await manager.remote_devices.initialize()
+        manager.register_esphome_binary_sensors()
+
+    remote_task = manager.append_task(coro=_init_remote_devices_and_inputs, name="remote_devices_init")
     tasks.add(remote_task)
 
     # --- Start MQTT and discovery in background ---
