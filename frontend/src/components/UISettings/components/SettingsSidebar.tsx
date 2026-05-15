@@ -171,7 +171,7 @@ function SidebarContent({
       {remoteReloadSections.length > 0 && (
         <div className="mb-4 border border-info/20 rounded-xl bg-info/5 p-3">
           <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-sm font-semibold text-info/70">
+            <span className="text-sm font-semibold text-info">
               📡 {t('settings.remote_sections')}
             </span>
           </div>
@@ -190,7 +190,7 @@ function SidebarContent({
       {/* Restart sections — visually grouped */}
       <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
         <div className="flex items-center gap-2 mb-2 px-1">
-          <span className="text-sm font-semibold text-warning/70">
+          <span className="text-sm font-semibold text-warning">
             ⚠️ {t('settings.restart_sections')}
           </span>
         </div>
