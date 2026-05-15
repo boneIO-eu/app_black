@@ -37,6 +37,8 @@ interface BuildAiConfigPromptParams<T extends SupportedEntity> {
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
+  /** All currently configured inputs (events + binary sensors) so AI knows what's already in use. */
+  allConfiguredInputs?: SupportedEntity[];
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];
@@ -271,10 +273,39 @@ export function buildAiConfigContext<T extends SupportedEntity>({
   allCovers = [],
   allAreas = [],
   allRemoteDevices = [],
+  allConfiguredInputs = [],
   actionTypeOptions,
   actionOutputOptions,
   actionCoverOptions,
 }: BuildAiConfigPromptParams<T>) {
+  // Build a compact summary of already-configured inputs so AI knows
+  // which pins are in use and what they do (prevents overwriting).
+  const configuredInputsSummary = allConfiguredInputs
+    .filter((input) => input.boneio_input || (input as any).input_id)
+    .map((input) => {
+      const actions = input.actions || {};
+      const actionSummary: Record<string, string[]> = {};
+      for (const [slot, slotActions] of Object.entries(actions)) {
+        if (Array.isArray(slotActions) && slotActions.length > 0) {
+          actionSummary[slot] = slotActions.map((a: any) => {
+            if (a.action === 'output') return `output:${a.boneio_output || '?'} ${a.action_output || 'TOGGLE'}`;
+            if (a.action === 'cover') return `cover:${a.boneio_cover || '?'} ${a.action_cover || 'TOGGLE'}`;
+            if (a.action === 'remote_output') return `remote:${a.remote_device || '?'}/${a.output_id || '?'}`;
+            if (a.action === 'remote_cover') return `remote_cover:${a.remote_device || '?'}/${a.cover_id || '?'}`;
+            if (a.action === 'mqtt') return `mqtt:${a.topic || '?'}`;
+            return a.action || '?';
+          });
+        }
+      }
+      return {
+        input: input.boneio_input || (input as any).input_id,
+        name: input.name,
+        mode: (input as any)._type || entityType,
+        area: input.area,
+        actions: Object.keys(actionSummary).length > 0 ? actionSummary : undefined,
+      };
+    });
+
   return {
     version: 1,
     entity_type: entityType,
@@ -283,6 +314,7 @@ export function buildAiConfigContext<T extends SupportedEntity>({
     webui_help_url: getWebUiHelpUrl(),
     current_entity: data,
     available_inputs: schema?.items?.properties?.boneio_input?.enum || [],
+    configured_inputs: configuredInputsSummary,
     allowed_action_slots: getAllowedActionSlots(entityType),
     available_action_types: actionTypeOptions,
     action_output_options: actionOutputOptions,

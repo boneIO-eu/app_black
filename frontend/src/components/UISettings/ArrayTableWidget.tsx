@@ -381,6 +381,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       const prompt = buildAiWizardPrompt({
         entityType: entityType as any, data: {} as any, schema,
         allOutputs, allOutputGroups, allCovers, allAreas, allRemoteDevices,
+        allConfiguredInputs: value,
         actionTypeOptions, actionOutputOptions, actionCoverOptions,
       });
       await navigator.clipboard.writeText(prompt);

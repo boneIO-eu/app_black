@@ -18,6 +18,7 @@ interface WizardPromptParams<T extends SupportedEntity> {
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
+  allConfiguredInputs?: SupportedEntity[];
   actionTypeOptions: string[];
   actionOutputOptions: string[];
   actionCoverOptions: string[];
@@ -60,6 +61,8 @@ export function buildAiWizardPrompt<T extends SupportedEntity>(params: WizardPro
     '',
     'Step 1: Ask which physical input to configure (e.g. IN_01 to IN_49).',
     '        Show a few available inputs from the context if helpful.',
+    '        IMPORTANT: Check "configured_inputs" in the context first.',
+    '        If an input is already configured, warn the user and ask if they want to reconfigure it.',
     'Step 2: Ask what name to give this input (e.g. "Bedroom Light Switch").',
     'Step 3: Ask which area/room it belongs to (show available areas).',
     'Step 4: Ask what should happen on SINGLE CLICK.',
