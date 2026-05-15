@@ -18,12 +18,9 @@ export interface SectionDefinition {
 export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'areas', icon: '🏠', translationKey: 'sections.areas' },
   { name: 'local_inputs', icon: '📥', translationKey: 'sections.local_inputs' },
-  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', badge: 'experimental' },
   { name: 'output', icon: '💡', translationKey: 'sections.output' },
-  { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs' },
   { name: 'output_group', icon: '🔗', translationKey: 'sections.output_group' },
   { name: 'cover', icon: '🚪', translationKey: 'sections.cover' },
-  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices' },
   { name: 'modbus_devices', icon: '📱', translationKey: 'sections.modbus_devices' },
   { name: 'sensor', icon: '🌡️', translationKey: 'sections.sensor' },
   { name: 'adc', icon: '📊', translationKey: 'sections.adc' },
@@ -31,6 +28,9 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'template', icon: '🧩', translationKey: 'sections.template' },
   { name: 'logger', icon: '📝', translationKey: 'sections.logger' },
   { name: 'oled', icon: '🖥️', translationKey: 'sections.oled' },
+  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices' },
+  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs' },
+  { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs' },
 ];
 
 /**

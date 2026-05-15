@@ -236,7 +236,8 @@ export default function UISettings() {
       // remote_inputs is now a top-level config section (no aggregation needed)
 
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
-      // setFormData(configData);
+      // Schema-converted data will overwrite this once schema loads in background.
+      setFormData(configData);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
 
       // Create initial sections without schema (for custom forms that don't need it)
