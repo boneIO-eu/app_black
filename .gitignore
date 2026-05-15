@@ -136,3 +136,9 @@ frontend/dev-dist/
 
 .vscode
 .windsurf
+
+# Local deployment script with password — never commit
+deploy_backend.sh
+
+# macOS metadata
+.DS_Store
