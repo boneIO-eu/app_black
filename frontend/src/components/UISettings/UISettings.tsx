@@ -125,7 +125,7 @@ export default function UISettings() {
   // CAN bus support was added in hardware version 0.5
   const hwVersion = parseFloat(formData.boneio?.version || '0');
   const canSupported = hwVersion >= 0.5;
-  
+
   if (!canSupported && hwVersion > 0) {
     console.log('CAN not supported: hardware version', hwVersion, '< 0.5');
   }
@@ -212,7 +212,7 @@ export default function UISettings() {
         .then(res => {
           if (res.data?.restart_required) setRestartRequired(true);
         })
-        .catch(() => {});
+        .catch(() => { });
 
       // Load parsed config from backend FIRST (fast, small)
       const { data: configContent } = await axios.get('/api/config');
@@ -501,9 +501,9 @@ export default function UISettings() {
 
             // Check if this is a timeperiod field (by schema or by detecting TimePeriod object)
             const isTimePeriodSchema = propSchema && propSchema['x-timeperiod'] === true;
-            const isTimePeriodObject = typeof value === 'object' && value !== null && 
+            const isTimePeriodObject = typeof value === 'object' && value !== null &&
               ('milliseconds' in value || 'seconds' in value || 'minutes' in value || 'hours' in value || '_total_in_seconds' in value);
-            
+
             if (isTimePeriodSchema || isTimePeriodObject) {
               // Convert number (milliseconds) to string with unit
               if (typeof value === 'number') {
@@ -726,7 +726,7 @@ export default function UISettings() {
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
         alert(
           t('boneio_config.name_required_error') ||
-            'Name is required when version or device type is selected'
+          'Name is required when version or device type is selected'
         );
         setTimeout(() => {
           setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -746,9 +746,9 @@ export default function UISettings() {
           sensor.id ||
           (sensor.name
             ? sensor.name
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '_')
-                .replace(/^_|_$/g, '')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_|_$/g, '')
             : '');
         if (sensorId) {
           if (ids.has(sensorId)) {
@@ -786,24 +786,24 @@ export default function UISettings() {
         // Convert addresses to integers for backend
         minimalConfig = Array.isArray(dataToUse)
           ? dataToUse.map((entry: any) => {
-              if (entry && entry.address !== undefined) {
-                let addr = entry.address;
-                // Convert to integer
-                if (typeof addr === 'string') {
-                  if (addr.startsWith('0x') || addr.startsWith('0X')) {
-                    addr = parseInt(addr, 16);
-                  } else {
-                    addr = parseInt(addr, 10);
-                  }
+            if (entry && entry.address !== undefined) {
+              let addr = entry.address;
+              // Convert to integer
+              if (typeof addr === 'string') {
+                if (addr.startsWith('0x') || addr.startsWith('0X')) {
+                  addr = parseInt(addr, 16);
+                } else {
+                  addr = parseInt(addr, 10);
                 }
-                // Ensure valid number
-                if (isNaN(addr)) {
-                  addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
-                }
-                return { id: entry.id, address: addr };
               }
-              return entry;
-            })
+              // Ensure valid number
+              if (isNaN(addr)) {
+                addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
+              }
+              return { id: entry.id, address: addr };
+            }
+            return entry;
+          })
           : dataToUse;
       } else {
         // Convert form data back to original types before sending
@@ -1369,11 +1369,11 @@ export default function UISettings() {
                       <pre className="text-sm font-mono text-base-content bg-base-100 p-4 rounded-lg overflow-x-auto">
                         {activeSection === 'mqtt'
                           ? [
-                              `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
-                              formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
-                                ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
-                                : null,
-                            ].filter(Boolean).join('\n')
+                            `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
+                            formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
+                              ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
+                              : null,
+                          ].filter(Boolean).join('\n')
                           : convertToYaml(formData[activeSection], activeSection)
                         }
                       </pre>

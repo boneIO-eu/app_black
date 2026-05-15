@@ -11,6 +11,7 @@ interface SectionConfig {
   icon: string;
   translationKey: string;
   badge?: string;
+  group?: string;
 }
 
 interface ConfigSection {
@@ -146,14 +147,18 @@ function SidebarContent({
   onNavigate,
 }: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'>) {
   const { t } = useTranslation();
-  
+
+  // Split reload sections into local (no group) and remote (group === 'remote')
+  const localReloadSections = reloadSections.filter(s => !s.group);
+  const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
+
   return (
     <>
-      {/* Reload sections - hot reload supported */}
+      {/* Local sections - hot reload supported */}
       <div className="mb-4">
         <SectionList
           sections={sections}
-          filterSections={reloadSections}
+          filterSections={localReloadSections}
           configSections={configSections}
           activeSection={activeSection}
           saveStatus={saveStatus}
@@ -161,6 +166,26 @@ function SidebarContent({
           onNavigate={onNavigate}
         />
       </div>
+
+      {/* Remote sections — visually grouped */}
+      {remoteReloadSections.length > 0 && (
+        <div className="mb-4 border border-info/20 rounded-xl bg-info/5 p-3">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-sm font-semibold text-info/70">
+              📡 {t('settings.remote_sections')}
+            </span>
+          </div>
+          <SectionList
+            sections={sections}
+            filterSections={remoteReloadSections}
+            configSections={configSections}
+            activeSection={activeSection}
+            saveStatus={saveStatus}
+            unsavedChanges={unsavedChanges}
+            onNavigate={onNavigate}
+          />
+        </div>
+      )}
 
       {/* Separator */}
       <div className="divider text-xs text-warning font-medium my-2">

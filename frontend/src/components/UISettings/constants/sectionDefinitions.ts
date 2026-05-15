@@ -9,6 +9,8 @@ export interface SectionDefinition {
   translationKey: string;
   /** Optional badge key (e.g. 'experimental') — shown next to section label. */
   badge?: string;
+  /** Optional group tag for visual grouping in sidebar (e.g. 'remote'). */
+  group?: string;
 }
 
 /**
@@ -28,9 +30,9 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'template', icon: '🧩', translationKey: 'sections.template' },
   { name: 'logger', icon: '📝', translationKey: 'sections.logger' },
   { name: 'oled', icon: '🖥️', translationKey: 'sections.oled' },
-  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices' },
-  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs' },
-  { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs' },
+  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices', group: 'remote' },
+  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', group: 'remote' },
+  { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs', group: 'remote' },
 ];
 
 /**
