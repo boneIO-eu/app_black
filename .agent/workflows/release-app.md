@@ -14,6 +14,16 @@ Gdy użytkownik powie "wydaj vX.Y.Z" lub "wydaj vX.Y.ZdevN", wykonaj:
 
 Dla **dev release'ów** ten krok jest pomijany — dev release'y nie potrzebują ręcznych notatek.
 
+### 0.5. Aktualizuj CHANGELOG.md
+
+**ZAWSZE** przed nadpisaniem `RELEASE_NOTES.md` nową wersją, zachowaj historię:
+
+1. Jeśli `RELEASE_NOTES.md` już istnieje z treścią poprzedniej wersji — upewnij się, że ta treść jest obecna w `CHANGELOG.md`.
+2. Dopisz nową sekcję na **góre** `CHANGELOG.md` (najnowsza wersja pierwsza).
+3. `CHANGELOG.md` zawiera **skumulowaną historię** wszystkich wersji — NIGDY nie usuwaj starych wpisów.
+4. `RELEASE_NOTES.md` to plik tymczasowy — zawiera tylko aktualną wersję (używany przez GitHub Actions).
+5. Oba pliki piszemy **wyłącznie po angielsku**.
+
 ### 1. Zmień wersję w version.py
 
 Plik: `boneio/version.py`
