@@ -18,6 +18,7 @@ import TemplateForm from '../TemplateForm';
 import ADCForm from '../ADCForm';
 import BoardSensorsForm from '../BoardSensorsForm';
 import RemoteInputForm from '../RemoteInputForm';
+import RemoteOutputForm from '../RemoteOutputForm';
 import InputTypeSwitcher from './InputTypeSwitcher';
 
 interface FormRendererProps {
@@ -141,6 +142,24 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           savedCovers={props.savedCovers}
         />
       </div>
+    );
+  }
+
+  // Remote outputs — simple form (no action tabs)
+  if (sectionType === 'remote_outputs') {
+    return (
+      <RemoteOutputForm
+        data={editingItem}
+        onChange={props.onChange}
+        isNew={props.editingIndex === null}
+        schema={props.schema}
+        allAreas={props.allAreas}
+        allRemoteDevices={props.allRemoteDevices}
+        existingItems={value}
+        editingIndex={editingIndex}
+        onValidationChange={props.onValidationChange}
+        attemptedSubmit={props.attemptedSubmit}
+      />
     );
   }
 

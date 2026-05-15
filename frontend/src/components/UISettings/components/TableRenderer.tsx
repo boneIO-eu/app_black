@@ -16,6 +16,7 @@ import RemoteDeviceTable from '../tables/RemoteDeviceTable';
 import TemplateTable from '../tables/TemplateTable';
 import ADCTable from '../tables/ADCTable';
 import BoardSensorsTable from '../tables/BoardSensorsTable';
+import RemoteOutputTable from '../tables/RemoteOutputTable';
 import GenericTable from '../tables/GenericTable';
 
 interface TableRendererProps {
@@ -74,6 +75,8 @@ const TableRenderer: React.FC<TableRendererProps> = ({
       return <ADCTable {...commonProps} allAreas={allAreas} />;
     case 'board_sensors':
       return <BoardSensorsTable {...commonProps} />;
+    case 'remote_outputs':
+      return <RemoteOutputTable {...commonProps} allAreas={allAreas} allRemoteDevices={allRemoteDevices} />;
     default:
       return <GenericTable {...commonProps} />;
   }

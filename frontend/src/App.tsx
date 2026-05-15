@@ -110,7 +110,9 @@ function AppContent() {
               const prevOutput = prev[index];
               // Check if state or name changed
               if (prevOutput.state.state === message.state.state &&
-                  prevOutput.state.name === message.state.name) {
+                  prevOutput.state.name === message.state.name &&
+                  prevOutput.state.brightness === message.state.brightness &&
+                  prevOutput.state.timestamp === message.state.timestamp) {
                 return prev; // No change needed
               }
               const newOutputs = [...prev];

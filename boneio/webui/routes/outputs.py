@@ -169,3 +169,43 @@ async def set_output_duration(
     await output.async_send_state()
 
     return {"status": "ok", "value": output.adjustable_duration}
+
+
+@router.post("/outputs/{output_id}/set_brightness")
+async def set_output_brightness(
+    output_id: str,
+    body: dict,
+    manager: Manager = Depends(get_manager),
+):
+    """Set brightness on a remote light output.
+
+    Args:
+        output_id: ID of the output.
+        body: Request body with 'brightness' key (0-255).
+        manager: Manager instance.
+
+    Returns:
+        Status response with new brightness value.
+
+    Raises:
+        HTTPException: 404 if output not found, 400 if invalid request.
+    """
+    output = manager.outputs.get_output(output_id)
+    if not output:
+        raise HTTPException(status_code=404, detail="Output not found")
+
+    if not getattr(output, "is_remote", False):
+        raise HTTPException(status_code=400, detail="Brightness control only supported for remote outputs")
+
+    brightness = body.get("brightness")
+    if brightness is None:
+        raise HTTPException(status_code=400, detail="Missing 'brightness' in request body")
+
+    try:
+        brightness_int = max(0, min(255, int(float(brightness))))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid brightness value") from None
+
+    await output.async_set_brightness(brightness_int)
+
+    return {"status": "ok", "brightness": brightness_int}

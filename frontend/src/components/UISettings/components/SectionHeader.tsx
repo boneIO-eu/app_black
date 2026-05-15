@@ -40,7 +40,7 @@ export default function SectionHeader({
         <div>
           <h1 className="text-2xl font-bold text-base-content flex items-center gap-2">
             {sectionTitle}
-            {sectionName === 'remote_devices' && (
+            {(sectionName === 'remote_devices' || sectionName === 'remote_inputs' || sectionName === 'remote_outputs') && (
               <span className="badge badge-warning badge-sm">{t('navigation.experimental')}</span>
             )}
           </h1>

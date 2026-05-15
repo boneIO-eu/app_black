@@ -1,13 +1,14 @@
-import React, { useRef, useState, useEffect } from "react";
-import { FaLightbulb, FaLock } from 'react-icons/fa';
+import React, { useRef, useCallback } from "react";
+import { FaLightbulb, FaLock, FaWifi } from 'react-icons/fa';
 import { HiLightBulb } from 'react-icons/hi';
 import { RiOutletLine } from "react-icons/ri";
 import { GiValve } from "react-icons/gi";
-import { MdTimer } from "react-icons/md";
+import { MdTimer, MdBrightnessHigh } from "react-icons/md";
 import { formatTimestamp } from '../utils/formatters';
 import { OutputState } from "@/hooks/useWebSocket";
 import { ImSwitch } from "react-icons/im";
 import { useTranslation } from '@/hooks/useTranslation';
+import RangeSlider from './RangeSlider';
 
 // Color palette for interlock groups - each group gets a consistent color
 const INTERLOCK_COLORS = [
@@ -53,6 +54,7 @@ interface OutputItemProps {
   output: OutputState;
   onToggle?: (id: string, name: string, type: string) => void;
   onDurationChange?: (id: string, value: number) => void;
+  onBrightnessChange?: (id: string, value: number) => void;
   isGrid: boolean;
   error: string | null;
   stateOnly?: boolean;
@@ -84,6 +86,7 @@ const OutputItem: React.FC<OutputItemProps> = ({
   output,
   onToggle,
   onDurationChange,
+  onBrightnessChange,
   isGrid,
   error,
   stateOnly = false,
@@ -95,28 +98,6 @@ const OutputItem: React.FC<OutputItemProps> = ({
   const { Icon, onColor } = getIconAndOnColor(output.type, isGroup);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Local slider value for responsive UI (avoid waiting for server roundtrip)
-  const [localDuration, setLocalDuration] = useState<number | null>(null);
-  
-  // Sync local value with server value when it changes
-  useEffect(() => {
-    if (output.adjustable_duration_value != null) {
-      setLocalDuration(output.adjustable_duration_value);
-    }
-  }, [output.adjustable_duration_value]);
-
-  const handleDurationChange = (value: number) => {
-    setLocalDuration(value);
-    // Debounce API call to avoid spamming
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    debounceTimer.current = setTimeout(() => {
-      onDurationChange?.(output.id, value);
-    }, 300);
-  };
 
   const handlePressStart = () => {
     if (!onLongPress) return;
@@ -134,7 +115,18 @@ const OutputItem: React.FC<OutputItemProps> = ({
     }
   };
 
-  const showDuration = output.adjustable_duration && localDuration != null;
+  const showDuration = output.adjustable_duration && output.adjustable_duration_value != null;
+  const showBrightness = output.brightness != null && output.type === 'light' && output.remote;
+
+  const handleDurationSliderChange = useCallback(
+    (value: number) => onDurationChange?.(output.id, value),
+    [onDurationChange, output.id],
+  );
+
+  const handleBrightnessSliderChange = useCallback(
+    (value: number) => onBrightnessChange?.(output.id, value),
+    [onBrightnessChange, output.id],
+  );
   
   return (
     <div 
@@ -148,10 +140,13 @@ const OutputItem: React.FC<OutputItemProps> = ({
     >
       <div className={`flex items-center gap-3 ${isGrid ? 'mb-3' : ''}`}>
         <Icon className={`text-xl ${output.state === 'ON' ? onColor : 'text-gray-400'}`} />
-        <div className="flex flex-col">
-          <span className="text-lg">{output.name}</span>
-          <span className="text-xs text-gray-500">{output.id}</span>
-          <span className="text-xs text-gray-400">{t('outputs.area_short')}: {output.area || t('outputs.no_area')}</span>
+        <div className="flex flex-col min-w-0">
+          <span className="text-lg truncate">{output.name}</span>
+          <span className="text-xs text-gray-500 truncate">
+            {output.id}
+            {output.remote && <FaWifi className="inline ml-1 text-blue-400 shrink-0" title="Remote output" />}
+          </span>
+          <span className="text-xs text-gray-400 truncate">{t('outputs.area_short')}: {output.area || t('outputs.no_area')}</span>
           {output.interlock_groups && output.interlock_groups.length > 0 && (
             <div className="flex items-center gap-1 mt-1">
               <FaLock className="text-xs text-gray-400" />
@@ -195,25 +190,28 @@ const OutputItem: React.FC<OutputItemProps> = ({
 
         {/* Adjustable duration slider */}
         {showDuration && (
-          <div className="w-full mt-2">
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
-              <MdTimer className="text-sm" />
-              <span className="font-medium">
-                {formatDuration(localDuration!)}
-              </span>
-            </div>
-            <input
-              type="range"
-              className="range range-xs range-primary w-full"
-              min={output.duration_min ?? 1}
-              max={output.duration_max ?? 3600}
-              step={1}
-              value={localDuration!}
-              onChange={(e) => handleDurationChange(parseInt(e.target.value))}
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-            />
-          </div>
+          <RangeSlider
+            value={output.adjustable_duration_value!}
+            min={output.duration_min ?? 1}
+            max={output.duration_max ?? 3600}
+            onChange={handleDurationSliderChange}
+            variant="primary"
+            icon={<MdTimer className="text-sm" />}
+            formatValue={formatDuration}
+          />
+        )}
+
+        {/* Brightness slider for dimmable remote lights */}
+        {showBrightness && (
+          <RangeSlider
+            value={output.brightness!}
+            min={0}
+            max={255}
+            onChange={handleBrightnessSliderChange}
+            variant="warning"
+            icon={<MdBrightnessHigh className="text-sm text-yellow-500" />}
+            formatValue={(v) => `${Math.round((v / 255) * 100)}%`}
+          />
         )}
 
         <p className="text-gray-500 text-xs mt-2">

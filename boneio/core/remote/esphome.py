@@ -176,6 +176,10 @@ class ESPHomeRemoteDevice(RemoteDevice):
         # Callbacks for binary sensor state changes.
         # Keyed by sensor_id → callable(new_state: bool)
         self._binary_sensor_callbacks: dict[str, Any] = {}
+
+        # Callbacks for output (switch/light) state changes.
+        # Keyed by entity_id → callable(new_state: bool, brightness: int | None)
+        self._output_callbacks: dict[str, Any] = {}
         
         # Load configured entities
         if switches:
@@ -264,6 +268,30 @@ class ESPHomeRemoteDevice(RemoteDevice):
             sensor_id: Binary sensor object_id.
         """
         self._binary_sensor_callbacks.pop(sensor_id, None)
+
+    def register_output_callback(
+        self, entity_id: str, callback: Any
+    ) -> None:
+        """Register a callback for switch/light state changes.
+
+        Args:
+            entity_id: Switch or light object_id.
+            callback: Callable(new_state: bool, brightness: int | None)
+                      invoked on state change.
+        """
+        self._output_callbacks[entity_id] = callback
+        _LOGGER.debug(
+            "Registered output callback for '%s' on device '%s'",
+            entity_id, self._name,
+        )
+
+    def unregister_output_callback(self, entity_id: str) -> None:
+        """Remove an output state callback.
+
+        Args:
+            entity_id: Switch or light object_id.
+        """
+        self._output_callbacks.pop(entity_id, None)
     
     def has_light(self, entity_id: str) -> bool:
         """Check if entity_id is a light on this device.
@@ -430,8 +458,20 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 for switch in self._switches:
                     if switch.get("key") == state.key:
                         switch_id = switch.get("id", "")
+                        old_state = self._switch_states.get(switch_id)
                         self._switch_states[switch_id] = state.state
                         _LOGGER.debug("Switch '%s' state: %s", switch_id, state.state)
+                        # Notify registered output callback
+                        if old_state != state.state:
+                            cb = self._output_callbacks.get(switch_id)
+                            if cb is not None:
+                                try:
+                                    cb(state.state)
+                                except Exception as cb_err:
+                                    _LOGGER.error(
+                                        "Error in output callback for switch '%s': %s",
+                                        switch_id, cb_err,
+                                    )
                         break
                         
             elif isinstance(state, LightState):
@@ -439,6 +479,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 for light in self._lights:
                     if light.get("key") == state.key:
                         light_id = light.get("id", "")
+                        brightness_255 = int(round(state.brightness * 255)) if state.state else 0
                         self._light_states[light_id] = {
                             "state": state.state,
                             "brightness": state.brightness,
@@ -447,6 +488,16 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         }
                         _LOGGER.debug("Light '%s' state: on=%s, brightness=%.2f", 
                                      light_id, state.state, state.brightness)
+                        # Notify registered output callback with brightness
+                        cb = self._output_callbacks.get(light_id)
+                        if cb is not None:
+                            try:
+                                cb(state.state, brightness=brightness_255)
+                            except Exception as cb_err:
+                                _LOGGER.error(
+                                    "Error in output callback for light '%s': %s",
+                                    light_id, cb_err,
+                                )
                         break
                         
             elif isinstance(state, CoverState):
@@ -480,14 +531,14 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         bs_id = bs.get("id", "")
                         old_state = self._binary_sensor_states.get(bs_id)
                         self._binary_sensor_states[bs_id] = state.state
-                        _LOGGER.debug(
-                            "Binary sensor '%s' state: %s (was %s)",
-                            bs_id, state.state, old_state,
-                        )
                         # Notify registered callback on actual change
                         if old_state != state.state:
                             cb = self._binary_sensor_callbacks.get(bs_id)
                             if cb is not None:
+                                _LOGGER.debug(
+                                    "Binary sensor '%s' state: %s (was %s)",
+                                    bs_id, state.state, old_state,
+                                )
                                 try:
                                     cb(state.state)
                                 except Exception as cb_err:
@@ -719,17 +770,36 @@ class ESPHomeRemoteDevice(RemoteDevice):
         output_id: str,
         action: str,
         message_bus: Any = None,
+        brightness: int | None = None,
     ) -> bool:
-        """Control a switch on the ESPHome device.
-        
+        """Control a switch or light on the ESPHome device.
+
+        Automatically detects whether the output_id belongs to a switch or
+        light and delegates to the appropriate control method.
+
         Args:
-            output_id: ID of the switch to control (object_id)
+            output_id: ID of the entity to control (object_id)
             action: Action to perform (ON, OFF, TOGGLE)
             message_bus: Not used for ESPHome API
-            
+            brightness: Optional brightness (0-255) for dimmable lights
+
         Returns:
             True if command was sent successfully
         """
+        # Ensure connection first — _on_entities populates switch/light lists
+        if not await self.connect():
+            return False
+        # Check switches first
+        if self._get_entity_key(output_id, self._switches, self._switch_keys) is not None:
+            return await self.control_switch(output_id, action)
+        # Check lights
+        if self._get_entity_key(output_id, self._lights, self._light_keys) is not None:
+            return await self.control_light(output_id, action=action, brightness=brightness)
+        # Fallback: try switch anyway (may fail with informative error)
+        _LOGGER.warning(
+            "Output '%s' not found in switches or lights on device '%s', trying switch",
+            output_id, self._name,
+        )
         return await self.control_switch(output_id, action)
     
     async def control_switch(self, switch_id: str, action: str) -> bool:
@@ -746,14 +816,14 @@ class ESPHomeRemoteDevice(RemoteDevice):
             _LOGGER.error("aioesphomeapi not installed")
             return False
         
-        # Find switch key
-        switch_key = self._get_entity_key(switch_id, self._switches, self._switch_keys)
-        if switch_key is None:
-            _LOGGER.error("Switch '%s' not found on device '%s'", switch_id, self._name)
-            return False
-        
         try:
             if not await self.connect():
+                return False
+
+            # Find switch key (after connect so _on_entities populates the list)
+            switch_key = self._get_entity_key(switch_id, self._switches, self._switch_keys)
+            if switch_key is None:
+                _LOGGER.error("Switch '%s' not found on device '%s'", switch_id, self._name)
                 return False
             
             action_upper = action.upper()
@@ -808,14 +878,14 @@ class ESPHomeRemoteDevice(RemoteDevice):
             _LOGGER.error("aioesphomeapi not installed")
             return False
         
-        # Find light key
-        light_key = self._get_entity_key(light_id, self._lights, self._light_keys)
-        if light_key is None:
-            _LOGGER.error("Light '%s' not found on device '%s'", light_id, self._name)
-            return False
-        
         try:
             if not await self.connect():
+                return False
+
+            # Find light key (after connect so _on_entities populates the list)
+            light_key = self._get_entity_key(light_id, self._lights, self._light_keys)
+            if light_key is None:
+                _LOGGER.error("Light '%s' not found on device '%s'", light_id, self._name)
                 return False
             
             action_upper = action.upper()

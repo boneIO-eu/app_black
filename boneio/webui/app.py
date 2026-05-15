@@ -352,6 +352,8 @@ async def send_initial_states(
                     duration_min=getattr(output, "duration_min", None) if _adj_enabled else None,
                     duration_max=getattr(output, "duration_max", None) if _adj_enabled else None,
                     duration_unit=getattr(output, "duration_unit", None) if _adj_enabled else None,
+                    remote=getattr(output, "is_remote", False),
+                    brightness=getattr(output, "_brightness", None),
                 )
                 update = OutputEvent(entity_id=output.id, state=output_state)
                 if not await send_state_update(update):
@@ -619,7 +621,7 @@ def init_app(
     manager: Manager,
     yaml_config_file: str,
     config_helper: ConfigHelper,
-    auth_config: dict = None,
+    auth_config: dict | None = None,
     jwt_secret: str | None = None,
     web_server: WebServer | None = None,
     initial_config: dict | None = None,

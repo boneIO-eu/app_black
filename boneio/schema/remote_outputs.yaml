@@ -1,0 +1,93 @@
+# Remote outputs — switches/lights from remote devices (ESPHome API, CAN, MQTT).
+# Top-level config section: remote_outputs (separate from remote_devices).
+#
+# remote_devices only describes capabilities (discovery data).
+# remote_outputs defines which remote outputs the user wants to USE locally.
+type: list
+required: False
+meta:
+  label: "Remote outputs from ESPHome, CAN, or other remote devices."
+  description: |
+    Configure outputs from remote devices. Each entry maps a switch/light
+    on a remote device to a local output object with full turn_on/turn_off
+    support. Remote outputs are visible in the Outputs view and can be used
+    in irrigation zones, output groups, and templates.
+schema:
+  type: dict
+  schema:
+    id:
+      type: string
+      required: False
+      coerce: str
+      meta:
+        label: Output ID
+        description: |
+          Custom ID for this remote output. If not set, auto-generated
+          from device_id + output_id (e.g. "esphome_device_1_relay_1").
+    name:
+      type: string
+      required: False
+      meta:
+        label: Display Name
+    remote_source:
+      type: string
+      required: True
+      allowed: ['esphome_api', 'can', 'mqtt']
+      meta:
+        label: Remote Source Protocol
+        description: |
+          Protocol used to control the output:
+          - esphome_api: ESPHome native API switch/light
+          - can: CAN bus output control
+          - mqtt: MQTT switch topic
+    device_id:
+      type: string
+      required: True
+      meta:
+        label: Remote Device ID
+        description: |
+          ID of the remote device (from remote_devices section).
+    output_id:
+      type: string
+      required: True
+      meta:
+        label: Output/Entity ID
+        description: |
+          Switch or light object_id on the remote device (e.g. "relay_1").
+    output_type:
+      type: string
+      required: False
+      default: "switch"
+      allowed: ['switch', 'light', 'valve']
+      meta:
+        label: Output Type
+        description: |
+          Type of output for Home Assistant categorization:
+          - switch: Generic switch
+          - light: Light entity
+          - valve: Valve entity (for irrigation)
+    show_in_ha:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Forward to Home Assistant
+        description: |
+          Whether to publish HA autodiscovery for this remote output.
+          Set to false if the ESPHome device already publishes its own entity.
+    area:
+      type: string
+      required: False
+      meta:
+        label: Area (for HA)
+    on_disconnect:
+      type: string
+      required: False
+      default: "ignore"
+      allowed: ['ignore', 'turn_off']
+      meta:
+        label: On Disconnect Behavior
+        description: |
+          What to do when the remote device loses connection:
+          - ignore: Keep last known state (default)
+          - turn_off: Force output OFF (safe for pumps/irrigation)

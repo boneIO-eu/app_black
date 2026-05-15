@@ -33,7 +33,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];

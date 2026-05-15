@@ -260,6 +260,10 @@ class Manager:
         non_irrigation_templates = [e for e in template if e.get("platform") != "irrigation"]
         irrigation_from_template = [e for e in template if e.get("platform") == "irrigation"]
 
+        # Register remote outputs (must be after OutputManager and RemoteDeviceManager,
+        # but before IrrigationManager which needs to find remote outputs in OutputManager)
+        self.register_remote_outputs()
+
         self.templates = TemplateManager(
             manager=self,
             template_config=non_irrigation_templates,
@@ -1088,11 +1092,13 @@ class Manager:
         remote_devices_config = config.get("remote_devices", [])
 
         _LOGGER.info("Reloading remote devices configuration")
-        # Clean up old remote inputs before reload
+        # Clean up old remote inputs and outputs before reload
         self.inputs.unregister_remote_inputs()
+        self.unregister_remote_outputs()
         await self.remote_devices.reload(remote_devices_config)
-        # Re-register remote inputs from config
+        # Re-register remote inputs and outputs from config
         self.register_remote_inputs()
+        self.register_remote_outputs()
         # Broadcast all input states so frontend picks up new/removed remote inputs
         self.inputs._broadcast_all_input_states()
         _LOGGER.info("Remote devices configuration reloaded successfully")
@@ -1122,6 +1128,111 @@ class Manager:
 
     # Keep backward-compatible alias
     register_esphome_binary_sensors = register_remote_inputs
+
+    def register_remote_outputs(self) -> None:
+        """Register remote outputs from the ``remote_outputs`` config section.
+
+        Creates ``RemoteOutputBase`` instances and registers them in
+        :class:`OutputManager` so they are available for irrigation,
+        output groups, and frontend display.
+        """
+        from boneio.components.output.remote import RemoteOutputBase
+
+        config = self._config_helper.get_config()
+        remote_outputs_config: list[dict] = config.get("remote_outputs", [])
+
+        if not remote_outputs_config:
+            return
+
+        for out_cfg in remote_outputs_config:
+            device_id = out_cfg.get("device_id", "")
+            output_id = out_cfg.get("output_id", "")
+            remote_source = out_cfg.get("remote_source", "esphome_api")
+
+            if not device_id or not output_id:
+                _LOGGER.error("Remote output config missing device_id or output_id: %s", out_cfg)
+                continue
+
+            # Build entity ID
+            entity_id = out_cfg.get("id", "").strip()
+            if not entity_id:
+                entity_id = f"{device_id}_{output_id}".replace("-", "_")
+
+            name = str(out_cfg.get("name") or entity_id)
+            output_type = str(out_cfg.get("output_type", "switch"))
+            show_in_ha = bool(out_cfg.get("show_in_ha", False))
+            area = out_cfg.get("area")
+            on_disconnect = str(out_cfg.get("on_disconnect", "ignore"))
+
+            # Check for duplicates
+            if self.outputs.get_output(entity_id) is not None:
+                _LOGGER.warning(
+                    "Remote output '%s' conflicts with existing output, skipping",
+                    entity_id,
+                )
+                continue
+
+            remote_output = RemoteOutputBase(
+                id=entity_id,
+                name=name,
+                device_id=device_id,
+                output_id=output_id,
+                remote_source=remote_source,
+                event_bus=self._event_bus,
+                output_type=output_type,
+                show_in_ha=show_in_ha,
+                area=area,
+                on_disconnect=on_disconnect,
+            )
+
+            # Set the device manager reference if the device is already loaded.
+            # ESPHome devices may not be in _devices yet (loaded in background),
+            # so _device_manager may remain None — resolved lazily in
+            # RemoteOutputBase.control_output() or when the device connects.
+            device = self.remote_devices.get_device(device_id)
+            if device is not None:
+                remote_output._device_manager = device
+                remote_output._register_state_callback()
+            else:
+                # Store reference to remote_devices so the output can
+                # resolve its device manager lazily when needed.
+                remote_output._remote_devices_ref = self.remote_devices
+                _LOGGER.debug(
+                    "Remote output '%s': device '%s' not yet available, will resolve lazily",
+                    entity_id,
+                    device_id,
+                )
+
+            # Register in OutputManager so it's available everywhere
+            self.outputs._outputs[entity_id] = remote_output  # type: ignore[assignment]
+            _LOGGER.info(
+                "Registered remote output: id='%s' device='%s' output='%s' type='%s'",
+                entity_id,
+                device_id,
+                output_id,
+                output_type,
+            )
+
+        _LOGGER.info(
+            "Remote outputs registered: %d total",
+            sum(1 for o in self.outputs._outputs.values() if getattr(o, "is_remote", False)),
+        )
+
+    def unregister_remote_outputs(self) -> None:
+        """Remove all remote outputs from OutputManager."""
+        remote_ids = [oid for oid, o in self.outputs._outputs.items() if getattr(o, "is_remote", False)]
+        for oid in remote_ids:
+            del self.outputs._outputs[oid]
+            _LOGGER.debug("Unregistered remote output: %s", oid)
+
+    async def _reload_remote_outputs(self) -> None:
+        """Reload only the remote_outputs section.
+
+        Used when remote output config changed but remote devices didn't.
+        """
+        _LOGGER.info("Reloading remote outputs configuration")
+        self.unregister_remote_outputs()
+        self.register_remote_outputs()
 
     async def _reload_templates_and_irrigation(self) -> None:
         """Reload templates and irrigation when the template section changes.
@@ -1243,6 +1354,7 @@ class Manager:
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
             "remote_inputs": self._reload_remote_inputs,  # Remote inputs (binary sensors from remote devices)
+            "remote_outputs": self._reload_remote_outputs,  # Remote outputs (switches/lights from remote devices)
             "template": self._reload_templates_and_irrigation,  # Thermostats, alarm panels, and irrigation
             "irrigation": self.irrigation.reload_irrigation,  # Irrigation controllers
             "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors

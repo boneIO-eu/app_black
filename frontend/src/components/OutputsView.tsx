@@ -7,7 +7,7 @@ import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } fr
 import OutputItem from './OutputItem';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
-import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog, FaWifi } from 'react-icons/fa';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -109,13 +109,13 @@ export default function OutputsView({error}: {error: string | null}) {
     return () => clearInterval(interval);
   }, []);
 
-  // Filter and categorize outputs
-  const { categorizedOutputs, stateOnlyOutputs } = useMemo(() => {
+  // Filter and categorize outputs (local vs remote)
+  const { categorizedOutputs, stateOnlyOutputs, remoteOutputs } = useMemo(() => {
     const allOutputs = outputs
       .filter(isOutputEvent)
       .map(e => e.state);
 
-    // Add remote device outputs (only CAN devices)
+    // Add remote device outputs (only CAN devices — legacy approach)
     remoteDevices.forEach(device => {
       if (device.protocol === 'can' && device.outputs) {
         device.outputs.forEach((out: any) => {
@@ -128,11 +128,16 @@ export default function OutputsView({error}: {error: string | null}) {
             pin: 0,
             timestamp: null,
             area: null,
-            interlock_groups: []
+            interlock_groups: [],
+            remote: true,
           });
         });
       }
     });
+
+    // Separate local and remote outputs
+    const localOutputs = allOutputs.filter(o => !o.remote);
+    const remote = sortOutputs(allOutputs.filter(o => !!o.remote));
     
     const categorized: Record<OutputCategory, OutputState[]> = {
       light: [],
@@ -143,7 +148,7 @@ export default function OutputsView({error}: {error: string | null}) {
       state_only: [],
     };
     
-    allOutputs.forEach(output => {
+    localOutputs.forEach(output => {
       const category = categorizeOutput(output.type);
       categorized[category].push(output);
     });
@@ -156,6 +161,7 @@ export default function OutputsView({error}: {error: string | null}) {
     return {
       categorizedOutputs: categorized,
       stateOnlyOutputs: categorized.state_only,
+      remoteOutputs: remote,
     };
   }, [outputs, sortMode]);
 
@@ -340,6 +346,15 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   }, []);
 
+  const handleBrightnessChange = useCallback(async (id: string, value: number) => {
+    try {
+      await axios.post(`/api/outputs/${id}/set_brightness`, { brightness: value });
+    } catch (err) {
+      console.error('Error setting brightness:', err);
+      setError('Failed to set brightness');
+    }
+  }, []);
+
   const gridClass = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
   const listClass = "flex flex-col gap-4";
 
@@ -364,6 +379,7 @@ export default function OutputsView({error}: {error: string | null}) {
               output={output}
               onToggle={isStateOnly ? undefined : onToggle}
               onDurationChange={handleDurationChange}
+              onBrightnessChange={handleBrightnessChange}
               isGrid={isGrid}
               error={error}
               stateOnly={isStateOnly}
@@ -473,6 +489,33 @@ export default function OutputsView({error}: {error: string | null}) {
 
           {/* State Only (cover or none type outputs - no controls) */}
           {renderOutputSection('state_only', stateOnlyOutputs, toggleOutput, true)}
+
+          {/* Remote Outputs */}
+          {remoteOutputs.length > 0 && (
+            <>
+              <div className="divider">
+                <span className="flex items-center gap-2">
+                  <FaWifi className="text-primary" />
+                  {t('sections.remote_outputs')}
+                </span>
+              </div>
+              <div className={isGrid ? gridClass : listClass}>
+                {remoteOutputs.map((output) => (
+                  <OutputItem
+                    key={output.id}
+                    output={output}
+                    onToggle={toggleOutput}
+                    onDurationChange={handleDurationChange}
+                    onBrightnessChange={handleBrightnessChange}
+                    isGrid={isGrid}
+                    error={error}
+                    isHighlighted={recentlyChanged.has(output.id)}
+                    onLongPress={handleLongPress}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
         </div>
       </div>

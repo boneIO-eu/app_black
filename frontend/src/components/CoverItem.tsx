@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useCallback, useRef } from "react";
+import React, { memo, useRef, useCallback } from "react";
 import { MdBlinds, MdBlindsClosed } from "react-icons/md";
 import axios from "@/api/axios";
 import { formatTimestamp } from '../utils/formatters';
@@ -7,6 +7,7 @@ import { LuArrowDownNarrowWide, LuArrowUpNarrowWide, LuArrowDownLeft, LuArrowUpR
 import { CoverState } from "@/hooks/useWebSocket";
 import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from "@/lib/utils";
+import RangeSlider from './RangeSlider';
 
 
 interface CoverItemProps {
@@ -45,83 +46,23 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
 
   // Main position slider
   const Icon = cover.state === 'open' ? MdBlinds : MdBlindsClosed;
-  const [sliderPosition, setSliderPosition] = useState<number>(cover.position);
-  const [isSliderActive, setIsSliderActive] = useState<boolean>(false);
-
-  // Venetian tilt slider
-  const [tilt, setTilt] = useState<number>(cover.tilt ?? 0);
   const isVenetian = cover.kind === 'venetian';
-  const [isTiltActive, setIsTiltActive] = useState<boolean>(false);
 
-  // Sync tilt state with prop
-  useEffect(() => {
-    if (!isTiltActive && typeof cover.tilt === 'number') {
-      setTilt(cover.tilt);
-    }
-  }, [cover.tilt, isTiltActive]);
+  const handlePositionChange = useCallback((value: number) => {
+    axios.post(`/api/covers/${cover.id}/set_position`, { position: value })
+      .catch(err => console.error('Error setting cover position:', err));
+  }, [cover.id]);
 
-  // Update slider position when cover position changes (if not actively sliding)
-  useEffect(() => {
-    if (!isSliderActive) {
-      setSliderPosition(cover.position);
-    }
-  }, [cover.position, isSliderActive]);
+  const handleTiltChange = useCallback((value: number) => {
+    axios.post(`/api/covers/${cover.id}/set_tilt`, { tilt: value })
+      .catch(err => console.error('Error setting tilt:', err));
+  }, [cover.id]);
 
-  // Debounce function for setting position
-  const debouncedSetPosition = useCallback(() => {
-    const timer = setTimeout(() => {
-      if (sliderPosition !== cover.position) {
-        axios.post(`/api/covers/${cover.id}/set_position`, { position: sliderPosition })
-          .catch(error => console.error('Error setting cover position:', error));
-      }
-      setIsSliderActive(false);
-    }, 300); // 0.3 second debounce
-    return () => clearTimeout(timer);
-  }, [sliderPosition, cover.id, cover.position]);
-
-  // Debounce function for setting tilt
-  const debouncedSetTilt = useCallback(() => {
-    const timer = setTimeout(() => {
-      if (typeof cover.tilt === 'number' && tilt !== cover.tilt) {
-        axios.post(`/api/covers/${cover.id}/set_tilt`, { tilt })
-          .catch(error => console.error('Error setting tilt:', error));
-      }
-      setIsTiltActive(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [tilt, cover.id, cover.tilt]);
-
-  // Set up debounce effect
-  useEffect(() => {
-    if (isSliderActive) {
-      return debouncedSetPosition();
-    }
-  }, [isSliderActive, sliderPosition, debouncedSetPosition]);
-
-  // Set up debounce effect for tilt
-  useEffect(() => {
-    if (isTiltActive) {
-      return debouncedSetTilt();
-    }
-  }, [isTiltActive, tilt, debouncedSetTilt]);
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPosition = parseInt(e.target.value, 10);
-    setSliderPosition(newPosition);
-    setIsSliderActive(true);
-  };
-
-  const handleTiltChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTilt = parseInt(e.target.value, 10);
-    setTilt(newTilt);
-    setIsTiltActive(true);
-  };
-
-  // Tilt stepper for venetian
-  const handleTilt = (target: number) => {
-    setTilt(target);
-    setIsTiltActive(true);
-  };
+  // Tilt stepper for venetian (quick-set to 0 or 100)
+  const handleTiltStep = useCallback((target: number) => {
+    axios.post(`/api/covers/${cover.id}/set_tilt`, { tilt: target })
+      .catch(err => console.error('Error setting tilt:', err));
+  }, [cover.id]);
 
 
   return (
@@ -167,7 +108,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
             (<>
               <button
                 className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => handleTilt(0)}
+                onClick={() => handleTiltStep(0)}
                 disabled={error !== null || cover.current_operation !== 'idle'}
                 title={t('covers.tilt_down')}
               >
@@ -175,7 +116,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
               </button>
               <button
                 className="px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => handleTilt(100)}
+                onClick={() => handleTiltStep(100)}
                 disabled={error !== null || cover.current_operation !== 'idle'}
                 title={t('covers.tilt_up')}
               >
@@ -185,51 +126,46 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
           }
         </div>
 
-        <div className="w-full mt-3 bg-secondary p-2 rounded-lg">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>0%</span>
-            {isSliderActive && <span className="font-semibold text-primary">{sliderPosition}%</span>}
-            <span>100%</span>
-          </div>
-          <div className="relative pt-1">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={sliderPosition}
-              onChange={handleSliderChange}
-              disabled={error !== null || cover.current_operation !== 'idle'}
-              className="range range-sm range-primary [--range-bg:orange] [--range-thumb:blue]"
-            />
-          </div>
+        {/* Position slider */}
+        <RangeSlider
+          value={cover.position}
+          min={0}
+          max={100}
+          onChange={handlePositionChange}
+          disabled={error !== null || cover.current_operation !== 'idle'}
+          variant="primary"
+          size="sm"
+          showEdgeLabels
+          minLabel="0%"
+          maxLabel="100%"
+          withContainer
+          className="mt-3"
+        />
 
-          {/* TiltBar pod głównym sliderem */}
-          {isVenetian && (
-            <>
-              {isTiltActive && (
-                <div className="text-xs text-center font-semibold text-accent mt-1">
-                  {t('covers.tilt')}: {tilt}%
-                </div>
-              )}
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={tilt}
-                onChange={handleTiltChange}
-                disabled={error !== null || cover.current_operation !== 'idle'}
-                className="range range-xs range-accent mt-1"
-                style={{
-                  width: '100%',
-                  background: 'repeating-linear-gradient(90deg, #eee, #eee 8px, #fff 8px, #fff 16px)'
-                }}
-              />
-            </>
-          )}
-          <div className="flex justify-between text-xs text-gray-500 my-1">
-            <span>{t('covers.close')}</span>
-            <span>{t('covers.open')}</span>
-          </div>
+        {/* TiltBar pod głównym sliderem */}
+        {isVenetian && (
+          <RangeSlider
+            value={cover.tilt ?? 0}
+            min={0}
+            max={100}
+            onChange={handleTiltChange}
+            disabled={error !== null || cover.current_operation !== 'idle'}
+            variant="accent"
+            size="xs"
+            formatValue={(v) => `${t('covers.tilt')}: ${v}%`}
+            withContainer={false}
+            className="mt-1 -mb-1"
+            inputStyle={{
+              width: '100%',
+              background: 'repeating-linear-gradient(90deg, #eee, #eee 8px, #fff 8px, #fff 16px)'
+            }}
+          />
+        )}
+
+        {/* Labels below sliders */}
+        <div className="flex justify-between text-xs text-gray-500 my-1 w-full px-2">
+          <span>{t('covers.close')}</span>
+          <span>{t('covers.open')}</span>
         </div>
 
         <div className={cn(isGrid ? "flex mt-2" : "w-full flex mt-2")}>
