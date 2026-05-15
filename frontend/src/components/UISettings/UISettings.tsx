@@ -17,6 +17,8 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
+import { DEFAULT_ADDRESSES } from './Mcp23017Form';
+import { filterOutputItemFields } from './helpers/configDataUtils';
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -69,9 +71,16 @@ export default function UISettings() {
   const [schemaLoaded, setSchemaLoaded] = useState(false);
   const [loxFormValid, setLoxFormValid] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
+
+  // Scroll content to top whenever the active section changes
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [activeSection]);
 
   /**
    * Handle application restart
@@ -330,6 +339,7 @@ export default function UISettings() {
 
           // Now convert form data with schema types
           const convertedFormData = convertDataToSchemaTypes(configData, mainSchema);
+
           setFormData(convertedFormData);
           setOriginalData(JSON.parse(JSON.stringify(convertedFormData)));
 
@@ -356,10 +366,8 @@ export default function UISettings() {
     if (Array.isArray(filtered)) {
       return filtered.map((item: any) => {
         if (item && typeof item === 'object') {
-          // If boneio_output exists, remove auto-generated fields
           if (item.boneio_output) {
-            const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = item;
-            return rest;
+            return filterOutputItemFields(item);
           }
           // If boneio_input exists, remove auto-generated fields
           if (item.boneio_input) {
@@ -375,8 +383,7 @@ export default function UISettings() {
     if (filtered.output && Array.isArray(filtered.output)) {
       filtered.output = filtered.output.map((output: any) => {
         if (output.boneio_output) {
-          const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = output;
-          return rest;
+          return filterOutputItemFields(output);
         }
         return output;
       });
@@ -759,22 +766,23 @@ export default function UISettings() {
       let minimalConfig;
       if (sectionName === 'mcp23017') {
         // For mcp23017, use data directly - form already provides clean data
-        // Convert addresses to integers for backend
+        // Keep addresses as hex strings (e.g. 0x21) so YAML is human-readable
         minimalConfig = Array.isArray(dataToUse)
           ? dataToUse.map((entry: any) => {
               if (entry && entry.address !== undefined) {
                 let addr = entry.address;
-                // Convert to integer
-                if (typeof addr === 'string') {
+                // Normalise to hex string
+                if (typeof addr === 'number') {
+                  addr = `0x${addr.toString(16)}`;
+                } else if (typeof addr === 'string') {
                   if (addr.startsWith('0x') || addr.startsWith('0X')) {
-                    addr = parseInt(addr, 16);
+                    addr = addr.toLowerCase();
                   } else {
-                    addr = parseInt(addr, 10);
+                    const num = parseInt(addr, 10);
+                    addr = !isNaN(num)
+                      ? `0x${num.toString(16)}`
+                      : (DEFAULT_ADDRESSES[entry.id as keyof typeof DEFAULT_ADDRESSES] ?? '0x20');
                   }
-                }
-                // Ensure valid number
-                if (isNaN(addr)) {
-                  addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
                 }
                 return { id: entry.id, address: addr };
               }
@@ -1289,7 +1297,7 @@ export default function UISettings() {
               {showYamlPreview ? (
                 <div className="h-full flex">
                   {/* Form */}
-                  <div className="flex-1 overflow-y-auto p-6">
+                  <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6">
                     <SectionContent
                       activeSection={activeSection}
                       activeSectionData={activeSection_data}
@@ -1325,7 +1333,7 @@ export default function UISettings() {
                   </div>
                 </div>
               ) : (
-                <div className="h-full overflow-y-auto p-6">
+                <div ref={scrollContainerRef} className="h-full overflow-y-auto p-6">
                   <SectionContent
                     activeSection={activeSection}
                     activeSectionData={activeSection_data}

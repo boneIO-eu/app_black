@@ -94,6 +94,7 @@ function ArraySectionContent({
       allModbusDevices={formData.modbus_devices || []}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
+      mcp23017={formData.mcp23017 || []}
       savedOutputs={originalData.output || []}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}
@@ -124,6 +125,10 @@ function CustomFormContent({
         <BoneIOForm
           data={formData[activeSection]}
           onChange={handleChange}
+          allOutputs={formData.output || []}
+          allEvents={formData.event || []}
+          allBinarySensors={formData.binary_sensor || []}
+          onExpanderAdded={() => window.location.reload()}
         />
       );
     case 'mqtt':
@@ -161,13 +166,6 @@ function CustomFormContent({
       return (
         <LoggerForm
           data={formData[activeSection]}
-          onChange={handleChange}
-        />
-      );
-    case 'mcp23017':
-      return (
-        <Mcp23017Form
-          data={formData[activeSection] || []}
           onChange={handleChange}
         />
       );
@@ -221,6 +219,17 @@ export default function SectionContent({
         onEditItemOpened={onEditItemOpened}
         onSectionChange={onSectionChange}
         onSaveSection={onSaveSection}
+      />
+    );
+  }
+
+  // mcp23017 needs onSaveSection for atomic add/remove of expander (mcp + outputs together)
+  if (activeSection === 'mcp23017') {
+    return (
+      <Mcp23017Form
+        data={formData[activeSection] || []}
+        onChange={(data) => onSectionChange(activeSection, data)}
+        allOutputs={formData.output || []}
       />
     );
   }

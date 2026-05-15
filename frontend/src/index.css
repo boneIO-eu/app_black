@@ -178,6 +178,14 @@ body {
   width: 100% !important;
 }
 
+/* Inputs and selects always use base-100 background so they stay readable
+   on any parent background (cards, modals, darker sections) */
+.input,
+.select,
+textarea.textarea {
+  background-color: var(--color-base-100);
+}
+
 .modbus-sparkline,
 .sparkline-chart {
   position: relative;

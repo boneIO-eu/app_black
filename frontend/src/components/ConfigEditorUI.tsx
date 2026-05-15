@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from '@/api/axios';
 import * as yaml from 'js-yaml';
 import { FaCheck, FaTimes, FaSave, FaPlus, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { filterOutputItemFields } from '@/components/UISettings/helpers/configDataUtils';
 
 interface ConfigSection {
   title: string;
@@ -209,8 +210,7 @@ export default function ConfigEditorUI() {
       filtered.output = filtered.output.map((output: any) => {
         // If boneio_output exists, remove auto-generated fields that come from predefined config
         if (output.boneio_output) {
-          const { kind, mcp_id, pca_id, pcf_id, pin, ...rest } = output;
-          return rest;
+          return filterOutputItemFields(output);
         }
         // Otherwise keep all fields (user manually configured them)
         return output;
