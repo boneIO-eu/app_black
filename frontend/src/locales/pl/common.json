@@ -285,6 +285,7 @@
     "configure_settings": "Konfiguruj ustawienia {section}",
     "restart_required": "Restart wymagany dla poniższych sekcji",
     "remote_sections": "Zdalne Urządzenia",
+    "restart_sections": "Sekcje wymagające restartu",
     "badge_experimental": "Eksperymentalne",
     "unsaved_changes": "Masz niezapisane zmiany",
     "click_save": "Kliknij Zapisz aby zastosować zmiany.",

@@ -285,6 +285,7 @@
     "configure_settings": "Configure {section} settings",
     "restart_required": "Restart required for sections below",
     "remote_sections": "External Devices",
+    "restart_sections": "Sections requiring restart",
     "badge_experimental": "Experimental",
     "unsaved_changes": "You have unsaved changes",
     "click_save": "Click Save to apply your changes.",

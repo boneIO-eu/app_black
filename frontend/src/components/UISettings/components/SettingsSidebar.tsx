@@ -187,21 +187,23 @@ function SidebarContent({
         </div>
       )}
 
-      {/* Separator */}
-      <div className="divider text-xs text-warning font-medium my-2">
-        ⚠️ {t('settings.restart_required')}
+      {/* Restart sections — visually grouped */}
+      <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
+        <div className="flex items-center gap-2 mb-2 px-1">
+          <span className="text-sm font-semibold text-warning/70">
+            ⚠️ {t('settings.restart_sections')}
+          </span>
+        </div>
+        <SectionList
+          sections={sections}
+          filterSections={restartSections}
+          configSections={configSections}
+          activeSection={activeSection}
+          saveStatus={saveStatus}
+          unsavedChanges={unsavedChanges}
+          onNavigate={onNavigate}
+        />
       </div>
-
-      {/* Restart sections */}
-      <SectionList
-        sections={sections}
-        filterSections={restartSections}
-        configSections={configSections}
-        activeSection={activeSection}
-        saveStatus={saveStatus}
-        unsavedChanges={unsavedChanges}
-        onNavigate={onNavigate}
-      />
     </>
   );
 }
