@@ -10,6 +10,10 @@ export interface Area {
 export interface ZoneInput {
   id: string;
   type: 'normally_closed' | 'normally_open';
+  /** 'local' (default) or 'remote' — distinguishes local GPIO vs remote device inputs. */
+  source?: 'local' | 'remote';
+  /** Behavior when remote device loses connection: 'ignore' (skip sensor) or 'trigger' (trigger alarm). */
+  on_disconnect?: 'ignore' | 'trigger';
 }
 
 export interface AlarmZone {
@@ -37,6 +41,7 @@ export interface TemplateSubFormProps {
   allAreas: Area[];
   allSensors: any[];
   allInputs: any[];
+  allRemoteInputs: any[];
   allModbusDevices: any[];
 }
 

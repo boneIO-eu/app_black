@@ -425,6 +425,8 @@ export interface ESPHomeApiConfig {
   covers?: ESPHomeCoverEntity[];
   /** Discovered/configured binary sensors */
   binary_sensors?: ESPHomeBinarySensorEntity[];
+  /** Runtime-only: all discovered binary sensors (before user selection) */
+  _discovered_binary_sensors?: ESPHomeBinarySensorEntity[];
 }
 
 /** WLED segment entity */

@@ -64,11 +64,27 @@ class ZoneInput:
               open circuit = alarm.  GPIO _state=True means closed (safe).
             - normally_open (NO): PIR motion sensor — open circuit = safe,
               closed circuit = alarm.  GPIO _state=True means closed (alarm).
+        source: 'local' (default) for GPIO inputs, 'remote' for inputs from remote devices.
+        on_disconnect: Behavior when remote device loses connection.
+            'ignore' (default) — skip this sensor, 'trigger' — treat as alarm trigger.
     """
 
-    def __init__(self, input_id: str, wiring: str = NORMALLY_CLOSED) -> None:
+    def __init__(
+        self,
+        input_id: str,
+        wiring: str = NORMALLY_CLOSED,
+        source: str = "local",
+        on_disconnect: str = "ignore",
+    ) -> None:
         self.input_id = input_id
         self.wiring = wiring
+        self.source = source
+        self.on_disconnect = on_disconnect
+
+    @property
+    def is_remote(self) -> bool:
+        """Check if this input is from a remote device."""
+        return self.source == "remote"
 
     def is_triggered(self, gpio_state: bool) -> bool:
         """Check if this input is in alarm-triggering state.
@@ -510,7 +526,8 @@ class BoneIOAlarmPanel:
     def _check_zones_clear(self, target_mode: str) -> list[dict[str, str]]:
         """Check if all inputs in zones active for target_mode are safe.
 
-        Reads live GPIO state (not cached _state) to avoid stale data.
+        Reads live GPIO state (not cached _state) for local inputs.
+        For remote inputs, uses cached _state and checks device connectivity.
         Uses ZoneInput.is_triggered() to respect NC/NO wiring type.
 
         Args:
@@ -533,23 +550,56 @@ class BoneIOAlarmPanel:
                 continue
             for zone_input in zone.inputs:
                 inp = all_inputs.get(zone_input.input_id)
-                if inp is None:
-                    continue
-                # Read live GPIO state instead of cached _state
-                pin = getattr(inp, "_pin", None)
-                inverted = getattr(inp, "_inverted", False)
-                if pin is not None:
-                    raw_value = gpio_manager.read_value(pin)
-                    gpio_state = not raw_value if not inverted else raw_value
-                else:
+
+                if zone_input.is_remote:
+                    # Remote input — check connectivity and cached state
+                    if inp is None:
+                        # Remote input not registered at all
+                        if zone_input.on_disconnect == "trigger":
+                            blocking.append({
+                                "zone": zone.name,
+                                "input_id": zone_input.input_id,
+                                "input_name": zone_input.input_id,
+                                "wiring": zone_input.wiring,
+                            })
+                            _LOGGER.warning(
+                                "Alarm %s: remote input %s not found, on_disconnect=trigger → blocking",
+                                self._id, zone_input.input_id,
+                            )
+                        else:
+                            _LOGGER.debug(
+                                "Alarm %s: remote input %s not found, on_disconnect=ignore → skipping",
+                                self._id, zone_input.input_id,
+                            )
+                        continue
+                    # Use cached _state for remote (no GPIO)
                     gpio_state = getattr(inp, "_state", False)
-                if zone_input.is_triggered(gpio_state):
-                    blocking.append({
-                        "zone": zone.name,
-                        "input_id": zone_input.input_id,
-                        "input_name": getattr(inp, "_name", zone_input.input_id),
-                        "wiring": zone_input.wiring,
-                    })
+                    if zone_input.is_triggered(gpio_state):
+                        blocking.append({
+                            "zone": zone.name,
+                            "input_id": zone_input.input_id,
+                            "input_name": getattr(inp, "_name", zone_input.input_id),
+                            "wiring": zone_input.wiring,
+                        })
+                else:
+                    # Local GPIO input
+                    if inp is None:
+                        continue
+                    # Read live GPIO state instead of cached _state
+                    pin = getattr(inp, "_pin", None)
+                    inverted = getattr(inp, "_inverted", False)
+                    if pin is not None:
+                        raw_value = gpio_manager.read_value(pin)
+                        gpio_state = not raw_value if not inverted else raw_value
+                    else:
+                        gpio_state = getattr(inp, "_state", False)
+                    if zone_input.is_triggered(gpio_state):
+                        blocking.append({
+                            "zone": zone.name,
+                            "input_id": zone_input.input_id,
+                            "input_name": getattr(inp, "_name", zone_input.input_id),
+                            "wiring": zone_input.wiring,
+                        })
         return blocking
 
     async def _arm(self, target_mode: str) -> None:

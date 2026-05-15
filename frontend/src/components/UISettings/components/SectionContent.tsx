@@ -78,10 +78,10 @@ function ArraySectionContent({
       uiSchema={activeSectionData.uiSchema.items}
       onChange={(newData) => onSectionChange(activeSection, newData)}
       schema={activeSectionData.normalizedSchema}
-      sectionType={activeSection as 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other'}
+      sectionType={activeSection as 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other'}
       deviceType={formData.boneio?.device_type}
-      allBinarySensors={formData.binary_sensor || []}
-      allEvents={formData.event || []}
+      allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i: any) => i._type === 'binary_sensor')}
+      allEvents={formData.event || (formData.local_inputs || []).filter((i: any) => i._type === 'event')}
       allOutputs={formData.output || []}
       allOutputGroups={formData.output_group || []}
       allCovers={formData.cover || []}
@@ -94,6 +94,7 @@ function ArraySectionContent({
       allModbusDevices={formData.modbus_devices || []}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
+      allRemoteInputs={formData.remote_inputs || []}
       mcp23017={formData.mcp23017 || []}
       savedOutputs={originalData.output || []}
       savedOutputGroups={originalData.output_group || []}

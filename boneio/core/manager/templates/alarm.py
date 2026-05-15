@@ -64,8 +64,8 @@ class AlarmManager:
         Args:
             config: Alarm panel configuration dictionary.
         """
-        entity_id = config.get("id", "")
-        name = config.get("name", entity_id)
+        entity_id: str = config.get("id", "")
+        name: str = config.get("name") or entity_id
         area = config.get("area")
 
         if not entity_id:
@@ -97,7 +97,8 @@ class AlarmManager:
 
             # Parse inputs — support both formats:
             #   inputs: ["in_01", "in_02"]              (plain string, default NC)
-            #   inputs: [{id: in_01, type: normally_closed}, {id: in_05, type: normally_open}]
+            #   inputs: [{id: in_01, type: normally_closed}, ...]
+            #   inputs: [{id: remote_sensor, source: remote, on_disconnect: ignore}, ...]
             zone_inputs: list[ZoneInput] = []
             for inp_cfg in zone_cfg.get("inputs", []):
                 if isinstance(inp_cfg, str):
@@ -106,6 +107,8 @@ class AlarmManager:
                     zone_inputs.append(ZoneInput(
                         input_id=inp_cfg.get("id", ""),
                         wiring=inp_cfg.get("type", "normally_closed"),
+                        source=inp_cfg.get("source", "local"),
+                        on_disconnect=inp_cfg.get("on_disconnect", "ignore"),
                     ))
 
             zones.append(AlarmZone(
@@ -177,10 +180,10 @@ class AlarmManager:
     # -- Initial state sync --------------------------------------------------
 
     def _sync_initial_input_states(self, zones: list) -> None:
-        """Ask InputManager to re-send current state for all alarm zone inputs.
+        """Ask InputManager to re-send current state for local alarm zone inputs.
 
-        This ensures cached _state on each input reflects live GPIO,
-        so _check_zones_clear works correctly from the first arming attempt.
+        Remote inputs are skipped — they have no GPIO and receive state
+        via their protocol (ESPHome API, MQTT, etc.).
 
         Args:
             zones: List of AlarmZone instances with input IDs.
@@ -188,10 +191,12 @@ class AlarmManager:
         input_mgr = self._manager.inputs
         seen: set[str] = set()
         for zone in zones:
-            for input_id in zone.input_ids:
-                if input_id not in seen:
-                    seen.add(input_id)
-                    input_mgr.send_current_state_for_input(input_id)
+            for zone_input in zone.inputs:
+                if zone_input.is_remote:
+                    continue
+                if zone_input.input_id not in seen:
+                    seen.add(zone_input.input_id)
+                    input_mgr.send_current_state_for_input(zone_input.input_id)
 
     # -- Removal -------------------------------------------------------------
 

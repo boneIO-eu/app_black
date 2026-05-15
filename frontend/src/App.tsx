@@ -110,7 +110,9 @@ function AppContent() {
               const prevOutput = prev[index];
               // Check if state or name changed
               if (prevOutput.state.state === message.state.state &&
-                  prevOutput.state.name === message.state.name) {
+                  prevOutput.state.name === message.state.name &&
+                  prevOutput.state.brightness === message.state.brightness &&
+                  prevOutput.state.timestamp === message.state.timestamp) {
                 return prev; // No change needed
               }
               const newOutputs = [...prev];
@@ -213,7 +215,7 @@ function AppContent() {
           if (sections.includes('all') || sections.includes('cover')) {
             setCovers([]);
           }
-          if (sections.includes('all') || sections.includes('input') || sections.includes('event') || sections.includes('binary_sensor')) {
+          if (sections.includes('all') || sections.includes('input') || sections.includes('event') || sections.includes('binary_sensor') || sections.includes('remote_devices')) {
             setInputs([]);
           }
           if (sections.includes('all') || sections.includes('modbus_devices')) {

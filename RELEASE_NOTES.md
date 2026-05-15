@@ -1,79 +1,84 @@
-# boneIO Black v1.3.1
+# boneIO v1.4.0dev1 — Release Notes
 
----
+## ✨ New Features
 
-## 🇬🇧 English
+### Remote Outputs (`remote_outputs` section)
+Register switches and lights from remote ESPHome/MQTT devices as first-class outputs in boneIO.  
+Outputs appear in the WebUI with full ON/OFF/TOGGLE control and area assignment.
 
-Maintenance release focused on stability, type safety, and Home Assistant integration improvements.
+### Brightness Control for Remote ESPHome Lights
+If an ESPHome light supports brightness, the remote output gains a **brightness slider** in the WebUI.
+- Real-time synchronization: changes from Home Assistant or ESPHome reflect live in the boneIO frontend
+- Smooth animated slider transitions (ease-out cubic, 250ms) for server-driven value updates
+- Debounced API calls with 800ms cooldown to prevent race-condition "jump-back" artifacts
 
-### ✨ New Features
+### Remote Binary Sensors (ESPHome)
+Subscribe to binary sensors on ESPHome devices and use them as triggers for boneIO actions.
+- Only sensors with registered callbacks are logged (reduces noise from unrelated ESPHome entities)
+- Callback-based architecture: `register_binary_sensor_callback()` / `unregister_binary_sensor_callback()`
 
-- 🔧 **Support for legacy 0.2 / 0.3 boards** — added device definitions for older boneIO Black hardware revisions
-- 🏠 **HA Update entity changed to binary sensor** — firmware update entity is now a binary sensor for cleaner HA integration
+### Remote Inputs Refactor
+Unified local and remote input handling with consistent state management and alarm integration.
+- Remote devices can now trigger alarm panel actions
 
-### 🐛 Bug Fixes
+### WLED Brightness Support
+Merged PR #65 — WLED devices now support brightness control via the remote device API.
 
-- **Cover position precision** — fixed inconsistent float/int conversion in cover position calculations, eliminating rounding drift during movement
-- **Cover timestamp tracking** — fixed incorrect timestamps in cover state updates
-- **HA discovery device_class** — fixed null device_class in Home Assistant autodiscovery by storing it directly on the input object
-- **HA Update entity state during firmware restart** — update entity now correctly shows 'Updating' state during firmware restart instead of going offline
-- **Event form click handling** — fixed click event handling in the WebUI event configuration form
+### OLED Display Improvements
+- Added OLED display tests
+- Fixed OLED sleep behavior on single click
+- Cover change settings via OLED display
 
-### ♻️ Refactoring
+### Modbus Device Temporary Disable
+Added the ability to temporarily turn off a single Modbus device without removing its configuration.
 
-- **Unified device_class** — refactored device_class to be a single source of truth on the input object (GpioBaseClass)
-- **Removed gpio_mode** — deprecated gpio_mode setting, now handled by kernel overlay
-- **Removed CAN System settings** — CAN configuration migrated to system migrations, manual settings no longer needed
-- **Type safety improvements** — fixed multiple type checker issues across the codebase (Pyrefly/Pyright compatibility)
+## 🐛 Bug Fixes
 
-### ⚠️ Duplicate Entity Fix in Home Assistant
+### Frontend — Brightness State Not Updating
+WebSocket output deduplication compared only `state` (ON/OFF) and `name`, ignoring `brightness`.  
+Brightness changes on a light that was already ON were silently discarded.
 
-If you see **duplicated entities** for your boneIO Black device in Home Assistant after updating:
+### Frontend — MQTT Discovery Shows 0 Outputs/Covers
+Backend nests outputs/covers under `mqtt` key in `to_dict()`, but frontend read top-level fields.  
+All MQTT autodiscovered devices showed "0 out | 0 cov" despite having many entities.
 
-1. Go to Home Assistant → **Settings** → **Devices & Services** → **Devices** tab
-2. Enter **Selection Mode**, select the boneIO Black devices with duplicated entities, and **delete** them
-3. Open the boneIO controller's WebUI → **Settings** → **Communication Protocols** → **MQTT** tab
-4. Click **"Delete and resend HA Discovery"**
+### Frontend — Slider Jump-Back on Brightness Change
+After user set brightness, slider briefly jumped back to the old value before settling.  
+Root cause: `isActive` flag cleared immediately after API call, allowing stale ESPHome callbacks through.
 
-This will cleanly re-register all entities without duplicates.
+### Backend — Entity Type Routing in ESPHome
+`control_output()` always delegated to `control_switch()` — failed for light entities.  
+Now auto-detects entity type by checking `_switches` then `_lights`.
 
----
+### Backend — Connect Before Entity Lookup
+`control_switch()` and `control_light()` looked up entity keys before `connect()`.  
+If `_on_entities()` hadn't run yet, entity lists were empty.
 
-## 🇵🇱 Polski
+### Backend — Remote Output Lazy Resolution
+`register_remote_outputs()` was called during `Manager.__init__()` before device connections were established.  
+`get_device()` returned `None` → all remote outputs were silently skipped.
 
-Wydanie serwisowe skupione na stabilności, bezpieczeństwie typów i poprawkach integracji z Home Assistant.
+### Input Selection — Case Sensitivity
+Fixed inputs not appearing in selection dropdown when named with capital letters.
 
-### ✨ Nowe Funkcje
+### Help Label Display
+Fixed help label rendering issues in the Settings UI.
 
-- 🔧 **Wsparcie dla starszych płytek 0.2 / 0.3** — dodano definicje urządzeń dla starszych rewizji sprzętowych boneIO Black
-- 🏠 **Encja aktualizacji HA zmieniona na binary sensor** — encja aktualizacji firmware jest teraz czujnikiem binarnym dla czystszej integracji z HA
+## ♻️ Refactoring
 
-### 🐛 Poprawki Błędów
+- Cleaned up trailing whitespace and formatting in `esphome.py` (Ruff compliance)
+- Shared `RangeSlider` component for both cover position/tilt and output brightness/duration
+- Improved ESPHome remote device Settings UI with entity discovery workflow
+- AI wizard prompt improvements for input configuration
 
-- **Precyzja pozycji rolet** — naprawiono niespójną konwersję float/int w obliczeniach pozycji rolet, eliminując dryft zaokrągleń podczas ruchu
-- **Znaczniki czasu rolet** — naprawiono nieprawidłowe znaczniki czasu w aktualizacjach stanu rolet
-- **device_class w HA discovery** — naprawiono null device_class w autodiscovery Home Assistant poprzez przechowywanie go bezpośrednio na obiekcie wejścia
-- **Stan encji aktualizacji podczas restartu firmware** — encja aktualizacji teraz prawidłowo pokazuje stan 'Updating' podczas restartu firmware zamiast znikać
-- **Obsługa kliknięć w formularzu zdarzeń** — naprawiono obsługę zdarzeń kliknięcia w formularzu konfiguracji zdarzeń WebUI
+## 📦 Files Changed (highlights)
 
-### ♻️ Refaktoryzacja
-
-- **Ujednolicony device_class** — refaktoryzacja device_class jako jedynego źródła prawdy na obiekcie wejścia (GpioBaseClass)
-- **Usunięto gpio_mode** — ustawienie gpio_mode jest przestarzałe, teraz obsługiwane przez overlay kernela
-- **Usunięto ustawienia CAN System** — konfiguracja CAN przeniesiona do migracji systemowych, ręczne ustawienia nie są już potrzebne
-- **Poprawki bezpieczeństwa typów** — naprawiono wiele problemów z type checkerami w całym kodzie (kompatybilność Pyrefly/Pyright)
-
-### ⚠️ Naprawa zdublowanych encji w Home Assistant
-
-Jeśli po aktualizacji widzisz **zdublowane encje** urządzenia boneIO Black w Home Assistant:
-
-1. Wejdź w Home Assistant → **Ustawienia** → **Urządzenia i usługi** → zakładka **Urządzenia**
-2. Wejdź w **Tryb zaznaczania**, zaznacz urządzenia boneIO Black, które mają zdublowane encje i je **usuń**
-3. Otwórz WebUI sterownika → **Ustawienia** → **Protokoły komunikacyjne** → zakładka **MQTT**
-4. Wybierz **„Usuń i wyślij ponownie HA Discovery"**
-
-To czysto ponownie zarejestruje wszystkie encje bez duplikatów.
-
----
-
-**Full Changelog / Pełny changelog**: https://github.com/boneIO-eu/app_black/compare/v1.3.0...v1.3.1
+| Area | Key Files |
+|------|-----------|
+| Remote Outputs | `boneio/components/output/remote.py`, `boneio/schema/remote_outputs.yaml` |
+| ESPHome Integration | `boneio/core/remote/esphome.py` |
+| Remote Inputs | `boneio/components/input/remote/base.py`, `boneio/core/manager/inputs.py` |
+| WebSocket Sync | `frontend/src/App.tsx`, `frontend/src/hooks/useWebSocket.ts` |
+| Slider Animation | `frontend/src/components/RangeSlider.tsx` |
+| MQTT Discovery | `frontend/src/components/UISettings/tables/RemoteDeviceTable.tsx` |
+| Alarm Integration | `boneio/core/manager/manager.py` |

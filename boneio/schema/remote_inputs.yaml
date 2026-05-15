@@ -1,0 +1,128 @@
+# Remote inputs — binary sensors/events from remote devices (ESPHome API, CAN, MQTT).
+# Top-level config section: remote_inputs (separate from remote_devices).
+#
+# remote_devices only describes capabilities (discovery data).
+# remote_inputs defines which remote inputs the user wants to USE and how.
+type: list
+required: False
+meta:
+  label: "Remote binary sensor inputs from ESPHome, CAN, or other remote devices."
+  description: |
+    Configure inputs from remote devices. Each entry maps a binary sensor
+    on a remote device to local actions (same as GPIO inputs).
+schema:
+  type: dict
+  schema:
+    id:
+      type: string
+      required: False
+      coerce: str
+      meta:
+        label: Input ID
+        description: |
+          Custom ID for this remote input. If not set, auto-generated
+          from device_id + input_id (e.g. "esphome_device_1_IN_02").
+    name:
+      type: string
+      required: False
+      meta:
+        label: Display Name
+    remote_source:
+      type: string
+      required: True
+      allowed: ['esphome_api', 'can', 'mqtt']
+      meta:
+        label: Remote Source Protocol
+        description: |
+          Protocol used to receive input state:
+          - esphome_api: ESPHome native API binary sensor
+          - can: CAN bus TPDO2 input state
+          - mqtt: MQTT binary sensor topic
+    device_id:
+      type: string
+      required: True
+      meta:
+        label: Remote Device ID
+        description: |
+          ID of the remote device (from remote_devices section).
+    input_id:
+      type: string
+      required: True
+      meta:
+        label: Input/Sensor ID
+        description: |
+          Binary sensor object_id on the remote device (e.g. "IN_02").
+    mode:
+      type: string
+      required: False
+      default: "binary_sensor"
+      allowed: ['binary_sensor', 'event']
+      meta:
+        label: Mode
+        description: |
+          - binary_sensor: pressed/released events
+          - event: single/double/long click detection
+    device_class:
+      type: string
+      required: False
+      meta:
+        label: Device Class (for HA)
+        description: "e.g. door, motion, window, opening"
+    area:
+      type: string
+      required: False
+      meta:
+        label: Area (for HA)
+    show_in_ha:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Forward to Home Assistant
+    inverted:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Invert state
+    double_click_duration:
+      type: integer
+      required: False
+      meta:
+        label: Double Click Window (ms)
+        description: "Time window to detect double click (event mode, default: 220ms)"
+    long_press_duration:
+      type: integer
+      required: False
+      meta:
+        label: Long Press Threshold (ms)
+        description: "Time to detect long press (event mode, default: 400ms)"
+    sequence_mode:
+      type: string
+      required: False
+      allowed: ['immediate', 'exclusive']
+      meta:
+        label: Sequence Mode
+    long_press_mqtt_mode:
+      type: string
+      required: False
+      allowed: ['single', 'periodic']
+      meta:
+        label: Long Press MQTT Mode
+    enable_triple_click:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Enable Triple Click
+    actions:
+      type: dict
+      required: False
+      allow_unknown: True
+      meta:
+        label: Actions
+        description: |
+          Actions to execute on state change.
+          Keys depend on mode:
+          - binary_sensor: pressed, released
+          - event: single, double, long

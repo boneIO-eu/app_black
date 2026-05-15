@@ -153,11 +153,14 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   <OutputSelectDropdown
                     value={data.open_relay || ''}
                     onChange={(value: string) => updateField('open_relay', value)}
-                    allOutputs={allOutputs.filter((output: any) => 
-                      output && typeof output === 'object' && 
-                      (output.id || output.boneio_output) &&
-                      output.output_type?.toLowerCase() === 'cover'
-                    )}
+                    allOutputs={allOutputs.filter((output: any) => {
+                      if (!output || typeof output !== 'object') return false;
+                      if (!(output.id || output.boneio_output)) return false;
+                      // Accept outputs marked as 'cover' or 'none' (potential cover relays).
+                      // Also accept outputs without output_type (may be absent during reload).
+                      const ot = output.output_type?.toLowerCase();
+                      return !ot || ot === 'cover' || ot === 'none';
+                    })}
                     allAreas={allAreas}
                     placeholder={t('covers.select_relay')}
                     excludeIds={data.close_relay ? [data.close_relay] : []}
@@ -177,11 +180,12 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   <OutputSelectDropdown
                     value={data.close_relay || ''}
                     onChange={(value: string) => updateField('close_relay', value)}
-                    allOutputs={allOutputs.filter((output: any) => 
-                      output && typeof output === 'object' && 
-                      (output.id || output.boneio_output) &&
-                      output.output_type?.toLowerCase() === 'cover'
-                    )}
+                    allOutputs={allOutputs.filter((output: any) => {
+                      if (!output || typeof output !== 'object') return false;
+                      if (!(output.id || output.boneio_output)) return false;
+                      const ot = output.output_type?.toLowerCase();
+                      return !ot || ot === 'cover' || ot === 'none';
+                    })}
                     allAreas={allAreas}
                     placeholder={t('covers.select_relay')}
                     excludeIds={data.open_relay ? [data.open_relay] : []}

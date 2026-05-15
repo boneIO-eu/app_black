@@ -1,23 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '@/api/axios';
-import { EXPANDER_BOARDS } from './helpers/expanderBoards';
 import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
-import * as yaml from 'js-yaml';
 import { useTranslation } from '../../hooks/useTranslation';
-import { formatTimeperiod } from '@/utils/formatters';
-import BinarySensorForm from './BinarySensorForm';
-import EventForm from './EventForm';
-import OutputForm from './OutputForm';
-import OutputGroupForm from './OutputGroupForm';
-import CoverForm from './CoverForm';
-import ModbusDeviceForm from './ModbusDeviceForm';
-import AreasForm from './AreasForm';
-import SensorForm from './SensorForm';
-import VirtualEnergySensorForm from './VirtualEnergySensorForm';
-import RemoteDeviceForm from './RemoteDeviceForm';
-import TemplateForm from './TemplateForm';
-import ADCForm from './ADCForm';
-import BoardSensorsForm from './BoardSensorsForm';
 import {
   Dialog,
   DialogContent,
@@ -26,19 +10,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import AreasTable from './tables/AreasTable';
-import OutputTable from './tables/OutputTable';
-import OutputGroupTable from './tables/OutputGroupTable';
-import CoverTable from './tables/CoverTable';
-import BinarySensorEventTable from './tables/BinarySensorEventTable';
-import ModbusDeviceTable from './tables/ModbusDeviceTable';
-import SensorTable from './tables/SensorTable';
-import VirtualEnergySensorTable from './tables/VirtualEnergySensorTable';
-import RemoteDeviceTable from './tables/RemoteDeviceTable';
-import TemplateTable from './tables/TemplateTable';
-import ADCTable from './tables/ADCTable';
-import BoardSensorsTable from './tables/BoardSensorsTable';
-import GenericTable from './tables/GenericTable';
+
+// Extracted components & hooks
+import { useItemActions } from './hooks/useItemActions';
+import { useImportExport } from './hooks/useImportExport';
+import { validateItem, areAllItemsUsed, getOutputStats } from './helpers/itemValidation';
+import FormRenderer from './components/FormRenderer';
+import TableRenderer from './components/TableRenderer';
+import DeleteConfirmDialog from './components/DeleteConfirmDialog';
+import ImportDialog from './components/ImportDialog';
+import TemplatePicker from './components/TemplatePicker';
+import type { AffectedAction } from './hooks/useItemActions';
 
 interface Area {
   id: string;
@@ -51,7 +33,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -63,6 +45,7 @@ export interface ArrayTableWidgetProps {
   allModbusDevices?: any[];
   allVirtualEnergySensors?: any[];
   allRemoteDevices?: any[];
+  allRemoteInputs?: any[];
   /** Saved (committed) data for comparison - items not in saved are shown as disabled */
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -83,12 +66,15 @@ export interface ArrayTableWidgetProps {
   mcp23017?: Array<{ id?: string }>;
 }
 
+/** Check if section is an input-type (binary_sensor, event, or merged local_inputs). */
+const isInputSection = (s: string) => s === 'binary_sensor' || s === 'event' || s === 'local_inputs';
+
 /**
  * Custom table widget for array sections (e.g. event, binary_sensor) with modal editing.
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], mcp23017 = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], allRemoteInputs = [], mcp23017 = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -100,64 +86,75 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   // Snapshot of item when modal opened — used for dirty tracking
   const originalItemRef = useRef<string | null>(null);
 
-  // State for delete confirmation dialog
+  // Delete confirmation state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [affectedActions, setAffectedActions] = useState<AffectedAction[]>([]);
 
-  // State for import dialog
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importData, setImportData] = useState<any[] | null>(null);
-  const [importMode, setImportMode] = useState<'replace' | 'merge'>('merge');
-  const [importError, setImportError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [affectedActions, setAffectedActions] = useState<{ type: string, name: string, actionType: string }[]>([]);
+  // Template picker & AI wizard
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
   const [wizardCopied, setWizardCopied] = useState(false);
   const [outputKind, setOutputKind] = useState<'board' | 'expander'>('board');
 
-  // Auto-open edit modal when editItemName is provided (from URL query param)
+  // Extracted hooks
+  const { findItemsUsingArea, findAffectedActions, removeOrphanedActions } = useItemActions({
+    allEvents, allBinarySensors, allOutputs, allOutputGroups, allCovers,
+    allSensors, allModbusDevices, allVirtualEnergySensors,
+    onUpdateEvents, onUpdateBinarySensors,
+  });
+
+  const {
+    fileInputRef, importDialogOpen, importData, importMode, importError,
+    setImportMode, handleExport, handleFileSelect, confirmImport, cancelImport,
+  } = useImportExport({ sectionType, value, onChange });
+
+  // ─── Data Fetching ──────────────────────────────────────────────
+
   useEffect(() => {
-    // Wait for data to load before trying to find the item
-    if (!editItemName || value.length === 0) {
-      return;
+    if (sectionType === 'output') {
+      axios.get('/api/interlock-groups')
+        .then(res => setInterlockGroups(res.data.groups || []))
+        .catch(err => console.error('Failed to fetch interlock groups:', err));
     }
+  }, [sectionType]);
 
-    // Don't process the same item twice
-    if (editItemProcessedRef.current === editItemName) {
-      return;
+  const handleInterlockGroupCreated = (groupName: string) => {
+    setInterlockGroups(prev => prev.includes(groupName) ? prev : [...prev, groupName]);
+  };
+
+  useEffect(() => {
+    if (sectionType === 'sensor') {
+      axios.get('/api/dallas/available')
+        .then(res => setAvailableDallasSensors(res.data.sensors || []))
+        .catch(err => console.error('Failed to fetch Dallas sensors:', err));
     }
+  }, [sectionType]);
 
-    // Find item by name, id, boneio_input, boneio_output, or auto-generated cover id
+  // ─── Auto-Open from URL ─────────────────────────────────────────
+
+  useEffect(() => {
+    if (!editItemName || value.length === 0 || editItemProcessedRef.current === editItemName) return;
+
     const index = value.findIndex((item: any) => {
-      if (item.name === editItemName) return true;
-      if (item.id === editItemName) return true;
-      if (item.boneio_input === editItemName) return true;
-      if (item.boneio_output === editItemName) return true;
-      // For covers: match auto-generated id format (cover_{open_relay}_{close_relay})
+      if (item.name === editItemName || item.id === editItemName) return true;
+      if (item.boneio_input === editItemName || item.boneio_output === editItemName) return true;
       if (sectionType === 'cover' && item.open_relay && item.close_relay) {
-        const generatedId = `cover_${item.open_relay}_${item.close_relay}`.toLowerCase().replace(/ /g, '_');
-        if (generatedId === editItemName) return true;
+        if (`cover_${item.open_relay}_${item.close_relay}`.toLowerCase().replace(/ /g, '_') === editItemName) return true;
       }
-      // For modbus_devices: match auto-generated id format ({address}_{model})
       if (sectionType === 'modbus_devices' && item.address && item.model) {
-        const generatedId = `${item.address}_${item.model}`.toLowerCase().replace(/ /g, '_');
-        if (generatedId === editItemName) return true;
+        if (`${item.address}_${item.model}`.toLowerCase().replace(/ /g, '_') === editItemName) return true;
       }
       return false;
     });
 
-    console.log('🔍 ArrayTableWidget: Looking for item to edit:', editItemName, 'found at index:', index, 'in', value.length, 'items');
-
     if (index !== -1) {
       editItemProcessedRef.current = editItemName;
       const item = { ...value[index] };
-      // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
-      if ((sectionType === 'binary_sensor' || sectionType === 'event') && item.id && !item.name) {
+      if (isInputSection(sectionType) && item.id && !item.name) {
         item.name = item.id;
         delete item.id;
       }
-      console.log('🔧 ArrayTableWidget: Auto-opening edit modal for:', item.name || item.id);
       setEditingItem(item);
       setEditingIndex(index);
       originalItemRef.current = JSON.stringify(item);
@@ -168,50 +165,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     }
   }, [editItemName, value, sectionType, onEditItemOpened]);
 
-  // Fetch interlock groups for output section
-  useEffect(() => {
-    if (sectionType === 'output') {
-      axios.get('/api/interlock-groups')
-        .then(res => {
-          setInterlockGroups(res.data.groups || []);
-        })
-        .catch(err => {
-          console.error('Failed to fetch interlock groups:', err);
-        });
-    }
-  }, [sectionType]);
-
-  // Callback to add new interlock group to local cache (before saving to backend)
-  const handleInterlockGroupCreated = (groupName: string) => {
-    setInterlockGroups(prev => {
-      if (!prev.includes(groupName)) {
-        return [...prev, groupName];
-      }
-      return prev;
-    });
-  };
-
-  // Fetch available Dallas sensors for sensor section
-  useEffect(() => {
-    if (sectionType === 'sensor') {
-      axios.get('/api/dallas/available')
-        .then(res => {
-          setAvailableDallasSensors(res.data.sensors || []);
-        })
-        .catch(err => {
-          console.error('Failed to fetch Dallas sensors:', err);
-        });
-    }
-  }, [sectionType]);
+  // ─── CRUD Handlers ──────────────────────────────────────────────
 
   const handleEdit = (index: number) => {
-    console.log('🔧 ArrayTableWidget: handleEdit called for index:', index);
-    // Deep copy to prevent mutations from affecting original data when user cancels
     const item = JSON.parse(JSON.stringify(value[index]));
-
-    // Migrate legacy 'id' field to 'name' for binary_sensor and event sections
-    // This prevents duplicate fields when user edits old config with 'id' and form uses 'name'
-    if ((sectionType === 'binary_sensor' || sectionType === 'event') && item.id && !item.name) {
+    if (isInputSection(sectionType) && item.id && !item.name) {
       item.name = item.id;
       delete item.id;
     }
@@ -243,308 +201,97 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
   const handleAdd = () => {
-    console.log('➕ ArrayTableWidget: handleAdd called');
     setEditingIndex(null);
-    // Set default values for remote_devices
     if (sectionType === 'remote_devices') {
       setEditingItem({ protocol: 'mqtt', device_type: 'boneio_black' });
-      originalItemRef.current = null; // New item — always dirty
-      setHasValidationErrors(false);
-      setAttemptedSubmit(false);
-      setIsModalOpen(true);
     } else if (sectionType === 'template') {
-      // Show platform picker first
       setShowTemplatePicker(true);
+      return;
+    } else if (sectionType === 'local_inputs') {
+      setEditingItem({ _type: 'event' });
     } else {
       setEditingItem({});
-      originalItemRef.current = null; // New item — always dirty
-      setHasValidationErrors(false);
-      setAttemptedSubmit(false);
-      setIsModalOpen(true);
     }
+    originalItemRef.current = null;
+    setHasValidationErrors(false);
+    setAttemptedSubmit(false);
+    setIsModalOpen(true);
   };
 
   const handleTemplatePlatformSelect = (platform: string) => {
     setShowTemplatePicker(false);
     setEditingItem({ platform, _autoId: true });
-    originalItemRef.current = null; // New item — always dirty
+    originalItemRef.current = null;
     setHasValidationErrors(false);
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
 
-  // Handle adding remote device from autodiscovery
   const handleAddFromDiscovery = (device: any) => {
-    console.log('➕ ArrayTableWidget: handleAddFromDiscovery called', device);
     setEditingIndex(null);
-
-    // Check if this is an ESPHome device
     if (device.protocol === 'esphome_api' || device.esphome_api) {
-      // Pre-fill form with ESPHome device data
       setEditingItem({
-        id: device.id,
-        name: device.name || device.id,
-        protocol: 'esphome_api',
-        device_type: 'esphome',
+        id: device.id, name: device.name || device.id, protocol: 'esphome_api', device_type: 'esphome',
         esphome_api: {
-          host: device.esphome_api?.host || '',
-          port: device.esphome_api?.port || 6053,
-          password: device.esphome_api?.password || '',
-          encryption_key: device.esphome_api?.encryption_key || '',
-          switches: device.esphome_api?.switches || [],
-          lights: device.esphome_api?.lights || [],
+          host: device.esphome_api?.host || '', port: device.esphome_api?.port || 6053,
+          password: device.esphome_api?.password || '', encryption_key: device.esphome_api?.encryption_key || '',
+          switches: device.esphome_api?.switches || [], lights: device.esphome_api?.lights || [],
           covers: device.esphome_api?.covers || [],
         },
       });
     } else if (device.protocol === 'wled' || device.wled) {
-      // Pre-fill form with WLED device data
       setEditingItem({
-        id: device.id,
-        name: device.name || device.id,
-        protocol: 'wled',
-        device_type: 'wled',
-        wled: {
-          host: device.wled?.host || '',
-          port: device.wled?.port || 80,
-          segments: device.wled?.segments || [],
-        },
+        id: device.id, name: device.name || device.id, protocol: 'wled', device_type: 'wled',
+        wled: { host: device.wled?.host || '', port: device.wled?.port || 80, segments: device.wled?.segments || [] },
       });
     } else {
-      // Pre-fill form with MQTT/BoneIO device data
       setEditingItem({
-        id: device.id,
-        name: device.name || device.id,
-        protocol: device.protocol || 'mqtt',
+        id: device.id, name: device.name || device.id, protocol: device.protocol || 'mqtt',
         device_type: device.device_type || 'boneio_black',
-        mqtt: {
-          outputs: device.outputs || [],
-          covers: device.covers || [],
-        },
+        mqtt: { outputs: device.mqtt?.outputs || device.outputs || [], covers: device.mqtt?.covers || device.covers || [] },
       });
     }
-    originalItemRef.current = null; // New item from discovery — always dirty
+    originalItemRef.current = null;
     setHasValidationErrors(false);
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
 
-  // Compute board and expander slot stats for output section
-  const getOutputStats = () => {
-    const getBoardCapacity = (dt: string) => {
-      const type = (dt || '').toLowerCase();
-      if (type.includes('32') || type.includes('cm')) return 32;
-      if (type.includes('24')) return 24;
-      return 49;
-    };
-
-    const boardCapacity = getBoardCapacity(deviceType || '');
-    const boardUsed = value.filter(
-      (o: any) => o.boneio_output && !o.boneio_output.startsWith('EX_')
-    ).length;
-
-    // Expander: detect capacity from existing EX_* entries (id = new format, boneio_output = legacy)
-    const usedExIds = new Set<string>(
-      value
-        .map((o: any) => {
-          const v = o?.id || o?.boneio_output;
-          return typeof v === 'string' && v.startsWith('EX_') ? v : null;
-        })
-        .filter((v): v is string => v !== null)
-    );
-    let expanderCapacity = 0;
-    if (usedExIds.size > 0) {
-      for (const board of Object.values(EXPANDER_BOARDS)) {
-        const matchCount = board.outputs.filter(o => usedExIds.has(o.slotId)).length;
-        if (matchCount > 0) expanderCapacity = Math.max(expanderCapacity, board.outputs.length);
-      }
-    }
-    const expanderUsed = usedExIds.size;
-
-    return { boardCapacity, boardUsed, expanderCapacity, expanderUsed };
-  };
-
-  // Check if all outputs/inputs are used
-  const areAllItemsUsed = () => {
-    if (sectionType === 'output') {
-      const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats();
-      const boardFull = boardUsed >= boardCapacity;
-      const expanderFull = expanderCapacity === 0 || expanderUsed >= expanderCapacity;
-      // Blocked only when both are full (or no expander configured → only board matters)
-      return expanderCapacity === 0 ? boardFull : boardFull && expanderFull;
-    } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
-      // Check if all inputs are used (shared between binary_sensor and event)
-      // Normalize to uppercase — YAML data may use mixed case
-      const usedInputsFromBinarySensors = allBinarySensors
-        .filter(sensor => sensor.boneio_input)
-        .map(sensor => sensor.boneio_input.toUpperCase());
-
-      const usedInputsFromEvents = allEvents
-        .filter(event => event.boneio_input)
-        .map(event => event.boneio_input.toUpperCase());
-
-      const allUsedInputs = [...new Set([...usedInputsFromBinarySensors, ...usedInputsFromEvents])];
-
-      // Get total available inputs from schema (assuming it's the same for both)
-      const totalInputs = (schema as any)?.items?.properties?.boneio_input?.enum?.length || 0;
-
-      return allUsedInputs.length >= totalInputs;
-    } else if (sectionType === 'output_group') {
-      // Output groups don't have a fixed limit, so always allow adding
-      return false;
-    } else if (sectionType === 'cover') {
-      // Covers don't have a fixed limit, so always allow adding
-      return false;
-    } else if (sectionType === 'modbus_devices') {
-      // Modbus devices don't have a fixed limit, so always allow adding
-      return false;
-    } else if (sectionType === 'remote_devices') {
-      // Remote devices don't have a fixed limit, so always allow adding
-      return false;
-    }
-
-    return false;
+  const handleCancel = () => {
+    setIsModalOpen(false);
+    setEditingItem(null);
+    setEditingIndex(null);
   };
 
   const handleSave = (e?: any) => {
-    console.log('💾 ArrayTableWidget: handleSave called, calling onChange');
-
-    // Oznacz że użytkownik próbował zapisać
     setAttemptedSubmit(true);
-
-    // Block save if there are validation errors from child form
     if (hasValidationErrors) {
-      console.log('❌ ArrayTableWidget: Save blocked due to validation errors');
       alert(t('array_table_widget.fix_validation_errors_before_saving'));
       return;
     }
 
-    // If called from @rjsf onSubmit, e.formData contains the data
     const dataToSave = e?.formData || editingItem;
-
-    // Validate required fields based on section type
-    let isValid = false;
-    let errorMessage = '';
-
-    if (sectionType === 'binary_sensor') {
-      isValid = !!dataToSave.boneio_input;
-      errorMessage = t('array_table_widget.boneio_input_required');
-    } else if (sectionType === 'event') {
-      isValid = !!dataToSave.boneio_input;
-      errorMessage = t('array_table_widget.boneio_input_required');
-    } else if (sectionType === 'output') {
-      isValid = !!dataToSave.boneio_output || (!!dataToSave.id && dataToSave.id.startsWith('EX_'));
-      errorMessage = t('array_table_widget.boneio_output_required');
-    } else if (sectionType === 'output_group') {
-      const hasId = !!dataToSave.id;
-      const hasOutputs = !!dataToSave.outputs && (Array.isArray(dataToSave.outputs) ? dataToSave.outputs.length > 0 : true);
-      isValid = hasId && hasOutputs;
-      errorMessage = !hasId ? t('array_table_widget.id_required') : t('array_table_widget.at_least_one_output_required');
-    } else if (sectionType === 'cover') {
-      // ID is now optional (auto-generated from relays)
-      isValid = !!dataToSave.open_relay && !!dataToSave.close_relay && !!dataToSave.open_time && !!dataToSave.close_time;
-      errorMessage = t('array_table_widget.cover_fields_required');
-    } else if (sectionType === 'modbus_devices') {
-      // ID is now optional (auto-generated from address and model)
-      isValid = !!dataToSave.address && !!dataToSave.model;
-      errorMessage = t('array_table_widget.address_and_model_required');
-
-      // Validate update_interval minimum (1 second = 1000ms)
-      if (isValid && dataToSave.update_interval) {
-        const raw = dataToSave.update_interval;
-        let intervalMs: number;
-        if (typeof raw === 'number') {
-          intervalMs = raw;
-        } else {
-          const match = String(raw).match(/^(\d+(?:\.\d+)?)\s*(ms|s|sec|min|h|hours?)$/i);
-          if (match) {
-            const num = parseFloat(match[1]);
-            const unit = match[2].toLowerCase();
-            const multiplier = unit === 'h' || unit === 'hour' || unit === 'hours' ? 3600000
-              : unit === 'min' ? 60000
-              : unit === 's' || unit === 'sec' ? 1000
-              : 1;
-            intervalMs = num * multiplier;
-          } else {
-            intervalMs = parseFloat(raw) || 0;
-          }
-        }
-
-        if (intervalMs < 1000) {
-          isValid = false;
-          errorMessage = t('array_table_widget.update_interval_minimum');
-        }
-      }
-    } else if (sectionType === 'remote_devices') {
-      // Remote device requires id, name, protocol
-      isValid = !!dataToSave.id && !!dataToSave.name && !!dataToSave.protocol;
-
-      // ESPHome API also requires host
-      if (isValid && dataToSave.protocol === 'esphome_api') {
-        isValid = !!dataToSave.esphome_api?.host;
-        if (!isValid) {
-          errorMessage = t('remote_devices.esphome_host_required') || 'ESPHome host is required';
-        }
-      }
-
-      if (!errorMessage) {
-        errorMessage = t('array_table_widget.remote_device_fields_required');
-      }
-      console.log('Remote device validation:', dataToSave, 'isValid:', isValid);
-    } else if (sectionType === 'template') {
-      const hasPlatform = !!dataToSave.platform;
-      if (dataToSave.platform === 'thermostat') {
-        isValid = hasPlatform && !!dataToSave.sensor_id && !!dataToSave.output_id;
-        errorMessage = t('template.thermostat_fields_required');
-      } else if (dataToSave.platform === 'alarm_control_panel') {
-        isValid = hasPlatform;
-        errorMessage = t('template.alarm_fields_required');
-      } else if (dataToSave.platform === 'gate_cover') {
-        const mode = dataToSave.control_mode || 'cycle';
-        if (mode === 'separate') {
-          isValid = hasPlatform && !!dataToSave.id && (!!dataToSave.open_output || !!dataToSave.close_output);
-        } else {
-          isValid = hasPlatform && !!dataToSave.id && !!dataToSave.pulse_output;
-        }
-        errorMessage = t('template.gate_cover_fields_required');
-      } else {
-        isValid = hasPlatform;
-        errorMessage = t('template.platform_required');
-      }
-    } else if (sectionType === 'adc') {
-      isValid = !!dataToSave.pin;
-      errorMessage = t('adc.pin_required');
-    } else {
-      // For other sections, allow saving (or add specific validation)
-      isValid = true;
-    }
-
+    const { isValid, errorMessage } = validateItem(sectionType, dataToSave, t);
     if (!isValid) {
       alert(errorMessage);
       return;
     }
 
-    // For binary_sensor and event, ensure we don't have both 'id' and 'name' fields
-    // Remove legacy 'id' field if 'name' exists
+    // Clean legacy id/name duplication
     let cleanedData = { ...dataToSave };
-    if ((sectionType === 'binary_sensor' || sectionType === 'event') && cleanedData.name && cleanedData.id) {
+    if (isInputSection(sectionType) && cleanedData.name && cleanedData.id) {
       delete cleanedData.id;
     }
-    // Auto-generate unique ID for template entries (only if user didn't provide one)
+
+    // Auto-generate template ID
     if (sectionType === 'template') {
       delete cleanedData._autoId;
       if (!cleanedData.id) {
         const baseName = (cleanedData.name || cleanedData.platform || 'template').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
-        const existingIds = new Set(
-          value
-            .filter((_: any, i: number) => i !== editingIndex)
-            .map((item: any) => item.id)
-        );
+        const existingIds = new Set(value.filter((_: any, i: number) => i !== editingIndex).map((item: any) => item.id));
         let candidateId = baseName;
         let suffix = 2;
-        while (existingIds.has(candidateId)) {
-          candidateId = `${baseName}_${suffix}`;
-          suffix++;
-        }
+        while (existingIds.has(candidateId)) { candidateId = `${baseName}_${suffix}`; suffix++; }
         cleanedData.id = candidateId;
       }
     }
@@ -555,286 +302,28 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else {
       newValue.push(cleanedData);
     }
-    // Only call onChange when actually saving, not during editing
-    console.log('🔄 ArrayTableWidget: calling onChange with:', newValue);
     onChange(newValue);
     setIsModalOpen(false);
     setEditingItem(null);
     setEditingIndex(null);
   };
 
-  /**
-   * Find all items that use the given area ID.
-   * Returns list of affected items with their section type and name.
-   */
-  const findItemsUsingArea = (areaId: string): { type: string, name: string, actionType: string }[] => {
-    const affected: { type: string, name: string, actionType: string }[] = [];
+  // ─── Delete Logic ───────────────────────────────────────────────
 
-    // Check outputs
-    allOutputs.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('navigation.outputs'),
-          name: item.id || item.name || item.boneio_output || t('array_table_widget.unknown'),
-          actionType: item.boneio_output || ''
-        });
-      }
-    });
-
-    // Check output groups
-    allOutputGroups.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('outputs.output_group'),
-          name: item.id || item.name || t('array_table_widget.unknown'),
-          actionType: ''
-        });
-      }
-    });
-
-    // Check covers
-    allCovers.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('covers.title'),
-          name: item.id || item.name || t('array_table_widget.unknown'),
-          actionType: `${item.open_relay} / ${item.close_relay}`
-        });
-      }
-    });
-
-    // Check binary sensors
-    allBinarySensors.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('navigation.inputs'),
-          name: item.name || item.boneio_input || t('array_table_widget.unknown'),
-          actionType: item.boneio_input || ''
-        });
-      }
-    });
-
-    // Check events
-    allEvents.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('event_form.title'),
-          name: item.name || item.boneio_input || t('array_table_widget.unknown'),
-          actionType: item.boneio_input || ''
-        });
-      }
-    });
-
-    // Check sensors
-    allSensors.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('navigation.sensors'),
-          name: item.id || item.name || t('array_table_widget.unknown'),
-          actionType: item.address || ''
-        });
-      }
-    });
-
-    // Check modbus devices
-    allModbusDevices.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('navigation.modbus'),
-          name: item.id || item.name || t('array_table_widget.unknown'),
-          actionType: `${item.model} @ ${item.address}`
-        });
-      }
-    });
-
-    // Check virtual energy sensors
-    allVirtualEnergySensors.forEach((item: any) => {
-      if (item.area === areaId) {
-        affected.push({
-          type: t('virtual_energy_sensor.title'),
-          name: item.id || item.name || t('array_table_widget.unknown'),
-          actionType: ''
-        });
-      }
-    });
-
-    return affected;
-  };
-
-  /**
-   * Find all actions in events and binary_sensors that reference the given item ID.
-   * Returns list of affected actions with their source (event/binary_sensor name and action type).
-   * For remote_devices, checks remote_device field in remote_output and remote_cover actions.
-   */
-  const findAffectedActions = (itemId: string, isRemoteDevice: boolean = false): { type: string, name: string, actionType: string }[] => {
-    const affected: { type: string, name: string, actionType: string }[] = [];
-
-    // Check events
-    allEvents.forEach((event: any) => {
-      const eventName = event.name || event.boneio_input || t('array_table_widget.unknown_event');
-      ['single', 'double', 'long'].forEach((pressType) => {
-        const actions = event.actions?.[pressType] || [];
-        actions.forEach((action: any) => {
-          if (isRemoteDevice) {
-            // For remote_devices, check remote_device field
-            if (action.remote_device === itemId) {
-              affected.push({
-                type: t('array_table_widget.event'),
-                name: eventName,
-                actionType: `${pressType} → ${action.action || 'remote_output'}`
-              });
-            }
-          } else {
-            // For output/cover, check pin and boneio_output
-            if (action.pin === itemId || action.boneio_output === itemId) {
-              affected.push({
-                type: t('array_table_widget.event'),
-                name: eventName,
-                actionType: `${pressType} → ${action.action || 'output'}`
-              });
-            }
-          }
-        });
-      });
-    });
-
-    // Check binary_sensors
-    allBinarySensors.forEach((sensor: any) => {
-      const sensorName = sensor.name || sensor.boneio_input || t('array_table_widget.unknown_sensor');
-      ['pressed', 'released'].forEach((pressType) => {
-        const actions = sensor.actions?.[pressType] || [];
-        actions.forEach((action: any) => {
-          if (isRemoteDevice) {
-            // For remote_devices, check remote_device field
-            if (action.remote_device === itemId) {
-              affected.push({
-                type: t('array_table_widget.binary_sensor'),
-                name: sensorName,
-                actionType: `${pressType} → ${action.action || 'remote_output'}`
-              });
-            }
-          } else {
-            // For output/cover, check pin and boneio_output
-            if (action.pin === itemId || action.boneio_output === itemId) {
-              affected.push({
-                type: t('array_table_widget.binary_sensor'),
-                name: sensorName,
-                actionType: `${pressType} → ${action.action || 'output'}`
-              });
-            }
-          }
-        });
-      });
-    });
-    console.log("Affected actions:", affected);
-
-    return affected;
-  };
-
-  /**
-   * Remove actions that reference the given item ID from events and binary_sensors.
-   * Returns the updated data for immediate saving.
-   * For remote_devices, removes actions where remote_device matches itemId.
-   */
-  const removeOrphanedActions = (itemId: string, isRemoteDevice: boolean = false): { updatedEvents: any[] | null, updatedSensors: any[] | null } => {
-    console.log('🗑️ removeOrphanedActions called with itemId:', itemId, 'isRemoteDevice:', isRemoteDevice);
-
-    let updatedEvents: any[] | null = null;
-    let updatedSensors: any[] | null = null;
-
-    // Update events
-    if (onUpdateEvents) {
-      updatedEvents = allEvents.map((event: any) => {
-        const updatedActions: any = {};
-        ['single', 'double', 'long'].forEach((pressType) => {
-          const actions = event.actions?.[pressType] || [];
-          const filtered = actions.filter((action: any) => {
-            let shouldKeep: boolean;
-            if (isRemoteDevice) {
-              // For remote_devices, check remote_device field
-              shouldKeep = action.remote_device !== itemId;
-              if (!shouldKeep) {
-                console.log(`🗑️ Removing remote action from event ${event.name || event.boneio_input}: ${pressType} -> remote_device=${action.remote_device}`);
-              }
-            } else {
-              // For output/cover, check pin and boneio_output
-              shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
-              if (!shouldKeep) {
-                console.log(`🗑️ Removing action from event ${event.name || event.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
-              }
-            }
-            return shouldKeep;
-          });
-          updatedActions[pressType] = filtered;
-        });
-        return { ...event, actions: updatedActions };
-      });
-      console.log('🗑️ Updated events:', updatedEvents);
-      onUpdateEvents(updatedEvents);
-    }
-
-    // Update binary_sensors
-    if (onUpdateBinarySensors) {
-      updatedSensors = allBinarySensors.map((sensor: any) => {
-        const updatedActions: any = {};
-        ['pressed', 'released'].forEach((pressType) => {
-          const actions = sensor.actions?.[pressType] || [];
-          const filtered = actions.filter((action: any) => {
-            let shouldKeep: boolean;
-            if (isRemoteDevice) {
-              // For remote_devices, check remote_device field
-              shouldKeep = action.remote_device !== itemId;
-              if (!shouldKeep) {
-                console.log(`🗑️ Removing remote action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> remote_device=${action.remote_device}`);
-              }
-            } else {
-              // For output/cover, check pin and boneio_output
-              shouldKeep = action.pin !== itemId && action.boneio_output !== itemId;
-              if (!shouldKeep) {
-                console.log(`🗑️ Removing action from sensor ${sensor.name || sensor.boneio_input}: ${pressType} -> boneio_output=${action.boneio_output}`);
-              }
-            }
-            return shouldKeep;
-          });
-          updatedActions[pressType] = filtered;
-        });
-        return { ...sensor, actions: updatedActions };
-      });
-      console.log('🗑️ Updated sensors:', updatedSensors);
-      onUpdateBinarySensors(updatedSensors);
-    }
-
-    return { updatedEvents, updatedSensors };
-  };
-
-  /**
-   * Get the ID of an item being deleted based on section type.
-   */
   const getItemId = (item: any): string => {
-    if (sectionType === 'output') {
-      return item.id || item.boneio_output || '';
-    } else if (sectionType === 'output_group') {
-      return item.id || '';
-    } else if (sectionType === 'cover') {
-      return item.id || (item.open_relay && item.close_relay
-        ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase()
-        : '');
-    } else if (sectionType === 'remote_devices') {
-      return item.id || '';
-    }
+    if (sectionType === 'output') return item.id || item.boneio_output || '';
+    if (sectionType === 'output_group') return item.id || '';
+    if (sectionType === 'cover') return item.id || (item.open_relay && item.close_relay ? `cover_${item.open_relay}_${item.close_relay}`.toLowerCase() : '');
+    if (sectionType === 'remote_devices') return item.id || '';
     return '';
   };
 
   const handleDelete = (index: number) => {
     const item = value[index];
 
-    // Check for affected items when deleting an area
     if (sectionType === 'areas') {
-      const areaId = item.id;
-      const affected = findItemsUsingArea(areaId);
-
+      const affected = findItemsUsingArea(item.id);
       if (affected.length > 0) {
-        // Show confirmation dialog - but for areas we just warn, don't auto-remove
         setDeleteIndex(index);
         setAffectedActions(affected);
         setDeleteConfirmOpen(true);
@@ -842,14 +331,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
     }
 
-    // Only check for affected actions when deleting output, output_group, cover, or remote_devices
-    if (sectionType === 'output' || sectionType === 'output_group' || sectionType === 'cover' || sectionType === 'remote_devices') {
+    if (['output', 'output_group', 'cover', 'remote_devices'].includes(sectionType)) {
       const itemId = getItemId(item);
-      const isRemoteDevice = sectionType === 'remote_devices';
-      const affected = findAffectedActions(itemId, isRemoteDevice);
-
+      const affected = findAffectedActions(itemId, sectionType === 'remote_devices');
       if (affected.length > 0) {
-        // Show confirmation dialog
         setDeleteIndex(index);
         setAffectedActions(affected);
         setDeleteConfirmOpen(true);
@@ -857,68 +342,39 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       }
     }
 
-    // No affected actions, delete directly
-    const newValue = value.filter((_, i) => i !== index);
-    onChange(newValue);
+    onChange(value.filter((_, i) => i !== index));
   };
 
   const confirmDelete = async () => {
     if (deleteIndex === null) return;
-
     const item = value[deleteIndex];
 
-    // For areas, just delete without removing references (user is warned)
     if (sectionType === 'areas') {
       const newValue = value.filter((_, i) => i !== deleteIndex);
       onChange(newValue);
-
-      // Close dialog
       setDeleteConfirmOpen(false);
       setDeleteIndex(null);
       setAffectedActions([]);
-
-      // Save the areas section
-      if (onSaveSection) {
-        console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
-        await onSaveSection(sectionType, newValue);
-      }
+      if (onSaveSection) await onSaveSection(sectionType, newValue);
       return;
     }
 
     const itemId = getItemId(item);
     const isRemoteDevice = sectionType === 'remote_devices';
-
-    // Check which sections have affected actions
     const hasEventActions = affectedActions.some(a => a.type === t('array_table_widget.event'));
-    const hasBinarySensorActions = affectedActions.some(a => a.type === t('array_table_widget.binary_sensor'));
-
-    // Remove orphaned actions first and get updated data
+    const hasBSActions = affectedActions.some(a => a.type === t('array_table_widget.binary_sensor'));
     const { updatedEvents, updatedSensors } = removeOrphanedActions(itemId, isRemoteDevice);
 
-    // Delete the item and get updated value
     const newValue = value.filter((_, i) => i !== deleteIndex);
     onChange(newValue);
-
-    // Close dialog
     setDeleteConfirmOpen(false);
     setDeleteIndex(null);
     setAffectedActions([]);
 
-    // Save all affected sections with the updated data directly
     if (onSaveSection) {
-      // First save the current section (output/output_group/cover/remote_devices) with the item removed
-      console.log(`🔄 Auto-saving ${sectionType} section with item removed:`, newValue);
       await onSaveSection(sectionType, newValue);
-
-      // Then save event and binary_sensor sections with orphaned actions removed
-      if (hasEventActions && updatedEvents) {
-        console.log('🔄 Auto-saving event section with updated data:', updatedEvents);
-        await onSaveSection('event', updatedEvents);
-      }
-      if (hasBinarySensorActions && updatedSensors) {
-        console.log('🔄 Auto-saving binary_sensor section with updated data:', updatedSensors);
-        await onSaveSection('binary_sensor', updatedSensors);
-      }
+      if (hasEventActions && updatedEvents) await onSaveSection('event', updatedEvents);
+      if (hasBSActions && updatedSensors) await onSaveSection('binary_sensor', updatedSensors);
     }
   };
 
@@ -928,245 +384,75 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setAffectedActions([]);
   };
 
-  const handleCancel = () => {
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setEditingIndex(null);
-  };
+  // ─── AI Wizard ──────────────────────────────────────────────────
 
-  /**
-   * Export current section data as YAML file
-   */
-  const handleExport = () => {
-    const exportData = {
-      section: sectionType,
-      version: '1.0',
-      exported_at: new Date().toISOString(),
-      data: value
-    };
+  const handleAiWizard = async () => {
+    try {
+      const { buildAiWizardPrompt } = await import('./helpers/aiWizardPrompt');
+      const entityType = sectionType === 'event' ? 'event' : 'binary_sensor';
+      const getEnum = (path: string) => path.split('.').reduce((o: any, k: string) => o?.[k], schema) || [];
+      const actionTypeOptions = getEnum('items.properties.actions.properties.single.items.properties.action.enum') ||
+        getEnum('items.properties.actions.properties.pressed.items.properties.action.enum') ||
+        ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
+      const actionOutputOptions = getEnum('items.properties.actions.properties.single.items.properties.action_output.enum') ||
+        getEnum('items.properties.actions.properties.pressed.items.properties.action_output.enum') ||
+        ['TOGGLE', 'ON', 'OFF'];
+      const actionCoverOptions = getEnum('items.properties.actions.properties.single.items.properties.action_cover.enum') ||
+        getEnum('items.properties.actions.properties.pressed.items.properties.action_cover.enum') ||
+        ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
 
-    const yamlContent = yaml.dump(exportData, { indent: 2, lineWidth: -1, noRefs: true });
-    const blob = new Blob([yamlContent], { type: 'application/x-yaml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `boneio_${sectionType}_${new Date().toISOString().split('T')[0]}.yaml`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  /**
-   * Handle file selection for import (supports YAML and JSON)
-   */
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        let parsed: any;
-
-        // Try YAML first (also handles JSON since JSON is valid YAML)
-        try {
-          parsed = yaml.load(content);
-        } catch {
-          // Fallback to JSON parse for better error messages
-          parsed = JSON.parse(content);
-        }
-
-        // Validate structure
-        if (!parsed.data || !Array.isArray(parsed.data)) {
-          setImportError(t('import_export.invalid_format'));
-          setImportData(null);
-          setImportDialogOpen(true);
-          return;
-        }
-
-        // Check section type match (warning only)
-        if (parsed.section && parsed.section !== sectionType) {
-          console.warn(`Import section mismatch: expected ${sectionType}, got ${parsed.section}`);
-        }
-
-        setImportData(parsed.data);
-        setImportError(null);
-        setImportDialogOpen(true);
-      } catch {
-        setImportError(t('import_export.parse_error'));
-        setImportData(null);
-        setImportDialogOpen(true);
-      }
-    };
-    reader.readAsText(file);
-
-    // Reset input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  /**
-   * Confirm import with selected mode
-   */
-  const confirmImport = () => {
-    if (!importData) return;
-
-    if (importMode === 'replace') {
-      onChange(importData);
-    } else {
-      // Merge: add new items, skip duplicates by id/name
-      const existingIds = new Set(value.map(item => item.id || item.name || item.boneio_output || item.boneio_input));
-      const newItems = importData.filter(item => {
-        const itemId = item.id || item.name || item.boneio_output || item.boneio_input;
-        return !existingIds.has(itemId);
+      const prompt = buildAiWizardPrompt({
+        entityType: entityType as any, data: {} as any, schema,
+        allOutputs, allOutputGroups, allCovers, allAreas, allRemoteDevices,
+        allConfiguredInputs: value,
+        actionTypeOptions, actionOutputOptions, actionCoverOptions,
       });
-      onChange([...value, ...newItems]);
-    }
-
-    setImportDialogOpen(false);
-    setImportData(null);
-    setImportMode('merge');
-  };
-
-  /**
-   * Cancel import
-   */
-  const cancelImport = () => {
-    setImportDialogOpen(false);
-    setImportData(null);
-    setImportError(null);
-    setImportMode('merge');
-  };
-
-  // Render appropriate table component based on section type
-  const renderTable = () => {
-    const commonProps = {
-      items: value,
-      onEdit: handleEdit,
-      onDelete: handleDelete,
-    };
-
-    switch (sectionType) {
-      case 'output':
-        return <OutputTable {...commonProps} allAreas={allAreas} />;
-      case 'output_group':
-        return <OutputGroupTable {...commonProps} allAreas={allAreas} allCovers={allCovers} />;
-      case 'cover':
-        return <CoverTable {...commonProps} allAreas={allAreas} />;
-      case 'binary_sensor':
-      case 'event':
-        return <BinarySensorEventTable {...commonProps} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />;
-      case 'modbus_devices':
-        return <ModbusDeviceTable {...commonProps} allAreas={allAreas} formatTimeperiod={formatTimeperiod} />;
-      case 'areas':
-        return <AreasTable {...commonProps} />;
-      case 'sensor':
-        return <SensorTable {...commonProps} allAreas={allAreas} />;
-      case 'virtual_energy_sensor':
-        return <VirtualEnergySensorTable {...commonProps} allAreas={allAreas} />;
-      case 'remote_devices':
-        return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={handleAddFromDiscovery} />;
-      case 'template':
-        return <TemplateTable {...commonProps} allAreas={allAreas} />;
-      case 'adc':
-        return <ADCTable {...commonProps} allAreas={allAreas} />;
-      case 'board_sensors':
-        return <BoardSensorsTable {...commonProps} />;
-      default:
-        return <GenericTable {...commonProps} />;
+      await navigator.clipboard.writeText(prompt);
+      setWizardCopied(true);
+      setTimeout(() => setWizardCopied(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy wizard prompt:', err);
     }
   };
 
+  // ─── Render ─────────────────────────────────────────────────────
+
+  const allUsed = areAllItemsUsed(sectionType, value, schema, deviceType, allBinarySensors, allEvents);
 
   return (
     <div className="space-y-4">
       {/* Hidden file input for import */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        accept=".yaml,.yml,.json"
-        className="hidden"
-      />
+      <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".yaml,.yml,.json" className="hidden" />
 
+      {/* Toolbar */}
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h3 className="text-lg font-semibold">{title || t('array_table_widget.items')}</h3>
         <div className="flex gap-2 flex-wrap">
-          {/* Export button */}
           <div className="tooltip tooltip-bottom" data-tip={t('import_export.export')}>
-            <button
-              onClick={handleExport}
-              className="btn btn-ghost btn-sm"
-              disabled={value.length === 0}
-            >
+            <button onClick={handleExport} className="btn btn-ghost btn-sm" disabled={value.length === 0}>
               <FaDownload />
               <span className="hidden sm:inline ml-1">{t('import_export.export')}</span>
             </button>
           </div>
-
-          {/* Import button */}
           <div className="tooltip tooltip-bottom" data-tip={t('import_export.import')}>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="btn btn-ghost btn-sm"
-            >
+            <button onClick={() => fileInputRef.current?.click()} className="btn btn-ghost btn-sm">
               <FaUpload />
               <span className="hidden sm:inline ml-1">{t('import_export.import')}</span>
             </button>
           </div>
 
-          {/* AI Wizard button — only for event/binary_sensor */}
-          {(sectionType === 'event' || sectionType === 'binary_sensor') && (
+          {isInputSection(sectionType) && (
             <div className="tooltip tooltip-bottom" data-tip={t('event_form.ai_wizard_description')}>
-              <button
-                onClick={async () => {
-                  try {
-                    const { buildAiWizardPrompt } = await import('./helpers/aiWizardPrompt');
-                    const entityType = sectionType === 'event' ? 'event' : 'binary_sensor';
-                    const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum ||
-                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum ||
-                      ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
-                    const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum ||
-                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum ||
-                      ['TOGGLE', 'ON', 'OFF'];
-                    const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum ||
-                      schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum ||
-                      ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
-
-                    const prompt = buildAiWizardPrompt({
-                      entityType: entityType as any,
-                      data: {} as any,
-                      schema,
-                      allOutputs,
-                      allOutputGroups,
-                      allCovers,
-                      allAreas,
-                      allRemoteDevices,
-                      actionTypeOptions,
-                      actionOutputOptions,
-                      actionCoverOptions,
-                    });
-                    await navigator.clipboard.writeText(prompt);
-                    setWizardCopied(true);
-                    setTimeout(() => setWizardCopied(false), 3000);
-                  } catch (err) {
-                    console.error('Failed to copy wizard prompt:', err);
-                  }
-                }}
-                className="btn btn-outline btn-sm"
-              >
+              <button onClick={handleAiWizard} className="btn btn-outline btn-sm">
                 {wizardCopied ? t('event_form.ai_prompt_copied_short') : t('event_form.ai_copy_wizard')}
               </button>
             </div>
           )}
 
-          {/* Add new button */}
+          {/* Add new button — dropdown for output section when expander exists */}
           {sectionType === 'output' && value.some((o: any) => o.id?.startsWith?.('EX_') || o.boneio_output?.startsWith?.('EX_')) ? (
             (() => {
-              const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats();
+              const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats(value, deviceType);
               const boardFull = boardUsed >= boardCapacity;
               const expanderFull = expanderUsed >= expanderCapacity;
               const allFull = boardFull && expanderFull;
@@ -1207,13 +493,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
               );
             })()
           ) : (
-            <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`}
-              data-tip={areAllItemsUsed() ? t('outputs.all_outputs_used') : t('settings.add_new')}>
-              <button
-                onClick={handleAdd}
-                className="btn btn-primary btn-sm"
-                disabled={areAllItemsUsed()}
-              >
+            <div className={`tooltip tooltip-left ${allUsed ? 'tooltip-warning' : 'tooltip-info'}`}
+              data-tip={allUsed ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
+              <button onClick={handleAdd} className="btn btn-primary btn-sm" disabled={allUsed}>
                 <FaPlus className="mr-2" />
                 {t('settings.add_new')}
               </button>
@@ -1222,8 +504,19 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </div>
       </div>
 
+      {/* Table or empty state */}
       {value.length > 0 || sectionType === 'remote_devices' ? (
-        renderTable()
+        <TableRenderer
+          sectionType={sectionType}
+          items={value}
+          allAreas={allAreas}
+          allOutputs={allOutputs}
+          allCovers={allCovers}
+          allRemoteDevices={allRemoteDevices}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAddFromDiscovery={handleAddFromDiscovery}
+        />
       ) : (
         <div className="text-center py-8 text-base-content/60">
           <p>{t('settings.no_items')}</p>
@@ -1231,60 +524,8 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </div>
       )}
 
-      {/* Template Platform Picker Dialog */}
-      <Dialog open={showTemplatePicker} onOpenChange={setShowTemplatePicker}>
-        <DialogContent className="max-w-md bg-base-100">
-          <DialogHeader>
-            <DialogTitle>{t('template.select_platform_title')}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-4">
-            <button
-              type="button"
-              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
-              onClick={() => handleTemplatePlatformSelect('thermostat')}
-            >
-              <span className="text-2xl">🌡️</span>
-              <div>
-                <div className="font-semibold">{t('template.platform_thermostat')}</div>
-                <div className="text-sm text-base-content/60">{t('template.platform_thermostat_hint')}</div>
-              </div>
-            </button>
-            <button
-              type="button"
-              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
-              onClick={() => handleTemplatePlatformSelect('alarm_control_panel')}
-            >
-              <span className="text-2xl">🚨</span>
-              <div>
-                <div className="font-semibold">{t('template.platform_alarm_control_panel')}</div>
-                <div className="text-sm text-base-content/60">{t('template.platform_alarm_hint')}</div>
-              </div>
-            </button>
-            <button
-              type="button"
-              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
-              onClick={() => handleTemplatePlatformSelect('gate_cover')}
-            >
-              <span className="text-2xl">🚪</span>
-              <div>
-                <div className="font-semibold">{t('template.platform_gate_cover')}</div>
-                <div className="text-sm text-base-content/60">{t('template.platform_gate_cover_hint')}</div>
-              </div>
-            </button>
-            <button
-              type="button"
-              className="w-full p-4 rounded-lg border border-base-300 hover:border-primary hover:bg-primary/5 transition-colors text-left flex items-start gap-3"
-              onClick={() => handleTemplatePlatformSelect('irrigation')}
-            >
-              <span className="text-2xl">💧</span>
-              <div>
-                <div className="font-semibold">{t('template.platform_irrigation')}</div>
-                <div className="text-sm text-base-content/60">{t('template.platform_irrigation_hint')}</div>
-              </div>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Template Platform Picker */}
+      <TemplatePicker open={showTemplatePicker} onOpenChange={setShowTemplatePicker} onSelect={handleTemplatePlatformSelect} />
 
       {/* Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -1311,181 +552,45 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             </DialogDescription>
           </DialogHeader>
 
-          {/* Scrollable content area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 wrap-break-words [&_.label-text]:whitespace-normal [&_.label-text]:wrap-break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:wrap-break-words [&_.form-control]:min-w-0">
-            {/* Only render form when editingItem is not null */}
             {editingItem && (
-              <>
-                {/* Use custom form for binary_sensor/event/output, @rjsf for others */}
-                {sectionType === 'binary_sensor' ? (
-                  <BinarySensorForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isNew={editingIndex === null}
-                    schema={schema}
-                    allBinarySensors={allBinarySensors}
-                    allEvents={allEvents}
-                    allOutputs={allOutputs}
-                    allOutputGroups={allOutputGroups}
-                    allCovers={allCovers}
-                    allAreas={allAreas}
-                    allRemoteDevices={allRemoteDevices}
-                    editingIndex={editingIndex}
-                    onValidationChange={setHasValidationErrors}
-                    attemptedSubmit={attemptedSubmit}
-                    savedOutputs={savedOutputs}
-                    savedOutputGroups={savedOutputGroups}
-                    savedCovers={savedCovers}
-                  />
-                ) : sectionType === 'event' ? (
-                  <EventForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isNew={editingIndex === null}
-                    schema={schema}
-                    allBinarySensors={allBinarySensors}
-                    allEvents={allEvents}
-                    allOutputs={allOutputs}
-                    allOutputGroups={allOutputGroups}
-                    allCovers={allCovers}
-                    allAreas={allAreas}
-                    allRemoteDevices={allRemoteDevices}
-                    editingIndex={editingIndex}
-                    onValidationChange={setHasValidationErrors}
-                    attemptedSubmit={attemptedSubmit}
-                    savedOutputs={savedOutputs}
-                    savedOutputGroups={savedOutputGroups}
-                    savedCovers={savedCovers}
-                  />
-                ) : sectionType === 'output' ? (
-                  <OutputForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isNew={editingIndex === null}
-                    outputKind={outputKind}
-                    schema={schema}
-                    uiSchema={uiSchema}
-                    deviceType={deviceType}
-                    allOutputs={value}
-                    allAreas={allAreas}
-                    editingIndex={editingIndex}
-                    interlockGroups={interlockGroups}
-                    onInterlockGroupCreated={handleInterlockGroupCreated}
-                    allCovers={allCovers}
-                    mcp23017={mcp23017}
-                  />
-                ) : sectionType === 'output_group' ? (
-                  <OutputGroupForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    schema={schema}
-                    allOutputs={allOutputs}
-                    allAreas={allAreas}
-                  />
-                ) : sectionType === 'cover' ? (
-                  <CoverForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    schema={schema}
-                    allOutputs={allOutputs}
-                    allAreas={allAreas}
-                  />
-                ) : sectionType === 'modbus_devices' ? (
-                  <ModbusDeviceForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    schema={schema}
-                    areas={allAreas}
-                  />
-                ) : sectionType === 'areas' ? (
-                  <AreasForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                  />
-                ) : sectionType === 'sensor' ? (
-                  <SensorForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isNew={editingIndex === null}
-                    schema={schema}
-                    allAreas={allAreas}
-                    availableSensors={availableDallasSensors}
-                    existingSensors={value}
-                    editingIndex={editingIndex}
-                    onValidationChange={setHasValidationErrors}
-                  />
-                ) : sectionType === 'virtual_energy_sensor' ? (
-                  <VirtualEnergySensorForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    onSave={handleSave}
-                    onCancel={handleCancel}
-                    isNew={editingIndex === null}
-                    schema={schema}
-                    allAreas={allAreas}
-                    allOutputs={allOutputs}
-                    existingSensors={value}
-                    editingIndex={editingIndex}
-                    onValidationChange={setHasValidationErrors}
-                  />
-                ) : sectionType === 'remote_devices' ? (
-                  <RemoteDeviceForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                  />
-                ) : sectionType === 'template' ? (
-                  <TemplateForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    schema={schema}
-                    allOutputs={allOutputs}
-                    allAreas={allAreas}
-                    allSensors={allSensors}
-                    allModbusDevices={allModbusDevices}
-                    allInputs={allBinarySensors || []}
-                    onValidationChange={setHasValidationErrors}
-                  />
-                ) : sectionType === 'adc' ? (
-                  <ADCForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    existingItems={value}
-                    editingIndex={editingIndex}
-                    allAreas={allAreas}
-                    onValidationChange={setHasValidationErrors}
-                  />
-                ) : sectionType === 'board_sensors' ? (
-                  <BoardSensorsForm
-                    data={editingItem}
-                    onChange={setEditingItem}
-                    existingItems={value}
-                    editingIndex={editingIndex}
-                    onValidationChange={setHasValidationErrors}
-                  />
-                ) : (
-                  <div className="alert alert-warning">
-                    <span>{t('array_table_widget.no_form_available').replace('{sectionType}', sectionType)}</span>
-                  </div>
-                )}
-              </>
+              <FormRenderer
+                sectionType={sectionType}
+                editingItem={editingItem}
+                editingIndex={editingIndex}
+                schema={schema}
+                uiSchema={uiSchema}
+                deviceType={deviceType}
+                allBinarySensors={allBinarySensors}
+                allEvents={allEvents}
+                allOutputs={allOutputs}
+                allOutputGroups={allOutputGroups}
+                allCovers={allCovers}
+                allAreas={allAreas}
+                allSensors={allSensors}
+                allModbusDevices={allModbusDevices}
+                allRemoteDevices={allRemoteDevices}
+                allRemoteInputs={allRemoteInputs}
+                savedOutputs={savedOutputs}
+                savedOutputGroups={savedOutputGroups}
+                savedCovers={savedCovers}
+                value={value}
+                interlockGroups={interlockGroups}
+                availableDallasSensors={availableDallasSensors}
+                outputKind={outputKind}
+                mcp23017={mcp23017}
+                onChange={setEditingItem}
+                onSave={handleSave}
+                onCancel={handleCancel}
+                onValidationChange={setHasValidationErrors}
+                onInterlockGroupCreated={handleInterlockGroupCreated}
+                attemptedSubmit={attemptedSubmit}
+              />
             )}
           </div>
 
-          {/* Action buttons - fixed at bottom */}
           <DialogFooter className="shrink-0 mt-2">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="btn btn-ghost"
-            >
+            <button type="button" onClick={handleCancel} className="btn btn-ghost">
               {t('common.cancel')}
             </button>
             <button
@@ -1501,127 +606,27 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="max-w-md bg-base-100">
-          <DialogHeader>
-            <DialogTitle className="text-warning flex items-center gap-2">
-              ⚠️ {sectionType === 'areas' ? t('settings.area_in_use_title') : t('settings.delete_warning_title')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="mb-4">
-              {sectionType === 'areas'
-                ? t('settings.area_in_use_message')
-                : t('settings.delete_warning_message')}
-            </p>
-            <div className="bg-base-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-              <p className="font-medium mb-2">
-                {sectionType === 'areas'
-                  ? t('settings.items_using_area')
-                  : t('settings.affected_actions')} ({affectedActions.length}):
-              </p>
-              <ul className="space-y-1 text-sm">
-                {affectedActions.map((action, idx) => (
-                  <li key={idx} className="flex items-center gap-2 flex-wrap">
-                    <span className="badge badge-xs badge-outline">{action.type}</span>
-                    <span className="font-medium">{action.name}</span>
-                    {action.actionType && <span className="text-base-content/60">({action.actionType})</span>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={cancelDelete}
-              className="btn btn-ghost"
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              className="btn btn-error"
-            >
-              {sectionType === 'areas' ? t('settings.delete_anyway') : t('settings.delete_and_remove_actions')}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        sectionType={sectionType}
+        affectedActions={affectedActions}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
 
-      {/* Import Confirmation Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-md bg-base-100">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              📥 {t('import_export.import_title')}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            {importError ? (
-              <div className="alert alert-error">
-                <span>{importError}</span>
-              </div>
-            ) : (
-              <>
-                <p>{t('import_export.import_confirm').replace('{count}', String(importData?.length || 0))}</p>
-
-                <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-3">
-                    <input
-                      type="radio"
-                      name="importMode"
-                      className="radio radio-primary"
-                      checked={importMode === 'merge'}
-                      onChange={() => setImportMode('merge')}
-                    />
-                    <div>
-                      <span className="label-text font-medium">{t('import_export.mode_merge')}</span>
-                      <p className="text-xs text-base-content/60">{t('import_export.mode_merge_desc')}</p>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-3">
-                    <input
-                      type="radio"
-                      name="importMode"
-                      className="radio radio-warning"
-                      checked={importMode === 'replace'}
-                      onChange={() => setImportMode('replace')}
-                    />
-                    <div>
-                      <span className="label-text font-medium">{t('import_export.mode_replace')}</span>
-                      <p className="text-xs text-base-content/60">{t('import_export.mode_replace_desc')}</p>
-                    </div>
-                  </label>
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={cancelImport}
-              className="btn btn-ghost"
-            >
-              {t('common.cancel')}
-            </button>
-            {!importError && (
-              <button
-                type="button"
-                onClick={confirmImport}
-                className={`btn ${importMode === 'replace' ? 'btn-warning' : 'btn-primary'}`}
-              >
-                {t('import_export.confirm_import')}
-              </button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Import Confirmation */}
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={() => cancelImport()}
+        importData={importData}
+        importError={importError}
+        importMode={importMode}
+        onModeChange={setImportMode}
+        onConfirm={confirmImport}
+        onCancel={cancelImport}
+      />
     </div>
   );
 };

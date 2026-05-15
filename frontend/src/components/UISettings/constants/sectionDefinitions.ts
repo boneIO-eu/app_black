@@ -7,6 +7,10 @@ export interface SectionDefinition {
   name: string;
   icon: string;
   translationKey: string;
+  /** Optional badge key (e.g. 'experimental') — shown next to section label. */
+  badge?: string;
+  /** Optional group tag for visual grouping in sidebar (e.g. 'remote'). */
+  group?: string;
 }
 
 /**
@@ -15,12 +19,10 @@ export interface SectionDefinition {
  */
 export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'areas', icon: '🏠', translationKey: 'sections.areas' },
-  { name: 'binary_sensor', icon: '🔘', translationKey: 'sections.binary_sensor' },
-  { name: 'event', icon: '⚡', translationKey: 'sections.event' },
+  { name: 'local_inputs', icon: '📥', translationKey: 'sections.local_inputs' },
   { name: 'output', icon: '💡', translationKey: 'sections.output' },
   { name: 'output_group', icon: '🔗', translationKey: 'sections.output_group' },
   { name: 'cover', icon: '🚪', translationKey: 'sections.cover' },
-  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices' },
   { name: 'modbus_devices', icon: '📱', translationKey: 'sections.modbus_devices' },
   { name: 'sensor', icon: '🌡️', translationKey: 'sections.sensor' },
   { name: 'adc', icon: '📊', translationKey: 'sections.adc' },
@@ -28,6 +30,9 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'template', icon: '🧩', translationKey: 'sections.template' },
   { name: 'logger', icon: '📝', translationKey: 'sections.logger' },
   { name: 'oled', icon: '🖥️', translationKey: 'sections.oled' },
+  { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices', group: 'remote' },
+  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', group: 'remote' },
+  { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs', group: 'remote' },
 ];
 
 /**
@@ -53,8 +58,8 @@ export const ALL_SECTIONS: SectionDefinition[] = [...RELOAD_SECTIONS, ...RESTART
  * Sections that use ArrayTableWidget (array-based data).
  */
 export const ARRAY_SECTIONS = [
-  'event',
-  'binary_sensor',
+  'local_inputs',
+  'remote_inputs',
   'output',
   'output_group',
   'cover',
@@ -63,6 +68,7 @@ export const ARRAY_SECTIONS = [
   'sensor',
   'virtual_energy_sensor',
   'remote_devices',
+  'remote_outputs',
   'template',
   'adc',
   'board_sensors',
@@ -74,6 +80,7 @@ export const ARRAY_SECTIONS = [
  */
 export const COMPOSITE_SECTIONS: Record<string, string[]> = {
   board_sensors: ['lm75', 'ina219', 'mcp9808'],
+  local_inputs: ['binary_sensor', 'event'],
 };
 
 export type ArraySectionType = typeof ARRAY_SECTIONS[number];

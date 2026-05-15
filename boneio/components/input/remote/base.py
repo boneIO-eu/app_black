@@ -52,7 +52,7 @@ class RemoteInputBase:
         device_class: Optional HA device class.
         area: Optional HA area assignment.
         inverted: If ``True``, swap pressed / released semantics.
-        show_in_ha: Whether to publish HA autodiscovery (default ``True``).
+        show_in_ha: Whether to publish HA autodiscovery (default ``False``).
         double_click_duration: Double-click window in ms (event mode only).
         long_press_duration: Long-press threshold in ms (event mode only).
         mqtt_sequences: Dict of enabled MQTT sequences.
@@ -73,7 +73,7 @@ class RemoteInputBase:
         device_class: str | None = None,
         area: str | None = None,
         inverted: bool = False,
-        show_in_ha: bool = True,
+        show_in_ha: bool = False,
         double_click_duration: int = 220,
         long_press_duration: int = 400,
         mqtt_sequences: dict | None = None,
@@ -223,6 +223,7 @@ class RemoteInputBase:
                 timestamp=self.last_press_timestamp,
                 boneio_input=self.boneio_input,
                 area=self.area,
+                remote=True,
             )
 
             self._event_bus.trigger_event(

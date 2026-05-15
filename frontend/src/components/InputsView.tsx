@@ -6,7 +6,7 @@ import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
-import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog } from 'react-icons/fa';
+import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +38,7 @@ const DurationDisplay = memo(({ duration }: { duration: number | null }) => {
 });
 
 // Separate component for individual input
-const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPress, duration }: {
+const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPress, duration, isRemote }: {
   inputEvent: InputEvent;
   isGrid: boolean;
   t: (key: string) => string;
@@ -46,6 +46,7 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
   onCopy: (name: string) => void;
   onLongPress: (inputEvent: InputEvent) => void;
   duration: number | null;
+  isRemote?: boolean;
 }) => {
   const isLongState = inputEvent.state.state === 'long';
 
@@ -57,7 +58,7 @@ const InputItem = memo(({ inputEvent, isGrid, t, isHighlighted, onCopy, onLongPr
       className={clsx(
         'bg-base-200 text-secondary-content shadow-sm rounded-lg p-4 cursor-pointer hover:bg-base-300 select-none touch-manipulation',
         isGrid ? 'border-l-4' : 'border-l-8',
-        'border-blue-500',
+        isRemote ? 'border-purple-500' : 'border-blue-500',
         // Only apply transition when highlighted to avoid flash on duration updates
         isHighlighted && 'ring-4 ring-primary shadow-lg shadow-primary/30 scale-[1.02] transition-all duration-500'
       )}
@@ -233,8 +234,9 @@ export default function InputsView() {
     // Use entity_id for filtering instead of name to avoid duplicates
     const inputId = longPressDialog.inputEvent.entity_id;
     const inputType = longPressDialog.inputEvent.state.type;
+    const isRemote = longPressDialog.inputEvent.state.remote;
     // Navigate to settings with edit query param
-    const section = inputType === 'input' ? 'event' : 'binary_sensor';
+    const section = isRemote ? 'remote_inputs' : inputType === 'input' ? 'event' : 'binary_sensor';
     navigate(`/settings/${section}?edit=${encodeURIComponent(inputId)}`);
     setLongPressDialog({ open: false, inputEvent: null });
   }, [longPressDialog.inputEvent, navigate]);
@@ -345,6 +347,17 @@ export default function InputsView() {
     return sorted;
   }, [validInputs, sortMode]);
 
+  // Split inputs into local and remote
+  const localInputs = useMemo(
+    () => sortedInputs.filter(i => !i.state.remote),
+    [sortedInputs]
+  );
+  const remoteInputs = useMemo(
+    () => sortedInputs.filter(i => i.state.remote),
+    [sortedInputs]
+  );
+  const hasBothSections = localInputs.length > 0 && remoteInputs.length > 0;
+
   if (validInputs.length === 0) {
     return (
       <div className="container mx-auto p-4">
@@ -391,23 +404,59 @@ export default function InputsView() {
           <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
         </div>
       </div>
-      <div className={isGrid
-        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
-        : "flex flex-col gap-4"
-      }>
-        {sortedInputs.map((inputEvent: InputEvent) => (
-          <InputItem
-            key={inputEvent.entity_id}
-            inputEvent={inputEvent}
-            isGrid={isGrid}
-            t={t}
-            isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
-            onCopy={copyToClipboard}
-            onLongPress={handleLongPress}
-            duration={inputEvent.duration}
-          />
-        ))}
-      </div>
+      {/* Local inputs section */}
+      {localInputs.length > 0 && (
+        <>
+          {hasBothSections && (
+            <h3 className="text-lg font-semibold mb-2 mt-2">{t('inputs.local_inputs')}</h3>
+          )}
+          <div className={isGrid
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+            : "flex flex-col gap-4"
+          }>
+            {localInputs.map((inputEvent: InputEvent) => (
+              <InputItem
+                key={inputEvent.entity_id}
+                inputEvent={inputEvent}
+                isGrid={isGrid}
+                t={t}
+                isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
+                onCopy={copyToClipboard}
+                onLongPress={handleLongPress}
+                duration={inputEvent.duration}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Remote inputs section */}
+      {remoteInputs.length > 0 && (
+        <>
+          <h3 className="text-lg font-semibold mb-2 mt-6 flex items-center gap-2">
+            <FaWifi className="w-4 h-4 text-purple-400" />
+            {t('inputs.remote_inputs')}
+          </h3>
+          <div className={isGrid
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
+            : "flex flex-col gap-4"
+          }>
+            {remoteInputs.map((inputEvent: InputEvent) => (
+              <InputItem
+                key={inputEvent.entity_id}
+                inputEvent={inputEvent}
+                isGrid={isGrid}
+                t={t}
+                isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
+                onCopy={copyToClipboard}
+                onLongPress={handleLongPress}
+                duration={inputEvent.duration}
+                isRemote
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Copied feedback */}
       {copiedName && (

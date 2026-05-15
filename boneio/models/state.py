@@ -24,6 +24,7 @@ class InputState(BaseModel):
     timestamp: float
     boneio_input: str
     area: str | None = None
+    remote: bool = False
 
 
 class OutputState(BaseModel):
@@ -43,6 +44,10 @@ class OutputState(BaseModel):
     duration_min: float | None = None
     duration_max: float | None = None
     duration_unit: str | None = None
+    # Remote output flag
+    remote: bool = False
+    # Brightness (0-255) for dimmable lights
+    brightness: int | None = None
 
 
 class CoverState(BaseModel):

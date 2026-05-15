@@ -114,17 +114,27 @@ export default function UISettings() {
     }
   };
 
+  // Check if any remote inputs are configured or remote devices exist
+  const hasRemoteInputs = useMemo(() => {
+    const remoteInputs = formData.remote_inputs || [];
+    const remoteDevices = formData.remote_devices || [];
+    return remoteInputs.length > 0 || remoteDevices.length > 0;
+  }, [formData.remote_inputs, formData.remote_devices]);
+
   // Use imported section definitions with translated titles
+  // Hide remote_inputs when no remote devices exist and no inputs configured
   const reloadSections = useMemo(
-    () => RELOAD_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
-    [t]
+    () => RELOAD_SECTIONS
+      .filter(s => s.name !== 'remote_inputs' || hasRemoteInputs)
+      .map(s => ({ ...s, title: t(s.translationKey) })),
+    [t, hasRemoteInputs]
   );
 
   // Hardware version determines which sections are available
   // CAN bus support was added in hardware version 0.5
   const hwVersion = parseFloat(formData.boneio?.version || '0');
   const canSupported = hwVersion >= 0.5;
-  
+
   if (!canSupported && hwVersion > 0) {
     console.log('CAN not supported: hardware version', hwVersion, '< 0.5');
   }
@@ -211,13 +221,14 @@ export default function UISettings() {
         .then(res => {
           if (res.data?.restart_required) setRestartRequired(true);
         })
-        .catch(() => {});
+        .catch(() => { });
 
       // Load parsed config from backend FIRST (fast, small)
       const { data: configContent } = await axios.get('/api/config');
       const configData = configContent?.config || {};
 
-      // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors)
+      // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors,
+      // binary_sensor + event → local_inputs)
       for (const [virtualName, yamlKeys] of Object.entries(COMPOSITE_SECTIONS)) {
         const merged: any[] = [];
         for (const key of yamlKeys) {
@@ -231,8 +242,11 @@ export default function UISettings() {
         configData[virtualName] = merged;
       }
 
+      // remote_inputs is now a top-level config section (no aggregation needed)
+
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
-      // setFormData(configData);
+      // Schema-converted data will overwrite this once schema loads in background.
+      setFormData(configData);
       setOriginalData(JSON.parse(JSON.stringify(configData)));
 
       // Create initial sections without schema (for custom forms that don't need it)
@@ -272,7 +286,11 @@ export default function UISettings() {
           );
 
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
-            let sectionSchema = mainSchema.properties?.[sectionConfig.name];
+            // Virtual sections use the event schema as base (superset of binary_sensor)
+            const schemaKey = sectionConfig.name === 'local_inputs'
+              ? 'event'
+              : sectionConfig.name;
+            let sectionSchema = mainSchema.properties?.[schemaKey];
 
             // Debug for cover section
             if (sectionConfig.name === 'cover') {
@@ -305,9 +323,9 @@ export default function UISettings() {
               }
             }
 
-            // Filter boneio_input enum for event/binary_sensor based on board version
+            // Filter boneio_input enum for event/binary_sensor/local_inputs based on board version
             if (
-              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor') &&
+              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor' || sectionConfig.name === 'local_inputs') &&
               sectionSchema?.items?.properties?.boneio_input?.enum
             ) {
               sectionSchema = {
@@ -408,15 +426,18 @@ export default function UISettings() {
         for (const [key, value] of Object.entries(obj)) {
           const cleanedValue = removeEmptyValues(value);
           // Keep the key if value is not null/undefined/empty string/empty array/empty object
+          // Also strip internal metadata keys starting with '_'
           if (
-            cleanedValue !== null &&
-            cleanedValue !== undefined &&
-            cleanedValue !== '' &&
-            !(Array.isArray(cleanedValue) && cleanedValue.length === 0) &&
-            !(typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)
+            key.startsWith('_') ||
+            cleanedValue === null ||
+            cleanedValue === undefined ||
+            cleanedValue === '' ||
+            (Array.isArray(cleanedValue) && cleanedValue.length === 0) ||
+            (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)
           ) {
-            cleaned[key] = cleanedValue;
+            continue;
           }
+          cleaned[key] = cleanedValue;
         }
         return cleaned;
       }
@@ -487,9 +508,9 @@ export default function UISettings() {
 
             // Check if this is a timeperiod field (by schema or by detecting TimePeriod object)
             const isTimePeriodSchema = propSchema && propSchema['x-timeperiod'] === true;
-            const isTimePeriodObject = typeof value === 'object' && value !== null && 
+            const isTimePeriodObject = typeof value === 'object' && value !== null &&
               ('milliseconds' in value || 'seconds' in value || 'minutes' in value || 'hours' in value || '_total_in_seconds' in value);
-            
+
             if (isTimePeriodSchema || isTimePeriodObject) {
               // Convert number (milliseconds) to string with unit
               if (typeof value === 'number') {
@@ -656,6 +677,8 @@ export default function UISettings() {
     const arraySections = [
       'event',
       'binary_sensor',
+      'local_inputs',
+      'remote_inputs',
       'output',
       'output_group',
       'cover',
@@ -664,6 +687,7 @@ export default function UISettings() {
       'sensor',
       'virtual_energy_sensor',
       'remote_devices',
+      'remote_outputs',
       'board_sensors',
     ];
     const defaultValue = arraySections.includes(sectionName) ? [] : {};
@@ -709,7 +733,7 @@ export default function UISettings() {
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'error' }));
         alert(
           t('boneio_config.name_required_error') ||
-            'Name is required when version or device type is selected'
+          'Name is required when version or device type is selected'
         );
         setTimeout(() => {
           setSaveStatus(prev => ({ ...prev, [sectionName]: 'idle' }));
@@ -729,9 +753,9 @@ export default function UISettings() {
           sensor.id ||
           (sensor.name
             ? sensor.name
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '_')
-                .replace(/^_|_$/g, '')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_|_$/g, '')
             : '');
         if (sensorId) {
           if (ids.has(sensorId)) {
@@ -771,7 +795,7 @@ export default function UISettings() {
           ? dataToUse.map((entry: any) => {
               if (entry && entry.address !== undefined) {
                 let addr = entry.address;
-                // Normalise to hex string
+                // Normalise to hex string (e.g. "0x21") for human-readable YAML
                 if (typeof addr === 'number') {
                   addr = `0x${addr.toString(16)}`;
                 } else if (typeof addr === 'string') {
@@ -812,6 +836,8 @@ export default function UISettings() {
       console.log('Sending config for section:', sectionName);
       console.log('Data:', minimalConfig);
 
+      // remote_inputs is now a standard section — saved directly via PUT /api/config/remote_inputs
+
       // Handle composite sections — split and save each YAML key separately
       if (COMPOSITE_SECTIONS[sectionName]) {
         const yamlKeys = COMPOSITE_SECTIONS[sectionName];
@@ -836,8 +862,36 @@ export default function UISettings() {
           await axios.put(`/api/config/${key}`, buckets[key]);
         }
 
-        // Mark restart required for composite sections
-        setRestartRequired(true);
+        // Determine reload strategy based on section type
+        // local_inputs (binary_sensor + event) supports hot-reload with granular change detection
+        if (sectionName === 'local_inputs') {
+          // Granular reload: only reload sub-sections that actually changed
+          const sectionsToReload: string[] = [];
+          for (const key of yamlKeys) {
+            const originalItems = (originalData[key] || []);
+            const newItems = buckets[key];
+            if (JSON.stringify(newItems) !== JSON.stringify(originalItems)) {
+              sectionsToReload.push(key);
+            }
+          }
+
+          if (sectionsToReload.length > 0) {
+            try {
+              setIsReloading(true);
+              console.log(`🔄 Granular reload for local_inputs: ${sectionsToReload.join(', ')}`);
+              await axios.post('/api/config/reload', sectionsToReload, { timeout: 30000 });
+              await loadConfiguration();
+              console.log(`✅ Reloaded: ${sectionsToReload.join(', ')}`);
+            } catch (reloadError) {
+              console.warn('⚠️ Error reloading local_inputs:', reloadError);
+            } finally {
+              setIsReloading(false);
+            }
+          }
+        } else {
+          // Other composite sections (e.g. board_sensors) require restart
+          setRestartRequired(true);
+        }
 
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
@@ -893,6 +947,8 @@ export default function UISettings() {
           'virtual_energy_sensor',
           'logger',
           'remote_devices',
+          'remote_inputs',
+          'remote_outputs',
           'template',
           'oled',
         ];
@@ -900,7 +956,7 @@ export default function UISettings() {
           try {
             setIsReloading(true);
             console.log(`🔄 Triggering reload for section: ${sectionName}`);
-            const reloadResponse = await axios.post('/api/config/reload', [sectionName]);
+            const reloadResponse = await axios.post('/api/config/reload', [sectionName], { timeout: 30000 });
 
             if (reloadResponse.status === 200) {
               console.log(`✅ Section ${sectionName} reloaded successfully`);
@@ -1321,11 +1377,11 @@ export default function UISettings() {
                       <pre className="text-sm font-mono text-base-content bg-base-100 p-4 rounded-lg overflow-x-auto">
                         {activeSection === 'mqtt'
                           ? [
-                              `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
-                              formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
-                                ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
-                                : null,
-                            ].filter(Boolean).join('\n')
+                            `mqtt:\n${convertToYaml(formData['mqtt'], 'mqtt').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`,
+                            formData['lox_udp'] && Object.keys(formData['lox_udp']).length > 0
+                              ? `lox_udp:\n${convertToYaml(formData['lox_udp'], 'lox_udp').split('\n').map(l => l ? `  ${l}` : '').join('\n')}`
+                              : null,
+                          ].filter(Boolean).join('\n')
                           : convertToYaml(formData[activeSection], activeSection)
                         }
                       </pre>

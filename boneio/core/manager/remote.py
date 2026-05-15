@@ -256,7 +256,6 @@ class RemoteDeviceManager:
         switches = esphome_config.get("switches", [])
         lights = esphome_config.get("lights", [])
         covers = esphome_config.get("covers", [])
-        binary_sensors = esphome_config.get("binary_sensors", [])
 
         return ESPHomeRemoteDevice(
             id=device_id,
@@ -268,7 +267,6 @@ class RemoteDeviceManager:
             switches=switches,
             lights=lights,
             covers=covers,
-            binary_sensors=binary_sensors,
         )
 
     def _create_wled_device(
@@ -434,7 +432,7 @@ class RemoteDeviceManager:
                 # Convert rgb list to tuple[int, int, int] if needed
                 rgb_tuple: tuple[int, int, int] | None = None
                 if rgb and len(rgb) >= 3:
-                    rgb_tuple = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+                    rgb_tuple = (rgb[0], rgb[1], rgb[2])
                 # For ESPHome, effect must be a string
                 esphome_effect = str(effect) if effect is not None else None
                 return await esphome_device.control_light(
@@ -462,7 +460,7 @@ class RemoteDeviceManager:
             # Convert rgb list to tuple if needed
             wled_rgb: tuple[int, int, int] | None = None
             if rgb and len(rgb) >= 3:
-                wled_rgb = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+                wled_rgb = (rgb[0], rgb[1], rgb[2])
             return await cast(Any, device).control_light(
                 segment_id=segment_id,
                 action=action,

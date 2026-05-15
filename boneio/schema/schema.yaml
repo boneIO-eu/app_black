@@ -27,6 +27,12 @@ areas:
 # Remote devices - control outputs/covers on other devices via MQTT, CAN, etc.
 remote_devices: !include remote_devices.yaml
 
+# Remote inputs - binary sensors/events from remote devices (ESPHome, CAN, etc.)
+remote_inputs: !include remote_inputs.yaml
+
+# Remote outputs - switches/lights from remote devices (ESPHome, CAN, etc.)
+remote_outputs: !include remote_outputs.yaml
+
 lox_udp:
   type: dict
   required: False

@@ -82,7 +82,14 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
         encryption_key: esphomeConfig.encryption_key || '',
       });
       
-      // Update esphome_api config with discovered entities
+      // Store discovered binary sensors separately.
+      // Only user-selected ones go into binary_sensors.
+      const discoveredBS: ESPHomeBinarySensorEntity[] = result.binary_sensors || [];
+      const existingSelected: ESPHomeBinarySensorEntity[] = esphomeConfig.binary_sensors || [];
+      // Preserve existing selections: keep BS that are still present on device
+      const discoveredIds = new Set(discoveredBS.map((bs: ESPHomeBinarySensorEntity) => bs.id));
+      const keptSelected = existingSelected.filter((bs: ESPHomeBinarySensorEntity) => discoveredIds.has(bs.id));
+
       onChange({
         ...data,
         esphome_api: {
@@ -90,7 +97,8 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
           switches: result.switches || [],
           lights: result.lights || [],
           covers: result.covers || [],
-          binary_sensors: result.binary_sensors || [],
+          binary_sensors: keptSelected,
+          _discovered_binary_sensors: discoveredBS,
         },
       });
     } catch (error) {
@@ -412,43 +420,91 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             </div>
           )}
 
-          {/* Discovered Binary Sensors */}
-          {(data?.esphome_api?.binary_sensors?.length > 0) && (
-            <div className="collapse collapse-arrow bg-base-300">
-              <input type="checkbox" defaultChecked />
-              <div className="collapse-title font-medium">
-                {t('remote_devices.esphome_binary_sensors') || 'Binary Sensors'}
-                <span className="badge badge-sm ml-2">{data.esphome_api.binary_sensors.length}</span>
-              </div>
-              <div className="collapse-content">
-                <div className="overflow-x-auto">
-                  <table className="table table-xs">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>{t('common.name') || 'Name'}</th>
-                        <th>{t('remote_devices.device_class') || 'Device Class'}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.esphome_api.binary_sensors.map((bs: ESPHomeBinarySensorEntity, idx: number) => (
-                        <tr key={idx}>
-                          <td className="font-mono text-xs">{bs.id}</td>
-                          <td>{bs.name || '-'}</td>
-                          <td>
-                            {bs.device_class 
-                              ? <span className="badge badge-xs badge-info">{bs.device_class}</span>
-                              : <span className="badge badge-xs badge-ghost">-</span>
-                            }
-                          </td>
+          {/* Discovered Binary Sensors — selectable list */}
+          {(() => {
+            const discovered: ESPHomeBinarySensorEntity[] = data?.esphome_api?._discovered_binary_sensors || [];
+            const selected: ESPHomeBinarySensorEntity[] = data?.esphome_api?.binary_sensors || [];
+            const selectedIds = new Set(selected.map((bs: ESPHomeBinarySensorEntity) => bs.id));
+            // Show section if any BS were discovered or already selected
+            const allBS = discovered.length > 0 ? discovered : selected;
+            if (allBS.length === 0) return null;
+
+            const toggleBS = (bs: ESPHomeBinarySensorEntity) => {
+              const isSelected = selectedIds.has(bs.id);
+              const newSelected = isSelected
+                ? selected.filter((s: ESPHomeBinarySensorEntity) => s.id !== bs.id)
+                : [...selected, bs];
+              handleEsphomeApiChange('binary_sensors', newSelected);
+            };
+
+            const selectAll = () => handleEsphomeApiChange('binary_sensors', [...allBS]);
+            const selectNone = () => handleEsphomeApiChange('binary_sensors', []);
+
+            return (
+              <div className="collapse collapse-arrow bg-base-300">
+                <input type="checkbox" defaultChecked />
+                <div className="collapse-title font-medium">
+                  {t('remote_devices.esphome_binary_sensors') || 'Binary Sensors'}
+                  <span className="badge badge-sm ml-2">
+                    {selectedIds.size}/{allBS.length}
+                  </span>
+                </div>
+                <div className="collapse-content">
+                  {/* Select all / none buttons */}
+                  <div className="flex gap-2 mb-2">
+                    <button type="button" className="btn btn-xs btn-ghost" onClick={selectAll}>
+                      {t('remote_devices.select_all') || 'Select all'}
+                    </button>
+                    <button type="button" className="btn btn-xs btn-ghost" onClick={selectNone}>
+                      {t('remote_devices.select_none') || 'Deselect all'}
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="table table-xs">
+                      <thead>
+                        <tr>
+                          <th className="w-8"></th>
+                          <th>ID</th>
+                          <th>{t('common.name') || 'Name'}</th>
+                          <th>{t('remote_devices.device_class') || 'Device Class'}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {allBS.map((bs: ESPHomeBinarySensorEntity) => (
+                          <tr
+                            key={bs.id}
+                            className={`cursor-pointer hover:bg-base-100 ${selectedIds.has(bs.id) ? '' : 'opacity-50'}`}
+                            onClick={() => toggleBS(bs)}
+                          >
+                            <td>
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-xs checkbox-primary"
+                                checked={selectedIds.has(bs.id)}
+                                onChange={() => toggleBS(bs)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </td>
+                            <td className="font-mono text-xs">{bs.id}</td>
+                            <td>{bs.name || '-'}</td>
+                            <td>
+                              {bs.device_class
+                                ? <span className="badge badge-xs badge-info">{bs.device_class}</span>
+                                : <span className="badge badge-xs badge-ghost">-</span>
+                              }
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-base-content/50 mt-2">
+                    {t('remote_devices.binary_sensors_hint') || 'Only selected sensors will be monitored. Unselected sensors are ignored to save resources.'}
+                  </p>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 

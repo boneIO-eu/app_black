@@ -13,6 +13,7 @@ export interface InputState {
   timestamp: number;
   boneio_input: string;
   area: string | null;
+  remote?: boolean;
 }
 
 export interface InputEvent {
@@ -39,6 +40,10 @@ export interface OutputState {
   duration_min?: number | null;
   duration_max?: number | null;
   duration_unit?: string | null;
+  // Remote output flag
+  remote?: boolean;
+  // Brightness (0-255) for dimmable remote lights
+  brightness?: number | null;
 }
 
 export interface OutputEvent {
@@ -247,16 +252,16 @@ const setupWebSocket = async (
   try {
     const baseUrl = getBasePath();
     const wsUrl = `${baseUrl.replace(/^http/, 'ws')}/ws/state`;
-    
+
     // Get token if authentication is required
     const token = isAuthRequired && localStorage.getItem('token') || null;
     const protocols = token ? [`token.${token}`] : undefined;
-    
+
     console.log('🔌 WebSocket connecting to:', wsUrl);
     console.log('🔑 Auth required:', isAuthRequired);
     console.log('🎫 Token present:', !!token);
     console.log('📡 Protocols:', protocols);
-    
+
     // Create WebSocket with protocol
     globalWs = new WebSocket(wsUrl, protocols);
 
@@ -302,7 +307,7 @@ const setupWebSocket = async (
 
     globalWs.onclose = (event) => {
       console.log(`WebSocket closed with code ${event.code}, reason: ${event.reason}`);
-      
+
       if (globalPingInterval) {
         clearInterval(globalPingInterval);
         globalPingInterval = null;

@@ -15,6 +15,10 @@ interface AutodiscoveredDevice {
   device_type: string;
   outputs?: { id: string; name: string }[];
   covers?: { id: string; name: string }[];
+  mqtt?: {
+    outputs?: { id: string; name: string }[];
+    covers?: { id: string; name: string }[];
+  };
 }
 
 interface ManagedByDevice {
@@ -338,8 +342,8 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       <span className="badge badge-primary badge-sm">MQTT</span>
-                      <span className="badge badge-outline badge-sm">{device.outputs?.length || 0} out</span>
-                      <span className="badge badge-outline badge-sm">{device.covers?.length || 0} cov</span>
+                      <span className="badge badge-outline badge-sm">{(device.mqtt?.outputs ?? device.outputs)?.length || 0} out</span>
+                      <span className="badge badge-outline badge-sm">{(device.mqtt?.covers ?? device.covers)?.length || 0} cov</span>
                     </div>
                   </div>
                 </div>
@@ -474,10 +478,10 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                       </Td>
                       <Td>
                         <span className="badge badge-outline badge-sm mr-1">
-                          {device.outputs?.length || 0} out
+                          {(device.mqtt?.outputs ?? device.outputs)?.length || 0} out
                         </span>
                         <span className="badge badge-outline badge-sm">
-                          {device.covers?.length || 0} cov
+                          {(device.mqtt?.covers ?? device.covers)?.length || 0} cov
                         </span>
                       </Td>
                       <Td>
