@@ -4,6 +4,20 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev2 (2026-05-15)
+
+### 🐛 Bug Fixes
+
+- **Cover Relay Dropdown — "No outputs available" after saving** — Cover form filter now accepts outputs with `output_type` of `cover`, `none`, or missing (race condition during config reload could cause `output_type` to be absent, making the dropdown empty).
+
+### ✨ Improvements
+
+- **Sidebar section grouping** — Remote sections (Remote Devices, Remote Inputs, Remote Outputs) are now visually grouped in a blue-tinted frame labeled "External Devices". Restart-required sections are similarly grouped in a warning-tinted frame labeled "Sections requiring restart".
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev1...v1.4.0dev2
+
+---
+
 ## v1.4.0dev1 (2026-05-15)
 
 ### ✨ New Features
