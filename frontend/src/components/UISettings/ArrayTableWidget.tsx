@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '@/api/axios';
+import { EXPANDER_BOARDS } from './helpers/expanderBoards';
 import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
 import * as yaml from 'js-yaml';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -78,6 +79,8 @@ export interface ArrayTableWidgetProps {
   editItemName?: string;
   /** Callback when edit item has been opened (to clear URL query param) */
   onEditItemOpened?: () => void;
+  /** MCP23017 expander definitions for output hardware routing */
+  mcp23017?: Array<{ id?: string }>;
 }
 
 /**
@@ -85,7 +88,7 @@ export interface ArrayTableWidgetProps {
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], mcp23017 = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -111,6 +114,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
   const [wizardCopied, setWizardCopied] = useState(false);
+  const [outputKind, setOutputKind] = useState<'board' | 'expander'>('board');
 
   // Auto-open edit modal when editItemName is provided (from URL query param)
   useEffect(() => {
@@ -212,11 +216,29 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       delete item.id;
     }
 
+    // Detect expander output when editing
+    if (sectionType === 'output') {
+      setOutputKind(
+        item.id?.startsWith?.('EX_') || item.boneio_output?.startsWith?.('EX_')
+          ? 'expander' : 'board'
+      );
+    }
+
     setEditingItem(item);
     setEditingIndex(index);
     originalItemRef.current = JSON.stringify(item);
-    setHasValidationErrors(false); // Reset validation state from previous form
-    setAttemptedSubmit(false); // Reset przy otwieraniu modala
+    setHasValidationErrors(false);
+    setAttemptedSubmit(false);
+    setIsModalOpen(true);
+  };
+
+  const handleAddOutput = (kind: 'board' | 'expander') => {
+    setOutputKind(kind);
+    setEditingIndex(null);
+    setEditingItem({});
+    originalItemRef.current = null;
+    setHasValidationErrors(false);
+    setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
 
@@ -306,24 +328,49 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setIsModalOpen(true);
   };
 
+  // Compute board and expander slot stats for output section
+  const getOutputStats = () => {
+    const getBoardCapacity = (dt: string) => {
+      const type = (dt || '').toLowerCase();
+      if (type.includes('32') || type.includes('cm')) return 32;
+      if (type.includes('24')) return 24;
+      return 49;
+    };
+
+    const boardCapacity = getBoardCapacity(deviceType || '');
+    const boardUsed = value.filter(
+      (o: any) => o.boneio_output && !o.boneio_output.startsWith('EX_')
+    ).length;
+
+    // Expander: detect capacity from existing EX_* entries (id = new format, boneio_output = legacy)
+    const usedExIds = new Set<string>(
+      value
+        .map((o: any) => {
+          const v = o?.id || o?.boneio_output;
+          return typeof v === 'string' && v.startsWith('EX_') ? v : null;
+        })
+        .filter((v): v is string => v !== null)
+    );
+    let expanderCapacity = 0;
+    if (usedExIds.size > 0) {
+      for (const board of Object.values(EXPANDER_BOARDS)) {
+        const matchCount = board.outputs.filter(o => usedExIds.has(o.slotId)).length;
+        if (matchCount > 0) expanderCapacity = Math.max(expanderCapacity, board.outputs.length);
+      }
+    }
+    const expanderUsed = usedExIds.size;
+
+    return { boardCapacity, boardUsed, expanderCapacity, expanderUsed };
+  };
+
   // Check if all outputs/inputs are used
   const areAllItemsUsed = () => {
     if (sectionType === 'output') {
-      // Get available outputs based on device type
-      const getOutputCount = (deviceType: string) => {
-        const type = deviceType?.toLowerCase() || '';
-        if (type.includes('32') || type.includes('cm')) {
-          return 32; // 32x10A, Cover, Cover Mix
-        } else if (type.includes('24')) {
-          return 24; // 24x16A
-        }
-        return 49; // default fallback
-      };
-
-      const outputCount = getOutputCount(deviceType || '');
-      const usedOutputs = value.filter(output => output.boneio_output).length;
-
-      return usedOutputs >= outputCount;
+      const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats();
+      const boardFull = boardUsed >= boardCapacity;
+      const expanderFull = expanderCapacity === 0 || expanderUsed >= expanderCapacity;
+      // Blocked only when both are full (or no expander configured → only board matters)
+      return expanderCapacity === 0 ? boardFull : boardFull && expanderFull;
     } else if (sectionType === 'binary_sensor' || sectionType === 'event') {
       // Check if all inputs are used (shared between binary_sensor and event)
       // Normalize to uppercase — YAML data may use mixed case
@@ -385,7 +432,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       isValid = !!dataToSave.boneio_input;
       errorMessage = t('array_table_widget.boneio_input_required');
     } else if (sectionType === 'output') {
-      isValid = !!dataToSave.boneio_output;
+      isValid = !!dataToSave.boneio_output || (!!dataToSave.id && dataToSave.id.startsWith('EX_'));
       errorMessage = t('array_table_widget.boneio_output_required');
     } else if (sectionType === 'output_group') {
       const hasId = !!dataToSave.id;
@@ -1117,17 +1164,61 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           )}
 
           {/* Add new button */}
-          <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`}
-            data-tip={areAllItemsUsed() ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
-            <button
-              onClick={handleAdd}
-              className="btn btn-primary btn-sm"
-              disabled={areAllItemsUsed()}
-            >
-              <FaPlus className="mr-2" />
-              {t('settings.add_new')}
-            </button>
-          </div>
+          {sectionType === 'output' && value.some((o: any) => o.id?.startsWith?.('EX_') || o.boneio_output?.startsWith?.('EX_')) ? (
+            (() => {
+              const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats();
+              const boardFull = boardUsed >= boardCapacity;
+              const expanderFull = expanderUsed >= expanderCapacity;
+              const allFull = boardFull && expanderFull;
+              return (
+                <div className="dropdown dropdown-end">
+                  <div tabIndex={0} className={`btn btn-primary btn-sm ${allFull ? 'btn-disabled' : ''}`}>
+                    <FaPlus className="mr-1" />
+                    {t('settings.add_new')}
+                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                  <ul tabIndex={0} className="dropdown-content menu menu-sm shadow bg-base-100 rounded-box w-56 z-50 border border-base-300">
+                    <li>
+                      <button
+                        onClick={() => !boardFull && handleAddOutput('board')}
+                        className={boardFull ? 'opacity-40 cursor-not-allowed' : ''}
+                        disabled={boardFull}
+                      >
+                        <span className="flex-1">{t('outputs.add_board_output')}</span>
+                        <span className={`badge badge-sm ${boardFull ? 'badge-error' : 'badge-ghost'}`}>
+                          {boardUsed}/{boardCapacity}
+                        </span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        onClick={() => !expanderFull && handleAddOutput('expander')}
+                        className={expanderFull ? 'opacity-40 cursor-not-allowed' : ''}
+                        disabled={expanderFull}
+                      >
+                        <span className="flex-1">{t('outputs.add_expander_output')}</span>
+                        <span className={`badge badge-sm ${expanderFull ? 'badge-error' : 'badge-ghost'}`}>
+                          {expanderUsed}/{expanderCapacity}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              );
+            })()
+          ) : (
+            <div className={`tooltip tooltip-left ${areAllItemsUsed() ? 'tooltip-warning' : 'tooltip-info'}`}
+              data-tip={areAllItemsUsed() ? t('outputs.all_outputs_used') : t('settings.add_new')}>
+              <button
+                onClick={handleAdd}
+                className="btn btn-primary btn-sm"
+                disabled={areAllItemsUsed()}
+              >
+                <FaPlus className="mr-2" />
+                {t('settings.add_new')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1277,6 +1368,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     onSave={handleSave}
                     onCancel={handleCancel}
                     isNew={editingIndex === null}
+                    outputKind={outputKind}
                     schema={schema}
                     uiSchema={uiSchema}
                     deviceType={deviceType}
@@ -1286,6 +1378,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                     interlockGroups={interlockGroups}
                     onInterlockGroupCreated={handleInterlockGroupCreated}
                     allCovers={allCovers}
+                    mcp23017={mcp23017}
                   />
                 ) : sectionType === 'output_group' ? (
                   <OutputGroupForm

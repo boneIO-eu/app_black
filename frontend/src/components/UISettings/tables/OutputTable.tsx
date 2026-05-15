@@ -81,10 +81,11 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
             <MobileCard
               key={originalIndex}
               title={displayName}
-              subtitle={item.boneio_output ? item.boneio_output.toUpperCase() : undefined}
+              subtitle={item.boneio_output ? item.boneio_output.toUpperCase() : item.id ? item.id.toUpperCase() : undefined}
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
               fields={[
+                ...((effectiveId?.startsWith('EX_') || item.boneio_output?.startsWith?.('EX_')) ? [{ label: '', value: <span className="badge badge-accent badge-xs">expander</span> }] : []),
                 ...(item.output_type ? [{ label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type}</span> }] : []),
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
                 ...(item.interlock_group ? [{ label: t('outputs.interlock_group'), value: <span className="badge badge-error badge-xs">{item.interlock_group}</span> }] : []),
@@ -124,13 +125,18 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
                 <Tr key={originalIndex}>
                   <Td>
                     <div>
-                      <div className="font-medium">{displayName}</div>
+                      <div className="font-medium flex items-center gap-1 flex-wrap">
+                        {displayName}
+                        {(effectiveId?.startsWith('EX_') || item.boneio_output?.startsWith?.('EX_')) && (
+                          <span className="badge badge-accent badge-xs shrink-0">expander</span>
+                        )}
+                      </div>
                       {item.name && effectiveId && (
                         <div className="text-xs text-base-content/60">ID: {effectiveId}</div>
                       )}
                     </div>
                   </Td>
-                  <Td className="uppercase">{item.boneio_output || '-'}</Td>
+                  <Td className="uppercase">{item.boneio_output || item.id || '-'}</Td>
                   <Td>
                     {item.output_type ? (
                       <span className="badge badge-info badge-sm">{item.output_type}</span>
