@@ -226,7 +226,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       setEditingItem({
         id: device.id, name: device.name || device.id, protocol: device.protocol || 'mqtt',
         device_type: device.device_type || 'boneio_black',
-        mqtt: { outputs: device.outputs || [], covers: device.covers || [] },
+        mqtt: { outputs: device.mqtt?.outputs || device.outputs || [], covers: device.mqtt?.covers || device.covers || [] },
       });
     }
     originalItemRef.current = null;
