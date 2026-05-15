@@ -94,6 +94,7 @@ function ArraySectionContent({
       allModbusDevices={formData.modbus_devices || []}
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
+      allRemoteInputs={formData.remote_inputs || []}
       savedOutputs={originalData.output || []}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}

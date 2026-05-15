@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaWifi } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
@@ -29,6 +29,7 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   allOutputs,
   allAreas,
   allInputs,
+  allRemoteInputs,
   onValidationChange,
 }) => {
   const { t } = useTranslation();
@@ -133,11 +134,16 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   const getZoneInputIds = (zone: AlarmZone): string[] =>
     getZoneInputs(zone).map((zi) => zi.id);
 
-  const addInputToZone = (zoneIndex: number, inputId: string) => {
+  const addInputToZone = (zoneIndex: number, inputId: string, source: 'local' | 'remote' = 'local') => {
     const zone = zones[zoneIndex];
     if (!getZoneInputIds(zone).includes(inputId)) {
       const normalized = getZoneInputs(zone);
-      updateZone(zoneIndex, 'inputs', [...normalized, { id: inputId, type: 'normally_closed' }]);
+      const newInput: ZoneInput = {
+        id: inputId,
+        type: 'normally_closed',
+        ...(source === 'remote' ? { source: 'remote', on_disconnect: 'ignore' } : {}),
+      };
+      updateZone(zoneIndex, 'inputs', [...normalized, newInput]);
     }
   };
 
@@ -153,6 +159,16 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
     updateZone(zoneIndex, 'inputs', normalized.map((zi) =>
       zi.id === inputId
         ? { ...zi, type: zi.type === 'normally_closed' ? 'normally_open' : 'normally_closed' }
+        : zi
+    ));
+  };
+
+  const toggleOnDisconnect = (zoneIndex: number, inputId: string) => {
+    const zone = zones[zoneIndex];
+    const normalized = getZoneInputs(zone);
+    updateZone(zoneIndex, 'inputs', normalized.map((zi) =>
+      zi.id === inputId
+        ? { ...zi, on_disconnect: zi.on_disconnect === 'trigger' ? 'ignore' : 'trigger' }
         : zi
     ));
   };
@@ -175,7 +191,7 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
     updateAlarmOutputs(newOutputs);
   };
 
-  /** Build enriched input list from binary sensors only. */
+  /** Build enriched input list from local binary sensors. */
   const enrichedInputs = allInputs
     .filter((inp: any) => {
       const id = inp.id || inp.boneio_input || '';
@@ -186,7 +202,28 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
       const name = inp.name || '';
       const area = inp.area || '';
       const areaName = allAreas.find((a) => a.id === area)?.name || '';
-      return { id, name, area, areaName, boneioInput: inp.boneio_input || '' };
+      return { id, name, area, areaName, boneioInput: inp.boneio_input || '', source: 'local' as const };
+    });
+
+  /** Build enriched input list from remote inputs (binary sensors from remote devices). */
+  const enrichedRemoteInputs = (allRemoteInputs || [])
+    .filter((inp: any) => {
+      const id = inp.name || inp.id || '';
+      return Boolean(id);
+    })
+    .map((inp: any) => {
+      const id = inp.name || inp.id || '';
+      const name = inp.name || '';
+      const deviceId = inp.device_id || '';
+      const inputId = inp.input_id || '';
+      return {
+        id,
+        name,
+        deviceId,
+        inputId,
+        remoteSource: inp.remote_source || 'esphome_api',
+        source: 'remote' as const,
+      };
     });
 
   return (
@@ -427,28 +464,61 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                         </label>
                         <div className="space-y-1 mb-2">
                           {getZoneInputs(zone).map((zi) => {
-                            const info = enrichedInputs.find((e) => e.id === zi.id);
-                            const label = info
-                              ? `${info.name || zi.id}${info.boneioInput ? ` (${info.boneioInput})` : ''}${info.areaName ? ` · ${info.areaName}` : ''}`
-                              : zi.id;
+                            const isRemote = zi.source === 'remote';
+                            const localInfo = !isRemote ? enrichedInputs.find((e) => e.id === zi.id) : null;
+                            const remoteInfo = isRemote ? enrichedRemoteInputs.find((e) => e.id === zi.id) : null;
+
+                            let label: string;
+                            if (localInfo) {
+                              label = `${localInfo.name || zi.id}${localInfo.boneioInput ? ` (${localInfo.boneioInput})` : ''}${localInfo.areaName ? ` · ${localInfo.areaName}` : ''}`;
+                            } else if (remoteInfo) {
+                              label = `${remoteInfo.name || zi.id}${remoteInfo.inputId ? ` (${remoteInfo.inputId})` : ''}`;
+                            } else {
+                              label = zi.id;
+                            }
+
                             return (
-                              <div key={zi.id} className="flex items-center gap-2 p-2 bg-base-300 rounded-lg">
+                              <div key={zi.id} className={`flex items-center gap-2 p-2 rounded-lg ${isRemote ? 'bg-primary/10 border border-primary/20' : 'bg-base-300'}`}>
+                                {isRemote && (
+                                  <FaWifi className="text-primary shrink-0 w-3 h-3" title={t('template.remote_input')} />
+                                )}
                                 <span className="flex-1 text-sm font-medium truncate" title={label}>
                                   {label}
                                 </span>
-                                <button
-                                  type="button"
-                                  className={`btn btn-xs ${zi.type === 'normally_closed'
-                                    ? 'btn-info'
-                                    : 'btn-warning'
-                                    }`}
-                                  onClick={() => toggleInputType(zIdx, zi.id)}
-                                  title={zi.type === 'normally_closed'
-                                    ? t('template.wiring_nc_hint')
-                                    : t('template.wiring_no_hint')}
-                                >
-                                  {zi.type === 'normally_closed' ? 'NC' : 'NO'}
-                                </button>
+                                {/* NC/NO toggle — only for local inputs */}
+                                {!isRemote && (
+                                  <button
+                                    type="button"
+                                    className={`btn btn-xs ${zi.type === 'normally_closed'
+                                      ? 'btn-info'
+                                      : 'btn-warning'
+                                      }`}
+                                    onClick={() => toggleInputType(zIdx, zi.id)}
+                                    title={zi.type === 'normally_closed'
+                                      ? t('template.wiring_nc_hint')
+                                      : t('template.wiring_no_hint')}
+                                  >
+                                    {zi.type === 'normally_closed' ? 'NC' : 'NO'}
+                                  </button>
+                                )}
+                                {/* On disconnect toggle — only for remote inputs */}
+                                {isRemote && (
+                                  <button
+                                    type="button"
+                                    className={`btn btn-xs ${zi.on_disconnect === 'trigger'
+                                      ? 'btn-error'
+                                      : 'btn-ghost border-base-content/20'
+                                      }`}
+                                    onClick={() => toggleOnDisconnect(zIdx, zi.id)}
+                                    title={zi.on_disconnect === 'trigger'
+                                      ? t('template.on_disconnect_trigger_hint')
+                                      : t('template.on_disconnect_ignore_hint')}
+                                  >
+                                    {zi.on_disconnect === 'trigger'
+                                      ? t('template.on_disconnect_trigger')
+                                      : t('template.on_disconnect_ignore')}
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs btn-square text-error"
@@ -460,11 +530,13 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                             );
                           })}
                         </div>
-                        {enrichedInputs.length > 0 ? (
+
+                        {/* Local inputs selector */}
+                        {enrichedInputs.length > 0 && (
                           <Select
                             value=""
                             onValueChange={(value) => {
-                              if (value) addInputToZone(zIdx, value);
+                              if (value) addInputToZone(zIdx, value, 'local');
                             }}
                           >
                             <SelectTrigger className="w-full">
@@ -488,7 +560,46 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                                 ))}
                             </SelectContent>
                           </Select>
-                        ) : (
+                        )}
+
+                        {/* Remote inputs selector */}
+                        {enrichedRemoteInputs.length > 0 && (
+                          <div className="mt-2">
+                            <Select
+                              value=""
+                              onValueChange={(value) => {
+                                if (value) addInputToZone(zIdx, value, 'remote');
+                              }}
+                            >
+                              <SelectTrigger className="w-full border-primary/30">
+                                <div className="flex items-center gap-2">
+                                  <FaWifi className="text-primary w-3 h-3" />
+                                  <SelectValue placeholder={t('template.add_remote_input')} />
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {enrichedRemoteInputs
+                                  .filter((inp) => !getZoneInputIds(zone).includes(inp.id))
+                                  .map((inp) => (
+                                    <SelectItem key={inp.id} value={inp.id}>
+                                      <div className="flex items-center gap-2">
+                                        <FaWifi className="text-primary w-3 h-3 shrink-0" />
+                                        <span className="font-medium">{inp.name || inp.id}</span>
+                                        {inp.inputId && (
+                                          <span className="text-xs opacity-60">{inp.inputId}</span>
+                                        )}
+                                        <span className="text-xs opacity-40">
+                                          ({inp.remoteSource === 'esphome_api' ? 'ESPHome' : inp.remoteSource})
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {enrichedInputs.length === 0 && enrichedRemoteInputs.length === 0 && (
                           <p className="text-sm text-base-content/50 italic">
                             {t('template.no_binary_sensors')}
                           </p>

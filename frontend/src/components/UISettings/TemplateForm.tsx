@@ -24,6 +24,7 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
   allAreas = [],
   allSensors = [],
   allInputs = [],
+  allRemoteInputs = [],
   allModbusDevices = [],
   onValidationChange,
 }) => {
@@ -31,7 +32,7 @@ const TemplateForm: React.FC<TemplateFormProps> = ({
 
   const platform = data.platform || 'thermostat';
 
-  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs, allModbusDevices, onValidationChange };
+  const subFormProps = { data, onChange, allOutputs, allAreas, allSensors, allInputs, allRemoteInputs, allModbusDevices, onValidationChange };
 
   return (
     <div className="space-y-4 mt-2">

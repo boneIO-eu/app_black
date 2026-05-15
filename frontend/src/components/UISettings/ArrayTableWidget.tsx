@@ -45,6 +45,7 @@ export interface ArrayTableWidgetProps {
   allModbusDevices?: any[];
   allVirtualEnergySensors?: any[];
   allRemoteDevices?: any[];
+  allRemoteInputs?: any[];
   /** Saved (committed) data for comparison - items not in saved are shown as disabled */
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -71,7 +72,7 @@ const isInputSection = (s: string) => s === 'binary_sensor' || s === 'event' || 
  * Uses regular table with Edit buttons, @rjsf form only appears in modal.
  * This prevents automatic onChange calls during editing.
  */
-const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
+const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], allRemoteInputs = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -502,6 +503,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
                 allSensors={allSensors}
                 allModbusDevices={allModbusDevices}
                 allRemoteDevices={allRemoteDevices}
+                allRemoteInputs={allRemoteInputs}
                 savedOutputs={savedOutputs}
                 savedOutputGroups={savedOutputGroups}
                 savedCovers={savedCovers}

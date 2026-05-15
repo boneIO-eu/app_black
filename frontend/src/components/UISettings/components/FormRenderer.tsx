@@ -37,6 +37,7 @@ interface FormRendererProps {
   allSensors: any[];
   allModbusDevices: any[];
   allRemoteDevices: any[];
+  allRemoteInputs?: any[];
   // Saved snapshots
   savedOutputs?: any[];
   savedOutputGroups?: any[];
@@ -253,6 +254,7 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           allSensors={props.allSensors}
           allModbusDevices={props.allModbusDevices}
           allInputs={props.allBinarySensors || []}
+          allRemoteInputs={props.allRemoteInputs || []}
           onValidationChange={props.onValidationChange}
         />
       );
