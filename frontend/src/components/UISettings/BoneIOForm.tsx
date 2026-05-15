@@ -3,6 +3,14 @@ import axios from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import HelpLabel from './components/HelpLabel';
+import {
+  EXPANDER_BOARDS,
+  type ExpanderBoardType,
+  generateExpanderOutputEntries,
+  detectExpanderBoardType,
+  EXPANDER_OUTPUT_PREFIX,
+} from './helpers/expanderBoards';
+import { DEFAULT_ADDRESSES } from './Mcp23017Form';
 
 interface ExampleFile {
   filename: string;
@@ -22,13 +30,24 @@ interface ValidationResult {
 interface BoneIOFormProps {
   data: any;
   onChange: (data: any) => void;
+  allOutputs?: any[];
+  allEvents?: any[];
+  allBinarySensors?: any[];
+  /** @deprecated reload is now triggered internally after restart */
+  onExpanderAdded?: () => void;
 }
 
 /**
  * Custom form for boneIO section configuration.
  * Fields: name, version, device_type
  */
-const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
+const BoneIOForm: React.FC<BoneIOFormProps> = ({
+  data,
+  onChange,
+  allOutputs = [],
+  allEvents = [],
+  allBinarySensors = [],
+}) => {
   const { t } = useTranslation();
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -36,6 +55,103 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [resetResult, setResetResult] = useState<any>(null);
+
+  // Expander state
+  const [showAddExpander, setShowAddExpander] = useState(false);
+  const [expanderBoardType, setExpanderBoardType] = useState<ExpanderBoardType>('32x10A');
+  const [expanderAddresses, setExpanderAddresses] = useState({
+    expander_left: DEFAULT_ADDRESSES.expander_left,
+    expander_right: DEFAULT_ADDRESSES.expander_right,
+  });
+  const [expanderBusy, setExpanderBusy] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [expanderResult, setExpanderResult] = useState<{ status: string; message?: string } | null>(null);
+  const [blockedByInputs, setBlockedByInputs] = useState<string[]>([]);
+
+  const exOutputs = allOutputs.filter(
+    (o: any) => (o?.id || o?.boneio_output || '').startsWith(EXPANDER_OUTPUT_PREFIX)
+  );
+  const hasExpander = exOutputs.length > 0;
+  const detectedBoardType = detectExpanderBoardType(exOutputs);
+
+  const ADDRESS_OPTIONS = ['0x20', '0x21', '0x22', '0x23', '0x24', '0x25', '0x26', '0x27'];
+
+  const restartAndReload = async () => {
+    try {
+      await axios.post('/api/restart');
+    } catch {
+      // expected — server is restarting
+    }
+    // Wait for service to come back, then reload page
+    setTimeout(() => window.location.reload(), 4000);
+  };
+
+  const handleAddExpander = async () => {
+    setExpanderBusy(true);
+    setExpanderResult(null);
+    try {
+      const outputs = generateExpanderOutputEntries(expanderBoardType);
+      const res = await axios.post('/api/config/expander', {
+        board_type: expanderBoardType,
+        outputs,
+        expander_left_address: expanderAddresses.expander_left,
+        expander_right_address: expanderAddresses.expander_right,
+      });
+      setExpanderResult({ status: 'success', message: res.data.expansion_file });
+      setShowAddExpander(false);
+      await restartAndReload();
+    } catch (e: any) {
+      setExpanderResult({ status: 'error', message: e?.response?.data?.detail || String(e) });
+      setExpanderBusy(false);
+    }
+  };
+
+  const findBlockingInputs = (): string[] => {
+    const exIds = new Set(
+      exOutputs.flatMap((o: any) => [o.id, o.boneio_output].filter(Boolean))
+    );
+    const blocked: string[] = [];
+    const check = (actions: any, name: string) => {
+      if (!actions) return;
+      for (const list of Object.values(actions)) {
+        if (!Array.isArray(list)) continue;
+        for (const action of list) {
+          if (
+            (action.pin && exIds.has(action.pin)) ||
+            (action.boneio_output && exIds.has(action.boneio_output))
+          ) {
+            if (!blocked.includes(name)) blocked.push(name);
+          }
+        }
+      }
+    };
+    allEvents.forEach((e: any) => check(e.actions, e.name || e.boneio_input || 'event'));
+    allBinarySensors.forEach((s: any) => check(s.actions, s.name || s.boneio_input || 'sensor'));
+    return blocked;
+  };
+
+  const handleRemoveExpander = async () => {
+    const blocking = findBlockingInputs();
+    if (blocking.length > 0) {
+      setBlockedByInputs(blocking);
+      setShowRemoveConfirm(false);
+      return;
+    }
+
+    setExpanderBusy(true);
+    setShowRemoveConfirm(false);
+    setExpanderResult(null);
+    try {
+      await axios.post('/api/config/expander/remove', {
+        board_type: detectedBoardType,
+      });
+      setExpanderResult({ status: 'success' });
+      await restartAndReload();
+    } catch (e: any) {
+      setExpanderResult({ status: 'error', message: e?.response?.data?.detail || String(e) });
+      setExpanderBusy(false);
+    }
+  };
 
   const handleChange = (field: string, value: any) => {
     onChange({ ...data, [field]: value });
@@ -194,6 +310,112 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           )}
         </div>
         <HelpLabel>{t('boneio_config.device_type_help')}</HelpLabel>
+      </div>
+
+      {/* Restart overlay (during expander add/remove) */}
+      {expanderBusy && expanderResult?.status === 'success' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body items-center text-center">
+              <span className="loading loading-spinner loading-lg text-primary" />
+              <p className="font-medium">{t('settings.restarting')}</p>
+              <p className="text-sm text-base-content/60">{t('boneio_config.expander_saved')}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expansion board */}
+      <div className="divider text-sm">{t('boneio_config.expander_section')}</div>
+      <div className="space-y-3">
+        {expanderResult && (
+          <div className={`alert py-2 text-sm ${expanderResult.status === 'success' ? 'alert-success' : 'alert-error'}`}>
+            {expanderResult.status === 'success'
+              ? t('boneio_config.expander_saved')
+              : expanderResult.message}
+          </div>
+        )}
+
+        {blockedByInputs.length > 0 && (
+          <div className="alert alert-error py-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-medium text-sm">{t('mcp.expander_remove_blocked')}</p>
+              <ul className="text-xs mt-1 list-disc list-inside">
+                {blockedByInputs.map(n => <li key={n}>{n}</li>)}
+              </ul>
+            </div>
+            <button className="btn btn-xs btn-ghost" onClick={() => setBlockedByInputs([])}>✕</button>
+          </div>
+        )}
+
+        {hasExpander ? (
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="badge badge-success">{t('boneio_config.expander_active')}</span>
+            {detectedBoardType && (
+              <span className="badge badge-outline">{EXPANDER_BOARDS[detectedBoardType].label}</span>
+            )}
+            <span className="text-sm text-base-content/60">{exOutputs.length} {t('mcp.expander_outputs_active')}</span>
+            <div className="ml-auto">
+              {!showRemoveConfirm ? (
+                <button className="btn btn-error btn-outline btn-sm" onClick={() => setShowRemoveConfirm(true)} disabled={expanderBusy}>
+                  {t('boneio_config.expander_remove')}
+                </button>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <span className="text-sm text-warning">{t('boneio_config.expander_remove_confirm')}</span>
+                  <button className="btn btn-ghost btn-xs" onClick={() => setShowRemoveConfirm(false)}>{t('common.cancel')}</button>
+                  <button className="btn btn-error btn-xs" onClick={handleRemoveExpander} disabled={expanderBusy}>
+                    {expanderBusy && <span className="loading loading-spinner loading-xs" />}
+                    {t('boneio_config.expander_remove')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : !showAddExpander ? (
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddExpander(true)}>
+            + {t('boneio_config.expander_add')}
+          </button>
+        ) : (
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body py-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="form-control">
+                  <label className="label py-1"><span className="label-text font-medium">{t('mcp.expander_board_type')}</span></label>
+                  <select className="select select-bordered select-sm" value={expanderBoardType} onChange={e => setExpanderBoardType(e.target.value as ExpanderBoardType)}>
+                    {(Object.keys(EXPANDER_BOARDS) as ExpanderBoardType[]).map(bt => (
+                      <option key={bt} value={bt}>{EXPANDER_BOARDS[bt].label}</option>
+                    ))}
+                  </select>
+                </div>
+                {(['expander_left', 'expander_right'] as const).map(id => (
+                  <div key={id} className="form-control">
+                    <label className="label py-1"><span className="label-text font-medium font-mono text-sm">{id}</span></label>
+                    <select className="select select-bordered select-sm" value={expanderAddresses[id]} onChange={e => setExpanderAddresses(p => ({ ...p, [id]: e.target.value }))}>
+                      {ADDRESS_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-base-content/50">
+                {t('mcp.expander_outputs_preview')
+                  .replace('{count}', String(EXPANDER_BOARDS[expanderBoardType].outputs.length))
+                  .replace('{first}', EXPANDER_BOARDS[expanderBoardType].outputs[0]?.slotId ?? '')
+                  .replace('{last}', (() => { const o = EXPANDER_BOARDS[expanderBoardType].outputs; return o[o.length - 1]?.slotId ?? ''; })())}
+              </div>
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-sm" onClick={handleAddExpander} disabled={expanderBusy}>
+                  {expanderBusy && <span className="loading loading-spinner loading-xs" />}
+                  {t('boneio_config.expander_add')}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowAddExpander(false)}>{t('common.cancel')}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* HA Child Devices (experimental) */}
