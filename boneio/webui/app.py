@@ -336,22 +336,7 @@ async def send_initial_states(
         # Send outputs
         for output in boneio_manager.outputs.get_all_outputs().values():
             try:
-                if getattr(output, "adjustable_duration_enabled", False):
-                    adjustable_duration_kwargs = {
-                        "adjustable_duration": True,
-                        "adjustable_duration_value": getattr(output, "adjustable_duration", None),
-                        "duration_min": getattr(output, "duration_min", None),
-                        "duration_max": getattr(output, "duration_max", None),
-                        "duration_unit": getattr(output, "duration_unit", None),
-                    }
-                else:
-                    adjustable_duration_kwargs = {
-                        "adjustable_duration": False,
-                        "adjustable_duration_value": None,
-                        "duration_min": None,
-                        "duration_max": None,
-                        "duration_unit": None,
-                    }
+                _adj_enabled = bool(getattr(output, "adjustable_duration_enabled", False))
                 output_state = OutputState(
                     id=output.id,
                     name=output.name,
@@ -362,7 +347,11 @@ async def send_initial_states(
                     timestamp=output.last_timestamp,
                     area=getattr(output, "area", None),
                     interlock_groups=getattr(output, "_interlock_groups", []),
-                    **adjustable_duration_kwargs,
+                    adjustable_duration=_adj_enabled,
+                    adjustable_duration_value=getattr(output, "adjustable_duration", None) if _adj_enabled else None,
+                    duration_min=getattr(output, "duration_min", None) if _adj_enabled else None,
+                    duration_max=getattr(output, "duration_max", None) if _adj_enabled else None,
+                    duration_unit=getattr(output, "duration_unit", None) if _adj_enabled else None,
                 )
                 update = OutputEvent(entity_id=output.id, state=output_state)
                 if not await send_state_update(update):
@@ -575,8 +564,8 @@ async def send_initial_states(
 @app.websocket("/ws/state")
 async def websocket_endpoint(websocket: WebSocket, boneio_manager: Manager = Depends(get_manager)):
     """WebSocket endpoint for all state updates."""
+    websocket_manager: WebSocketManager = app.state.websocket_manager
     try:
-        websocket_manager: WebSocketManager = app.state.websocket_manager
         if await websocket_manager.connect(websocket):
             _LOGGER.debug("New WebSocket connection established")
 
@@ -617,7 +606,7 @@ async def websocket_endpoint(websocket: WebSocket, boneio_manager: Manager = Dep
         _LOGGER.error(f"Unexpected error in WebSocket handler: {type(e).__name__} - {e}")
     finally:
         _LOGGER.debug("Cleaning up WebSocket connection")
-        if not app.state.websocket_manager.active_connections:
+        if not websocket_manager.active_connections:
             remove_all_websocket_listeners(boneio_manager=boneio_manager)
 
 

@@ -10,6 +10,7 @@ interface SectionConfig {
   title: string;
   icon: string;
   translationKey: string;
+  badge?: string;
 }
 
 interface ConfigSection {
@@ -49,6 +50,7 @@ function SectionButton({
   hasUnsavedChanges: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -58,10 +60,17 @@ function SectionButton({
           : 'bg-base-100 hover:bg-base-300 text-base-content'
       }`}
     >
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 min-w-0">
         <span className="text-lg">{sectionConfig?.icon || '⚙️'}</span>
-        <div>
-          <div className="font-medium">{sectionConfig?.title}</div>
+        <div className="min-w-0">
+          <div className="font-medium flex items-center gap-2">
+            <span className="truncate">{sectionConfig?.title}</span>
+            {sectionConfig?.badge && (
+              <span className="badge badge-xs badge-warning font-bold uppercase whitespace-nowrap">
+                {t(`settings.badge_${sectionConfig.badge}`)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div className="flex items-center space-x-2">

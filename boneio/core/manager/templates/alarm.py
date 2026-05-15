@@ -64,8 +64,8 @@ class AlarmManager:
         Args:
             config: Alarm panel configuration dictionary.
         """
-        entity_id = config.get("id", "")
-        name = config.get("name", entity_id)
+        entity_id: str = config.get("id", "")
+        name: str = config.get("name") or entity_id
         area = config.get("area")
 
         if not entity_id:

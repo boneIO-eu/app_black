@@ -7,6 +7,8 @@ export interface SectionDefinition {
   name: string;
   icon: string;
   translationKey: string;
+  /** Optional badge key (e.g. 'experimental') — shown next to section label. */
+  badge?: string;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface SectionDefinition {
 export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'areas', icon: '🏠', translationKey: 'sections.areas' },
   { name: 'local_inputs', icon: '📥', translationKey: 'sections.local_inputs' },
-  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs' },
+  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', badge: 'experimental' },
   { name: 'output', icon: '💡', translationKey: 'sections.output' },
   { name: 'output_group', icon: '🔗', translationKey: 'sections.output_group' },
   { name: 'cover', icon: '🚪', translationKey: 'sections.cover' },
