@@ -144,10 +144,11 @@ class BoneIOLoader(SafeLoader):
         return mapping
 
     def construct_include_files(self, node):
-        files = os.path.join(self._root, self.construct_scalar(node)).split()
+        filenames = self.construct_scalar(node).split()
         merged_list = []
-        for fname in files:
-            loaded_yaml = load_yaml_file(fname.strip())
+        for fname in filenames:
+            full_path = os.path.join(self._root, fname.strip())
+            loaded_yaml = load_yaml_file(full_path)
             if isinstance(loaded_yaml, list):
                 merged_list.extend(loaded_yaml)
         return merged_list
@@ -1235,13 +1236,19 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
         pass
 
     def include_constructor(loader, node):
-        """Constructor for !include tag that preserves the tag info."""
+        """Constructor for !include / !include_files tags — preserves tag info."""
         filename = loader.construct_scalar(node)
-        # Return a special object that preserves the include info
-        include_obj = type("Include", (), {"filename": filename, "tag": "!include"})()
+        tag = getattr(loader, "_current_tag", "!include")
+        include_obj = type("Include", (), {"filename": filename, "tag": tag})()
+        return include_obj
+
+    def include_files_constructor(loader, node):
+        filename = loader.construct_scalar(node)
+        include_obj = type("Include", (), {"filename": filename, "tag": "!include_files"})()
         return include_obj
 
     IncludeLoader.add_constructor("!include", include_constructor)
+    IncludeLoader.add_constructor("!include_files", include_files_constructor)
 
     try:
         # Read current config.yaml with custom loader
@@ -1255,22 +1262,80 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
         if section in config_content:
             section_value = config_content[section]
 
-            # Check if it's an !include directive
-            if hasattr(section_value, "tag") and section_value.tag == "!include":
-                # It's an !include - update the included file
-                include_filename = section_value.filename
-                include_file_path = os.path.join(config_dir, include_filename)
+            # Check if it's an !include / !include_files directive
+            if hasattr(section_value, "tag") and section_value.tag in ("!include", "!include_files"):
+                files = section_value.filename.split()
 
-                _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
+                # Special case: output section using !include_files — split board outputs
+                # (-> first file) from expander outputs (EX_*) (-> remaining files) to keep
+                # them in their respective YAML files and avoid duplicate-ID errors.
+                if (
+                    section == "output"
+                    and section_value.tag == "!include_files"
+                    and isinstance(cleaned_data, list)
+                    and len(files) >= 2
+                ):
+                    def _dedup_by_id(items: list) -> list:
+                        """Dedup outputs by id/boneio_output. Prefer entries with `name`
+                        field set (these are user-edited; bare ones are stale duplicates)."""
+                        seen: dict[str, dict] = {}
+                        for o in items:
+                            oid = o.get("id") or o.get("boneio_output")
+                            if not oid:
+                                continue
+                            existing = seen.get(oid)
+                            if existing is None:
+                                seen[oid] = o
+                            elif ("name" in o) and ("name" not in existing):
+                                seen[oid] = o
+                            elif ("name" in o) and ("name" in existing) and len(o) > len(existing):
+                                seen[oid] = o
+                        return list(seen.values())
 
-                # Save cleaned data to the included file
-                content = dump(
-                    cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
-                )
-                with open(include_file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
+                    board_outputs = _dedup_by_id([
+                        o for o in cleaned_data
+                        if not str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
+                    ])
+                    ex_outputs = _dedup_by_id([
+                        o for o in cleaned_data
+                        if str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
+                    ])
 
-                _LOGGER.info(f"Successfully updated included file: {include_file_path}")
+                    # First file -> board outputs
+                    first_path = os.path.join(config_dir, files[0])
+                    with open(first_path, "w", encoding="utf-8") as f:
+                        f.write(dump(board_outputs, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False))
+                    _LOGGER.info(f"Wrote {len(board_outputs)} board outputs to {first_path}")
+
+                    # Remaining files -> expander outputs (mirrored to each).
+                    # SAFETY: if ex_outputs is empty, DO NOT touch existing expansion
+                    # files — preserves their contents during partial saves or
+                    # migrations where only board outputs are sent.
+                    if ex_outputs:
+                        for fname in files[1:]:
+                            ex_path = os.path.join(config_dir, fname)
+                            with open(ex_path, "w", encoding="utf-8") as f:
+                                f.write(dump(ex_outputs, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False))
+                            _LOGGER.info(f"Wrote {len(ex_outputs)} expander outputs to {ex_path}")
+                    else:
+                        _LOGGER.info(
+                            "No EX_* outputs in payload — preserving existing expansion files: %s",
+                            ", ".join(files[1:]),
+                        )
+                else:
+                    # Default: update the first/only included file with full data
+                    include_filename = files[0]
+                    include_file_path = os.path.join(config_dir, include_filename)
+
+                    _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
+
+                    content = dump(
+                        cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
+                    )
+                    with open(include_file_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+
+                    _LOGGER.info(f"Successfully updated included file: {include_file_path}")
 
             else:
                 # It's a regular section - replace in config.yaml

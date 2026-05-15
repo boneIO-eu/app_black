@@ -863,34 +863,204 @@ async def get_file_content(file_path: str):
 
 @router.put("/files/{file_path:path}")
 async def update_file_content(file_path: str, content: dict = Body(...)):
-    """
-    Update content of a file.
-
-    Args:
-        file_path: Relative path to file.
-        content: Dictionary with 'content' key containing file content.
-
-    Returns:
-        Status response.
-    """
+    """Update or create a YAML/JSON file relative to the config directory."""
     config_dir = Path(_get_app_state().yaml_config_file).parent
-    full_path = os.path.join(config_dir, file_path)
+    full_path = config_dir / file_path
 
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if not os.path.isfile(full_path):
-        raise HTTPException(status_code=400, detail="Path is not a file")
-
-    if not full_path.endswith((".yaml", ".yml", ".json")):
+    if not str(full_path).endswith((".yaml", ".yml", ".json")):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
+    if full_path.exists() and not full_path.is_file():
+        raise HTTPException(status_code=400, detail="Path is not a file")
+
     try:
-        with open(full_path, "w") as f:
-            f.write(content["content"])
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        full_path.write_text(content["content"], encoding="utf-8")
+        invalidate_config_cache()
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/config/expander")
+async def add_expander(request: dict = Body(...)):
+    """
+    Add an expansion board:
+    - Creates expansion_board_output_{board_type}.yaml with expander outputs
+    - Updates config.yaml output line to !include_files
+    - Adds expander_left/right to mcp23017
+    """
+    import re
+    from yaml import dump as yaml_dump
+
+    board_type: str = request["board_type"]
+    outputs: list = request["outputs"]
+    expander_left_addr: str = request.get("expander_left_address", "0x23")
+    expander_right_addr: str = request.get("expander_right_address", "0x22")
+
+    app_state = _get_app_state()
+    config_file = Path(app_state.yaml_config_file)
+    config_dir = config_file.parent
+
+    expansion_filename = f"expansion_board_output_{board_type}.yaml"
+    expansion_path = config_dir / expansion_filename
+
+    EXPANSION_PREFIX = "expansion_board_output_"
+
+    # 1. Strip any stale EX_* entries from main output section BEFORE patching
+    #    config.yaml include. At this point output: is still pointing at a single
+    #    file or inline, so update_config_section won't wipe the expansion file.
+    current_cfg = load_yaml_file(str(config_file))
+    existing_outputs = current_cfg.get("output", [])
+    if isinstance(existing_outputs, list):
+        cleaned_outputs = [
+            o for o in existing_outputs
+            if not str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
+        ]
+        if len(cleaned_outputs) != len(existing_outputs):
+            update_config_section(str(config_file), "output", cleaned_outputs)
+
+    # 2. Patch config.yaml output line: replace ALL old expansion files with the
+    #    new one. Supports both !include and !include_files starting points.
+    config_text = config_file.read_text(encoding="utf-8")
+
+    include_match = re.search(
+        r"^output:\s*!include(?:_files)?\s+(.+?)$", config_text, re.MULTILINE
+    )
+    if include_match:
+        # Existing include — remove any old expansion_board_output_*.yaml entries
+        existing_files = [
+            f for f in include_match.group(1).strip().split()
+            if not f.startswith(EXPANSION_PREFIX)
+        ]
+        # Delete leftover expansion files from the old configuration
+        for old_path in config_dir.glob(f"{EXPANSION_PREFIX}*.yaml"):
+            if old_path.name != expansion_filename:
+                try:
+                    old_path.unlink()
+                    _LOGGER.info("Removed stale expansion file: %s", old_path)
+                except OSError:
+                    pass
+        # Compose the new include line
+        new_files = existing_files + [expansion_filename]
+        if len(new_files) >= 2:
+            new_line = f"output: !include_files {' '.join(new_files)}"
+        else:
+            new_line = f"output: !include {new_files[0]}"
+        config_text = re.sub(
+            r"^output:\s*!include(?:_files)?\s+.+?$",
+            new_line,
+            config_text,
+            flags=re.MULTILINE,
+        )
+        config_file.write_text(config_text, encoding="utf-8")
+    # else: output is inline — leave config.yaml alone; expansion file still gets
+    # created below and frontend can later trigger conversion.
+
+    # 3. Write the expansion file with generated entries
+    expansion_path.write_text(
+        yaml_dump(outputs, default_flow_style=False, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    # 4. Add expander chips to mcp23017
+    def _hex_to_int(addr: str) -> int:
+        if isinstance(addr, str) and addr.startswith(("0x", "0X")):
+            return int(addr, 16)
+        return int(addr)
+
+    current_cfg = load_yaml_file(str(config_file))
+    mcp_list = [
+        e for e in current_cfg.get("mcp23017", [])
+        if e.get("id") not in ("expander_left", "expander_right")
+    ]
+    mcp_list.append({"id": "expander_left",  "address": _hex_to_int(expander_left_addr)})
+    mcp_list.append({"id": "expander_right", "address": _hex_to_int(expander_right_addr)})
+    update_config_section(str(config_file), "mcp23017", mcp_list)
+
+    clear_config_cache(str(config_file))
+    invalidate_config_cache()
+
+    manager: Manager = app_state.manager
+    manager.config_helper.set_restart_required("expander")
+
+    return {"status": "success", "expansion_file": expansion_filename, "restart_required": True}
+
+
+@router.post("/config/expander/remove")
+async def remove_expander(request: dict = Body(...)):
+    """
+    Remove an expansion board:
+    - Updates config.yaml output line (removes !include_files reference)
+    - Removes expander_left/right from mcp23017
+    - Deletes the expansion file
+    """
+    import re
+
+    app_state = _get_app_state()
+    config_file = Path(app_state.yaml_config_file)
+    config_dir = config_file.parent
+    EXPANSION_PREFIX = "expansion_board_output_"
+
+    # 1. Strip EX_* entries from main output FIRST (before include modification,
+    #    so update_config_section's split-write doesn't get confused).
+    current_cfg = load_yaml_file(str(config_file))
+    existing_outputs = current_cfg.get("output", [])
+    if isinstance(existing_outputs, list):
+        cleaned_outputs = [
+            o for o in existing_outputs
+            if not str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
+        ]
+        if len(cleaned_outputs) != len(existing_outputs):
+            update_config_section(str(config_file), "output", cleaned_outputs)
+
+    # 2. Patch config.yaml — remove ALL expansion_board_output_*.yaml references
+    config_text = config_file.read_text(encoding="utf-8")
+    include_match = re.search(
+        r"^output:\s*!include(?:_files)?\s+(.+?)$", config_text, re.MULTILINE
+    )
+    if include_match:
+        files = [
+            f for f in include_match.group(1).strip().split()
+            if not f.startswith(EXPANSION_PREFIX)
+        ]
+        if len(files) == 1:
+            new_line = f"output: !include {files[0]}"
+        elif files:
+            new_line = f"output: !include_files {' '.join(files)}"
+        else:
+            new_line = "output: []"
+        config_text = re.sub(
+            r"^output:\s*!include(?:_files)?\s+.+?$",
+            new_line,
+            config_text,
+            flags=re.MULTILINE,
+        )
+        config_file.write_text(config_text, encoding="utf-8")
+
+    # 3. Delete every leftover expansion_board_output_*.yaml file
+    for old_path in config_dir.glob(f"{EXPANSION_PREFIX}*.yaml"):
+        try:
+            old_path.unlink()
+            _LOGGER.info("Removed expansion file: %s", old_path)
+        except OSError:
+            pass
+
+    # 4. Remove expander chips from mcp23017
+    current_cfg = load_yaml_file(str(config_file))
+    mcp_list = [
+        e for e in current_cfg.get("mcp23017", [])
+        if e.get("id") not in ("expander_left", "expander_right")
+    ]
+    update_config_section(str(config_file), "mcp23017", mcp_list)
+
+    clear_config_cache(str(config_file))
+    invalidate_config_cache()
+
+    manager: Manager = app_state.manager
+    manager.config_helper.set_restart_required("expander")
+
+    return {"status": "success", "restart_required": True}
 
 
 @router.post("/config/validate_device_type_change")
