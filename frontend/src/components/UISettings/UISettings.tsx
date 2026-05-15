@@ -105,10 +105,20 @@ export default function UISettings() {
     }
   };
 
+  // Check if any remote inputs are configured or remote devices exist
+  const hasRemoteInputs = useMemo(() => {
+    const remoteInputs = formData.remote_inputs || [];
+    const remoteDevices = formData.remote_devices || [];
+    return remoteInputs.length > 0 || remoteDevices.length > 0;
+  }, [formData.remote_inputs, formData.remote_devices]);
+
   // Use imported section definitions with translated titles
+  // Hide remote_inputs when no remote devices exist and no inputs configured
   const reloadSections = useMemo(
-    () => RELOAD_SECTIONS.map(s => ({ ...s, title: t(s.translationKey) })),
-    [t]
+    () => RELOAD_SECTIONS
+      .filter(s => s.name !== 'remote_inputs' || hasRemoteInputs)
+      .map(s => ({ ...s, title: t(s.translationKey) })),
+    [t, hasRemoteInputs]
   );
 
   // Hardware version determines which sections are available
@@ -208,7 +218,8 @@ export default function UISettings() {
       const { data: configContent } = await axios.get('/api/config');
       const configData = configContent?.config || {};
 
-      // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors)
+      // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors,
+      // binary_sensor + event → local_inputs)
       for (const [virtualName, yamlKeys] of Object.entries(COMPOSITE_SECTIONS)) {
         const merged: any[] = [];
         for (const key of yamlKeys) {
@@ -221,6 +232,8 @@ export default function UISettings() {
         }
         configData[virtualName] = merged;
       }
+
+      // remote_inputs is now a top-level config section (no aggregation needed)
 
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
       // setFormData(configData);
@@ -263,7 +276,11 @@ export default function UISettings() {
           );
 
           const loadedSections: ConfigSection[] = configSections.map(sectionConfig => {
-            let sectionSchema = mainSchema.properties?.[sectionConfig.name];
+            // Virtual sections use the event schema as base (superset of binary_sensor)
+            const schemaKey = sectionConfig.name === 'local_inputs'
+              ? 'event'
+              : sectionConfig.name;
+            let sectionSchema = mainSchema.properties?.[schemaKey];
 
             // Debug for cover section
             if (sectionConfig.name === 'cover') {
@@ -296,9 +313,9 @@ export default function UISettings() {
               }
             }
 
-            // Filter boneio_input enum for event/binary_sensor based on board version
+            // Filter boneio_input enum for event/binary_sensor/local_inputs based on board version
             if (
-              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor') &&
+              (sectionConfig.name === 'event' || sectionConfig.name === 'binary_sensor' || sectionConfig.name === 'local_inputs') &&
               sectionSchema?.items?.properties?.boneio_input?.enum
             ) {
               sectionSchema = {
@@ -401,15 +418,18 @@ export default function UISettings() {
         for (const [key, value] of Object.entries(obj)) {
           const cleanedValue = removeEmptyValues(value);
           // Keep the key if value is not null/undefined/empty string/empty array/empty object
+          // Also strip internal metadata keys starting with '_'
           if (
-            cleanedValue !== null &&
-            cleanedValue !== undefined &&
-            cleanedValue !== '' &&
-            !(Array.isArray(cleanedValue) && cleanedValue.length === 0) &&
-            !(typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)
+            key.startsWith('_') ||
+            cleanedValue === null ||
+            cleanedValue === undefined ||
+            cleanedValue === '' ||
+            (Array.isArray(cleanedValue) && cleanedValue.length === 0) ||
+            (typeof cleanedValue === 'object' && Object.keys(cleanedValue).length === 0)
           ) {
-            cleaned[key] = cleanedValue;
+            continue;
           }
+          cleaned[key] = cleanedValue;
         }
         return cleaned;
       }
@@ -649,6 +669,8 @@ export default function UISettings() {
     const arraySections = [
       'event',
       'binary_sensor',
+      'local_inputs',
+      'remote_inputs',
       'output',
       'output_group',
       'cover',
@@ -804,6 +826,8 @@ export default function UISettings() {
       console.log('Sending config for section:', sectionName);
       console.log('Data:', minimalConfig);
 
+      // remote_inputs is now a standard section — saved directly via PUT /api/config/remote_inputs
+
       // Handle composite sections — split and save each YAML key separately
       if (COMPOSITE_SECTIONS[sectionName]) {
         const yamlKeys = COMPOSITE_SECTIONS[sectionName];
@@ -828,8 +852,36 @@ export default function UISettings() {
           await axios.put(`/api/config/${key}`, buckets[key]);
         }
 
-        // Mark restart required for composite sections
-        setRestartRequired(true);
+        // Determine reload strategy based on section type
+        // local_inputs (binary_sensor + event) supports hot-reload with granular change detection
+        if (sectionName === 'local_inputs') {
+          // Granular reload: only reload sub-sections that actually changed
+          const sectionsToReload: string[] = [];
+          for (const key of yamlKeys) {
+            const originalItems = (originalData[key] || []);
+            const newItems = buckets[key];
+            if (JSON.stringify(newItems) !== JSON.stringify(originalItems)) {
+              sectionsToReload.push(key);
+            }
+          }
+
+          if (sectionsToReload.length > 0) {
+            try {
+              setIsReloading(true);
+              console.log(`🔄 Granular reload for local_inputs: ${sectionsToReload.join(', ')}`);
+              await axios.post('/api/config/reload', sectionsToReload, { timeout: 30000 });
+              await loadConfiguration();
+              console.log(`✅ Reloaded: ${sectionsToReload.join(', ')}`);
+            } catch (reloadError) {
+              console.warn('⚠️ Error reloading local_inputs:', reloadError);
+            } finally {
+              setIsReloading(false);
+            }
+          }
+        } else {
+          // Other composite sections (e.g. board_sensors) require restart
+          setRestartRequired(true);
+        }
 
         setSaveStatus(prev => ({ ...prev, [sectionName]: 'success' }));
         setUnsavedChanges(prev => ({ ...prev, [sectionName]: false }));
@@ -885,6 +937,7 @@ export default function UISettings() {
           'virtual_energy_sensor',
           'logger',
           'remote_devices',
+          'remote_inputs',
           'template',
           'oled',
         ];
@@ -892,7 +945,7 @@ export default function UISettings() {
           try {
             setIsReloading(true);
             console.log(`🔄 Triggering reload for section: ${sectionName}`);
-            const reloadResponse = await axios.post('/api/config/reload', [sectionName]);
+            const reloadResponse = await axios.post('/api/config/reload', [sectionName], { timeout: 30000 });
 
             if (reloadResponse.status === 200) {
               console.log(`✅ Section ${sectionName} reloaded successfully`);

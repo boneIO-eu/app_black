@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.types import Receive, Scope, Send
 from starlette.websockets import WebSocketState
 
+from boneio.components.input import RemoteInputBase
 from boneio.const import COVER, NONE
 from boneio.core.config import ConfigHelper
 from boneio.core.events import GracefulExit
@@ -319,6 +320,7 @@ async def send_initial_states(
                     timestamp=input_.last_press_timestamp,
                     boneio_input=input_.boneio_input,
                     area=input_.area,
+                    remote=isinstance(input_, RemoteInputBase),
                 )
                 update = InputEvent(
                     entity_id=input_.id,

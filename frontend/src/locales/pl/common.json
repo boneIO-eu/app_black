@@ -108,6 +108,8 @@
   },
   "inputs": {
     "title": "Wejścia",
+    "local_inputs": "Wejścia lokalne",
+    "remote_inputs": "Wejścia zdalne",
     "name": "Nazwa",
     "id": "ID",
     "boneio_input": "Wejście boneIO",
@@ -131,6 +133,13 @@
     "none": "Brak",
     "show_in_ha": "Pokaż w Home Assistant",
     "show_in_ha_hint": "Możesz wyłączyć wykrywanie tego wejścia w HA",
+    "forward_to_ha": "Przekazuj stan do HA",
+    "forward_to_ha_hint": "Przekazuj stan zdalnego wejścia do Home Assistant przez MQTT discovery",
+    "device_input": "ID Wejścia/Sensora",
+    "custom_input_id": "Własne ID wejścia",
+    "custom_input_id_placeholder": "np. salon_ruch",
+    "custom_input_id_hint": "Opcjonalne. Generowane z device_id + input_id jeśli nie podano",
+    "remote_source": "Źródło zdalne",
     "inverted": "Odwrócony",
     "inverted_hint": "Zaznacz jeśli typ czujnika jest odwrócony.",
     "initial_send": "Wyślij stan początkowy",
@@ -151,7 +160,15 @@
     "copied": "Skopiowano",
     "long_press_to_edit": "Przytrzymaj aby edytować ustawienia",
     "go_to_settings": "Przejdź do Ustawień",
-    "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego wejścia?"
+    "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego wejścia?",
+    "type_event_hint": "Detekcja kliknięć: pojedyncze, podwójne, potrójne, długie",
+    "type_binary_sensor_hint": "Prosty on/off: akcje wciśnięcia i puszczenia",
+    "switch_type_warning_title": "Zmiana trybu wejścia",
+    "switch_type_warning_message": "Zmiana trybu przekształci akcje. Niektóre akcje mogą zostać utracone jeśli nie mają odpowiednika w docelowym trybie.",
+    "actions_to_lose": "Akcje do usunięcia",
+    "switch_to_bs_hint": "Pojedyncze kliknięcie → Wciśnięcie. Podwójne, potrójne, długie i sekwencje zostaną usunięte.",
+    "switch_to_event_hint": "Wciśnięcie → Pojedyncze kliknięcie. Akcje puszczenia zostaną usunięte.",
+    "switch_type_confirm": "Zmień tryb"
   },
   "sensors": {
     "title": "Czujniki",
@@ -606,6 +623,8 @@
     "areas": "Obszary/Pomieszczenia",
     "binary_sensor": "Czujniki Binarne",
     "event": "Encje zdarzeń",
+    "local_inputs": "Wejścia Lokalne",
+    "remote_inputs": "Wejścia Zdalne",
     "output": "Wyjścia",
     "output_group": "Grupy Wyjść",
     "cover": "Rolety",
@@ -619,6 +638,8 @@
       "areas": "Zdefiniuj pokoje i obszary, aby uporządkować urządzenia w Home Assistant.",
       "binary_sensor": "Czujniki binarne reagują na wciśnięcie i puszczenie. Używaj ich do prostych wejść wł/wył jak czujniki drzwi czy ruchu.",
       "event": "Encje zdarzeń obsługują akcje przycisków: pojedyncze kliknięcie, podwójne kliknięcie i długie przytrzymanie. Idealne do włączników ściennych.",
+      "local_inputs": "Wszystkie lokalne wejścia GPIO — czujniki binarne (wciśnięcie/puszczenie) i encje zdarzeń (pojedyncze/podwójne/długie kliknięcie). Każde wejście może działać w dowolnym trybie.",
+      "remote_inputs": "Czujniki binarne ze zdalnych urządzeń ESPHome i CAN. Skonfiguruj tryb (czujnik binarny lub zdarzenie) i akcje dla każdego zdalnego wejścia.",
       "output": "Skonfiguruj wyjścia przekaźnikowe do sterowania światłami, przełącznikami i innymi urządzeniami.",
       "output_group": "Grupuj wiele wyjść razem, aby sterować nimi jako jedną encją.",
       "cover": "Skonfiguruj rolety, żaluzje i bramy garażowe z przekaźnikami otwierania/zamykania.",
@@ -974,7 +995,8 @@
     "showing": "Pokazuje",
     "of": "z",
     "area": "Obszar",
-    "no_area": "Brak obszaru"
+    "no_area": "Brak obszaru",
+    "type": "Typ"
   },
   "validation": {
     "id_required": "ID jest wymagane",
@@ -983,7 +1005,8 @@
     "id_no_spaces": "ID nie może zawierać spacji",
     "id_lowercase": "ID musi być pisane małymi literami",
     "id_no_polish": "ID nie może zawierać polskich znaków",
-    "errors": "Błędy Walidacji"
+    "errors": "Błędy Walidacji",
+    "required": "To pole jest wymagane"
   },
   "modbus_helper": {
     "title": "Pomocnik Modbus",
@@ -1396,6 +1419,7 @@
   },
   "remote_devices": {
     "title": "Zdalne Urządzenia",
+    "device": "Urządzenie",
     "device_id": "ID Urządzenia",
     "id_hint": "Unikalny identyfikator używany w akcjach (np. salon_boneio)",
     "device_name": "Nazwa Urządzenia",
@@ -1450,6 +1474,9 @@
     "esphome_covers": "Rolety",
     "esphome_binary_sensors": "Czujniki binarne",
     "device_class": "Klasa urządzenia",
+    "select_all": "Zaznacz wszystko",
+    "select_none": "Odznacz wszystko",
+    "binary_sensors_hint": "Monitorowane będą tylko zaznaczone czujniki. Niezaznaczone będą ignorowane w celu oszczędności zasobów.",
     "capabilities": "Możliwości",
     "no_discovered": "Brak wykrytych urządzeń. Urządzenia boneIO pojawiają się automatycznie, kliknij \"Skanuj ESPHome\", \"Skanuj WLED\" lub \"Skanuj CAN\" aby znaleźć urządzenia.",
     "scan_esphome": "Skanuj ESPHome",
@@ -1462,7 +1489,9 @@
     "wled_port": "Port",
     "wled_segments": "Segmenty",
     "wled_led_count": "LEDy",
-    "discover_segments": "Wykryj segmenty"
+    "discover_segments": "Wykryj segmenty",
+    "select_device": "Wybierz urządzenie...",
+    "select_device_first": "Najpierw wybierz urządzenie..."
   },
   "table_sort": {
     "click_to_sort": "Kliknij aby posortować",

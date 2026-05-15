@@ -15,8 +15,8 @@ export interface SectionDefinition {
  */
 export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'areas', icon: '🏠', translationKey: 'sections.areas' },
-  { name: 'binary_sensor', icon: '🔘', translationKey: 'sections.binary_sensor' },
-  { name: 'event', icon: '⚡', translationKey: 'sections.event' },
+  { name: 'local_inputs', icon: '📥', translationKey: 'sections.local_inputs' },
+  { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs' },
   { name: 'output', icon: '💡', translationKey: 'sections.output' },
   { name: 'output_group', icon: '🔗', translationKey: 'sections.output_group' },
   { name: 'cover', icon: '🚪', translationKey: 'sections.cover' },
@@ -53,8 +53,8 @@ export const ALL_SECTIONS: SectionDefinition[] = [...RELOAD_SECTIONS, ...RESTART
  * Sections that use ArrayTableWidget (array-based data).
  */
 export const ARRAY_SECTIONS = [
-  'event',
-  'binary_sensor',
+  'local_inputs',
+  'remote_inputs',
   'output',
   'output_group',
   'cover',
@@ -74,6 +74,7 @@ export const ARRAY_SECTIONS = [
  */
 export const COMPOSITE_SECTIONS: Record<string, string[]> = {
   board_sensors: ['lm75', 'ina219', 'mcp9808'],
+  local_inputs: ['binary_sensor', 'event'],
 };
 
 export type ArraySectionType = typeof ARRAY_SECTIONS[number];

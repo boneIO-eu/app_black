@@ -213,7 +213,7 @@ function AppContent() {
           if (sections.includes('all') || sections.includes('cover')) {
             setCovers([]);
           }
-          if (sections.includes('all') || sections.includes('input') || sections.includes('event') || sections.includes('binary_sensor')) {
+          if (sections.includes('all') || sections.includes('input') || sections.includes('event') || sections.includes('binary_sensor') || sections.includes('remote_devices')) {
             setInputs([]);
           }
           if (sections.includes('all') || sections.includes('modbus_devices')) {

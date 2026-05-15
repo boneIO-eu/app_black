@@ -24,6 +24,7 @@ class InputState(BaseModel):
     timestamp: float
     boneio_input: str
     area: str | None = None
+    remote: bool = False
 
 
 class OutputState(BaseModel):

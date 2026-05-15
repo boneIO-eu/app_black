@@ -13,6 +13,7 @@ export interface InputState {
   timestamp: number;
   boneio_input: string;
   area: string | null;
+  remote?: boolean;
 }
 
 export interface InputEvent {

@@ -1082,26 +1082,46 @@ class Manager:
 
         This allows hot-reloading of remote devices without restarting the application.
         Handles ESPHome connections properly (stops old, starts new).
-        Also re-registers ESPHome binary sensor inputs.
+        Also re-registers remote inputs (binary sensors from remote devices).
         """
         config = self._config_helper.get_config()
         remote_devices_config = config.get("remote_devices", [])
 
         _LOGGER.info("Reloading remote devices configuration")
-        # Clean up old ESPHome binary sensor inputs before reload
-        self.inputs.unregister_esphome_binary_sensors()
+        # Clean up old remote inputs before reload
+        self.inputs.unregister_remote_inputs()
         await self.remote_devices.reload(remote_devices_config)
-        # Re-register binary sensors from newly configured ESPHome devices
-        self.register_esphome_binary_sensors()
+        # Re-register remote inputs from config
+        self.register_remote_inputs()
+        # Broadcast all input states so frontend picks up new/removed remote inputs
+        self.inputs._broadcast_all_input_states()
         _LOGGER.info("Remote devices configuration reloaded successfully")
 
-    def register_esphome_binary_sensors(self) -> None:
-        """Register binary sensors from ESPHome remote devices as local inputs.
+    async def _reload_remote_inputs(self) -> None:
+        """Reload only the remote_inputs section (without reloading devices).
 
-        Delegates to :meth:`InputManager.register_esphome_binary_sensors`.
+        Used when only remote input config changed (actions, mode, etc.)
+        but the remote devices themselves didn't change.
+        """
+        _LOGGER.info("Reloading remote inputs configuration")
+        self.inputs.unregister_remote_inputs()
+        self.register_remote_inputs()
+        # Broadcast all input states so frontend picks up new/removed remote inputs
+        self.inputs._broadcast_all_input_states()
+        _LOGGER.info("Remote inputs configuration reloaded successfully")
+
+    def register_remote_inputs(self) -> None:
+        """Register remote inputs from the ``remote_inputs`` config section.
+
+        Delegates to :meth:`InputManager.register_remote_inputs`.
         Should be called after :meth:`RemoteDeviceManager.initialize`.
         """
-        self.inputs.register_esphome_binary_sensors(self.remote_devices)
+        config = self._config_helper.get_config()
+        remote_inputs_config = config.get("remote_inputs", [])
+        self.inputs.register_remote_inputs(self.remote_devices, remote_inputs_config)
+
+    # Keep backward-compatible alias
+    register_esphome_binary_sensors = register_remote_inputs
 
     async def _reload_templates_and_irrigation(self) -> None:
         """Reload templates and irrigation when the template section changes.
@@ -1222,6 +1242,7 @@ class Manager:
             "virtual_energy_sensor": self.sensors.reload_virtual_energy_sensors,  # Virtual energy sensors
             "logger": self._reload_logger,  # Logger configuration
             "remote_devices": self._reload_remote_devices,  # Remote devices configuration
+            "remote_inputs": self._reload_remote_inputs,  # Remote inputs (binary sensors from remote devices)
             "template": self._reload_templates_and_irrigation,  # Thermostats, alarm panels, and irrigation
             "irrigation": self.irrigation.reload_irrigation,  # Irrigation controllers
             "adc": self.sensors.reload_adc_sensors,  # ADC analog sensors

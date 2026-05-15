@@ -105,7 +105,6 @@ class ESPHomeRemoteDevice(RemoteDevice):
         switches: Optional list of known switches
         lights: Optional list of known lights with capabilities
         covers: Optional list of known covers
-        binary_sensors: Optional list of known binary sensors
     """
     
     def __init__(
@@ -119,7 +118,6 @@ class ESPHomeRemoteDevice(RemoteDevice):
         switches: list[dict[str, Any]] | None = None,
         lights: list[dict[str, Any]] | None = None,
         covers: list[dict[str, Any]] | None = None,
-        binary_sensors: list[dict[str, Any]] | None = None,
     ) -> None:
         """Initialize ESPHome remote device.
         
@@ -133,7 +131,6 @@ class ESPHomeRemoteDevice(RemoteDevice):
             switches: Optional list of known switches
             lights: Optional list of known lights
             covers: Optional list of known covers
-            binary_sensors: Optional list of known binary sensors
         """
         super().__init__(
             id=id,
@@ -162,7 +159,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
         self._switches: list[dict[str, Any]] = []
         self._lights: list[dict[str, Any]] = []
         self._covers_list: list[dict[str, Any]] = []
-        self._binary_sensors: list[dict[str, Any]] = []
+        self._binary_sensors: list[dict[str, Any]] = []  # Populated by discovery, not config
         
         # Entity key mappings (for sending commands / state tracking)
         self._switch_keys: dict[str, int] = {}
@@ -189,8 +186,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
             self._covers_list = covers
             # Also set parent class covers for compatibility
             self.set_covers(covers)
-        if binary_sensors:
-            self._binary_sensors = binary_sensors
+
         
         _LOGGER.info(
             "Configured ESPHome remote device '%s' (host=%s:%d)",
@@ -346,11 +342,62 @@ class ESPHomeRemoteDevice(RemoteDevice):
             return
         
         try:
-            # Subscribe to state changes (not async in newer aioesphomeapi)
-            self._client.subscribe_states(self._on_state_change)
-            
-            # Build entity key mappings from configured entities
+            # Fetch entity list so we know keys for binary sensors, switches, etc.
+            entities, _ = await self._client.list_entities_services()
+
+            # Refresh binary sensor list from live entity info
+            bs_list: list[dict[str, Any]] = []
+            for entity in entities:
+                if isinstance(entity, BinarySensorInfo):
+                    bs_list.append({
+                        "id": entity.object_id,
+                        "name": entity.name,
+                        "key": entity.key,
+                        "device_class": getattr(entity, "device_class", None) or None,
+                    })
+
+                # Also refresh switch/light/cover keys from live entity info
+                elif isinstance(entity, SwitchInfo):
+                    self._switch_keys[entity.object_id] = entity.key
+                    # Ensure entity is in configured list
+                    if not any(s.get("id") == entity.object_id for s in self._switches):
+                        self._switches.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                    else:
+                        for s in self._switches:
+                            if s.get("id") == entity.object_id:
+                                s["key"] = entity.key
+                                break
+                elif isinstance(entity, LightInfo):
+                    self._light_keys[entity.object_id] = entity.key
+                    if not any(l.get("id") == entity.object_id for l in self._lights):
+                        self._lights.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                    else:
+                        for l in self._lights:
+                            if l.get("id") == entity.object_id:
+                                l["key"] = entity.key
+                                break
+                elif isinstance(entity, CoverInfo):
+                    self._cover_keys[entity.object_id] = entity.key
+                    if not any(c.get("id") == entity.object_id for c in self._covers_list):
+                        self._covers_list.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                    else:
+                        for c in self._covers_list:
+                            if c.get("id") == entity.object_id:
+                                c["key"] = entity.key
+                                break
+
+            self._binary_sensors = bs_list
+            _LOGGER.debug(
+                "Populated %d binary sensors, %d switches, %d lights, %d covers from entity list on '%s'",
+                len(bs_list), len(self._switch_keys),
+                len(self._light_keys), len(self._cover_keys), self._name,
+            )
+
+            # Build remaining entity key mappings
             self._build_entity_keys()
+
+            # Subscribe to state changes
+            self._client.subscribe_states(self._on_state_change)
             
             _LOGGER.debug("Subscribed to state changes on '%s'", self._name)
         except Exception as e:

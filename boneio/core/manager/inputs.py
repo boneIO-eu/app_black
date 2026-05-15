@@ -15,7 +15,6 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from boneio.components.input import (
-    ESPHomeBinarySensorInput,
     GpioEventButton,
     GpioInputBinarySensor,
     RemoteInputBase,
@@ -32,6 +31,7 @@ from boneio.const import (
     PIN,
     SHOW_HA,
 )
+from boneio.core.manager.remote_input_registrar import RemoteInputRegistrar
 from boneio.exceptions import GPIOInputException
 from boneio.integration.homeassistant import (
     ha_binary_sensor_availabilty_message,
@@ -69,9 +69,15 @@ class InputManager:
     ):
         """Initialize input manager."""
         self._manager = manager
-        self._inputs: dict[str, GpioEventButton | GpioInputBinarySensor] = {}
+        self._inputs: dict[str, GpioEventButton | GpioInputBinarySensor | RemoteInputBase] = {}
         self._event_pins = event_pins
         self._binary_pins = binary_pins
+        # Remote input helper — handles ESPHome / CAN / MQTT input registration
+        self._remote_registrar = RemoteInputRegistrar(
+            manager,
+            ha_discovery_fn=self._publish_input_ha_discovery,
+        )
+
         # Track inputs that already had first long press published to MQTT (for single mode)
         # Maps input_id -> timestamp of last long press MQTT publish
         self._long_press_mqtt_last_ts: dict[str, float] = {}
@@ -264,19 +270,14 @@ class InputManager:
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
-                    payload = ha_event_availabilty_message(
-                        id=input_id,
+                    self._publish_input_ha_discovery(
+                        ha_type=EVENT_ENTITY,
+                        input_id=input_id,
                         name=name,
-                        config_helper=self._manager._config_helper,
                         device_class=existing_input.device_class,
                         area=area,
                         mqtt_sequences=gpio.get("mqtt_sequences"),
                         enable_triple_click=gpio.get("enable_triple_click", False),
-                    )
-                    self._manager.publish_ha_discovery(
-                        id=input_id,
-                        ha_type=EVENT_ENTITY,
-                        payload=payload,
                     )
                 return existing_input
 
@@ -296,19 +297,14 @@ class InputManager:
 
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
-                payload = ha_event_availabilty_message(
-                    id=input_id,
+                self._publish_input_ha_discovery(
+                    ha_type=EVENT_ENTITY,
+                    input_id=input_id,
                     name=name,
-                    config_helper=self._manager._config_helper,
                     device_class=input_device.device_class,
                     area=area,
                     mqtt_sequences=gpio.get("mqtt_sequences"),
                     enable_triple_click=gpio.get("enable_triple_click", False),
-                )
-                self._manager.publish_ha_discovery(
-                    id=input_id,
-                    ha_type=EVENT_ENTITY,
-                    payload=payload,
                 )
 
             return input_device
@@ -381,17 +377,12 @@ class InputManager:
                 # Actions are internal to the controller and don't need HA update
                 if ha_fields_changed and gpio.get(SHOW_HA, True):
                     _LOGGER.debug(f"HA-relevant fields changed for {input_id}, re-sending discovery")
-                    payload = ha_binary_sensor_availabilty_message(
-                        id=input_id,
+                    self._publish_input_ha_discovery(
+                        ha_type=BINARY_SENSOR,
+                        input_id=input_id,
                         name=name,
-                        config_helper=self._manager._config_helper,
                         device_class=existing_input.device_class,
                         area=area,
-                    )
-                    self._manager.publish_ha_discovery(
-                        id=input_id,
-                        ha_type=BINARY_SENSOR,
-                        payload=payload,
                     )
 
                 # Send current state if initial_send is enabled (so user doesn't need to restart)
@@ -417,17 +408,12 @@ class InputManager:
 
             # Register with Home Assistant
             if gpio.get(SHOW_HA, True):
-                payload = ha_binary_sensor_availabilty_message(
-                    id=input_id,
+                self._publish_input_ha_discovery(
+                    ha_type=BINARY_SENSOR,
+                    input_id=input_id,
                     name=name,
-                    config_helper=self._manager._config_helper,
                     device_class=input_device.device_class,
                     area=area,
-                )
-                self._manager.publish_ha_discovery(
-                    id=input_id,
-                    ha_type=BINARY_SENSOR,
-                    payload=payload,
                 )
 
             return input_device
@@ -436,7 +422,7 @@ class InputManager:
             _LOGGER.error("Failed to configure binary sensor on pin %s: %s", pin, err)
             return None
 
-    def get_input(self, pin: str) -> GpioEventButton | GpioInputBinarySensor | None:
+    def get_input(self, pin: str) -> GpioEventButton | GpioInputBinarySensor | RemoteInputBase | None:
         """Get input by pin.
 
         Args:
@@ -447,7 +433,7 @@ class InputManager:
         """
         return self._inputs.get(pin)
 
-    def get_all_inputs(self) -> dict[str, GpioEventButton | GpioInputBinarySensor]:
+    def get_all_inputs(self) -> dict[str, GpioEventButton | GpioInputBinarySensor | RemoteInputBase]:
         """Get all inputs.
 
         Returns:
@@ -455,7 +441,7 @@ class InputManager:
         """
         return self._inputs
 
-    def get_inputs_list(self) -> list[GpioEventButton | GpioInputBinarySensor]:
+    def get_inputs_list(self) -> list[GpioEventButton | GpioInputBinarySensor | RemoteInputBase]:
         """Get list of all inputs.
 
         Returns:
@@ -590,6 +576,7 @@ class InputManager:
                     timestamp=timestamp,
                     boneio_input=input_.boneio_input,
                     area=input_.area,
+                    remote=isinstance(input_, RemoteInputBase),
                 )
                 event = InputEvent(entity_id=input_.id, state=input_state, click_type=None, duration=None)
                 self._manager._event_bus.trigger_event(event)
@@ -632,7 +619,7 @@ class InputManager:
     SEQUENCE_CLICK_TYPES = {"double_then_long", "single_then_long", "double_then_single"}
 
     def _publish_input_event_to_mqtt(
-        self, input_instance: GpioEventButton | GpioInputBinarySensor, event: InputEvent
+        self, input_instance: GpioEventButton | GpioInputBinarySensor | RemoteInputBase, event: InputEvent
     ) -> None:
         """Publish input event to MQTT for Home Assistant.
 
@@ -830,217 +817,128 @@ class InputManager:
         """
         for pin, input_device in self._inputs.items():
             try:
-                # Use input_device.id (which is boneio_input or explicit id) instead of pin
                 input_id = input_device.id if hasattr(input_device, "id") else pin
                 input_name = input_device.name if hasattr(input_device, "name") else input_id
                 input_area = getattr(input_device, "area", None)
 
-                # Determine input type and send appropriate autodiscovery
+                # Determine HA type from input class/mode
                 if isinstance(input_device, GpioEventButton):
-                    payload = ha_event_availabilty_message(
-                        id=input_id,
+                    self._publish_input_ha_discovery(
+                        ha_type=EVENT_ENTITY,
+                        input_id=input_id,
                         name=input_name,
-                        config_helper=self._manager._config_helper,
                         device_class=input_device.device_class,
                         area=input_area,
                         mqtt_sequences=input_device.mqtt_sequences,
-                        enable_triple_click=getattr(input_device._detector, "_enable_triple_click", False),
-                    )
-                    self._manager.publish_ha_discovery(
-                        id=input_id,
-                        ha_type=EVENT_ENTITY,
-                        payload=payload,
+                        enable_triple_click=getattr(
+                            input_device._detector,
+                            "_enable_triple_click",
+                            False,
+                        ),
                     )
                 elif isinstance(input_device, RemoteInputBase):
-                    # Remote input (ESPHome, CAN, …) — mode determines HA entity type
-                    if input_device.mode == "event":
-                        payload = ha_event_availabilty_message(
-                            id=input_id,
-                            name=input_name,
-                            config_helper=self._manager._config_helper,
-                            device_class=input_device.device_class,
-                            area=input_area,
-                            mqtt_sequences=input_device.mqtt_sequences,
-                            enable_triple_click=getattr(
-                                getattr(input_device, "_detector", None),
-                                "_enable_triple_click", False,
-                            ),
-                        )
-                        self._manager.publish_ha_discovery(
-                            id=input_id,
-                            ha_type=EVENT_ENTITY,
-                            payload=payload,
-                        )
-                    else:
-                        payload = ha_binary_sensor_availabilty_message(
-                            id=input_id,
-                            name=input_name,
-                            config_helper=self._manager._config_helper,
-                            device_class=input_device.device_class,
-                            area=input_area,
-                        )
-                        self._manager.publish_ha_discovery(
-                            id=input_id,
-                            ha_type=BINARY_SENSOR,
-                            payload=payload,
-                        )
-                elif isinstance(input_device, GpioInputBinarySensor):
-                    payload = ha_binary_sensor_availabilty_message(
-                        id=input_id,
+                    ha_type = EVENT_ENTITY if input_device.mode == "event" else BINARY_SENSOR
+                    self._publish_input_ha_discovery(
+                        ha_type=ha_type,
+                        input_id=input_id,
                         name=input_name,
-                        config_helper=self._manager._config_helper,
                         device_class=input_device.device_class,
                         area=input_area,
+                        mqtt_sequences=getattr(input_device, "mqtt_sequences", None),
+                        enable_triple_click=getattr(
+                            getattr(input_device, "_detector", None),
+                            "_enable_triple_click",
+                            False,
+                        ),
                     )
-                    self._manager.publish_ha_discovery(
-                        id=input_id,
+                elif isinstance(input_device, GpioInputBinarySensor):
+                    self._publish_input_ha_discovery(
                         ha_type=BINARY_SENSOR,
-                        payload=payload,
+                        input_id=input_id,
+                        name=input_name,
+                        device_class=input_device.device_class,
+                        area=input_area,
                     )
             except Exception as err:
                 _LOGGER.error("Failed to send HA discovery for input %s: %s", pin, err)
 
-    def register_esphome_binary_sensors(self, remote_device_manager: Any) -> None:
-        """Register binary sensors from ESPHome remote devices as local inputs.
-
-        For each ESPHome remote device that has ``binary_sensors`` configured,
-        this method creates an :class:`ESPHomeBinarySensorInput` instance and
-        registers its callback on the remote device so that state changes are
-        routed through the standard ``InputManager`` event pipeline.
-
-        Should be called **after** :meth:`RemoteDeviceManager.initialize` so
-        that ESPHome devices and their connections are ready.
+    def register_remote_inputs(
+        self,
+        remote_device_manager: Any,
+        remote_inputs_config: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Register remote inputs — delegates to :class:`RemoteInputRegistrar`.
 
         Args:
             remote_device_manager: Initialized :class:`RemoteDeviceManager`.
+            remote_inputs_config: List of remote input dicts from
+                ``config['remote_inputs']``.
         """
-        from boneio.core.remote.base import RemoteDeviceProtocol
+        self._remote_registrar.register_all(self._inputs, remote_device_manager, remote_inputs_config)
 
-        count = 0
-        for device_id, device in remote_device_manager.get_all_devices().items():
-            if device.protocol != RemoteDeviceProtocol.ESPHOME_API:
-                continue
-
-            binary_sensors = getattr(device, "binary_sensors", [])
-            if not binary_sensors:
-                continue
-
-            for bs_cfg in binary_sensors:
-                sensor_id = bs_cfg.get("id")
-                if not sensor_id:
-                    continue
-
-                # Build input ID: custom id or auto-generated
-                input_id = bs_cfg.get("input_id") or f"{device_id}_{sensor_id}"
-                if input_id in self._inputs:
-                    _LOGGER.debug(
-                        "ESPHome binary sensor input '%s' already registered, skipping",
-                        input_id,
-                    )
-                    continue
-
-                name = bs_cfg.get("name") or input_id
-                mode = bs_cfg.get("mode", "binary_sensor")
-                raw_actions = bs_cfg.get("actions", {})
-
-                # Parse actions through Manager (resolves outputs, covers, etc.)
-                parsed_actions = self._manager.parse_actions(
-                    pin=input_id, actions=raw_actions
-                ) if raw_actions else {}
-
-                esphome_input = ESPHomeBinarySensorInput(
-                    id=input_id,
-                    name=name,
-                    device_id=device_id,
-                    sensor_id=sensor_id,
-                    event_bus=self._manager._event_bus,
-                    actions=parsed_actions,
-                    mode=mode,
-                    device_class=bs_cfg.get("device_class"),
-                    area=bs_cfg.get("area"),
-                    inverted=bs_cfg.get("inverted", False),
-                    show_in_ha=bs_cfg.get("show_in_ha", True),
-                    double_click_duration=bs_cfg.get("double_click_duration", 220),
-                    long_press_duration=bs_cfg.get("long_press_duration", 400),
-                    mqtt_sequences=bs_cfg.get("mqtt_sequences"),
-                    sequence_mode=bs_cfg.get("sequence_mode", "exclusive"),
-                    long_press_mqtt_mode=bs_cfg.get("long_press_mqtt_mode", "single"),
-                    enable_triple_click=bs_cfg.get("enable_triple_click", False),
-                )
-
-                # Register callback on the ESPHome device
-                device.register_binary_sensor_callback(
-                    sensor_id, esphome_input.on_remote_state_change
-                )
-
-                # Store as a regular input
-                self._inputs[input_id] = esphome_input
-
-                # HA Autodiscovery
-                if bs_cfg.get("show_in_ha", True):
-                    self._send_esphome_ha_discovery(esphome_input)
-
-                count += 1
-                _LOGGER.info(
-                    "Registered ESPHome binary sensor '%s' (device=%s, sensor=%s, mode=%s)",
-                    input_id, device_id, sensor_id, mode,
-                )
-
-        if count:
-            _LOGGER.info("Registered %d ESPHome binary sensor input(s)", count)
+    # Keep backward-compatible alias
+    register_esphome_binary_sensors = register_remote_inputs
 
     def unregister_remote_inputs(self) -> None:
         """Remove all remote (virtual) input instances.
 
         Used during remote device reload to clean up before re-registering.
-        Removes any input that is a :class:`RemoteInputBase` subclass.
         """
-        to_remove = [
-            k for k, v in self._inputs.items()
-            if isinstance(v, RemoteInputBase)
-        ]
-        for key in to_remove:
-            del self._inputs[key]
-        if to_remove:
-            _LOGGER.info("Unregistered %d remote input(s)", len(to_remove))
+        self._remote_registrar.unregister_all(self._inputs)
 
     # Keep backward-compatible alias
     unregister_esphome_binary_sensors = unregister_remote_inputs
 
-    def _send_esphome_ha_discovery(self, esphome_input: ESPHomeBinarySensorInput) -> None:
-        """Send HA autodiscovery for a single ESPHome binary sensor input.
+    # ------------------------------------------------------------------
+    # HA Discovery helpers
+    # ------------------------------------------------------------------
+
+    def _publish_input_ha_discovery(
+        self,
+        *,
+        ha_type: str,
+        input_id: str,
+        name: str,
+        device_class: str | None = None,
+        area: str | None = None,
+        mqtt_sequences: dict | None = None,
+        enable_triple_click: bool = False,
+    ) -> None:
+        """Build and publish HA autodiscovery payload for an input.
+
+        Handles both ``EVENT_ENTITY`` and ``BINARY_SENSOR`` types.
+        This is the single entry point for all HA discovery calls in
+        :class:`InputManager`, avoiding code duplication.
 
         Args:
-            esphome_input: The ESPHome binary sensor input to advertise.
+            ha_type: HA entity type constant (EVENT_ENTITY or BINARY_SENSOR).
+            input_id: Unique input identifier.
+            name: Human-readable name.
+            device_class: Optional HA device class (e.g. "motion", "door").
+            area: Optional area name.
+            mqtt_sequences: Event-mode only — MQTT sequence definitions.
+            enable_triple_click: Event-mode only — whether triple click is on.
         """
-        input_id = esphome_input.id
-        input_name = esphome_input.name
-        input_area = esphome_input.area
-
-        if esphome_input.mode == "event":
+        if ha_type == EVENT_ENTITY:
             payload = ha_event_availabilty_message(
                 id=input_id,
-                name=input_name,
+                name=name,
                 config_helper=self._manager._config_helper,
-                device_class=esphome_input.device_class,
-                area=input_area,
-                mqtt_sequences=esphome_input.mqtt_sequences,
-                enable_triple_click=getattr(
-                    getattr(esphome_input, "_detector", None),
-                    "_enable_triple_click", False,
-                ),
-            )
-            self._manager.publish_ha_discovery(
-                id=input_id, ha_type=EVENT_ENTITY, payload=payload,
+                device_class=device_class,
+                area=area,
+                mqtt_sequences=mqtt_sequences,
+                enable_triple_click=enable_triple_click,
             )
         else:
             payload = ha_binary_sensor_availabilty_message(
                 id=input_id,
-                name=input_name,
+                name=name,
                 config_helper=self._manager._config_helper,
-                device_class=esphome_input.device_class,
-                area=input_area,
+                device_class=device_class,
+                area=area,
             )
-            self._manager.publish_ha_discovery(
-                id=input_id, ha_type=BINARY_SENSOR, payload=payload,
-            )
+        self._manager.publish_ha_discovery(
+            id=input_id,
+            ha_type=ha_type,
+            payload=payload,
+        )

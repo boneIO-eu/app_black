@@ -1,3 +1,7 @@
+/**
+ * BinarySensorEventTable - Table for binary_sensor, event, local_inputs, and remote_inputs.
+ * Uses ActionDetails for expanded row rendering.
+ */
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useTableSort } from '@/hooks/useTableSort';
@@ -6,8 +10,7 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-import { normalizeCovers } from '../helpers/coverUtils';
-import { normalizeOutputs } from '../helpers/outputUtils';
+import ActionDetails, { hasActions } from '../components/ActionDetails';
 import type { BinarySensorEntity, EventEntity, AreaEntity, OutputEntity, CoverEntity } from '@/types/config';
 
 type BinarySensorOrEventEntity = BinarySensorEntity | EventEntity;
@@ -45,20 +48,9 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   const [filter, setFilter] = useState('');
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('binary_sensor_event');
 
-  /**
-   * Check if item has any actions (for binary_sensor: pressed/released, for event: single/double/long)
-   */
-  const hasActions = (item: BinarySensorOrEventEntity): boolean => {
-    if (!item.actions || typeof item.actions !== 'object') return false;
-    
-    // Check all possible action types (pressed, released, single, double, triple, long, sequences)
-    const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
-    
-    return actionTypes.some(type => {
-      const actions = item.actions?.[type];
-      return Array.isArray(actions) && actions.length > 0;
-    });
-  };
+  // Detect if this is a merged view (local_inputs or remote_inputs) by checking for _type metadata
+  const isMergedView = items.some((item: any) => item._type);
+  const isRemoteView = items.some((item: any) => item._device_name);
 
   // Filter items by name or boneio_input
   const filteredItems = useMemo(() => {
@@ -86,22 +78,13 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
     });
   }, [filteredItems, sortItems, allAreas]);
 
-  /**
-   * Toggle row expansion
-   */
   const toggleRow = (index: number) => {
     const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
+    if (newExpanded.has(index)) newExpanded.delete(index);
+    else newExpanded.add(index);
     setExpandedRows(newExpanded);
   };
 
-  /**
-   * Expand or collapse all rows that have actions
-   */
   const toggleExpandAll = () => {
     const indicesWithActions = items
       .map((item, index) => ({ item, index }))
@@ -116,211 +99,17 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   };
 
   const allExpanded = (() => {
-    const indicesWithActions = items
-      .map((item, index) => ({ item, index }))
-      .filter(({ item }) => hasActions(item))
-      .map(({ index }) => index);
-    return indicesWithActions.length > 0 && indicesWithActions.every(i => expandedRows.has(i));
+    const indices = items.map((item, index) => ({ item, index })).filter(({ item }) => hasActions(item)).map(({ index }) => index);
+    return indices.length > 0 && indices.every(i => expandedRows.has(i));
   })();
 
-  /**
-   * Format a single condition into a short label.
-   */
-  const formatConditionLabel = (cond: any): string => {
-    if (!cond?.type) return '';
-    if (cond.type === 'time') {
-      const parts: string[] = [];
-      if (cond.after) parts.push(`${cond.after}`);
-      if (cond.before) parts.push(`${cond.before}`);
-      return `🕐 ${parts.join('–') || '?'}`;
-    }
-    if (cond.type === 'date') {
-      const parts: string[] = [];
-      if (cond.after) parts.push(`${cond.after}`);
-      if (cond.before) parts.push(`${cond.before}`);
-      return `📅 ${parts.join('–') || '?'}`;
-    }
-    if (cond.type === 'state') {
-      const entity = cond.entity_id || cond.entity || '?';
-      const state = cond.state?.replace('is_', '') || '?';
-      return `🔍 ${entity} ${state}`;
-    }
-    return cond.type;
-  };
-
-  /**
-   * Render condition badges for an action.
-   */
-  const renderConditionBadges = (action: any) => {
-    const conditions: any[] = [];
-    let mode = 'and';
-
-    if (action.conditions?.list?.length) {
-      conditions.push(...action.conditions.list);
-      mode = action.conditions.mode || 'and';
-    } else if (action.condition) {
-      conditions.push(action.condition);
-    }
-
-    if (conditions.length === 0) return null;
-
-    const separator = mode === 'or' ? ` ${t('event_form.condition_mode_or').split(' ')[0]} ` : ' + ';
-
-    return (
-      <div className="flex items-center gap-1 mt-0.5">
-        <span className="badge badge-warning badge-xs gap-0.5 opacity-80" title={t('event_form.conditions')}>
-          {conditions.map((c, i) => (
-            <span key={i}>
-              {i > 0 && <span className="opacity-60">{separator}</span>}
-              {formatConditionLabel(c)}
-            </span>
-          ))}
-        </span>
-      </div>
-    );
-  };
-
-  /**
-   * Render action details for expanded row
-   */
-  const renderActionDetails = (item: BinarySensorOrEventEntity) => {
-    if (!item.actions) return null;
-
-    const actionTypes = ['pressed', 'released', 'single', 'double', 'triple', 'long', 'double_then_long', 'single_then_long', 'double_then_single'];
-    const availableActions = actionTypes.filter(type => {
-      const actions = item.actions?.[type];
-      return Array.isArray(actions) && actions.length > 0;
-    });
-
-    if (availableActions.length === 0) return null;
-
-    return (
-      <div className="p-4 bg-base-200 space-y-3">
-        {availableActions.map(type => {
-          const actions = item.actions?.[type];
-          // Get emoji and translation key for action type
-          const getActionLabel = (actionType: string) => {
-            switch (actionType) {
-              case 'pressed':
-                return `🔽 ${t('inputs.pressed_actions')}`;
-              case 'released':
-                return `🔼 ${t('inputs.released_actions')}`;
-              case 'single':
-                return `👆 ${t('event_form.single_click')}`;
-              case 'double':
-                return `👆👆 ${t('event_form.double_click')}`;
-              case 'triple':
-                return `👆👆👆 ${t('event_form.triple_click')}`;
-              case 'long':
-                return `⏱️ ${t('event_form.long_click')}`;
-              case 'double_then_long':
-                return `👆👆⏱️ ${t('event_form.double_then_long')}`;
-              case 'single_then_long':
-                return `👆⏱️ ${t('event_form.single_then_long')}`;
-              case 'double_then_single':
-                return `👆👆👆 ${t('event_form.double_then_single')}`;
-              default:
-                return actionType;
-            }
-          };
-
-          return (
-            <div key={type} className="space-y-1">
-              <div className="font-semibold text-sm">
-                {getActionLabel(type)}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {actions?.map((action, idx: number) => {
-                  // Build action details string
-                  const actionDetails = [];
-                  
-                  // Add target (output/cover/topic/remote device)
-                  let targetAreaName = '';
-                  if (action.boneio_output) {
-                    const normalizedOutputs = normalizeOutputs(allOutputs as any);
-                    const output = normalizedOutputs.find(o => o.id === action.boneio_output);
-                    const displayText = output?.name 
-                      ? `${output.name} (${action.boneio_output})` 
-                      : action.boneio_output;
-                    actionDetails.push(displayText);
-                    if (output?.area) {
-                      const area = allAreas.find(a => a.id === output.area);
-                      targetAreaName = area?.name || output.area;
-                    }
-                  } else if (action.boneio_cover) {
-                    const normalizedCovers = normalizeCovers(allCovers);
-                    const cover = normalizedCovers.find(c => c.id === action.boneio_cover);
-                    const displayText = cover?.name 
-                      ? `${cover.name} (${action.boneio_cover})` 
-                      : action.boneio_cover;
-                    actionDetails.push(displayText);
-                    if (cover?.area) {
-                      const area = allAreas.find(a => a.id === cover.area);
-                      targetAreaName = area?.name || cover.area;
-                    }
-                  } else if (action.topic) {
-                    actionDetails.push(action.topic);
-                  } else if (action.remote_device) {
-                    const remoteDevice = allRemoteDevices.find(rd => rd.id === action.remote_device);
-                    const deviceName = remoteDevice?.name || action.remote_device;
-                    
-                    // Find remote output or cover name
-                    let targetName = '';
-                    if (action.output_id) {
-                      const remoteOutput = remoteDevice?.mqtt?.outputs?.find(o => o.id === action.output_id);
-                      targetName = remoteOutput?.name 
-                        ? `${remoteOutput.name} (${action.output_id})` 
-                        : action.output_id;
-                    } else if (action.cover_id) {
-                      const remoteCover = remoteDevice?.mqtt?.covers?.find(c => c.id === action.cover_id);
-                      targetName = remoteCover?.name 
-                        ? `${remoteCover.name} (${action.cover_id})` 
-                        : action.cover_id;
-                    }
-                    
-                    actionDetails.push(`${deviceName}/${targetName}`);
-                  }
-                  
-                  // Add action type (ON/OFF/TOGGLE for outputs, OPEN/CLOSE/etc for covers)
-                  if (action.action_output) {
-                    actionDetails.push(action.action_output);
-                  } else if (action.action_cover) {
-                    actionDetails.push(action.action_cover);
-                  }
-                  
-                  return (
-                    <div key={idx} className="inline-flex flex-col">
-                      <div className="badge badge-primary badge-sm gap-1">
-                        <span className="font-mono text-xs">{action.action}</span>
-                        {actionDetails.length > 0 && (
-                          <span className="opacity-70">→ {actionDetails.join(' ')}</span>
-                        )}
-                        {targetAreaName && (
-                          <span className="opacity-50">[{targetAreaName}]</span>
-                        )}
-                      </div>
-                      {renderConditionBadges(action)}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  const extraCols = (isMergedView ? 1 : 0) + (isRemoteView ? 1 : 0);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <div className="flex-1">
-          <FilterInput 
-            filter={filter} 
-            setFilter={setFilter} 
-            totalCount={items.length} 
-            filteredCount={sortedItems.length} 
-          />
+          <FilterInput filter={filter} setFilter={setFilter} totalCount={items.length} filteredCount={sortedItems.length} />
         </div>
         <button
           onClick={toggleExpandAll}
@@ -338,9 +127,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
         {sortedItems.map(({ item, originalIndex }) => {
-          const areaName = item.area 
-            ? allAreas.find(a => a.id === item.area)?.name || item.area 
-            : '';
+          const areaName = item.area ? allAreas.find(a => a.id === item.area)?.name || item.area : '';
           const isExpanded = expandedRows.has(originalIndex);
           const itemHasActions = hasActions(item);
 
@@ -360,7 +147,9 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                 },
               ]}
             >
-              {isExpanded && itemHasActions && renderActionDetails(item)}
+              {isExpanded && itemHasActions && (
+                <ActionDetails item={item} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />
+              )}
             </MobileCard>
           );
         })}
@@ -373,7 +162,9 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
             <Tr>
               <Th className="w-8"> </Th>
               <SortableHeader column="name" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.id')}/{t('inputs.name')}</SortableHeader>
-              <SortableHeader column="boneio_input" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.boneio_input')}</SortableHeader>
+              <SortableHeader column="boneio_input" sortConfig={sortConfig} onToggleSort={toggleSort}>{isRemoteView ? 'ID' : t('inputs.boneio_input')}</SortableHeader>
+              {isMergedView && <Th>{t('common.type')}</Th>}
+              {isRemoteView && <Th>{t('remote_devices.device')}</Th>}
               <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.area')}</SortableHeader>
               <SortableHeader column="has_actions" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('inputs.has_actions')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
@@ -381,9 +172,7 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
           </Thead>
           <Tbody>
             {sortedItems.map(({ item, originalIndex }) => {
-              const areaName = item.area 
-                ? allAreas.find(a => a.id === item.area)?.name || item.area 
-                : '-';
+              const areaName = item.area ? allAreas.find(a => a.id === item.area)?.name || item.area : '-';
               const isExpanded = expandedRows.has(originalIndex);
               const itemHasActions = hasActions(item);
               
@@ -397,29 +186,34 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                           className="btn btn-ghost btn-xs p-1 min-h-0 h-6 w-6"
                           title={isExpanded ? 'Collapse' : 'Expand'}
                         >
-                          <svg
-                            className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
+                          <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </button>
                       )}
                     </Td>
-                    <Td 
-                      className={itemHasActions ? 'cursor-pointer' : ''}
-                      onClick={() => itemHasActions && toggleRow(originalIndex)}
-                    >
+                    <Td className={itemHasActions ? 'cursor-pointer' : ''} onClick={() => itemHasActions && toggleRow(originalIndex)}>
                       {item.name || `${t('array_table_widget.item')} ${originalIndex + 1}`}
                     </Td>
-                    <Td 
-                      className={`uppercase ${itemHasActions ? 'cursor-pointer' : ''}`}
-                      onClick={() => itemHasActions && toggleRow(originalIndex)}
-                    >
-                      {item.boneio_input || '-'}
+                    <Td className={`uppercase ${itemHasActions ? 'cursor-pointer' : ''}`} onClick={() => itemHasActions && toggleRow(originalIndex)}>
+                      {(item as any).boneio_input?.toUpperCase() || (item as any).id || '-'}
                     </Td>
+                    {isMergedView && (
+                      <Td>
+                        {(item as any)._type === 'binary_sensor' ? (
+                          <span className="badge badge-warning badge-sm">{t('sections.binary_sensor')}</span>
+                        ) : (item as any)._type === 'event' ? (
+                          <span className="badge badge-primary badge-sm">{t('sections.event')}</span>
+                        ) : null}
+                      </Td>
+                    )}
+                    {isRemoteView && (
+                      <Td>
+                        {(item as any)._device_name && (
+                          <span className="badge badge-accent badge-sm">{(item as any)._device_name}</span>
+                        )}
+                      </Td>
+                    )}
                     <Td>{areaName}</Td>
                     <Td>
                       {itemHasActions ? (
@@ -439,8 +233,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                   </Tr>
                   {isExpanded && itemHasActions && (
                     <tr>
-                      <td colSpan={6} className="p-0">
-                        {renderActionDetails(item)}
+                      <td colSpan={6 + extraCols} className="p-0">
+                        <ActionDetails item={item} allAreas={allAreas} allOutputs={allOutputs} allCovers={allCovers} allRemoteDevices={allRemoteDevices} />
                       </td>
                     </tr>
                   )}

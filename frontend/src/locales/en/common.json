@@ -108,6 +108,8 @@
   },
   "inputs": {
     "title": "Inputs",
+    "local_inputs": "Local Inputs",
+    "remote_inputs": "Remote Inputs",
     "name": "Name",
     "id": "ID",
     "boneio_input": "boneIO Input",
@@ -131,6 +133,13 @@
     "none": "None",
     "show_in_ha": "Show in Home Assistant",
     "show_in_ha_hint": "If you want you can disable discovering this input in HA",
+    "forward_to_ha": "Forward to Home Assistant",
+    "forward_to_ha_hint": "Forward remote input state to Home Assistant via MQTT discovery",
+    "device_input": "Input/Sensor ID",
+    "custom_input_id": "Custom Input ID",
+    "custom_input_id_placeholder": "e.g. salon_ruch",
+    "custom_input_id_hint": "Optional. Auto-generated from device_id + input_id if not set",
+    "remote_source": "Remote Source",
     "inverted": "Inverted",
     "inverted_hint": "Check if sensor type is inverted.",
     "initial_send": "Send initial state",
@@ -151,7 +160,15 @@
     "copied": "Copied",
     "long_press_to_edit": "Long press to edit settings",
     "go_to_settings": "Go to Settings",
-    "go_to_settings_confirm": "Do you want to edit settings for this input?"
+    "go_to_settings_confirm": "Do you want to edit settings for this input?",
+    "type_event_hint": "Multi-click detection: single, double, triple, long press",
+    "type_binary_sensor_hint": "Simple on/off: pressed and released actions",
+    "switch_type_warning_title": "Switch Input Type",
+    "switch_type_warning_message": "Switching the input type will transform the actions. Some actions may be lost if they have no equivalent in the target type.",
+    "actions_to_lose": "Actions that will be removed",
+    "switch_to_bs_hint": "Single click → Pressed. Double, triple, long press and sequences will be removed.",
+    "switch_to_event_hint": "Pressed → Single click. Released actions will be removed.",
+    "switch_type_confirm": "Switch Type"
   },
   "sensors": {
     "title": "Onewire Sensors",
@@ -640,6 +657,8 @@
     "areas": "Areas/Rooms",
     "binary_sensor": "Binary Sensors",
     "event": "Events",
+    "local_inputs": "Local Inputs",
+    "remote_inputs": "Remote Inputs",
     "output": "Outputs",
     "output_group": "Output Groups",
     "cover": "Covers",
@@ -653,6 +672,8 @@
       "areas": "Define rooms and areas to organize your devices in Home Assistant.",
       "binary_sensor": "Binary sensors react to press and release events. Use them for simple on/off inputs like door sensors or motion detectors.",
       "event": "Event entities handle button actions: single click, double click, and long press. Ideal for wall switches and buttons.",
+      "local_inputs": "All local GPIO inputs — binary sensors (press/release) and event entities (single/double/long click). Each input can work in either mode.",
+      "remote_inputs": "Binary sensors from remote ESPHome and CAN devices. Configure mode (binary sensor or event) and actions for each remote input.",
       "output": "Configure relay outputs to control lights, switches, and other devices.",
       "output_group": "Group multiple outputs together to control them as a single entity.",
       "cover": "Configure covers like blinds, shutters, and garage doors with open/close relays.",
@@ -974,7 +995,8 @@
     "showing": "Showing",
     "of": "of",
     "area": "Area",
-    "no_area": "No area"
+    "no_area": "No area",
+    "type": "Type"
   },
   "validation": {
     "id_required": "ID is required",
@@ -983,7 +1005,8 @@
     "id_no_spaces": "ID cannot contain spaces",
     "id_lowercase": "ID must be lowercase",
     "id_no_polish": "ID cannot contain Polish characters",
-    "errors": "Validation Errors"
+    "errors": "Validation Errors",
+    "required": "This field is required"
   },
   "modbus_helper": {
     "title": "Modbus Helper",
@@ -1395,6 +1418,7 @@
   },
   "remote_devices": {
     "title": "Remote Devices",
+    "device": "Device",
     "device_id": "Device ID",
     "id_hint": "Unique identifier used in actions (e.g. salon_boneio)",
     "device_name": "Device Name",
@@ -1449,6 +1473,9 @@
     "esphome_covers": "Covers",
     "esphome_binary_sensors": "Binary Sensors",
     "device_class": "Device Class",
+    "select_all": "Select all",
+    "select_none": "Deselect all",
+    "binary_sensors_hint": "Only selected sensors will be monitored. Unselected sensors are ignored to save resources.",
     "capabilities": "Capabilities",
     "no_discovered": "No devices discovered. boneIO devices appear automatically, click \"Scan ESPHome\", \"Scan WLED\" or \"Scan CAN\" to find devices.",
     "scan_esphome": "Scan ESPHome",
@@ -1463,7 +1490,9 @@
     "wled_led_count": "LEDs",
     "discover_segments": "Discover Segments",
     "wled_effects": "Effects",
-    "wled_palettes": "Palettes"
+    "wled_palettes": "Palettes",
+    "select_device": "Select device...",
+    "select_device_first": "Select device first..."
   },
   "table_sort": {
     "click_to_sort": "Click to sort",
