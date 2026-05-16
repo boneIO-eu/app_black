@@ -181,17 +181,22 @@ class BasicOutput(BasicMqtt):
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
-    async def async_turn_on(self, timestamp=None) -> None:
-        """Turn on the relay asynchronously."""
+    async def async_turn_on(self, timestamp=None) -> bool:
+        """Turn on the relay asynchronously.
+
+        Returns:
+            True if the relay was turned on, False if blocked by interlock.
+        """
         can_turn_on = self.check_interlock()
         if can_turn_on:
             await self._loop.run_in_executor(None, self.turn_on, timestamp)
         else:
-            _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
+            _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             #Workaround for HA is sendind state ON/OFF without physically changing the relay.
             asyncio.create_task(self.async_send_state(optimized_value=ON))
             await asyncio.sleep(0.01)
         asyncio.create_task(self.async_send_state())
+        return can_turn_on
         
 
     async def async_turn_off(self, timestamp=None) -> None:

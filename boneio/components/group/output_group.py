@@ -84,7 +84,7 @@ class OutputGroup(BasicOutput):
             self._state = state
             self._loop.create_task(self.async_send_state())
 
-    async def async_turn_on(self, timestamp=None) -> None:
+    async def async_turn_on(self, timestamp=None) -> bool:
         """Turn on all members in the group.
         
         Executes turn_on sequentially to prevent I2C bus contention
@@ -92,9 +92,16 @@ class OutputGroup(BasicOutput):
         
         Args:
             timestamp: Optional timestamp for the operation
+
+        Returns:
+            True if all members were turned on, False if any was blocked.
         """
+        all_ok = True
         for x in self._group_members:
-            await x.async_turn_on(timestamp=timestamp)
+            result = await x.async_turn_on(timestamp=timestamp)
+            if not result:
+                all_ok = False
+        return all_ok
 
     async def async_turn_off(self, timestamp=None) -> None:
         """Turn off all members in the group.

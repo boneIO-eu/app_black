@@ -190,15 +190,18 @@ class RemoteOutputBase:
     # Core control methods (duck-type compatible with BasicOutput)
     # ------------------------------------------------------------------
 
-    async def async_turn_on(self, timestamp: float | None = None) -> None:
+    async def async_turn_on(self, timestamp: float | None = None) -> bool:
         """Turn on the remote output.
 
         Args:
             timestamp: Optional timestamp for state tracking.
+
+        Returns:
+            True if the output was turned on, False on failure.
         """
         if not self._resolve_device_manager():
             _LOGGER.error("Remote output '%s' has no device manager, cannot turn on", self._id)
-            return
+            return False
 
         success = await self._device_manager.control_output(
             output_id=self._output_id,
@@ -211,6 +214,7 @@ class RemoteOutputBase:
             _LOGGER.debug("Remote output '%s' turned ON", self._id)
         else:
             _LOGGER.warning("Failed to turn ON remote output '%s'", self._id)
+        return success
 
     async def async_turn_off(self, timestamp: float | None = None) -> None:
         """Turn off the remote output.

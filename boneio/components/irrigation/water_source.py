@@ -49,19 +49,31 @@ class WaterSource:
     pump_stop_valve_delay_s: int = 0
     pump_switch_off_during_valve_open_delay: bool = False
 
-    async def activate(self, timestamp: float) -> None:
+    async def activate(self, timestamp: float) -> bool:
         """Turn ON all outputs for this water source.
 
         When output_start_delay_s > 0, outputs are activated sequentially
         (first to last) with the configured delay between each one.
 
+        If any output is blocked by an interlock, all already-activated
+        outputs are rolled back (turned off in reverse order).
+
         Args:
             timestamp: Current timestamp for relay control.
+
+        Returns:
+            True if all outputs were activated, False if any was blocked.
         """
         for i, output in enumerate(self.outputs):
-            await output.async_turn_on(timestamp=timestamp)
+            result = await output.async_turn_on(timestamp=timestamp)
+            if not result:
+                # Rollback: turn off already-activated outputs in reverse
+                for j in range(i - 1, -1, -1):
+                    await self.outputs[j].async_turn_off(timestamp=timestamp)
+                return False
             if self.output_start_delay_s > 0 and i < len(self.outputs) - 1:
                 await asyncio.sleep(self.output_start_delay_s)
+        return True
 
     async def deactivate(self, timestamp: float) -> None:
         """Turn OFF all outputs for this water source.
