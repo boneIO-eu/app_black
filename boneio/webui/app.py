@@ -154,6 +154,10 @@ app.include_router(templates_router)
 app.include_router(tools_router)
 app.include_router(migrations_router)
 
+# Extension modules (live in boneio/modules/<feature>/)
+from boneio.modules.expander import register_routes as register_expander_routes
+register_expander_routes(app)
+
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
 from boneio.webui.routes import covers as covers_module

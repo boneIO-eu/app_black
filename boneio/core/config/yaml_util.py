@@ -1267,39 +1267,22 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                 files = section_value.filename.split()
 
                 # Special case: output section using !include_files — split board outputs
-                # (-> first file) from expander outputs (EX_*) (-> remaining files) to keep
-                # them in their respective YAML files and avoid duplicate-ID errors.
+                # (-> first file) from expander outputs (EX_*) (-> remaining files).
+                # See boneio.modules.expander for the split + dedup logic.
                 if (
                     section == "output"
                     and section_value.tag == "!include_files"
                     and isinstance(cleaned_data, list)
                     and len(files) >= 2
                 ):
-                    def _dedup_by_id(items: list) -> list:
-                        """Dedup outputs by id/boneio_output. Prefer entries with `name`
-                        field set (these are user-edited; bare ones are stale duplicates)."""
-                        seen: dict[str, dict] = {}
-                        for o in items:
-                            oid = o.get("id") or o.get("boneio_output")
-                            if not oid:
-                                continue
-                            existing = seen.get(oid)
-                            if existing is None:
-                                seen[oid] = o
-                            elif ("name" in o) and ("name" not in existing):
-                                seen[oid] = o
-                            elif ("name" in o) and ("name" in existing) and len(o) > len(existing):
-                                seen[oid] = o
-                        return list(seen.values())
+                    from boneio.modules.expander import (
+                        dedup_outputs_prefer_named,
+                        split_outputs_for_includes,
+                    )
 
-                    board_outputs = _dedup_by_id([
-                        o for o in cleaned_data
-                        if not str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
-                    ])
-                    ex_outputs = _dedup_by_id([
-                        o for o in cleaned_data
-                        if str(o.get("id") or o.get("boneio_output") or "").startswith("EX_")
-                    ])
+                    board_raw, ex_raw = split_outputs_for_includes(cleaned_data)
+                    board_outputs = dedup_outputs_prefer_named(board_raw)
+                    ex_outputs = dedup_outputs_prefer_named(ex_raw)
 
                     # First file -> board outputs
                     first_path = os.path.join(config_dir, files[0])
@@ -1309,8 +1292,7 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
                     # Remaining files -> expander outputs (mirrored to each).
                     # SAFETY: if ex_outputs is empty, DO NOT touch existing expansion
-                    # files — preserves their contents during partial saves or
-                    # migrations where only board outputs are sent.
+                    # files — preserves their contents during partial saves.
                     if ex_outputs:
                         for fname in files[1:]:
                             ex_path = os.path.join(config_dir, fname)
