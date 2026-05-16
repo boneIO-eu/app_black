@@ -5,18 +5,20 @@ the latest payload seen per topic plus per-topic update counts, then
 unsubscribes. Used by the scan-and-assign workflow for arbitrary MQTT
 devices (e.g. ROPAM alarm panels) that don't follow boneIO's topic
 convention.
-
-Implementation: stub for Phase 0 — wired up in Phase 1.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
-from dataclasses import dataclass, field
+import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from boneio.core.messaging.mqtt import MQTTClient
+    from boneio.core.messaging.basic import MessageBus
+
+_LOGGER = logging.getLogger(__name__)
 
 
 PayloadType = Literal["json", "string", "numeric", "binary", "empty"]
@@ -42,7 +44,7 @@ def infer_payload_type(payload: str) -> tuple[PayloadType, dict | list | None]:
     if not payload:
         return "empty", None
     stripped = payload.strip()
-    # Try JSON first — covers objects, arrays, numbers, booleans, null, strings
+    # Try JSON first — covers objects and arrays
     if stripped and stripped[0] in "{[":
         try:
             parsed = json.loads(stripped)
@@ -64,14 +66,59 @@ def infer_payload_type(payload: str) -> tuple[PayloadType, dict | list | None]:
 
 
 async def scan_topics(
-    bus: "MQTTClient",
+    bus: "MessageBus",
     pattern: str,
     duration_s: float,
 ) -> list[ScanResult]:
     """Subscribe to ``pattern`` for ``duration_s`` seconds and return discovered topics.
 
-    NOTE: Phase 0 stub. Phase 1 implements the actual subscribe/collect/
-    unsubscribe loop on top of ``bus.subscribe_and_listen``. Returning an
-    empty list keeps importers happy and lets the routes layer exist.
+    NOTE on limitations (Phase 1 MVP):
+    1. boneIO's MQTT layer maps one callback per topic key. If ``pattern``
+       overlaps with an existing subscription, this scan WILL OVERWRITE that
+       subscription's callback for the duration of the scan, then restore
+       the broker subscription on unsubscribe — but the original callback
+       reference is lost. Restart boneIO if you scanned over a
+       production-critical subscription. To avoid: scan with a pattern
+       that doesn't overlap (e.g. a device-specific prefix like ``n64/#``).
+    2. ``handle_messages`` breaks on first-matching listener, so messages
+       arriving during the scan may be diverted from a more-specific
+       existing subscription to ours if iteration order favours us.
+
+    Returns a list of ``ScanResult`` sorted by topic, one entry per
+    distinct topic observed during the window.
     """
-    raise NotImplementedError("scan_topics implemented in Phase 1")
+    collected: dict[str, dict] = {}
+
+    async def collector(topic_str: str, payload_str: str) -> None:
+        existing = collected.get(topic_str)
+        if existing is None:
+            collected[topic_str] = {"last_payload": payload_str, "update_count": 1}
+        else:
+            existing["update_count"] += 1
+            existing["last_payload"] = payload_str
+
+    _LOGGER.info("MQTT scan starting: pattern=%s duration=%.1fs", pattern, duration_s)
+    await bus.subscribe_and_listen(pattern, collector)
+    try:
+        await asyncio.sleep(duration_s)
+    finally:
+        try:
+            await bus.unsubscribe_and_stop_listen(pattern)
+        except Exception as exc:
+            _LOGGER.warning("MQTT scan unsubscribe failed for %s: %s", pattern, exc)
+
+    results: list[ScanResult] = []
+    for topic, info in collected.items():
+        payload_type, parsed = infer_payload_type(info["last_payload"])
+        results.append(
+            ScanResult(
+                topic=topic,
+                last_payload=info["last_payload"],
+                payload_type=payload_type,
+                update_count=info["update_count"],
+                parsed_json=parsed,
+            )
+        )
+    results.sort(key=lambda r: r.topic)
+    _LOGGER.info("MQTT scan complete: %d topics discovered", len(results))
+    return results
