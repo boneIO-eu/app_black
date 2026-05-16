@@ -1914,5 +1914,36 @@
     "apply_button": "Apply pending migrations",
     "apply_started": "Migration apply started. Refresh in a moment.",
     "apply_failed": "Apply failed: {{error}}"
+  },
+  "actions": {
+    "delay_execution": "Delay execution",
+    "delay_execution_hint": "Wait before executing this action. Timer resets if cancel event occurs.",
+    "delay_time": "Delay time",
+    "delay_cancel_on": "Cancel delay on events",
+    "delay_cancel_on_hint": "Cancel pending delayed action when these events occur on this input.",
+    "event_pressed": "Pressed (ON)",
+    "event_released": "Released (OFF)"
+  },
+  "blueprints": {
+    "title": "Action Templates",
+    "subtitle": "Quick configuration for common binary sensor use cases",
+    "use_template": "Use template",
+    "back_to_list": "Back to list",
+    "select_output": "Output to control",
+    "select_output_placeholder": "Select output...",
+    "off_delay": "Delay before OFF",
+    "off_delay_hint": "Time to wait after motion stops before turning off the output. Timer resets if motion is detected again.",
+    "preview": "Preview",
+    "preview_on": "Motion detected",
+    "preview_off": "Motion stopped",
+    "preview_after": "after",
+    "preview_cancel": "Timer resets if motion is detected again during delay",
+    "apply": "Apply template",
+    "motion_light_title": "Motion sensor → Light",
+    "motion_light_desc": "Turn on output when motion detected. Turn off after delay when motion stops. Timer resets on re-detection.",
+    "door_sensor_title": "Door/window sensor",
+    "door_sensor_desc": "Turn on output when opened, turn off when closed. No delay.",
+    "doorbell_title": "Doorbell / buzzer",
+    "doorbell_desc": "Turn on output while pressed, turn off when released."
   }
 }

@@ -1913,5 +1913,36 @@
     "apply_button": "Zastosuj oczekujące migracje",
     "apply_started": "Stosowanie migracji rozpoczęte. Odśwież za chwilę.",
     "apply_failed": "Stosowanie nie powiodło się: {{error}}"
+  },
+  "actions": {
+    "delay_execution": "Opóźnione wykonanie",
+    "delay_execution_hint": "Odczekaj przed wykonaniem akcji. Timer resetuje się przy zdarzeniu anulującym.",
+    "delay_time": "Czas opóźnienia",
+    "delay_cancel_on": "Anuluj opóźnienie przy zdarzeniach",
+    "delay_cancel_on_hint": "Anuluj oczekującą opóźnioną akcję, gdy te zdarzenia wystąpią na tym wejściu.",
+    "event_pressed": "Wciśnięte (ON)",
+    "event_released": "Zwolnione (OFF)"
+  },
+  "blueprints": {
+    "title": "Szablony akcji",
+    "subtitle": "Szybka konfiguracja typowych zastosowań czujników binarnych",
+    "use_template": "Użyj szablonu",
+    "back_to_list": "Powrót do listy",
+    "select_output": "Wyjście do sterowania",
+    "select_output_placeholder": "Wybierz wyjście...",
+    "off_delay": "Opóźnienie przed wyłączeniem",
+    "off_delay_hint": "Czas oczekiwania po ustaniu ruchu przed wyłączeniem wyjścia. Timer resetuje się przy ponownym wykryciu ruchu.",
+    "preview": "Podgląd",
+    "preview_on": "Ruch wykryty",
+    "preview_off": "Ruch ustał",
+    "preview_after": "po",
+    "preview_cancel": "Timer resetuje się przy ponownym wykryciu ruchu w trakcie odliczania",
+    "apply": "Zastosuj szablon",
+    "motion_light_title": "Czujka ruchu → Światło",
+    "motion_light_desc": "Włącz wyjście przy wykryciu ruchu. Wyłącz po opóźnieniu gdy ruch ustanie. Timer resetuje się przy ponownym wykryciu.",
+    "door_sensor_title": "Czujnik drzwi/okna",
+    "door_sensor_desc": "Włącz wyjście przy otwarciu, wyłącz przy zamknięciu. Bez opóźnienia.",
+    "doorbell_title": "Dzwonek / buzzer",
+    "doorbell_desc": "Włącz wyjście gdy wciśnięte, wyłącz po zwolnieniu."
   }
 }

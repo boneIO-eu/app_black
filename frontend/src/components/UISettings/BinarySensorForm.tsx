@@ -3,6 +3,7 @@ import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
+import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -68,6 +69,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+  const [showBlueprint, setShowBlueprint] = useState(false);
+
+  /** Apply a blueprint patch — merges device_class and actions into current data */
+  const applyBlueprint = (patch: Partial<BinarySensorEntity>) => {
+    onChange({ ...data, ...patch });
+    // Switch to pressed tab to show the result
+    setActiveTab('pressed');
+  };
 
   // Get all validation errors
   const getValidationErrors = (): string[] => {
@@ -244,6 +253,26 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         actionCoverOptions={actionCoverOptions}
         onApply={onChange}
       />
+
+      {/* Blueprint Picker Button */}
+      <button
+        type="button"
+        className="btn btn-outline btn-sm w-full gap-2 border-dashed border-primary/40 text-primary hover:bg-primary/10"
+        onClick={() => setShowBlueprint(true)}
+      >
+        📋 {t('blueprints.use_template')}
+      </button>
+
+      {showBlueprint && (
+        <BlueprintPicker
+          onApply={applyBlueprint}
+          onClose={() => setShowBlueprint(false)}
+          allOutputs={allOutputs}
+          allAreas={allAreas}
+          savedOutputs={savedOutputs}
+          savedOutputGroups={savedOutputGroups}
+        />
+      )}
 
       <TabsBox
         name="binary_sensor_tabs"

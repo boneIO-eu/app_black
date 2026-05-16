@@ -20,7 +20,7 @@ const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
 };
 
 /** Fields shared across all action types (always preserved). */
-const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repeat_interval', 'condition', 'conditions'];
+const SHARED_FIELDS = ['action', 'min_duration', 'max_duration', 'repeat', 'repeat_interval', 'condition', 'conditions', 'delay', 'delay_cancel_on'];
 
 /**
  * Returns a clean action object containing only fields valid for the given action type.
