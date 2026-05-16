@@ -149,8 +149,8 @@ const InputTypeSwitcher: React.FC<InputTypeSwitcherProps> = ({ currentType, data
   return (
     <>
       {/* Segmented control */}
-      <div className="flex items-center gap-3 p-3 bg-base-200 rounded-lg">
-        <span className="text-sm font-medium text-base-content/70">{t('common.type')}:</span>
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-base-200 rounded-lg">
+        <span className="text-sm font-medium text-base-content/70 shrink-0">{t('common.type')}:</span>
         <div className="join">
           <button
             type="button"
@@ -167,7 +167,7 @@ const InputTypeSwitcher: React.FC<InputTypeSwitcherProps> = ({ currentType, data
             🔘 {t('sections.binary_sensor')}
           </button>
         </div>
-        <span className="text-xs text-base-content/50">
+        <span className="text-xs text-base-content/50 basis-full sm:basis-auto">
           {currentType === 'event'
             ? t('inputs.type_event_hint')
             : t('inputs.type_binary_sensor_hint')}
