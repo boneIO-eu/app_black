@@ -205,14 +205,14 @@
     "filter_value": "Wartość",
     "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out",
     "groups": {
-      "adc": "Czujniki ADC",
+      "adc": "Sensory ADC",
       "board": "Czujniki sterownika",
       "system": "Monitoring systemu",
       "other": "Pozostałe czujniki"
     }
   },
   "adc": {
-    "title": "Czujniki ADC",
+    "title": "Sensory ADC",
     "pin": "Pin",
     "pin_required": "Pin ADC jest wymagany",
     "pin_duplicate": "Ten pin jest już używany",
@@ -636,7 +636,7 @@
     "remote_devices": "Zdalne Urządzenia",
     "modbus_devices": "Urządzenia Modbus",
     "sensor": "Czujki Onewire",
-    "adc": "Czujniki ADC",
+    "adc": "Sensory ADC",
     "virtual_energy_sensor": "Wirtualne Sensory Energii",
     "template": "Szablony",
     "descriptions": {

@@ -82,7 +82,7 @@ function ArraySectionContent({
       deviceType={formData.boneio?.device_type}
       allBinarySensors={formData.binary_sensor || (formData.local_inputs || []).filter((i: any) => i._type === 'binary_sensor')}
       allEvents={formData.event || (formData.local_inputs || []).filter((i: any) => i._type === 'event')}
-      allOutputs={formData.output || []}
+      allOutputs={[...(formData.output || []), ...(formData.remote_outputs || [])]}
       allOutputGroups={formData.output_group || []}
       allCovers={formData.cover || []}
       allAreas={formData.areas || []}
@@ -95,7 +95,7 @@ function ArraySectionContent({
       allVirtualEnergySensors={formData.virtual_energy_sensor || []}
       allRemoteDevices={formData.remote_devices || []}
       allRemoteInputs={formData.remote_inputs || []}
-      savedOutputs={originalData.output || []}
+      savedOutputs={[...(originalData.output || []), ...(originalData.remote_outputs || [])]}
       savedOutputGroups={originalData.output_group || []}
       savedCovers={normalizeCovers(originalData.cover || [])}
       onUpdateEvents={(newEvents) => onSectionChange('event', newEvents)}
