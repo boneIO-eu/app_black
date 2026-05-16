@@ -1,0 +1,164 @@
+# Work Log — BoneIO fork (M4rv-dev/app_black)
+
+> **Read this first** when starting a new Claude Code session on this repo. It carries
+> context that survives across sessions, model switches, and CLI restarts.
+
+---
+
+## Project overview
+
+This is a **fork** of `boneIO-eu/app_black` maintained at `github.com/M4rv-dev/app_black`. The upstream
+ships v1.4.0dev2; we extend it with the **expansion-board** feature (adding I²C MCP23017
+expanders that double available outputs). The goal is to ship features upstream **doesn't have**,
+while staying mergeable with their releases.
+
+### Topology
+
+| Remote | URL | Access |
+|--------|-----|--------|
+| `origin` | github.com/boneIO-eu/app_black | read-only (upstream) |
+| `fork` | github.com/M4rv-dev/app_black | push (our fork) |
+
+| Branch | Purpose |
+|--------|---------|
+| `dev-debian13` | Tracks upstream main; our base for merges |
+| `feat/expansion-board` | Active feature branch (current) |
+
+### Deployment
+
+- **Target device**: BoneIO @ `192.168.1.22` (BeagleBone Debian 13, user `boneio`)
+- **Deploy script**: `./deploy_backend.sh` (gitignored, contains password). Rsyncs the whole
+  `boneio/` Python package to `/home/boneio/boneio/venv/lib/python3.13/site-packages/boneio/`,
+  then restarts `boneio.service`.
+- **Frontend**: Vite dev server at `localhost:5173` (proxies to device's API on `:8090` and
+  Caddy/Node-RED on `:8091`). `.env.local` has `VITE_API_URL` + `VITE_NODERED_URL`.
+- **Web UI on device**: direct Hypercorn on `:8090` OR via Caddy proxy on `:8091` (Caddy proxies
+  BoneIO UI + provides Node-RED at `/nodered/`). For Node-RED tab to appear, use `:8091`.
+
+---
+
+## Architecture decisions
+
+### Module pattern (CORE PRINCIPLE)
+
+**BoneIO upstream is treated as core engine; our extensions live in dedicated `modules/` folders
+with strict public APIs.** Touching upstream files is allowed only for 1 import + 1-2 use lines.
+
+Why: BoneIO will keep releasing 1.4.x / 1.5; embedding logic in their files = merge conflicts
+on every release. The module pattern keeps our merge surface minimal.
+
+```
+frontend/src/components/UISettings/modules/<feature>/
+├── index.ts            ← public API — upstream imports only from here
+├── components/         ← Presentational (sam render)
+├── hooks/              ← stateful + side-effects + fetch
+├── helpers/            ← pure functions
+├── types/              ← TypeScript types
+└── constants/
+
+boneio/modules/<feature>/
+├── __init__.py         ← public API
+├── yaml_util.py        ← pure helpers
+└── routes.py           ← endpoints + register_routes(app)
+```
+
+### Future re-skin (NOT in current scope)
+
+A future project will provide an alternative UI as a **wrapper layer** over both boneIO
+components AND our modules — written as additional modules, never modifying existing code.
+Our modules MUST keep logic in hooks/helpers (not in components) so the re-skin can swap
+components without touching logic.
+
+### Memory & plans
+
+- **Memory dir**: `~/.claude/projects/-Users-mariuszskupinski-Documents-BoneIO-app-black/memory/`
+  (`MEMORY.md` index auto-loaded by Claude)
+- **Active plan**: `~/.claude/plans/boardy-s-takie-jakie-starry-sun.md` (the modules refactor)
+
+---
+
+## Active scope
+
+**Current task**: Refactor expansion-board feature into `modules/expander/` pattern.
+
+**Why**: After merging upstream v1.4.0dev2 (commit `fbe2140`), audit revealed our code is scattered
+across 7+ upstream files. Each future upstream release will conflict on the same spots. Module
+pattern eliminates that.
+
+**Phase status** (granular commits, easy to revert each):
+
+| # | Phase | Status |
+|---|-------|--------|
+| 0a | Scaffold modules/expander/ + types + constants + index.ts | ✅ |
+| 0b | Move expanderBoards + outputMcpUtils into module; add isExpanderOutput + getOutputStats; shim old paths | ✅ |
+| 0c | Backend scaffold `boneio/modules/expander/` + yaml_util.py + routes.py + register in app.py | ✅ |
+| A1 | Extract `useExpanderManager` + `<ExpanderManager />` from `BoneIOForm.tsx` | ✅ |
+| A2 | Extract `useMcpHardware` + `<McpHardwareFields />` from `OutputForm.tsx` | ✅ |
+| A3 | Extract `useOutputCapacity` + `<OutputAddButton />` from `ArrayTableWidget.tsx` | ✅ |
+| A4 | Derive `outputKind` via `useOutputKind` (drop useState) | ✅ |
+| B | Dedupe EX_ detection, MCP addresses, remove dead `onExpanderAdded` prop | ✅ |
+| — | Verify (tsc + build + python smoke + anti-duplicate greps) | ✅ |
+| — | Deploy + manual smoke test in UI | ⏳ next |
+| Future | Build/inject script POC (auto-apply modules onto fresh upstream) | 📋 idea |
+
+---
+
+## Timeline
+
+### 2026-05-15 → 2026-05-16 — Session 1 (upstream merge + module refactor)
+
+**Goal**: Catch up with upstream v1.4.0dev2 (was 14 commits behind), preserve our expansion-board
+work, then refactor for future-merge friendliness.
+
+**Done**:
+- ✅ Configured git: `.gitignore` for `deploy_backend.sh` (password) + `.DS_Store`
+- ✅ Created `feat/expansion-board` branch
+- ✅ 5 thematic local commits before merge (backend split-write, BoneIO settings UI, OutputForm with
+  TabsBox, UI polish, translations)
+- ✅ Merged upstream `dev-debian13` → 6 manual conflict resolutions:
+  - `ArrayTableWidget.tsx` — kept upstream's `FormRenderer` dispatch, extended with `outputKind`+`mcp23017` props
+  - `UISettings.tsx` — kept hex-string normalization for mcp23017 addresses (over upstream's integer-only)
+  - `SectionContent.tsx` — kept both `mcp23017` (ours) + `allRemoteInputs` (upstream) props
+  - `FormRenderer.tsx` — extended to forward `outputKind` + `mcp23017` to OutputForm
+  - `helpers/itemValidation.ts` — extended with `getOutputStats` + expander capacity logic
+- ✅ Merge commit `fbe2140` on `feat/expansion-board`
+- ✅ TypeScript clean, frontend build clean, Python import smoke ok
+- ✅ Installed `gh` CLI, forked upstream to `M4rv-dev/app_black`, pushed branch
+- ✅ Rewrote `deploy_backend.sh` to rsync full `boneio/` package (instead of just 2 files)
+- ✅ Deployed to BoneIO device: now running 1.4.0dev2 (was 1.3.1)
+- ✅ Hypercorn responds 200 on `:8090`, Caddy proxy on `:8091` works for Node-RED
+- ✅ Diagnosed missing Node-RED tab in dev: fixed by adding `VITE_NODERED_URL=http://192.168.1.22:8091` to `.env.local`
+
+**Architecture audit** (after merge, before module refactor):
+- 3 critical: BoneIOForm (577 lines, ~120 of ours), OutputForm (994 lines, ~150 inner McpHardwareFields), yaml_util.py (split-write embedded ~70 lines)
+- 5 duplications: `startsWith('EX_')` × 6 in 5 files, `ADDRESS_OPTIONS` × 2, include-pattern regex × 2 Python, `getOutputStats` IIFE in JSX, `useState outputKind` (should be derived)
+- Missing types: `any[]` in 5 files
+- Dead code: `BoneIOForm.tsx:37` deprecated `onExpanderAdded` prop
+
+**Plan**: Modules pattern refactor — see `~/.claude/plans/boardy-s-takie-jakie-starry-sun.md`.
+
+**In progress (current state at end of session)**:
+- All refactor phases (0a → B) complete. Module pattern fully applied.
+- Frontend `modules/expander/`: 14 files, ~1065 lines (4 components + 4 hooks + 2 helpers + 3 types + 1 constants + index.ts)
+- Backend `boneio/modules/expander/`: 3 files, ~351 lines (yaml_util.py + routes.py + __init__.py with lazy import for FastAPI)
+- BoneIO files slim-down: 7 upstream files lost 657 lines total (–205 in BoneIOForm, –161 in OutputForm, –177 in routes/config.py, etc.). Each retains only 1-2 import + use lines pointing to module.
+- TypeScript + frontend build + Python imports all green. Anti-duplicate checklist 100% clean (no `startsWith('EX_')` outside module, no duplicated MCP address arrays, no inline include-pattern regex, no `useState outputKind`, no `any[]` in module files).
+- Next: deploy to BoneIO + manual smoke test, then commit phases granularly.
+
+---
+
+## How to update this log
+
+After each meaningful work block (typically end of a session, or when finishing a phase):
+
+1. **Update "Active scope"** — current task, phase status table
+2. **Append to "Timeline"** — new dated entry with:
+   - Goal of the session
+   - What was done (✅ bullets)
+   - Any decisions made / patterns introduced
+   - Current state at end (so next session picks up cleanly)
+3. **Mention any new files of architectural significance** in "Architecture decisions"
+4. **Don't delete history** — append, don't rewrite. Old entries are evidence of why decisions were made.
+
+Update this file **even if user didn't ask** — it's the persistent context source. Memory pointer
+to it in `~/.claude/projects/.../memory/project_work_log.md`.
