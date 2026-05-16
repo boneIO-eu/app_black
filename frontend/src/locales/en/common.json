@@ -1944,6 +1944,8 @@
     "door_sensor_title": "Door/window sensor",
     "door_sensor_desc": "Turn on output when opened, turn off when closed. No delay.",
     "doorbell_title": "Doorbell / buzzer",
-    "doorbell_desc": "Turn on output while pressed, turn off when released."
+    "doorbell_desc": "Turn on output while pressed, turn off when released.",
+    "quick_setup": "Quick action setup",
+    "quick_setup_hint": "Configure actions for motion sensor, door sensor, doorbell — one click"
   }
 }

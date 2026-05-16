@@ -1943,6 +1943,8 @@
     "door_sensor_title": "Czujnik drzwi/okna",
     "door_sensor_desc": "Włącz wyjście przy otwarciu, wyłącz przy zamknięciu. Bez opóźnienia.",
     "doorbell_title": "Dzwonek / buzzer",
-    "doorbell_desc": "Włącz wyjście gdy wciśnięte, wyłącz po zwolnieniu."
+    "doorbell_desc": "Włącz wyjście gdy wciśnięte, wyłącz po zwolnieniu.",
+    "quick_setup": "Szybka konfiguracja akcji",
+    "quick_setup_hint": "Skonfiguruj akcje dla czujki ruchu, czujnika drzwi, dzwonka — jednym kliknięciem"
   }
 }
