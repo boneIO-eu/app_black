@@ -288,11 +288,11 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         )
         await self.set_tilt(tilt_position=0)
 
-    async def close(self) -> None:
-        """Close venetian cover.
+    def _save_tilt_for_restore(self) -> None:
+        """Save current tilt position for later restoration.
 
-        If tilt_restore_after_close is enabled, saves the current tilt
-        position so it can be restored after the closing movement finishes.
+        Called before any closing movement when tilt_restore_after_close
+        is enabled. Clears saved value if tilt is already at 0%.
         """
         if self._tilt_restore_after_close and self._tilt_position > 0:
             self._tilt_before_close = self._tilt_position
@@ -303,7 +303,31 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             )
         else:
             self._tilt_before_close = None
+
+    async def close(self) -> None:
+        """Close venetian cover.
+
+        If tilt_restore_after_close is enabled, saves the current tilt
+        position so it can be restored after the closing movement finishes.
+        """
+        self._save_tilt_for_restore()
         await super().close()
+
+    async def set_cover_position(self, position: int) -> None:
+        """Set cover position with tilt restore support.
+
+        When moving to a lower position (closing direction) and
+        tilt_restore_after_close is enabled, saves the current tilt
+        so it can be restored after the movement finishes.
+
+        Args:
+            position: Target position (0-100).
+        """
+        if position < self._position:
+            self._save_tilt_for_restore()
+        else:
+            self._tilt_before_close = None
+        await super().set_cover_position(position)
 
     async def open(self) -> None:
         """Open venetian cover.
