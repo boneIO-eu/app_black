@@ -165,6 +165,10 @@ class Manager:
         # Hardware errors storage for WebUI
         self._hardware_errors: list[dict[str, Any]] = []
 
+        # Pending delayed actions: key = "input_id" -> list of asyncio.Tasks
+        # Used by the delay/delay_cancel_on action system (e.g. motion sensors)
+        self._pending_delayed_actions: dict[str, list[asyncio.Task]] = {}
+
         # Startup status tracking
         self._startup_status: str = "initializing"
         self._startup_complete: bool = False
@@ -646,7 +650,7 @@ class Manager:
         from boneio.core.utils import strip_accents
 
         def _copy_long_press_meta(parsed_action: dict, action_definition: dict) -> None:
-            """Copy long press meta fields (duration thresholds, repeat) and conditions to parsed action."""
+            """Copy long press meta fields (duration thresholds, repeat), delay, and conditions to parsed action."""
             for key in ("min_duration", "max_duration"):
                 if action_definition.get(key) is not None:
                     parsed_action[key] = action_definition[key]
@@ -658,6 +662,17 @@ class Manager:
                     parsed_action["repeat_interval"] = ri.total_milliseconds
                 else:
                     parsed_action["repeat_interval"] = ri
+            # Copy delay fields for cancelable timer support
+            delay_val = action_definition.get("delay")
+            if delay_val is not None:
+                if hasattr(delay_val, "total_in_seconds"):
+                    parsed_action["delay"] = delay_val.total_in_seconds
+                elif isinstance(delay_val, (int, float)):
+                    parsed_action["delay"] = float(delay_val)
+                _LOGGER.debug("Action has delay: %.1fs", parsed_action.get("delay", 0))
+            cancel_on = action_definition.get("delay_cancel_on")
+            if cancel_on:
+                parsed_action["delay_cancel_on"] = cancel_on
             # Copy condition/conditions for conditional execution
             for key in ("condition", "conditions"):
                 if action_definition.get(key) is not None:
@@ -860,6 +875,7 @@ class Manager:
         duration: float | None = None,
         executed_actions: set[int] | None = None,
         last_repeat_times: dict[int, float] | None = None,
+        input_id: str | None = None,
     ) -> set[int]:
         """Execute list of actions.
 
@@ -868,6 +884,7 @@ class Manager:
             duration: Current duration in seconds (for long press threshold checking)
             executed_actions: Set of action indices already executed (for long press)
             last_repeat_times: Dict mapping action index to last execution duration_ms (for repeat throttling)
+            input_id: Optional input entity ID (used for delay cancel tracking)
 
         Returns:
             Set of action indices that were executed
@@ -879,7 +896,6 @@ class Manager:
 
         duration_ms = (duration or 0) * 1000  # Convert to ms
 
-        start_time = time.time()
         # Compute datetime once for all condition evaluations in this batch
         now_dt = datetime.now()
 
@@ -923,141 +939,23 @@ class Manager:
                 _LOGGER.debug("Action %d: condition not met, skipping", idx)
                 continue
 
-            action = action_definition.get("action")
-
-            if action == MQTT:
-                action_topic = action_definition.get("action_topic")
-                action_payload = action_definition.get("action_mqtt_msg")
-                if action_topic and action_payload:
-                    self.send_message(topic=action_topic, payload=action_payload, retain=False)
+            # Handle delayed actions
+            delay_seconds = action_definition.get("delay")
+            if delay_seconds and delay_seconds > 0 and input_id:
+                _LOGGER.info(
+                    "Scheduling delayed action %d for input '%s': %.1fs delay",
+                    idx,
+                    input_id,
+                    delay_seconds,
+                )
+                task = asyncio.create_task(
+                    self._run_delayed_action(input_id, action_definition, delay_seconds)
+                )
+                self._pending_delayed_actions.setdefault(input_id, []).append(task)
+                # Don't mark as executed — will be executed after delay
                 continue
 
-            elif action == OUTPUT:
-                output_id = action_definition.get("pin") or action_definition.get("boneio_output")
-                output = self.outputs.get_output(output_id) or self.outputs.get_output_group(output_id)
-                if not output:
-                    _LOGGER.warning("Output %s not found for action", output_id)
-                    continue
-                action_to_execute = action_definition.get("action_to_execute")
-                _LOGGER.debug(
-                    "Executing action %s for output %s. Duration: %s",
-                    action_to_execute,
-                    output.name if hasattr(output, "name") else output_id,
-                    time.time() - start_time,
-                )
-                _f = getattr(output, action_to_execute)
-                await _f()
-
-            elif action == COVER:
-                cover_id = action_definition.get("pin") or action_definition.get("boneio_cover")
-                cover = self.covers.get_cover(cover_id)
-                if not cover:
-                    _LOGGER.warning("Cover %s not found for action", cover_id)
-                    continue
-                action_to_execute = action_definition.get("action_to_execute")
-                extra_data = action_definition.get("extra_data", {})
-                # Filter extra_data to only pass params accepted by each action
-                filtered_data = filter_cover_extra_data(action_to_execute, extra_data)
-                _LOGGER.debug(
-                    "Executing action %s for cover %s. Duration: %s",
-                    action_to_execute,
-                    cover.name if hasattr(cover, "name") else cover_id,
-                    time.time() - start_time,
-                )
-                _f = getattr(cover, action_to_execute)
-                await _f(**filtered_data)
-
-            elif action == OUTPUT_OVER_MQTT:
-                boneio_id = action_definition.get("boneio_id")
-                output_id = action_definition.get("boneio_output") or action_definition.get("pin")
-                action_output = action_definition.get("action_output")
-                self.send_message(
-                    topic=f"{boneio_id}/cmd/output/{output_id}/set",
-                    payload=action_output,
-                    retain=False,
-                )
-
-            elif action == COVER_OVER_MQTT:
-                boneio_id = action_definition.get("boneio_id")
-                cover_id = action_definition.get("boneio_cover") or action_definition.get("pin")
-                action_cover = action_definition.get("action_cover")
-                self.send_message(
-                    topic=f"{boneio_id}/cmd/cover/{cover_id}/set",
-                    payload=action_cover,
-                    retain=False,
-                )
-
-            elif action == REMOTE_OUTPUT:
-                # Control output on remote device (supports ESPHome lights with brightness/color and WLED effects)
-                remote_device_id = action_definition.get("remote_device")
-                output_id = action_definition.get("output_id")
-                action_output = action_definition.get("action_output", "TOGGLE")
-
-                # Clamp transition to repeat_interval to avoid overlapping animations
-                transition_val = action_definition.get("transition")
-                if transition_val and action_definition.get("repeat"):
-                    repeat_interval = action_definition.get("repeat_interval")
-                    if repeat_interval:
-                        ri_seconds = (
-                            repeat_interval.total_in_seconds
-                            if hasattr(repeat_interval, "total_in_seconds")
-                            else repeat_interval / 1000.0
-                        )
-                        if transition_val > ri_seconds:
-                            _LOGGER.debug(
-                                "Clamping transition %.3fs to repeat_interval %.3fs",
-                                transition_val,
-                                ri_seconds,
-                            )
-                            transition_val = ri_seconds
-                    action_definition = {**action_definition, "transition": transition_val}
-
-                if action_output == "CYCLE_COLOR":
-                    await self.remote_devices.cycle_color(
-                        device_id=remote_device_id,
-                        output_id=output_id,
-                        colors=action_definition.get("colors", []),
-                        action_idx=idx,
-                        transition=action_definition.get("transition"),
-                    )
-
-                elif action_output == "CYCLE_PRESET":
-                    await self.remote_devices.cycle_preset(
-                        device_id=remote_device_id,
-                        output_id=output_id,
-                        presets=action_definition.get("presets", []),
-                        action_idx=idx,
-                        transition=action_definition.get("transition"),
-                    )
-
-                else:
-                    await self.remote_devices.control_output(
-                        device_id=remote_device_id,
-                        output_id=output_id,
-                        action=action_output,
-                        brightness=action_definition.get("brightness"),
-                        brightness_step=action_definition.get("brightness_step"),
-                        color_temp=action_definition.get("color_temp"),
-                        rgb=action_definition.get("rgb"),
-                        transition=action_definition.get("transition"),
-                        effect=action_definition.get("effect"),
-                        palette=action_definition.get("palette"),
-                        effect_speed=action_definition.get("effect_speed"),
-                        effect_intensity=action_definition.get("effect_intensity"),
-                    )
-
-            elif action == REMOTE_COVER:
-                # Control cover on remote device (BoneIO MQTT or ESPHome API)
-                remote_device_id = action_definition.get("remote_device")
-                cover_id = action_definition.get("cover_id")
-                action_cover = action_definition.get("action_cover", "TOGGLE")
-                extra_data = action_definition.get("extra_data", {})
-                await self.remote_devices.control_cover(
-                    device_id=remote_device_id,
-                    cover_id=cover_id,
-                    action=action_cover,
-                    **extra_data,
-                )
+            await self._execute_single_action(action_definition, idx)
 
             # Mark action as executed
             if is_repeat:
@@ -1066,6 +964,219 @@ class Manager:
             executed_actions.add(idx)
 
         return executed_actions
+
+    async def _execute_single_action(self, action_definition: dict, idx: int = 0) -> None:
+        """Execute a single parsed action.
+
+        This is extracted from execute_actions to enable reuse for delayed
+        action execution.
+
+        Args:
+            action_definition: Parsed action dictionary
+            idx: Action index (for logging/cycling)
+        """
+        action = action_definition.get("action")
+        start_time = time.time()
+
+        if action == MQTT:
+            action_topic = action_definition.get("action_topic")
+            action_payload = action_definition.get("action_mqtt_msg")
+            if action_topic and action_payload:
+                self.send_message(topic=action_topic, payload=action_payload, retain=False)
+
+        elif action == OUTPUT:
+            output_id = action_definition.get("pin") or action_definition.get("boneio_output")
+            output = self.outputs.get_output(output_id) or self.outputs.get_output_group(output_id)
+            if not output:
+                _LOGGER.warning("Output %s not found for action", output_id)
+                return
+            action_to_execute = action_definition.get("action_to_execute")
+            _LOGGER.debug(
+                "Executing action %s for output %s. Duration: %s",
+                action_to_execute,
+                output.name if hasattr(output, "name") else output_id,
+                time.time() - start_time,
+            )
+            _f = getattr(output, action_to_execute)
+            await _f()
+
+        elif action == COVER:
+            cover_id = action_definition.get("pin") or action_definition.get("boneio_cover")
+            cover = self.covers.get_cover(cover_id)
+            if not cover:
+                _LOGGER.warning("Cover %s not found for action", cover_id)
+                return
+            action_to_execute = action_definition.get("action_to_execute")
+            extra_data = action_definition.get("extra_data", {})
+            # Filter extra_data to only pass params accepted by each action
+            filtered_data = filter_cover_extra_data(action_to_execute, extra_data)
+            _LOGGER.debug(
+                "Executing action %s for cover %s. Duration: %s",
+                action_to_execute,
+                cover.name if hasattr(cover, "name") else cover_id,
+                time.time() - start_time,
+            )
+            _f = getattr(cover, action_to_execute)
+            await _f(**filtered_data)
+
+        elif action == OUTPUT_OVER_MQTT:
+            boneio_id = action_definition.get("boneio_id")
+            output_id = action_definition.get("boneio_output") or action_definition.get("pin")
+            action_output = action_definition.get("action_output")
+            self.send_message(
+                topic=f"{boneio_id}/cmd/output/{output_id}/set",
+                payload=action_output,
+                retain=False,
+            )
+
+        elif action == COVER_OVER_MQTT:
+            boneio_id = action_definition.get("boneio_id")
+            cover_id = action_definition.get("boneio_cover") or action_definition.get("pin")
+            action_cover = action_definition.get("action_cover")
+            self.send_message(
+                topic=f"{boneio_id}/cmd/cover/{cover_id}/set",
+                payload=action_cover,
+                retain=False,
+            )
+
+        elif action == REMOTE_OUTPUT:
+            # Control output on remote device (supports ESPHome lights with brightness/color and WLED effects)
+            remote_device_id = action_definition.get("remote_device")
+            output_id = action_definition.get("output_id")
+            action_output = action_definition.get("action_output", "TOGGLE")
+
+            # Clamp transition to repeat_interval to avoid overlapping animations
+            transition_val = action_definition.get("transition")
+            if transition_val and action_definition.get("repeat"):
+                repeat_interval = action_definition.get("repeat_interval")
+                if repeat_interval:
+                    ri_seconds = (
+                        repeat_interval.total_in_seconds
+                        if hasattr(repeat_interval, "total_in_seconds")
+                        else repeat_interval / 1000.0
+                    )
+                    if transition_val > ri_seconds:
+                        _LOGGER.debug(
+                            "Clamping transition %.3fs to repeat_interval %.3fs",
+                            transition_val,
+                            ri_seconds,
+                        )
+                        transition_val = ri_seconds
+                action_definition = {**action_definition, "transition": transition_val}
+
+            if action_output == "CYCLE_COLOR":
+                await self.remote_devices.cycle_color(
+                    device_id=remote_device_id,
+                    output_id=output_id,
+                    colors=action_definition.get("colors", []),
+                    action_idx=idx,
+                    transition=action_definition.get("transition"),
+                )
+
+            elif action_output == "CYCLE_PRESET":
+                await self.remote_devices.cycle_preset(
+                    device_id=remote_device_id,
+                    output_id=output_id,
+                    presets=action_definition.get("presets", []),
+                    action_idx=idx,
+                    transition=action_definition.get("transition"),
+                )
+
+            else:
+                await self.remote_devices.control_output(
+                    device_id=remote_device_id,
+                    output_id=output_id,
+                    action=action_output,
+                    brightness=action_definition.get("brightness"),
+                    brightness_step=action_definition.get("brightness_step"),
+                    color_temp=action_definition.get("color_temp"),
+                    rgb=action_definition.get("rgb"),
+                    transition=action_definition.get("transition"),
+                    effect=action_definition.get("effect"),
+                    palette=action_definition.get("palette"),
+                    effect_speed=action_definition.get("effect_speed"),
+                    effect_intensity=action_definition.get("effect_intensity"),
+                )
+
+        elif action == REMOTE_COVER:
+            # Control cover on remote device (BoneIO MQTT or ESPHome API)
+            remote_device_id = action_definition.get("remote_device")
+            cover_id = action_definition.get("cover_id")
+            action_cover = action_definition.get("action_cover", "TOGGLE")
+            extra_data = action_definition.get("extra_data", {})
+            await self.remote_devices.control_cover(
+                device_id=remote_device_id,
+                cover_id=cover_id,
+                action=action_cover,
+                **extra_data,
+            )
+
+    async def _run_delayed_action(
+        self, input_id: str, action_definition: dict, delay_seconds: float
+    ) -> None:
+        """Execute an action after a delay, unless cancelled.
+
+        This coroutine sleeps for the specified delay and then executes
+        the action. It is wrapped in an asyncio.Task so it can be
+        cancelled by :meth:`cancel_delayed_actions`.
+
+        Args:
+            input_id: Input entity ID that triggered this delayed action
+            action_definition: Parsed action dictionary to execute
+            delay_seconds: Number of seconds to wait before executing
+        """
+        try:
+            _LOGGER.debug(
+                "Delayed action for input '%s': waiting %.1fs before executing",
+                input_id,
+                delay_seconds,
+            )
+            await asyncio.sleep(delay_seconds)
+            _LOGGER.info(
+                "Delayed action for input '%s': timer expired, executing action",
+                input_id,
+            )
+            await self._execute_single_action(action_definition)
+        except asyncio.CancelledError:
+            _LOGGER.info(
+                "Delayed action for input '%s' was cancelled (motion re-detected?)",
+                input_id,
+            )
+        finally:
+            # Clean up: remove this task from the pending list
+            tasks = self._pending_delayed_actions.get(input_id, [])
+            # Filter out done/cancelled tasks
+            self._pending_delayed_actions[input_id] = [
+                t for t in tasks if not t.done()
+            ]
+            if not self._pending_delayed_actions[input_id]:
+                self._pending_delayed_actions.pop(input_id, None)
+
+    def cancel_delayed_actions(self, input_id: str) -> int:
+        """Cancel all pending delayed actions for a given input.
+
+        Called when an event matching ``delay_cancel_on`` arrives for
+        the input, e.g. motion re-detected cancels the pending OFF timer.
+
+        Args:
+            input_id: Input entity ID whose delayed actions to cancel
+
+        Returns:
+            Number of cancelled tasks
+        """
+        tasks = self._pending_delayed_actions.pop(input_id, [])
+        cancelled = 0
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+                cancelled += 1
+        if cancelled:
+            _LOGGER.info(
+                "Cancelled %d pending delayed action(s) for input '%s'",
+                cancelled,
+                input_id,
+            )
+        return cancelled
 
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.

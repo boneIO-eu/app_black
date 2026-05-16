@@ -238,6 +238,34 @@ schema:
         Only used when repeat is true. Default: 800ms.
         Minimum: 200ms (matches periodic event interval).
 
+  # Delayed action execution (cancelable timer)
+  delay:
+    type: timeperiod
+    coerce: positive_time_period
+    required: False
+    meta:
+      label: Delay Before Execution
+      description: |
+        Wait this amount of time before executing the action.
+        If the same input triggers a cancel event (see delay_cancel_on)
+        during the wait, the action is cancelled.
+        Useful for motion sensors: turn OFF after 2 minutes of no motion,
+        but cancel if motion is re-detected.
+        Example: 30s, 2min, 1h
+  delay_cancel_on:
+    type: list
+    required: False
+    schema:
+      type: string
+      allowed: ['pressed', 'released', 'single', 'double', 'long']
+    meta:
+      label: Cancel Delay On Events
+      description: |
+        List of input events that cancel the pending delayed action.
+        When any of these events occur on the same input, the delayed
+        action timer is cancelled and the action is not executed.
+        Example: ['pressed'] — cancel OFF delay when motion re-detected.
+
   # Conditional execution - single condition
   condition: !include condition.yaml
 

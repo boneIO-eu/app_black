@@ -752,6 +752,10 @@ class InputManager:
             _LOGGER.debug("Skipping action execution for %s (publish_only=True)", event.entity_id)
             return
 
+        # Cancel pending delayed actions if this event matches delay_cancel_on
+        # Check ALL click types' actions for delay_cancel_on (not just current click_type)
+        self._cancel_delayed_if_matching(input_instance, event.entity_id, event.click_type)
+
         # Execute actions with duration threshold support
         if actions and event.click_type == LONG:
             # Get executed_actions and repeat times from detector state
@@ -799,6 +803,7 @@ class InputManager:
                     duration=event.duration,
                     executed_actions=executed_actions,
                     last_repeat_times=last_repeat_times,
+                    input_id=event.entity_id,
                 )
 
                 # Update detector state
@@ -807,7 +812,44 @@ class InputManager:
                     detector._state.last_repeat_times = last_repeat_times
         elif actions:
             # Non-long events - execute all actions normally
-            await self._manager.execute_actions(actions=actions)
+            await self._manager.execute_actions(actions=actions, input_id=event.entity_id)
+
+    def _cancel_delayed_if_matching(
+        self,
+        input_instance: GpioEventButton | GpioInputBinarySensor | RemoteInputBase,
+        entity_id: str,
+        click_type: str,
+    ) -> None:
+        """Cancel pending delayed actions if this event matches delay_cancel_on.
+
+        Scans ALL click types' actions (not just the current) to find
+        any with ``delay_cancel_on`` containing the current ``click_type``.
+        If a match is found and there are pending delayed tasks for this
+        input, they are cancelled.
+
+        Args:
+            input_instance: The input that triggered the event
+            entity_id: Input entity ID
+            click_type: The event type that just occurred (e.g. 'pressed')
+        """
+        # Quick check: any pending tasks for this input?
+        if entity_id not in self._manager._pending_delayed_actions:
+            return
+
+        # Check all click types for delay_cancel_on matching current event
+        all_actions = input_instance._actions
+        should_cancel = False
+        for _ct, action_list in all_actions.items():
+            for action_def in action_list:
+                cancel_events = action_def.get("delay_cancel_on", [])
+                if click_type in cancel_events:
+                    should_cancel = True
+                    break
+            if should_cancel:
+                break
+
+        if should_cancel:
+            self._manager.cancel_delayed_actions(entity_id)
 
     async def send_ha_autodiscovery(self) -> None:
         """Send Home Assistant autodiscovery for all inputs.
