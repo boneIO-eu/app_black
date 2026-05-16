@@ -51,6 +51,16 @@ export {
   type UseExpanderManagerReturn,
   type ExpanderResult,
 } from './hooks/useExpanderManager';
+export {
+  useMcpHardware,
+  MCP_DEFAULT_VALUE,
+  type UseMcpHardwareArgs,
+  type UseMcpHardwareReturn,
+} from './hooks/useMcpHardware';
 
 // Components (Presentational; safe to swap for alternative skins)
 export { default as ExpanderManager } from './components/ExpanderManager';
+export {
+  default as McpHardwareFields,
+  type McpHardwareFieldsProps,
+} from './components/McpHardwareFields';

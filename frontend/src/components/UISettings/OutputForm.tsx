@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
 import { sanitizeId } from './helpers/idValidation';
@@ -13,8 +13,13 @@ import {
 } from '@/components/ui/select';
 
 import type { AreaOption } from './widgets/AreaSelect';
-import { getMcpIdOptions, getMcpPinOptions, hasMcpHardwareOverride } from './helpers/outputMcpUtils';
-import { EXPANDER_BOARDS, type ExpanderBoardType } from './helpers/expanderBoards';
+import {
+  McpHardwareFields,
+  EXPANDER_BOARDS,
+  EXPANDER_OUTPUT_PREFIX,
+  isExpanderOutput,
+  type ExpanderBoardType,
+} from './modules/expander';
 
 interface CoverEntity {
   id?: string;
@@ -42,168 +47,6 @@ interface OutputFormProps {
   allCovers?: CoverEntity[];
   mcp23017?: Array<{ id?: string }>;
 }
-
-const MCP_DEFAULT_VALUE = '_board_default_';
-
-const McpHardwareFields: React.FC<{
-  data: any;
-  mcp23017?: Array<{ id?: string }>;
-  disabled?: boolean;
-  isNew?: boolean;
-  onChange: (data: any) => void;
-  getFieldDescription: (fieldName: string) => string;
-}> = ({ data, mcp23017, disabled, isNew = false, onChange, getFieldDescription }) => {
-  const { t } = useTranslation();
-  const mcpIdOptions = getMcpIdOptions(mcp23017, data.mcp_id);
-  const pinOptions = getMcpPinOptions();
-  const hasOverride = hasMcpHardwareOverride(data);
-  const isExpanderOutput = typeof data.boneio_output === 'string' && data.boneio_output.startsWith('EX_');
-  const [expanded, setExpanded] = useState(hasOverride);
-
-  // Sync expanded when boneio_output changes to EX_* (auto-fill sets mcp_id/pin)
-  useEffect(() => {
-    if (isExpanderOutput && !expanded) {
-      setExpanded(true);
-    }
-  }, [isExpanderOutput, data.mcp_id]);
-  const pinValue =
-    data.pin !== undefined && data.pin !== null && data.pin !== ''
-      ? String(data.pin)
-      : '0';
-
-  const clearOverride = (current: any) => {
-    const next = { ...current };
-    delete next.kind;
-    delete next.mcp_id;
-    delete next.pin;
-    return next;
-  };
-
-  const handleToggle = () => {
-    if (expanded) {
-      onChange(clearOverride(data));
-    }
-    setExpanded(!expanded);
-  };
-
-  const handleMcpIdChange = (value: string) => {
-    if (value === MCP_DEFAULT_VALUE) {
-      onChange(clearOverride(data));
-      setExpanded(false);
-      return;
-    }
-    onChange({
-      ...data,
-      kind: 'mcp',
-      mcp_id: value,
-      pin:
-        data.pin !== undefined && data.pin !== null && data.pin !== ''
-          ? typeof data.pin === 'number'
-            ? data.pin
-            : parseInt(String(data.pin), 10)
-          : 0,
-    });
-  };
-
-  const handlePinChange = (value: string) => {
-    if (!data.mcp_id) return;
-    onChange({
-      ...data,
-      kind: 'mcp',
-      mcp_id: data.mcp_id,
-      pin: parseInt(value, 10),
-    });
-  };
-
-  return (
-    <div className="col-span-full">
-      <div className="bg-base-200 rounded-box overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2 font-medium text-sm">
-            {t('outputs.divider_hardware')}
-            <span className="text-base-content/50 font-normal"> - {t('settings.advanced_settings')}</span>
-            {hasOverride && (
-              <span className="badge badge-primary badge-sm">{data.mcp_id} / {t('outputs.mcp_pin_short')} {pinValue}</span>
-            )}
-          </div>
-          <input
-            type="checkbox"
-            className="toggle toggle-primary toggle-sm"
-            checked={expanded}
-            onChange={handleToggle}
-            disabled={disabled || (isExpanderOutput && !isNew)}
-            title={isExpanderOutput && !isNew ? t('outputs.mcp_expander_output_locked') : undefined}
-          />
-        </div>
-
-        {expanded && (
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('outputs.mcp_id')}</span>
-                </label>
-                <Select
-                  value={hasOverride ? data.mcp_id : MCP_DEFAULT_VALUE}
-                  onValueChange={handleMcpIdChange}
-                  disabled={disabled}
-                >
-                  <SelectTrigger className={`w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <SelectValue placeholder={t('outputs.mcp_id_placeholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={MCP_DEFAULT_VALUE}>{t('outputs.mcp_id_board_default')}</SelectItem>
-                    {mcpIdOptions.map((mcpId) => (
-                      <SelectItem key={mcpId} value={mcpId}>
-                        {mcpId}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <label className="label">
-                  <span className="label-text-alt whitespace-normal wrap-break-word">
-                    {getFieldDescription('mcp_id') || t('outputs.mcp_id_hint')}
-                  </span>
-                </label>
-              </div>
-
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('outputs.mcp_pin')}</span>
-                </label>
-                <Select
-                  value={pinValue}
-                  onValueChange={handlePinChange}
-                  disabled={disabled || !hasOverride}
-                >
-                  <SelectTrigger
-                    className={`w-full ${disabled || !hasOverride ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <SelectValue placeholder={t('outputs.mcp_pin_placeholder')}>
-                      {pinValue}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pinOptions.map((pin) => (
-                      <SelectItem key={pin} value={String(pin)}>
-                        {String(pin)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <label className="label">
-                  <span className="label-text-alt whitespace-normal wrap-break-word">
-                    {getFieldDescription('pin') || t('outputs.mcp_pin_hint')}
-                  </span>
-                </label>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 const OutputForm: React.FC<OutputFormProps> = ({
   data,
@@ -291,11 +134,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
   // Detect expander board type — check both `id` (new format) and `boneio_output` (legacy) fields
   const usedExIds = new Set<string>(
     allOutputs
-      .map((o: any) => {
-        const v = o?.id || o?.boneio_output;
-        return typeof v === 'string' && v.startsWith('EX_') ? v : null;
-      })
-      .filter((v): v is string => v !== null)
+      .filter(isExpanderOutput)
+      .map((o: any) => (o.id || o.boneio_output) as string)
   );
   let expanderBoard: (typeof EXPANDER_BOARDS)[ExpanderBoardType] | null = null;
   if (usedExIds.size > 0) {
@@ -332,7 +172,7 @@ const OutputForm: React.FC<OutputFormProps> = ({
     let newData = { ...data, [field]: value };
 
     // Auto-fill hardware routing when selecting an EX_* expander slot
-    if (field === 'boneio_output' && typeof value === 'string' && value.startsWith('EX_') && expanderBoard) {
+    if (field === 'boneio_output' && typeof value === 'string' && value.startsWith(EXPANDER_OUTPUT_PREFIX) && expanderBoard) {
       const slot = expanderBoard.outputs.find(o => o.slotId === value);
       if (slot) {
         newData.kind = 'mcp';
@@ -566,9 +406,8 @@ const OutputForm: React.FC<OutputFormProps> = ({
   if (outputKind === 'expander') {
     const usedExIds = new Set(
       allOutputs
-        .filter((_: any, i: number) => i !== (editingIndex ?? -1))
-        .map((o: any) => o.id || o.boneio_output)
-        .filter((v: any): v is string => typeof v === 'string' && v.startsWith('EX_'))
+        .filter((o: any, i: number) => i !== (editingIndex ?? -1) && isExpanderOutput(o))
+        .map((o: any) => (o.id || o.boneio_output) as string)
     );
     const availableExSlots = expanderBoard
       ? expanderBoard.outputs.map(o => o.slotId).filter(id => !usedExIds.has(id))
