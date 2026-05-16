@@ -55,21 +55,38 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
     }
   };
 
+  /**
+   * Derive a consistent ID for an output entry.
+   * Remote outputs may have an empty `id` — in that case, generate
+   * the same fallback as the backend: `${device_id}_${output_id}`.
+   */
+  const deriveOutputId = (output: any): string => {
+    if (output.id) return output.id;
+    if (output.boneio_output) return output.boneio_output;
+    // Remote output fallback: device_id + output_id (mirrors backend logic)
+    if (output.device_id && output.output_id) {
+      return `${output.device_id}_${output.output_id}`.replace(/-/g, '_');
+    }
+    return '';
+  };
+
   // Normalize outputs to have consistent id field and filter out excluded IDs
   const normalizedOutputs = allOutputs
     .filter((output) => {
-      const id = output.id || output.boneio_output;
-      return !excludeIds.includes(id);
+      const id = deriveOutputId(output);
+      return id && !excludeIds.includes(id);
     })
     .map((output) => {
-      const id = output.id || output.boneio_output;
+      const id = deriveOutputId(output);
       const isGroup = output.isGroup || false;
+      const isRemote = Boolean(output.device_id && output.output_id);
       const isSaved = isOutputSaved(id, isGroup);
       return {
         ...output,
         id,
         name: output.name || id,
         isGroup,
+        isRemote,
         isSaved,
       };
     });
@@ -91,10 +108,12 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
             <div className="flex flex-col items-start">
               <span className="font-medium">
                 {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                {selectedOutput.isRemote && <span className="badge badge-xs badge-info mr-1">🌐 Remote</span>}
                 {selectedOutput.name}
               </span>
               <span className="text-xs opacity-60">
                 ID: {selectedOutput.id}
+                {selectedOutput.device_id && ` • Device: ${selectedOutput.device_id}`}
                 {selectedOutput.area && ` • Area: ${getAreaName(selectedOutput.area)}`}
               </span>
             </div>
@@ -119,11 +138,13 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
               <div className="flex flex-col">
                 <span className="font-medium">
                   {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                  {output.isRemote && <span className="badge badge-xs badge-info mr-1">🌐 Remote</span>}
                   {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
                   {output.name}
                 </span>
                 <span className="text-xs opacity-60">
                   ID: {output.id}
+                  {output.device_id && ` • Device: ${output.device_id}`}
                   {output.area && ` • Area: ${getAreaName(output.area)}`}
                 </span>
               </div>
