@@ -2,19 +2,19 @@
  * Section-specific validation for ArrayTableWidget save operations.
  * Determines required fields and validates items before saving.
  */
-import { EXPANDER_BOARDS } from './expanderBoards';
+import { getOutputStats, isExpanderOutput } from '../modules/expander';
+import type { ExpanderOutputStats } from '../modules/expander';
 
 interface ValidationResult {
   isValid: boolean;
   errorMessage: string;
 }
 
-export interface OutputStats {
-  boardCapacity: number;
-  boardUsed: number;
-  expanderCapacity: number;
-  expanderUsed: number;
-}
+/** @deprecated Use ExpanderOutputStats from modules/expander instead. */
+export type OutputStats = ExpanderOutputStats;
+
+/** Re-exported for backwards compatibility with consumers importing from this file. */
+export { getOutputStats };
 
 /**
  * Validate an item before saving based on section type.
@@ -46,7 +46,7 @@ export function validateItem(
     case 'output':
       // Accept either boneio_output (board) or id starting with EX_ (expander)
       return {
-        isValid: !!dataToSave.boneio_output || (!!dataToSave.id && dataToSave.id.startsWith('EX_')),
+        isValid: !!dataToSave.boneio_output || isExpanderOutput(dataToSave),
         errorMessage: t('array_table_widget.boneio_output_required'),
       };
 
@@ -134,41 +134,6 @@ export function validateItem(
     default:
       return { isValid: true, errorMessage: '' };
   }
-}
-
-/**
- * Compute board and expander slot statistics for the output section.
- * Used by the dropdown Add button to show used/capacity per type.
- */
-export function getOutputStats(value: any[], deviceType: string | undefined): OutputStats {
-  const type = (deviceType || '').toLowerCase();
-  let boardCapacity: number;
-  if (type.includes('32') || type.includes('cm')) boardCapacity = 32;
-  else if (type.includes('24')) boardCapacity = 24;
-  else boardCapacity = 49;
-
-  const boardUsed = value.filter(
-    (o: any) => o.boneio_output && !o.boneio_output.startsWith('EX_')
-  ).length;
-
-  // Detect expander capacity from existing EX_* entries (id = new format, boneio_output = legacy)
-  const usedExIds = new Set<string>(
-    value
-      .map((o: any) => {
-        const v = o?.id || o?.boneio_output;
-        return typeof v === 'string' && v.startsWith('EX_') ? v : null;
-      })
-      .filter((v): v is string => v !== null)
-  );
-  let expanderCapacity = 0;
-  if (usedExIds.size > 0) {
-    for (const board of Object.values(EXPANDER_BOARDS)) {
-      const matchCount = board.outputs.filter(o => usedExIds.has(o.slotId)).length;
-      if (matchCount > 0) expanderCapacity = Math.max(expanderCapacity, board.outputs.length);
-    }
-  }
-
-  return { boardCapacity, boardUsed, expanderCapacity, expanderUsed: usedExIds.size };
 }
 
 /**
