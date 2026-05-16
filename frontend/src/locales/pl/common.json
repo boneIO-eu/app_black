@@ -754,6 +754,8 @@
     "device_class_hint": "Klasa urządzenia dla interfejsu Home Assistant",
     "restore_state": "Przywróć Stan",
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
+    "tilt_restore": "Przywróć Nachylenie Po Zamknięciu",
+    "tilt_restore_hint": "Automatycznie przywróć poprzedni kąt nachylenia po zakończeniu zamykania żaluzji",
     "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
   },
   "modbus": {

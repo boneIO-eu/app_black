@@ -1466,6 +1466,12 @@ cover:
         required: False
         meta:
           label: Time to activate actuator cover. Example 30s. Minimum is 0ms.
+      tilt_restore_after_close:
+        type: boolean
+        required: False
+        default: False
+        meta:
+          label: Restore tilt position after closing venetian blinds.
       device_class:
         type: string
         required: False

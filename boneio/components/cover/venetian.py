@@ -25,8 +25,18 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         tilt_duration: TimePeriod,  # ms
         actuator_activation_duration: TimePeriod,  # ms
         restored_state: dict = DEFAULT_RESTORED_STATE,
+        tilt_restore_after_close: bool = False,
         **kwargs,
     ) -> None:
+        """Initialize venetian cover.
+
+        Args:
+            tilt_duration: Duration for full tilt movement.
+            actuator_activation_duration: Actuator activation time (unused).
+            restored_state: Persisted position/tilt from disk.
+            tilt_restore_after_close: If True, restore previous tilt
+                position after closing the cover.
+        """
         self._tilt_duration = tilt_duration.total_milliseconds  # Czas trwania ruchu lameli
         self._initial_tilt_position = float(restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"]))
 
@@ -34,9 +44,9 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         # --- TILT ---
         self._tilt_position = float(restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"]))
 
-        # self._actuator_activation_duration = (
-        #     actuator_activation_duration.total_milliseconds
-        # )  # ms
+        self._tilt_restore_after_close = tilt_restore_after_close
+        self._tilt_before_close: float | None = None
+
         self._last_tilt_update = 0.0
 
         super().__init__(
@@ -44,13 +54,15 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             **kwargs,
         )
         _LOGGER.debug(
-            "VenetianCover %s initialized: open_time=%dms, close_time=%dms, tilt_duration=%dms, position=%d%%, tilt=%d%%",
+            "VenetianCover %s initialized: open_time=%dms, close_time=%dms, tilt_duration=%dms, "
+            "position=%d%%, tilt=%d%%, tilt_restore=%s",
             self._id,
             self._open_time,
             self._close_time,
             self._tilt_duration,
             position,
             self._tilt_position,
+            self._tilt_restore_after_close,
         )
 
     def _move_cover(
@@ -168,6 +180,21 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         self._loop.call_soon_threadsafe(self.send_state_and_save, self.json_position)
         self._last_update_time = time.monotonic()  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
+        # Tilt restore: schedule tilt recovery on the event loop
+        if self._tilt_restore_after_close and self._tilt_before_close is not None:
+            restore_tilt = self._tilt_before_close
+            self._tilt_before_close = None
+            if restore_tilt > 0 and abs(self._tilt_position - restore_tilt) >= 1:
+                _LOGGER.info(
+                    "VenetianCover %s: restoring tilt from %d%% to %d%%",
+                    self._id,
+                    round(self._tilt_position),
+                    round(restore_tilt),
+                )
+                self._loop.call_soon_threadsafe(
+                    lambda t=restore_tilt: asyncio.ensure_future(self.set_tilt(int(round(t))))
+                )
+
     async def set_tilt(self, tilt_position: int) -> None:
         """Setting tilt position."""
         if not 0 <= tilt_position <= 100:
@@ -261,12 +288,38 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         )
         await self.set_tilt(tilt_position=0)
 
+    async def close(self) -> None:
+        """Close venetian cover.
+
+        If tilt_restore_after_close is enabled, saves the current tilt
+        position so it can be restored after the closing movement finishes.
+        """
+        if self._tilt_restore_after_close and self._tilt_position > 0:
+            self._tilt_before_close = self._tilt_position
+            _LOGGER.debug(
+                "VenetianCover %s: saving tilt=%d%% before close",
+                self._id,
+                round(self._tilt_position),
+            )
+        else:
+            self._tilt_before_close = None
+        await super().close()
+
+    async def open(self) -> None:
+        """Open venetian cover.
+
+        Clears any saved tilt-before-close value since opening
+        resets the tilt to 100% naturally.
+        """
+        self._tilt_before_close = None
+        await super().open()
+
     def update_config_times(self, config: dict) -> None:
         """Update cover timing configuration.
 
         Args:
             config: Dictionary with timing values as TimePeriod objects.
-                   Keys: open_time, close_time, tilt_duration
+                   Keys: open_time, close_time, tilt_duration, tilt_restore_after_close
         """
         if "open_time" in config:
             self._open_time = config["open_time"].total_milliseconds
@@ -274,6 +327,8 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             self._close_time = config["close_time"].total_milliseconds
         if "tilt_duration" in config and config["tilt_duration"]:
             self._tilt_duration = config["tilt_duration"].total_milliseconds
+        if "tilt_restore_after_close" in config:
+            self._tilt_restore_after_close = bool(config["tilt_restore_after_close"])
 
     async def run_cover(
         self,
