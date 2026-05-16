@@ -523,8 +523,8 @@
     "device_class_hint": "Device class for Home Assistant UI",
     "restore_state": "Restore State",
     "restore_state_hint": "Restore saved state after restart",
-    "tilt_restore": "Restore Tilt After Close",
-    "tilt_restore_hint": "Automatically restore the previous tilt angle after the blinds finish closing",
+    "tilt_restore": "Restore Tilt After Movement",
+    "tilt_restore_hint": "Automatically restore the previous tilt angle after the blinds finish moving down",
     "show_in_ha_hint": "Enable Home Assistant discovery for this cover"
   },
   "software_update": {
