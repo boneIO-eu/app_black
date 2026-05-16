@@ -98,8 +98,8 @@ pattern eliminates that.
 | A4 | Derive `outputKind` via `useOutputKind` (drop useState) | ✅ |
 | B | Dedupe EX_ detection, MCP addresses, remove dead `onExpanderAdded` prop | ✅ |
 | — | Verify (tsc + build + python smoke + anti-duplicate greps) | ✅ |
-| — | Deploy + manual smoke test in UI | ⏳ next |
-| Future | Build/inject script POC (auto-apply modules onto fresh upstream) | 📋 idea |
+| — | Deploy + manual smoke test in UI | ✅ deployed; UI smoke test confirmed working by user |
+| Future | Build/inject script POC (auto-apply modules onto fresh upstream) | 📋 idea, deferred |
 
 ---
 
@@ -137,13 +137,152 @@ work, then refactor for future-merge friendliness.
 
 **Plan**: Modules pattern refactor — see `~/.claude/plans/boardy-s-takie-jakie-starry-sun.md`.
 
-**In progress (current state at end of session)**:
-- All refactor phases (0a → B) complete. Module pattern fully applied.
-- Frontend `modules/expander/`: 14 files, ~1065 lines (4 components + 4 hooks + 2 helpers + 3 types + 1 constants + index.ts)
-- Backend `boneio/modules/expander/`: 3 files, ~351 lines (yaml_util.py + routes.py + __init__.py with lazy import for FastAPI)
+**Refactor — completed end-to-end**:
+- All phases (0a → B) implemented, verified, committed (7 granular commits), pushed to `fork/feat/expansion-board`, and deployed to BoneIO @ 192.168.1.22.
+- Frontend `modules/expander/`: 14 files, ~1065 lines (4 components + 4 hooks + 2 helpers + 3 types + 1 constants + index.ts).
+- Backend `boneio/modules/expander/`: 3 files, ~351 lines (yaml_util.py + routes.py + __init__.py with lazy FastAPI import via `__getattr__`).
 - BoneIO files slim-down: 7 upstream files lost 657 lines total (–205 in BoneIOForm, –161 in OutputForm, –177 in routes/config.py, etc.). Each retains only 1-2 import + use lines pointing to module.
-- TypeScript + frontend build + Python imports all green. Anti-duplicate checklist 100% clean (no `startsWith('EX_')` outside module, no duplicated MCP address arrays, no inline include-pattern regex, no `useState outputKind`, no `any[]` in module files).
-- Next: deploy to BoneIO + manual smoke test, then commit phases granularly.
+- Deploy verified: BoneIO 1.4.0dev2 active on device, Hypercorn :8090 returns HTTP 200, `POST /api/config/expander[/remove]` registered (return 422 for empty body — module routes wired correctly), ESPHome connections wstają, expander chips widoczne w display screen list.
+- Anti-duplicate checklist 100% clean (no `startsWith('EX_')` outside module, no duplicated MCP address arrays, no inline include-pattern regex, no `useState outputKind`, no `any[]` in module files).
+
+**Commits on this branch since merge `fbe2140`**:
+- `96d79b0` — scaffold modules/expander/ + move helpers into module
+- `4fe90a0` — scaffold boneio/modules/expander/ backend + slim upstream
+- `d2d6d1e` — extract useExpanderManager + <ExpanderManager />
+- `a6755ae` — extract useMcpHardware + <McpHardwareFields />
+- `bad59e3` — extract OutputAddButton + derive outputKind via hook
+- `2eadc44` — dedupe Mcp23017Form constants + OutputTable EX_ check
+- `869b32e` — add WORK_LOG.md
+
+**Pending (next session)**:
+- Optional: build/inject script POC (task #22) — auto-apply modules onto fresh upstream pull. Pattern now proven on hardware → worth doing when next upstream release lands.
+- Eventually: alternative UI skin layer (re-skin) using the same module hooks/helpers.
+
+**Outcome — module pattern validated end-to-end**:
+The modules/ pattern works in practice. Future upstream merges should produce minimal conflicts (only the 1-2 line injection points per file). Each subsequent feature should follow the same template: `frontend/.../modules/<feature>/` + `boneio/modules/<feature>/` with public API via `index.ts` / `__init__.py`.
+
+---
+
+## Runbook — next upstream merge
+
+When boneIO releases the next dev tag (1.4.0dev3, 1.4.0, 1.5.x …), follow this. The
+goal: pull their changes, re-apply ours, deploy, ship — without re-inventing the wheel.
+
+### Step 1 — pull upstream
+
+```bash
+git checkout dev-debian13
+git pull origin dev-debian13            # fast-forwards to upstream HEAD
+git log --oneline HEAD ^feat/expansion-board | head -30   # what's new
+```
+
+### Step 2 — merge into our feature branch
+
+```bash
+git checkout feat/expansion-board
+git merge dev-debian13                   # produces merge commit; expect SMALL conflicts
+git status                               # see unmerged paths
+```
+
+### Step 3 — resolve conflicts (the predictable ones)
+
+Conflicts will almost always land at our **7 injection sites**. For each, the goal
+is to **keep upstream's new structure** and **re-apply our 1-2 line injection** in
+the right place. Our injection points are marked by comments — search for them:
+
+| File | Our injection (marker to look for) |
+|------|-------------------------------------|
+| `frontend/.../BoneIOForm.tsx` | `import { ExpanderManager } from './modules/expander';` + `<ExpanderManager allOutputs={...} />` after `{/* Expansion board — fully encapsulated module */}` |
+| `frontend/.../OutputForm.tsx` | `import { McpHardwareFields, EXPANDER_BOARDS, EXPANDER_OUTPUT_PREFIX, isExpanderOutput, type ExpanderBoardType } from './modules/expander';` + `<McpHardwareFields ... />` call |
+| `frontend/.../ArrayTableWidget.tsx` | `import { OutputAddButton, isExpanderOutput, useOutputKind, EXPANDER_OUTPUT_PREFIX } from './modules/expander';` + `<OutputAddButton ... />` + `const outputKind = useOutputKind(editingItem);` |
+| `frontend/.../Mcp23017Form.tsx` | `import { MCP_ADDRESS_OPTIONS, MANAGED_EXPANDER_IDS, DEFAULT_ADDRESSES, DEFAULT_ADDRESS_INTEGERS, isExpanderOutput, ... } from './modules/expander';` |
+| `frontend/.../helpers/itemValidation.ts` | `import { getOutputStats, isExpanderOutput } from '../modules/expander';` + `isExpanderOutput(dataToSave)` in output validation |
+| `frontend/.../tables/OutputTable.tsx` | `import { isExpanderOutput } from '../modules/expander';` + `isExpanderOutput(item)` for badge |
+| `frontend/.../components/SectionContent.tsx` | Just `mcp23017` prop passed through to BoneIOForm (no expander call here) |
+| `boneio/core/config/yaml_util.py` | `from boneio.modules.expander import split_outputs_for_includes, dedup_outputs_prefer_named` + the 4-line split-write block in `update_config_section()` |
+| `boneio/webui/app.py` | `from boneio.modules.expander import register_routes as register_expander_routes` + `register_expander_routes(app)` at end of router registration |
+| `boneio/webui/routes/config.py` | Nothing (endpoints moved to module) — if upstream re-introduces an expander endpoint there, decide whether to remove and keep ours |
+
+Tip: `git diff fbe2140..HEAD -- <file>` shows exactly what our refactor put there.
+
+### Step 4 — verify with the anti-duplicate checklist
+
+After resolving conflicts, run these greps to catch any inline duplicates upstream
+might have re-introduced (e.g. a fresh `startsWith('EX_')` they added):
+
+```bash
+# Must return empty (with the SHIM files exception in #2 — that's intentional)
+grep -rn "startsWith.*EX_\|startswith.*EX_" frontend/src/ boneio/ \
+  --include="*.ts" --include="*.tsx" --include="*.py" 2>/dev/null \
+  | grep -v "modules/expander" | grep -v "__pycache__"
+
+grep -rn "'0x20'.*'0x21'.*'0x22'" frontend/src/ \
+  --include="*.ts" --include="*.tsx" 2>/dev/null \
+  | grep -v "modules/expander"
+
+grep -rn "^output:.*!include" boneio/ --include="*.py" 2>/dev/null \
+  | grep -v "modules/expander" | grep -v "__pycache__"
+
+grep -rn "useState.*outputKind\|setOutputKind" frontend/src/ \
+  --include="*.ts" --include="*.tsx" 2>/dev/null
+
+grep -rn "any\[\]" frontend/src/components/UISettings/modules/ \
+  --include="*.ts" --include="*.tsx" 2>/dev/null
+```
+
+If anything new pops up, fix it (replace with module helper) before committing.
+
+### Step 5 — build chain
+
+```bash
+cd frontend && npx tsc --noEmit && npm run build
+cd .. && python3 -c "from boneio.bonecli import main; print('bonecli ok')"
+python3 -c "from boneio.modules.expander.yaml_util import is_expander_output; print('module ok')"
+```
+
+### Step 6 — finalise merge commit
+
+```bash
+git commit                # opens editor with merge message; summarise conflicts resolved
+git push fork feat/expansion-board
+```
+
+### Step 7 — deploy + smoke test
+
+```bash
+./deploy_backend.sh                              # full rsync of boneio/ + service restart
+sshpass -p '...' ssh boneio@192.168.1.22 "systemctl is-active boneio.service"
+curl -sS http://192.168.1.22:8090/ -o /dev/null -w "HTTP %{http_code}\n"
+```
+
+Then in UI (`localhost:5173`): regression suite — Add/Remove Expander, edit EX_OUT_*,
+badge "expander", dropdown counters, plus a quick poke at any NEW upstream features
+to confirm they work.
+
+### Edge cases the module pattern still can't dodge
+
+1. **Upstream renames a file we inject into.** Git marks it as renamed+modified, our
+   injection lands in the wrong place or gets dropped. Recovery: `git log --follow`
+   the old path, re-apply the injection to the new file.
+2. **Upstream changes a function signature we depend on** (e.g. `update_config_section()`
+   gets new args). Our backend module helper call breaks. Recovery: adapt the module's
+   call site to the new signature; the module's INTERNAL logic stays unchanged.
+3. **Upstream ships their own version of our feature** (e.g. their own expander UI).
+   Decide: remove ours, merge concepts, or keep both with namespacing. Module isolation
+   makes "remove ours" trivial (`rm -rf modules/expander/` + revert injection lines).
+4. **Upstream changes Cerberus schema in a way that rejects our EX_* outputs**. Recovery:
+   add schema overrides in `boneio/modules/expander/schema_patches.py` (new file, not
+   yet built) and apply during boot.
+
+### Threshold for investing in build/inject automation (task #22)
+
+Stop doing manual merges and build the inject script if **any of**:
+- More than 2 of our 7 injection points conflict in a single upstream release
+- Upstream renames an injection-point file (high-friction recovery)
+- We add a 2nd module (e.g. cloud_sync) — automation amortises across modules
+- We start managing 3+ branches (e.g. dev + stable backport)
+
+Until then: manual merges with this runbook are cheaper than maintaining a patch system.
 
 ---
 
