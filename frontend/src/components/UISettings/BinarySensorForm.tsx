@@ -257,7 +257,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
       {/* Blueprint Picker — quick action config for common patterns */}
       <button
         type="button"
-        className="w-full text-left p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 group"
+        className="w-full text-left p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 cursor-pointer group"
         onClick={() => setShowBlueprint(true)}
       >
         <div className="flex items-center gap-2">
