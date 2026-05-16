@@ -209,6 +209,8 @@ interface WaterSourceData {
   id?: string;
   name?: string;
   outputs?: string[];
+  output_start_delay?: string;
+  output_stop_delay?: string;
   pump_start_pump_delay?: string;
   pump_start_valve_delay?: string;
   pump_stop_pump_delay?: string;
@@ -229,6 +231,9 @@ interface WaterSourceRowProps {
 
 function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allAreas, usedOutputIds, hasValveOpenDelay }: WaterSourceRowProps) {
   const { t } = useTranslation();
+  const [showSequentialDelay, setShowSequentialDelay] = useState(
+    () => !!(source.output_start_delay || source.output_stop_delay)
+  );
   const [showPumpDelays, setShowPumpDelays] = useState(
     () => !!(source.pump_start_pump_delay || source.pump_start_valve_delay ||
              source.pump_stop_pump_delay || source.pump_stop_valve_delay)
@@ -330,6 +335,41 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
           </div>
         ))}
       </div>
+
+      {/* Sequential output activation delay (collapsible) */}
+      {(source.outputs?.length || 0) > 1 && (
+        <div className="border border-base-300 rounded-lg">
+          <button
+            type="button"
+            className="w-full p-2 flex items-center justify-between text-xs font-semibold hover:bg-base-200/50 rounded-lg transition-colors"
+            onClick={() => setShowSequentialDelay(!showSequentialDelay)}
+          >
+            <span>⏱️ {t('irrigation.sequential_delay')}</span>
+            <span className={`transition-transform ${showSequentialDelay ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {showSequentialDelay && (
+            <div className="p-2 pt-0 space-y-2">
+              <p className="text-xs text-base-content/50">{t('irrigation.sequential_delay_hint')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <SimpleTimePeriodInput
+                  value={source.output_start_delay || '0s'}
+                  onChange={(v) => updateField('output_start_delay', v)}
+                  label={t('irrigation.output_start_delay')}
+                  allowedUnits={['ms', 's']}
+                  unitlessNumberUnit="s"
+                />
+                <SimpleTimePeriodInput
+                  value={source.output_stop_delay || '0s'}
+                  onChange={(v) => updateField('output_stop_delay', v)}
+                  label={t('irrigation.output_stop_delay')}
+                  allowedUnits={['ms', 's']}
+                  unitlessNumberUnit="s"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Per-source pump delays (collapsible) */}
       <div className="border border-base-300 rounded-lg">

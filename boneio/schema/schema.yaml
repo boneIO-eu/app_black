@@ -1773,6 +1773,26 @@ template:
               required: True
               meta:
                 label: Output IDs to activate when this water source is used.
+            output_start_delay:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: False
+              meta:
+                label: Delay between activating each output (sequential ON, in order).
+            output_stop_delay:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: False
+              meta:
+                label: Delay between deactivating each output (sequential OFF, reverse order).
             pump_switch_off_during_valve_open_delay:
               type: boolean
               required: False
@@ -1923,6 +1943,26 @@ irrigation:
               required: True
               meta:
                 label: Output IDs to activate when this water source is used.
+            output_start_delay:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: False
+              meta:
+                label: Delay between activating each output (sequential ON, in order).
+            output_stop_delay:
+              type:
+                - string
+                - timeperiod
+              coerce:
+                - str
+                - positive_time_period
+              required: False
+              meta:
+                label: Delay between deactivating each output (sequential OFF, reverse order).
             pump_switch_off_during_valve_open_delay:
               type: boolean
               required: False
