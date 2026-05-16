@@ -57,6 +57,11 @@ export {
   type UseMcpHardwareArgs,
   type UseMcpHardwareReturn,
 } from './hooks/useMcpHardware';
+export {
+  useOutputCapacity,
+  type UseOutputCapacityReturn,
+} from './hooks/useOutputCapacity';
+export { useOutputKind } from './hooks/useOutputKind';
 
 // Components (Presentational; safe to swap for alternative skins)
 export { default as ExpanderManager } from './components/ExpanderManager';
@@ -64,3 +69,7 @@ export {
   default as McpHardwareFields,
   type McpHardwareFieldsProps,
 } from './components/McpHardwareFields';
+export {
+  default as OutputAddButton,
+  type OutputAddButtonProps,
+} from './components/OutputAddButton';

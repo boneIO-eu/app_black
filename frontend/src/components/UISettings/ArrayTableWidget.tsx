@@ -14,7 +14,8 @@ import {
 // Extracted components & hooks
 import { useItemActions } from './hooks/useItemActions';
 import { useImportExport } from './hooks/useImportExport';
-import { validateItem, areAllItemsUsed, getOutputStats } from './helpers/itemValidation';
+import { validateItem, areAllItemsUsed } from './helpers/itemValidation';
+import { OutputAddButton, isExpanderOutput, useOutputKind, EXPANDER_OUTPUT_PREFIX } from './modules/expander';
 import FormRenderer from './components/FormRenderer';
 import TableRenderer from './components/TableRenderer';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
@@ -95,7 +96,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
   const [wizardCopied, setWizardCopied] = useState(false);
-  const [outputKind, setOutputKind] = useState<'board' | 'expander'>('board');
+  // outputKind is derived from editingItem via useOutputKind — no manual state to keep in sync.
 
   // Extracted hooks
   const { findItemsUsingArea, findAffectedActions, removeOrphanedActions } = useItemActions({
@@ -173,15 +174,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
       item.name = item.id;
       delete item.id;
     }
-
-    // Detect expander output when editing
-    if (sectionType === 'output') {
-      setOutputKind(
-        item.id?.startsWith?.('EX_') || item.boneio_output?.startsWith?.('EX_')
-          ? 'expander' : 'board'
-      );
-    }
-
+    // outputKind is derived from editingItem (via useOutputKind) — nothing to set here.
     setEditingItem(item);
     setEditingIndex(index);
     originalItemRef.current = JSON.stringify(item);
@@ -191,14 +184,17 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   };
 
   const handleAddOutput = (kind: 'board' | 'expander') => {
-    setOutputKind(kind);
+    // Pre-fill boneio_output with the expander prefix so useOutputKind derives 'expander'
+    // immediately. Board kind = empty object, derives to 'board' by default.
     setEditingIndex(null);
-    setEditingItem({});
+    setEditingItem(kind === 'expander' ? { boneio_output: EXPANDER_OUTPUT_PREFIX } : {});
     originalItemRef.current = null;
     setHasValidationErrors(false);
     setAttemptedSubmit(false);
     setIsModalOpen(true);
   };
+
+  const outputKind = useOutputKind(editingItem);
 
   const handleAdd = () => {
     setEditingIndex(null);
@@ -449,49 +445,9 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
             </div>
           )}
 
-          {/* Add new button — dropdown for output section when expander exists */}
-          {sectionType === 'output' && value.some((o: any) => o.id?.startsWith?.('EX_') || o.boneio_output?.startsWith?.('EX_')) ? (
-            (() => {
-              const { boardCapacity, boardUsed, expanderCapacity, expanderUsed } = getOutputStats(value, deviceType);
-              const boardFull = boardUsed >= boardCapacity;
-              const expanderFull = expanderUsed >= expanderCapacity;
-              const allFull = boardFull && expanderFull;
-              return (
-                <div className="dropdown dropdown-end">
-                  <div tabIndex={0} className={`btn btn-primary btn-sm ${allFull ? 'btn-disabled' : ''}`}>
-                    <FaPlus className="mr-1" />
-                    {t('settings.add_new')}
-                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  <ul tabIndex={0} className="dropdown-content menu menu-sm shadow bg-base-100 rounded-box w-56 z-50 border border-base-300">
-                    <li>
-                      <button
-                        onClick={() => !boardFull && handleAddOutput('board')}
-                        className={boardFull ? 'opacity-40 cursor-not-allowed' : ''}
-                        disabled={boardFull}
-                      >
-                        <span className="flex-1">{t('outputs.add_board_output')}</span>
-                        <span className={`badge badge-sm ${boardFull ? 'badge-error' : 'badge-ghost'}`}>
-                          {boardUsed}/{boardCapacity}
-                        </span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        onClick={() => !expanderFull && handleAddOutput('expander')}
-                        className={expanderFull ? 'opacity-40 cursor-not-allowed' : ''}
-                        disabled={expanderFull}
-                      >
-                        <span className="flex-1">{t('outputs.add_expander_output')}</span>
-                        <span className={`badge badge-sm ${expanderFull ? 'badge-error' : 'badge-ghost'}`}>
-                          {expanderUsed}/{expanderCapacity}
-                        </span>
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              );
-            })()
+          {/* Add new button — module-owned dropdown when expander exists; plain button otherwise */}
+          {sectionType === 'output' && value.some(isExpanderOutput) ? (
+            <OutputAddButton outputs={value} deviceType={deviceType} onAdd={handleAddOutput} />
           ) : (
             <div className={`tooltip tooltip-left ${allUsed ? 'tooltip-warning' : 'tooltip-info'}`}
               data-tip={allUsed ? (sectionType === 'output' ? t('outputs.all_outputs_used') : t('inputs.all_inputs_used')) : t('settings.add_new')}>
