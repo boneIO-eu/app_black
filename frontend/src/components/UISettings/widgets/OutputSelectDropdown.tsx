@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
   excludeIds = [],
   emptyHint,
 }) => {
+  const { t } = useTranslation();
   /**
    * Check if an output is saved (committed) by comparing with saved data.
    */
@@ -107,14 +109,14 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
           {selectedOutput ? (
             <div className="flex flex-col items-start">
               <span className="font-medium">
-                {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
-                {selectedOutput.isRemote && <span className="badge badge-xs badge-info mr-1">🌐 Remote</span>}
+                {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">{t('outputs.badge_group')}</span>}
+                {selectedOutput.isRemote && <span className="badge badge-xs badge-info mr-1">{t('outputs.badge_remote')}</span>}
                 {selectedOutput.name}
               </span>
               <span className="text-xs opacity-60">
                 ID: {selectedOutput.id}
-                {selectedOutput.device_id && ` • Device: ${selectedOutput.device_id}`}
-                {selectedOutput.area && ` • Area: ${getAreaName(selectedOutput.area)}`}
+                {selectedOutput.device_id && ` • ${t('outputs.device_label')}: ${selectedOutput.device_id}`}
+                {selectedOutput.area && ` • ${t('outputs.area_label')}: ${getAreaName(selectedOutput.area)}`}
               </span>
             </div>
           ) : (
@@ -125,7 +127,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
       <SelectContent className="bg-base-100">
         {normalizedOutputs.length === 0 ? (
           <div className="px-3 py-4 text-center text-sm text-base-content/50">
-            <p className="font-medium">{emptyHint || 'No outputs available'}</p>
+            <p className="font-medium">{emptyHint || t('outputs.no_outputs_available')}</p>
           </div>
         ) : (
           normalizedOutputs.map((output) => (
@@ -137,15 +139,15 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
             >
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
-                  {output.isRemote && <span className="badge badge-xs badge-info mr-1">🌐 Remote</span>}
-                  {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                  {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">{t('outputs.badge_group')}</span>}
+                  {output.isRemote && <span className="badge badge-xs badge-info mr-1">{t('outputs.badge_remote')}</span>}
+                  {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">{t('outputs.badge_unsaved')}</span>}
                   {output.name}
                 </span>
                 <span className="text-xs opacity-60">
                   ID: {output.id}
-                  {output.device_id && ` • Device: ${output.device_id}`}
-                  {output.area && ` • Area: ${getAreaName(output.area)}`}
+                  {output.device_id && ` • ${t('outputs.device_label')}: ${output.device_id}`}
+                  {output.area && ` • ${t('outputs.area_label')}: ${getAreaName(output.area)}`}
                 </span>
               </div>
             </SelectItem>

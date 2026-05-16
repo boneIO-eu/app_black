@@ -105,7 +105,13 @@
     "adjustable_duration_info_title": "Timer z regulowanym czasem",
     "adjustable_duration_info_desc1": "Tworzy encję number (suwak) w Home Assistant do sterowania timerem auto-wyłączenia tego wyjścia.",
     "adjustable_duration_info_desc2": "Przydatne do ręcznego podlewania, oświetlenia na czas lub dowolnego wyjścia, które powinno wyłączyć się po ustalonym czasie.",
-    "adjustable_duration_conflict": "Najpierw wyczyść Chwilowe Włączenie — obie opcje pełnią tę samą funkcję."
+    "adjustable_duration_conflict": "Najpierw wyczyść Chwilowe Włączenie — obie opcje pełnią tę samą funkcję.",
+    "badge_group": "Grupa",
+    "badge_remote": "🌐 Zdalne",
+    "badge_unsaved": "Niezapisane",
+    "no_outputs_available": "Brak dostępnych wyjść",
+    "device_label": "Urządzenie",
+    "area_label": "Strefa"
   },
   "inputs": {
     "title": "Wejścia",

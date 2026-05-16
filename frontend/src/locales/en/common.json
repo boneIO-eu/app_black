@@ -105,7 +105,13 @@
     "adjustable_duration_info_title": "Adjustable Duration Timer",
     "adjustable_duration_info_desc1": "Creates a number entity (slider) in Home Assistant to control the auto-off timer of this output.",
     "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period.",
-    "adjustable_duration_conflict": "Clear Momentary Turn On first — both options serve the same purpose."
+    "adjustable_duration_conflict": "Clear Momentary Turn On first — both options serve the same purpose.",
+    "badge_group": "Group",
+    "badge_remote": "🌐 Remote",
+    "badge_unsaved": "Unsaved",
+    "no_outputs_available": "No outputs available",
+    "device_label": "Device",
+    "area_label": "Area"
   },
   "inputs": {
     "title": "Inputs",
