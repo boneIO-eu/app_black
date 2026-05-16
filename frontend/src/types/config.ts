@@ -190,7 +190,7 @@ export interface EventEntity {
 export type BinarySensorDeviceClass = 
   | 'door' | 'garage_door' | 'lock' | 'moisture' 
   | 'motion' | 'occupancy' | 'opening' | 'presence' 
-  | 'smoke' | 'vibration' | 'window';
+  | 'smoke' | 'sound' | 'vibration' | 'window';
 
 /** Binary sensor kind */
 export type BinarySensorKind = 'sensor' | 'button';
