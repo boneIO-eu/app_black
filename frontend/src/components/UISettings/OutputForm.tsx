@@ -160,8 +160,23 @@ const OutputForm: React.FC<OutputFormProps> = ({
       delete newData.duration_unit;
     }
     
+    // When enabling adjustable_duration, clear static momentary (mutual exclusion)
+    if (field === 'adjustable_duration' && value) {
+      delete newData.momentary_turn_on;
+      delete newData.momentary_turn_off;
+    }
+    
     // When disabling adjustable_duration, clean up related fields
     if (field === 'adjustable_duration' && !value) {
+      delete newData.duration_default;
+      delete newData.duration_min;
+      delete newData.duration_max;
+      delete newData.duration_unit;
+    }
+
+    // When setting momentary_turn_on, disable adjustable_duration (mutual exclusion)
+    if (field === 'momentary_turn_on' && value) {
+      delete newData.adjustable_duration;
       delete newData.duration_default;
       delete newData.duration_min;
       delete newData.duration_max;
@@ -452,7 +467,11 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     {/* Momentary Turn On */}
                     <SimpleTimePeriodInput
                       value={data.momentary_turn_on || ''}
-                      onChange={(value: string) => updateField('momentary_turn_on', value || undefined)}
+                      onChange={(value: string) => {
+                        // Treat zero values ("0s", "0ms", etc.) as clearing the field
+                        const isZero = /^0+(ms|s|sec|min|h|hours?)?$/i.test(value.trim());
+                        updateField('momentary_turn_on', isZero ? undefined : (value || undefined));
+                      }}
                       label={t('outputs.momentary_turn_on')}
                       required={false}
                       minimum={0}
@@ -461,7 +480,10 @@ const OutputForm: React.FC<OutputFormProps> = ({
                     {/* Momentary Turn Off */}
                     <SimpleTimePeriodInput
                       value={data.momentary_turn_off || ''}
-                      onChange={(value: string) => updateField('momentary_turn_off', value || undefined)}
+                      onChange={(value: string) => {
+                        const isZero = /^0+(ms|s|sec|min|h|hours?)?$/i.test(value.trim());
+                        updateField('momentary_turn_off', isZero ? undefined : (value || undefined));
+                      }}
                       label={t('outputs.momentary_turn_off')}
                       required={false}
                       minimum={0}
@@ -486,15 +508,21 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   <div className="grid grid-cols-1 gap-4">
                     <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
                       <legend className="fieldset-legend">{t('outputs.adjustable_duration_label')}</legend>
-                      <label className="label cursor-pointer justify-start gap-4">
+                      <label className={`label cursor-pointer justify-start gap-4 ${data.momentary_turn_on ? 'opacity-50' : ''}`}>
                         <input
                           type="checkbox"
                           className="toggle toggle-primary"
                           checked={data.adjustable_duration === true}
                           onChange={() => updateField('adjustable_duration', !data.adjustable_duration)}
+                          disabled={!!data.momentary_turn_on}
                         />
                         <span className="label-text">{t('outputs.adjustable_duration_desc')}</span>
                       </label>
+                      {data.momentary_turn_on && (
+                        <p className="text-xs text-warning mt-1 px-1">
+                          {t('outputs.adjustable_duration_conflict')}
+                        </p>
+                      )}
                     </fieldset>
 
                     {data.adjustable_duration && (

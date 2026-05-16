@@ -104,7 +104,8 @@
     "duration_unit_hint": "Unit displayed on the Home Assistant slider",
     "adjustable_duration_info_title": "Adjustable Duration Timer",
     "adjustable_duration_info_desc1": "Creates a number entity (slider) in Home Assistant to control the auto-off timer of this output.",
-    "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period."
+    "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period.",
+    "adjustable_duration_conflict": "Clear Momentary Turn On first — both options serve the same purpose."
   },
   "inputs": {
     "title": "Inputs",
