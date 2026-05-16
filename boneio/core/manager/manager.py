@@ -1143,11 +1143,13 @@ class Manager:
                 input_id,
             )
         finally:
-            # Clean up: remove this task from the pending list
+            # Clean up: remove this task from the pending list.
+            # Note: asyncio tasks report done()=False inside their own finally,
+            # so we filter by identity (current_task) instead of done() state.
+            current = asyncio.current_task()
             tasks = self._pending_delayed_actions.get(input_id, [])
-            # Filter out done/cancelled tasks
             self._pending_delayed_actions[input_id] = [
-                t for t in tasks if not t.done()
+                t for t in tasks if t is not current and not t.done()
             ]
             if not self._pending_delayed_actions[input_id]:
                 self._pending_delayed_actions.pop(input_id, None)
