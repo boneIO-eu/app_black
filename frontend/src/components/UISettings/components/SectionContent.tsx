@@ -129,7 +129,6 @@ function CustomFormContent({
           allOutputs={formData.output || []}
           allEvents={formData.event || []}
           allBinarySensors={formData.binary_sensor || []}
-          onExpanderAdded={() => window.location.reload()}
         />
       );
     case 'mqtt':

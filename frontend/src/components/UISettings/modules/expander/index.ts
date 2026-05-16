@@ -44,4 +44,13 @@ export {
   hasMcpHardwareOverride,
 } from './helpers/outputMcpUtils';
 
-// (hooks / components — added in Phase A commits)
+// Hooks (stateful + side-effects; consumable by alternative UI skins)
+export {
+  useExpanderManager,
+  type UseExpanderManagerArgs,
+  type UseExpanderManagerReturn,
+  type ExpanderResult,
+} from './hooks/useExpanderManager';
+
+// Components (Presentational; safe to swap for alternative skins)
+export { default as ExpanderManager } from './components/ExpanderManager';
