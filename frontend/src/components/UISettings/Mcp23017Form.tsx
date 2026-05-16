@@ -1,6 +1,14 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { EXPANDER_OUTPUT_PREFIX } from './helpers/expanderBoards';
+import {
+  MCP_ADDRESS_OPTIONS,
+  MANAGED_EXPANDER_IDS,
+  DEFAULT_ADDRESSES,
+  DEFAULT_ADDRESS_INTEGERS,
+  isExpanderOutput,
+  type McpAddress,
+  type ManagedExpanderId,
+} from './modules/expander';
 
 interface Mcp23017Data {
   id: string;
@@ -14,25 +22,7 @@ interface Mcp23017FormProps {
   allOutputs?: any[];
 }
 
-const MANAGED_EXPANDER_IDS = [
-  'mcp_left',
-  'mcp_right',
-  'expander_left',
-  'expander_right',
-] as const;
-
-type ManagedExpanderId = (typeof MANAGED_EXPANDER_IDS)[number];
-
-const DEFAULT_ADDRESSES: Record<ManagedExpanderId, string> = {
-  mcp_left: '0x21',
-  mcp_right: '0x20',
-  expander_left: '0x23',
-  expander_right: '0x22',
-};
-
-const ADDRESS_OPTIONS = ['0x20', '0x21', '0x22', '0x23', '0x24', '0x25', '0x26', '0x27'];
-
-const toHexAddress = (address: string | number, fallback = '0x20'): string => {
+const toHexAddress = (address: string | number, fallback: McpAddress = '0x20'): string => {
   if (typeof address === 'number') return `0x${address.toString(16)}`;
   if (typeof address === 'string') {
     if (address.startsWith('0x')) return address.toLowerCase();
@@ -46,9 +36,7 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange, allOutputs 
   const { t } = useTranslation();
 
   // Expander is configured when there are EX_* outputs in the config
-  const hasExpander = allOutputs.some(
-    (o: any) => (o?.id || o?.boneio_output || '').startsWith(EXPANDER_OUTPUT_PREFIX)
-  );
+  const hasExpander = allOutputs.some(isExpanderOutput);
 
   const getAddress = (id: ManagedExpanderId): string => {
     const entry = data.find(e => e.id === id);
@@ -78,7 +66,7 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange, allOutputs 
             value={getAddress(id)}
             onChange={e => updateAddress(id, e.target.value)}
           >
-            {ADDRESS_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+            {MCP_ADDRESS_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
       </div>
@@ -124,12 +112,8 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange, allOutputs 
 
 export default Mcp23017Form;
 
-const DEFAULT_ADDRESS_INTEGERS: Record<ManagedExpanderId, number> = {
-  mcp_left: 0x21,
-  mcp_right: 0x20,
-  expander_left: 0x23,
-  expander_right: 0x22,
-};
-
+// Backwards-compatible re-exports — old consumers may import from this file.
+// The canonical source is `modules/expander`; remove these re-exports once all
+// upstream files have migrated to the module API.
 export { DEFAULT_ADDRESSES, DEFAULT_ADDRESS_INTEGERS, MANAGED_EXPANDER_IDS };
 export type { ManagedExpanderId };

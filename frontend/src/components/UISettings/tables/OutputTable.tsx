@@ -6,6 +6,7 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import { isExpanderOutput } from '../modules/expander';
 
 interface Area {
   id: string;
@@ -85,7 +86,7 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
               fields={[
-                ...((effectiveId?.startsWith('EX_') || item.boneio_output?.startsWith?.('EX_')) ? [{ label: '', value: <span className="badge badge-accent badge-xs">expander</span> }] : []),
+                ...(isExpanderOutput(item) ? [{ label: '', value: <span className="badge badge-accent badge-xs">expander</span> }] : []),
                 ...(item.output_type ? [{ label: t('outputs.output_type'), value: <span className="badge badge-info badge-xs">{item.output_type}</span> }] : []),
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
                 ...(item.interlock_group ? [{ label: t('outputs.interlock_group'), value: <span className="badge badge-error badge-xs">{item.interlock_group}</span> }] : []),
@@ -127,7 +128,7 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
                     <div>
                       <div className="font-medium flex items-center gap-1 flex-wrap">
                         {displayName}
-                        {(effectiveId?.startsWith('EX_') || item.boneio_output?.startsWith?.('EX_')) && (
+                        {isExpanderOutput(item) && (
                           <span className="badge badge-accent badge-xs shrink-0">expander</span>
                         )}
                       </div>
