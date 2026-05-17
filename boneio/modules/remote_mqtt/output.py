@@ -103,37 +103,38 @@ class MQTTGenericOutput(RemoteOutputBase):
         timestamp: float | None = None,
         brightness: int | None = None,
     ) -> None:
-        """Render command_template with `state` (and `brightness`) and publish."""
+        """Render command_template with full output-side context and publish.
+
+        Output templates get a richer context than input value_templates:
+        ``state`` (\"ON\"/\"OFF\"), ``brightness`` (0-255), plus the legacy
+        ``value`` alias (= state) so users can mix patterns. ``value_json``
+        is exposed as ``None`` for symmetry.
+
+        FIX 2026-05-18: previously called ``evaluate(template, state)``
+        first which would raise StrictUndefined for any template using
+        ``{{ state }}`` or ``{{ brightness }}`` (the eval context only
+        had ``value``/``value_json``) — the fallback re-render code was
+        unreachable because we'd already returned. Now we always render
+        directly with the full context.
+        """
+        from boneio.modules.remote_mqtt.template import _get_env
+        from jinja2.exceptions import TemplateError
+
+        eff_brightness = brightness if brightness is not None else (255 if state == ON else 0)
         try:
-            payload = evaluate(
-                self._command_template,
-                # Reuse template engine context: `value` carries the desired state.
-                state,
+            tpl = _get_env().from_string(self._command_template)
+            payload = tpl.render(
+                state=state,
+                value=state,
+                value_json=None,
+                brightness=eff_brightness,
             )
-        except ValueError as exc:
+        except TemplateError as exc:
             _LOGGER.warning(
-                "MQTTGenericOutput '%s' command_template error: %s — skipping publish",
-                self._id, exc,
+                "MQTTGenericOutput '%s' command_template %r raised: %s — skipping publish",
+                self._id, self._command_template, exc,
             )
             return
-
-        # Allow the user to additionally reference {{ state }} / {{ brightness }}
-        # in the command_template. Re-render with explicit context if those
-        # tokens appear in the template string.
-        if "{{ state" in self._command_template or "{{ brightness" in self._command_template:
-            try:
-                from boneio.modules.remote_mqtt.template import _get_env
-                tpl = _get_env().from_string(self._command_template)
-                payload = tpl.render(
-                    state=state,
-                    value=state,
-                    brightness=brightness if brightness is not None else (255 if state == ON else 0),
-                )
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.warning(
-                    "MQTTGenericOutput '%s' command_template re-render failed: %s",
-                    self._id, exc,
-                )
 
         try:
             self._message_bus.send_message(
@@ -156,9 +157,9 @@ class MQTTGenericOutput(RemoteOutputBase):
         if brightness is not None:
             self._brightness = brightness
         self._emit_state_event()
-        _LOGGER.debug(
-            "MQTTGenericOutput '%s' published to '%s': %r",
-            self._id, self._topic, payload,
+        _LOGGER.info(
+            "MQTTGenericOutput '%s' published to '%s' (qos=%d retain=%s): %r",
+            self._id, self._topic, self._qos, self._retain, payload,
         )
 
     # ------------------------------------------------------------------

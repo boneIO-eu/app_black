@@ -132,12 +132,15 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   // Lights with brightness cannot be degraded to plain switch
   const outputTypeLocked = isLightEntity && supportsBrightness;
 
-  /* ---------- devices with outputs ---------- */
+  /* ---------- devices with outputs ----------
+     Include ESPHome devices with switches/lights AND generic-MQTT
+     devices whose mqtt.outputs catalog has at least one entry. */
   const devicesWithOutputs = allRemoteDevices.filter((device) => {
     const api = (device as any)?.esphome_api || device;
     const sw = api?.switches || [];
     const li = api?.lights || [];
-    return sw.length > 0 || li.length > 0;
+    const mq = (device as any)?.mqtt?.outputs || [];
+    return sw.length > 0 || li.length > 0 || mq.length > 0;
   });
 
   return (

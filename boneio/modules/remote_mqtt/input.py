@@ -69,21 +69,34 @@ class MQTTGenericInput(RemoteInputBase):
             )
 
     async def _on_message(self, topic: str, payload: str) -> None:
-        """Render template, coerce to bool, dispatch through base helpers."""
+        """Render template, coerce to bool, dispatch through base helpers.
+
+        Verbose INFO logging while we're stabilising the device-centric
+        pivot — each step says what happened so failures are diagnosable
+        from the journal without a debugger. Demote to DEBUG once stable.
+        """
+        _LOGGER.info(
+            "MQTTGenericInput '%s' RX topic=%s payload=%r",
+            self._id, topic, payload,
+        )
         try:
             rendered = evaluate(self._value_template, payload)
         except ValueError as exc:
             _LOGGER.warning(
-                "MQTTGenericInput '%s' template error on payload %r: %s",
-                self._id, payload, exc,
+                "MQTTGenericInput '%s' template %r raised on payload %r: %s",
+                self._id, self._value_template, payload, exc,
             )
             return
 
         bool_value = coerce_bool(rendered, self._payload_on, self._payload_off)
+        _LOGGER.info(
+            "MQTTGenericInput '%s' rendered=%r coerced=%s (payload_on=%r payload_off=%r)",
+            self._id, rendered, bool_value, self._payload_on, self._payload_off,
+        )
         if bool_value is None:
-            _LOGGER.debug(
-                "MQTTGenericInput '%s': payload %r → rendered %r doesn't coerce to bool — dropping",
-                self._id, payload, rendered,
+            _LOGGER.warning(
+                "MQTTGenericInput '%s' DROPPED — rendered %r doesn't match payload_on/off and isn't a recognised boolean token",
+                self._id, rendered,
             )
             return
 
@@ -92,12 +105,21 @@ class MQTTGenericInput(RemoteInputBase):
 
         if self._mode == "event":
             self._feed_detector(is_pressed=bool_value)
-        else:
-            # Only emit on transitions — MQTT will republish on every change,
-            # but some publishers also republish the same state periodically.
-            if bool_value == self._state:
-                return
-            self._handle_binary_state_change(bool_value)
+            return
+
+        # Only emit on transitions — MQTT will republish on every change,
+        # but some publishers also republish the same state periodically.
+        if bool_value == self._state:
+            _LOGGER.info(
+                "MQTTGenericInput '%s' no transition (state already %s) — not emitting",
+                self._id, bool_value,
+            )
+            return
+        _LOGGER.info(
+            "MQTTGenericInput '%s' EMIT transition %s → %s",
+            self._id, self._state, bool_value,
+        )
+        self._handle_binary_state_change(bool_value)
 
     async def unsubscribe(self) -> None:
         """Unsubscribe from the broker — called by registrar.unregister_all."""
