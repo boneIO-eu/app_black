@@ -1398,6 +1398,19 @@ class Manager:
                 interlock_groups = [interlock_groups]
             enforce_interlock = bool(out_cfg.get("enforce_interlock", False))
 
+            # Momentary actions
+            momentary_turn_on = out_cfg.get("momentary_turn_on")
+            momentary_turn_off = out_cfg.get("momentary_turn_off")
+
+            # Adjustable duration
+            adjustable_duration_enabled = bool(out_cfg.get("adjustable_duration", False))
+            from boneio.core.utils.timeperiod import parse_time_to_seconds
+
+            dur_default = parse_time_to_seconds(out_cfg.get("duration_default"), 60.0)
+            dur_min = max(1.0, parse_time_to_seconds(out_cfg.get("duration_min"), 1.0))
+            dur_max = max(dur_min, parse_time_to_seconds(out_cfg.get("duration_max"), 3600.0))
+            dur_unit = str(out_cfg.get("duration_unit", "s"))
+
             # Check for duplicates
             if self.outputs.get_output(entity_id) is not None:
                 _LOGGER.warning(
@@ -1420,6 +1433,13 @@ class Manager:
                 interlock_manager=self.outputs._interlock_manager,
                 interlock_groups=interlock_groups,
                 enforce_interlock=enforce_interlock,
+                momentary_turn_on=momentary_turn_on,
+                momentary_turn_off=momentary_turn_off,
+                adjustable_duration=adjustable_duration_enabled,
+                duration_default=dur_default,
+                duration_min=dur_min,
+                duration_max=dur_max,
+                duration_unit=dur_unit,
             )
 
             # Register in shared interlock manager

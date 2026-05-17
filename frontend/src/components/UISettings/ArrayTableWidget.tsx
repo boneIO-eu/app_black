@@ -108,16 +108,38 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   // ─── Data Fetching ──────────────────────────────────────────────
 
+  // Collect interlock groups from config data + runtime API.
+  // Config data is the primary source (works even when outputs are not instantiated).
   useEffect(() => {
-    if (sectionType === 'output') {
-      axios.get('/api/interlock-groups')
-        .then(res => setInterlockGroups(res.data.groups || []))
-        .catch(err => console.error('Failed to fetch interlock groups:', err));
-    }
-  }, [sectionType]);
+    if (sectionType !== 'output' && sectionType !== 'remote_outputs') return;
+
+    // 1. Extract groups from all config items (local + remote outputs)
+    const configGroups = new Set<string>();
+    const scanItem = (item: any) => {
+      const g = item?.interlock_group;
+      if (Array.isArray(g)) {
+        g.forEach((name: string) => { if (name) configGroups.add(name); });
+      } else if (typeof g === 'string' && g) {
+        configGroups.add(g);
+      }
+    };
+    allOutputs.forEach(scanItem);
+    value.forEach(scanItem);
+
+    // 2. Merge with runtime API (may have groups not yet in config)
+    axios.get('/api/interlock-groups')
+      .then(res => {
+        (res.data.groups || []).forEach((g: string) => configGroups.add(g));
+        setInterlockGroups(Array.from(configGroups).sort());
+      })
+      .catch(() => {
+        // API failed — use config-only groups
+        setInterlockGroups(Array.from(configGroups).sort());
+      });
+  }, [sectionType, allOutputs, value]);
 
   const handleInterlockGroupCreated = (groupName: string) => {
-    setInterlockGroups(prev => prev.includes(groupName) ? prev : [...prev, groupName]);
+    setInterlockGroups(prev => prev.includes(groupName) ? prev : [...prev, groupName].sort());
   };
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 /**
  * RemoteOutputTable — dedicated table for remote output entries.
  *
- * Columns: Name/ID | Device | Output Entity | Type | Area | Actions
+ * Columns: Name/ID | Device | Output Entity | Type | Interlock | Area | Actions
  */
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -65,6 +65,11 @@ const RemoteOutputTable: React.FC<RemoteOutputTableProps> = ({
       device: (item: any) => getDeviceName(item.device_id).toLowerCase(),
       output_id: (item: any) => (item.output_id || '').toLowerCase(),
       output_type: (item: any) => (item.output_type || '').toLowerCase(),
+      interlock_group: (item: any) => {
+        const groups = item.interlock_group;
+        if (Array.isArray(groups)) return (groups[0] || '').toLowerCase();
+        return (groups || '').toLowerCase();
+      },
       area: (item: any) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
@@ -121,6 +126,7 @@ const RemoteOutputTable: React.FC<RemoteOutputTableProps> = ({
               fields={[
                 { label: t('remote_outputs.output_entity'), value: item.output_id || '-' },
                 { label: t('remote_outputs.output_type'), value: typeBadge(item.output_type || 'switch') },
+                ...(item.interlock_group && (Array.isArray(item.interlock_group) ? item.interlock_group.length > 0 : true) ? [{ label: t('outputs.interlock_group'), value: <span className="badge badge-error badge-xs">{Array.isArray(item.interlock_group) ? item.interlock_group.join(', ') : item.interlock_group}</span> }] : []),
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
                 { label: t('remote_outputs.on_disconnect'), value: item.on_disconnect === 'turn_off' ? <span className="badge badge-error badge-xs">OFF</span> : <span className="badge badge-ghost badge-xs">{t('remote_outputs.on_disconnect_ignore')}</span> },
               ]}
@@ -138,6 +144,7 @@ const RemoteOutputTable: React.FC<RemoteOutputTableProps> = ({
               <SortableHeader column="device" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_devices.device')}</SortableHeader>
               <SortableHeader column="output_id" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_outputs.output_entity')}</SortableHeader>
               <SortableHeader column="output_type" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('remote_outputs.output_type')}</SortableHeader>
+              <SortableHeader column="interlock_group" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.interlock_group')}</SortableHeader>
               <SortableHeader column="area" sortConfig={sortConfig} onToggleSort={toggleSort}>{t('outputs.area')}</SortableHeader>
               <Th>{t('outputs.actions')}</Th>
             </Tr>
@@ -170,6 +177,15 @@ const RemoteOutputTable: React.FC<RemoteOutputTableProps> = ({
                     <code className="text-xs bg-base-200 px-1.5 py-0.5 rounded">{item.output_id || '-'}</code>
                   </Td>
                   <Td>{typeBadge(item.output_type || 'switch')}</Td>
+                  <Td>
+                    {item.interlock_group && (Array.isArray(item.interlock_group) ? item.interlock_group.length > 0 : true) ? (
+                      <span className="badge badge-error badge-sm" title={`Interlock: ${Array.isArray(item.interlock_group) ? item.interlock_group.join(', ') : item.interlock_group}`}>
+                        {Array.isArray(item.interlock_group) ? item.interlock_group.join(', ') : item.interlock_group}
+                      </span>
+                    ) : (
+                      <span className="text-base-content/40">-</span>
+                    )}
+                  </Td>
                   <Td>{areaName}</Td>
                   <Td>
                     <TableActions

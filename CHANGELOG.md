@@ -4,6 +4,21 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev4 (2026-05-17)
+
+### 🐛 Bug Fixes
+
+- **Interlock Groups API — always returning empty** — The `/api/interlock-groups` endpoint referenced `manager._output_manager`, but the Manager class stores OutputManager as `manager.outputs`. The `hasattr()` check always failed, returning `{"groups": []}`. Fixed the attribute reference and added config-based scanning as fallback.
+- **Remote Output Form — interlock groups not shown** — The frontend `ArrayTableWidget` only fetched interlock groups from the API for local outputs (`sectionType === 'output'`). Extended to also fetch for `remote_outputs`. Additionally, the widget now scans all output config data (`allOutputs` + current section items) for `interlock_group` values, merging them with the API response for resilience.
+
+### ✨ Improvements
+
+- **Interlock Groups API — config-based discovery** — The endpoint now also scans YAML configuration (`output` and `remote_outputs` sections) for interlock group names. This ensures groups are visible in the UI even before a config reload instantiates outputs at runtime.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev3...v1.4.0dev4
+
+---
+
 ## v1.4.0dev3 (2026-05-17)
 
 ### ✨ New Features

@@ -16,7 +16,9 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import OFF, ON, SWITCH
-from boneio.core.events import EventBus
+from boneio.core.events import EventBus, async_track_point_in_time, utcnow
+from boneio.core.utils import callback
+from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_seconds
 from boneio.models import OutputState
 from boneio.models.events import OutputEvent
 
@@ -67,6 +69,13 @@ class RemoteOutputBase:
         interlock_manager: SoftwareInterlockManager | None = None,
         interlock_groups: list[str] | None = None,
         enforce_interlock: bool = False,
+        momentary_turn_on: TimePeriod | None = None,
+        momentary_turn_off: TimePeriod | None = None,
+        adjustable_duration: bool = False,
+        duration_default: float = 60.0,
+        duration_min: float = 1.0,
+        duration_max: float = 3600.0,
+        duration_unit: str = "s",
     ) -> None:
         self._id = id
         self._name = name
@@ -84,10 +93,27 @@ class RemoteOutputBase:
         self._interlock_groups: list[str] = interlock_groups or []
         self._enforce_interlock: bool = enforce_interlock
 
+        # Momentary actions (auto-off / auto-on after duration)
+        self._momentary_turn_on: TimePeriod | None = momentary_turn_on
+        self._momentary_turn_off: TimePeriod | None = momentary_turn_off
+        self._momentary_action: Any = None
+
+        # Adjustable duration (HA number entity slider)
+        self._adjustable_duration_enabled: bool = adjustable_duration
+        self._duration_min: float = max(1.0, duration_min)
+        self._duration_max: float = max(self._duration_min, duration_max)
+        self._duration_default: float = duration_default
+        self._duration_unit: str = duration_unit
+        self._adjustable_duration: float = max(self._duration_min, min(self._duration_max, self._duration_default))
+        # If adjustable_duration is on, momentary_turn_on is managed by the slider
+        if self._adjustable_duration_enabled:
+            self._momentary_turn_on = None
+
         self._state: str = OFF
         self._last_timestamp: float = 0.0
         self._available: bool = False
         self._brightness: int | None = None  # 0-255, None if not a dimmable light
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         # Reference to remote device manager — set by register_remote_outputs().
         # May be None at startup if ESPHome devices load in background.
@@ -235,6 +261,7 @@ class RemoteOutputBase:
 
         Checks interlock before sending the ON command. If another output
         in the same interlock group is already ON, the request is rejected.
+        After successful ON, schedules momentary auto-OFF if configured.
 
         Args:
             timestamp: Optional timestamp for state tracking.
@@ -244,9 +271,7 @@ class RemoteOutputBase:
         """
         can_turn_on = self.check_interlock()
         if not can_turn_on:
-            _LOGGER.warning(
-                "Interlock active: cannot turn on remote output '%s'", self._id
-            )
+            _LOGGER.warning("Interlock active: cannot turn on remote output '%s'", self._id)
             return False
 
         if not self._resolve_device_manager():
@@ -261,6 +286,7 @@ class RemoteOutputBase:
             self._state = ON
             self._last_timestamp = timestamp or time.time()
             self._emit_state_event()
+            self._execute_momentary_turn(ON)
             _LOGGER.debug("Remote output '%s' turned ON", self._id)
         else:
             _LOGGER.warning("Failed to turn ON remote output '%s'", self._id)
@@ -268,6 +294,8 @@ class RemoteOutputBase:
 
     async def async_turn_off(self, timestamp: float | None = None) -> None:
         """Turn off the remote output.
+
+        After successful OFF, schedules momentary auto-ON if configured.
 
         Args:
             timestamp: Optional timestamp for state tracking.
@@ -284,6 +312,7 @@ class RemoteOutputBase:
             self._state = OFF
             self._last_timestamp = timestamp or time.time()
             self._emit_state_event()
+            self._execute_momentary_turn(OFF)
             _LOGGER.debug("Remote output '%s' turned OFF", self._id)
         else:
             _LOGGER.warning("Failed to turn OFF remote output '%s'", self._id)
@@ -337,11 +366,7 @@ class RemoteOutputBase:
 
         # Enforce interlock: if turned ON externally and violating interlock,
         # immediately send OFF command to the remote device.
-        if (
-            new_state
-            and self._enforce_interlock
-            and not self.check_interlock()
-        ):
+        if new_state and self._enforce_interlock and not self.check_interlock():
             _LOGGER.warning(
                 "Remote output '%s' turned ON externally, violating interlock — forcing OFF",
                 self._id,
@@ -457,6 +482,109 @@ class RemoteOutputBase:
         )
         self._event_bus.trigger_event(OutputEvent(entity_id=self._id, state=output_state))
 
+    # ------------------------------------------------------------------
+    # Momentary actions (auto-off / auto-on after delay)
+    # ------------------------------------------------------------------
+
+    def _execute_momentary_turn(self, momentary_type: str) -> None:
+        """Schedule momentary action (auto-off after ON, or auto-on after OFF).
+
+        If adjustable_duration is enabled and this is a turn-ON action,
+        the slider value is used instead of the static momentary_turn_on.
+
+        Args:
+            momentary_type: ON or OFF.
+        """
+        if self._loop is None:
+            try:
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                return
+
+        if self._momentary_action:
+            _LOGGER.debug("Cancelling momentary action for %s", self._name)
+            self._momentary_action()
+
+        if momentary_type == ON:
+            action = self.async_turn_off
+            if self._adjustable_duration_enabled:
+                delayed_action = TimePeriod(seconds=self._adjustable_duration)
+            else:
+                delayed_action = self._momentary_turn_on
+        else:
+            action = self.async_turn_on
+            delayed_action = self._momentary_turn_off
+
+        if delayed_action:
+            _LOGGER.debug(
+                "Scheduling momentary action for %s in %s",
+                self._name,
+                delayed_action.as_timedelta,
+            )
+            self._momentary_action = async_track_point_in_time(
+                loop=self._loop,
+                job=self._momentary_callback,
+                point_in_time=utcnow() + delayed_action.as_timedelta,
+                action=action,
+            )
+
+    @callback
+    async def _momentary_callback(self, timestamp: float, action: Any) -> None:
+        """Execute the scheduled momentary turn-on or turn-off."""
+        _LOGGER.info("Momentary callback at %s for remote output %s", timestamp, self._name)
+        await action(timestamp=timestamp)
+        self._momentary_action = None
+
+    # -- Adjustable duration -------------------------------------------------
+
+    @property
+    def adjustable_duration_enabled(self) -> bool:
+        """Whether this output has an adjustable duration (HA number entity)."""
+        return self._adjustable_duration_enabled
+
+    @property
+    def adjustable_duration(self) -> float:
+        """Current adjustable duration value in seconds."""
+        return self._adjustable_duration
+
+    @property
+    def duration_min(self) -> float:
+        """Minimum duration in seconds for HA slider."""
+        return self._duration_min
+
+    @property
+    def duration_max(self) -> float:
+        """Maximum duration in seconds for HA slider."""
+        return self._duration_max
+
+    @property
+    def duration_unit(self) -> str:
+        """Unit of measurement for HA number entity ('s' or 'min')."""
+        return self._duration_unit
+
+    def set_adjustable_duration(self, seconds: float) -> None:
+        """Set the adjustable duration value.
+
+        Clamps to [duration_min, duration_max].
+
+        Args:
+            seconds: New duration in seconds.
+        """
+        self._adjustable_duration = max(self._duration_min, min(self._duration_max, seconds))
+        _LOGGER.debug(
+            "Remote output '%s' adjustable duration set to %.1fs",
+            self.id,
+            self._adjustable_duration,
+        )
+
+    def restore_adjustable_duration(self, seconds: float) -> None:
+        """Restore persisted duration value.
+
+        Args:
+            seconds: Persisted duration value.
+        """
+        self._adjustable_duration = max(self._duration_min, min(self._duration_max, seconds))
+
     async def _enforce_interlock_off(self) -> None:
         """Send OFF command to remote device after interlock violation.
 
@@ -475,9 +603,7 @@ class RemoteOutputBase:
             action="OFF",
         )
         if success:
-            _LOGGER.info(
-                "Interlock enforced: remote output '%s' turned OFF", self._id
-            )
+            _LOGGER.info("Interlock enforced: remote output '%s' turned OFF", self._id)
         else:
             _LOGGER.error(
                 "Failed to enforce interlock OFF on remote output '%s'",
