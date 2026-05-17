@@ -11,6 +11,7 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import AreaSelect from './widgets/AreaSelect';
+import { MqttRemoteOutputFields } from './modules/remote_mqtt';
 import {
   Select,
   SelectContent,
@@ -187,7 +188,16 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
           )}
         </div>
 
-        {/* Output Entity (output_id) — dropdown from selected device's switches/lights */}
+        {/* Output Entity — generic-MQTT branch shows command topic + template
+            from the remote_mqtt module; everything else keeps the standard
+            output_id dropdown for ESPHome / WLED devices. */}
+        {data.remote_source === 'mqtt' ? (
+          <MqttRemoteOutputFields
+            data={data}
+            onUpdate={(patch) => onChange({ ...data, ...patch, output_id: patch.topic ?? data.output_id ?? data.topic })}
+            attemptedSubmit={attemptedSubmit}
+          />
+        ) : (
         <div className="form-control">
           <label className="label">
             <span className="label-text font-medium">{t('remote_outputs.output_entity')}</span>
@@ -244,6 +254,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
             </label>
           )}
         </div>
+        )}
 
         {/* Output Type */}
         <div className="form-control">

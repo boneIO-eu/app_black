@@ -1968,6 +1968,20 @@
     "template_hint": "Click any value above to fill in the path",
     "preview_label": "Preview",
     "preview_pending": "Evaluating…",
-    "preview_empty_template": "Enter a template to see the preview"
+    "preview_empty_template": "Enter a template to see the preview",
+    "field_topic": "MQTT topic",
+    "field_command_topic": "Command topic",
+    "field_command_template": "command_template",
+    "field_state_topic": "State topic (feedback)",
+    "field_state_value_template": "state_value_template",
+    "field_payload_on": "payload_on (optional)",
+    "field_payload_off": "payload_off (optional)",
+    "topic_invalid": "Invalid topic (no spaces, no `+` or `#` wildcards in publication topics).",
+    "template_hint_input": "Defaults to `{{ value }}` (raw payload). For JSON: `{{ value_json.fail }}`.",
+    "command_template_hint": "Context: `{{ state }}` (\"ON\"/\"OFF\"), `{{ brightness }}` (0-255). Default sends \"ON\"/\"OFF\" string.",
+    "test_payload_label": "Test against a sample payload",
+    "test_payload_hint": "Paste a sample payload from your device to verify the template.",
+    "state_topic_hint": "If set, boneIO subscribes here and updates state from the real device. Otherwise uses optimistic local state after publish.",
+    "state_feedback_label": "State feedback (optional)"
   }
 }

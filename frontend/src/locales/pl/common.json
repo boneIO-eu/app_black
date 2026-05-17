@@ -1967,6 +1967,20 @@
     "template_hint": "Kliknij dowolną wartość żeby wstawić ścieżkę",
     "preview_label": "Podgląd",
     "preview_pending": "Obliczam…",
-    "preview_empty_template": "Wpisz template żeby zobaczyć podgląd"
+    "preview_empty_template": "Wpisz template żeby zobaczyć podgląd",
+    "field_topic": "Temat MQTT",
+    "field_command_topic": "Temat komendy",
+    "field_command_template": "command_template",
+    "field_state_topic": "Temat stanu (feedback)",
+    "field_state_value_template": "state_value_template",
+    "field_payload_on": "payload_on (opcjonalnie)",
+    "field_payload_off": "payload_off (opcjonalnie)",
+    "topic_invalid": "Nieprawidłowy temat (bez spacji, bez `+` / `#` w tematach publikacji).",
+    "template_hint_input": "Domyślnie `{{ value }}` (surowy payload). Dla JSON: `{{ value_json.fail }}`.",
+    "command_template_hint": "Kontekst: `{{ state }}` (\"ON\"/\"OFF\"), `{{ brightness }}` (0-255). Domyślnie wysyła plain \"ON\"/\"OFF\".",
+    "test_payload_label": "Test przeciw przykładowemu payload",
+    "test_payload_hint": "Wklej przykładowy payload urządzenia żeby zweryfikować template.",
+    "state_topic_hint": "Jeśli ustawione — boneIO subskrybuje i aktualizuje stan z prawdziwego urządzenia. Inaczej stan jest optymistyczny po publish.",
+    "state_feedback_label": "Feedback stanu (opcjonalnie)"
   }
 }
