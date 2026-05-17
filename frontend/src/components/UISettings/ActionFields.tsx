@@ -338,6 +338,66 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         </div>
       )}
 
+      {/* Delay before execution — only for pressed/released (binary sensor) actions */}
+      {(clickType === 'pressed' || clickType === 'released') && (
+        <div className="form-control mb-3">
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-primary"
+              checked={!!action.delay}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onUpdate('__batch', { delay: '2min', delay_cancel_on: [clickType === 'released' ? 'pressed' : 'released'] });
+                } else {
+                  onUpdate('__batch', { delay: undefined, delay_cancel_on: undefined });
+                }
+              }}
+            />
+            <div>
+              <span className="label-text font-medium">{t('actions.delay_execution')}</span>
+              <p className="label-text-alt text-xs opacity-70">{t('actions.delay_execution_hint')}</p>
+            </div>
+          </label>
+          {action.delay && (
+            <div className="mt-2 ml-8 space-y-3">
+              <SimpleTimePeriodInput
+                value={action.delay}
+                onChange={(val) => onUpdate('delay', val)}
+                label={t('actions.delay_time')}
+                minimum={1}
+                allowedUnits={['s', 'min']}
+              />
+              <div>
+                <label className="label py-0">
+                  <span className="label-text text-sm font-medium">{t('actions.delay_cancel_on')}</span>
+                </label>
+                <p className="text-xs opacity-60 mb-2 ml-1">{t('actions.delay_cancel_on_hint')}</p>
+                <div className="flex flex-wrap gap-2 ml-1">
+                  {['pressed', 'released'].map((evt) => (
+                    <label key={evt} className="label cursor-pointer gap-1.5 p-0">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-xs checkbox-primary"
+                        checked={(action.delay_cancel_on || []).includes(evt)}
+                        onChange={(e) => {
+                          const current: string[] = action.delay_cancel_on || [];
+                          const updated = e.target.checked
+                            ? [...current, evt]
+                            : current.filter((v: string) => v !== evt);
+                          onUpdate('delay_cancel_on', updated.length > 0 ? updated : undefined);
+                        }}
+                      />
+                      <span className="label-text text-xs">{t(`actions.event_${evt}`)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Conditions — available for all action types */}
       <ActionConditions
         action={action}

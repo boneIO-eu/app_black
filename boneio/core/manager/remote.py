@@ -609,6 +609,64 @@ class RemoteDeviceManager:
             **kwargs,
         )
 
+    def get_cover_state(self, device_id: str, cover_id: str) -> dict[str, Any] | None:
+        """Get current cover state from an ESPHome remote device.
+
+        Returns the cached state dict containing position, tilt,
+        current_operation, and last_known_operation.
+
+        Args:
+            device_id: ID of the remote device
+            cover_id: ID of the cover
+
+        Returns:
+            State dictionary or None if device/cover not found or not ESPHome
+        """
+        device = self.get_device(device_id)
+        if not device or device.protocol != RemoteDeviceProtocol.ESPHOME_API:
+            return None
+        return cast(Any, device)._cover_states.get(cover_id)
+
+    async def wait_for_cover_idle(
+        self,
+        device_id: str,
+        cover_id: str,
+        timeout: float = 120.0,
+        poll_interval: float = 0.5,
+    ) -> bool:
+        """Wait for an ESPHome cover to reach IDLE state.
+
+        Polls the cached cover state until current_operation becomes 0 (IDLE)
+        or the timeout expires.
+
+        Args:
+            device_id: ID of the remote device
+            cover_id: ID of the cover to monitor
+            timeout: Maximum time to wait in seconds (default: 120s)
+            poll_interval: Time between polls in seconds (default: 0.5s)
+
+        Returns:
+            True if cover reached IDLE, False on timeout
+        """
+        device = self.get_device(device_id)
+        if not device or device.protocol != RemoteDeviceProtocol.ESPHOME_API:
+            return False
+
+        esphome = cast(Any, device)
+        start = asyncio.get_event_loop().time()
+
+        while asyncio.get_event_loop().time() - start < timeout:
+            state = esphome._cover_states.get(cover_id, {})
+            if state.get("current_operation", 0) == 0:
+                return True
+            await asyncio.sleep(poll_interval)
+
+        _LOGGER.warning(
+            "Timeout (%.0fs) waiting for cover '%s' on device '%s' to reach IDLE",
+            timeout, cover_id, device_id,
+        )
+        return False
+
     async def reload(self, remote_devices_config: list[dict[str, Any]] | None = None) -> None:
         """Reload remote devices from config.
 

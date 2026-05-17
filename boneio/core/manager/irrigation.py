@@ -153,6 +153,8 @@ class IrrigationManager:
             id=ws_id,
             name=name,
             outputs=outputs,
+            output_start_delay_s=int(parse_time_to_seconds(ws_cfg.get("output_start_delay"), 0)),
+            output_stop_delay_s=int(parse_time_to_seconds(ws_cfg.get("output_stop_delay"), 0)),
             pump_start_pump_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_start_pump_delay"), 0)),
             pump_start_valve_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_start_valve_delay"), 0)),
             pump_stop_pump_delay_s=int(parse_time_to_seconds(ws_cfg.get("pump_stop_pump_delay"), 0)),

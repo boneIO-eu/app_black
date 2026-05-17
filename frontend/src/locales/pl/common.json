@@ -118,7 +118,14 @@
     "duration_unit_hint": "Jednostka wyświetlana na suwaku w Home Assistant",
     "adjustable_duration_info_title": "Timer z regulowanym czasem",
     "adjustable_duration_info_desc1": "Tworzy encję number (suwak) w Home Assistant do sterowania timerem auto-wyłączenia tego wyjścia.",
-    "adjustable_duration_info_desc2": "Przydatne do ręcznego podlewania, oświetlenia na czas lub dowolnego wyjścia, które powinno wyłączyć się po ustalonym czasie."
+    "adjustable_duration_info_desc2": "Przydatne do ręcznego podlewania, oświetlenia na czas lub dowolnego wyjścia, które powinno wyłączyć się po ustalonym czasie.",
+    "adjustable_duration_conflict": "Najpierw wyczyść Chwilowe Włączenie — obie opcje pełnią tę samą funkcję.",
+    "badge_group": "Grupa",
+    "badge_remote": "🌐 Zdalne",
+    "badge_unsaved": "Niezapisane",
+    "no_outputs_available": "Brak dostępnych wyjść",
+    "device_label": "Urządzenie",
+    "area_label": "Strefa"
   },
   "inputs": {
     "title": "Wejścia",
@@ -218,14 +225,14 @@
     "filter_value": "Wartość",
     "filters_hint": "Filtry są stosowane w kolejności: offset, round, multiply, filter_out",
     "groups": {
-      "adc": "Czujniki ADC",
+      "adc": "Sensory ADC",
       "board": "Czujniki sterownika",
       "system": "Monitoring systemu",
       "other": "Pozostałe czujniki"
     }
   },
   "adc": {
-    "title": "Czujniki ADC",
+    "title": "Sensory ADC",
     "pin": "Pin",
     "pin_required": "Pin ADC jest wymagany",
     "pin_duplicate": "Ten pin jest już używany",
@@ -649,7 +656,7 @@
     "remote_devices": "Zdalne Urządzenia",
     "modbus_devices": "Urządzenia Modbus",
     "sensor": "Czujki Onewire",
-    "adc": "Czujniki ADC",
+    "adc": "Sensory ADC",
     "virtual_energy_sensor": "Wirtualne Sensory Energii",
     "template": "Szablony",
     "descriptions": {
@@ -778,6 +785,8 @@
     "device_class_hint": "Klasa urządzenia dla interfejsu Home Assistant",
     "restore_state": "Przywróć Stan",
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
+    "tilt_restore": "Przywróć Nachylenie Po Ruchu",
+    "tilt_restore_hint": "Przywróć poprzedni kąt nachylenia po ruchu do pozycji pośredniej (nie przy 0% ani 100%)",
     "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
   },
   "modbus": {
@@ -1273,6 +1282,8 @@
     "always_open_till_hint": "Jeśli pozycja rolety jest równa lub poniżej tej wartości, roleta zawsze się otworzy. Powyżej — normalne toggle.",
     "tilt_position": "Pozycja pochylenia (%)",
     "tilt_position_hint": "Pozycja pochylenia lameli (0 = całkowicie zamknięte, 100 = całkowicie otwarte). Wymagane dla akcji TILT.",
+    "restore_tilt": "Przywróć nachylenie po ruchu",
+    "restore_tilt_hint": "Zapamiętaj kąt nachylenia przed akcją i przywróć go po zakończeniu ruchu",
     "validation_tilt_position_required": "Pozycja pochylenia jest wymagana dla akcji TILT (0-100)",
     "duration_thresholds": "Progi Czasowe",
     "duration_thresholds_hint": "Opcjonalnie: Wykonaj tę akcję tylko gdy czas długiego naciśnięcia jest w określonym zakresie (w milisekundach)",
@@ -1551,7 +1562,11 @@
     "on_disconnect_ignore": "Ignoruj (zachowaj stan)",
     "on_disconnect_turn_off": "Wymuś WYŁ (bezpieczne dla pomp)",
     "on_disconnect_hint": "Co się dzieje po ponownym połączeniu gdy zdalne urządzenie straci połączenie",
-    "forward_to_ha_hint": "Opublikuj autodiscovery HA dla tego wyjścia. Wyłącz jeśli ESPHome sam publikuje swoją encję."
+    "forward_to_ha_hint": "Opublikuj autodiscovery HA dla tego wyjścia. Wyłącz jeśli ESPHome sam publikuje swoją encję.",
+    "interlock_hint": "Współdzielony interlock z lokalnymi wyjściami. Sterowanie przez boneIO respektuje interlock. Bezpośrednie sterowanie ESPHome/HA może go ominąć, chyba że wymuszanie jest włączone.",
+    "enforce_interlock": "Wymuszaj interlock",
+    "enforce_interlock_hint": "Jeśli wyjście zostanie włączone z zewnątrz (np. z ESPHome/HA) naruszając interlock, boneIO natychmiast je wyłączy.",
+    "interlock_shared_desc": "Zdalne wyjścia współdzielą grupy interlockowe z lokalnymi wyjściami. Gdy wyjście w grupie jest włączone, inne wyjścia w tej samej grupie nie mogą być włączone przez boneIO."
   },
   "table_sort": {
     "click_to_sort": "Kliknij aby posortować",
@@ -1875,6 +1890,10 @@
     "add_output": "Dodaj wyjście",
     "select_output": "Wybierz wyjście...",
     "pump_delays": "Opóźnienia pompy",
+    "sequential_delay": "Sekwencyjne opóźnienie wyjść",
+    "sequential_delay_hint": "Gdy źródło ma wiele wyjść, włączają się po kolei z opóźnieniem. Przy wyłączaniu kolejność jest odwrócona.",
+    "output_start_delay": "Opóźnienie przy włączaniu",
+    "output_stop_delay": "Opóźnienie przy wyłączaniu",
     "valve_open_delay": "Opóźnienie otwarcia zaworu",
     "repeat": "Powtórzenie cyklu",
     "repeat_hint": "0 = jednokrotnie, 1 = dwukrotnie, itd.",
@@ -1998,5 +2017,38 @@
     "select_none": "Żadne",
     "import_selected": "Importuj {n} jako inputy",
     "duplicate_id": "Duplikat ID — identyfikatory encji muszą być unikalne w urządzeniu"
+  },
+  "actions": {
+    "delay_execution": "Opóźnione wykonanie",
+    "delay_execution_hint": "Odczekaj przed wykonaniem akcji. Timer resetuje się przy zdarzeniu anulującym.",
+    "delay_time": "Czas opóźnienia",
+    "delay_cancel_on": "Anuluj opóźnienie przy zdarzeniach",
+    "delay_cancel_on_hint": "Anuluj oczekującą opóźnioną akcję, gdy te zdarzenia wystąpią na tym wejściu.",
+    "event_pressed": "Wciśnięte (ON)",
+    "event_released": "Zwolnione (OFF)"
+  },
+  "blueprints": {
+    "title": "Szablony akcji",
+    "subtitle": "Szybka konfiguracja typowych zastosowań czujników binarnych",
+    "use_template": "Użyj szablonu",
+    "back_to_list": "Powrót do listy",
+    "select_output": "Wyjście do sterowania",
+    "select_output_placeholder": "Wybierz wyjście...",
+    "off_delay": "Opóźnienie przed wyłączeniem",
+    "off_delay_hint": "Czas oczekiwania po ustaniu ruchu przed wyłączeniem wyjścia. Timer resetuje się przy ponownym wykryciu ruchu.",
+    "preview": "Podgląd",
+    "preview_on": "Ruch wykryty",
+    "preview_off": "Ruch ustał",
+    "preview_after": "po",
+    "preview_cancel": "Timer resetuje się przy ponownym wykryciu ruchu w trakcie odliczania",
+    "apply": "Zastosuj szablon",
+    "motion_light_title": "Czujka ruchu → Światło",
+    "motion_light_desc": "Włącz wyjście przy wykryciu ruchu. Wyłącz po opóźnieniu gdy ruch ustanie. Timer resetuje się przy ponownym wykryciu.",
+    "door_sensor_title": "Czujnik drzwi/okna",
+    "door_sensor_desc": "Włącz wyjście przy otwarciu, wyłącz przy zamknięciu. Bez opóźnienia.",
+    "doorbell_title": "Dzwonek / buzzer",
+    "doorbell_desc": "Włącz wyjście gdy wciśnięte, wyłącz po zwolnieniu.",
+    "quick_setup": "Szybka konfiguracja akcji",
+    "quick_setup_hint": "Skonfiguruj akcje dla czujki ruchu, czujnika drzwi, dzwonka — jednym kliknięciem"
   }
 }

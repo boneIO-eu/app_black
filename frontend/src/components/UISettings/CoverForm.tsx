@@ -44,8 +44,9 @@ const CoverForm: React.FC<CoverFormProps> = ({
     // Clean up platform-specific fields when platform changes
     if (field === 'platform') {
       if (value !== 'venetian') {
-        // Remove tilt_duration when not venetian
+        // Remove tilt-specific fields when not venetian
         delete newData.tilt_duration;
+        delete newData.tilt_restore_after_close;
       }
     }
     
@@ -217,13 +218,33 @@ const CoverForm: React.FC<CoverFormProps> = ({
 
                 {/* Tilt Duration - only for venetian */}
                 {showTiltDuration && (
-                  <SimpleTimePeriodInput
-                    value={data.tilt_duration || ''}
-                    onChange={(value: string) => updateField('tilt_duration', value)}
-                    label={t('covers.tilt_duration')}
-                    required={false}
-                    minimum={10}
-                  />
+                  <>
+                    <SimpleTimePeriodInput
+                      value={data.tilt_duration || ''}
+                      onChange={(value: string) => updateField('tilt_duration', value)}
+                      label={t('covers.tilt_duration')}
+                      required={false}
+                      minimum={10}
+                    />
+
+                    {/* Tilt Restore After Close */}
+                    <div className="form-control">
+                      <label className="label cursor-pointer justify-start gap-4">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={data.tilt_restore_after_close || false}
+                          onChange={(e) => updateField('tilt_restore_after_close', e.target.checked)}
+                        />
+                        <div>
+                          <span className="label-text font-medium">{t('covers.tilt_restore')}</span>
+                          <p className="text-sm text-base-content/70 mt-1">
+                            {t('covers.tilt_restore_hint')}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </>
                 )}
 
               </div>

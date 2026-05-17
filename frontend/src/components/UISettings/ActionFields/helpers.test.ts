@@ -99,6 +99,45 @@ describe('cleanActionFields', () => {
     expect(result.boneio_output).toBeUndefined();
   });
 
+  it('preserves delay and delay_cancel_on when switching action types', () => {
+    const prior = {
+      action: 'output',
+      boneio_output: 'OUT_01',
+      action_output: 'OFF',
+      delay: '2min',
+      delay_cancel_on: ['pressed'],
+    };
+    const result = cleanActionFields('remote_output', prior);
+    expect(result.delay).toBe('2min');
+    expect(result.delay_cancel_on).toEqual(['pressed']);
+    expect(result.action).toBe('remote_output');
+    // Type-specific fields from output should be stripped
+    expect(result.boneio_output).toBeUndefined();
+  });
+
+  it('preserves delay without delay_cancel_on', () => {
+    const prior = {
+      action: 'output',
+      boneio_output: 'OUT_01',
+      delay: '30s',
+    };
+    const result = cleanActionFields('mqtt', prior);
+    expect(result.delay).toBe('30s');
+    expect(result.delay_cancel_on).toBeUndefined();
+  });
+
+  it('does not carry over undefined delay fields', () => {
+    const prior = {
+      action: 'output',
+      boneio_output: 'OUT_01',
+      delay: undefined,
+      delay_cancel_on: undefined,
+    };
+    const result = cleanActionFields('mqtt', prior);
+    expect('delay' in result).toBe(false);
+    expect('delay_cancel_on' in result).toBe(false);
+  });
+
   it('strips light-specific fields (brightness, rgb, transition) when switching from remote_output to output', () => {
     const prior = {
       action: 'remote_output',

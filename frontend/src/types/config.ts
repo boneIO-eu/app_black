@@ -14,7 +14,7 @@ export type GpioMode = 'gpio' | 'gpio_pu' | 'gpio_pd' | 'gpio_input';
 export type EventDeviceClass = 'button' | 'doorbell' | 'motion';
 
 /** Action types */
-export type ActionType = 
+export type ActionType =
   | 'output' | 'OUTPUT' | 'Output'
   | 'cover' | 'COVER' | 'Cover'
   | 'mqtt' | 'MQTT' | 'Mqtt'
@@ -27,18 +27,18 @@ export type ActionType =
   | 'esphome_cover' | 'ESPHOME_COVER' | 'Esphome_Cover';
 
 /** ESPHome light action options */
-export type ESPHomeLightAction = 
-  | 'TOGGLE' | 'ON' | 'OFF' 
-  | 'BRIGHTNESS_UP' | 'BRIGHTNESS_DOWN' 
-  | 'BRIGHTNESS_UP_CYCLE' | 'BRIGHTNESS_DOWN_CYCLE' 
+export type ESPHomeLightAction =
+  | 'TOGGLE' | 'ON' | 'OFF'
+  | 'BRIGHTNESS_UP' | 'BRIGHTNESS_DOWN'
+  | 'BRIGHTNESS_UP_CYCLE' | 'BRIGHTNESS_DOWN_CYCLE'
   | 'SET_BRIGHTNESS';
 
 /** Output action options */
 export type OutputAction = 'TOGGLE' | 'ON' | 'OFF';
 
 /** Cover action options */
-export type CoverAction = 
-  | 'TOGGLE' | 'OPEN' | 'CLOSE' | 'STOP' 
+export type CoverAction =
+  | 'TOGGLE' | 'OPEN' | 'CLOSE' | 'STOP'
   | 'TOGGLE_OPEN' | 'TOGGLE_CLOSE' | 'SMART_TOGGLE'
   | 'TILT' | 'TILT_OPEN' | 'TILT_CLOSE';
 
@@ -87,7 +87,9 @@ export interface Action {
   cover_id?: string;
   /** Extra data (for cover position/tilt) */
   data?: ActionData;
-  
+  /** Restore tilt position after cover movement (action-level, venetian only) */
+  restore_tilt?: boolean;
+
   // ESPHome-specific fields
   /** ESPHome device ID (from remote_devices with protocol: esphome_api) */
   esphome_device?: string;
@@ -187,10 +189,10 @@ export interface EventEntity {
 // ============================================
 
 /** Binary sensor device class */
-export type BinarySensorDeviceClass = 
-  | 'door' | 'garage_door' | 'lock' | 'moisture' 
-  | 'motion' | 'occupancy' | 'opening' | 'presence' 
-  | 'smoke' | 'vibration' | 'window';
+export type BinarySensorDeviceClass =
+  | 'door' | 'garage_door' | 'lock' | 'moisture'
+  | 'motion' | 'occupancy' | 'opening' | 'presence'
+  | 'smoke' | 'sound' | 'vibration' | 'window';
 
 /** Binary sensor kind */
 export type BinarySensorKind = 'sensor' | 'button';
@@ -248,7 +250,7 @@ export type InputEntity = BinarySensorEntity;
 // ============================================
 
 /** Cover device type */
-export type CoverDeviceType = 
+export type CoverDeviceType =
   | 'cover' | 'Cover' | 'COVER'
   | 'cover mix' | 'Cover Mix' | 'COVER MIX'
   | 'roller' | 'Roller' | 'ROLLER'

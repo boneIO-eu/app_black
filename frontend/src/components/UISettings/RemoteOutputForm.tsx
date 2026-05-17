@@ -7,10 +7,15 @@
  *   3. Set output_type (switch, light, valve)
  *   4. Set on_disconnect policy (ignore, turn_off)
  *   5. Optionally set name, id, area, show_in_ha
+ *   6. Momentary turn on/off, adjustable duration (Advanced)
+ *   7. Shared interlock groups with local outputs (Advanced)
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import AreaSelect from './widgets/AreaSelect';
+import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { sanitizeId } from './helpers/idValidation';
+import { TabsBox } from '@/components/ui/tabs-box';
 import {
   Select,
   SelectContent,
@@ -37,6 +42,8 @@ interface RemoteOutputFormProps {
   editingIndex?: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
+  interlockGroups?: string[];
+  onInterlockGroupCreated?: (groupName: string) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -49,12 +56,41 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   allRemoteDevices = [],
   onValidationChange,
   attemptedSubmit = false,
+  interlockGroups = [],
+  onInterlockGroupCreated,
 }) => {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
+  const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
   /* ---------- field helpers ---------- */
   const updateField = (field: string, value: any) => {
-    onChange({ ...data, [field]: value });
+    const newData = { ...data, [field]: value };
+
+    // When enabling adjustable_duration, clear static momentary (mutual exclusion)
+    if (field === 'adjustable_duration' && value) {
+      delete newData.momentary_turn_on;
+      delete newData.momentary_turn_off;
+    }
+
+    // When disabling adjustable_duration, clean up related fields
+    if (field === 'adjustable_duration' && !value) {
+      delete newData.duration_default;
+      delete newData.duration_min;
+      delete newData.duration_max;
+      delete newData.duration_unit;
+    }
+
+    // When setting momentary_turn_on, disable adjustable_duration (mutual exclusion)
+    if (field === 'momentary_turn_on' && value) {
+      delete newData.adjustable_duration;
+      delete newData.duration_default;
+      delete newData.duration_min;
+      delete newData.duration_max;
+      delete newData.duration_unit;
+    }
+
+    onChange(newData);
   };
 
   /* ---------- validation ---------- */
@@ -115,225 +151,512 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Display Name */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('outputs.display_name')}</span>
-          </label>
-          <input
-            type="text"
-            className="input w-full"
-            placeholder={t('remote_outputs.name_placeholder')}
-            value={data.name || ''}
-            onChange={(e) => updateField('name', e.target.value)}
-          />
-          <label className="label">
-            <span className="label-text-alt">{t('common.optional')}</span>
-          </label>
-        </div>
+      <TabsBox
+        name="remote_output_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as 'basic' | 'advanced')}
+        tabs={[
+          {
+            id: 'basic',
+            label: t('settings.basic_settings'),
+            content: (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Display Name */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('outputs.display_name')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      placeholder={t('remote_outputs.name_placeholder')}
+                      value={data.name || ''}
+                      onChange={(e) => updateField('name', e.target.value)}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt">{t('common.optional')}</span>
+                    </label>
+                  </div>
 
-        {/* Custom Output ID */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('remote_outputs.custom_output_id')}</span>
-          </label>
-          <input
-            type="text"
-            className="input w-full"
-            placeholder={t('remote_outputs.custom_output_id_placeholder')}
-            value={data.id || ''}
-            onChange={(e) => updateField('id', e.target.value)}
-          />
-          <label className="label">
-            <span className="label-text-alt">{t('remote_outputs.custom_output_id_hint')}</span>
-          </label>
-        </div>
+                  {/* Custom Output ID */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('remote_outputs.custom_output_id')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      placeholder={t('remote_outputs.custom_output_id_placeholder')}
+                      value={data.id || ''}
+                      onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+                    />
+                    <label className="label">
+                      <span className="label-text-alt">{t('remote_outputs.custom_output_id_hint')}</span>
+                    </label>
+                  </div>
 
-        {/* Remote Device (device_id) — only devices with switches/lights */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('remote_devices.device')}</span>
-          </label>
-          <Select
-            value={data.device_id || '_none_'}
-            onValueChange={(v) => {
-              const deviceId = v === '_none_' ? '' : v;
-              const device = allRemoteDevices.find(d => d.id === deviceId);
-              // Auto-set remote_source from device protocol
-              const protocol = (device as any)?.protocol || 'esphome_api';
-              onChange({ ...data, device_id: deviceId, output_id: '', remote_source: protocol });
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t('remote_devices.select_device')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none_">{t('remote_devices.select_device')}</SelectItem>
-              {devicesWithOutputs.map((device) => {
-                const protocolLabel =
-                  (device as any).protocol === 'esphome_api' ? 'ESPHome API' :
-                  (device as any).protocol === 'wled' ? 'WLED' :
-                  (device as any).protocol === 'mqtt' ? 'MQTT' :
-                  (device as any).protocol || '';
-                return (
-                  <SelectItem key={device.id} value={device.id}>
-                    {device.name || device.id}{protocolLabel ? ` (${protocolLabel})` : ''}
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          {attemptedSubmit && !data.device_id && (
-            <label className="label">
-              <span className="label-text-alt text-error">{t('validation.required')}</span>
-            </label>
-          )}
-        </div>
+                  {/* Remote Device (device_id) — only devices with switches/lights */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('remote_devices.device')}</span>
+                    </label>
+                    <Select
+                      value={data.device_id || '_none_'}
+                      onValueChange={(v) => {
+                        const deviceId = v === '_none_' ? '' : v;
+                        const device = allRemoteDevices.find(d => d.id === deviceId);
+                        // Auto-set remote_source from device protocol
+                        const protocol = (device as any)?.protocol || 'esphome_api';
+                        onChange({ ...data, device_id: deviceId, output_id: '', remote_source: protocol });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('remote_devices.select_device')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('remote_devices.select_device')}</SelectItem>
+                        {devicesWithOutputs.map((device) => {
+                          const protocolLabel =
+                            (device as any).protocol === 'esphome_api' ? 'ESPHome API' :
+                            (device as any).protocol === 'wled' ? 'WLED' :
+                            (device as any).protocol === 'mqtt' ? 'MQTT' :
+                            (device as any).protocol || '';
+                          return (
+                            <SelectItem key={device.id} value={device.id}>
+                              {device.name || device.id}{protocolLabel ? ` (${protocolLabel})` : ''}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {attemptedSubmit && !data.device_id && (
+                      <label className="label">
+                        <span className="label-text-alt text-error">{t('validation.required')}</span>
+                      </label>
+                    )}
+                  </div>
 
-        {/* Output Entity — dropdown of outputs exposed by the selected device.
-            For MQTT devices, outputs come from device.mqtt.outputs (managed in
-            the device form). Same UX as ESPHome switches/lights. */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('remote_outputs.output_entity')}</span>
-          </label>
-          <Select
-            value={data.output_id || '_none_'}
-            onValueChange={(v) => {
-              const outputId = v === '_none_' ? '' : v;
-              // Auto-detect output type from source
-              const found = allAvailableOutputs.find(o => o.id === outputId);
-              const autoType = found?._type === 'light' ? 'light' : data.output_type || 'switch';
-              onChange({ ...data, output_id: outputId, output_type: autoType });
-            }}
-            disabled={!data.device_id}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={
-                data.device_id
-                  ? t('remote_outputs.select_output')
-                  : t('remote_devices.select_device')
-              } />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none_">{t('remote_outputs.select_output')}</SelectItem>
-              {availableSwitches.length > 0 && (
-                <>
-                  <SelectItem value="_header_switches" disabled>
-                    ⚡ {t('remote_outputs.switches_header')}
-                  </SelectItem>
-                  {availableSwitches.map((sw) => (
-                    <SelectItem key={`sw_${sw.id}`} value={sw.id}>
-                      🔌 {sw.name ? `${sw.name} (${sw.id})` : sw.id}
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-              {availableLights.length > 0 && (
-                <>
-                  <SelectItem value="_header_lights" disabled>
-                    💡 {t('remote_outputs.lights_header')}
-                  </SelectItem>
-                  {availableLights.map((li) => (
-                    <SelectItem key={`li_${li.id}`} value={li.id}>
-                      💡 {li.name ? `${li.name} (${li.id})` : li.id}
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-            </SelectContent>
-          </Select>
-          {attemptedSubmit && !data.output_id && (
-            <label className="label">
-              <span className="label-text-alt text-error">{t('validation.required')}</span>
-            </label>
-          )}
-          {data.remote_source === 'mqtt' && data.device_id && (
-            <label className="label">
-              <span className="label-text-alt text-xs text-base-content/60">
-                {t('remote_mqtt.outputs_from_device_hint') ||
-                  'Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.'}
-              </span>
-            </label>
-          )}
-        </div>
+                  {/* Output Entity (output_id) — dropdown from selected device's switches/lights.
+                      For MQTT devices, also surfaces device.mqtt.outputs (managed in the
+                      device form). Hint below the dropdown points users there. */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('remote_outputs.output_entity')}</span>
+                    </label>
+                    <Select
+                      value={data.output_id || '_none_'}
+                      onValueChange={(v) => {
+                        const outputId = v === '_none_' ? '' : v;
+                        // Auto-detect output type from source
+                        const found = allAvailableOutputs.find(o => o.id === outputId);
+                        const autoType = found?._type === 'light' ? 'light' : data.output_type || 'switch';
+                        onChange({ ...data, output_id: outputId, output_type: autoType });
+                      }}
+                      disabled={!data.device_id}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={
+                          data.device_id
+                            ? t('remote_outputs.select_output')
+                            : t('remote_devices.select_device')
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('remote_outputs.select_output')}</SelectItem>
+                        {availableSwitches.length > 0 && (
+                          <>
+                            <SelectItem value="_header_switches" disabled>
+                              ⚡ {t('remote_outputs.switches_header')}
+                            </SelectItem>
+                            {availableSwitches.map((sw) => (
+                              <SelectItem key={`sw_${sw.id}`} value={sw.id}>
+                                🔌 {sw.name ? `${sw.name} (${sw.id})` : sw.id}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {availableLights.length > 0 && (
+                          <>
+                            <SelectItem value="_header_lights" disabled>
+                              💡 {t('remote_outputs.lights_header')}
+                            </SelectItem>
+                            {availableLights.map((li) => (
+                              <SelectItem key={`li_${li.id}`} value={li.id}>
+                                💡 {li.name ? `${li.name} (${li.id})` : li.id}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {mqttOutputs.length > 0 && (
+                          <>
+                            <SelectItem value="_header_mqtt" disabled>
+                              📡 MQTT
+                            </SelectItem>
+                            {mqttOutputs.map((mo) => (
+                              <SelectItem key={`mq_${mo.id}`} value={mo.id}>
+                                📡 {mo.name ? `${mo.name} (${mo.id})` : mo.id}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {attemptedSubmit && !data.output_id && (
+                      <label className="label">
+                        <span className="label-text-alt text-error">{t('validation.required')}</span>
+                      </label>
+                    )}
+                    {data.remote_source === 'mqtt' && data.device_id && (
+                      <label className="label">
+                        <span className="label-text-alt text-xs text-base-content/60">
+                          {t('remote_mqtt.outputs_from_device_hint') ||
+                            'Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.'}
+                        </span>
+                      </label>
+                    )}
+                  </div>
 
-        {/* Output Type */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('remote_outputs.output_type')}</span>
-          </label>
-          <Select
-            value={data.output_type || 'switch'}
-            onValueChange={(v) => updateField('output_type', v)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="switch" disabled={outputTypeLocked}>{t('outputs.categories.switches')}</SelectItem>
-              <SelectItem value="light">{t('outputs.categories.lights')}</SelectItem>
-              <SelectItem value="valve" disabled={outputTypeLocked}>{t('outputs.categories.valves')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <label className="label">
-            <span className="label-text-alt">
-              {outputTypeLocked
-                ? t('remote_outputs.output_type_locked_hint')
-                : t('remote_outputs.output_type_hint')}
-            </span>
-          </label>
-        </div>
+                  {/* Output Type */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('remote_outputs.output_type')}</span>
+                    </label>
+                    <Select
+                      value={data.output_type || 'switch'}
+                      onValueChange={(v) => updateField('output_type', v)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="switch" disabled={outputTypeLocked}>{t('outputs.categories.switches')}</SelectItem>
+                        <SelectItem value="light">{t('outputs.categories.lights')}</SelectItem>
+                        <SelectItem value="valve" disabled={outputTypeLocked}>{t('outputs.categories.valves')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <label className="label">
+                      <span className="label-text-alt">
+                        {outputTypeLocked
+                          ? t('remote_outputs.output_type_locked_hint')
+                          : t('remote_outputs.output_type_hint')}
+                      </span>
+                    </label>
+                  </div>
 
-        {/* On Disconnect */}
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('remote_outputs.on_disconnect')}</span>
-          </label>
-          <Select
-            value={data.on_disconnect || 'ignore'}
-            onValueChange={(v) => updateField('on_disconnect', v)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ignore">{t('remote_outputs.on_disconnect_ignore')}</SelectItem>
-              <SelectItem value="turn_off">{t('remote_outputs.on_disconnect_turn_off')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <label className="label">
-            <span className="label-text-alt">{t('remote_outputs.on_disconnect_hint')}</span>
-          </label>
-        </div>
+                  {/* On Disconnect */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('remote_outputs.on_disconnect')}</span>
+                    </label>
+                    <Select
+                      value={data.on_disconnect || 'ignore'}
+                      onValueChange={(v) => updateField('on_disconnect', v)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ignore">{t('remote_outputs.on_disconnect_ignore')}</SelectItem>
+                        <SelectItem value="turn_off">{t('remote_outputs.on_disconnect_turn_off')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <label className="label">
+                      <span className="label-text-alt">{t('remote_outputs.on_disconnect_hint')}</span>
+                    </label>
+                  </div>
 
-        {/* Area */}
-        <AreaSelect
-          value={data.area}
-          onChange={(v) => updateField('area', v)}
-          areas={allAreas}
-        />
-      </div>
+                  {/* Area */}
+                  <AreaSelect
+                    value={data.area}
+                    onChange={(v) => updateField('area', v)}
+                    areas={allAreas}
+                  />
+                </div>
 
-      {/* ---- Options ---- */}
-      <div className="divider">{t('settings.options')}</div>
+                {/* ---- Options ---- */}
+                <div className="divider">{t('settings.options')}</div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {/* Forward to HA — default OFF */}
-        <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-          <legend className="fieldset-legend">{t('inputs.forward_to_ha')}</legend>
-          <label className="label cursor-pointer justify-start gap-4">
-            <input
-              type="checkbox"
-              className="toggle toggle-primary"
-              checked={data.show_in_ha === true}
-              onChange={(e) => updateField('show_in_ha', e.target.checked)}
-            />
-            <span className="label-text wrap-break-word">{t('remote_outputs.forward_to_ha_hint')}</span>
-          </label>
-        </fieldset>
-      </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Forward to HA — default OFF */}
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('inputs.forward_to_ha')}</legend>
+                    <label className="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.show_in_ha === true}
+                        onChange={(e) => updateField('show_in_ha', e.target.checked)}
+                      />
+                      <span className="label-text wrap-break-word">{t('remote_outputs.forward_to_ha_hint')}</span>
+                    </label>
+                  </fieldset>
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'advanced',
+            label: t('settings.advanced_settings'),
+            content: (
+              <div className="space-y-4">
+                {/* --- Momentary Turn On/Off --- */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Momentary Turn On */}
+                  <SimpleTimePeriodInput
+                    value={data.momentary_turn_on || ''}
+                    onChange={(value: string) => {
+                      const isZero = /^0+(ms|s|sec|min|h|hours?)?$/i.test(value.trim());
+                      updateField('momentary_turn_on', isZero ? undefined : (value || undefined));
+                    }}
+                    label={t('outputs.momentary_turn_on')}
+                    required={false}
+                    minimum={0}
+                  />
+
+                  {/* Momentary Turn Off */}
+                  <SimpleTimePeriodInput
+                    value={data.momentary_turn_off || ''}
+                    onChange={(value: string) => {
+                      const isZero = /^0+(ms|s|sec|min|h|hours?)?$/i.test(value.trim());
+                      updateField('momentary_turn_off', isZero ? undefined : (value || undefined));
+                    }}
+                    label={t('outputs.momentary_turn_off')}
+                    required={false}
+                    minimum={0}
+                  />
+                </div>
+
+                <div className="alert alert-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <div>
+                    <h3 className="font-bold">{t('outputs.momentary_actions_title')}</h3>
+                    <div className="text-sm">
+                      <p>{t('outputs.momentary_actions_desc1')}</p>
+                      <p>{t('outputs.momentary_actions_desc2')}</p>
+                      <p>{t('outputs.momentary_actions_desc3')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- Adjustable Duration --- */}
+                <div className="divider">{t('outputs.divider_adjustable_duration')}</div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                    <legend className="fieldset-legend">{t('outputs.adjustable_duration_label')}</legend>
+                    <label className={`label cursor-pointer justify-start gap-4 ${data.momentary_turn_on ? 'opacity-50' : ''}`}>
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-primary"
+                        checked={data.adjustable_duration === true}
+                        onChange={() => updateField('adjustable_duration', !data.adjustable_duration)}
+                        disabled={!!data.momentary_turn_on}
+                      />
+                      <span className="label-text">{t('outputs.adjustable_duration_desc')}</span>
+                    </label>
+                    {data.momentary_turn_on && (
+                      <p className="text-xs text-warning mt-1 px-1">
+                        {t('outputs.adjustable_duration_conflict')}
+                      </p>
+                    )}
+                  </fieldset>
+
+                  {data.adjustable_duration && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-l-2 border-primary/30">
+                      {/* Duration Default */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_default || '60s'}
+                        onChange={(value: string) => updateField('duration_default', value || undefined)}
+                        label={t('outputs.duration_default')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Min */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_min || '1s'}
+                        onChange={(value: string) => updateField('duration_min', value || undefined)}
+                        label={t('outputs.duration_min')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Max */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_max || '1h'}
+                        onChange={(value: string) => updateField('duration_max', value || undefined)}
+                        label={t('outputs.duration_max')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Unit for HA */}
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">{t('outputs.duration_unit')}</span>
+                        </label>
+                        <select
+                          className="select select-bordered w-full min-h-12"
+                          value={data.duration_unit || 's'}
+                          onChange={(e) => updateField('duration_unit', e.target.value)}
+                        >
+                          <option value="s">{t('outputs.duration_unit_seconds')}</option>
+                          <option value="min">{t('outputs.duration_unit_minutes')}</option>
+                        </select>
+                        <label className="label">
+                          <span className="label-text-alt text-base-content/70">{t('outputs.duration_unit_hint')}</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="alert alert-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <div>
+                    <h3 className="font-bold">{t('outputs.adjustable_duration_info_title')}</h3>
+                    <div className="text-sm">
+                      <p>{t('outputs.adjustable_duration_info_desc1')}</p>
+                      <p>{t('outputs.adjustable_duration_info_desc2')}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* --- Interlock --- */}
+                <div className="divider">{t('outputs.divider_interlock')}</div>
+
+                {/* Normalize interlock_group: schema default is [], could be string or array */}
+                {(() => {
+                  const rawGroup = data.interlock_group;
+                  const interlockValue: string | undefined =
+                    Array.isArray(rawGroup)
+                      ? (rawGroup.length > 0 ? rawGroup[0] : undefined)
+                      : (rawGroup || undefined);
+
+                  return (
+                    <>
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Current Interlock Group */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('outputs.interlock_group_label')}</span>
+                    </label>
+                    <Select
+                      value={interlockValue || '_none_'}
+                      onValueChange={(value) => updateField('interlock_group', value === '_none_' ? undefined : value)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={t('outputs.interlock_group_placeholder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">{t('outputs.interlock_group_none')}</SelectItem>
+                        {interlockGroups.map((group) => (
+                          <SelectItem key={group} value={group}>
+                            {group}
+                          </SelectItem>
+                        ))}
+                        {/* Show current value if it's not in the list (new group) */}
+                        {interlockValue && !interlockGroups.includes(interlockValue) && (
+                          <SelectItem value={interlockValue}>
+                            {interlockValue} ({t('outputs.interlock_group_new')})
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <label className="label">
+                      <span className="label-text-alt whitespace-normal wrap-break-word">
+                        {t('remote_outputs.interlock_hint')}
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Add New Interlock Group */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('outputs.create_new_group')}</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input flex-1"
+                        placeholder={t('outputs.enter_group_name')}
+                        value={newInterlockGroup}
+                        onChange={(e) => setNewInterlockGroup(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newInterlockGroup.trim()) {
+                            const groupName = newInterlockGroup.trim();
+                            updateField('interlock_group', groupName);
+                            onInterlockGroupCreated?.(groupName);
+                            setNewInterlockGroup('');
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={!newInterlockGroup.trim()}
+                        onClick={() => {
+                          if (newInterlockGroup.trim()) {
+                            const groupName = newInterlockGroup.trim();
+                            updateField('interlock_group', groupName);
+                            onInterlockGroupCreated?.(groupName);
+                            setNewInterlockGroup('');
+                          }
+                        }}
+                      >
+                        {t('outputs.add_button')}
+                      </button>
+                    </div>
+                    <label className="label">
+                      <span className="label-text-alt whitespace-normal wrap-break-word">
+                        {t('outputs.create_group_hint')}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Enforce Interlock — visible when interlock_group is set */}
+                {interlockValue && (
+                  <div className="grid grid-cols-1 gap-4 mt-2">
+                    <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+                      <legend className="fieldset-legend">{t('remote_outputs.enforce_interlock')}</legend>
+                      <label className="label cursor-pointer justify-start gap-4">
+                        <input
+                          type="checkbox"
+                          className="toggle toggle-warning"
+                          checked={data.enforce_interlock === true}
+                          onChange={(e) => updateField('enforce_interlock', e.target.checked)}
+                        />
+                        <span className="label-text wrap-break-word">{t('remote_outputs.enforce_interlock_hint')}</span>
+                      </label>
+                    </fieldset>
+                  </div>
+                )}
+
+                <div className="alert alert-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <div>
+                    <h3 className="font-bold">{t('outputs.software_interlock_title')}</h3>
+                    <div className="text-sm">
+                      <p>{t('remote_outputs.interlock_shared_desc')}</p>
+                    </div>
+                  </div>
+                </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

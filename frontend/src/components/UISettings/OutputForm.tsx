@@ -195,8 +195,23 @@ const OutputForm: React.FC<OutputFormProps> = ({
       delete newData.duration_unit;
     }
     
+    // When enabling adjustable_duration, clear static momentary (mutual exclusion)
+    if (field === 'adjustable_duration' && value) {
+      delete newData.momentary_turn_on;
+      delete newData.momentary_turn_off;
+    }
+    
     // When disabling adjustable_duration, clean up related fields
     if (field === 'adjustable_duration' && !value) {
+      delete newData.duration_default;
+      delete newData.duration_min;
+      delete newData.duration_max;
+      delete newData.duration_unit;
+    }
+
+    // When setting momentary_turn_on, disable adjustable_duration (mutual exclusion)
+    if (field === 'momentary_turn_on' && value) {
+      delete newData.adjustable_duration;
       delete newData.duration_default;
       delete newData.duration_min;
       delete newData.duration_max;

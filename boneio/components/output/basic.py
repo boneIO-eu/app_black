@@ -1,4 +1,5 @@
 """Basic Output module (formerly BasicRelay)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,11 +20,11 @@ _LOGGER = logging.getLogger(__name__)
 
 class BasicOutput(BasicMqtt):
     """Basic output class (relay, switch, light, PWM).
-    
+
     Formerly known as BasicRelay. This class represents any controllable
     output device in the BoneIO system.
     """
-    
+
     # Subclasses (e.g. MCPOutput) will override these
     _pin_id: int = -1
     _expander_id: str | None = None
@@ -38,7 +39,7 @@ class BasicOutput(BasicMqtt):
         restored_state: bool = False,
         topic_type: str = OUTPUT,
         interlock_manager: SoftwareInterlockManager | None = None,
-        interlock_groups: list[str] = None,
+        interlock_groups: list[str] | None = None,
         **kwargs,
     ) -> None:
         """Initialize Basic output."""
@@ -62,9 +63,7 @@ class BasicOutput(BasicMqtt):
         self._duration_max: float = max(self._duration_min, parse_time_to_seconds(_dur_max_raw, 3600.0))
         self._duration_default: float = parse_time_to_seconds(_dur_default_raw, 60.0)
         # Current adjustable duration value in seconds (will be overwritten by restored state)
-        self._adjustable_duration: float = max(
-            self._duration_min, min(self._duration_max, self._duration_default)
-        )
+        self._adjustable_duration: float = max(self._duration_min, min(self._duration_max, self._duration_default))
 
         super().__init__(id=id, name=name or id, topic_type=topic_type, topic_prefix=topic_prefix, **kwargs)
         self._output_type: str = output_type
@@ -79,7 +78,7 @@ class BasicOutput(BasicMqtt):
         self._momentary_action = None
         self._last_timestamp = 0.0
         self._loop = asyncio.get_running_loop()
-        
+
         # HA area/room assignment (set by OutputManager)
         self.area: str | None = None
 
@@ -113,7 +112,7 @@ class BasicOutput(BasicMqtt):
     def name(self) -> str:
         """Not trimmed id."""
         return self._name or str(self._pin_id) or ""
-    
+
     @property
     def pin_id(self) -> str | None:
         """Pin ID as string for OutputState model."""
@@ -123,7 +122,6 @@ class BasicOutput(BasicMqtt):
     def state(self) -> str:
         """Is relay active."""
         return self._state
-    
 
     @property
     def last_timestamp(self) -> float:
@@ -131,7 +129,7 @@ class BasicOutput(BasicMqtt):
 
     def payload(self) -> dict[str, str | float | int | None]:
         """Return payload for MQTT message.
-        
+
         Returns:
             Dictionary with state information for MQTT publishing.
         """
@@ -168,37 +166,39 @@ class BasicOutput(BasicMqtt):
             duration_min=self._duration_min if self._adjustable_duration_enabled else None,
             duration_max=self._duration_max if self._adjustable_duration_enabled else None,
         )
-        
+
         output_event = OutputEvent(
             entity_id=self.id,
             state=output_state,
         )
         self._event_bus.trigger_event(output_event)
-        
 
     def check_interlock(self) -> bool:
         if self._interlock_manager is not None and self._interlock_groups:
             return self._interlock_manager.can_turn_on(self, self._interlock_groups)
         return True
 
-    async def async_turn_on(self, timestamp=None) -> None:
-        """Turn on the relay asynchronously."""
+    async def async_turn_on(self, timestamp=None) -> bool:
+        """Turn on the relay asynchronously.
+
+        Returns:
+            True if the relay was turned on, False if blocked by interlock.
+        """
         can_turn_on = self.check_interlock()
         if can_turn_on:
             await self._loop.run_in_executor(None, self.turn_on, timestamp)
         else:
-            _LOGGER.warning(f"Interlock active: cannot turn on {self.id}.")
-            #Workaround for HA is sendind state ON/OFF without physically changing the relay.
+            _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
+            # Workaround for HA is sendind state ON/OFF without physically changing the relay.
             asyncio.create_task(self.async_send_state(optimized_value=ON))
             await asyncio.sleep(0.01)
         asyncio.create_task(self.async_send_state())
-        
+        return can_turn_on
 
     async def async_turn_off(self, timestamp=None) -> None:
         """Turn off the relay asynchronously."""
         await self._loop.run_in_executor(None, self.turn_off, timestamp)
         await self.async_send_state()
-
 
     async def async_toggle(self, timestamp=None) -> None:
         """Toggle relay."""
@@ -212,7 +212,7 @@ class BasicOutput(BasicMqtt):
     def turn_on(self, timestamp=None) -> None:
         """Call turn on action."""
         raise NotImplementedError
-    
+
     def turn_off(self, timestamp=None) -> None:
         """Call turn off action."""
         raise NotImplementedError
@@ -293,12 +293,8 @@ class BasicOutput(BasicMqtt):
         Args:
             seconds: New duration in seconds.
         """
-        self._adjustable_duration = max(
-            self._duration_min, min(self._duration_max, float(seconds))
-        )
-        _LOGGER.debug(
-            "Output '%s' adjustable duration set to %.1fs", self.id, self._adjustable_duration
-        )
+        self._adjustable_duration = max(self._duration_min, min(self._duration_max, seconds))
+        _LOGGER.debug("Output '%s' adjustable duration set to %.1fs", self.id, self._adjustable_duration)
 
     def restore_adjustable_duration(self, seconds: float) -> None:
         """Restore persisted duration value (called during init by OutputManager).
@@ -306,9 +302,7 @@ class BasicOutput(BasicMqtt):
         Args:
             seconds: Persisted duration value.
         """
-        self._adjustable_duration = max(
-            self._duration_min, min(self._duration_max, float(seconds))
-        )
+        self._adjustable_duration = max(self._duration_min, min(self._duration_max, seconds))
 
     @property
     def is_active(self) -> bool:

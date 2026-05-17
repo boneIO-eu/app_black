@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
   excludeIds = [],
   emptyHint,
 }) => {
+  const { t } = useTranslation();
   /**
    * Check if an output is saved (committed) by comparing with saved data.
    */
@@ -55,21 +57,38 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
     }
   };
 
+  /**
+   * Derive a consistent ID for an output entry.
+   * Remote outputs may have an empty `id` — in that case, generate
+   * the same fallback as the backend: `${device_id}_${output_id}`.
+   */
+  const deriveOutputId = (output: any): string => {
+    if (output.id) return output.id;
+    if (output.boneio_output) return output.boneio_output;
+    // Remote output fallback: device_id + output_id (mirrors backend logic)
+    if (output.device_id && output.output_id) {
+      return `${output.device_id}_${output.output_id}`.replace(/-/g, '_');
+    }
+    return '';
+  };
+
   // Normalize outputs to have consistent id field and filter out excluded IDs
   const normalizedOutputs = allOutputs
     .filter((output) => {
-      const id = output.id || output.boneio_output;
-      return !excludeIds.includes(id);
+      const id = deriveOutputId(output);
+      return id && !excludeIds.includes(id);
     })
     .map((output) => {
-      const id = output.id || output.boneio_output;
+      const id = deriveOutputId(output);
       const isGroup = output.isGroup || false;
+      const isRemote = Boolean(output.device_id && output.output_id);
       const isSaved = isOutputSaved(id, isGroup);
       return {
         ...output,
         id,
         name: output.name || id,
         isGroup,
+        isRemote,
         isSaved,
       };
     });
@@ -90,12 +109,14 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
           {selectedOutput ? (
             <div className="flex flex-col items-start">
               <span className="font-medium">
-                {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
+                {selectedOutput.isGroup && <span className="badge badge-xs badge-secondary mr-1">{t('outputs.badge_group')}</span>}
+                {selectedOutput.isRemote && <span className="badge badge-xs badge-info mr-1">{t('outputs.badge_remote')}</span>}
                 {selectedOutput.name}
               </span>
               <span className="text-xs opacity-60">
                 ID: {selectedOutput.id}
-                {selectedOutput.area && ` • Area: ${getAreaName(selectedOutput.area)}`}
+                {selectedOutput.device_id && ` • ${t('outputs.device_label')}: ${selectedOutput.device_id}`}
+                {selectedOutput.area && ` • ${t('outputs.area_label')}: ${getAreaName(selectedOutput.area)}`}
               </span>
             </div>
           ) : (
@@ -106,7 +127,7 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
       <SelectContent className="bg-base-100">
         {normalizedOutputs.length === 0 ? (
           <div className="px-3 py-4 text-center text-sm text-base-content/50">
-            <p className="font-medium">{emptyHint || 'No outputs available'}</p>
+            <p className="font-medium">{emptyHint || t('outputs.no_outputs_available')}</p>
           </div>
         ) : (
           normalizedOutputs.map((output) => (
@@ -118,13 +139,15 @@ const OutputSelectDropdown: React.FC<OutputSelectDropdownProps> = ({
             >
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">Group</span>}
-                  {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">Niezapisane</span>}
+                  {output.isGroup && <span className="badge badge-xs badge-secondary mr-1">{t('outputs.badge_group')}</span>}
+                  {output.isRemote && <span className="badge badge-xs badge-info mr-1">{t('outputs.badge_remote')}</span>}
+                  {!output.isSaved && <span className="badge badge-xs badge-warning mr-1">{t('outputs.badge_unsaved')}</span>}
                   {output.name}
                 </span>
                 <span className="text-xs opacity-60">
                   ID: {output.id}
-                  {output.area && ` • Area: ${getAreaName(output.area)}`}
+                  {output.device_id && ` • ${t('outputs.device_label')}: ${output.device_id}`}
+                  {output.area && ` • ${t('outputs.area_label')}: ${getAreaName(output.area)}`}
                 </span>
               </div>
             </SelectItem>

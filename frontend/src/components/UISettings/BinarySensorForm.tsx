@@ -3,6 +3,7 @@ import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
+import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -68,6 +69,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+  const [showBlueprint, setShowBlueprint] = useState(false);
+
+  /** Apply a blueprint patch — merges device_class and actions into current data */
+  const applyBlueprint = (patch: Partial<BinarySensorEntity>) => {
+    onChange({ ...data, ...patch });
+    // Switch to pressed tab to show the result
+    setActiveTab('pressed');
+  };
 
   // Get all validation errors
   const getValidationErrors = (): string[] => {
@@ -244,6 +253,30 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         actionCoverOptions={actionCoverOptions}
         onApply={onChange}
       />
+
+      {/* Blueprint Picker — quick action config for common patterns */}
+      <button
+        type="button"
+        className="w-full text-left p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 cursor-pointer group"
+        onClick={() => setShowBlueprint(true)}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🚀</span>
+          <span className="font-medium text-sm text-primary">{t('blueprints.quick_setup')}</span>
+        </div>
+        <p className="text-xs text-base-content/50 mt-1 ml-7">{t('blueprints.quick_setup_hint')}</p>
+      </button>
+
+      {showBlueprint && (
+        <BlueprintPicker
+          onApply={applyBlueprint}
+          onClose={() => setShowBlueprint(false)}
+          allOutputs={allOutputs}
+          allAreas={allAreas}
+          savedOutputs={savedOutputs}
+          savedOutputGroups={savedOutputGroups}
+        />
+      )}
 
       <TabsBox
         name="binary_sensor_tabs"

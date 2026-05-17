@@ -107,15 +107,15 @@ class IrrigationController:
         self._schedule = schedule or []
         self._water_sources = water_sources or []
         self._active_water_source_idx: int = 0
-        self._valve_open_delay_s = max(0, int(valve_open_delay_s))
-        self._valve_overlap_s = max(0, int(valve_overlap_s))
+        self._valve_open_delay_s = max(0, valve_open_delay_s)
+        self._valve_overlap_s = max(0, valve_overlap_s)
         self._standby = standby
 
         self._state = ControllerState.IDLE
         self._auto_advance = auto_advance
         self._reverse = reverse
-        self._multiplier = max(0.1, float(multiplier))
-        self._repeat = max(0, int(repeat))
+        self._multiplier = max(0.1, multiplier)
+        self._repeat = max(0, repeat)
         self._skip_next_run = False
 
         self._zone_timer_cancel = None
@@ -526,7 +526,7 @@ class IrrigationController:
                 await self._stop_current_zone()
                 self._active_zone_idx = next_idx
                 duration = self._scaled_duration(next_zone.run_duration)
-                self._active_zone_remaining_s = max(1, int(duration))
+                self._active_zone_remaining_s = max(1, duration)
                 self._run_start_utc = utcnow()
                 self._arm_zone_timer(self._active_zone_remaining_s)
                 await self.publish_all_states()
@@ -564,6 +564,9 @@ class IrrigationController:
 
         Activates the water source outputs (if any), then opens the zone valve,
         respecting per-source pump timing delays.
+
+        If any output is blocked by an interlock, the controller shuts down
+        and publishes an interlock fault notification.
         """
         if idx < 0 or idx >= len(self._zones):
             _LOGGER.error("Irrigation %s _start_zone: invalid index %d (zones=%d)", self.id, idx, len(self._zones))
@@ -571,7 +574,7 @@ class IrrigationController:
 
         zone = self._zones[idx]
         duration = override_duration if override_duration is not None else self._scaled_duration(zone.run_duration)
-        duration = max(1, int(duration))
+        duration = max(1, duration)
         src = self.active_water_source
 
         _LOGGER.debug(
@@ -594,7 +597,10 @@ class IrrigationController:
                 _LOGGER.debug(
                     "Irrigation %s: source '%s' ON, then wait %ds", self.id, src.id, src.pump_start_valve_delay_s
                 )
-                await self._activate_source()
+                source_ok = await self._activate_source()
+                if not source_ok:
+                    await self._handle_interlock_fault(zone.id, src.id)
+                    return
                 await asyncio.sleep(src.pump_start_valve_delay_s)
             elif src.pump_start_pump_delay_s > 0:
                 # Zone valve first, then source after delay
@@ -605,13 +611,21 @@ class IrrigationController:
                     src.pump_start_pump_delay_s,
                 )
                 try:
-                    await zone.valve.async_turn_on(timestamp=time.time())
+                    valve_ok = await zone.valve.async_turn_on(timestamp=time.time())
+                    if not valve_ok:
+                        await self._handle_interlock_fault(zone.id, src.id)
+                        return
                 except Exception as err:
                     _LOGGER.error("Failed to turn on zone %s: %s", zone.id, err)
                     await self.shutdown()
                     return
                 await asyncio.sleep(src.pump_start_pump_delay_s)
-                await self._activate_source()
+                source_ok = await self._activate_source()
+                if not source_ok:
+                    # Valve was already ON — turn it off before shutting down
+                    await zone.valve.async_turn_off(timestamp=time.time())
+                    await self._handle_interlock_fault(zone.id, src.id)
+                    return
                 try:
                     self._run_start_utc = utcnow()
                     self._arm_zone_timer(duration)
@@ -629,13 +643,20 @@ class IrrigationController:
             else:
                 # No delay — activate source, then optional valve_open_delay
                 _LOGGER.debug("Irrigation %s: source '%s' ON (no delay)", self.id, src.id)
-                await self._activate_source()
+                source_ok = await self._activate_source()
+                if not source_ok:
+                    await self._handle_interlock_fault(zone.id, src.id)
+                    return
                 if self._valve_open_delay_s > 0:
                     await asyncio.sleep(self._valve_open_delay_s)
 
         try:
             _LOGGER.debug("Irrigation %s: turning ON valve %s", self.id, zone.valve.id)
-            await zone.valve.async_turn_on(timestamp=time.time())
+            valve_ok = await zone.valve.async_turn_on(timestamp=time.time())
+            if not valve_ok:
+                await self._deactivate_source()
+                await self._handle_interlock_fault(zone.id, src.id if src else None)
+                return
             _LOGGER.debug("Irrigation %s: valve %s turned ON successfully", self.id, zone.valve.id)
         except Exception as err:
             _LOGGER.error("Failed to turn on zone %s valve %s: %s", zone.id, zone.valve.id, err, exc_info=True)
@@ -667,16 +688,21 @@ class IrrigationController:
         except Exception as err:
             _LOGGER.error("Failed to turn off zone %s: %s", zone.id, err)
 
-    async def _activate_source(self) -> None:
-        """Turn ON all outputs of the active water source."""
+    async def _activate_source(self) -> bool:
+        """Turn ON all outputs of the active water source.
+
+        Returns:
+            True if source was activated, False if blocked by interlock.
+        """
         src = self.active_water_source
         if src is None:
-            return
+            return True
         try:
             _LOGGER.debug("Irrigation %s: activating source '%s' outputs=%s", self.id, src.id, src.output_ids)
-            await src.activate(timestamp=time.time())
+            return await src.activate(timestamp=time.time())
         except Exception as err:
             _LOGGER.error("Failed to activate water source '%s' for %s: %s", src.id, self.id, err)
+            return False
 
     async def _deactivate_source(self) -> None:
         """Turn OFF all outputs of the active water source."""
@@ -688,6 +714,42 @@ class IrrigationController:
             await src.deactivate(timestamp=time.time())
         except Exception as err:
             _LOGGER.error("Failed to deactivate water source '%s' for %s: %s", src.id, self.id, err)
+
+    async def _handle_interlock_fault(self, zone_id: str, source_id: str | None) -> None:
+        """Handle interlock-blocked activation.
+
+        Shuts down the controller and publishes a fault notification via MQTT
+        so that Home Assistant (or other consumers) can alert the user.
+
+        Args:
+            zone_id: ID of the zone that was being started.
+            source_id: ID of the water source (if any) whose output was blocked.
+        """
+        source_info = f" (source '{source_id}')" if source_id else ""
+        _LOGGER.error(
+            "Irrigation %s: INTERLOCK FAULT — could not start zone '%s'%s. "
+            "Another controller or output in the same interlock group is active. Shutting down.",
+            self.id,
+            zone_id,
+            source_info,
+        )
+
+        # Publish fault notification on MQTT
+        fault_payload = {
+            "fault": "interlock_blocked",
+            "controller": self.id,
+            "zone": zone_id,
+            "source": source_id or "",
+            "message": f"Irrigation '{self.name}' stopped: output blocked by interlock (zone: {zone_id})",
+        }
+        self._publish(
+            f"{self._topic_prefix}/{IRRIGATION}/{self.id}/fault",
+            fault_payload,
+            retain=False,
+        )
+
+        await self.shutdown()
+        await self.publish_all_states()
 
     async def _handle_pump_stop_sequence(self) -> None:
         """Handle pump stop timing according to active water source's delays."""
@@ -706,7 +768,7 @@ class IrrigationController:
             await self._deactivate_source()
 
     def _scaled_duration(self, seconds: int) -> int:
-        return int(max(1, round(seconds * self._multiplier)))
+        return max(1, round(seconds * self._multiplier))
 
     def _current_zone_duration_seconds(self) -> int:
         if self._active_zone_idx is None:
@@ -727,7 +789,7 @@ class IrrigationController:
 
     def _arm_zone_timer(self, seconds: int) -> None:
         self._cancel_zone_timer()
-        point = utcnow() + timedelta(seconds=max(1, int(seconds)))
+        point = utcnow() + timedelta(seconds=max(1, seconds))
         self._zone_timer_cancel = async_track_point_in_time(
             loop=self._event_bus._loop,
             job=self._zone_timer_callback,
@@ -781,42 +843,42 @@ class IrrigationController:
         await self.publish_all_states()
 
     async def set_auto_advance(self, value: bool) -> None:
-        self._auto_advance = bool(value)
+        self._auto_advance = value
         self._save("auto_advance", self._auto_advance)
         await self.publish_all_states()
 
     async def set_reverse(self, value: bool) -> None:
-        self._reverse = bool(value)
+        self._reverse = value
         self._save("reverse", self._reverse)
         await self.publish_all_states()
 
     async def set_standby(self, value: bool) -> None:
-        self._standby = bool(value)
+        self._standby = value
         self._save("standby", self._standby)
         if self._standby and self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
             await self.shutdown()
         await self.publish_all_states()
 
     async def set_multiplier(self, value: float) -> None:
-        self._multiplier = max(0.1, float(value))
+        self._multiplier = max(0.1, value)
         self._save("multiplier", self._multiplier)
         await self.publish_all_states()
 
     async def set_repeat(self, value: int) -> None:
-        self._repeat = max(0, int(value))
+        self._repeat = max(0, value)
         self._save("repeat", self._repeat)
         await self.publish_all_states()
 
     async def set_zone_enabled(self, zone_id: str, value: bool) -> None:
         for zone in self._zones:
             if zone.id == zone_id:
-                zone.enabled = bool(value)
+                zone.enabled = value
                 self._save(f"zone/{zone.id}/enabled", zone.enabled)
                 break
         await self.publish_all_states()
 
     async def set_skip_next_run(self, value: bool) -> None:
-        self._skip_next_run = bool(value)
+        self._skip_next_run = value
         self._save("skip_next_run", self._skip_next_run)
         await self.publish_all_states()
 
@@ -838,8 +900,8 @@ class IrrigationController:
     async def set_schedule_skip(self, schedule_idx: int, value: bool) -> None:
         if schedule_idx < 0 or schedule_idx >= len(self._schedule):
             return
-        self._schedule[schedule_idx]["skip"] = bool(value)
-        self._save(f"schedule/{schedule_idx}/skip", bool(value))
+        self._schedule[schedule_idx]["skip"] = value
+        self._save(f"schedule/{schedule_idx}/skip", value)
         await self.publish_all_states()
 
     def start_schedules(self) -> None:

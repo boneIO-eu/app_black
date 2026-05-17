@@ -773,19 +773,38 @@ async def get_interlock_groups():
     """
     Get list of all registered interlock group names.
 
+    Also scans the YAML configuration for groups that may not yet be
+    registered at runtime (e.g. after config save before reload).
+
     Returns:
         List of unique interlock group names.
     """
+    groups: set[str] = set()
+
+    # 1. Runtime groups from the interlock manager
     manager = _get_app_state().manager
-    if not manager or not hasattr(manager, "_output_manager"):
-        return {"groups": []}
+    if manager and hasattr(manager, "outputs"):
+        output_manager = manager.outputs
+        if output_manager and hasattr(output_manager, "_interlock_manager"):
+            for g in output_manager._interlock_manager.get_all_groups():
+                groups.add(g)
 
-    output_manager = manager._output_manager
-    if not output_manager or not hasattr(output_manager, "_interlock_manager"):
-        return {"groups": []}
+    # 2. Config-based groups (covers saved-but-not-yet-reloaded state)
+    try:
+        config = load_config_from_file(config_file=_get_app_state().yaml_config_file)
+        for section_key in ("output", "remote_outputs"):
+            for item in (config or {}).get(section_key, []):
+                ig = item.get("interlock_group")
+                if isinstance(ig, list):
+                    for g in ig:
+                        if g:
+                            groups.add(g)
+                elif isinstance(ig, str) and ig:
+                    groups.add(ig)
+    except Exception:
+        pass  # Config may be invalid — runtime groups are enough
 
-    groups = output_manager._interlock_manager.get_all_groups()
-    return {"groups": groups}
+    return {"groups": sorted(groups)}
 
 
 @router.get("/files")

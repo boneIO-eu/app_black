@@ -96,3 +96,96 @@ schema:
           qos, retain, output_type) is declared on the remote device in
           remote_devices[*].mqtt.outputs and referenced here by
           device_id + output_id.
+    momentary_turn_on:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: False
+      meta:
+        label: Momentary Turn On
+        description: |
+          After turning ON, auto-OFF after this duration.
+    momentary_turn_off:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: False
+      meta:
+        label: Momentary Turn Off
+        description: |
+          After turning OFF, auto-ON after this duration.
+    adjustable_duration:
+      type: boolean
+      required: False
+      default: False
+      meta:
+        label: Adjustable Duration
+        description: |
+          Enable an HA number entity (slider) to dynamically set the on-timer.
+          When ON is pressed, auto-OFF after this duration.
+    duration_default:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: False
+      meta:
+        label: Default adjustable duration (e.g. "60s", "5min", "1h").
+    duration_min:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: False
+      meta:
+        label: Minimum adjustable duration (e.g. "1s", "10s").
+    duration_max:
+      type:
+        - string
+        - timeperiod
+      coerce:
+        - str
+        - positive_time_period
+      required: False
+      meta:
+        label: Maximum adjustable duration (e.g. "3600s", "1h").
+    duration_unit:
+      type: string
+      required: False
+      default: 's'
+      allowed: ['s', 'min']
+      meta:
+        label: Unit displayed on Home Assistant duration slider.
+    interlock_group:
+      type: list
+      required: False
+      default: []
+      schema:
+        type: string
+      meta:
+        label: Interlock Groups
+        description: |
+          Shared interlock groups with local outputs. When this remote output
+          is turned ON via boneIO, other outputs in the same group will be
+          blocked. Direct control from ESPHome/HA bypasses the check unless
+          enforce_interlock is enabled.
+    enforce_interlock:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Enforce Interlock on External Changes
+        description: |
+          When true, if this remote output is turned ON externally (not via
+          boneIO) and it violates an interlock, boneIO will immediately send
+          a turn-off command to the remote device.

@@ -25,7 +25,7 @@ MODULE = "boneio.components.irrigation.controller"
 
 def _mock_valve(name: str = "valve") -> MagicMock:
     v = MagicMock(name=name)
-    v.async_turn_on = AsyncMock()
+    v.async_turn_on = AsyncMock(return_value=True)
     v.async_turn_off = AsyncMock()
     return v
 
@@ -585,7 +585,7 @@ class TestValveOverlap:
         await ctrl.start_full_cycle()
 
         call_order = []
-        ctrl._zones[1].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("next_on"))
+        ctrl._zones[1].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: (call_order.append("next_on"), True)[-1])
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
         ctrl._zones[0].valve.async_turn_off = AsyncMock(side_effect=lambda **kw: call_order.append("current_off"))
 
@@ -608,9 +608,9 @@ class TestPumpStartDelays:
         ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
-        master.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("pump_on"))
+        master.async_turn_on = AsyncMock(side_effect=lambda **kw: (call_order.append("pump_on"), True)[-1])
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("valve_on"))
+        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: (call_order.append("valve_on"), True)[-1])
 
         await ctrl.start_full_cycle()
 
@@ -626,9 +626,9 @@ class TestPumpStartDelays:
         ctrl = _make_controller(water_sources=[ws])
 
         call_order = []
-        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("valve_on"))
+        ctrl._zones[0].valve.async_turn_on = AsyncMock(side_effect=lambda **kw: (call_order.append("valve_on"), True)[-1])
         mock_sleep.side_effect = lambda s: call_order.append(f"sleep_{s}")
-        master.async_turn_on = AsyncMock(side_effect=lambda **kw: call_order.append("pump_on"))
+        master.async_turn_on = AsyncMock(side_effect=lambda **kw: (call_order.append("pump_on"), True)[-1])
 
         await ctrl.start_full_cycle()
 
@@ -1000,6 +1000,100 @@ class TestValveErrors:
         ctrl = _make_controller(water_sources=[ws])
         # Should not raise — water source errors are caught
         await ctrl.start_full_cycle()
+
+
+# ── Interlock fault handling ─────────────────────────────────────────────────
+
+
+class TestInterlockFault:
+    """Tests for interlock blocking during irrigation start."""
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_source_interlock_shuts_down(self, _utc, _timer, _sleep):
+        """When water source output is blocked by interlock, controller shuts down."""
+        master = _mock_valve("master")
+        master.async_turn_on = AsyncMock(return_value=False)  # Blocked
+        ws = _make_water_source(outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
+
+        await ctrl.start_full_cycle()
+
+        assert ctrl.state == ControllerState.IDLE
+        # Fault published
+        ctrl._message_bus.send_message.assert_any_call(
+            topic="boneio/irrigation/test_ctrl/fault",
+            payload={
+                "fault": "interlock_blocked",
+                "controller": "test_ctrl",
+                "zone": "zone_0",
+                "source": "ws_default",
+                "message": "Irrigation 'Test Controller' stopped: output blocked by interlock (zone: zone_0)",
+            },
+            retain=False,
+        )
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_zone_valve_interlock_deactivates_source(self, _utc, _timer, _sleep):
+        """When zone valve is blocked, source outputs are deactivated first."""
+        master = _mock_valve("master")
+        ws = _make_water_source(outputs=[master])
+        zones = _make_zones(2)
+        zones[0].valve.async_turn_on = AsyncMock(return_value=False)  # Blocked
+
+        ctrl = _make_controller(zones=zones, water_sources=[ws])
+
+        await ctrl.start_full_cycle()
+
+        assert ctrl.state == ControllerState.IDLE
+        # Source was activated then deactivated after valve block
+        master.async_turn_on.assert_awaited_once()
+        master.async_turn_off.assert_awaited()
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_zone_valve_interlock_no_source(self, _utc, _timer, _sleep):
+        """When zone valve is blocked with no water source, just shuts down."""
+        zones = _make_zones(1)
+        zones[0].valve.async_turn_on = AsyncMock(return_value=False)
+        ctrl = _make_controller(zones=zones, water_sources=None)
+
+        await ctrl.start_full_cycle()
+
+        assert ctrl.state == ControllerState.IDLE
+        ctrl._message_bus.send_message.assert_any_call(
+            topic="boneio/irrigation/test_ctrl/fault",
+            payload={
+                "fault": "interlock_blocked",
+                "controller": "test_ctrl",
+                "zone": "zone_0",
+                "source": "",
+                "message": "Irrigation 'Test Controller' stopped: output blocked by interlock (zone: zone_0)",
+            },
+            retain=False,
+        )
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_pump_delay_valve_interlock_rolls_back_valve(self, _utc, _timer, _sleep):
+        """With pump_start_pump_delay, if source interlock fires after valve ON, valve is turned off."""
+        master = _mock_valve("master")
+        master.async_turn_on = AsyncMock(return_value=False)  # Source blocked
+        ws = _make_water_source(outputs=[master], pump_start_pump_delay_s=2)
+        zones = _make_zones(1)
+        ctrl = _make_controller(zones=zones, water_sources=[ws])
+
+        await ctrl.start_full_cycle()
+
+        assert ctrl.state == ControllerState.IDLE
+        # Valve was turned on (first step), then turned off after source block
+        zones[0].valve.async_turn_on.assert_awaited_once()
+        zones[0].valve.async_turn_off.assert_awaited()
 
 
 # ── _next_fire_time helper ───────────────────────────────────────────────────

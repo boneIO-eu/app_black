@@ -118,7 +118,14 @@
     "duration_unit_hint": "Unit displayed on the Home Assistant slider",
     "adjustable_duration_info_title": "Adjustable Duration Timer",
     "adjustable_duration_info_desc1": "Creates a number entity (slider) in Home Assistant to control the auto-off timer of this output.",
-    "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period."
+    "adjustable_duration_info_desc2": "Useful for manual irrigation, timed lighting, or any output that should turn off after a set period.",
+    "adjustable_duration_conflict": "Clear Momentary Turn On first — both options serve the same purpose.",
+    "badge_group": "Group",
+    "badge_remote": "🌐 Remote",
+    "badge_unsaved": "Unsaved",
+    "no_outputs_available": "No outputs available",
+    "device_label": "Device",
+    "area_label": "Area"
   },
   "inputs": {
     "title": "Inputs",
@@ -530,6 +537,8 @@
     "device_class_hint": "Device class for Home Assistant UI",
     "restore_state": "Restore State",
     "restore_state_hint": "Restore saved state after restart",
+    "tilt_restore": "Restore Tilt After Movement",
+    "tilt_restore_hint": "Restore the previous tilt angle after movement to an intermediate position (not at 0% or 100%)",
     "show_in_ha_hint": "Enable Home Assistant discovery for this cover"
   },
   "software_update": {
@@ -1272,6 +1281,8 @@
     "always_open_till_hint": "If cover position is at or below this value, it will always open. Above it, normal toggle applies.",
     "tilt_position": "Tilt Position (%)",
     "tilt_position_hint": "Tilt position to set (0 = fully closed lamellae, 100 = fully open). Required for TILT action.",
+    "restore_tilt": "Restore tilt after movement",
+    "restore_tilt_hint": "Save tilt angle before this action and restore it after movement ends",
     "validation_tilt_position_required": "Tilt position is required for TILT action (0-100)",
     "validation_esphome_device_required": "ESPHome device is required",
     "duration_thresholds": "Duration Thresholds",
@@ -1552,7 +1563,11 @@
     "on_disconnect_ignore": "Ignore (keep last state)",
     "on_disconnect_turn_off": "Force OFF (safe for pumps)",
     "on_disconnect_hint": "What happens when the remote device reconnects after losing connection",
-    "forward_to_ha_hint": "Publish HA autodiscovery for this output. Disable if ESPHome already publishes its own entity."
+    "forward_to_ha_hint": "Publish HA autodiscovery for this output. Disable if ESPHome already publishes its own entity.",
+    "interlock_hint": "Shared interlock with local outputs. Control via boneIO respects interlock. Direct ESPHome/HA control may bypass it unless enforce is enabled.",
+    "enforce_interlock": "Enforce Interlock",
+    "enforce_interlock_hint": "If turned ON externally (e.g. from ESPHome/HA) and it violates interlock, boneIO will immediately turn it OFF.",
+    "interlock_shared_desc": "Remote outputs share interlock groups with local outputs. When an output in a group is ON, other outputs in the same group cannot be turned ON via boneIO."
   },
   "table_sort": {
     "click_to_sort": "Click to sort",
@@ -1876,6 +1891,10 @@
     "add_output": "Add Output",
     "select_output": "Select output...",
     "pump_delays": "Pump Delays",
+    "sequential_delay": "Sequential Output Delay",
+    "sequential_delay_hint": "When multiple outputs are assigned, they activate one by one with a delay between each. On stop, outputs turn off in reverse order.",
+    "output_start_delay": "Delay between ON",
+    "output_stop_delay": "Delay between OFF",
     "valve_open_delay": "Valve Open Delay",
     "repeat": "Repeat Cycle",
     "repeat_hint": "0 = run once, 1 = run twice, etc.",
@@ -1999,5 +2018,38 @@
     "select_none": "None",
     "import_selected": "Import {n} as inputs",
     "duplicate_id": "Duplicate ID — entity IDs must be unique on a device"
+  },
+  "actions": {
+    "delay_execution": "Delay execution",
+    "delay_execution_hint": "Wait before executing this action. Timer resets if cancel event occurs.",
+    "delay_time": "Delay time",
+    "delay_cancel_on": "Cancel delay on events",
+    "delay_cancel_on_hint": "Cancel pending delayed action when these events occur on this input.",
+    "event_pressed": "Pressed (ON)",
+    "event_released": "Released (OFF)"
+  },
+  "blueprints": {
+    "title": "Action Templates",
+    "subtitle": "Quick configuration for common binary sensor use cases",
+    "use_template": "Use template",
+    "back_to_list": "Back to list",
+    "select_output": "Output to control",
+    "select_output_placeholder": "Select output...",
+    "off_delay": "Delay before OFF",
+    "off_delay_hint": "Time to wait after motion stops before turning off the output. Timer resets if motion is detected again.",
+    "preview": "Preview",
+    "preview_on": "Motion detected",
+    "preview_off": "Motion stopped",
+    "preview_after": "after",
+    "preview_cancel": "Timer resets if motion is detected again during delay",
+    "apply": "Apply template",
+    "motion_light_title": "Motion sensor → Light",
+    "motion_light_desc": "Turn on output when motion detected. Turn off after delay when motion stops. Timer resets on re-detection.",
+    "door_sensor_title": "Door/window sensor",
+    "door_sensor_desc": "Turn on output when opened, turn off when closed. No delay.",
+    "doorbell_title": "Doorbell / buzzer",
+    "doorbell_desc": "Turn on output while pressed, turn off when released.",
+    "quick_setup": "Quick action setup",
+    "quick_setup_hint": "Configure actions for motion sensor, door sensor, doorbell — one click"
   }
 }

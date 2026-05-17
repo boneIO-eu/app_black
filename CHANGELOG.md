@@ -4,6 +4,48 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev4 (2026-05-17)
+
+### 🐛 Bug Fixes
+
+- **Interlock Groups API — always returning empty** — The `/api/interlock-groups` endpoint referenced `manager._output_manager`, but the Manager class stores OutputManager as `manager.outputs`. The `hasattr()` check always failed, returning `{"groups": []}`. Fixed the attribute reference and added config-based scanning as fallback.
+- **Remote Output Form — interlock groups not shown** — The frontend `ArrayTableWidget` only fetched interlock groups from the API for local outputs (`sectionType === 'output'`). Extended to also fetch for `remote_outputs`. Additionally, the widget now scans all output config data (`allOutputs` + current section items) for `interlock_group` values, merging them with the API response for resilience.
+
+### ✨ Improvements
+
+- **Interlock Groups API — config-based discovery** — The endpoint now also scans YAML configuration (`output` and `remote_outputs` sections) for interlock group names. This ensures groups are visible in the UI even before a config reload instantiates outputs at runtime.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev3...v1.4.0dev4
+
+---
+
+## v1.4.0dev3 (2026-05-17)
+
+### ✨ New Features
+
+- **Venetian Cover Tilt Restore** — New `tilt_restore_after_close` option automatically restores the previous tilt angle after the blinds finish moving to an intermediate position. Skipped at extremes (0% fully closed, 100% fully open). Works with both `close()` and `set_cover_position()`. Configurable via WebUI (venetian platform only).
+- **Irrigation — Sequential Water Source Activation** — Water sources with multiple outputs now support configurable delay between activations (`output_start_delay_s`). Outputs activate in order and deactivate in reverse.
+- **Irrigation — Interlock-Aware Activation** — If an output is blocked by an interlock during water source activation, already-activated outputs are rolled back and a fault notification is sent.
+
+### 🐛 Bug Fixes
+
+- **Type safety in `_execute_single_action`** — Consolidated duplicate `None` guards for entity IDs and action names into a shared validation block at the top of the method, fixing 5 Pyright `reportArgumentType` errors.
+- **Import path for `BasicOutput`** — Fixed wrong import in `water_source.py` (`boneio.components.template` → `boneio.components.output.basic`).
+- **`BasicOutput` type annotation** — Fixed `interlock_groups: list[str] = None` to `list[str] | None = None`.
+- **Binary sensor device class** — Added `sound` to `BinarySensorDeviceClass` type.
+- **Blueprint picker UX** — Made button more descriptive and added cursor-pointer hover state.
+- **Mobile type switcher** — Fixed buttons overlapping hint text on small screens.
+
+### ♻️ Refactoring
+
+- **Delay & cancel action system** — Added comprehensive test suite for delayed/cancellable actions.
+- **Remote output improvements** — Remote outputs now show proper ID and 'Remote' badge in dropdowns; included in `allOutputs` for irrigation and other forms.
+- **i18n** — Translated all hardcoded strings in `OutputSelectDropdown`.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev2...v1.4.0dev3
+
+---
+
 ## v1.4.0dev2 (2026-05-15)
 
 ### 🐛 Bug Fixes
