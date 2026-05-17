@@ -52,6 +52,42 @@ schema:
         label: Input/Sensor ID
         description: |
           Binary sensor object_id on the remote device (e.g. "IN_02").
+    # ---- MQTT generic remote inputs (remote_source: mqtt) ----
+    # Required when remote_source == 'mqtt'; ignored otherwise. Validated
+    # at runtime in the remote_mqtt extension module (setup_remote_input).
+    topic:
+      type: string
+      required: False
+      meta:
+        label: MQTT Topic
+        description: |
+          MQTT topic to subscribe to. Required when remote_source is 'mqtt'.
+          Example: "n64/88/in_1"
+    value_template:
+      type: string
+      required: False
+      meta:
+        label: Jinja2 value_template
+        description: |
+          Jinja2 expression extracting the value from the payload. Defaults
+          to "{{ value }}" (use raw payload). For JSON payloads:
+          "{{ value_json.val }}" or "{{ value_json.zones[0] }}".
+    payload_on:
+      type: string
+      required: False
+      meta:
+        label: payload_on (binary mode)
+        description: |
+          Exact rendered value mapped to True. If unset, common truthy
+          tokens (1, on, true, open) are accepted automatically.
+    payload_off:
+      type: string
+      required: False
+      meta:
+        label: payload_off (binary mode)
+        description: |
+          Exact rendered value mapped to False. If unset, common falsy
+          tokens (0, off, false, closed) are accepted automatically.
     mode:
       type: string
       required: False

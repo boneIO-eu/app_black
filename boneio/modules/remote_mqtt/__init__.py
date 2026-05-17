@@ -36,21 +36,29 @@ __all__ = [
     "coerce_bool",
     "evaluate",
     "try_parse_json",
-    # Lazy-loaded:
+    # Lazy-loaded (touch RemoteInputBase / FastAPI / jinja2 only on access):
     "register_routes",
     "MQTTGenericInput",
     "MQTTGenericOutput",
+    "setup_remote_input",
+    "cleanup_remote_inputs",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy load FastAPI-dependent routes and runtime classes."""
+    """Lazy load FastAPI / RemoteInputBase dependants on first access."""
     if name == "register_routes":
         from boneio.modules.remote_mqtt.routes import register_routes
         return register_routes
     if name == "MQTTGenericInput":
         from boneio.modules.remote_mqtt.input import MQTTGenericInput
         return MQTTGenericInput
+    if name == "setup_remote_input":
+        from boneio.modules.remote_mqtt.input import setup_remote_input
+        return setup_remote_input
+    if name == "cleanup_remote_inputs":
+        from boneio.modules.remote_mqtt.input import cleanup_remote_inputs
+        return cleanup_remote_inputs
     if name == "MQTTGenericOutput":
         from boneio.modules.remote_mqtt.output import MQTTGenericOutput
         return MQTTGenericOutput
