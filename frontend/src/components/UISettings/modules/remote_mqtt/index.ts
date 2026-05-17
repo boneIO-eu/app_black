@@ -20,4 +20,11 @@ export {
   isValidPublicationTopic,
 } from './helpers/topicValidation';
 
-// (Hooks + components — added in Phase 2, 3, 6)
+// Hooks (stateful + side-effects; consumable by alternative UI skins)
+export { useMqttScan, type UseMqttScanReturn } from './hooks/useMqttScan';
+
+// Components (Presentational; safe to swap for alternative skins)
+export {
+  default as MqttScanDialog,
+  type MqttScanDialogProps,
+} from './components/MqttScanDialog';

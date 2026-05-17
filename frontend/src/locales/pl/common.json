@@ -1943,5 +1943,24 @@
     "apply_button": "Zastosuj oczekujące migracje",
     "apply_started": "Stosowanie migracji rozpoczęte. Odśwież za chwilę.",
     "apply_failed": "Stosowanie nie powiodło się: {{error}}"
+  },
+  "remote_mqtt": {
+    "scan_button": "Skanuj brokera",
+    "scan_button_tooltip": "Odkryj jakie tematy publikuje broker MQTT",
+    "scan_dialog_title": "Skanuj brokera MQTT",
+    "scan_dialog_description": "Subskrybuj wzorzec tematów przez kilka sekund, żeby zobaczyć co broker aktualnie publikuje. Użyj tego do wykrycia urządzeń niezgodnych z konwencją boneIO (np. centralek alarmowych ROPAM).",
+    "pattern_label": "Wzorzec tematu",
+    "duration_label": "Czas (s)",
+    "scanning": "Skanuję…",
+    "scanning_status": "Nasłuchuję na `{pattern}` przez {duration}s …",
+    "pattern_invalid": "Nieprawidłowy wzorzec MQTT. Użyj `/` jako separatora, `+` dla jednego poziomu, `#` dla wielu poziomów (tylko jako ostatni segment).",
+    "filter_placeholder": "Filtruj tematy lub payloady…",
+    "col_topic": "Temat",
+    "col_type": "Typ",
+    "col_payload": "Ostatni payload",
+    "col_updates": "Akt.",
+    "results_truncated": "+{n} kolejnych tematów — zawęź filtr żeby je zobaczyć.",
+    "no_results": "Brak wiadomości na `{pattern}` przez {duration}s. Spróbuj szerszego wzorca lub ponów skan — niektóre urządzenia publikują tylko przy połączeniu.",
+    "clear_results": "Wyczyść"
   }
 }

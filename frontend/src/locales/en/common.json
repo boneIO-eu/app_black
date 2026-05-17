@@ -1944,5 +1944,24 @@
     "apply_button": "Apply pending migrations",
     "apply_started": "Migration apply started. Refresh in a moment.",
     "apply_failed": "Apply failed: {{error}}"
+  },
+  "remote_mqtt": {
+    "scan_button": "Scan broker",
+    "scan_button_tooltip": "Discover what topics the MQTT broker is publishing",
+    "scan_dialog_title": "Scan MQTT broker",
+    "scan_dialog_description": "Subscribe to a topic pattern for a few seconds to see what the broker is currently publishing. Use this to discover devices that don't follow boneIO's topic convention (e.g. ROPAM alarm panels).",
+    "pattern_label": "Topic pattern",
+    "duration_label": "Duration (s)",
+    "scanning": "Scanning…",
+    "scanning_status": "Listening on `{pattern}` for {duration}s …",
+    "pattern_invalid": "Invalid MQTT topic pattern. Use `/` separators, `+` for single-level wildcards, `#` for multi-level (only as last segment).",
+    "filter_placeholder": "Filter topics or payloads…",
+    "col_topic": "Topic",
+    "col_type": "Type",
+    "col_payload": "Last payload",
+    "col_updates": "Upd.",
+    "results_truncated": "+{n} more topics — refine the filter to see them.",
+    "no_results": "No messages received on `{pattern}` in {duration}s. Try a broader pattern or run again — some devices publish on retained topics only on connect.",
+    "clear_results": "Clear"
   }
 }
