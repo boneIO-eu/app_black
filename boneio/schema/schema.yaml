@@ -1472,12 +1472,6 @@ cover:
         default: False
         meta:
           label: Restore tilt position after closing venetian blinds.
-      tilt_restore_from_actions:
-        type: boolean
-        required: False
-        default: False
-        meta:
-          label: Also restore tilt when triggered by button actions.
       device_class:
         type: string
         required: False

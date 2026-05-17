@@ -195,6 +195,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         # Flag set by action executor to signal this call originates from a button action.
         # Used by VenetianCover to conditionally skip tilt restore.
         self._from_action: bool = False
+        # When True, tilt restore is explicitly requested by the action definition.
+        self._action_tilt_restore: bool = False
 
         self._event_bus.add_sigterm_listener(self.on_exit)
 

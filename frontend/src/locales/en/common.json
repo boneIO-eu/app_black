@@ -525,8 +525,6 @@
     "restore_state_hint": "Restore saved state after restart",
     "tilt_restore": "Restore Tilt After Movement",
     "tilt_restore_hint": "Restore the previous tilt angle after movement to an intermediate position (not at 0% or 100%)",
-    "tilt_restore_actions": "Also from button actions",
-    "tilt_restore_actions_hint": "By default only UI and HA trigger tilt restore",
     "show_in_ha_hint": "Enable Home Assistant discovery for this cover"
   },
   "software_update": {
@@ -1246,6 +1244,8 @@
     "always_open_till_hint": "If cover position is at or below this value, it will always open. Above it, normal toggle applies.",
     "tilt_position": "Tilt Position (%)",
     "tilt_position_hint": "Tilt position to set (0 = fully closed lamellae, 100 = fully open). Required for TILT action.",
+    "restore_tilt": "Restore tilt after movement",
+    "restore_tilt_hint": "Save tilt angle before this action and restore it after movement ends",
     "validation_tilt_position_required": "Tilt position is required for TILT action (0-100)",
     "validation_esphome_device_required": "ESPHome device is required",
     "duration_thresholds": "Duration Thresholds",

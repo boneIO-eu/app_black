@@ -26,7 +26,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         actuator_activation_duration: TimePeriod,  # ms
         restored_state: dict = DEFAULT_RESTORED_STATE,
         tilt_restore_after_close: bool = False,
-        tilt_restore_from_actions: bool = False,
         **kwargs,
     ) -> None:
         """Initialize venetian cover.
@@ -36,9 +35,7 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             actuator_activation_duration: Actuator activation time (unused).
             restored_state: Persisted position/tilt from disk.
             tilt_restore_after_close: If True, restore previous tilt
-                position after closing the cover.
-            tilt_restore_from_actions: If True, tilt restore also applies
-                when triggered by button actions (default: False).
+                position after closing the cover (UI/HA calls).
         """
         self._tilt_duration = tilt_duration.total_milliseconds  # Czas trwania ruchu lameli
         self._initial_tilt_position = float(restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"]))
@@ -48,7 +45,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         self._tilt_position = float(restored_state.get("tilt", DEFAULT_RESTORED_STATE["tilt"]))
 
         self._tilt_restore_after_close = tilt_restore_after_close
-        self._tilt_restore_from_actions = tilt_restore_from_actions
         self._tilt_before_close: float | None = None
 
         self._last_tilt_update = 0.0
@@ -304,15 +300,17 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
     def _save_tilt_for_restore(self) -> None:
         """Save current tilt position for later restoration.
 
-        Called before any closing movement when tilt_restore_after_close
-        is enabled. Clears saved value if tilt is already at 0%.
-        Skips saving when called from an action and tilt_restore_from_actions
-        is disabled.
+        Called before any closing movement. Determines whether to save
+        based on the call source:
+        - UI/HA calls: uses tilt_restore_after_close setting
+        - Action calls: uses _action_tilt_restore flag (set by executor)
         """
-        if self._from_action and not self._tilt_restore_from_actions:
-            self._tilt_before_close = None
-            return
-        if self._tilt_restore_after_close and self._tilt_position > 0:
+        if self._from_action:
+            should_restore = self._action_tilt_restore
+        else:
+            should_restore = self._tilt_restore_after_close
+
+        if should_restore and self._tilt_position > 0:
             self._tilt_before_close = self._tilt_position
             _LOGGER.debug(
                 "VenetianCover %s: saving tilt=%d%% before close",
@@ -371,8 +369,6 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
             self._tilt_duration = config["tilt_duration"].total_milliseconds
         if "tilt_restore_after_close" in config:
             self._tilt_restore_after_close = bool(config["tilt_restore_after_close"])
-        if "tilt_restore_from_actions" in config:
-            self._tilt_restore_from_actions = bool(config["tilt_restore_from_actions"])
 
     async def run_cover(
         self,

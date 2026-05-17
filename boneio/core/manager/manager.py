@@ -169,6 +169,10 @@ class Manager:
         # Used by the delay/delay_cancel_on action system (e.g. motion sensors)
         self._pending_delayed_actions: dict[str, list[asyncio.Task]] = {}
 
+        # Pending remote tilt restores: key = "device_id:cover_id" -> asyncio.Task
+        # Background tasks that wait for ESPHome cover IDLE then restore tilt
+        self._pending_tilt_restores: dict[str, asyncio.Task] = {}
+
         # Startup status tracking
         self._startup_status: str = "initializing"
         self._startup_complete: bool = False
@@ -1043,13 +1047,16 @@ class Manager:
                 cover.name if hasattr(cover, "name") else entity_id,
                 time.time() - start_time,
             )
-            # Signal to cover that this call originates from an action
+            # Signal to cover that this call originates from an action.
+            # If restore_tilt is set in the action definition, enable tilt restore.
             cover._from_action = True
+            cover._action_tilt_restore = bool(action_definition.get("restore_tilt", False))
             try:
                 _f = getattr(cover, action_to_execute)
                 await _f(**filtered_data)
             finally:
                 cover._from_action = False
+                cover._action_tilt_restore = False
 
         elif action == OUTPUT_OVER_MQTT:
             boneio_id = action_definition.get("boneio_id")
@@ -1132,12 +1139,40 @@ class Manager:
             assert entity_id and remote_device_id  # guaranteed by guard above
             action_cover = action_definition.get("action_cover", "TOGGLE")
             extra_data = action_definition.get("extra_data", {})
+            restore_tilt = action_definition.get("restore_tilt", False)
+
+            # Save tilt before executing action (ESPHome only)
+            saved_tilt_pct: int | None = None
+            if restore_tilt:
+                cover_state = self.remote_devices.get_cover_state(
+                    remote_device_id, entity_id
+                )
+                if cover_state and cover_state.get("tilt") is not None:
+                    saved_tilt_pct = int(round(cover_state["tilt"] * 100))
+                    _LOGGER.debug(
+                        "Remote cover %s/%s: saving tilt=%d%% for restore",
+                        remote_device_id, entity_id, saved_tilt_pct,
+                    )
+
             await self.remote_devices.control_cover(
                 device_id=remote_device_id,
                 cover_id=entity_id,
                 action=action_cover,
                 **extra_data,
             )
+
+            # Schedule background tilt restore after movement completes
+            if saved_tilt_pct is not None and saved_tilt_pct > 0:
+                task_key = f"{remote_device_id}:{entity_id}"
+                # Cancel any previous pending restore for the same cover
+                old_task = self._pending_tilt_restores.get(task_key)
+                if old_task and not old_task.done():
+                    old_task.cancel()
+                self._pending_tilt_restores[task_key] = asyncio.create_task(
+                    self._restore_remote_tilt(
+                        remote_device_id, entity_id, saved_tilt_pct
+                    )
+                )
 
     async def _run_delayed_action(
         self, input_id: str, action_definition: dict, delay_seconds: float
@@ -1207,6 +1242,58 @@ class Manager:
                 input_id,
             )
         return cancelled
+
+    async def _restore_remote_tilt(
+        self, device_id: str, cover_id: str, tilt_pct: int
+    ) -> None:
+        """Restore tilt position on a remote ESPHome cover after movement.
+
+        Waits for the cover to reach IDLE state, then sends a set_tilt
+        command to restore the previously saved tilt position.
+
+        Args:
+            device_id: Remote device ID
+            cover_id: Cover entity ID on the remote device
+            tilt_pct: Tilt position to restore (0-100)
+        """
+        task_key = f"{device_id}:{cover_id}"
+        try:
+            _LOGGER.debug(
+                "Waiting for remote cover %s/%s to reach IDLE before restoring tilt=%d%%",
+                device_id, cover_id, tilt_pct,
+            )
+            # Wait for cover to stop moving (up to 120s)
+            if not await self.remote_devices.wait_for_cover_idle(device_id, cover_id):
+                _LOGGER.warning(
+                    "Remote cover %s/%s did not reach IDLE, skipping tilt restore",
+                    device_id, cover_id,
+                )
+                return
+
+            # Small settle delay to avoid command overlap
+            await asyncio.sleep(0.5)
+
+            _LOGGER.info(
+                "Restoring tilt=%d%% on remote cover %s/%s",
+                tilt_pct, device_id, cover_id,
+            )
+            await self.remote_devices.control_cover(
+                device_id=device_id,
+                cover_id=cover_id,
+                action="TILT",
+                tilt_position=tilt_pct,
+            )
+        except asyncio.CancelledError:
+            _LOGGER.debug(
+                "Remote tilt restore cancelled for %s/%s (new action triggered?)",
+                device_id, cover_id,
+            )
+        except Exception:
+            _LOGGER.exception(
+                "Failed to restore tilt on remote cover %s/%s", device_id, cover_id
+            )
+        finally:
+            self._pending_tilt_restores.pop(task_key, None)
 
     def _reload_logger(self) -> None:
         """Reload logger configuration from config file.

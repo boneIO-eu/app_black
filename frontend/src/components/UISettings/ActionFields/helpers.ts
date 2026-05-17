@@ -6,7 +6,7 @@ import { convertTimeperiodToMilliseconds } from '../helpers/configSchemaUtils';
  */
 const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
   output: ['boneio_output', 'action_output'],
-  cover: ['boneio_cover', 'action_cover', 'data'],
+  cover: ['boneio_cover', 'action_cover', 'data', 'restore_tilt'],
   mqtt: ['topic', 'action_mqtt_msg'],
   output_over_mqtt: ['boneio_id', 'boneio_output', 'action_output', 'action_mqtt_msg'],
   cover_over_mqtt: ['boneio_id', 'boneio_cover', 'action_cover', 'action_mqtt_msg', 'data'],
@@ -16,7 +16,7 @@ const ALLOWED_FIELDS_BY_ACTION: Record<string, string[]> = {
     'effect', 'palette', 'effect_speed', 'effect_intensity',
     'colors', 'presets',
   ],
-  remote_cover: ['remote_device', 'cover_id', 'action_cover', 'data'],
+  remote_cover: ['remote_device', 'cover_id', 'action_cover', 'data', 'restore_tilt'],
 };
 
 /** Fields shared across all action types (always preserved). */

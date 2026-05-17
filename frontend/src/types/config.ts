@@ -87,6 +87,8 @@ export interface Action {
   cover_id?: string;
   /** Extra data (for cover position/tilt) */
   data?: ActionData;
+  /** Restore tilt position after cover movement (action-level, venetian only) */
+  restore_tilt?: boolean;
 
   // ESPHome-specific fields
   /** ESPHome device ID (from remote_devices with protocol: esphome_api) */

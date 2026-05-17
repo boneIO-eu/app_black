@@ -190,6 +190,26 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           </label>
         </div>
       )}
+
+      {/* Restore Tilt — only for covers with tilt support */}
+      {selectedCover && coverSupportsTilt(selectedCover) && (
+        <div className="form-control mb-3">
+          <label className="label cursor-pointer justify-start gap-4">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-sm"
+              checked={action.restore_tilt || false}
+              onChange={(e) => onUpdate('restore_tilt', e.target.checked || undefined)}
+            />
+            <div>
+              <span className="label-text font-medium">{t('event_form.restore_tilt')}</span>
+              <p className="text-sm text-base-content/70 mt-1">
+                {t('event_form.restore_tilt_hint')}
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
     </>
   );
 };

@@ -756,8 +756,6 @@
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
     "tilt_restore": "Przywróć Nachylenie Po Ruchu",
     "tilt_restore_hint": "Przywróć poprzedni kąt nachylenia po ruchu do pozycji pośredniej (nie przy 0% ani 100%)",
-    "tilt_restore_actions": "Również z akcji przycisków",
-    "tilt_restore_actions_hint": "Domyślnie tylko UI i HA przywracają nachylenie",
     "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
   },
   "modbus": {
@@ -1247,6 +1245,8 @@
     "always_open_till_hint": "Jeśli pozycja rolety jest równa lub poniżej tej wartości, roleta zawsze się otworzy. Powyżej — normalne toggle.",
     "tilt_position": "Pozycja pochylenia (%)",
     "tilt_position_hint": "Pozycja pochylenia lameli (0 = całkowicie zamknięte, 100 = całkowicie otwarte). Wymagane dla akcji TILT.",
+    "restore_tilt": "Przywróć nachylenie po ruchu",
+    "restore_tilt_hint": "Zapamiętaj kąt nachylenia przed akcją i przywróć go po zakończeniu ruchu",
     "validation_tilt_position_required": "Pozycja pochylenia jest wymagana dla akcji TILT (0-100)",
     "duration_thresholds": "Progi Czasowe",
     "duration_thresholds_hint": "Opcjonalnie: Wykonaj tę akcję tylko gdy czas długiego naciśnięcia jest w określonym zakresie (w milisekundach)",
