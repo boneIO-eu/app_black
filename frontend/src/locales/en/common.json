@@ -1984,6 +1984,20 @@
     "state_topic_hint": "If set, boneIO subscribes here and updates state from the real device. Otherwise uses optimistic local state after publish.",
     "state_feedback_label": "State feedback (optional)",
     "inputs_from_device_hint": "Inputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.",
-    "outputs_from_device_hint": "Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings."
+    "outputs_from_device_hint": "Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.",
+    "field_topic_prefix": "Topic prefix (optional)",
+    "topic_prefix_hint": "Used to scope the Scan & import dialog. Per-entity topics still stored individually below.",
+    "topic_prefix_required": "Set a topic prefix first",
+    "scan_and_import": "Scan & import",
+    "section_inputs": "Inputs",
+    "section_outputs": "Outputs",
+    "add_input": "Add input",
+    "add_output": "Add output",
+    "scan_import_title": "Scan broker & import topics",
+    "scan_import_description": "Select topics to add as inputs on this device. Templates auto-set from payload type.",
+    "select_all": "Select all",
+    "select_none": "None",
+    "import_selected": "Import {n} as inputs",
+    "duplicate_id": "Duplicate ID — entity IDs must be unique on a device"
   }
 }

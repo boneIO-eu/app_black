@@ -96,6 +96,14 @@ const MqttDeviceEntitiesEditor: React.FC<MqttDeviceEntitiesEditorProps> = ({ val
   const outputs = value.outputs || [];
   const prefix = value.topic_prefix || '';
 
+  // Build a set of all entity IDs and flag the duplicates (UI warning per row).
+  const idCounts = new Map<string, number>();
+  for (const it of [...inputs, ...outputs]) {
+    if (!it.id) continue;
+    idCounts.set(it.id, (idCounts.get(it.id) || 0) + 1);
+  }
+  const isDuplicateId = (id: string) => !!id && (idCounts.get(id) || 0) > 1;
+
   // --- Inputs editing ---
   const addInput = () => onChange({
     ...value,
@@ -214,14 +222,16 @@ const MqttDeviceEntitiesEditor: React.FC<MqttDeviceEntitiesEditorProps> = ({ val
                 <tbody>
                   {inputs.map((it, idx) => {
                     const topicValid = !it.topic || isValidPublicationTopic(it.topic);
+                    const dupId = isDuplicateId(it.id);
                     return (
-                      <tr key={idx}>
+                      <tr key={idx} className={dupId ? 'bg-error/10' : undefined}>
                         <td>
                           <input
                             type="text"
-                            className="input input-bordered input-xs w-24 font-mono"
+                            className={`input input-bordered input-xs w-24 font-mono ${dupId ? 'input-error' : ''}`}
                             value={it.id}
                             onChange={e => updateInput(idx, { id: e.target.value })}
+                            title={dupId ? (t('remote_mqtt.duplicate_id') || 'Duplicate ID — entity IDs must be unique on a device') : undefined}
                           />
                         </td>
                         <td>
@@ -314,14 +324,17 @@ const MqttDeviceEntitiesEditor: React.FC<MqttDeviceEntitiesEditorProps> = ({ val
                   </tr>
                 </thead>
                 <tbody>
-                  {outputs.map((it, idx) => (
-                    <tr key={idx}>
+                  {outputs.map((it, idx) => {
+                    const dupId = isDuplicateId(it.id);
+                    return (
+                    <tr key={idx} className={dupId ? 'bg-error/10' : undefined}>
                       <td>
                         <input
                           type="text"
-                          className="input input-bordered input-xs w-24 font-mono"
+                          className={`input input-bordered input-xs w-24 font-mono ${dupId ? 'input-error' : ''}`}
                           value={it.id}
                           onChange={e => updateOutput(idx, { id: e.target.value })}
+                          title={dupId ? (t('remote_mqtt.duplicate_id') || 'Duplicate ID — entity IDs must be unique on a device') : undefined}
                         />
                       </td>
                       <td>
@@ -390,7 +403,8 @@ const MqttDeviceEntitiesEditor: React.FC<MqttDeviceEntitiesEditorProps> = ({ val
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

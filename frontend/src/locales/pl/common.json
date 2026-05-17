@@ -1983,6 +1983,20 @@
     "state_topic_hint": "Jeśli ustawione — boneIO subskrybuje i aktualizuje stan z prawdziwego urządzenia. Inaczej stan jest optymistyczny po publish.",
     "state_feedback_label": "Feedback stanu (opcjonalnie)",
     "inputs_from_device_hint": "Inputy są zarządzane przy urządzeniu. Dodaj / edytuj je w Remote Devices → MQTT settings.",
-    "outputs_from_device_hint": "Outputy są zarządzane przy urządzeniu. Dodaj / edytuj je w Remote Devices → MQTT settings."
+    "outputs_from_device_hint": "Outputy są zarządzane przy urządzeniu. Dodaj / edytuj je w Remote Devices → MQTT settings.",
+    "field_topic_prefix": "Prefix tematu (opcjonalnie)",
+    "topic_prefix_hint": "Używany do zakresu dialogu Scan & import. Per-entity topiki dalej przechowywane indywidualnie poniżej.",
+    "topic_prefix_required": "Najpierw ustaw prefix tematu",
+    "scan_and_import": "Skanuj i importuj",
+    "section_inputs": "Inputy",
+    "section_outputs": "Outputy",
+    "add_input": "Dodaj input",
+    "add_output": "Dodaj output",
+    "scan_import_title": "Skanuj brokera i importuj tematy",
+    "scan_import_description": "Wybierz tematy do dodania jako inputy tego urządzenia. Template'y są auto-ustawiane na podstawie typu payloadu.",
+    "select_all": "Zaznacz wszystkie",
+    "select_none": "Żadne",
+    "import_selected": "Importuj {n} jako inputy",
+    "duplicate_id": "Duplikat ID — identyfikatory encji muszą być unikalne w urządzeniu"
   }
 }

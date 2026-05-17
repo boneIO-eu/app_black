@@ -244,6 +244,45 @@ User noted partway through Phase 5 that their ROPAM alarm config got out of sync
 
 ---
 
+## 2026-05-17 (later) — Pivot to ESPHome-style device-centric pattern
+
+**Why this pivot**: The Phase 0-6 design was *topic-centric* — each `remote_input` row declared its own topic + value_template + payload_on/off inline. User feedback: "stworzyliśmy coś dziwnego" — every other remote device (ESPHome, WLED, boneIO black) is *device-centric*: the device declares its entity catalog, then `remote_inputs` / `remote_outputs` reference entries by `device_id + input_id`. The dropdown UX users expect when adding a remote input (pick from a list of entities the device exposes) didn't work for MQTT because nothing was declared on the device.
+
+**What changed**:
+
+* `boneio/schema/remote_devices.yaml` — for `protocol: mqtt`, the device's `mqtt` block now accepts:
+  - `topic_prefix` (display/scope hint)
+  - `inputs: [{id, name, topic, value_template, payload_on, payload_off, qos}]`
+  - `outputs: [{id, name, topic, command_template, state_topic, state_value_template, state_payload_on/off, qos, retain, output_type}]`
+
+  These extend the existing `{id, name}` schema for boneIO-style devices — the extra fields are simply unused when `device_type=boneio_black`.
+
+* `boneio/schema/remote_inputs.yaml` / `remote_outputs.yaml` — dropped the inline mqtt fields (topic, value_template, payload_*, command_template, state_*, qos, retain). Pure routing rows now: `device_id + input_id/output_id + actions/mode/area/...` — identical to ESPHome remote inputs.
+
+* `boneio/modules/remote_mqtt/input.py` / `output.py` — `setup_remote_input/output` now look up topic + template + payload mapping by `device_id + input_id/output_id` on the remote device's catalog (`_find_device_input` / `_find_device_output`). Friendly log when the device or referenced id is missing.
+
+* `frontend/src/components/UISettings/RemoteInputForm.tsx` / `RemoteOutputForm.tsx` — dropped the topic-centric swap. Standard input_id / output_id dropdown reused; for MQTT devices the option list comes from `selectedDevice.mqtt.inputs` / `.mqtt.outputs` (parallel to ESPHome's `_discovered_binary_sensors`). Hint shows "managed on the device" below the dropdown.
+
+* `frontend/src/components/UISettings/modules/remote_mqtt/components/MqttDeviceEntitiesEditor.tsx` (new) — rendered inside `RemoteDeviceForm.tsx` when `device_type=generic`. Two editable tables (Inputs + Outputs) plus a "Scan & import" workflow: scan dialog opens with the device's topic_prefix, user multi-selects topics, system imports them as inputs with auto-classified templates (`{{ value }}` + `payload_on: "1"` / `payload_off: "0"` for binary, `{{ value_json }}` for JSON, etc.).
+
+* Removed `MqttRemoteInputFields.tsx` + `MqttRemoteOutputFields.tsx` — no longer needed.
+
+* `frontend/src/types/config.ts` — extended `RemoteDeviceEntity.mqtt` with the new `topic_prefix` + `inputs[]` + richer `outputs[]` shapes.
+
+* Polish: id-uniqueness validation in `MqttDeviceEntitiesEditor` (duplicate IDs highlighted red, row tinted, tooltip explains); proper translations for all editor UI strings (en/pl, ~14 keys each).
+
+**What's preserved**: scanner endpoint + UI dialog (now powers Scan & import), Jinja2 evaluator + live preview backend, `MQTTGenericInput` / `MQTTGenericOutput` runtime classes, `MqttTopicDispatcher` (multi-subscriber per topic — now more relevant since one device may have many inputs pointing at the same topic with different templates).
+
+**Verified end-to-end on BoneIO**: tmp `generic_mqtt` device + `remote_inputs` row → service registered `"Registered MQTT remote input 'pivot_test_input' (device=pivot_test_device/ping_in, topic=boneio_test/ping)"` and `"MQTTGenericInput 'pivot_test_input' subscribed to topic 'boneio_test/ping'"` — confirms the device-catalog lookup path works correctly. Test config reverted after.
+
+**Commits**:
+* `c0ceb22` — `refactor(remote_mqtt): pivot to device-centric ESPHome-style pattern`
+* (this session also adds id-uniqueness validation + translation polish — separate commit)
+
+**Upstream status note**: boneIO has pushed v1.4.0dev3 + v1.4.0dev4 (commits `957a7bd..8f1a21c`) adding momentary/adjustable_duration/interlock for remote outputs, venetian blind tilt restore, irrigation interlock-aware activation, and delayed/cancel actions. None of it overlaps conceptually with our MQTT work, but they touch several files we touched (`RemoteOutputForm.tsx`, `manager.py`, `components/output/remote.py`, `remote_outputs.yaml`, `types/config.ts`). Next merge will produce conflicts mostly in `RemoteOutputForm.tsx` (their +723-line interlock UI vs our R1 dropdown filter). The module pattern still gives us a clean diff in `modules/remote_mqtt/`. Bonus: their `interlock_group` and `momentary_*` fields land on `RemoteOutputBase`, which our `MQTTGenericOutput` extends — we get those features for free without any module change.
+
+---
+
 ## Runbook — next upstream merge
 
 When boneIO releases the next dev tag (1.4.0dev3, 1.4.0, 1.5.x …), follow this. The
