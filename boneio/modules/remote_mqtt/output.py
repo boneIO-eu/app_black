@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from boneio.components.output.remote import RemoteOutputBase
 from boneio.const import OFF, ON
+from boneio.modules.remote_mqtt.dispatcher import get_dispatcher
 from boneio.modules.remote_mqtt.template import coerce_bool, evaluate
 
 if TYPE_CHECKING:
@@ -168,7 +169,10 @@ class MQTTGenericOutput(RemoteOutputBase):
         if not self._state_topic:
             return
         try:
-            await self._message_bus.subscribe_and_listen(self._state_topic, self._on_state_message)
+            dispatcher = get_dispatcher(self._message_bus)
+            await dispatcher.subscribe(
+                self._state_topic, self._on_state_message, f"output:{self._id}"
+            )
             self._state_subscribed = True
             _LOGGER.info(
                 "MQTTGenericOutput '%s' subscribed to state_topic '%s'",
@@ -203,7 +207,8 @@ class MQTTGenericOutput(RemoteOutputBase):
         if not self._state_subscribed or not self._state_topic:
             return
         try:
-            await self._message_bus.unsubscribe_and_stop_listen(self._state_topic)
+            dispatcher = get_dispatcher(self._message_bus)
+            await dispatcher.unsubscribe(self._state_topic, f"output:{self._id}")
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning(
                 "MQTTGenericOutput '%s' failed to unsubscribe from state_topic '%s': %s",

@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from boneio.components.input.remote.base import RemoteInputBase
 from boneio.const import EVENT_ENTITY
+from boneio.modules.remote_mqtt.dispatcher import get_dispatcher
 from boneio.modules.remote_mqtt.template import coerce_bool, evaluate
 
 if TYPE_CHECKING:
@@ -54,13 +55,14 @@ class MQTTGenericInput(RemoteInputBase):
 
     async def _subscribe(self) -> None:
         try:
-            await self._message_bus.subscribe_and_listen(self._topic, self._on_message)
+            dispatcher = get_dispatcher(self._message_bus)
+            await dispatcher.subscribe(self._topic, self._on_message, f"input:{self._id}")
             self._subscribed = True
             _LOGGER.info(
                 "MQTTGenericInput '%s' subscribed to topic '%s' (template=%r)",
                 self._id, self._topic, self._value_template,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             _LOGGER.error(
                 "MQTTGenericInput '%s' failed to subscribe to '%s': %s",
                 self._id, self._topic, exc,
@@ -102,8 +104,9 @@ class MQTTGenericInput(RemoteInputBase):
         if not self._subscribed:
             return
         try:
-            await self._message_bus.unsubscribe_and_stop_listen(self._topic)
-        except Exception as exc:
+            dispatcher = get_dispatcher(self._message_bus)
+            await dispatcher.unsubscribe(self._topic, f"input:{self._id}")
+        except Exception as exc:  # noqa: BLE001
             _LOGGER.warning(
                 "MQTTGenericInput '%s' failed to unsubscribe from '%s': %s",
                 self._id, self._topic, exc,

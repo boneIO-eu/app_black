@@ -72,22 +72,19 @@ async def scan_topics(
 ) -> list[ScanResult]:
     """Subscribe to ``pattern`` for ``duration_s`` seconds and return discovered topics.
 
-    NOTE on limitations (Phase 1 MVP):
-    1. boneIO's MQTT layer maps one callback per topic key. If ``pattern``
-       overlaps with an existing subscription, this scan WILL OVERWRITE that
-       subscription's callback for the duration of the scan, then restore
-       the broker subscription on unsubscribe — but the original callback
-       reference is lost. Restart boneIO if you scanned over a
-       production-critical subscription. To avoid: scan with a pattern
-       that doesn't overlap (e.g. a device-specific prefix like ``n64/#``).
-    2. ``handle_messages`` breaks on first-matching listener, so messages
-       arriving during the scan may be diverted from a more-specific
-       existing subscription to ours if iteration order favours us.
+    Uses :class:`MqttTopicDispatcher` so the scan never displaces production
+    subscriptions on overlapping topics — concurrent inputs and the scanner
+    both receive matching messages for the duration of the window.
 
     Returns a list of ``ScanResult`` sorted by topic, one entry per
     distinct topic observed during the window.
     """
+    # Local import: avoids forcing dispatcher (and aiomqtt Topic) to load
+    # for callers using only the pure ``infer_payload_type`` helper.
+    from boneio.modules.remote_mqtt.dispatcher import get_dispatcher
+
     collected: dict[str, dict] = {}
+    subscriber_id = f"scan:{id(collected):x}"
 
     async def collector(topic_str: str, payload_str: str) -> None:
         existing = collected.get(topic_str)
@@ -97,14 +94,15 @@ async def scan_topics(
             existing["update_count"] += 1
             existing["last_payload"] = payload_str
 
+    dispatcher = get_dispatcher(bus)
     _LOGGER.info("MQTT scan starting: pattern=%s duration=%.1fs", pattern, duration_s)
-    await bus.subscribe_and_listen(pattern, collector)
+    await dispatcher.subscribe(pattern, collector, subscriber_id)
     try:
         await asyncio.sleep(duration_s)
     finally:
         try:
-            await bus.unsubscribe_and_stop_listen(pattern)
-        except Exception as exc:
+            await dispatcher.unsubscribe(pattern, subscriber_id)
+        except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("MQTT scan unsubscribe failed for %s: %s", pattern, exc)
 
     results: list[ScanResult] = []
