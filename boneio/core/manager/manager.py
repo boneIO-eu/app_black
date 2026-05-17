@@ -1172,6 +1172,19 @@ class Manager:
                 )
                 continue
 
+            # Generic MQTT remote outputs are handled by the remote_mqtt
+            # extension module — factory owns full instantiation + state
+            # subscription. Skips the device-manager flow below.
+            if remote_source == "mqtt":
+                from boneio.modules.remote_mqtt import setup_remote_output
+                setup_remote_output(
+                    entity_id=entity_id,
+                    cfg=out_cfg,
+                    manager=self,
+                    outputs_dict=self.outputs._outputs,  # type: ignore[attr-defined]
+                )
+                continue
+
             remote_output = RemoteOutputBase(
                 id=entity_id,
                 name=name,

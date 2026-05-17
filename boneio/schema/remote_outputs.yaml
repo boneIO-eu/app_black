@@ -91,3 +91,68 @@ schema:
           What to do when the remote device loses connection:
           - ignore: Keep last known state (default)
           - turn_off: Force output OFF (safe for pumps/irrigation)
+    # ---- MQTT generic remote outputs (remote_source: mqtt) ----
+    # Required when remote_source == 'mqtt'; ignored otherwise.
+    topic:
+      type: string
+      required: False
+      meta:
+        label: Command Topic
+        description: |
+          MQTT topic published to on turn_on / turn_off. Required when
+          remote_source is 'mqtt'. Example: "n64/88/out_1/cmd"
+    command_template:
+      type: string
+      required: False
+      meta:
+        label: Jinja2 command_template
+        description: |
+          Jinja2 expression rendering the outgoing payload. Available
+          context: {{ state }} ("ON"/"OFF") and {{ brightness }} (0-255).
+          Default "{{ state }}" sends a plain "ON" or "OFF" string.
+    state_topic:
+      type: string
+      required: False
+      meta:
+        label: State Topic (feedback)
+        description: |
+          Optional MQTT topic to subscribe for actual device state.
+          If unset, boneIO uses optimistic local state after publish.
+    state_value_template:
+      type: string
+      required: False
+      meta:
+        label: state Jinja2 value_template
+        description: |
+          Jinja2 expression extracting state from state_topic payloads.
+          Same context as remote_inputs: value, value_json. Default
+          "{{ value }}".
+    state_payload_on:
+      type: string
+      required: False
+      meta:
+        label: state_payload_on
+        description: |
+          Exact rendered value that maps to ON. If unset, common truthy
+          tokens (1, on, true, open) accepted automatically.
+    state_payload_off:
+      type: string
+      required: False
+      meta:
+        label: state_payload_off
+        description: |
+          Exact rendered value that maps to OFF. If unset, common falsy
+          tokens (0, off, false, closed) accepted automatically.
+    qos:
+      type: integer
+      required: False
+      default: 0
+      allowed: [0, 1, 2]
+      meta:
+        label: QoS
+    retain:
+      type: boolean
+      required: False
+      default: False
+      meta:
+        label: Retain

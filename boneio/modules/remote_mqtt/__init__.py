@@ -42,11 +42,13 @@ __all__ = [
     "MQTTGenericOutput",
     "setup_remote_input",
     "cleanup_remote_inputs",
+    "setup_remote_output",
+    "cleanup_remote_outputs",
 ]
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy load FastAPI / RemoteInputBase dependants on first access."""
+    """Lazy load FastAPI / RemoteInputBase / RemoteOutputBase dependants on first access."""
     if name == "register_routes":
         from boneio.modules.remote_mqtt.routes import register_routes
         return register_routes
@@ -62,4 +64,10 @@ def __getattr__(name: str) -> Any:
     if name == "MQTTGenericOutput":
         from boneio.modules.remote_mqtt.output import MQTTGenericOutput
         return MQTTGenericOutput
+    if name == "setup_remote_output":
+        from boneio.modules.remote_mqtt.output import setup_remote_output
+        return setup_remote_output
+    if name == "cleanup_remote_outputs":
+        from boneio.modules.remote_mqtt.output import cleanup_remote_outputs
+        return cleanup_remote_outputs
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
