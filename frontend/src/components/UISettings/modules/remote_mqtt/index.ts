@@ -22,9 +22,18 @@ export {
 
 // Hooks (stateful + side-effects; consumable by alternative UI skins)
 export { useMqttScan, type UseMqttScanReturn } from './hooks/useMqttScan';
+export {
+  useJinjaPreview,
+  type UseJinjaPreviewReturn,
+  type TemplatePreviewResult,
+} from './hooks/useJinjaPreview';
 
 // Components (Presentational; safe to swap for alternative skins)
 export {
   default as MqttScanDialog,
   type MqttScanDialogProps,
 } from './components/MqttScanDialog';
+export {
+  default as MqttTopicInspector,
+  type MqttTopicInspectorProps,
+} from './components/MqttTopicInspector';

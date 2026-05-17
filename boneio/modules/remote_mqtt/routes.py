@@ -14,6 +14,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Body, FastAPI, HTTPException
 
 from boneio.modules.remote_mqtt.scanner import scan_topics
+from boneio.modules.remote_mqtt.template import evaluate, try_parse_json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,6 +78,47 @@ async def scan(request: dict = Body(...)) -> dict:
         "pattern": pattern,
         "duration_s": duration_s,
         "topics": [asdict(r) for r in results],
+    }
+
+
+@router.post("/test-template")
+async def test_template(request: dict = Body(...)) -> dict:
+    """Evaluate a Jinja2 ``value_template`` against a sample payload.
+
+    Used by the UI for live preview while the user is composing extraction
+    rules. Pure function — no MQTT activity, no broker required.
+
+    Request body:
+        template (str, required): Jinja2 template string, e.g.
+            ``"{{ value_json.val }}"``.
+        payload (str, required): Sample payload to evaluate against;
+            typically the ``last_payload`` from a scan result.
+
+    Response:
+        {result, value_json?, error?}
+    """
+    template_str = request.get("template")
+    payload = request.get("payload", "")
+    if template_str is None or not isinstance(template_str, str):
+        raise HTTPException(status_code=400, detail="`template` is required (string)")
+    if not isinstance(payload, str):
+        raise HTTPException(status_code=400, detail="`payload` must be a string")
+
+    parsed_json = try_parse_json(payload)
+    try:
+        result = evaluate(template_str, payload)
+    except ValueError as exc:
+        # Template error — return 200 with error field so the UI can show it
+        # inline without treating it as a hard failure.
+        return {
+            "result": None,
+            "value_json": parsed_json,
+            "error": str(exc),
+        }
+    return {
+        "result": result,
+        "value_json": parsed_json,
+        "error": None,
     }
 
 

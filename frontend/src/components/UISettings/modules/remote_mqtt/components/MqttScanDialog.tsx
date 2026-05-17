@@ -8,7 +8,7 @@
  * Presentational so an alternative skin can swap it without rewriting logic.
  */
 import React, { useMemo, useState } from 'react';
-import { FaSync, FaSearch, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSync, FaSearch, FaExclamationTriangle, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
 import { useMqttScan } from '../hooks/useMqttScan';
 import { isValidSubscriptionPattern } from '../helpers/topicValidation';
 import type { PayloadType, ScanResult } from '../types/scan';
+import MqttTopicInspector from './MqttTopicInspector';
 
 const MIN_DURATION_S = 1;
 const MAX_DURATION_S = 60;
@@ -55,7 +56,17 @@ const MqttScanDialog: React.FC<MqttScanDialogProps> = ({ open, onOpenChange, ini
   const [pattern, setPattern] = useState(initialPattern ?? DEFAULT_PATTERN);
   const [durationS, setDurationS] = useState<number>(DEFAULT_DURATION_S);
   const [filter, setFilter] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const scan = useMqttScan();
+
+  const toggleExpand = (topic: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(topic)) next.delete(topic);
+      else next.add(topic);
+      return next;
+    });
+  };
 
   const patternValid = isValidSubscriptionPattern(pattern.trim());
   const durationValid = durationS >= MIN_DURATION_S && durationS <= MAX_DURATION_S;
@@ -198,20 +209,44 @@ const MqttScanDialog: React.FC<MqttScanDialogProps> = ({ open, onOpenChange, ini
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleResults.map((r) => (
-                      <tr key={r.topic}>
-                        <td className="font-mono text-xs break-all">{r.topic}</td>
-                        <td>
-                          <span className={`badge badge-xs ${TYPE_BADGE_CLASS[r.payload_type]}`}>
-                            {r.payload_type}
-                          </span>
-                        </td>
-                        <td className="font-mono text-xs break-all text-base-content/70">
-                          {truncate(r.last_payload, PAYLOAD_PREVIEW_CHARS)}
-                        </td>
-                        <td className="text-right">{r.update_count}</td>
-                      </tr>
-                    ))}
+                    {visibleResults.map((r) => {
+                      const isOpen = expanded.has(r.topic);
+                      return (
+                        <React.Fragment key={r.topic}>
+                          <tr
+                            className="cursor-pointer hover:bg-base-200"
+                            onClick={() => toggleExpand(r.topic)}
+                          >
+                            <td className="font-mono text-xs break-all">
+                              <span className="inline-flex items-center gap-1">
+                                {isOpen ? (
+                                  <FaChevronDown className="text-base-content/40 shrink-0" />
+                                ) : (
+                                  <FaChevronRight className="text-base-content/40 shrink-0" />
+                                )}
+                                {r.topic}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`badge badge-xs ${TYPE_BADGE_CLASS[r.payload_type]}`}>
+                                {r.payload_type}
+                              </span>
+                            </td>
+                            <td className="font-mono text-xs break-all text-base-content/70">
+                              {truncate(r.last_payload, PAYLOAD_PREVIEW_CHARS)}
+                            </td>
+                            <td className="text-right">{r.update_count}</td>
+                          </tr>
+                          {isOpen && (
+                            <tr>
+                              <td colSpan={4} className="p-2">
+                                <MqttTopicInspector result={r} />
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
                 {truncatedBy > 0 && (

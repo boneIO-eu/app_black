@@ -32,6 +32,7 @@ dependencies = [
     "aioesphomeapi>=29.0.0",
     "zeroconf>=0.148.0",
     "canopen-asyncio>=2.4.1",
+    "Jinja2>=3.1.0",
 ]
 requires-python = ">=3.13"
 license = { text = "GNU General Public License v3.0" }

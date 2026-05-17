@@ -1961,6 +1961,12 @@
     "col_updates": "Akt.",
     "results_truncated": "+{n} kolejnych tematów — zawęź filtr żeby je zobaczyć.",
     "no_results": "Brak wiadomości na `{pattern}` przez {duration}s. Spróbuj szerszego wzorca lub ponów skan — niektóre urządzenia publikują tylko przy połączeniu.",
-    "clear_results": "Wyczyść"
+    "clear_results": "Wyczyść",
+    "payload_label": "Payload",
+    "template_label": "value_template",
+    "template_hint": "Kliknij dowolną wartość żeby wstawić ścieżkę",
+    "preview_label": "Podgląd",
+    "preview_pending": "Obliczam…",
+    "preview_empty_template": "Wpisz template żeby zobaczyć podgląd"
   }
 }

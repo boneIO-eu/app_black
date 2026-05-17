@@ -1962,6 +1962,12 @@
     "col_updates": "Upd.",
     "results_truncated": "+{n} more topics — refine the filter to see them.",
     "no_results": "No messages received on `{pattern}` in {duration}s. Try a broader pattern or run again — some devices publish on retained topics only on connect.",
-    "clear_results": "Clear"
+    "clear_results": "Clear",
+    "payload_label": "Payload",
+    "template_label": "value_template",
+    "template_hint": "Click any value above to fill in the path",
+    "preview_label": "Preview",
+    "preview_pending": "Evaluating…",
+    "preview_empty_template": "Enter a template to see the preview"
   }
 }
