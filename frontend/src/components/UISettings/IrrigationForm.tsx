@@ -401,8 +401,9 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
               <SimpleTimePeriodInput
                 value={source.pump_start_pump_delay || '0s'}
                 onChange={(v) => {
-                  updateField('pump_start_pump_delay', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('pump_start_valve_delay', undefined);
+                  const updated = { ...source, pump_start_pump_delay: v };
+                  if (v && v !== '0s' && v !== '0ms') updated.pump_start_valve_delay = undefined;
+                  onChange(index, updated);
                 }}
                 label={t('irrigation.pump_start_pump_delay')}
                 allowedUnits={['ms', 's']}
@@ -411,8 +412,9 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
               <SimpleTimePeriodInput
                 value={source.pump_start_valve_delay || '0s'}
                 onChange={(v) => {
-                  updateField('pump_start_valve_delay', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('pump_start_pump_delay', undefined);
+                  const updated = { ...source, pump_start_valve_delay: v };
+                  if (v && v !== '0s' && v !== '0ms') updated.pump_start_pump_delay = undefined;
+                  onChange(index, updated);
                 }}
                 label={t('irrigation.pump_start_valve_delay')}
                 allowedUnits={['ms', 's']}
@@ -423,8 +425,9 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
               <SimpleTimePeriodInput
                 value={source.pump_stop_pump_delay || '0s'}
                 onChange={(v) => {
-                  updateField('pump_stop_pump_delay', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('pump_stop_valve_delay', undefined);
+                  const updated = { ...source, pump_stop_pump_delay: v };
+                  if (v && v !== '0s' && v !== '0ms') updated.pump_stop_valve_delay = undefined;
+                  onChange(index, updated);
                 }}
                 label={t('irrigation.pump_stop_pump_delay')}
                 allowedUnits={['ms', 's']}
@@ -433,8 +436,9 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
               <SimpleTimePeriodInput
                 value={source.pump_stop_valve_delay || '0s'}
                 onChange={(v) => {
-                  updateField('pump_stop_valve_delay', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('pump_stop_pump_delay', undefined);
+                  const updated = { ...source, pump_stop_valve_delay: v };
+                  if (v && v !== '0s' && v !== '0ms') updated.pump_stop_pump_delay = undefined;
+                  onChange(index, updated);
                 }}
                 label={t('irrigation.pump_stop_valve_delay')}
                 allowedUnits={['ms', 's']}
@@ -476,8 +480,9 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
               <SimpleTimePeriodInput
                 value={data.valve_open_delay || '0s'}
                 onChange={(v) => {
-                  updateField('valve_open_delay', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('valve_overlap', undefined);
+                  const updates: Record<string, any> = { valve_open_delay: v };
+                  if (v && v !== '0s' && v !== '0ms') updates.valve_overlap = undefined;
+                  updateField('__batch', updates);
                 }}
                 label={t('irrigation.valve_open_delay')}
                 allowedUnits={['ms', 's']}
@@ -489,8 +494,9 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
               <SimpleTimePeriodInput
                 value={data.valve_overlap || '0s'}
                 onChange={(v) => {
-                  updateField('valve_overlap', v);
-                  if (v && v !== '0s' && v !== '0ms') updateField('valve_open_delay', undefined);
+                  const updates: Record<string, any> = { valve_overlap: v };
+                  if (v && v !== '0s' && v !== '0ms') updates.valve_open_delay = undefined;
+                  updateField('__batch', updates);
                 }}
                 label={t('irrigation.valve_overlap')}
                 allowedUnits={['ms', 's']}
@@ -532,7 +538,11 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
   );
 
   const updateField = (field: string, value: any) => {
-    onChange({ ...data, [field]: value });
+    if (field === '__batch' && typeof value === 'object') {
+      onChange({ ...data, ...value });
+    } else {
+      onChange({ ...data, [field]: value });
+    }
   };
 
   const zones: ZoneData[] = data.zones || [];
