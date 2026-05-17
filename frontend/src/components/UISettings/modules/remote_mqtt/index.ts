@@ -38,12 +38,9 @@ export {
   type MqttTopicInspectorProps,
 } from './components/MqttTopicInspector';
 export {
-  default as MqttRemoteInputFields,
-  type MqttRemoteInputFieldsProps,
-  type MqttRemoteInputFieldsData,
-} from './components/MqttRemoteInputFields';
-export {
-  default as MqttRemoteOutputFields,
-  type MqttRemoteOutputFieldsProps,
-  type MqttRemoteOutputFieldsData,
-} from './components/MqttRemoteOutputFields';
+  default as MqttDeviceEntitiesEditor,
+  type MqttDeviceEntitiesEditorProps,
+  type MqttDeviceConfig,
+  type MqttDeviceInputRow,
+  type MqttDeviceOutputRow,
+} from './components/MqttDeviceEntitiesEditor';

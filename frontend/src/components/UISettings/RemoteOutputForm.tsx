@@ -11,7 +11,6 @@
 import React from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import AreaSelect from './widgets/AreaSelect';
-import { MqttRemoteOutputFields } from './modules/remote_mqtt';
 import {
   Select,
   SelectContent,
@@ -78,9 +77,13 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
     esphomeApi?.switches || [];
   const availableLights: Array<{ id: string; name?: string; supports_brightness?: boolean }> =
     esphomeApi?.lights || [];
+  // MQTT generic outputs declared on the device — same dropdown UX as ESPHome.
+  const mqttOutputs: Array<{ id: string; name?: string; output_type?: string }> =
+    (data.remote_source === 'mqtt' ? (selectedDevice as any)?.mqtt?.outputs : []) || [];
   const allAvailableOutputs = [
     ...availableSwitches.map(s => ({ ...s, _type: 'switch' as const })),
     ...availableLights.map(l => ({ ...l, _type: 'light' as const })),
+    ...mqttOutputs.map(o => ({ ...o, _type: (o.output_type === 'light' ? 'light' : 'switch') as 'switch' | 'light' })),
   ];
 
   /* ---------- selected output capabilities ---------- */
@@ -188,16 +191,9 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
           )}
         </div>
 
-        {/* Output Entity — generic-MQTT branch shows command topic + template
-            from the remote_mqtt module; everything else keeps the standard
-            output_id dropdown for ESPHome / WLED devices. */}
-        {data.remote_source === 'mqtt' ? (
-          <MqttRemoteOutputFields
-            data={data}
-            onUpdate={(patch) => onChange({ ...data, ...patch, output_id: patch.topic ?? data.output_id ?? data.topic })}
-            attemptedSubmit={attemptedSubmit}
-          />
-        ) : (
+        {/* Output Entity — dropdown of outputs exposed by the selected device.
+            For MQTT devices, outputs come from device.mqtt.outputs (managed in
+            the device form). Same UX as ESPHome switches/lights. */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-medium">{t('remote_outputs.output_entity')}</span>
@@ -253,8 +249,15 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
               <span className="label-text-alt text-error">{t('validation.required')}</span>
             </label>
           )}
+          {data.remote_source === 'mqtt' && data.device_id && (
+            <label className="label">
+              <span className="label-text-alt text-xs text-base-content/60">
+                {t('remote_mqtt.outputs_from_device_hint') ||
+                  'Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.'}
+              </span>
+            </label>
+          )}
         </div>
-        )}
 
         {/* Output Type */}
         <div className="form-control">

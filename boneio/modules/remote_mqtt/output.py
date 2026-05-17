@@ -217,6 +217,17 @@ class MQTTGenericOutput(RemoteOutputBase):
         self._state_subscribed = False
 
 
+def _find_device_output(manager: "Manager", device_id: str, output_id: str) -> dict | None:
+    """Look up the output definition on the remote device (mqtt.outputs)."""
+    full_cfg = manager._config_helper.get_config()
+    devices_cfg = full_cfg.get("remote_devices", [])
+    device_cfg = next((d for d in devices_cfg if d.get("id") == device_id), None)
+    if not device_cfg:
+        return None
+    outputs = device_cfg.get("mqtt", {}).get("outputs", [])
+    return next((o for o in outputs if o.get("id") == output_id), None)
+
+
 def setup_remote_output(
     *,
     entity_id: str,
@@ -224,27 +235,50 @@ def setup_remote_output(
     manager: "Manager",
     outputs_dict: dict[str, Any],
 ) -> bool:
-    """Build, register a single MQTT remote output. Designed for a 1-3 line
-    injection in ``Manager.register_remote_outputs``.
+    """Build and register a single MQTT remote output.
 
-    Returns True on success, False if cfg is invalid.
+    Resolves the output definition (command_topic + command_template +
+    optional state_topic + state_value_template + qos + retain) by looking
+    up ``cfg.output_id`` on ``cfg.device_id`` in the ``remote_devices``
+    config — same pattern as inputs and as ESPHome switches/lights.
     """
-    topic = cfg.get("topic")
-    if not topic:
+    device_id = cfg.get("device_id")
+    output_id = cfg.get("output_id")
+    if not device_id or not output_id:
         _LOGGER.warning(
-            "Skipping mqtt remote output '%s': missing required `topic` field",
+            "Skipping mqtt remote output '%s': missing device_id or output_id",
             entity_id,
         )
         return False
 
-    name = str(cfg.get("name") or entity_id)
-    output_type = str(cfg.get("output_type", "switch"))
+    output_def = _find_device_output(manager, device_id, output_id)
+    if not output_def:
+        _LOGGER.warning(
+            "MQTT remote output '%s': output '%s' not found on device '%s' "
+            "(remote_devices[%s].mqtt.outputs). Add it on the device first.",
+            entity_id, output_id, device_id, device_id,
+        )
+        return False
+
+    topic = output_def.get("topic")
+    if not topic:
+        _LOGGER.warning(
+            "MQTT remote output '%s': device output '%s/%s' has no `topic` "
+            "configured — edit the device's output definition.",
+            entity_id, device_id, output_id,
+        )
+        return False
+
+    # Display name precedence: remote_output override > device output name > entity_id
+    name = str(cfg.get("name") or output_def.get("name") or entity_id)
+    # output_type: remote_output overrides device default
+    output_type = str(cfg.get("output_type") or output_def.get("output_type") or "switch")
 
     mqtt_output = MQTTGenericOutput(
         id=entity_id,
         name=name,
-        device_id=cfg.get("device_id", ""),
-        output_id=cfg.get("output_id", entity_id),
+        device_id=device_id,
+        output_id=output_id,
         remote_source="mqtt",
         event_bus=manager._event_bus,
         output_type=output_type,
@@ -253,20 +287,20 @@ def setup_remote_output(
         on_disconnect=str(cfg.get("on_disconnect", "ignore")),
         topic=topic,
         message_bus=manager.message_bus,
-        command_template=cfg.get("command_template", "{{ state }}"),
-        state_topic=cfg.get("state_topic"),
-        state_value_template=cfg.get("state_value_template", "{{ value }}"),
-        state_payload_on=cfg.get("state_payload_on"),
-        state_payload_off=cfg.get("state_payload_off"),
-        qos=int(cfg.get("qos", 0)),
-        retain=bool(cfg.get("retain", False)),
+        command_template=output_def.get("command_template", "{{ state }}"),
+        state_topic=output_def.get("state_topic"),
+        state_value_template=output_def.get("state_value_template", "{{ value }}"),
+        state_payload_on=output_def.get("state_payload_on"),
+        state_payload_off=output_def.get("state_payload_off"),
+        qos=int(output_def.get("qos", 0)),
+        retain=bool(output_def.get("retain", False)),
     )
 
     outputs_dict[entity_id] = mqtt_output
 
     _LOGGER.info(
-        "Registered MQTT remote output '%s' (topic=%s, state_topic=%s, type=%s)",
-        entity_id, topic, cfg.get("state_topic", "—"), output_type,
+        "Registered MQTT remote output '%s' (device=%s/%s, topic=%s, state_topic=%s, type=%s)",
+        entity_id, device_id, output_id, topic, output_def.get("state_topic", "—"), output_type,
     )
     return True
 

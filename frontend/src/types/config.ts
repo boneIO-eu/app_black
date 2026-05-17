@@ -493,7 +493,33 @@ export interface RemoteDeviceEntity {
   device_type?: RemoteDeviceType;
   /** MQTT configuration (for protocol: mqtt) */
   mqtt?: {
-    outputs?: { id: string; name?: string }[];
+    /** Optional topic prefix shared by this device's entities (e.g. "n64/88"). */
+    topic_prefix?: string;
+    /** Inputs exposed by this device — ESPHome-style entity catalog.
+     *  For generic_mqtt, the topic + value_template + payload_on/off carry
+     *  the per-entity wiring; remote_inputs rows just reference by id. */
+    inputs?: {
+      id: string;
+      name?: string;
+      topic?: string;
+      value_template?: string;
+      payload_on?: string;
+      payload_off?: string;
+      qos?: 0 | 1 | 2;
+    }[];
+    outputs?: {
+      id: string;
+      name?: string;
+      topic?: string;
+      command_template?: string;
+      state_topic?: string;
+      state_value_template?: string;
+      state_payload_on?: string;
+      state_payload_off?: string;
+      qos?: 0 | 1 | 2;
+      retain?: boolean;
+      output_type?: 'switch' | 'light' | 'valve';
+    }[];
     covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
   };
   /** ESPHome API configuration (for protocol: esphome_api) */

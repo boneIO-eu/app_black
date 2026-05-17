@@ -4,7 +4,7 @@ import { FaPlus, FaTrash, FaSync, FaSearch } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
-import { MqttScanDialog } from './modules/remote_mqtt';
+import { MqttScanDialog, MqttDeviceEntitiesEditor, type MqttDeviceConfig } from './modules/remote_mqtt';
 import {
   Select,
   SelectContent,
@@ -644,6 +644,16 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             </button>
           </div>
 
+          {/* Generic-MQTT branch: device declares its own inputs/outputs catalog
+              (analogous to ESPHome _discovered_binary_sensors). For device_type
+              boneio_black, the simple boneIO-style {id,name} tables below apply. */}
+          {data?.device_type === 'generic' ? (
+            <MqttDeviceEntitiesEditor
+              value={(data?.mqtt as MqttDeviceConfig) || {}}
+              onChange={(next) => onChange({ ...data, mqtt: { ...(data?.mqtt || {}), ...next } })}
+            />
+          ) : (
+          <>
           <div className="alert alert-info">
             <div className="flex-1">
               <p className="text-sm">
@@ -743,6 +753,8 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
               </div>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
 

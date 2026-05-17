@@ -114,6 +114,22 @@ class MQTTGenericInput(RemoteInputBase):
         self._subscribed = False
 
 
+def _find_device_input(manager: "Manager", device_id: str, input_id: str) -> dict | None:
+    """Look up the input definition (with topic + template) on the remote device.
+
+    Mirrors the ESPHome pattern: the device declares its entities in
+    ``remote_devices[*].mqtt.inputs``, and ``remote_inputs`` rows just
+    reference them by ``device_id + input_id``.
+    """
+    full_cfg = manager._config_helper.get_config()
+    devices_cfg = full_cfg.get("remote_devices", [])
+    device_cfg = next((d for d in devices_cfg if d.get("id") == device_id), None)
+    if not device_cfg:
+        return None
+    inputs = device_cfg.get("mqtt", {}).get("inputs", [])
+    return next((i for i in inputs if i.get("id") == input_id), None)
+
+
 def setup_remote_input(
     *,
     custom_id: str,
@@ -125,21 +141,43 @@ def setup_remote_input(
 ) -> bool:
     """Build, register, and (if enabled) HA-discover a single MQTT remote input.
 
-    Designed to be called from ``RemoteInputRegistrar._register_single`` as a
-    1-3 line injection. All heavy lifting (parameter mapping, instantiation,
-    subscribe, HA discovery) lives here so the upstream file stays minimal.
+    Resolves the input definition (topic + value_template + payload_on/off)
+    by looking up ``cfg.input_id`` on ``cfg.device_id`` in the
+    ``remote_devices`` config — exactly like the ESPHome path resolves
+    binary_sensor entities. The ``remote_inputs`` row itself only carries
+    routing (device_id, input_id, mode, actions, area, etc.).
 
     Returns True on success, False on validation failure.
     """
-    topic = cfg.get("topic")
-    if not topic:
+    device_id = cfg.get("device_id")
+    input_id = cfg.get("input_id")
+    if not device_id or not input_id:
         _LOGGER.warning(
-            "Skipping mqtt remote input '%s': missing required `topic` field",
+            "Skipping mqtt remote input '%s': missing device_id or input_id",
             custom_id,
         )
         return False
 
-    name = cfg.get("name") or custom_id
+    input_def = _find_device_input(manager, device_id, input_id)
+    if not input_def:
+        _LOGGER.warning(
+            "MQTT remote input '%s': input '%s' not found on device '%s' "
+            "(remote_devices[%s].mqtt.inputs). Add it on the device first.",
+            custom_id, input_id, device_id, device_id,
+        )
+        return False
+
+    topic = input_def.get("topic")
+    if not topic:
+        _LOGGER.warning(
+            "MQTT remote input '%s': device input '%s/%s' has no `topic` "
+            "configured — edit the device's input definition.",
+            custom_id, device_id, input_id,
+        )
+        return False
+
+    # Display name precedence: remote_input override > device input name > custom_id
+    name = cfg.get("name") or input_def.get("name") or custom_id
     mode = cfg.get("mode", "binary_sensor")
 
     mqtt_input = MQTTGenericInput(
@@ -148,9 +186,9 @@ def setup_remote_input(
         pin=f"mqtt:{topic}",
         topic=topic,
         message_bus=manager.message_bus,
-        value_template=cfg.get("value_template", "{{ value }}"),
-        payload_on=cfg.get("payload_on"),
-        payload_off=cfg.get("payload_off"),
+        value_template=input_def.get("value_template", "{{ value }}"),
+        payload_on=input_def.get("payload_on"),
+        payload_off=input_def.get("payload_off"),
         event_bus=manager._event_bus,
         actions=parsed_actions,
         mode=mode,
@@ -181,8 +219,8 @@ def setup_remote_input(
         )
 
     _LOGGER.info(
-        "Registered MQTT remote input '%s' (topic=%s, mode=%s)",
-        custom_id, topic, mode,
+        "Registered MQTT remote input '%s' (device=%s/%s, topic=%s, mode=%s)",
+        custom_id, device_id, input_id, topic, mode,
     )
     return True
 

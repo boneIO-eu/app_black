@@ -18,7 +18,6 @@ import AiConfigAssistant from './AiConfigAssistant';
 import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
-import { MqttRemoteInputFields } from './modules/remote_mqtt';
 import {
   Select,
   SelectContent,
@@ -303,9 +302,10 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
               <SelectItem value="_none_">{t('remote_devices.select_device')}</SelectItem>
               {allRemoteDevices
                 .filter((device) => {
-                  // Only show devices that have discoverable binary sensors
-                  const bs = device.esphome_api?.binary_sensors || device.esphome_api?._discovered_binary_sensors;
-                  return bs && bs.length > 0;
+                  // Show devices with any input-like entities (ESPHome binary sensors OR MQTT inputs)
+                  const espBs = device.esphome_api?.binary_sensors || device.esphome_api?._discovered_binary_sensors;
+                  const mqttInputs = device.mqtt?.inputs;
+                  return (espBs && espBs.length > 0) || (mqttInputs && mqttInputs.length > 0);
                 })
                 .map((device) => {
                   const protocolLabel =
@@ -328,57 +328,59 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
           )}
         </div>
 
-        {/* Input/Sensor ID — generic-MQTT branch shows topic + value_template
-            fields from the remote_mqtt module; everything else keeps the
-            standard input_id dropdown for ESPHome / CAN devices. */}
-        {data.remote_source === 'mqtt' ? (
-          <MqttRemoteInputFields
-            data={data}
-            onUpdate={(patch) => onChange({ ...data, ...patch, input_id: patch.topic ?? data.input_id ?? data.topic })}
-            attemptedSubmit={attemptedSubmit}
-          />
-        ) : (
-          <div className="form-control">
+        {/* Input/Sensor ID — dropdown of inputs exposed by the selected device.
+            For MQTT devices, inputs come from device.mqtt.inputs (managed in the
+            device form). Pattern matches ESPHome's _discovered_binary_sensors. */}
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text font-medium">{t('inputs.device_input')}</span>
+          </label>
+          {(() => {
+            const selectedDevice = allRemoteDevices.find(d => d.id === data.device_id);
+            const availableInputs: Array<{ id: string; name?: string }> =
+              data.remote_source === 'mqtt'
+                ? (selectedDevice?.mqtt?.inputs || [])
+                : (selectedDevice?.esphome_api?.binary_sensors ||
+                   selectedDevice?.esphome_api?._discovered_binary_sensors ||
+                   []);
+            return (
+              <Select
+                value={data.input_id || '_none_'}
+                onValueChange={(v) => updateField('input_id', v === '_none_' ? '' : v)}
+                disabled={!data.device_id}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={
+                    data.device_id
+                      ? t('remote_devices.select_device_first')
+                      : t('remote_devices.select_device')
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none_">{t('inputs.select_input')}</SelectItem>
+                  {availableInputs.map((input) => (
+                    <SelectItem key={input.id} value={input.id}>
+                      {input.name ? `${input.name} (${input.id})` : input.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })()}
+          {attemptedSubmit && !data.input_id && (
             <label className="label">
-              <span className="label-text font-medium">{t('inputs.device_input')}</span>
+              <span className="label-text-alt text-error">{t('validation.required')}</span>
             </label>
-            {(() => {
-              const selectedDevice = allRemoteDevices.find(d => d.id === data.device_id);
-              const availableInputs: Array<{ id: string; name?: string }> =
-                selectedDevice?.esphome_api?.binary_sensors ||
-                selectedDevice?.esphome_api?._discovered_binary_sensors ||
-                [];
-              return (
-                <Select
-                  value={data.input_id || '_none_'}
-                  onValueChange={(v) => updateField('input_id', v === '_none_' ? '' : v)}
-                  disabled={!data.device_id}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={
-                      data.device_id
-                        ? t('remote_devices.select_device_first')
-                        : t('remote_devices.select_device')
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none_">{t('inputs.select_input')}</SelectItem>
-                    {availableInputs.map((input) => (
-                      <SelectItem key={input.id} value={input.id}>
-                        {input.name ? `${input.name} (${input.id})` : input.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              );
-            })()}
-            {attemptedSubmit && !data.input_id && (
-              <label className="label">
-                <span className="label-text-alt text-error">{t('validation.required')}</span>
-              </label>
-            )}
-          </div>
-        )}
+          )}
+          {data.remote_source === 'mqtt' && data.device_id && (
+            <label className="label">
+              <span className="label-text-alt text-xs text-base-content/60">
+                {t('remote_mqtt.inputs_from_device_hint') ||
+                  'Inputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.'}
+              </span>
+            </label>
+          )}
+        </div>
 
         {/* Area */}
         <AreaSelect

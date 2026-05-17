@@ -61,13 +61,78 @@ schema:
         description: |
           For boneIO Black devices, outputs and covers will be auto-discovered.
           The device_id should match the remote device's serial (e.g., "blk_abc123").
+          For generic MQTT devices (device_type: generic), inputs and outputs
+          declare per-entity topics + Jinja2 value/command templates that
+          remote_inputs / remote_outputs can then reference by id.
       schema:
+        topic_prefix:
+          type: string
+          required: False
+          meta:
+            label: Topic prefix
+            description: |
+              Optional MQTT topic prefix shared by all entries (e.g. "n64/88").
+              Used by the device-form UI to scope the "Scan & import" workflow;
+              has no runtime effect — actual topics are stored per-input/output.
+        inputs:
+          type: list
+          required: False
+          meta:
+            label: Available Inputs
+            description: |
+              Inputs exposed by this device. For boneIO-style devices, only the
+              id/name pair is meaningful (the bus handles topic conventions).
+              For generic MQTT devices the topic + value_template + payload_on/off
+              fields define how each input is read from the broker.
+          schema:
+            type: dict
+            schema:
+              id:
+                type: string
+                required: True
+                meta:
+                  label: Input ID
+              name:
+                type: string
+                required: False
+                meta:
+                  label: Input Name (for UI)
+              topic:
+                type: string
+                required: False
+                meta:
+                  label: MQTT Topic (generic_mqtt)
+              value_template:
+                type: string
+                required: False
+                meta:
+                  label: Jinja2 value_template (generic_mqtt)
+              payload_on:
+                type: string
+                required: False
+                meta:
+                  label: payload_on
+              payload_off:
+                type: string
+                required: False
+                meta:
+                  label: payload_off
+              qos:
+                type: integer
+                required: False
+                allowed: [0, 1, 2]
+                meta:
+                  label: QoS
         outputs:
           type: list
           required: False
           meta:
             label: Available Outputs
-            description: "Optional list of outputs for dropdown selection in actions"
+            description: |
+              Outputs exposed by this device. For boneIO-style devices, only the
+              id/name pair is meaningful. For generic MQTT devices the topic +
+              command_template + optional state_topic / state_value_template
+              define how each output is published and (optionally) read back.
           schema:
             type: dict
             schema:
@@ -81,6 +146,53 @@ schema:
                 required: False
                 meta:
                   label: Output Name (for UI)
+              topic:
+                type: string
+                required: False
+                meta:
+                  label: Command topic (generic_mqtt)
+              command_template:
+                type: string
+                required: False
+                meta:
+                  label: Jinja2 command_template (generic_mqtt)
+              state_topic:
+                type: string
+                required: False
+                meta:
+                  label: State topic (generic_mqtt, optional feedback)
+              state_value_template:
+                type: string
+                required: False
+                meta:
+                  label: state_value_template (generic_mqtt)
+              state_payload_on:
+                type: string
+                required: False
+                meta:
+                  label: state_payload_on
+              state_payload_off:
+                type: string
+                required: False
+                meta:
+                  label: state_payload_off
+              qos:
+                type: integer
+                required: False
+                allowed: [0, 1, 2]
+                meta:
+                  label: QoS
+              retain:
+                type: boolean
+                required: False
+                meta:
+                  label: Retain
+              output_type:
+                type: string
+                required: False
+                allowed: ['switch', 'light', 'valve']
+                meta:
+                  label: Output Type (HA category)
         covers:
           type: list
           required: False

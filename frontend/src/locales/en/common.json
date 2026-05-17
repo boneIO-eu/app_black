@@ -1982,6 +1982,8 @@
     "test_payload_label": "Test against a sample payload",
     "test_payload_hint": "Paste a sample payload from your device to verify the template.",
     "state_topic_hint": "If set, boneIO subscribes here and updates state from the real device. Otherwise uses optimistic local state after publish.",
-    "state_feedback_label": "State feedback (optional)"
+    "state_feedback_label": "State feedback (optional)",
+    "inputs_from_device_hint": "Inputs are managed on the device. Add / edit them in Remote Devices → MQTT settings.",
+    "outputs_from_device_hint": "Outputs are managed on the device. Add / edit them in Remote Devices → MQTT settings."
   }
 }
