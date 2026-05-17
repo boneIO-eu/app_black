@@ -277,9 +277,20 @@ User noted partway through Phase 5 that their ROPAM alarm config got out of sync
 
 **Commits**:
 * `c0ceb22` — `refactor(remote_mqtt): pivot to device-centric ESPHome-style pattern`
-* (this session also adds id-uniqueness validation + translation polish — separate commit)
+* `437ebd8` — `polish(remote_mqtt): id uniqueness + translations + WORK_LOG pivot rationale`
 
-**Upstream status note**: boneIO has pushed v1.4.0dev3 + v1.4.0dev4 (commits `957a7bd..8f1a21c`) adding momentary/adjustable_duration/interlock for remote outputs, venetian blind tilt restore, irrigation interlock-aware activation, and delayed/cancel actions. None of it overlaps conceptually with our MQTT work, but they touch several files we touched (`RemoteOutputForm.tsx`, `manager.py`, `components/output/remote.py`, `remote_outputs.yaml`, `types/config.ts`). Next merge will produce conflicts mostly in `RemoteOutputForm.tsx` (their +723-line interlock UI vs our R1 dropdown filter). The module pattern still gives us a clean diff in `modules/remote_mqtt/`. Bonus: their `interlock_group` and `momentary_*` fields land on `RemoteOutputBase`, which our `MQTTGenericOutput` extends — we get those features for free without any module change.
+**Upstream status note**: boneIO has pushed v1.4.0dev3 + v1.4.0dev4 (commits `957a7bd..8f1a21c`) — merged in `ce3d42a`. Module pattern paid off:
+* **Zero conflicts** in `modules/expander/` (5 files) and `modules/remote_mqtt/` (8 files) — all 24 module-owned files survived untouched. ~3500 lines of our logic, no manual work needed.
+* **6 conflicts**, all small + predictable, all in injection-point files: `schema/remote_outputs.yaml` (kept BOTH our generic-mqtt note AND their momentary/interlock fields), `locales/{en,pl}/common.json` (JSON namespace merge), `SectionContent.tsx` (3 lines: kept mcp23017 prop + savedOutputs extension), `OutputForm.tsx` (kept our `advancedTabContent` extracted-const — DRY), `RemoteOutputForm.tsx` (bigger: adopted their TabsBox restructure, re-applied our MQTT dropdown section + "managed-on-device" hint).
+* **Bonus for free**: `MQTTGenericOutput` extends `RemoteOutputBase`, so it now inherits upstream's new `momentary_turn_on/off`, `adjustable_duration`, `interlock_group`, etc. automatically — no module change required. User configures these on the remote_output row; runtime classes pick them up via inheritance.
+
+**Post-merge live verification on BoneIO**:
+* Service active, Hypercorn :8090 returns HTTP 200
+* `POST /api/mqtt/scan` → 200 (scanner module)
+* `POST /api/mqtt/test-template` → 200 (Jinja2 evaluator)
+* `POST /api/config/expander` → 422 (route registered, validates payload — both modules wired through)
+
+**Merge commit**: `ce3d42a` on `feat/expansion-board`. Branch now contains 14 commits since base `957a7bd`. The injection-point list above is the runbook for the next upstream merge.
 
 ---
 
