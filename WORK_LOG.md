@@ -163,6 +163,87 @@ The modules/ pattern works in practice. Future upstream merges should produce mi
 
 ---
 
+## 2026-05-17 — Session 2 (remote_mqtt module: generic MQTT device support)
+
+**Goal**: Add support for arbitrary MQTT-enabled devices (ROPAM alarm panels, third-party sensors, etc.) that don't follow boneIO's topic convention. Scan broker → map topics to entities → Jinja2 `value_template` extraction.
+
+**Scope decisions made up-front** (recorded in plan file):
+1. One topic → one entity (multiple `remote_inputs` can subscribe the same topic with different templates).
+2. Single broker only — multi-broker deferred (MVP).
+3. Jinja2 `value_template` (consistent with HA discovery already used in `integration/homeassistant.py:239`).
+
+**Done — phases 0 → 6 of remote_mqtt module**:
+
+* Phase 0 (`24a3c40`) — scaffold `modules/remote_mqtt/` (backend + frontend) with types/constants/helpers
+* Phase 1 (`8b4af6c`) — `POST /api/mqtt/scan` endpoint with wildcard subscribe + collect-and-classify. **Verified live**: scan `#` returned 405 topics in 2s including ROPAM `n64/99/in1..in12`.
+* Phase 2 (`3c20007`) — `MqttScanDialog` UI: pattern + duration inputs, results table with type badges, filter, expandable rows.
+* Phase 3 (`4ffc39b`) — Jinja2 evaluator (sandboxed, lazy-loaded), `POST /api/mqtt/test-template`, `MqttTopicInspector` with JSON tree + clickable path picker + live debounced preview. Added `Jinja2>=3.1.0` to `pyproject.toml` + installed on device venv.
+* Phase 4 (`0ec5d61`) — `MQTTGenericInput(RemoteInputBase)`: subscribes to topic, evaluates `value_template`, coerces to bool, emits `InputEvent`. **Verified live**: tmp config snippet registered `alarm_in1` → log confirmed `"MQTTGenericInput 'alarm_in1' subscribed to topic 'n64/99/in1'"`.
+* Phase 5 (`c1ba5b9`) — `MQTTGenericOutput(RemoteOutputBase)`: publishes `command_template` on turn_on/off, optional `state_topic` subscription for real-device state sync. **Verified live**: tmp config snippet registered `alarm_out1` → log confirmed `"Registered MQTT remote output 'alarm_out1' (topic=..., state_topic=...)"`.
+* Phase 6 (`0d57bd3`) — `MqttRemoteInputFields` + `MqttRemoteOutputFields` Presentational components: swap in for the `input_id`/`output_id` dropdowns when `remote_source === 'mqtt'`. Live preview reuses backend `/api/mqtt/test-template`. Scan-broker shortcut button included.
+
+**Files**:
+* New under `frontend/.../modules/remote_mqtt/` — 16 files, 1263 lines (types + constants + helpers + 5 hooks + 5 components + index.ts).
+* New under `boneio/modules/remote_mqtt/` — 5 files, 924 lines (`__init__.py` lazy API, `scanner.py`, `template.py`, `input.py`, `routes.py`, `output.py`).
+* Touched upstream: 9 files, +227 lines net (mostly schema YAML additions). Largest single touch is +89 lines in `RemoteInputForm.tsx` (drop-in swap of `input_id` block). The rest are pure 3–13-line injections.
+
+**Architecture (validated again)**:
+* Backend module's `__init__.py` lazy-loads FastAPI / Jinja2 / RemoteInputBase / RemoteOutputBase via `__getattr__` — pure helpers (scanner classifier, JSON parser) stay import-cheap.
+* Two factory functions (`setup_remote_input`, `setup_remote_output`) live in the module and are called by upstream registrars/manager with 3-line dispatch blocks — full instantiation + HA discovery wiring lives in the module.
+* Backend tests: pure Python `python3 -c` smoke tests pass on dev machine; live integration verified on BoneIO @ 192.168.1.22 via tmp config snippets (reverted after each phase).
+* Frontend tests: `tsc --noEmit` clean, `npm run build` succeeds, deployed to device.
+
+**Pending — Phase 7 (E2E with real ROPAM device)**:
+
+User noted partway through Phase 5 that their ROPAM alarm config got out of sync (some `out`/`in` MQTT publishes/subscribes missing). The runtime classes (`MQTTGenericInput` / `MQTTGenericOutput`) registered cleanly on tmp configs, but full round-trip with the real alarm wasn't validated. **Phase 7 task**: once ROPAM is re-synced, follow the runbook below to validate the full path.
+
+### Runbook — configure ROPAM via the new UI (Phase 7 validation)
+
+1. **Re-sync the ROPAM alarm** so it publishes/subscribes on its expected topics again (`n64/99/in{1..N}`, `n64/99/temp{1..N}`, `n64/99/status`, `n64/99/out_{1..N}`).
+2. **Open BoneIO UI** at `http://192.168.1.22:8091/` (Caddy proxy — for Node-RED tab) and go to **Settings → Remote Devices**.
+3. **Add a remote device**:
+   * `id: alarm_ropam`, `name: ROPAM Alarm`, `protocol: mqtt`
+   * Click **🔍 Scan broker** in the MQTT Settings section, pattern `n64/99/#`, duration 10s — confirm you see all the expected topics with classified types (binary for `in*`, json for `temp*` and `status`).
+   * Save.
+4. **Add binary-sensor inputs** (Settings → Remote Inputs):
+   * For each `n64/99/in{N}`: Add new, pick `alarm_ropam` (auto-sets `remote_source: mqtt`), the form will swap `input_id` for the MQTT fields. Fill `topic: n64/99/inN`, leave `value_template` as default (`{{ value }}`), `payload_on: 1`, `payload_off: 0`. Mode: binary_sensor.
+   * Use the test field with payload `1` or `0` to confirm the preview goes green with the right TRUE/FALSE badge.
+5. **Add sensor inputs** for `temp*` JSON payloads:
+   * For each `n64/99/temp{N}`: Add new, `topic: n64/99/tempN`, `value_template: {{ value_json.val }}`, mode: binary_sensor (or sensor if/when a non-bool extraction is supported by the registrar). Open scan dialog → click the row → click `val` in the JSON tree to auto-fill the template.
+   * For `fail` flag of the same temp: separate `remote_input` with same topic, `value_template: {{ value_json.fail }}`, `payload_on: 1`, `payload_off: 0`.
+6. **Add `status.zones[0]` flag** (and similar):
+   * `topic: n64/99/status`, `value_template: {{ value_json.zones[0] }}`, `payload_on: 1`, `payload_off: 0`.
+   * Or AC status: `{{ value_json.ac }}` with same payload mapping.
+7. **Add output for relay control**:
+   * Settings → Remote Outputs → Add new → `alarm_ropam` device → form swaps to command-topic mode.
+   * `topic: n64/99/out_1/cmd`, `command_template: {{ state }}`, `state_topic: n64/99/out_1`, `state_value_template: {{ value }}`, `state_payload_on: 1`, `state_payload_off: 0`.
+   * QoS 0, retain off.
+8. **Validate end-to-end**:
+   * Use `mosquitto_pub -h 192.168.1.4 -u homeassistant -P <pwd> -t n64/99/in1 -m 1` and watch the boneIO log/UI — the input should toggle to active immediately.
+   * From boneIO UI, toggle the remote output ON — `mosquitto_sub -h 192.168.1.4 -u ... -t 'n64/99/out_1/+' -v` should see the published command on `out_1/cmd`.
+   * If state_topic is wired up, ROPAM republishing `1` on `n64/99/out_1` should pull the boneIO output back in sync.
+
+**If anything in this flow fails** — most likely places to investigate (in order):
+1. Topic mismatch (ROPAM publishes `in_1` vs `in1`, or `temp_1` vs `temp1`) — scan output is authoritative, use exactly what the scan shows.
+2. JSON payload structure differs from expected (`{"val":6.5,...}` vs `{"value":6.5}`) — open inspector, click in the tree, regenerate template.
+3. Cerberus validation reject — drop `/home/boneio/boneio/config.yaml.cache.pkl` and restart so the new schema is re-validated.
+4. MQTT subscribe overlap — `MQTTGenericInput` and an existing static subscription on the same topic conflict (one callback per topic key in current bus). Workaround documented in `scanner.py`: use device-specific topic prefixes instead of `#`.
+
+**Commits this session (on `feat/expansion-board`, pushed to fork)**:
+* `24a3c40` — `feat(remote_mqtt): scaffold modules/remote_mqtt foundation`
+* `8b4af6c` — `feat(remote_mqtt): MQTT topic scanner + POST /api/mqtt/scan endpoint`
+* `3c20007` — `feat(remote_mqtt): MqttScanDialog + Scan broker button in RemoteDeviceForm`
+* `4ffc39b` — `feat(remote_mqtt): Jinja2 template engine + JSON inspector with live preview`
+* `0ec5d61` — `feat(remote_mqtt): MQTTGenericInput — wire generic MQTT topics into InputManager`
+* `c1ba5b9` — `feat(remote_mqtt): MQTTGenericOutput — publish commands to arbitrary MQTT topics`
+* `0d57bd3` — `feat(remote_mqtt): topic+template form fields for remote inputs/outputs`
+
+**Open follow-ups** (added to task list):
+* Phase 7 hardware E2E once ROPAM is re-synced
+* Build/inject script POC (task #22) — still deferred, threshold not yet reached.
+
+---
+
 ## Runbook — next upstream merge
 
 When boneIO releases the next dev tag (1.4.0dev3, 1.4.0, 1.5.x …), follow this. The
