@@ -180,11 +180,14 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
         self._loop.call_soon_threadsafe(self.send_state_and_save, self.json_position)
         self._last_update_time = time.monotonic()  # Upewnij się, że aktualizacja jest wysłana na końcu ruchu
 
-        # Tilt restore: schedule tilt recovery on the event loop
+        # Tilt restore: schedule tilt recovery on the event loop.
+        # Skip when position reached 0% (fully closed) or 100% (fully open)
+        # — at extremes, restoring tilt contradicts user intent.
         if self._tilt_restore_after_close and self._tilt_before_close is not None:
             restore_tilt = self._tilt_before_close
             self._tilt_before_close = None
-            if restore_tilt > 0 and abs(self._tilt_position - restore_tilt) >= 1:
+            at_extreme = self._position <= 0 or self._position >= 100
+            if not at_extreme and restore_tilt > 0 and abs(self._tilt_position - restore_tilt) >= 1:
                 _LOGGER.info(
                     "VenetianCover %s: restoring tilt from %d%% to %d%%",
                     self._id,
@@ -193,6 +196,12 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                 )
                 self._loop.call_soon_threadsafe(
                     lambda t=restore_tilt: asyncio.ensure_future(self.set_tilt(int(round(t))))
+                )
+            elif at_extreme:
+                _LOGGER.debug(
+                    "VenetianCover %s: skipping tilt restore at extreme position %d%%",
+                    self._id,
+                    round(self._position),
                 )
 
     async def set_tilt(self, tilt_position: int) -> None:

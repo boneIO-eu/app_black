@@ -978,6 +978,35 @@ class Manager:
         action = action_definition.get("action")
         start_time = time.time()
 
+        # ── Common field extraction ──────────────────────────────────
+        # Resolve entity_id once based on action type to avoid duplicate guards.
+        entity_id: str | None = None
+        action_to_execute: str | None = None
+        remote_device_id: str | None = None
+
+        if action in (OUTPUT, COVER):
+            entity_id = action_definition.get("pin") or action_definition.get(
+                "boneio_output" if action == OUTPUT else "boneio_cover"
+            )
+            action_to_execute = action_definition.get("action_to_execute")
+            if not entity_id or not action_to_execute:
+                _LOGGER.warning(
+                    "Missing entity ID or action_to_execute for %s action", action
+                )
+                return
+
+        elif action in (REMOTE_OUTPUT, REMOTE_COVER):
+            remote_device_id = action_definition.get("remote_device")
+            entity_id = action_definition.get(
+                "output_id" if action == REMOTE_OUTPUT else "cover_id"
+            )
+            if not remote_device_id or not entity_id:
+                _LOGGER.warning(
+                    "Missing remote_device or entity ID for %s action", action
+                )
+                return
+
+        # ── Action dispatch ──────────────────────────────────────────
         if action == MQTT:
             action_topic = action_definition.get("action_topic")
             action_payload = action_definition.get("action_mqtt_msg")
@@ -985,35 +1014,33 @@ class Manager:
                 self.send_message(topic=action_topic, payload=action_payload, retain=False)
 
         elif action == OUTPUT:
-            output_id = action_definition.get("pin") or action_definition.get("boneio_output")
-            output = self.outputs.get_output(output_id) or self.outputs.get_output_group(output_id)
+            assert entity_id and action_to_execute  # guaranteed by guard above
+            output = self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
             if not output:
-                _LOGGER.warning("Output %s not found for action", output_id)
+                _LOGGER.warning("Output %s not found for action", entity_id)
                 return
-            action_to_execute = action_definition.get("action_to_execute")
             _LOGGER.debug(
                 "Executing action %s for output %s. Duration: %s",
                 action_to_execute,
-                output.name if hasattr(output, "name") else output_id,
+                output.name if hasattr(output, "name") else entity_id,
                 time.time() - start_time,
             )
             _f = getattr(output, action_to_execute)
             await _f()
 
         elif action == COVER:
-            cover_id = action_definition.get("pin") or action_definition.get("boneio_cover")
-            cover = self.covers.get_cover(cover_id)
+            assert entity_id and action_to_execute  # guaranteed by guard above
+            cover = self.covers.get_cover(entity_id)
             if not cover:
-                _LOGGER.warning("Cover %s not found for action", cover_id)
+                _LOGGER.warning("Cover %s not found for action", entity_id)
                 return
-            action_to_execute = action_definition.get("action_to_execute")
             extra_data = action_definition.get("extra_data", {})
             # Filter extra_data to only pass params accepted by each action
             filtered_data = filter_cover_extra_data(action_to_execute, extra_data)
             _LOGGER.debug(
                 "Executing action %s for cover %s. Duration: %s",
                 action_to_execute,
-                cover.name if hasattr(cover, "name") else cover_id,
+                cover.name if hasattr(cover, "name") else entity_id,
                 time.time() - start_time,
             )
             _f = getattr(cover, action_to_execute)
@@ -1040,9 +1067,7 @@ class Manager:
             )
 
         elif action == REMOTE_OUTPUT:
-            # Control output on remote device (supports ESPHome lights with brightness/color and WLED effects)
-            remote_device_id = action_definition.get("remote_device")
-            output_id = action_definition.get("output_id")
+            assert entity_id and remote_device_id  # guaranteed by guard above
             action_output = action_definition.get("action_output", "TOGGLE")
 
             # Clamp transition to repeat_interval to avoid overlapping animations
@@ -1067,7 +1092,7 @@ class Manager:
             if action_output == "CYCLE_COLOR":
                 await self.remote_devices.cycle_color(
                     device_id=remote_device_id,
-                    output_id=output_id,
+                    output_id=entity_id,
                     colors=action_definition.get("colors", []),
                     action_idx=idx,
                     transition=action_definition.get("transition"),
@@ -1076,7 +1101,7 @@ class Manager:
             elif action_output == "CYCLE_PRESET":
                 await self.remote_devices.cycle_preset(
                     device_id=remote_device_id,
-                    output_id=output_id,
+                    output_id=entity_id,
                     presets=action_definition.get("presets", []),
                     action_idx=idx,
                     transition=action_definition.get("transition"),
@@ -1085,7 +1110,7 @@ class Manager:
             else:
                 await self.remote_devices.control_output(
                     device_id=remote_device_id,
-                    output_id=output_id,
+                    output_id=entity_id,
                     action=action_output,
                     brightness=action_definition.get("brightness"),
                     brightness_step=action_definition.get("brightness_step"),
@@ -1099,14 +1124,12 @@ class Manager:
                 )
 
         elif action == REMOTE_COVER:
-            # Control cover on remote device (BoneIO MQTT or ESPHome API)
-            remote_device_id = action_definition.get("remote_device")
-            cover_id = action_definition.get("cover_id")
+            assert entity_id and remote_device_id  # guaranteed by guard above
             action_cover = action_definition.get("action_cover", "TOGGLE")
             extra_data = action_definition.get("extra_data", {})
             await self.remote_devices.control_cover(
                 device_id=remote_device_id,
-                cover_id=cover_id,
+                cover_id=entity_id,
                 action=action_cover,
                 **extra_data,
             )

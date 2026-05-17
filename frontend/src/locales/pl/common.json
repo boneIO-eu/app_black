@@ -755,7 +755,7 @@
     "restore_state": "Przywróć Stan",
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
     "tilt_restore": "Przywróć Nachylenie Po Ruchu",
-    "tilt_restore_hint": "Automatycznie przywróć poprzedni kąt nachylenia po zakończeniu ruchu żaluzji w dół",
+    "tilt_restore_hint": "Przywróć poprzedni kąt nachylenia po ruchu do pozycji pośredniej (nie przy 0% ani 100%)",
     "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
   },
   "modbus": {

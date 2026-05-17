@@ -107,15 +107,15 @@ class IrrigationController:
         self._schedule = schedule or []
         self._water_sources = water_sources or []
         self._active_water_source_idx: int = 0
-        self._valve_open_delay_s = max(0, int(valve_open_delay_s))
-        self._valve_overlap_s = max(0, int(valve_overlap_s))
+        self._valve_open_delay_s = max(0, valve_open_delay_s)
+        self._valve_overlap_s = max(0, valve_overlap_s)
         self._standby = standby
 
         self._state = ControllerState.IDLE
         self._auto_advance = auto_advance
         self._reverse = reverse
-        self._multiplier = max(0.1, float(multiplier))
-        self._repeat = max(0, int(repeat))
+        self._multiplier = max(0.1, multiplier)
+        self._repeat = max(0, repeat)
         self._skip_next_run = False
 
         self._zone_timer_cancel = None
@@ -526,7 +526,7 @@ class IrrigationController:
                 await self._stop_current_zone()
                 self._active_zone_idx = next_idx
                 duration = self._scaled_duration(next_zone.run_duration)
-                self._active_zone_remaining_s = max(1, int(duration))
+                self._active_zone_remaining_s = max(1, duration)
                 self._run_start_utc = utcnow()
                 self._arm_zone_timer(self._active_zone_remaining_s)
                 await self.publish_all_states()
@@ -574,7 +574,7 @@ class IrrigationController:
 
         zone = self._zones[idx]
         duration = override_duration if override_duration is not None else self._scaled_duration(zone.run_duration)
-        duration = max(1, int(duration))
+        duration = max(1, duration)
         src = self.active_water_source
 
         _LOGGER.debug(
@@ -768,7 +768,7 @@ class IrrigationController:
             await self._deactivate_source()
 
     def _scaled_duration(self, seconds: int) -> int:
-        return int(max(1, round(seconds * self._multiplier)))
+        return max(1, round(seconds * self._multiplier))
 
     def _current_zone_duration_seconds(self) -> int:
         if self._active_zone_idx is None:
@@ -789,7 +789,7 @@ class IrrigationController:
 
     def _arm_zone_timer(self, seconds: int) -> None:
         self._cancel_zone_timer()
-        point = utcnow() + timedelta(seconds=max(1, int(seconds)))
+        point = utcnow() + timedelta(seconds=max(1, seconds))
         self._zone_timer_cancel = async_track_point_in_time(
             loop=self._event_bus._loop,
             job=self._zone_timer_callback,
@@ -843,42 +843,42 @@ class IrrigationController:
         await self.publish_all_states()
 
     async def set_auto_advance(self, value: bool) -> None:
-        self._auto_advance = bool(value)
+        self._auto_advance = value
         self._save("auto_advance", self._auto_advance)
         await self.publish_all_states()
 
     async def set_reverse(self, value: bool) -> None:
-        self._reverse = bool(value)
+        self._reverse = value
         self._save("reverse", self._reverse)
         await self.publish_all_states()
 
     async def set_standby(self, value: bool) -> None:
-        self._standby = bool(value)
+        self._standby = value
         self._save("standby", self._standby)
         if self._standby and self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
             await self.shutdown()
         await self.publish_all_states()
 
     async def set_multiplier(self, value: float) -> None:
-        self._multiplier = max(0.1, float(value))
+        self._multiplier = max(0.1, value)
         self._save("multiplier", self._multiplier)
         await self.publish_all_states()
 
     async def set_repeat(self, value: int) -> None:
-        self._repeat = max(0, int(value))
+        self._repeat = max(0, value)
         self._save("repeat", self._repeat)
         await self.publish_all_states()
 
     async def set_zone_enabled(self, zone_id: str, value: bool) -> None:
         for zone in self._zones:
             if zone.id == zone_id:
-                zone.enabled = bool(value)
+                zone.enabled = value
                 self._save(f"zone/{zone.id}/enabled", zone.enabled)
                 break
         await self.publish_all_states()
 
     async def set_skip_next_run(self, value: bool) -> None:
-        self._skip_next_run = bool(value)
+        self._skip_next_run = value
         self._save("skip_next_run", self._skip_next_run)
         await self.publish_all_states()
 
@@ -900,8 +900,8 @@ class IrrigationController:
     async def set_schedule_skip(self, schedule_idx: int, value: bool) -> None:
         if schedule_idx < 0 or schedule_idx >= len(self._schedule):
             return
-        self._schedule[schedule_idx]["skip"] = bool(value)
-        self._save(f"schedule/{schedule_idx}/skip", bool(value))
+        self._schedule[schedule_idx]["skip"] = value
+        self._save(f"schedule/{schedule_idx}/skip", value)
         await self.publish_all_states()
 
     def start_schedules(self) -> None:

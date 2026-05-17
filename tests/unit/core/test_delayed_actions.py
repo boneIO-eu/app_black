@@ -23,8 +23,8 @@ mock_gpiod.line.Direction = MagicMock()
 mock_gpiod.line.Edge = MagicMock()
 mock_gpiod.EdgeEvent = MagicMock()
 mock_gpiod.LineRequest = MagicMock()
-sys.modules.setdefault('gpiod', mock_gpiod)
-sys.modules.setdefault('gpiod.line', mock_gpiod.line)
+sys.modules.setdefault("gpiod", mock_gpiod)
+sys.modules.setdefault("gpiod.line", mock_gpiod.line)
 
 from boneio.const import INPUT_SENSOR, PRESSED, RELEASED
 from boneio.models import InputState
@@ -134,12 +134,14 @@ class TestExecuteActionsDelay:
         manager.outputs.get_output.return_value = mock_output
         manager.outputs.get_output_group.return_value = None
 
-        actions = [{
-            "action": "output",
-            "pin": "OUT_01",
-            "action_to_execute": "turn_off",
-            "delay": 120.0,  # 2 minutes
-        }]
+        actions = [
+            {
+                "action": "output",
+                "pin": "OUT_01",
+                "action_to_execute": "turn_off",
+                "delay": 120.0,  # 2 minutes
+            }
+        ]
 
         executed = await manager.execute_actions(actions=actions, input_id="motion_01")
 
@@ -165,12 +167,14 @@ class TestExecuteActionsDelay:
         manager.outputs.get_output.return_value = mock_output
         manager.outputs.get_output_group.return_value = None
 
-        actions = [{
-            "action": "output",
-            "pin": "OUT_01",
-            "action_to_execute": "turn_off",
-            "delay": 120.0,
-        }]
+        actions = [
+            {
+                "action": "output",
+                "pin": "OUT_01",
+                "action_to_execute": "turn_off",
+                "delay": 120.0,
+            }
+        ]
 
         # No input_id => delay should be ignored
         executed = await manager.execute_actions(actions=actions)
@@ -187,12 +191,14 @@ class TestExecuteActionsDelay:
         manager.outputs.get_output.return_value = mock_output
         manager.outputs.get_output_group.return_value = None
 
-        actions = [{
-            "action": "output",
-            "pin": "OUT_01",
-            "action_to_execute": "turn_off",
-            "delay": 0.05,  # 50ms for fast test
-        }]
+        actions = [
+            {
+                "action": "output",
+                "pin": "OUT_01",
+                "action_to_execute": "turn_off",
+                "delay": 0.05,  # 50ms for fast test
+            }
+        ]
 
         await manager.execute_actions(actions=actions, input_id="motion_01")
         mock_output.turn_off.assert_not_awaited()
@@ -280,9 +286,7 @@ class TestRunDelayedAction:
         """A cancelled delayed action should not execute _execute_single_action."""
         action_def = {"action": "output", "pin": "OUT_01", "action_to_execute": "turn_off"}
 
-        task = asyncio.create_task(
-            manager._run_delayed_action("in_01", action_def, 10.0)
-        )
+        task = asyncio.create_task(manager._run_delayed_action("in_01", action_def, 10.0))
         manager._pending_delayed_actions["in_01"] = [task]
 
         await asyncio.sleep(0.01)
@@ -296,9 +300,7 @@ class TestRunDelayedAction:
         """A non-cancelled delayed action should execute _execute_single_action."""
         action_def = {"action": "output", "pin": "OUT_01", "action_to_execute": "turn_off"}
 
-        task = asyncio.create_task(
-            manager._run_delayed_action("in_01", action_def, 0.02)
-        )
+        task = asyncio.create_task(manager._run_delayed_action("in_01", action_def, 0.02))
         manager._pending_delayed_actions["in_01"] = [task]
 
         await asyncio.sleep(0.1)
@@ -310,9 +312,7 @@ class TestRunDelayedAction:
         """After execution, the task should be cleaned up from pending list."""
         action_def = {"action": "output", "pin": "OUT_01", "action_to_execute": "turn_off"}
 
-        task = asyncio.create_task(
-            manager._run_delayed_action("in_01", action_def, 0.02)
-        )
+        task = asyncio.create_task(manager._run_delayed_action("in_01", action_def, 0.02))
         manager._pending_delayed_actions["in_01"] = [task]
 
         await asyncio.sleep(0.1)
@@ -344,8 +344,8 @@ class TestCancelDelayedIfMatching:
     def input_manager(self, mock_manager):
         from boneio.core.manager.inputs import InputManager
 
-        with patch.object(InputManager, '_configure_inputs'):
-            with patch.object(InputManager, '__init__', lambda self, *args, **kwargs: None):
+        with patch.object(InputManager, "_configure_inputs"):
+            with patch.object(InputManager, "__init__", lambda self, *args, **kwargs: None):
                 im = InputManager.__new__(InputManager)
                 im._manager = mock_manager
                 im._inputs = {}
@@ -356,19 +356,27 @@ class TestCancelDelayedIfMatching:
 
     def test_no_pending_tasks_does_nothing(self, input_manager, mock_manager):
         """When no pending tasks exist, cancel should not be called."""
-        sensor = MockInput(id="in_01", name="Motion", actions={
-            RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
-        })
+        sensor = MockInput(
+            id="in_01",
+            name="Motion",
+            actions={
+                RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
+            },
+        )
 
         input_manager._cancel_delayed_if_matching(sensor, "in_01", PRESSED)
         mock_manager.cancel_delayed_actions.assert_not_called()
 
     def test_matching_event_cancels_pending(self, input_manager, mock_manager):
         """When pending tasks exist and event matches delay_cancel_on, cancel should be called."""
-        sensor = MockInput(id="in_01", name="Motion", actions={
-            PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
-            RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
-        })
+        sensor = MockInput(
+            id="in_01",
+            name="Motion",
+            actions={
+                PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
+                RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
+            },
+        )
 
         # Simulate pending task
         mock_manager._pending_delayed_actions["in_01"] = [MagicMock()]
@@ -378,10 +386,14 @@ class TestCancelDelayedIfMatching:
 
     def test_non_matching_event_does_not_cancel(self, input_manager, mock_manager):
         """When event does not match any delay_cancel_on, cancel should not be called."""
-        sensor = MockInput(id="in_01", name="Motion", actions={
-            PRESSED: [{"action": "output", "pin": "OUT_01"}],
-            RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
-        })
+        sensor = MockInput(
+            id="in_01",
+            name="Motion",
+            actions={
+                PRESSED: [{"action": "output", "pin": "OUT_01"}],
+                RELEASED: [{"action": "output", "pin": "OUT_01", "delay": 120, "delay_cancel_on": ["pressed"]}],
+            },
+        )
 
         # Simulate pending task
         mock_manager._pending_delayed_actions["in_01"] = [MagicMock()]
@@ -416,8 +428,8 @@ class TestHandleInputEventDelayIntegration:
     def input_manager(self, mock_manager):
         from boneio.core.manager.inputs import InputManager
 
-        with patch.object(InputManager, '_configure_inputs'):
-            with patch.object(InputManager, '__init__', lambda self, *args, **kwargs: None):
+        with patch.object(InputManager, "_configure_inputs"):
+            with patch.object(InputManager, "__init__", lambda self, *args, **kwargs: None):
                 im = InputManager.__new__(InputManager)
                 im._manager = mock_manager
                 im._inputs = {}
@@ -429,9 +441,13 @@ class TestHandleInputEventDelayIntegration:
     @pytest.mark.asyncio
     async def test_pressed_event_passes_input_id(self, input_manager, mock_manager):
         """handle_input_event should pass input_id to execute_actions."""
-        sensor = MockInput(id="motion_01", name="PIR", actions={
-            PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
-        })
+        sensor = MockInput(
+            id="motion_01",
+            name="PIR",
+            actions={
+                PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
+            },
+        )
         input_manager._inputs["motion_01"] = sensor
 
         event = _make_event("motion_01", PRESSED)
@@ -444,13 +460,22 @@ class TestHandleInputEventDelayIntegration:
     @pytest.mark.asyncio
     async def test_released_cancels_then_executes(self, input_manager, mock_manager):
         """Released event should first check cancel, then execute actions."""
-        sensor = MockInput(id="motion_01", name="PIR", actions={
-            PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
-            RELEASED: [{
-                "action": "output", "pin": "OUT_01", "action_to_execute": "turn_off",
-                "delay": 120, "delay_cancel_on": ["pressed"],
-            }],
-        })
+        sensor = MockInput(
+            id="motion_01",
+            name="PIR",
+            actions={
+                PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
+                RELEASED: [
+                    {
+                        "action": "output",
+                        "pin": "OUT_01",
+                        "action_to_execute": "turn_off",
+                        "delay": 120,
+                        "delay_cancel_on": ["pressed"],
+                    }
+                ],
+            },
+        )
         input_manager._inputs["motion_01"] = sensor
 
         event = _make_event("motion_01", RELEASED)
@@ -464,13 +489,22 @@ class TestHandleInputEventDelayIntegration:
     @pytest.mark.asyncio
     async def test_pressed_cancels_pending_delayed(self, input_manager, mock_manager):
         """Pressed event should cancel pending delayed OFF actions."""
-        sensor = MockInput(id="motion_01", name="PIR", actions={
-            PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
-            RELEASED: [{
-                "action": "output", "pin": "OUT_01", "action_to_execute": "turn_off",
-                "delay": 120, "delay_cancel_on": ["pressed"],
-            }],
-        })
+        sensor = MockInput(
+            id="motion_01",
+            name="PIR",
+            actions={
+                PRESSED: [{"action": "output", "pin": "OUT_01", "action_to_execute": "turn_on"}],
+                RELEASED: [
+                    {
+                        "action": "output",
+                        "pin": "OUT_01",
+                        "action_to_execute": "turn_off",
+                        "delay": 120,
+                        "delay_cancel_on": ["pressed"],
+                    }
+                ],
+            },
+        )
         input_manager._inputs["motion_01"] = sensor
 
         # Simulate a pending delayed task from a previous "released" event

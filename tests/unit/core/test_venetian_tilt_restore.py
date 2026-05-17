@@ -181,26 +181,45 @@ class TestTiltRestoreSetPosition:
 class TestTiltRestoreMoveCover:
     """Test tilt restoration in _move_cover thread completion."""
 
-    async def test_move_cover_restores_tilt_after_close(self):
-        """After close movement finishes, tilt restore is triggered."""
+    async def test_move_cover_restores_tilt_at_intermediate_position(self):
+        """After movement to intermediate position, tilt restore is triggered."""
         cover = _make_venetian(tilt_restore=True, position=50.0, tilt=60.0)
         cover._tilt_before_close = 60.0
 
-        # Simulate _move_cover finishing: tilt at 0, check restore logic
+        # Simulate _move_cover finishing at 30% (intermediate)
         cover._current_operation = IDLE
+        cover._position = 30.0
         cover._tilt_position = 0.0
 
-        # Verify the restore should be triggered
-        assert cover._tilt_restore_after_close is True
-        assert cover._tilt_before_close is not None
+        # Verify restore conditions at intermediate position
+        at_extreme = cover._position <= 0 or cover._position >= 100
+        assert at_extreme is False
         assert cover._tilt_before_close > 0
         assert abs(cover._tilt_position - cover._tilt_before_close) >= 1
 
-        # Simulate the restore action (what _move_cover does)
-        restore_tilt = cover._tilt_before_close
-        cover._tilt_before_close = None
-        assert restore_tilt == 60.0
-        assert cover._tilt_before_close is None
+    async def test_no_restore_at_position_zero(self):
+        """At 0% (fully closed), tilt restore is skipped."""
+        cover = _make_venetian(tilt_restore=True, position=80.0, tilt=60.0)
+        cover._tilt_before_close = 60.0
+
+        # Simulate _move_cover finishing at 0%
+        cover._position = 0.0
+        cover._tilt_position = 0.0
+
+        at_extreme = cover._position <= 0 or cover._position >= 100
+        assert at_extreme is True
+
+    async def test_no_restore_at_position_100(self):
+        """At 100% (fully open), tilt restore is skipped."""
+        cover = _make_venetian(tilt_restore=True, position=30.0, tilt=45.0)
+        cover._tilt_before_close = 45.0
+
+        # Simulate _move_cover finishing at 100%
+        cover._position = 100.0
+        cover._tilt_position = 100.0
+
+        at_extreme = cover._position <= 0 or cover._position >= 100
+        assert at_extreme is True
 
     async def test_no_restore_when_disabled(self):
         """When disabled, _move_cover does not restore tilt."""

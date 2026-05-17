@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from boneio.components.template import BasicOutput
+    from boneio.components.output.basic import BasicOutput
 
 
 @dataclass

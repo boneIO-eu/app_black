@@ -131,7 +131,7 @@ const BlueprintPicker: React.FC<BlueprintPickerProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-base-300 bg-gradient-to-r from-primary/10 to-secondary/10">
+        <div className="p-5 border-b border-base-300 bg-linear-to-r from-primary/10 to-secondary/10">
           <h3 className="text-lg font-bold flex items-center gap-2">
             📋 {t('blueprints.title')}
           </h3>
