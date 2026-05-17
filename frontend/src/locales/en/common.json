@@ -1526,7 +1526,11 @@
     "on_disconnect_ignore": "Ignore (keep last state)",
     "on_disconnect_turn_off": "Force OFF (safe for pumps)",
     "on_disconnect_hint": "What happens when the remote device reconnects after losing connection",
-    "forward_to_ha_hint": "Publish HA autodiscovery for this output. Disable if ESPHome already publishes its own entity."
+    "forward_to_ha_hint": "Publish HA autodiscovery for this output. Disable if ESPHome already publishes its own entity.",
+    "interlock_hint": "Shared interlock with local outputs. Control via boneIO respects interlock. Direct ESPHome/HA control may bypass it unless enforce is enabled.",
+    "enforce_interlock": "Enforce Interlock",
+    "enforce_interlock_hint": "If turned ON externally (e.g. from ESPHome/HA) and it violates interlock, boneIO will immediately turn it OFF.",
+    "interlock_shared_desc": "Remote outputs share interlock groups with local outputs. When an output in a group is ON, other outputs in the same group cannot be turned ON via boneIO."
   },
   "table_sort": {
     "click_to_sort": "Click to sort",

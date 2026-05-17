@@ -1525,7 +1525,11 @@
     "on_disconnect_ignore": "Ignoruj (zachowaj stan)",
     "on_disconnect_turn_off": "Wymuś WYŁ (bezpieczne dla pomp)",
     "on_disconnect_hint": "Co się dzieje po ponownym połączeniu gdy zdalne urządzenie straci połączenie",
-    "forward_to_ha_hint": "Opublikuj autodiscovery HA dla tego wyjścia. Wyłącz jeśli ESPHome sam publikuje swoją encję."
+    "forward_to_ha_hint": "Opublikuj autodiscovery HA dla tego wyjścia. Wyłącz jeśli ESPHome sam publikuje swoją encję.",
+    "interlock_hint": "Współdzielony interlock z lokalnymi wyjściami. Sterowanie przez boneIO respektuje interlock. Bezpośrednie sterowanie ESPHome/HA może go ominąć, chyba że wymuszanie jest włączone.",
+    "enforce_interlock": "Wymuszaj interlock",
+    "enforce_interlock_hint": "Jeśli wyjście zostanie włączone z zewnątrz (np. z ESPHome/HA) naruszając interlock, boneIO natychmiast je wyłączy.",
+    "interlock_shared_desc": "Zdalne wyjścia współdzielą grupy interlockowe z lokalnymi wyjściami. Gdy wyjście w grupie jest włączone, inne wyjścia w tej samej grupie nie mogą być włączone przez boneIO."
   },
   "table_sort": {
     "click_to_sort": "Kliknij aby posortować",

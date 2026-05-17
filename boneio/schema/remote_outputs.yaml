@@ -91,3 +91,26 @@ schema:
           What to do when the remote device loses connection:
           - ignore: Keep last known state (default)
           - turn_off: Force output OFF (safe for pumps/irrigation)
+    interlock_group:
+      type: list
+      required: False
+      default: []
+      schema:
+        type: string
+      meta:
+        label: Interlock Groups
+        description: |
+          Shared interlock groups with local outputs. When this remote output
+          is turned ON via boneIO, other outputs in the same group will be
+          blocked. Direct control from ESPHome/HA bypasses the check unless
+          enforce_interlock is enabled.
+    enforce_interlock:
+      type: boolean
+      required: False
+      default: false
+      meta:
+        label: Enforce Interlock on External Changes
+        description: |
+          When true, if this remote output is turned ON externally (not via
+          boneIO) and it violates an interlock, boneIO will immediately send
+          a turn-off command to the remote device.

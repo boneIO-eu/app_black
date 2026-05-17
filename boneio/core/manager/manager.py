@@ -1392,6 +1392,12 @@ class Manager:
             area = out_cfg.get("area")
             on_disconnect = str(out_cfg.get("on_disconnect", "ignore"))
 
+            # Interlock configuration
+            interlock_groups = out_cfg.get("interlock_group", [])
+            if isinstance(interlock_groups, str):
+                interlock_groups = [interlock_groups]
+            enforce_interlock = bool(out_cfg.get("enforce_interlock", False))
+
             # Check for duplicates
             if self.outputs.get_output(entity_id) is not None:
                 _LOGGER.warning(
@@ -1411,7 +1417,14 @@ class Manager:
                 show_in_ha=show_in_ha,
                 area=area,
                 on_disconnect=on_disconnect,
+                interlock_manager=self.outputs._interlock_manager,
+                interlock_groups=interlock_groups,
+                enforce_interlock=enforce_interlock,
             )
+
+            # Register in shared interlock manager
+            if interlock_groups:
+                self.outputs._interlock_manager.register(remote_output, interlock_groups)
 
             # Set the device manager reference if the device is already loaded.
             # ESPHome devices may not be in _devices yet (loaded in background),
@@ -1434,11 +1447,12 @@ class Manager:
             # Register in OutputManager so it's available everywhere
             self.outputs._outputs[entity_id] = remote_output  # type: ignore[assignment]
             _LOGGER.info(
-                "Registered remote output: id='%s' device='%s' output='%s' type='%s'",
+                "Registered remote output: id='%s' device='%s' output='%s' type='%s' interlock=%s",
                 entity_id,
                 device_id,
                 output_id,
                 output_type,
+                interlock_groups or "none",
             )
 
         _LOGGER.info(

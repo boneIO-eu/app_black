@@ -7,8 +7,9 @@
  *   3. Set output_type (switch, light, valve)
  *   4. Set on_disconnect policy (ignore, turn_off)
  *   5. Optionally set name, id, area, show_in_ha
+ *   6. Shared interlock groups with local outputs
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import AreaSelect from './widgets/AreaSelect';
 import {
@@ -37,6 +38,8 @@ interface RemoteOutputFormProps {
   editingIndex?: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
+  interlockGroups?: string[];
+  onInterlockGroupCreated?: (groupName: string) => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -49,8 +52,11 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   allRemoteDevices = [],
   onValidationChange,
   attemptedSubmit = false,
+  interlockGroups = [],
+  onInterlockGroupCreated,
 }) => {
   const { t } = useTranslation();
+  const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
   /* ---------- field helpers ---------- */
   const updateField = (field: string, value: any) => {
@@ -319,6 +325,112 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
             <span className="label-text wrap-break-word">{t('remote_outputs.forward_to_ha_hint')}</span>
           </label>
         </fieldset>
+      </div>
+
+      {/* ---- Interlock ---- */}
+      <div className="divider">{t('outputs.divider_interlock')}</div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Current Interlock Group */}
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text font-medium">{t('outputs.interlock_group_label')}</span>
+          </label>
+          <Select
+            value={data.interlock_group || '_none_'}
+            onValueChange={(value) => updateField('interlock_group', value === '_none_' ? undefined : value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={t('outputs.interlock_group_placeholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none_">{t('outputs.interlock_group_none')}</SelectItem>
+              {interlockGroups.map((group) => (
+                <SelectItem key={group} value={group}>
+                  {group}
+                </SelectItem>
+              ))}
+              {/* Show current value if it's not in the list (new group) */}
+              {data.interlock_group && !interlockGroups.includes(data.interlock_group) && (
+                <SelectItem value={data.interlock_group}>
+                  {data.interlock_group} ({t('outputs.interlock_group_new')})
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <label className="label">
+            <span className="label-text-alt whitespace-normal wrap-break-word">
+              {t('remote_outputs.interlock_hint')}
+            </span>
+          </label>
+        </div>
+
+        {/* Add New Interlock Group */}
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text font-medium">{t('outputs.create_new_group')}</span>
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input flex-1"
+              placeholder={t('outputs.enter_group_name')}
+              value={newInterlockGroup}
+              onChange={(e) => setNewInterlockGroup(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newInterlockGroup.trim()) {
+                  const groupName = newInterlockGroup.trim();
+                  updateField('interlock_group', groupName);
+                  onInterlockGroupCreated?.(groupName);
+                  setNewInterlockGroup('');
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!newInterlockGroup.trim()}
+              onClick={() => {
+                if (newInterlockGroup.trim()) {
+                  const groupName = newInterlockGroup.trim();
+                  updateField('interlock_group', groupName);
+                  onInterlockGroupCreated?.(groupName);
+                  setNewInterlockGroup('');
+                }
+              }}
+            >
+              {t('outputs.add_button')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Enforce Interlock — visible when interlock_group is set */}
+      {data.interlock_group && (
+        <div className="grid grid-cols-1 gap-4 mt-2">
+          <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
+            <legend className="fieldset-legend">{t('remote_outputs.enforce_interlock')}</legend>
+            <label className="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                className="toggle toggle-warning"
+                checked={data.enforce_interlock === true}
+                onChange={(e) => updateField('enforce_interlock', e.target.checked)}
+              />
+              <span className="label-text wrap-break-word">{t('remote_outputs.enforce_interlock_hint')}</span>
+            </label>
+          </fieldset>
+        </div>
+      )}
+
+      <div className="alert alert-info">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <div>
+          <h3 className="font-bold">{t('outputs.software_interlock_title')}</h3>
+          <div className="text-sm">
+            <p>{t('remote_outputs.interlock_shared_desc')}</p>
+          </div>
+        </div>
       </div>
     </div>
   );

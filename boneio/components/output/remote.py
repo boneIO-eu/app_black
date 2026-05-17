@@ -10,14 +10,18 @@ The actual hardware control is delegated to the parent ``ESPHomeDeviceManager``
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from boneio.const import OFF, ON, SWITCH
 from boneio.core.events import EventBus
 from boneio.models import OutputState
 from boneio.models.events import OutputEvent
+
+if TYPE_CHECKING:
+    from boneio.integration.interlock import SoftwareInterlockManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +64,9 @@ class RemoteOutputBase:
         show_in_ha: bool = False,
         area: str | None = None,
         on_disconnect: str = "ignore",
+        interlock_manager: SoftwareInterlockManager | None = None,
+        interlock_groups: list[str] | None = None,
+        enforce_interlock: bool = False,
     ) -> None:
         self._id = id
         self._name = name
@@ -71,6 +78,11 @@ class RemoteOutputBase:
         self.show_in_ha = show_in_ha
         self.area: str | None = area
         self._on_disconnect = on_disconnect
+
+        # Interlock support (shared with local BasicOutput instances)
+        self._interlock_manager: SoftwareInterlockManager | None = interlock_manager
+        self._interlock_groups: list[str] = interlock_groups or []
+        self._enforce_interlock: bool = enforce_interlock
 
         self._state: str = OFF
         self._last_timestamp: float = 0.0
@@ -187,18 +199,56 @@ class RemoteOutputBase:
             )
 
     # ------------------------------------------------------------------
+    # Interlock
+    # ------------------------------------------------------------------
+
+    def set_interlock(
+        self,
+        interlock_manager: SoftwareInterlockManager,
+        interlock_groups: list[str],
+    ) -> None:
+        """Set interlock manager and groups.
+
+        Args:
+            interlock_manager: Shared interlock manager instance.
+            interlock_groups: List of group names this output belongs to.
+        """
+        self._interlock_manager = interlock_manager
+        self._interlock_groups = interlock_groups
+
+    def check_interlock(self) -> bool:
+        """Check if this output can be turned on without violating interlocks.
+
+        Returns:
+            True if no interlock violation, False if blocked.
+        """
+        if self._interlock_manager is not None and self._interlock_groups:
+            return self._interlock_manager.can_turn_on(self, self._interlock_groups)
+        return True
+
+    # ------------------------------------------------------------------
     # Core control methods (duck-type compatible with BasicOutput)
     # ------------------------------------------------------------------
 
     async def async_turn_on(self, timestamp: float | None = None) -> bool:
         """Turn on the remote output.
 
+        Checks interlock before sending the ON command. If another output
+        in the same interlock group is already ON, the request is rejected.
+
         Args:
             timestamp: Optional timestamp for state tracking.
 
         Returns:
-            True if the output was turned on, False on failure.
+            True if the output was turned on, False if blocked or failed.
         """
+        can_turn_on = self.check_interlock()
+        if not can_turn_on:
+            _LOGGER.warning(
+                "Interlock active: cannot turn on remote output '%s'", self._id
+            )
+            return False
+
         if not self._resolve_device_manager():
             _LOGGER.error("Remote output '%s' has no device manager, cannot turn on", self._id)
             return False
@@ -259,6 +309,10 @@ class RemoteOutputBase:
         Called by ESPHomeDeviceManager when it receives a state update
         for this output's entity.
 
+        If ``enforce_interlock`` is enabled and the output was turned ON
+        externally while violating an interlock, boneIO will immediately
+        send a turn-off command.
+
         Args:
             new_state: ``True`` if the output is now ON.
             brightness: Optional brightness value (0-255) for dimmable lights.
@@ -280,6 +334,19 @@ class RemoteOutputBase:
             self._state,
             self._brightness,
         )
+
+        # Enforce interlock: if turned ON externally and violating interlock,
+        # immediately send OFF command to the remote device.
+        if (
+            new_state
+            and self._enforce_interlock
+            and not self.check_interlock()
+        ):
+            _LOGGER.warning(
+                "Remote output '%s' turned ON externally, violating interlock — forcing OFF",
+                self._id,
+            )
+            asyncio.ensure_future(self._enforce_interlock_off())
 
     async def async_set_brightness(self, brightness: int, timestamp: float | None = None) -> None:
         """Set brightness on the remote light output.
@@ -386,8 +453,36 @@ class RemoteOutputBase:
             area=self.area,
             remote=True,
             brightness=self._brightness,
+            interlock_groups=self._interlock_groups,
         )
         self._event_bus.trigger_event(OutputEvent(entity_id=self._id, state=output_state))
+
+    async def _enforce_interlock_off(self) -> None:
+        """Send OFF command to remote device after interlock violation.
+
+        Called when the remote device reports ON state that violates an
+        active interlock group. Small delay allows the state to settle.
+        """
+        await asyncio.sleep(0.1)  # Allow state to settle
+        if not self._resolve_device_manager():
+            _LOGGER.error(
+                "Cannot enforce interlock OFF on '%s': no device manager",
+                self._id,
+            )
+            return
+        success = await self._device_manager.control_output(
+            output_id=self._output_id,
+            action="OFF",
+        )
+        if success:
+            _LOGGER.info(
+                "Interlock enforced: remote output '%s' turned OFF", self._id
+            )
+        else:
+            _LOGGER.error(
+                "Failed to enforce interlock OFF on remote output '%s'",
+                self._id,
+            )
 
     # ------------------------------------------------------------------
     # Properties (duck-type compatible with BasicOutput)

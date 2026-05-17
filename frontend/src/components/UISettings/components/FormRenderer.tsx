@@ -159,6 +159,8 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
         editingIndex={editingIndex}
         onValidationChange={props.onValidationChange}
         attemptedSubmit={props.attemptedSubmit}
+        interlockGroups={props.interlockGroups}
+        onInterlockGroupCreated={props.onInterlockGroupCreated}
       />
     );
   }
