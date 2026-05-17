@@ -1043,8 +1043,13 @@ class Manager:
                 cover.name if hasattr(cover, "name") else entity_id,
                 time.time() - start_time,
             )
-            _f = getattr(cover, action_to_execute)
-            await _f(**filtered_data)
+            # Signal to cover that this call originates from an action
+            cover._from_action = True
+            try:
+                _f = getattr(cover, action_to_execute)
+                await _f(**filtered_data)
+            finally:
+                cover._from_action = False
 
         elif action == OUTPUT_OVER_MQTT:
             boneio_id = action_definition.get("boneio_id")

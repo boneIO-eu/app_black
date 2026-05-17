@@ -47,6 +47,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
         // Remove tilt-specific fields when not venetian
         delete newData.tilt_duration;
         delete newData.tilt_restore_after_close;
+        delete newData.tilt_restore_from_actions;
       }
     }
     
@@ -244,6 +245,26 @@ const CoverForm: React.FC<CoverFormProps> = ({
                         </div>
                       </label>
                     </div>
+
+                    {/* Tilt Restore From Actions — visible only when tilt_restore is enabled */}
+                    {data.tilt_restore_after_close && (
+                      <div className="form-control ml-8">
+                        <label className="label cursor-pointer justify-start gap-4">
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            checked={data.tilt_restore_from_actions || false}
+                            onChange={(e) => updateField('tilt_restore_from_actions', e.target.checked)}
+                          />
+                          <div>
+                            <span className="label-text font-medium">{t('covers.tilt_restore_actions')}</span>
+                            <p className="text-sm text-base-content/70 mt-1">
+                              {t('covers.tilt_restore_actions_hint')}
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    )}
                   </>
                 )}
 

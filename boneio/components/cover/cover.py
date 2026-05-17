@@ -192,6 +192,10 @@ class BaseCover(BaseCoverABC, BasicMqtt):
         self._movement_thread = None
         self._stop_event = threading.Event()
 
+        # Flag set by action executor to signal this call originates from a button action.
+        # Used by VenetianCover to conditionally skip tilt restore.
+        self._from_action: bool = False
+
         self._event_bus.add_sigterm_listener(self.on_exit)
 
         with suppress(RuntimeError):

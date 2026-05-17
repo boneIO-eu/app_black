@@ -525,6 +525,8 @@
     "restore_state_hint": "Restore saved state after restart",
     "tilt_restore": "Restore Tilt After Movement",
     "tilt_restore_hint": "Restore the previous tilt angle after movement to an intermediate position (not at 0% or 100%)",
+    "tilt_restore_actions": "Also from button actions",
+    "tilt_restore_actions_hint": "By default only UI and HA trigger tilt restore",
     "show_in_ha_hint": "Enable Home Assistant discovery for this cover"
   },
   "software_update": {

@@ -756,6 +756,8 @@
     "restore_state_hint": "Przywróć zapisany stan po restarcie",
     "tilt_restore": "Przywróć Nachylenie Po Ruchu",
     "tilt_restore_hint": "Przywróć poprzedni kąt nachylenia po ruchu do pozycji pośredniej (nie przy 0% ani 100%)",
+    "tilt_restore_actions": "Również z akcji przycisków",
+    "tilt_restore_actions_hint": "Domyślnie tylko UI i HA przywracają nachylenie",
     "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tej rolety"
   },
   "modbus": {

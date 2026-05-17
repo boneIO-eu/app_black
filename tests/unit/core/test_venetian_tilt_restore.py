@@ -21,6 +21,7 @@ from boneio.const import IDLE
 
 def _make_venetian(
     tilt_restore: bool = False,
+    tilt_restore_from_actions: bool = False,
     position: float = 100.0,
     tilt: float = 50.0,
 ) -> VenetianCover:
@@ -28,6 +29,7 @@ def _make_venetian(
 
     Args:
         tilt_restore: Whether tilt_restore_after_close is enabled.
+        tilt_restore_from_actions: Whether tilt restore works from actions.
         position: Initial cover position (0-100).
         tilt: Initial tilt position (0-100).
 
@@ -66,6 +68,7 @@ def _make_venetian(
         actuator_activation_duration=TimePeriod(milliseconds=0),
         restored_state={"position": position, "tilt": tilt},
         tilt_restore_after_close=tilt_restore,
+        tilt_restore_from_actions=tilt_restore_from_actions,
     )
     return cover
 
@@ -273,3 +276,58 @@ class TestTiltRestoreUpdateConfig:
         cover = _make_venetian(tilt_restore=True)
         cover.update_config_times({"open_time": TimePeriod(seconds=20)})
         assert cover._tilt_restore_after_close is True
+
+
+class TestTiltRestoreFromActions:
+    """Test tilt restore behavior when triggered from button actions."""
+
+    async def test_action_skips_tilt_save_by_default(self):
+        """By default, actions do not trigger tilt save."""
+        cover = _make_venetian(tilt_restore=True, tilt=45.0)
+        cover._from_action = True
+
+        cover.run_cover = AsyncMock()
+        cover._message_bus = MagicMock()
+
+        await cover.close()
+
+        # _from_action=True + _tilt_restore_from_actions=False → no save
+        assert cover._tilt_before_close is None
+
+    async def test_action_saves_tilt_when_enabled(self):
+        """When tilt_restore_from_actions is enabled, actions trigger tilt save."""
+        cover = _make_venetian(
+            tilt_restore=True, tilt_restore_from_actions=True, tilt=45.0
+        )
+        cover._from_action = True
+
+        cover.run_cover = AsyncMock()
+        cover._message_bus = MagicMock()
+
+        await cover.close()
+
+        assert cover._tilt_before_close == 45.0
+
+    async def test_ui_always_saves_tilt(self):
+        """UI/HA calls (from_action=False) always save tilt."""
+        cover = _make_venetian(tilt_restore=True, tilt=45.0)
+        assert cover._from_action is False
+
+        cover.run_cover = AsyncMock()
+        cover._message_bus = MagicMock()
+
+        await cover.close()
+
+        assert cover._tilt_before_close == 45.0
+
+    async def test_set_position_action_skips_tilt_save(self):
+        """set_cover_position from action skips tilt save by default."""
+        cover = _make_venetian(tilt_restore=True, position=80.0, tilt=45.0)
+        cover._from_action = True
+
+        cover.run_cover = AsyncMock()
+        cover._message_bus = MagicMock()
+
+        await cover.set_cover_position(20)
+
+        assert cover._tilt_before_close is None
