@@ -114,7 +114,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
   const actionCoverOptions =
     schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum ||
     schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_cover?.enum || [
-      'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE',
+      'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE',
     ];
 
   /* ---------- field helpers ---------- */
