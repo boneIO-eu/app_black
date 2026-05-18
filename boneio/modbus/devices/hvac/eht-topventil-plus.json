@@ -1,0 +1,243 @@
+{
+  "model": "EHT TOP VENTIL 300 PLUS",
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 9,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Fan speed",
+          "address": 0,
+          "write_address": 0,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "S_WORD"
+        },
+        {
+          "name": "Ventilation",
+          "address": 2,
+          "write_address": 2,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Dehumidifier",
+          "address": 3,
+          "write_address": 3,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Integration",
+          "address": 4,
+          "write_address": 4,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Recirculation",
+          "address": 5,
+          "write_address": 5,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Operating mode number",
+          "address": 6,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD"
+        },
+        {
+          "name": "Season status",
+          "address": 8,
+          "write_address": 8,
+          "entity_type": "writeable_sensor_discrete",
+          "value_type": "S_WORD"
+        }
+      ]
+    },
+    {
+      "base": 10,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Alarm presence",
+          "address": 10,
+          "entity_type": "binary_sensor",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
+        },
+        {
+          "name": "Alarm code number",
+          "address": 12,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD"
+        }
+      ]
+    },
+    {
+      "base": 20,
+      "length": 5,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Filter counter",
+          "address": 20,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "h"
+        },
+        {
+          "name": "Filter reset command",
+          "address": 24,
+          "write_address": 24,
+          "entity_type": "writeable_sensor_discrete",
+          "value_type": "S_WORD"
+        }
+      ]
+    },
+    {
+      "base": 25,
+      "length": 6,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Supply air temperature",
+          "address": 25,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        },
+        {
+          "name": "Fresh air temperature",
+          "address": 26,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        },
+        {
+          "name": "Return air temperature",
+          "address": 27,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        },
+        {
+          "name": "Water temperature",
+          "address": 28,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        },
+        {
+          "name": "Condenser temperature",
+          "address": 29,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        },
+        {
+          "name": "Evaporator temperature",
+          "address": 30,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [{ "multiply": 0.1 }]
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "Operating mode",
+      "source": "operating_mode_number",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Off",
+        "1": "Ventilation",
+        "2": "Dehumidification",
+        "3": "Integration",
+        "4": "Dehumidification + Integration",
+        "5": "Recirculation",
+        "6": "Ventilation + Dehumidification",
+        "7": "Ventilation + Integration",
+        "8": "Ventilation + Dehumidification + Integration",
+        "9": "Ventilation + Recirculation",
+        "10": "Maintenance",
+        "11": "Standby",
+        "12": "Dehumidification standby",
+        "13": "Integration standby",
+        "14": "Dehumidification + Integration standby",
+        "15": "Ventilation + Dehumidification standby",
+        "16": "Ventilation + Integration standby",
+        "17": "Ventilation + Dehumidification + Integration standby"
+      }
+    },
+    {
+      "name": "Season",
+      "source": "season_status",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Winter",
+        "1": "Summer"
+      }
+    },
+    {
+      "name": "Alarm code",
+      "source": "alarm_code_number",
+      "entity_type": "text_sensor",
+      "x_mapping": {
+        "0": "No alarm",
+        "1": "Alarm reset",
+        "2": "Filter reset",
+        "3": "High pressure alarm",
+        "4": "Low pressure alarm",
+        "5": "Low refrigerant alarm",
+        "6": "Low temperature alarm",
+        "7": "Condenser NTC alarm",
+        "8": "Evaporator NTC alarm",
+        "9": "Return air NTC alarm",
+        "10": "Supply air NTC alarm",
+        "11": "Fresh air NTC alarm",
+        "12": "Water inlet NTC alarm",
+        "13": "Display temperature sensor alarm",
+        "14": "Display humidity sensor alarm",
+        "15": "Filter lock alarm",
+        "16": "Filter counter alarm",
+        "17": "High water temperature alarm",
+        "18": "Cold water missing warning"
+      }
+    }
+  ]
+}
