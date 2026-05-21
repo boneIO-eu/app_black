@@ -42,6 +42,7 @@ export interface IrrigationController {
   reverse: boolean;
   standby: boolean;
   skip_next_run: boolean;
+  pause_timeout_s: number;
   zones: ZoneState[];
   schedules: ScheduleEntry[];
   water_sources: WaterSourceInfo[];

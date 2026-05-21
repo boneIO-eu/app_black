@@ -208,6 +208,81 @@ class TestPauseResume:
         assert ctrl.state == ControllerState.IDLE
 
 
+# ── Pause timeout ────────────────────────────────────────────────────────────
+
+
+class TestPauseTimeout:
+    """Verify auto-shutdown when paused too long."""
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_pause_timeout_shuts_down_controller(self, _utc, _timer):
+        """Controller should auto-shutdown after pause timeout expires."""
+        ctrl = _make_controller(pause_timeout_s=60)
+        await ctrl.start_full_cycle()
+        await ctrl.pause()
+
+        assert ctrl.state == ControllerState.PAUSED
+        # Simulate timeout callback firing
+        await ctrl._pause_timeout_callback(FIXED_NOW)
+
+        assert ctrl.state == ControllerState.IDLE
+        assert ctrl._active_zone_idx is None
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_resume_cancels_pause_timeout(self, _utc, _timer):
+        """Resuming should cancel the pause timeout timer."""
+        ctrl = _make_controller(pause_timeout_s=60)
+        await ctrl.start_full_cycle()
+        await ctrl.pause()
+
+        assert ctrl._pause_timer_cancel is not None
+        await ctrl.resume()
+
+        assert ctrl._pause_timer_cancel is None
+        assert ctrl.state == ControllerState.RUNNING
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_pause_timeout_disabled_with_zero(self, _utc, _timer):
+        """Setting pause_timeout_s=0 should disable auto-shutdown."""
+        ctrl = _make_controller(pause_timeout_s=0)
+        await ctrl.start_full_cycle()
+        await ctrl.pause()
+
+        # No pause timer should be armed
+        assert ctrl._pause_timer_cancel is None
+        assert ctrl.state == ControllerState.PAUSED
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_pause_timeout_callback_ignored_if_not_paused(self, _utc, _timer):
+        """If state changed before timeout fires, callback should be a no-op."""
+        ctrl = _make_controller(pause_timeout_s=60)
+        await ctrl.start_full_cycle()
+        assert ctrl.state == ControllerState.RUNNING
+
+        # Simulate stale callback firing while running (not paused)
+        await ctrl._pause_timeout_callback(FIXED_NOW)
+
+        # Should remain running — callback was ignored
+        assert ctrl.state == ControllerState.RUNNING
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_shutdown_cancels_pause_timer(self, _utc, _timer):
+        """Shutdown should cancel any active pause timer."""
+        ctrl = _make_controller(pause_timeout_s=60)
+        await ctrl.start_full_cycle()
+        await ctrl.pause()
+
+        assert ctrl._pause_timer_cancel is not None
+        await ctrl.shutdown()
+
+        assert ctrl._pause_timer_cancel is None
+
+
 # ── Auto-advance & zone transitions ─────────────────────────────────────────
 
 

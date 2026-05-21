@@ -92,6 +92,7 @@ async def list_controllers(manager: Manager = Depends(get_manager)):
                 "reverse": ctrl._reverse,
                 "standby": ctrl._standby,
                 "skip_next_run": ctrl._skip_next_run,
+                "pause_timeout_s": ctrl._pause_timeout_s,
                 "zones": zones,
                 "schedules": schedules,
                 "water_sources": [

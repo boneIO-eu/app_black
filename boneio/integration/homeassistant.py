@@ -397,6 +397,43 @@ def ha_irrigation_button_message(
     return msg
 
 
+def ha_irrigation_valve_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    suffix: str,
+    name: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create valve discovery for irrigation zone.
+
+    Irrigation zones represent physical valves, so they use the HA ``valve``
+    entity type with open/close semantics instead of ``switch`` on/off.
+
+    Args:
+        ctrl_id: Controller ID.
+        ctrl_name: Controller display name.
+        suffix: Topic suffix (e.g. ``zone/altana``).
+        name: Entity display name.
+        config_helper: Config helper for topic prefix and device info.
+
+    Returns:
+        HA discovery payload dict for a valve entity.
+    """
+    topic = config_helper.topic_prefix
+    msg = ha_valve_availabilty_message(
+        id=f"irrigation_{ctrl_id}_{suffix.replace('/', '_')}",
+        name=name,
+        config_helper=config_helper,
+        device_type=IRRIGATION,
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
+    msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/{suffix}/set"
+    msg["value_template"] = "{{ value_json.state }}"
+    msg["icon"] = "mdi:sprinkler-variant"
+    return msg
+
+
 def ha_irrigation_timestamp_sensor_message(
     ctrl_id: str,
     ctrl_name: str,

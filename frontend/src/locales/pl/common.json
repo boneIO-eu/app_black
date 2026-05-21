@@ -1894,6 +1894,9 @@
     "pump_stop_valve_delay": "Stop pompy (opóźnienie zaworu)",
     "pump_stop_valve_delay_hint": "Pompa wyłącza się pierwsza, zawór zamyka się po tym opóźnieniu.",
     "runtime_settings_hint": "Ustawienia czasu pracy (mnożnik, powtórzenie, tryb czuwania, auto-przejście, odwrócenie) można zmienić w panelu Nawadnianie, a nie w konfiguracji.",
+    "pause_timeout": "Timeout pauzy",
+    "pause_timeout_hint": "Automatyczne wyłączenie po tym czasie w stanie pauzy. Domyślnie 30min. Ustaw 0 aby wyłączyć.",
+    "pause_timeout_active": "Auto-wyłączenie za {time}",
     "long_press_to_edit": "Przytrzymaj aby edytować ustawienia",
     "go_to_settings": "Przejdź do Ustawień",
     "go_to_settings_confirm": "Czy chcesz edytować ustawienia tego kontrolera nawadniania?"

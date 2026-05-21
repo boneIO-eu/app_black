@@ -476,6 +476,11 @@ function ControllerCard({
                   — {ctrl.active_zone.name}
                 </span>
               )}
+              {isPaused && ctrl.pause_timeout_s > 0 && (
+                <span className="ml-1 text-warning/70 text-[10px]">
+                  ⏱ {t('irrigation.pause_timeout_active').replace('{time}', fmtSeconds(ctrl.pause_timeout_s))}
+                </span>
+              )}
             </p>
           </div>
 

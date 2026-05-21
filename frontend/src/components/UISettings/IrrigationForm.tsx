@@ -505,6 +505,18 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
               <p className="text-xs text-base-content/50 mt-1">{t('irrigation.valve_overlap_hint')}</p>
             </div>
           </div>
+
+          {/* Pause Timeout */}
+          <div className="form-control mt-2">
+            <SimpleTimePeriodInput
+              value={data.pause_timeout || '30min'}
+              onChange={(v) => updateField('pause_timeout', v)}
+              label={t('irrigation.pause_timeout')}
+              allowedUnits={['s', 'min', 'h']}
+              unitlessNumberUnit="s"
+            />
+            <p className="text-xs text-base-content/50 mt-1">{t('irrigation.pause_timeout_hint')}</p>
+          </div>
         </div>
       )}
     </div>

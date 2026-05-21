@@ -16,6 +16,7 @@ from boneio.integration.homeassistant import (
     ha_irrigation_select_message,
     ha_irrigation_switch_message,
     ha_irrigation_timestamp_sensor_message,
+    ha_irrigation_valve_message,
 )
 
 if TYPE_CHECKING:
@@ -90,6 +91,7 @@ class IrrigationManager:
             repeat=int(cfg.get("repeat", 0)),
             auto_advance=bool(cfg.get("auto_advance", True)),
             reverse=bool(cfg.get("reverse", False)),
+            pause_timeout_s=int(parse_time_to_seconds(cfg.get("pause_timeout"), 1800)),
         )
 
     def _build_zone(self, zone_cfg: dict[str, Any]) -> IrrigationZone | None:
@@ -282,7 +284,7 @@ class IrrigationManager:
             (f"{ctrl.id}_resume", "button"),
         ]
         for zone in ctrl.zones:
-            discovery_ids.append((f"{ctrl.id}_zone_{zone.id}", "switch"))
+            discovery_ids.append((f"{ctrl.id}_zone_{zone.id}", "valve"))
             discovery_ids.append((f"{ctrl.id}_zone_{zone.id}_enabled", "switch"))
             discovery_ids.append((f"{ctrl.id}_zone_{zone.id}_duration", "number"))
         for idx in range(len(ctrl._schedule)):
@@ -506,10 +508,16 @@ class IrrigationManager:
         )
 
         for zone in ctrl.zones:
+            # Remove stale switch discovery (migration from switch → valve)
             self._manager.publish_ha_discovery(
                 id=f"{ctrl.id}_zone_{zone.id}",
                 ha_type="switch",
-                payload=ha_irrigation_switch_message(
+                payload="",
+            )
+            self._manager.publish_ha_discovery(
+                id=f"{ctrl.id}_zone_{zone.id}",
+                ha_type="valve",
+                payload=ha_irrigation_valve_message(
                     ctrl.id,
                     ctrl.name,
                     suffix=f"zone/{zone.id}",

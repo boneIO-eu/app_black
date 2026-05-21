@@ -75,6 +75,7 @@ class IrrigationController:
         repeat: int = 0,
         auto_advance: bool = True,
         reverse: bool = False,
+        pause_timeout_s: int = 1800,
     ) -> None:
         """Initialize irrigation controller.
 
@@ -95,6 +96,8 @@ class IrrigationController:
             repeat: Number of cycle repeats.
             auto_advance: Automatically advance to next zone.
             reverse: Run zones in reverse order.
+            pause_timeout_s: Auto-shutdown after this many seconds in PAUSED state.
+                Default 1800 (30 minutes). Set 0 to disable.
         """
         self.id = id
         self.name = name
@@ -119,6 +122,8 @@ class IrrigationController:
         self._skip_next_run = False
 
         self._zone_timer_cancel = None
+        self._pause_timer_cancel = None
+        self._pause_timeout_s = max(0, pause_timeout_s)
         self._run_start_utc: datetime | None = None
         self._active_zone_idx: int | None = None
         self._active_zone_remaining_s: int | None = None
@@ -352,6 +357,7 @@ class IrrigationController:
             "".join(traceback.format_stack(limit=5)),
         )
         self.stop_schedules()
+        self._cancel_pause_timer()
         await self._stop_current_zone()
         await self._handle_pump_stop_sequence()
         self._state = ControllerState.IDLE
@@ -370,11 +376,13 @@ class IrrigationController:
         self._cancel_zone_timer()
         await self._stop_current_zone()
         self._state = ControllerState.PAUSED
+        self._arm_pause_timer()
         await self.publish_all_states()
 
     async def resume(self) -> None:
         if self._state != ControllerState.PAUSED or self._active_zone_idx is None:
             return
+        self._cancel_pause_timer()
         remaining = self._active_zone_remaining_s or self._current_zone_duration_seconds()
         await self._start_zone(self._active_zone_idx, override_duration=remaining)
 
@@ -798,6 +806,44 @@ class IrrigationController:
 
     async def _zone_timer_callback(self, _timestamp: datetime) -> None:
         await self._advance_to_next_zone(force=False)
+
+    def _cancel_pause_timer(self) -> None:
+        """Cancel the pause timeout timer if active."""
+        if self._pause_timer_cancel is not None:
+            self._pause_timer_cancel()
+            self._pause_timer_cancel = None
+
+    def _arm_pause_timer(self) -> None:
+        """Arm an auto-shutdown timer for the PAUSED state.
+
+        If pause_timeout_s is 0, no timer is set (pause lasts indefinitely).
+        Otherwise, the controller will auto-shutdown after the configured timeout.
+        """
+        self._cancel_pause_timer()
+        if self._pause_timeout_s <= 0:
+            return
+        point = utcnow() + timedelta(seconds=self._pause_timeout_s)
+        self._pause_timer_cancel = async_track_point_in_time(
+            loop=self._event_bus._loop,
+            job=self._pause_timeout_callback,
+            point_in_time=point,
+        )
+        _LOGGER.info(
+            "Irrigation %s: pause timeout armed for %d seconds",
+            self.id,
+            self._pause_timeout_s,
+        )
+
+    async def _pause_timeout_callback(self, _timestamp: datetime) -> None:
+        """Handle pause timeout — auto-shutdown the controller."""
+        if self._state != ControllerState.PAUSED:
+            return
+        _LOGGER.warning(
+            "Irrigation %s: pause timeout expired after %d seconds, shutting down",
+            self.id,
+            self._pause_timeout_s,
+        )
+        await self.shutdown()
 
     async def handle_main_command(self, payload: str) -> None:
         cmd = payload.strip()
