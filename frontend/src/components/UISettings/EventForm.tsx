@@ -99,7 +99,7 @@ const EventForm: React.FC<EventFormProps> = ({
     'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
   ];
   const actionOutputOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum || [
-    'TOGGLE', 'ON', 'OFF'
+    'TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'
   ];
 
   const updateField = (field: string, value: any) => {

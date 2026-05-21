@@ -396,10 +396,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         ['mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'];
       const actionOutputOptions = getEnum('items.properties.actions.properties.single.items.properties.action_output.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action_output.enum') ||
-        ['TOGGLE', 'ON', 'OFF'];
+        ['TOGGLE', 'ON', 'OFF', 'BRIGHTNESS_UP', 'BRIGHTNESS_DOWN', 'BRIGHTNESS_UP_CYCLE', 'BRIGHTNESS_DOWN_CYCLE', 'SET_BRIGHTNESS', 'CYCLE_COLOR', 'CYCLE_PRESET'];
       const actionCoverOptions = getEnum('items.properties.actions.properties.single.items.properties.action_cover.enum') ||
         getEnum('items.properties.actions.properties.pressed.items.properties.action_cover.enum') ||
-        ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
+        ['TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'];
 
       const prompt = buildAiWizardPrompt({
         entityType: entityType as any, data: {} as any, schema,

@@ -495,7 +495,8 @@ modbus_devices:
             'socomec_e23',
             'sofar',
             'ventclear',
-            'esp32_relay_x4_modbus'
+            'esp32_relay_x4_modbus',
+            'eht-topventil-plus'
           ]
         meta:
           label: Model to load from database.
@@ -1895,6 +1896,16 @@ template:
         default: False
         meta:
           label: Run zones in reverse order (irrigation only).
+      pause_timeout:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Auto-shutdown after being paused for this duration (irrigation only). Default 30min. Set 0 to disable.
       schedule:
         type: list
         required: False
@@ -2065,6 +2076,16 @@ irrigation:
         default: False
         meta:
           label: Run zones in reverse order.
+      pause_timeout:
+        type:
+          - string
+          - timeperiod
+        coerce:
+          - str
+          - positive_time_period
+        required: False
+        meta:
+          label: Auto-shutdown after being paused for this duration. Default 30min. Set 0 to disable.
       schedule:
         type: list
         required: False

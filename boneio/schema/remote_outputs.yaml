@@ -162,7 +162,9 @@ schema:
       meta:
         label: Unit displayed on Home Assistant duration slider.
     interlock_group:
-      type: list
+      type:
+        - string
+        - list
       required: False
       default: []
       schema:
