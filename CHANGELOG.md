@@ -4,6 +4,35 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev5 (2026-05-23)
+
+### ✨ New Features
+
+- **Reusable AI Assistant Shell** — Extracted `AiAssistantShell.tsx` component shared across all AI-assisted forms (EventForm, BinarySensorForm, RemoteInputForm, IrrigationForm). Single source of truth for the collapsible accordion UI, copy/paste buttons, paste dialog, and status alerts.
+- **AI prompt — output type awareness** — The AI context now includes `output_type` ("light" or "switch") for each output. Prompts guide AI to use appropriate action types (e.g., BRIGHTNESS_UP for lights, TOGGLE/ON/OFF for switches).
+- **AI prompt — remote devices guidance** — Added instructions for using `remote_output` and `remote_cover` action types with proper `remote_device`, `output_id`, and `cover_id` fields.
+- **AI prompt — remote binary sensors** — Added `binary_sensors` to remote device context so AI can see available remote inputs from ESPHome devices.
+- **Irrigation AI — switch-only rule** — Irrigation prompt now explicitly forbids using "light" type outputs for valves and pumps.
+
+### 🐛 Bug Fixes
+
+- **AI Config — missing remote inputs** — `buildAiConfigContext` now includes `binary_sensors` for each remote device (merged from `binary_sensors` + `_discovered_binary_sensors`), fixing empty remote input list in AI prompt.
+- **httpx test dependency** — Added `httpx>=0.28.0` to `[tool.pdm.dev-dependencies] test` — required by FastAPI's `TestClient` which is used in `test_irrigation_ai.py`.
+- **LoxUDP protocol fixes** — Fixed LoxUDP protocol communication issues.
+- **Remote output interlock** — Fixed remote output interlock behavior.
+- **Remote cover tilt action** — Fixed missing tilt action for remote covers.
+
+### ♻️ Refactoring
+
+- **AiConfigAssistant simplified** — Reduced from 239 to 146 lines by delegating UI to `AiAssistantShell`.
+- **IrrigationForm AI cleanup** — Removed ~100 lines of duplicated AI UI code, replaced with `AiAssistantShell` component.
+- **Nested accordion removed** — The "Szczegóły" (Details) inner accordion was removed from AI assistant since the whole block is already collapsible.
+- **AI state management unified** — `IrrigationForm` now uses `aiStatus` object pattern (matching `AiConfigAssistant`) instead of separate `aiError`/`aiSuccess` states.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev4...v1.4.0dev5
+
+---
+
 ## v1.4.0dev4 (2026-05-17)
 
 ### 🐛 Bug Fixes
