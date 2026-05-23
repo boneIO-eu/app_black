@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -1096,7 +1097,7 @@ class TestInterlockFault:
         await ctrl.start_full_cycle()
 
         assert ctrl.state == ControllerState.IDLE
-        # Fault published
+        # Legacy fault topic published
         ctrl._message_bus.send_message.assert_any_call(
             topic="boneio/irrigation/test_ctrl/fault",
             payload={
@@ -1108,6 +1109,25 @@ class TestInterlockFault:
             },
             retain=False,
         )
+        # HA event entity also published
+        event_calls = [
+            c for c in ctrl._message_bus.send_message.call_args_list
+            if c.kwargs.get("topic", c.args[0] if c.args else "") == "boneio/irrigation/test_ctrl/event"
+               or (isinstance(c.kwargs, dict) and c.kwargs.get("topic") == "boneio/irrigation/test_ctrl/event")
+        ]
+        # Use keyword args matching
+        found_event = False
+        for c in ctrl._message_bus.send_message.call_args_list:
+            topic = c.kwargs.get("topic") if c.kwargs else None
+            if topic == "boneio/irrigation/test_ctrl/event":
+                payload = json.loads(c.kwargs["payload"])
+                assert payload["event_type"] == "interlock_fault"
+                assert payload["zone"] == "zone_0"
+                assert payload["source"] == "ws_default"
+                assert c.kwargs["retain"] is False
+                found_event = True
+                break
+        assert found_event, "Expected interlock_fault event on event topic"
 
     @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
     @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
@@ -1305,3 +1325,104 @@ class TestEdgeCases:
         ctrl._active_zone_idx = None
         await ctrl._advance_to_next_zone()
         assert ctrl.state == ControllerState.IDLE
+
+
+# ── Event entity publishing ──────────────────────────────────────────────────────
+
+
+def _find_event(ctrl, event_type: str) -> dict | None:
+    """Find a published event of given type from the message bus calls."""
+    for c in ctrl._message_bus.send_message.call_args_list:
+        topic = c.kwargs.get("topic")
+        if topic == f"boneio/irrigation/{ctrl.id}/event":
+            payload = json.loads(c.kwargs["payload"])
+            if payload.get("event_type") == event_type:
+                return payload
+    return None
+
+
+class TestEventPublishing:
+    """Tests for HA event entity notifications."""
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_standby_blocked_event_on_full_cycle(self, _utc, _timer):
+        """Starting full cycle in standby mode should fire standby_blocked event."""
+        ctrl = _make_controller(standby=True)
+        await ctrl.start_full_cycle()
+
+        event = _find_event(ctrl, "standby_blocked")
+        assert event is not None, "Expected standby_blocked event"
+        assert event["controller"] == "test_ctrl"
+        assert "standby" in event["message"].lower()
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_standby_blocked_event_on_single_zone(self, _utc, _timer):
+        """Starting single zone in standby mode should fire standby_blocked event with zone."""
+        ctrl = _make_controller(standby=True)
+        await ctrl.start_single_zone("zone_1")
+
+        event = _find_event(ctrl, "standby_blocked")
+        assert event is not None, "Expected standby_blocked event"
+        assert event["zone"] == "zone_1"
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_cycle_complete_event(self, _utc, _timer, _sleep):
+        """Advancing past last zone should fire cycle_complete event."""
+        zones = _make_zones(2)
+        ctrl = _make_controller(zones=zones, auto_advance=True)
+        await ctrl.start_full_cycle()
+
+        await ctrl._advance_to_next_zone()  # 0 -> 1
+        # No event yet — still running
+        assert _find_event(ctrl, "cycle_complete") is None
+
+        await ctrl._advance_to_next_zone()  # 1 -> done
+        event = _find_event(ctrl, "cycle_complete")
+        assert event is not None, "Expected cycle_complete event"
+        assert event["controller"] == "test_ctrl"
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_interlock_fault_event_payload(self, _utc, _timer, _sleep):
+        """Interlock fault should fire event with zone and source details."""
+        master = _mock_valve("master")
+        master.async_turn_on = AsyncMock(return_value=False)
+        ws = _make_water_source(source_id="rainwater", outputs=[master])
+        ctrl = _make_controller(water_sources=[ws])
+
+        await ctrl.start_full_cycle()
+
+        event = _find_event(ctrl, "interlock_fault")
+        assert event is not None, "Expected interlock_fault event"
+        assert event["zone"] == "zone_0"
+        assert event["source"] == "rainwater"
+        assert "interlock" in event["message"].lower()
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_event_not_retained(self, _utc, _timer, _sleep):
+        """Events should be published with retain=False."""
+        ctrl = _make_controller(standby=True)
+        await ctrl.start_full_cycle()
+
+        for c in ctrl._message_bus.send_message.call_args_list:
+            topic = c.kwargs.get("topic")
+            if topic == f"boneio/irrigation/{ctrl.id}/event":
+                assert c.kwargs["retain"] is False, "Event should not be retained"
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_no_cycle_complete_on_manual_shutdown(self, _utc, _timer, _sleep):
+        """Manual shutdown should NOT fire cycle_complete event."""
+        ctrl = _make_controller()
+        await ctrl.start_full_cycle()
+        await ctrl.shutdown()
+
+        assert _find_event(ctrl, "cycle_complete") is None

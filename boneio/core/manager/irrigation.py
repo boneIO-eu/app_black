@@ -11,6 +11,7 @@ from boneio.const import NEXT_VALVE, ON, PAUSE, RESUME
 from boneio.core.utils.timeperiod import parse_time_to_seconds
 from boneio.integration.homeassistant import (
     ha_irrigation_button_message,
+    ha_irrigation_event_message,
     ha_irrigation_main_switch_message,
     ha_irrigation_number_message,
     ha_irrigation_select_message,
@@ -282,6 +283,7 @@ class IrrigationManager:
             (f"{ctrl.id}_next_valve", "button"),
             (f"{ctrl.id}_pause", "button"),
             (f"{ctrl.id}_resume", "button"),
+            (f"{ctrl.id}_event", "event"),
         ]
         for zone in ctrl.zones:
             discovery_ids.append((f"{ctrl.id}_zone_{zone.id}", "valve"))
@@ -592,3 +594,14 @@ class IrrigationManager:
                     config_helper=cfg,
                 ),
             )
+
+        # Event entity — fires on interlock faults, cycle completions, etc.
+        self._manager.publish_ha_discovery(
+            id=f"{ctrl.id}_event",
+            ha_type="event",
+            payload=ha_irrigation_event_message(
+                ctrl.id,
+                ctrl.name,
+                config_helper=cfg,
+            ),
+        )

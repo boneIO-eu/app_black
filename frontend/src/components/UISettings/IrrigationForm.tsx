@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
+import AiAssistantShell from './AiAssistantShell';
 import {
   Select,
   SelectContent,
@@ -643,8 +645,220 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
     onValidationChange(!(hasId && hasZones));
   }, [data.id, zones, onValidationChange]);
 
+  // ── AI Wizard ─────────────────────────────────────────────────────
+
+  /** Build an output list from the outputs we know about. */
+  const buildOutputList = useCallback(() => {
+    return allOutputs.map((o: any) => {
+      const id = o.id || o.boneio_output || '';
+      const name = o.name || o.id || '';
+      const type = o.output_type || 'switch';
+      return `- ${id} ("${name}", type: ${type})`;
+    }).join('\n');
+  }, [allOutputs]);
+
+  /**
+   * Copies the irrigation AI prompt to clipboard.
+   * Fetches context from backend for richer data, falls back to local allOutputs.
+   */
+  const handleCopyPrompt = useCallback(async (): Promise<boolean> => {
+    try {
+      let outputLines: string;
+      let existingLines = 'None configured yet.';
+      let deviceName = 'boneIO Black';
+
+      try {
+        const resp = await axios.get('/api/irrigation/ai-context');
+        const ctx = resp.data;
+        deviceName = ctx.device_name || deviceName;
+
+        outputLines = ctx.available_outputs
+          .map((o: any) => {
+            const status = o.in_use ? `IN USE by ${o.used_by}` : 'available';
+            return `- ${o.id} ("${o.name}", type: ${o.type}) \u2014 ${status}`;
+          })
+          .join('\n');
+
+        if (ctx.existing_controllers?.length > 0) {
+          existingLines = ctx.existing_controllers
+            .map((c: any) => {
+              const zones = c.zones.map((z: any) => `${z.id}(valve:${z.valve})`).join(', ');
+              const sources = c.water_sources.map((ws: any) => `${ws.id}(outputs:${ws.outputs.join(',')})`).join(', ');
+              return `- "${c.id}" (${c.name}): zones=[${zones}], water_sources=[${sources}]`;
+            })
+            .join('\n');
+        }
+      } catch {
+        outputLines = buildOutputList();
+      }
+
+      const prompt = `You are a boneIO irrigation configuration assistant.
+
+The user has a ${deviceName} device with the following relay outputs:
+${outputLines}
+
+Existing irrigation controllers:
+${existingLines}
+
+Your job:
+1. Ask the user about their irrigation setup in a conversational way:
+   - How many irrigation zones? What are they called?
+   - Which output controls which zone valve?
+   - Do they have a master pump or master valve? Which output?
+   - How long should each zone run (in minutes)?
+   - How often should each zone run? (every cycle, every 2nd cycle, etc.)
+   - What time should irrigation start? Which days?
+   - Do they have multiple water sources (e.g., rainwater + city water)?
+
+2. After gathering all information, generate a JSON configuration in this EXACT format:
+\`\`\`json
+{
+  "id": "lowercase_no_spaces",
+  "name": "Display Name",
+  "schedule": [{"time": "06:00", "days": "daily"}],
+  "zones": [
+    {
+      "id": "zone_id",
+      "name": "Zone Name",
+      "valve_id": "output_id_from_list_above",
+      "run_duration": "10min",
+      "run_every_n": 1,
+      "enabled": true
+    }
+  ],
+  "water_sources": [
+    {
+      "id": "source_id",
+      "name": "Source Name",
+      "outputs": ["output_id"]
+    }
+  ]
+}
+\`\`\`
+
+Rules:
+- ONLY use output IDs from the available list above.
+- ONLY use outputs of type "switch" for valves and pumps. Outputs of type "light" are for lighting and MUST NOT be used for irrigation.
+- run_duration uses format like "10min", "30s", "1h".
+- run_every_n: 1 = every cycle, 2 = every other cycle, 3 = every 3rd, etc.
+- days options: daily, weekdays, weekend, mon, tue, wed, thu, fri, sat, sun.
+- water_sources.outputs = the pump/master valve output IDs.
+- zone.valve_id = the zone solenoid valve output ID.
+- Generate a single controller object (not an array).
+- When done, output ONLY the JSON block inside \`\`\`json ... \`\`\` markers.`;
+
+      await navigator.clipboard.writeText(prompt);
+      return true;
+    } catch (err) {
+      console.error('Failed to copy wizard prompt:', err);
+      return false;
+    }
+  }, [buildOutputList]);
+
+  /**
+   * Validates and applies the pasted AI response to the irrigation form.
+   * Returns an array of error messages (empty = success).
+   */
+  const handleApplyResponse = useCallback((responseText: string): string[] => {
+    try {
+      // Extract JSON from response (may be wrapped in ```json ... ```)
+      let jsonStr = responseText.trim();
+      const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      }
+
+      const parsed = JSON.parse(jsonStr);
+
+      // Validate required fields
+      if (!parsed.zones || !Array.isArray(parsed.zones) || parsed.zones.length === 0) {
+        return [t('irrigation.ai_invalid_json')];
+      }
+
+      // Validate output IDs
+      const outputIds = new Set(allOutputs.map((o: any) => o.id || o.boneio_output || ''));
+      const errors: string[] = [];
+
+      for (const zone of parsed.zones) {
+        const valveId = zone.valve_id || zone.valve || '';
+        if (valveId && !outputIds.has(valveId)) {
+          errors.push(`Zone '${zone.id || '?'}': valve '${valveId}' not found in available outputs.`);
+        }
+      }
+
+      for (const ws of (parsed.water_sources || [])) {
+        for (const outId of (ws.outputs || [])) {
+          if (outId && !outputIds.has(outId)) {
+            errors.push(`Water source '${ws.id || '?'}': output '${outId}' not found.`);
+          }
+        }
+      }
+
+      if (errors.length > 0) {
+        return errors;
+      }
+
+      // Build form data
+      const newData: any = { ...data };
+      if (parsed.id) newData.id = parsed.id;
+      if (parsed.name) newData.name = parsed.name;
+
+      newData.zones = parsed.zones.map((z: any) => ({
+        id: z.id || sanitizeId(z.name || ''),
+        name: z.name || z.id || '',
+        valve_id: z.valve_id || z.valve || '',
+        run_duration: z.run_duration || '5min',
+        run_every_n: z.run_every_n || 1,
+        enabled: z.enabled !== false,
+      }));
+
+      if (parsed.schedule && Array.isArray(parsed.schedule)) {
+        newData.schedule = parsed.schedule.map((s: any) => ({
+          time: s.time || '06:00',
+          days: s.days || 'daily',
+        }));
+      }
+
+      if (parsed.water_sources && Array.isArray(parsed.water_sources)) {
+        newData.water_sources = parsed.water_sources.map((ws: any) => ({
+          id: ws.id || sanitizeId(ws.name || ''),
+          name: ws.name || ws.id || '',
+          outputs: ws.outputs || [],
+        }));
+      }
+
+      if (parsed.valve_open_delay) newData.valve_open_delay = parsed.valve_open_delay;
+      if (parsed.valve_overlap) newData.valve_overlap = parsed.valve_overlap;
+      if (parsed.pause_timeout) newData.pause_timeout = parsed.pause_timeout;
+
+      onChange(newData);
+      return [];
+    } catch {
+      return [t('irrigation.ai_invalid_json')];
+    }
+  }, [data, allOutputs, onChange, t]);
+
   return (
     <div className="space-y-4">
+      {/* AI Configuration Assistant */}
+      <AiAssistantShell
+        onCopyPrompt={handleCopyPrompt}
+        onApply={handleApplyResponse}
+        detailsContent={
+          <>
+            <p>{t('irrigation.ai_wizard_description')}</p>
+            <p>
+              <a className="link link-primary" href="https://boneio.eu/docs/black" target="_blank" rel="noreferrer">
+                {t('event_form.ai_docs_link')}
+              </a>
+            </p>
+          </>
+        }
+        dialogDescription={t('irrigation.ai_paste_desc')}
+        pastePlaceholder={t('irrigation.ai_paste_placeholder')}
+        successMessage={t('irrigation.ai_apply_success')}
+      />
+
       {/* Name */}
       <div className="form-control">
         <label className="label py-1">
@@ -779,6 +993,8 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
       {(zones.length === 0 || zones.some((z) => !z.valve_id)) && (
         <p className="text-xs text-warning">{t('irrigation.fields_required')}</p>
       )}
+
+
     </div>
   );
 };

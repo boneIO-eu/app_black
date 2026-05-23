@@ -611,7 +611,7 @@ class Manager:
         self,
         id: str,
         ha_type: str,
-        payload: dict,
+        payload: dict[str, Any] | str,
     ) -> None:
         """Publish a pre-built HA autodiscovery payload.
 

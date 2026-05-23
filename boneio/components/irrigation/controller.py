@@ -186,6 +186,10 @@ class IrrigationController:
     def _schedule_skip_cmd_topic(self, idx: int) -> str:
         return f"{self._topic_prefix}/cmd/{IRRIGATION}/{self.id}/schedule/{idx}/skip/set"
 
+    def _event_topic(self) -> str:
+        """MQTT topic for HA event entity notifications."""
+        return f"{self._topic_prefix}/{IRRIGATION}/{self.id}/event"
+
     def _state_key(self, suffix: str) -> str:
         return f"{self.id}/{suffix}"
 
@@ -227,6 +231,24 @@ class IrrigationController:
     def _publish(self, topic: str, payload: Any, retain: bool = True) -> None:
         _LOGGER.debug("Irrigation MQTT publish: topic='%s' payload=%s retain=%s", topic, payload, retain)
         self._message_bus.send_message(topic=topic, payload=payload, retain=retain)
+
+    def _publish_event(self, event_type: str, **attributes: Any) -> None:
+        """Publish an event to the HA event entity topic.
+
+        The payload follows the HA MQTT event entity format:
+        ``{"event_type": "...", ...extra attributes}``.
+
+        Events are NOT retained — they are instantaneous notifications.
+
+        Args:
+            event_type: One of the registered event types
+                (interlock_fault, cycle_complete, standby_blocked).
+            **attributes: Additional key-value pairs included in the event payload.
+        """
+        import json
+
+        payload = {"event_type": event_type, **attributes}
+        self._publish(self._event_topic(), json.dumps(payload), retain=False)
 
     def _ordered_zones(self) -> list[tuple[int, IrrigationZone]]:
         indexed = list(enumerate(self._zones))
@@ -408,6 +430,11 @@ class IrrigationController:
         )
         if self._standby:
             _LOGGER.info("Irrigation %s is in standby mode, not starting", self.id)
+            self._publish_event(
+                "standby_blocked",
+                controller=self.id,
+                message=f"Irrigation '{self.name}' start blocked: standby mode is active",
+            )
             return
 
         if self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
@@ -436,6 +463,12 @@ class IrrigationController:
         )
         if self._standby:
             _LOGGER.info("Irrigation %s is in standby mode, not starting zone", self.id)
+            self._publish_event(
+                "standby_blocked",
+                controller=self.id,
+                zone=zone_id,
+                message=f"Irrigation '{self.name}' zone '{zone_id}' blocked: standby mode is active",
+            )
             return
 
         match_idx = None
@@ -559,6 +592,11 @@ class IrrigationController:
             await self._start_cycle_from_eligible()
             return
 
+        self._publish_event(
+            "cycle_complete",
+            controller=self.id,
+            message=f"Irrigation '{self.name}' cycle completed",
+        )
         await self.shutdown()
 
     def _ordered_zone_indices(self) -> list[int]:
@@ -726,8 +764,10 @@ class IrrigationController:
     async def _handle_interlock_fault(self, zone_id: str, source_id: str | None) -> None:
         """Handle interlock-blocked activation.
 
-        Shuts down the controller and publishes a fault notification via MQTT
-        so that Home Assistant (or other consumers) can alert the user.
+        Shuts down the controller and publishes both a retained fault status
+        message and a non-retained HA event notification via the event entity.
+        Home Assistant automations can listen to the event entity to trigger
+        mobile push notifications, Telegram messages, etc.
 
         Args:
             zone_id: ID of the zone that was being started.
@@ -742,18 +782,29 @@ class IrrigationController:
             source_info,
         )
 
-        # Publish fault notification on MQTT
+        fault_message = f"Irrigation '{self.name}' stopped: output blocked by interlock (zone: {zone_id})"
+
+        # Publish retained fault status on MQTT (legacy topic)
         fault_payload = {
             "fault": "interlock_blocked",
             "controller": self.id,
             "zone": zone_id,
             "source": source_id or "",
-            "message": f"Irrigation '{self.name}' stopped: output blocked by interlock (zone: {zone_id})",
+            "message": fault_message,
         }
         self._publish(
             f"{self._topic_prefix}/{IRRIGATION}/{self.id}/fault",
             fault_payload,
             retain=False,
+        )
+
+        # Publish HA event entity notification (non-retained, instantaneous)
+        self._publish_event(
+            "interlock_fault",
+            controller=self.id,
+            zone=zone_id,
+            source=source_id or "",
+            message=fault_message,
         )
 
         await self.shutdown()

@@ -495,6 +495,53 @@ def ha_irrigation_select_message(
     return msg
 
 
+def ha_irrigation_event_message(
+    ctrl_id: str,
+    ctrl_name: str,
+    config_helper: ConfigHelper,
+) -> dict[str, Any]:
+    """Create event entity discovery for irrigation controller notifications.
+
+    The event entity fires when notable events occur on the controller,
+    such as interlock faults, cycle completions, or standby blocks.
+    Home Assistant automations can listen to these events and trigger
+    notifications (e.g. mobile push, Telegram, email).
+
+    Event types:
+        - interlock_fault: Output blocked by interlock group.
+        - cycle_complete: Full irrigation cycle finished.
+        - standby_blocked: Start attempt blocked by standby mode.
+
+    Each event payload contains ``event_type`` and additional attributes
+    like ``zone``, ``source``, and ``message``.
+
+    Args:
+        ctrl_id: Controller ID.
+        ctrl_name: Controller display name.
+        config_helper: Config helper for topic prefix and device info.
+
+    Returns:
+        HA discovery payload dict for an event entity.
+    """
+    topic = config_helper.topic_prefix
+    msg = ha_availabilty_message(
+        device_type=IRRIGATION,
+        config_helper=config_helper,
+        entity_type="event",
+        id=f"irrigation_{ctrl_id}_event",
+        name=f"{ctrl_name} Event",
+    )
+    msg["device"] = _ha_irrigation_device(ctrl_id, ctrl_name, config_helper)
+    msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/event"
+    msg["event_types"] = [
+        "interlock_fault",
+        "cycle_complete",
+        "standby_blocked",
+    ]
+    msg["icon"] = "mdi:message-alert"
+    return msg
+
+
 def ha_switch_availabilty_message(id: str, config_helper: ConfigHelper, device_type: str = OUTPUT, **kwargs):
     """Create SWITCH availability topic for HA."""
     msg = ha_availabilty_message(device_type=device_type, config_helper=config_helper, entity_type="switch", id=id, **kwargs)

@@ -177,6 +177,7 @@ function getLocalOutputOptions(allOutputs: OutputEntity[] = [], allOutputGroups:
   const outputs = normalizeOutputs(allOutputs as Array<OutputEntity & { boneio_output?: string }>).map((output) => ({
     id: output.id,
     name: output.name || output.id,
+    output_type: output.kind || 'switch',
     area: output.area,
     area_name: output.area ? areaMap.get(output.area) || output.area : undefined,
     kind: 'output',
@@ -262,6 +263,27 @@ function getRemoteCoverOptions(device: RemoteDeviceEntity): RemoteCoverOption[] 
 }
 
 /**
+ * Returns available remote binary sensors (inputs) for a given remote device.
+ */
+function getRemoteBinarySensorOptions(device: RemoteDeviceEntity): { id: string; name?: string }[] {
+  const configured = device.esphome_api?.binary_sensors || [];
+  const discovered = device.esphome_api?._discovered_binary_sensors || [];
+
+  // Merge configured + discovered, deduplicating by ID
+  const seen = new Set<string>();
+  const result: { id: string; name?: string }[] = [];
+
+  for (const sensor of [...configured, ...discovered]) {
+    if (!seen.has(sensor.id)) {
+      seen.add(sensor.id);
+      result.push({ id: sensor.id, name: sensor.name || sensor.id });
+    }
+  }
+
+  return result;
+}
+
+/**
  * Builds the structured context sent to an external AI assistant.
  */
 export function buildAiConfigContext<T extends SupportedEntity>({
@@ -328,6 +350,7 @@ export function buildAiConfigContext<T extends SupportedEntity>({
       protocol: device.protocol || 'mqtt',
       outputs: getRemoteOutputOptions(device),
       covers: getRemoteCoverOptions(device),
+      binary_sensors: getRemoteBinarySensorOptions(device),
     })),
   };
 }
@@ -348,6 +371,19 @@ export function buildAiConfigPrompt<T extends SupportedEntity>(params: BuildAiCo
     'Only include fields that should be changed.',
     'For actions, use the exact field names expected by boneIO, e.g. action, boneio_output, action_output, boneio_cover, action_cover, remote_device, output_id, cover_id.',
     'When clearing an optional scalar field, use null. When clearing actions for a slot, use an empty array.',
+    '',
+    'Output types and action guidance:',
+    '- Each output in available_outputs has an output_type field: "light" or "switch".',
+    '- For "switch" outputs: use action_output values like TOGGLE, ON, OFF.',
+    '- For "light" outputs: you can also use BRIGHTNESS_UP, BRIGHTNESS_DOWN, BRIGHTNESS_UP_CYCLE, BRIGHTNESS_DOWN_CYCLE, SET_BRIGHTNESS, CYCLE_COLOR, CYCLE_PRESET.',
+    '- Use the action_output_options list from the context to see all valid values.',
+    '',
+    'Remote devices:',
+    '- available_remote_devices lists devices connected via ESPHome API, WLED, or MQTT.',
+    '- Each remote device has outputs, covers, and binary_sensors arrays.',
+    '- To control a remote output, use action: "remote_output", remote_device: "<device_id>", output_id: "<output_id>", action_output: "TOGGLE".',
+    '- To control a remote cover, use action: "remote_cover", remote_device: "<device_id>", cover_id: "<cover_id>", action_cover: "TOGGLE".',
+    '- Remote device binary_sensors are available as inputs for remote input configuration.',
     '',
     'Context JSON:',
     JSON.stringify(context, null, 2),

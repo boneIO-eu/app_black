@@ -322,3 +322,219 @@ async def toggle_schedule_skip(
     ctrl._save(f"schedule/{idx}/skip", skip)
 
     return {"status": "ok", "skip": skip}
+
+
+# ============================================================================
+# AI Context: export available outputs + existing controllers for AI prompt
+# ============================================================================
+
+
+@router.get("/ai-context")
+async def get_ai_context(manager: Manager = Depends(get_manager)):
+    """Return context data for AI-assisted irrigation configuration.
+
+    Provides available outputs, existing controllers, and schema summary
+    that can be embedded into an AI prompt for generating irrigation config.
+
+    Returns:
+        Dict with available_outputs, existing_controllers, and schema_summary.
+    """
+    # Available outputs (relays, valves, etc.)
+    available_outputs = []
+    used_output_ids: set[str] = set()
+
+    # Collect output IDs already used by irrigation controllers
+    for ctrl in manager.irrigation._controllers.values():
+        for zone in ctrl.zones:
+            if hasattr(zone, "valve") and hasattr(zone.valve, "id"):
+                used_output_ids.add(zone.valve.id)
+        for ws in ctrl.water_sources:
+            for out in ws.outputs:
+                if hasattr(out, "id"):
+                    used_output_ids.add(out.id)
+
+    for output_id, output in manager.outputs.get_all_outputs().items():
+        out_info: dict[str, Any] = {
+            "id": output_id,
+            "name": getattr(output, "name", output_id),
+            "type": getattr(output, "output_type", "unknown"),
+        }
+        if output_id in used_output_ids:
+            out_info["in_use"] = True
+            # Find which controller uses it
+            for ctrl in manager.irrigation._controllers.values():
+                for zone in ctrl.zones:
+                    if hasattr(zone, "valve") and getattr(zone.valve, "id", None) == output_id:
+                        out_info["used_by"] = f"irrigation:{ctrl.id}:zone:{zone.id}"
+                        break
+                for ws in ctrl.water_sources:
+                    for out_obj in ws.outputs:
+                        if getattr(out_obj, "id", None) == output_id:
+                            out_info["used_by"] = f"irrigation:{ctrl.id}:source:{ws.id}"
+                            break
+        else:
+            out_info["in_use"] = False
+
+        available_outputs.append(out_info)
+
+    # Existing controllers summary
+    existing_controllers = []
+    for ctrl in manager.irrigation._controllers.values():
+        existing_controllers.append({
+            "id": ctrl.id,
+            "name": ctrl.name,
+            "zones": [{"id": z.id, "name": z.name, "valve": getattr(z.valve, "id", None)} for z in ctrl.zones],
+            "water_sources": [
+                {"id": ws.id, "name": ws.name, "outputs": ws.output_ids}
+                for ws in ctrl.water_sources
+            ],
+            "schedules": [
+                {"time": s.get("time", ""), "days": s.get("days", "daily")}
+                for s in ctrl._schedule
+            ],
+        })
+
+    return {
+        "device_name": getattr(manager, "_device_name", "boneIO Black"),
+        "available_outputs": available_outputs,
+        "existing_controllers": existing_controllers,
+        "schema_summary": {
+            "controller_fields": [
+                "id (string, lowercase, no spaces)",
+                "name (string, display name)",
+                "schedule (list of {time: 'HH:MM', days: 'daily|weekdays|weekend|mon|tue|wed|thu|fri|sat|sun'})",
+                "auto_advance (bool, default true)",
+                "reverse (bool, default false)",
+                "repeat (int, 0=once)",
+                "valve_open_delay (string, e.g. '5s')",
+            ],
+            "zone_fields": [
+                "id (string, lowercase)",
+                "name (string, display name)",
+                "valve (string, output_id from available_outputs)",
+                "run_duration (int, minutes)",
+                "run_every_n (int, 1=every cycle, 2=every other, etc.)",
+            ],
+            "water_source_fields": [
+                "id (string, lowercase)",
+                "name (string, display name)",
+                "outputs (list of output_id strings — pumps/master valves)",
+            ],
+        },
+    }
+
+
+# ============================================================================
+# AI Import: validate and save AI-generated irrigation configuration
+# ============================================================================
+
+
+@router.post("/import")
+async def import_irrigation_config(
+    data: dict[str, Any] = Body(...),
+    manager: Manager = Depends(get_manager),
+):
+    """Import AI-generated irrigation configuration.
+
+    Validates the provided JSON and writes it to the YAML config file.
+    Does NOT restart controllers — user must reload or restart.
+
+    Body:
+        controllers: list of controller definitions
+            Each controller has: id, name, zones, water_sources, schedule, etc.
+
+    Returns:
+        Dict with status, created/updated controller IDs, and any conflicts.
+    """
+    controllers = data.get("controllers", [])
+    if not controllers:
+        raise HTTPException(status_code=400, detail="No controllers provided in import data.")
+
+    # Validate output IDs exist
+    all_output_ids = set(manager.outputs.get_all_outputs().keys())
+    errors: list[str] = []
+    conflicts: list[str] = []
+
+    for ctrl_def in controllers:
+        ctrl_id = ctrl_def.get("id", "")
+        if not ctrl_id:
+            errors.append("Controller missing 'id' field.")
+            continue
+
+        # Check for existing controller
+        if ctrl_id in manager.irrigation._controllers:
+            conflicts.append(ctrl_id)
+
+        # Validate zone valve IDs
+        for zone in ctrl_def.get("zones", []):
+            valve_id = zone.get("valve", "")
+            if valve_id and valve_id not in all_output_ids:
+                errors.append(f"Zone '{zone.get('id', '?')}' valve '{valve_id}' not found in available outputs.")
+
+        # Validate water source output IDs
+        for ws in ctrl_def.get("water_sources", []):
+            for out_id in ws.get("outputs", []):
+                if out_id not in all_output_ids:
+                    errors.append(f"Water source '{ws.get('id', '?')}' output '{out_id}' not found in available outputs.")
+
+    if errors:
+        raise HTTPException(status_code=400, detail={"errors": errors, "conflicts": conflicts})
+
+    # Build YAML-compatible irrigation config
+    import_configs: list[dict[str, Any]] = []
+    for ctrl_def in controllers:
+        cfg: dict[str, Any] = {
+            "id": ctrl_def["id"],
+            "name": ctrl_def.get("name", ctrl_def["id"]),
+        }
+
+        # Schedule
+        if ctrl_def.get("schedule"):
+            cfg["schedule"] = ctrl_def["schedule"]
+
+        # Settings
+        for field in ("auto_advance", "reverse", "repeat", "valve_open_delay", "valve_overlap",
+                       "pause_timeout", "pump_off_during_delay"):
+            if field in ctrl_def:
+                cfg[field] = ctrl_def[field]
+
+        # Zones
+        zones_cfg = []
+        for z in ctrl_def.get("zones", []):
+            zone_cfg: dict[str, Any] = {
+                "id": z["id"],
+                "name": z.get("name", z["id"]),
+                "valve": z["valve"],
+                "run_duration": f"{z.get('run_duration', 10)}min",
+            }
+            if z.get("run_every_n", 1) != 1:
+                zone_cfg["run_every_n"] = z["run_every_n"]
+            zones_cfg.append(zone_cfg)
+        cfg["zones"] = zones_cfg
+
+        # Water sources
+        if ctrl_def.get("water_sources"):
+            ws_cfg = []
+            for ws in ctrl_def["water_sources"]:
+                ws_item: dict[str, Any] = {
+                    "id": ws["id"],
+                    "name": ws.get("name", ws["id"]),
+                    "outputs": ws["outputs"],
+                }
+                for delay_field in ("pump_start_valve_delay", "pump_start_pump_delay",
+                                     "pump_stop_valve_delay", "pump_stop_pump_delay",
+                                     "sequential_output_start_delay", "sequential_output_stop_delay"):
+                    if delay_field in ws:
+                        ws_item[delay_field] = ws[delay_field]
+                ws_cfg.append(ws_item)
+            cfg["water_sources"] = ws_cfg
+
+        import_configs.append(cfg)
+
+    return {
+        "status": "ok",
+        "controllers": [c["id"] for c in import_configs],
+        "conflicts": conflicts,
+        "config": import_configs,
+    }
+
