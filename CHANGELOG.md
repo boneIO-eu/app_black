@@ -4,6 +4,22 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev9 (2026-05-24)
+
+### ✨ New Features
+
+- **HA Dashboard — inline tile cards** — All settings, schedule skips, and controls now use compact `inline_tile` cards with `features_position: inline` and entity's HA friendly name (`name: {type: entity}`).
+- **New reusable `inline_tile()`** — Generic dashboard card builder for compact inline tiles. Reusable for future dashboards (covers, gates, etc.).
+- **Water source — tile card with select-options** — Water source select uses tile card with `features: [select-options]` and `features_position: inline`.
+- **Sterowanie — horizontal tile cards** — Pause/Resume/Next valve rendered as tile cards in horizontal-stack instead of entities card.
+- **Czasy podlewania — slider tile cards** — Zone duration tiles with `numeric-input` buttons, stacked vertically under a heading.
+- **Podlewanie ręczne — valve tiles** — Zone valve tiles in rows of 2 for manual control.
+- **Schedule skips folded into Ustawienia** — No separate "Harmonogramy" section; schedule skip switches appear as inline tiles in Ustawienia.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev8...v1.4.0dev9
+
+---
+
 ## v1.4.0dev8 (2026-05-24)
 
 ### ✨ New Features
