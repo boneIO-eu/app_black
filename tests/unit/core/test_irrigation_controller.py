@@ -1195,49 +1195,65 @@ class TestInterlockFault:
 
 
 class TestNextFireTime:
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_today_future(self, mock_utc):
-        # Monday 2026-04-06 at 05:00 → next 06:00 is today
-        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=UTC)
+    """Tests for _next_fire_time.
+
+    _next_fire_time interprets time_str as local time, builds candidate
+    in local tz, and returns UTC.  We mock _local_now to provide a
+    deterministic local time (UTC+2 simulating CEST).
+    """
+
+    CEST = timezone(timedelta(hours=2))
+
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_today_future(self, mock_local):
+        # Monday 2026-04-06 at 05:00 local (CEST) → next 06:00 local is today
+        mock_local.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("06:00", "daily")
-        assert result.hour == 6
+        # 06:00 CEST = 04:00 UTC
+        assert result.hour == 4
         assert result.minute == 0
         assert result.day == 6
 
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_today_past(self, mock_utc):
-        # Monday 2026-04-06 at 07:00 → next 06:00 is tomorrow
-        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=UTC)
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_today_past(self, mock_local):
+        # Monday 2026-04-06 at 07:00 local (CEST) → next 06:00 local is tomorrow
+        mock_local.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("06:00", "daily")
+        # Tomorrow 06:00 CEST = 04:00 UTC on 2026-04-07
         assert result.day == 7
+        assert result.hour == 4
 
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_weekdays_only(self, mock_utc):
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_weekdays_only(self, mock_local):
         # Saturday 2026-04-11 → next weekday 06:00 is Monday 2026-04-13
-        mock_utc.return_value = datetime(2026, 4, 11, 7, 0, 0, tzinfo=UTC)
+        mock_local.return_value = datetime(2026, 4, 11, 7, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("06:00", "weekdays")
         assert result.weekday() in {0, 1, 2, 3, 4}  # Mon-Fri
-        assert result > mock_utc.return_value
+        assert result > mock_local.return_value.astimezone(UTC)
 
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_weekend_only(self, mock_utc):
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_weekend_only(self, mock_local):
         # Wednesday 2026-04-08 → next weekend 06:00 is Saturday 2026-04-11
-        mock_utc.return_value = datetime(2026, 4, 8, 7, 0, 0, tzinfo=UTC)
+        mock_local.return_value = datetime(2026, 4, 8, 7, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("06:00", "weekend")
-        assert result.weekday() in {5, 6}  # Sat-Sun
+        # Result is UTC — convert to local to check weekday
+        result_local = result.astimezone(self.CEST)
+        assert result_local.weekday() in {5, 6}  # Sat-Sun
 
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_specific_day(self, mock_utc):
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_specific_day(self, mock_local):
         # Monday 2026-04-06 → next "wed" is 2026-04-08
-        mock_utc.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=UTC)
+        mock_local.return_value = datetime(2026, 4, 6, 7, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("06:00", "wed")
-        assert result.weekday() == 2
+        result_local = result.astimezone(self.CEST)
+        assert result_local.weekday() == 2
 
-    @patch(f"{MODULE}.utcnow")
-    def test_next_fire_time_invalid_time_defaults(self, mock_utc):
-        mock_utc.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=UTC)
+    @patch(f"{MODULE}._local_now")
+    def test_next_fire_time_invalid_time_defaults(self, mock_local):
+        mock_local.return_value = datetime(2026, 4, 6, 5, 0, 0, tzinfo=self.CEST)
         result = _next_fire_time("bad:time", "daily")
-        assert result.hour == 6
+        # Defaults to 06:00 local = 04:00 UTC
+        assert result.hour == 4
         assert result.minute == 0
 
 

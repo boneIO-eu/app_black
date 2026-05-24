@@ -1058,9 +1058,36 @@ class IrrigationController:
 
             await self.start_full_cycle()
 
+def _local_now() -> datetime:
+    """Return the current time in the system's local timezone.
+
+    Extracted as a module-level function so tests can mock it easily.
+    """
+    import datetime as _dt
+
+    local_tz = _dt.datetime.now().astimezone().tzinfo
+    return _dt.datetime.now(local_tz)
+
 
 def _next_fire_time(time_str: str, days: str) -> datetime:
-    now = utcnow()
+    """Compute next fire time for a schedule entry.
+
+    The user-configured ``time_str`` (e.g. "18:00") is in **local time**.
+    We build the candidate in the system's local timezone and then convert
+    to UTC so that comparisons with ``utcnow()`` and HA's
+    ``device_class: timestamp`` work correctly.
+
+    Args:
+        time_str: Schedule time in "HH:MM" format (local time).
+        days: Day filter string ("daily", "weekdays", "weekends", "mon,wed,fri", etc.).
+
+    Returns:
+        Next fire time as a timezone-aware UTC datetime.
+    """
+    import datetime as _dt
+
+    now_local = _local_now()
+
     try:
         hh, mm = time_str.split(":", 1)
         target_h = int(hh)
@@ -1071,18 +1098,21 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
     allowed_days = _DAYS_MAP.get(days, _DAYS_MAP["daily"])
 
     for plus_days in range(0, 8):
-        candidate = (now + timedelta(days=plus_days)).replace(
+        candidate_local = (now_local + timedelta(days=plus_days)).replace(
             hour=target_h,
             minute=target_m,
             second=0,
             microsecond=0,
         )
-        if candidate.weekday() in allowed_days and candidate > now:
-            return candidate
+        if candidate_local.weekday() in allowed_days and candidate_local > now_local:
+            # Convert to UTC for consistent comparison with utcnow()
+            return candidate_local.astimezone(_dt.UTC)
 
-    return (now + timedelta(days=1)).replace(
+    fallback_local = (now_local + timedelta(days=1)).replace(
         hour=target_h,
         minute=target_m,
         second=0,
         microsecond=0,
     )
+    return fallback_local.astimezone(_dt.UTC)
+
