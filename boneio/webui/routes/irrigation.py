@@ -649,7 +649,12 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
 
     # Water source select (if multiple)
     if len(ctrl.water_sources) > 1:
-        cards.append(entities_card([eid("select", "water_source")], title="Źródło wody"))
+        cards.append(heading_card("Źródło wody", style="subtitle"))
+        cards.append(tile_card(
+            eid("select", "water_source"), "Źródło wody", "mdi:water-pump",
+            features=[{"type": "select-options"}],
+            features_position="inline",
+        ))
 
     # ── 6. Harmonogramy ───────────────────────────────────────────────
     for idx, sched in enumerate(ctrl._schedule):
