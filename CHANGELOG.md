@@ -4,6 +4,23 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev8 (2026-05-24)
+
+### ✨ New Features
+
+- **HA Dashboard — reorganized layout** — Dashboard is now organized into clear sections: "Podlewanie ręczne" (valve tiles in rows of 2), "Czasy podlewania" (zone durations as compact inline entities card), "Ustawienia", "Sterowanie", "Harmonogramy", "Sensory", "Zdarzenia".
+- **Dynamic duration max** — Zone duration number entity max is now based on configured duration + 20 min (clamped to [30, 120]) instead of hardcoded 1440 min. Prevents accidental 24-hour irrigation.
+- **Modbus device: EHT-TOPVENTIL-PLUS** — Added `eht-topventil-plus` to the allowed modbus devices list in schema.
+
+### 🐛 Bug Fixes
+
+- **Compact action buttons** — Replaced bulky `button` cards (Pause/Resume/Next) with compact `entities` card rendering them as single-line rows.
+- **Duration input style** — Changed numeric-input from full-width `slider` to compact `+/-` `buttons` mode.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev7...v1.4.0dev8
+
+---
+
 ## v1.4.0dev7 (2026-05-24)
 
 ### ✨ New Features
