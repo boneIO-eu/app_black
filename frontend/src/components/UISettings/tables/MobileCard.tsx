@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaEdit, FaCopy, FaTrash, FaHome } from 'react-icons/fa';
+import { FaEdit, FaCopy, FaTrash, FaFileExport } from 'react-icons/fa';
 
 interface MobileCardField {
   label: string;
@@ -74,7 +74,7 @@ const MobileCard: React.FC<MobileCardProps> = ({
                 className="btn btn-ghost btn-sm btn-square text-info"
                 title="HA Dashboard"
               >
-                <FaHome className="w-4 h-4" />
+                <FaFileExport className="w-4 h-4" />
               </button>
             )}
             {onDuplicate && (

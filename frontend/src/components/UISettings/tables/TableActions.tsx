@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaEdit, FaCopy, FaTrash, FaHome } from 'react-icons/fa';
+import { FaEdit, FaCopy, FaTrash, FaFileExport } from 'react-icons/fa';
 
 interface TableActionsProps {
   onEdit: () => void;
@@ -49,7 +49,7 @@ const TableActions: React.FC<TableActionsProps> = ({
           className="btn btn-ghost btn-xs text-info"
           title={dashboardTitle}
         >
-          <FaHome />
+          <FaFileExport />
         </button>
       )}
       <button
