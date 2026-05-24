@@ -543,26 +543,38 @@ async def import_irrigation_config(
 # Generate HA Dashboard YAML for irrigation controllers
 # ============================================================================
 
+from boneio.webui.dashboard_cards import (
+    build_entity_id,
+    button_card,
+    cards_to_yaml,
+    entities_card,
+    entity_badge,
+    heading_card,
+    horizontal_stack,
+    sensor_tile,
+    slider_tile,
+    tile_card,
+)
 
-def _build_entity_id(serial: str, entity_type: str, ctrl_id: str, suffix: str = "") -> str:
-    """Build HA entity ID from serial, type, controller and suffix.
+_IRRIGATION_PREFIX = "irrigation"
+
+
+def _irr_id(serial: str, entity_type: str, ctrl_id: str, suffix: str = "") -> str:
+    """Build an irrigation entity ID (shorthand).
 
     Args:
-        serial: Device serial number (e.g. 'blk3361e9').
-        entity_type: HA entity type (switch, valve, sensor, number, button, select, event).
+        serial: Device serial number.
+        entity_type: HA entity type.
         ctrl_id: Irrigation controller ID.
-        suffix: Optional suffix (e.g. 'zone_warzywnik', 'auto_advance').
+        suffix: Optional extra suffix.
 
     Returns:
-        Full entity ID string (e.g. 'switch.blk3361e9_irrigation_garden_main').
+        Full entity ID string.
     """
-    base = f"irrigation_{ctrl_id}"
-    if suffix:
-        base = f"{base}_{suffix}"
-    return f"{entity_type}.{serial}_{base}"
+    return build_entity_id(serial, entity_type, _IRRIGATION_PREFIX, ctrl_id, suffix)
 
 
-def _generate_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
+def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     """Generate HA dashboard cards for a single irrigation controller.
 
     Args:
@@ -573,147 +585,71 @@ def _generate_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
         List of HA card dicts for the controller.
     """
     cards: list[dict] = []
+    eid = lambda etype, suffix="": _irr_id(serial, etype, ctrl.id, suffix)
 
-    # --- Controller header with main switch + next run badge ---
-    main_switch = _build_entity_id(serial, "switch", ctrl.id)
-    next_run = _build_entity_id(serial, "sensor", ctrl.id, "next_run_time")
-    zone_end = _build_entity_id(serial, "sensor", ctrl.id, "zone_end_time")
+    main_switch = eid("switch")
+    next_run = eid("sensor", "next_run_time")
+    zone_end = eid("sensor", "zone_end_time")
 
-    header_badges = [
-        {"type": "entity", "show_state": True, "show_icon": True, "entity": main_switch},
-        {"type": "entity", "show_state": True, "show_icon": True, "entity": next_run},
+    # Controller header
+    cards.append(heading_card(
+        f"🌿 {ctrl.name}",
+        style="title",
+        badges=[entity_badge(main_switch), entity_badge(next_run)],
+    ))
+
+    # Settings entities
+    controls: list[str | dict] = [
+        eid("switch", s) for s in ("auto_advance", "standby", "skip_next_run", "reverse")
     ]
-    cards.append({
-        "type": "heading",
-        "heading_style": "title",
-        "heading": f"🌿 {ctrl.name}",
-        "badges": header_badges,
-    })
+    controls.append(eid("number", "multiplier"))
+    controls.append(eid("number", "repeat"))
+    cards.append(entities_card(controls, title="Ustawienia"))
 
-    # --- Control row: auto_advance, standby, skip_next, multiplier, repeat ---
-    controls_entities: list[str | dict] = []
-    for suffix in ("auto_advance", "standby", "skip_next_run", "reverse"):
-        controls_entities.append(_build_entity_id(serial, "switch", ctrl.id, suffix))
+    # Action buttons
+    cards.append(horizontal_stack([
+        button_card(eid("button", "pause"), "Pauza", "mdi:pause"),
+        button_card(eid("button", "resume"), "Wznów", "mdi:play"),
+        button_card(eid("button", "next_valve"), "Następna", "mdi:skip-next"),
+    ]))
 
-    controls_entities.append(_build_entity_id(serial, "number", ctrl.id, "multiplier"))
-    controls_entities.append(_build_entity_id(serial, "number", ctrl.id, "repeat"))
-
-    cards.append({
-        "type": "entities",
-        "entities": controls_entities,
-        "title": "Ustawienia",
-    })
-
-    # --- Action buttons: pause, resume, next_valve ---
-    button_row: list[dict] = []
-    for suffix, label, icon in [
-        ("pause", "Pauza", "mdi:pause"),
-        ("resume", "Wznów", "mdi:play"),
-        ("next_valve", "Następna", "mdi:skip-next"),
-    ]:
-        entity = _build_entity_id(serial, "button", ctrl.id, suffix)
-        button_row.append({
-            "type": "button",
-            "entity": entity,
-            "name": label,
-            "icon": icon,
-            "tap_action": {"action": "toggle"},
-            "show_name": True,
-            "show_icon": True,
-        })
-
-    cards.append({
-        "type": "horizontal-stack",
-        "cards": button_row,
-    })
-
-    # --- Water source select (if multiple) ---
+    # Water source select (if multiple)
     if len(ctrl.water_sources) > 1:
-        ws_entity = _build_entity_id(serial, "select", ctrl.id, "water_source")
-        cards.append({
-            "type": "entities",
-            "entities": [ws_entity],
-            "title": "Źródło wody",
-        })
+        cards.append(entities_card([eid("select", "water_source")], title="Źródło wody"))
 
-    # --- Sensors row ---
-    sensors_cards: list[dict] = []
-    for entity_id, name, icon in [
-        (zone_end, "Koniec strefy", "mdi:timer-sand"),
-        (next_run, "Następne uruchomienie", "mdi:calendar-clock"),
-    ]:
-        sensors_cards.append({
-            "type": "tile",
-            "entity": entity_id,
-            "name": name,
-            "icon": icon,
-            "state_content": ["state", "last_changed"],
-        })
-    cards.append({
-        "type": "horizontal-stack",
-        "cards": sensors_cards,
-    })
+    # Sensors row
+    cards.append(horizontal_stack([
+        sensor_tile(zone_end, "Koniec strefy", "mdi:timer-sand", state_content=["state", "last_changed"]),
+        sensor_tile(next_run, "Następne uruchomienie", "mdi:calendar-clock", state_content=["state", "last_changed"]),
+    ]))
 
-    # --- Zone cards: heading + tile + duration slider per zone ---
+    # Zone cards
     for zone in ctrl.zones:
-        zone_valve = _build_entity_id(serial, "valve", ctrl.id, f"zone_{zone.id}")
-        zone_enabled = _build_entity_id(serial, "switch", ctrl.id, f"zone_{zone.id}_enabled")
-        zone_duration = _build_entity_id(serial, "number", ctrl.id, f"zone_{zone.id}_duration")
+        zone_valve = eid("valve", f"zone_{zone.id}")
+        zone_enabled = eid("switch", f"zone_{zone.id}_enabled")
+        zone_duration = eid("number", f"zone_{zone.id}_duration")
 
-        # Zone heading with valve + enabled badge
-        cards.append({
-            "type": "heading",
-            "heading_style": "subtitle",
-            "heading": zone.name,
-            "badges": [
-                {"type": "entity", "show_state": True, "show_icon": True, "entity": zone_valve},
-                {"type": "entity", "show_state": True, "show_icon": True, "entity": zone_enabled},
-            ],
-        })
+        cards.append(heading_card(
+            zone.name, style="subtitle",
+            badges=[entity_badge(zone_valve), entity_badge(zone_enabled)],
+        ))
+        cards.append(tile_card(
+            zone_valve, zone.name, "mdi:sprinkler-variant",
+            state_content=["last_changed", "state"],
+        ))
+        cards.append(slider_tile(zone_duration, f"{zone.name} czas"))
 
-        # Zone tile
-        cards.append({
-            "type": "tile",
-            "entity": zone_valve,
-            "name": zone.name,
-            "icon": "mdi:sprinkler-variant",
-            "state_content": ["last_changed", "state"],
-            "vertical": False,
-            "tap_action": {"action": "toggle"},
-            "hold_action": {"action": "more-info"},
-            "icon_tap_action": {"action": "more-info"},
-            "features_position": "bottom",
-        })
-
-        # Duration slider
-        cards.append({
-            "type": "tile",
-            "entity": zone_duration,
-            "name": f"{zone.name} czas",
-            "icon": "mdi:timer-outline",
-            "features": [
-                {"type": "numeric-input", "style": "slider"},
-            ],
-        })
-
-    # --- Schedule skip switches ---
+    # Schedule skip switches
     for idx, sched in enumerate(ctrl._schedule):
-        sched_skip = _build_entity_id(serial, "switch", ctrl.id, f"schedule_{idx}_skip")
+        sched_skip = eid("switch", f"schedule_{idx}_skip")
         time_str = sched.get("time", "")
         days_str = sched.get("days", "daily")
-        cards.append({
-            "type": "entities",
-            "entities": [sched_skip],
-            "title": f"Harmonogram {idx + 1}: {time_str} ({days_str})",
-        })
+        cards.append(entities_card(
+            [sched_skip], title=f"Harmonogram {idx + 1}: {time_str} ({days_str})",
+        ))
 
-    # --- Event entity ---
-    event_entity = _build_entity_id(serial, "event", ctrl.id, "event")
-    cards.append({
-        "type": "entities",
-        "entities": [event_entity],
-        "title": "Zdarzenia",
-    })
+    # Event entity
+    cards.append(entities_card([eid("event", "event")], title="Zdarzenia"))
 
     return cards
 
@@ -729,26 +665,13 @@ async def generate_dashboard(manager: Manager = Depends(get_manager)):
     Returns:
         Dict with 'yaml' key containing the dashboard YAML string.
     """
-    import yaml
-
     serial = manager.config_helper.serial_number
     all_cards: list[dict] = []
 
     for ctrl in manager.irrigation._controllers.values():
-        ctrl_cards = _generate_dashboard_cards(ctrl, serial)
-        all_cards.extend(ctrl_cards)
+        all_cards.extend(_generate_irrigation_dashboard_cards(ctrl, serial))
 
-    dashboard = {
-        "type": "grid",
-        "cards": all_cards,
-    }
-
-    yaml_str = yaml.dump(
-        dashboard, default_flow_style=False, allow_unicode=True, sort_keys=False
-    )
     return {
-        "yaml": yaml_str,
+        "yaml": cards_to_yaml(all_cards),
         "controllers_count": len(manager.irrigation._controllers),
     }
-
-
