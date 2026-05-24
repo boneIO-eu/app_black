@@ -473,12 +473,13 @@ modbus_devices:
           - lower
         allowed:
           [
+            'boneio-edge-temp',
             'cwt',
             'dts1964_3f',
             'dyp-a12-ultrasonic',
+            'eht-topventil-plus',
             'gdfs',
             'gdfx',
-            'boneio-edge-temp',
             'liquid-sensor',
             'orno-or-we-517',
             'pt100',
@@ -496,7 +497,6 @@ modbus_devices:
             'sofar',
             'ventclear',
             'esp32_relay_x4_modbus',
-            'eht-topventil-plus'
           ]
         meta:
           label: Model to load from database.

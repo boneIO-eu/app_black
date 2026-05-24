@@ -40,7 +40,7 @@
             "examples": [
               "gpio"
             ],
-            "description": "What mode to use in config PIN.",
+            "description": "[Deprecated] GPIO mode \u2014 now handled by kernel overlay. Ignored at runtime.",
             "title": "Gpio mode"
           },
           "clear_message": {
@@ -127,6 +127,9 @@
               "IN_47",
               "IN_48",
               "IN_49",
+              "IN_50",
+              "IN_51",
+              "IN_52",
               "In_01",
               "In_02",
               "In_03",
@@ -176,6 +179,9 @@
               "In_47",
               "In_48",
               "In_49",
+              "In_50",
+              "In_51",
+              "In_52",
               "in_01",
               "in_02",
               "in_03",
@@ -224,7 +230,10 @@
               "in_46",
               "in_47",
               "in_48",
-              "in_49"
+              "in_49",
+              "in_50",
+              "in_51",
+              "in_52"
             ],
             "examples": [
               "in_01"
@@ -442,6 +451,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -501,7 +532,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -576,6 +607,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -857,6 +918,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -916,7 +999,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -991,6 +1074,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -1272,6 +1385,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -1331,7 +1466,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -1406,6 +1541,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -1687,6 +1852,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -1746,7 +1933,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -1821,6 +2008,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -2102,6 +2319,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -2161,7 +2400,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -2236,6 +2475,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -2517,6 +2786,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -2576,7 +2867,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -2651,6 +2942,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -2932,6 +3253,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -2991,7 +3334,7 @@
                         "integer",
                         "string"
                       ],
-                      "description": "Brightness step (0-255)",
+                      "description": "Brightness step (1-50%)",
                       "title": "Brightness step"
                     },
                     "color_temp": {
@@ -3066,6 +3409,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [

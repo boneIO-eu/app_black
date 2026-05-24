@@ -633,11 +633,13 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
             zone.name, style="subtitle",
             badges=[entity_badge(zone_valve), entity_badge(zone_enabled)],
         ))
-        cards.append(tile_card(
-            zone_valve, zone.name, "mdi:sprinkler-variant",
-            state_content=["last_changed", "state"],
-        ))
-        cards.append(slider_tile(zone_duration, f"{zone.name} czas"))
+        cards.append(horizontal_stack([
+            tile_card(
+                zone_valve, zone.name, "mdi:sprinkler-variant",
+                state_content=["last_changed", "state"],
+            ),
+            slider_tile(zone_duration, f"{zone.name} czas"),
+        ]))
 
     # Schedule skip switches
     for idx, sched in enumerate(ctrl._schedule):

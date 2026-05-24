@@ -47,7 +47,9 @@
               "DYP-A12-ULTRASONIC",
               "Dts1964_3F",
               "Dyp-A12-Ultrasonic",
+              "EHT-TOPVENTIL-PLUS",
               "ESP32_RELAY_X4_MODBUS",
+              "Eht-Topventil-Plus",
               "Esp32_Relay_X4_Modbus",
               "FUJITSU-AC",
               "Fujitsu-Ac",
@@ -89,6 +91,7 @@
               "cwt",
               "dts1964_3f",
               "dyp-a12-ultrasonic",
+              "eht-topventil-plus",
               "esp32_relay_x4_modbus",
               "fujitsu-ac",
               "gdfs",
@@ -110,7 +113,7 @@
               "ventclear"
             ],
             "examples": [
-              "cwt"
+              "boneio-edge-temp"
             ],
             "description": "Model to load from database.",
             "title": "Model"

@@ -8,6 +8,28 @@
         "string"
       ],
       "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable MQTT protocol",
+          "title": "Enabled"
+        },
         "host": {
           "type": "string",
           "description": "Mqtt broker hostname or IP address",

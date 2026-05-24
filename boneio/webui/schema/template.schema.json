@@ -433,6 +433,24 @@
                   "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
                 },
+                "output_start_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between activating each output (sequential ON, in order).",
+                  "title": "Output start delay"
+                },
+                "output_stop_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between deactivating each output (sequential OFF, reverse order).",
+                  "title": "Output stop delay"
+                },
                 "pump_switch_off_during_valve_open_delay": {
                   "oneOf": [
                     {
@@ -600,6 +618,15 @@
             "default": false,
             "description": "Run zones in reverse order (irrigation only).",
             "title": "Reverse"
+          },
+          "pause_timeout": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Auto-shutdown after being paused for this duration (irrigation only). Default 30min. Set 0 to disable.",
+            "title": "Pause timeout"
           },
           "schedule": {
             "type": [

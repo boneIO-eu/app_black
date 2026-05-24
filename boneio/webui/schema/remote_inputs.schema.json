@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "remote_inputs": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Input ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "remote_source": {
+            "type": "string",
+            "enum": [
+              "esphome_api",
+              "can",
+              "mqtt"
+            ],
+            "examples": [
+              "esphome_api"
+            ],
+            "description": "Remote Source Protocol",
+            "title": "Remote source"
+          },
+          "device_id": {
+            "type": "string",
+            "description": "Remote Device ID",
+            "title": "Device id"
+          },
+          "input_id": {
+            "type": "string",
+            "description": "Input/Sensor ID",
+            "title": "Input id"
+          },
+          "mode": {
+            "type": "string",
+            "default": "binary_sensor",
+            "enum": [
+              "binary_sensor",
+              "event"
+            ],
+            "examples": [
+              "binary_sensor"
+            ],
+            "description": "Mode",
+            "title": "Mode"
+          },
+          "device_class": {
+            "type": "string",
+            "description": "Device Class (for HA)",
+            "title": "Device class"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area (for HA)",
+            "title": "Area"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Forward to Home Assistant",
+            "title": "Show in ha"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Invert state",
+            "title": "Inverted"
+          },
+          "double_click_duration": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Double Click Window (ms)",
+            "title": "Double click duration"
+          },
+          "long_press_duration": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Long Press Threshold (ms)",
+            "title": "Long press duration"
+          },
+          "sequence_mode": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "exclusive"
+            ],
+            "examples": [
+              "immediate"
+            ],
+            "description": "Sequence Mode",
+            "title": "Sequence mode"
+          },
+          "long_press_mqtt_mode": {
+            "type": "string",
+            "enum": [
+              "single",
+              "periodic"
+            ],
+            "examples": [
+              "single"
+            ],
+            "description": "Long Press MQTT Mode",
+            "title": "Long press mqtt mode"
+          },
+          "enable_triple_click": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enable Triple Click",
+            "title": "Enable triple click"
+          },
+          "actions": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Actions",
+            "title": "Actions"
+          }
+        },
+        "required": [
+          "remote_source",
+          "device_id",
+          "input_id"
+        ]
+      },
+      "description": "Remote binary sensor inputs from ESPHome, CAN, or other remote devices.",
+      "title": "Remote inputs"
+    }
+  }
+}

@@ -431,7 +431,6 @@
                           "x-yaml-boolean": true
                         }
                       ],
-                      "default": false,
                       "description": "Supports Tilt",
                       "title": "Supports tilt"
                     }
@@ -641,12 +640,502 @@
       "description": "Remote devices that can be controlled from this boneIO.",
       "title": "Remote devices"
     },
+    "remote_inputs": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Input ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "remote_source": {
+            "type": "string",
+            "enum": [
+              "esphome_api",
+              "can",
+              "mqtt"
+            ],
+            "examples": [
+              "esphome_api"
+            ],
+            "description": "Remote Source Protocol",
+            "title": "Remote source"
+          },
+          "device_id": {
+            "type": "string",
+            "description": "Remote Device ID",
+            "title": "Device id"
+          },
+          "input_id": {
+            "type": "string",
+            "description": "Input/Sensor ID",
+            "title": "Input id"
+          },
+          "mode": {
+            "type": "string",
+            "default": "binary_sensor",
+            "enum": [
+              "binary_sensor",
+              "event"
+            ],
+            "examples": [
+              "binary_sensor"
+            ],
+            "description": "Mode",
+            "title": "Mode"
+          },
+          "device_class": {
+            "type": "string",
+            "description": "Device Class (for HA)",
+            "title": "Device class"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area (for HA)",
+            "title": "Area"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Forward to Home Assistant",
+            "title": "Show in ha"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Invert state",
+            "title": "Inverted"
+          },
+          "double_click_duration": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Double Click Window (ms)",
+            "title": "Double click duration"
+          },
+          "long_press_duration": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "Long Press Threshold (ms)",
+            "title": "Long press duration"
+          },
+          "sequence_mode": {
+            "type": "string",
+            "enum": [
+              "immediate",
+              "exclusive"
+            ],
+            "examples": [
+              "immediate"
+            ],
+            "description": "Sequence Mode",
+            "title": "Sequence mode"
+          },
+          "long_press_mqtt_mode": {
+            "type": "string",
+            "enum": [
+              "single",
+              "periodic"
+            ],
+            "examples": [
+              "single"
+            ],
+            "description": "Long Press MQTT Mode",
+            "title": "Long press mqtt mode"
+          },
+          "enable_triple_click": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enable Triple Click",
+            "title": "Enable triple click"
+          },
+          "actions": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Actions",
+            "title": "Actions"
+          }
+        },
+        "required": [
+          "remote_source",
+          "device_id",
+          "input_id"
+        ]
+      },
+      "description": "Remote binary sensor inputs from ESPHome, CAN, or other remote devices.",
+      "title": "Remote inputs"
+    },
+    "remote_outputs": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Output ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "remote_source": {
+            "type": "string",
+            "enum": [
+              "esphome_api",
+              "can",
+              "mqtt"
+            ],
+            "examples": [
+              "esphome_api"
+            ],
+            "description": "Remote Source Protocol",
+            "title": "Remote source"
+          },
+          "device_id": {
+            "type": "string",
+            "description": "Remote Device ID",
+            "title": "Device id"
+          },
+          "output_id": {
+            "type": "string",
+            "description": "Output/Entity ID",
+            "title": "Output id"
+          },
+          "output_type": {
+            "type": "string",
+            "default": "switch",
+            "enum": [
+              "switch",
+              "light",
+              "valve"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "Output Type",
+            "title": "Output type"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Forward to Home Assistant",
+            "title": "Show in ha"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area (for HA)",
+            "title": "Area"
+          },
+          "on_disconnect": {
+            "type": "string",
+            "default": "ignore",
+            "enum": [
+              "ignore",
+              "turn_off"
+            ],
+            "examples": [
+              "ignore"
+            ],
+            "description": "On Disconnect Behavior",
+            "title": "On disconnect"
+          },
+          "momentary_turn_on": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Momentary Turn On",
+            "title": "Momentary turn on"
+          },
+          "momentary_turn_off": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Momentary Turn Off",
+            "title": "Momentary turn off"
+          },
+          "adjustable_duration": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Adjustable Duration",
+            "title": "Adjustable duration"
+          },
+          "duration_default": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Default adjustable duration (e.g. \"60s\", \"5min\", \"1h\").",
+            "title": "Duration default"
+          },
+          "duration_min": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Minimum adjustable duration (e.g. \"1s\", \"10s\").",
+            "title": "Duration min"
+          },
+          "duration_max": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Maximum adjustable duration (e.g. \"3600s\", \"1h\").",
+            "title": "Duration max"
+          },
+          "duration_unit": {
+            "type": "string",
+            "default": "s",
+            "enum": [
+              "s",
+              "min"
+            ],
+            "examples": [
+              "s"
+            ],
+            "description": "Unit displayed on Home Assistant duration slider.",
+            "title": "Duration unit"
+          },
+          "interlock_group": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "default": [],
+            "description": "Interlock Groups",
+            "title": "Interlock group"
+          },
+          "enforce_interlock": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enforce Interlock on External Changes",
+            "title": "Enforce interlock"
+          }
+        },
+        "required": [
+          "remote_source",
+          "device_id",
+          "output_id"
+        ]
+      },
+      "description": "Remote outputs from ESPHome, CAN, or other remote devices.",
+      "title": "Remote outputs"
+    },
+    "lox_udp": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Enable Lox UDP protocol",
+          "title": "Enabled"
+        },
+        "host": {
+          "type": "string",
+          "description": "Target host",
+          "title": "Host"
+        },
+        "send_port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 4444,
+          "description": "Port to send UDP messages",
+          "title": "Send port"
+        },
+        "listen_port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 4445,
+          "description": "Port to listen for incoming UDP messages",
+          "title": "Listen port"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "description": "Lox UDP Messaging",
+      "title": "Lox udp"
+    },
     "mqtt": {
       "type": [
         "object",
         "string"
       ],
       "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable MQTT protocol",
+          "title": "Enabled"
+        },
         "host": {
           "type": "string",
           "description": "Mqtt broker hostname or IP address",
@@ -1292,7 +1781,9 @@
               "DYP-A12-ULTRASONIC",
               "Dts1964_3F",
               "Dyp-A12-Ultrasonic",
+              "EHT-TOPVENTIL-PLUS",
               "ESP32_RELAY_X4_MODBUS",
+              "Eht-Topventil-Plus",
               "Esp32_Relay_X4_Modbus",
               "FUJITSU-AC",
               "Fujitsu-Ac",
@@ -1334,6 +1825,7 @@
               "cwt",
               "dts1964_3f",
               "dyp-a12-ultrasonic",
+              "eht-topventil-plus",
               "esp32_relay_x4_modbus",
               "fujitsu-ac",
               "gdfs",
@@ -1355,7 +1847,7 @@
               "ventclear"
             ],
             "examples": [
-              "cwt"
+              "boneio-edge-temp"
             ],
             "description": "Model to load from database.",
             "title": "Model"
@@ -2243,7 +2735,7 @@
             "examples": [
               "gpio"
             ],
-            "description": "What mode to use in config PIN.",
+            "description": "[Deprecated] GPIO mode \u2014 now handled by kernel overlay. Ignored at runtime.",
             "title": "Gpio mode"
           },
           "clear_message": {
@@ -2330,6 +2822,9 @@
               "IN_47",
               "IN_48",
               "IN_49",
+              "IN_50",
+              "IN_51",
+              "IN_52",
               "In_01",
               "In_02",
               "In_03",
@@ -2379,6 +2874,9 @@
               "In_47",
               "In_48",
               "In_49",
+              "In_50",
+              "In_51",
+              "In_52",
               "in_01",
               "in_02",
               "in_03",
@@ -2427,7 +2925,10 @@
               "in_46",
               "in_47",
               "in_48",
-              "in_49"
+              "in_49",
+              "in_50",
+              "in_51",
+              "in_52"
             ],
             "examples": [
               "in_01"
@@ -2660,6 +3161,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -2706,14 +3229,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -2721,6 +3236,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -2794,6 +3317,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -3075,6 +3628,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -3121,14 +3696,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -3136,6 +3703,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -3209,6 +3784,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -3424,7 +4029,7 @@
             "examples": [
               "gpio"
             ],
-            "description": "What mode to use in config PIN.",
+            "description": "[Deprecated] GPIO mode \u2014 now handled by kernel overlay. Ignored at runtime.",
             "title": "Gpio mode"
           },
           "clear_message": {
@@ -3511,6 +4116,9 @@
               "IN_47",
               "IN_48",
               "IN_49",
+              "IN_50",
+              "IN_51",
+              "IN_52",
               "In_01",
               "In_02",
               "In_03",
@@ -3560,6 +4168,9 @@
               "In_47",
               "In_48",
               "In_49",
+              "In_50",
+              "In_51",
+              "In_52",
               "in_01",
               "in_02",
               "in_03",
@@ -3608,7 +4219,10 @@
               "in_46",
               "in_47",
               "in_48",
-              "in_49"
+              "in_49",
+              "in_50",
+              "in_51",
+              "in_52"
             ],
             "examples": [
               "in_01"
@@ -3826,6 +4440,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -3872,14 +4508,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -3887,6 +4515,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -3960,6 +4596,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -4241,6 +4907,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -4287,14 +4975,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -4302,6 +4982,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -4375,6 +5063,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -4656,6 +5374,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -4709,6 +5449,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -4782,6 +5530,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -5063,6 +5841,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -5109,14 +5909,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -5124,6 +5916,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -5197,6 +5997,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -5478,6 +6308,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -5531,6 +6383,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -5604,6 +6464,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -5885,6 +6775,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -5938,6 +6850,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -6011,6 +6931,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -6292,6 +7242,28 @@
                       "description": "Extra data to send to function. Currently used only for cover tilt.",
                       "title": "Data"
                     },
+                    "restore_tilt": {
+                      "oneOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "yes",
+                            "no",
+                            "true",
+                            "false",
+                            "on",
+                            "off"
+                          ],
+                          "x-yaml-boolean": true
+                        }
+                      ],
+                      "default": false,
+                      "description": "Restore Tilt After Movement",
+                      "title": "Restore tilt"
+                    },
                     "action_output": {
                       "type": "string",
                       "default": "TOGGLE",
@@ -6338,14 +7310,6 @@
                       "description": "Remote Cover ID",
                       "title": "Cover id"
                     },
-                    "brightness_step": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Brightness step (1-50)",
-                      "title": "Brightness step"
-                    },
                     "brightness": {
                       "type": [
                         "integer",
@@ -6353,6 +7317,14 @@
                       ],
                       "description": "Brightness (0-255)",
                       "title": "Brightness"
+                    },
+                    "brightness_step": {
+                      "type": [
+                        "integer",
+                        "string"
+                      ],
+                      "description": "Brightness step (1-50%)",
+                      "title": "Brightness step"
                     },
                     "color_temp": {
                       "type": [
@@ -6426,6 +7398,36 @@
                       "default": "800ms",
                       "description": "Repeat Interval",
                       "title": "Repeat interval"
+                    },
+                    "delay": {
+                      "type": [
+                        "number",
+                        "string"
+                      ],
+                      "x-timeperiod": true,
+                      "description": "Delay Before Execution",
+                      "title": "Delay"
+                    },
+                    "delay_cancel_on": {
+                      "type": [
+                        "array",
+                        "string"
+                      ],
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "pressed",
+                          "released",
+                          "single",
+                          "double",
+                          "long"
+                        ],
+                        "examples": [
+                          "pressed"
+                        ]
+                      },
+                      "description": "Cancel Delay On Events",
+                      "title": "Delay cancel on"
                     },
                     "condition": {
                       "type": [
@@ -6949,6 +7951,28 @@
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"
           },
+          "tilt_restore_after_close": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Restore tilt position after closing venetian blinds.",
+            "title": "Tilt restore after close"
+          },
           "device_class": {
             "type": "string",
             "enum": [
@@ -7433,6 +8457,24 @@
                   "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
                 },
+                "output_start_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between activating each output (sequential ON, in order).",
+                  "title": "Output start delay"
+                },
+                "output_stop_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between deactivating each output (sequential OFF, reverse order).",
+                  "title": "Output stop delay"
+                },
                 "pump_switch_off_during_valve_open_delay": {
                   "oneOf": [
                     {
@@ -7601,6 +8643,15 @@
             "description": "Run zones in reverse order (irrigation only).",
             "title": "Reverse"
           },
+          "pause_timeout": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Auto-shutdown after being paused for this duration (irrigation only). Default 30min. Set 0 to disable.",
+            "title": "Pause timeout"
+          },
           "schedule": {
             "type": [
               "array",
@@ -7703,6 +8754,24 @@
                   ],
                   "description": "Output IDs to activate when this water source is used.",
                   "title": "Outputs"
+                },
+                "output_start_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between activating each output (sequential ON, in order).",
+                  "title": "Output start delay"
+                },
+                "output_stop_delay": {
+                  "type": [
+                    "number",
+                    "string"
+                  ],
+                  "x-timeperiod": true,
+                  "description": "Delay between deactivating each output (sequential OFF, reverse order).",
+                  "title": "Output stop delay"
                 },
                 "pump_switch_off_during_valve_open_delay": {
                   "oneOf": [
@@ -7871,6 +8940,15 @@
             "default": false,
             "description": "Run zones in reverse order.",
             "title": "Reverse"
+          },
+          "pause_timeout": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Auto-shutdown after being paused for this duration. Default 30min. Set 0 to disable.",
+            "title": "Pause timeout"
           },
           "schedule": {
             "type": [

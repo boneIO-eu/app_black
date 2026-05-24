@@ -109,6 +109,28 @@
             "description": "Time to activate actuator cover. Example 30s. Minimum is 0ms.",
             "title": "Actuator activation duration"
           },
+          "tilt_restore_after_close": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Restore tilt position after closing venetian blinds.",
+            "title": "Tilt restore after close"
+          },
           "device_class": {
             "type": "string",
             "enum": [

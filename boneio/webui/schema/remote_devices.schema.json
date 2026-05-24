@@ -401,7 +401,6 @@
                           "x-yaml-boolean": true
                         }
                       ],
-                      "default": false,
                       "description": "Supports Tilt",
                       "title": "Supports tilt"
                     }
