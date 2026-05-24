@@ -4,6 +4,21 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev10 (2026-05-24)
+
+### ✨ New Features
+
+- **Single-zone controller optimization** — Controllers with only 1 zone no longer create `auto_advance`, `reverse`, and `next_valve` entities (HA discovery, MQTT subscriptions, dashboard YAML). These are only meaningful for multi-zone controllers.
+
+### 🐛 Bug Fixes
+
+- **slider_tile inline layout** — Zone duration tiles now use `vertical: false`, `features_position: inline`, `style: slider` instead of `buttons`.
+- **Valve tiles without horizontal-stack** — Each valve tile is a separate card (easier to edit manually in HA YAML editor).
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev9...v1.4.0dev10
+
+---
+
 ## v1.4.0dev9 (2026-05-24)
 
 ### ✨ New Features
