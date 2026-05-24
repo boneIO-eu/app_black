@@ -551,6 +551,7 @@ from boneio.webui.dashboard_cards import (
     entity_badge,
     heading_card,
     horizontal_stack,
+    inline_tile,
     sensor_tile,
     slider_tile,
     tile_card,
@@ -632,12 +633,20 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
         cards.append(slider_tile(zone_duration, f"{zone.name} czas"))
 
     # ── 4. Ustawienia ─────────────────────────────────────────────────
-    controls: list[str | dict] = [
-        eid("switch", s) for s in ("auto_advance", "standby", "skip_next_run", "reverse")
-    ]
-    controls.append(eid("number", "multiplier"))
-    controls.append(eid("number", "repeat"))
-    cards.append(entities_card(controls, title="Ustawienia"))
+    cards.append(heading_card("Ustawienia", style="subtitle"))
+    for s in ("auto_advance", "standby", "skip_next_run", "reverse"):
+        cards.append(inline_tile(eid("switch", s)))
+    cards.append(inline_tile(
+        eid("number", "multiplier"),
+        features=[{"type": "numeric-input", "style": "buttons"}],
+    ))
+    cards.append(inline_tile(
+        eid("number", "repeat"),
+        features=[{"type": "numeric-input", "style": "buttons"}],
+    ))
+    # Schedule skip switches (inline, folded into Ustawienia)
+    for idx, _sched in enumerate(ctrl._schedule):
+        cards.append(inline_tile(eid("switch", f"schedule_{idx}_skip")))
 
     # ── 5. Sterowanie ─────────────────────────────────────────────────
     cards.append(heading_card("Sterowanie", style="subtitle"))
@@ -654,15 +663,6 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
             eid("select", "water_source"), "Źródło wody", "mdi:water-pump",
             features=[{"type": "select-options"}],
             features_position="inline",
-        ))
-
-    # ── 6. Harmonogramy ───────────────────────────────────────────────
-    for idx, sched in enumerate(ctrl._schedule):
-        sched_skip = eid("switch", f"schedule_{idx}_skip")
-        time_str = sched.get("time", "")
-        days_str = sched.get("days", "daily")
-        cards.append(entities_card(
-            [sched_skip], title=f"Harmonogram {idx + 1}: {time_str} ({days_str})",
         ))
 
     # ── 7. Sensory ────────────────────────────────────────────────────

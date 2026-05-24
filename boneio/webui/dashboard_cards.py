@@ -188,6 +188,34 @@ def slider_tile(
     }
 
 
+def inline_tile(
+    entity: str,
+    features: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Create a compact inline tile card using the entity's HA name.
+
+    Uses ``name: {type: entity}`` so HA displays the entity's friendly
+    name automatically.  ``features_position`` is always ``inline``.
+
+    Args:
+        entity: Full HA entity ID.
+        features: Optional features list (e.g. ``[{type: numeric-input}]``).
+
+    Returns:
+        Inline tile card dict.
+    """
+    card: dict[str, Any] = {
+        "type": "tile",
+        "entity": entity,
+        "name": {"type": "entity"},
+        "vertical": False,
+        "features_position": "inline",
+    }
+    if features:
+        card["features"] = features
+    return card
+
+
 def entities_card(
     entities: list[str | dict[str, Any]],
     title: str = "",
