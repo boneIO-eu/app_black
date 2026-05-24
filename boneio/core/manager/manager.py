@@ -1426,6 +1426,8 @@ class Manager:
                 output_id=output_id,
                 remote_source=remote_source,
                 event_bus=self._event_bus,
+                message_bus=self._message_bus,
+                topic_prefix=self._topic_prefix,
                 output_type=output_type,
                 show_in_ha=show_in_ha,
                 area=area,

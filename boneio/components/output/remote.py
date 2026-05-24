@@ -15,7 +15,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from boneio.const import OFF, ON, SWITCH
+from boneio.const import OFF, ON, OUTPUT, STATE, SWITCH
 from boneio.core.events import EventBus, async_track_point_in_time, utcnow
 from boneio.core.utils import callback
 from boneio.core.utils.timeperiod import TimePeriod, parse_time_to_seconds
@@ -23,6 +23,7 @@ from boneio.models import OutputState
 from boneio.models.events import OutputEvent
 
 if TYPE_CHECKING:
+    from boneio.core.messaging import MessageBus
     from boneio.integration.interlock import SoftwareInterlockManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,6 +63,8 @@ class RemoteOutputBase:
         output_id: str,
         remote_source: str,
         event_bus: EventBus,
+        message_bus: MessageBus | None = None,
+        topic_prefix: str = "",
         output_type: str = SWITCH,
         show_in_ha: bool = False,
         area: str | None = None,
@@ -83,6 +86,8 @@ class RemoteOutputBase:
         self._output_id = output_id
         self._remote_source = remote_source
         self._event_bus = event_bus
+        self._message_bus: MessageBus | None = message_bus
+        self._send_topic = f"{topic_prefix}/{OUTPUT}/{id}" if topic_prefix else ""
         self._output_type = output_type
         self.show_in_ha = show_in_ha
         self.area: str | None = area
@@ -466,7 +471,22 @@ class RemoteOutputBase:
     # ------------------------------------------------------------------
 
     def _emit_state_event(self) -> None:
-        """Emit OutputEvent on EventBus for WebSocket/state tracking."""
+        """Emit OutputEvent on EventBus for WebSocket/state tracking.
+
+        Also publishes the current state to the MQTT state topic so that
+        Home Assistant (and any other MQTT consumer) sees the updated state.
+        """
+        # Publish state to MQTT so HA sees the update
+        if self._message_bus and self._send_topic:
+            payload: dict[str, Any] = {STATE: self._state}
+            if self._brightness is not None:
+                payload["brightness"] = self._brightness
+            self._message_bus.send_message(
+                topic=self._send_topic,
+                payload=payload,
+                retain=True,
+            )
+
         output_state = OutputState(
             id=self._id,
             name=self._name,
