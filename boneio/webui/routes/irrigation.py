@@ -625,11 +625,11 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
         else:
             cards.append(horizontal_stack(pair))
 
-    # ── 3. Czasy podlewania — inline entities card ────────────────────
-    duration_entities: list[str] = [
-        eid("number", f"zone_{zone.id}_duration") for zone in ctrl.zones
-    ]
-    cards.append(entities_card(duration_entities, title="Czasy podlewania"))
+    # ── 3. Czasy podlewania — tile cards with +/- buttons ──────────
+    cards.append(heading_card("Czasy podlewania", style="subtitle"))
+    for zone in ctrl.zones:
+        zone_duration = eid("number", f"zone_{zone.id}_duration")
+        cards.append(slider_tile(zone_duration, f"{zone.name} czas"))
 
     # ── 4. Ustawienia ─────────────────────────────────────────────────
     controls: list[str | dict] = [
