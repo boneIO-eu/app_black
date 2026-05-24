@@ -381,10 +381,21 @@ class RemoteOutputBase:
     async def async_set_brightness(self, brightness: int, timestamp: float | None = None) -> None:
         """Set brightness on the remote light output.
 
+        Checks interlock before sending the brightness command. Setting
+        brightness implicitly turns the light ON, so interlock rules apply.
+
         Args:
             brightness: Brightness value (0-255).
             timestamp: Optional timestamp for state tracking.
         """
+        # Brightness > 0 effectively turns ON — must check interlock
+        if brightness > 0 and not self.check_interlock():
+            _LOGGER.warning(
+                "Interlock active: cannot set brightness on remote output '%s'",
+                self._id,
+            )
+            return
+
         if not self._resolve_device_manager():
             _LOGGER.error("Remote output '%s' has no device manager, cannot set brightness", self._id)
             return
