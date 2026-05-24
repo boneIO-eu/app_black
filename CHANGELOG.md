@@ -4,6 +4,19 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev11 (2026-05-24)
+
+### 🐛 Bug Fixes
+
+- **Remote output MQTT state** — Remote outputs now publish their state to MQTT (`boneio/{serial}/output/{id}`). Previously HA showed them as "unavailable" because `_emit_state_event()` only emitted EventBus events for WebSocket, never MQTT.
+- **Interlock bypass on dimmer brightness** — `async_set_brightness()` (remote) and `SET_BRIGHTNESS` MQTT handler (local) now check interlock before allowing brightness > 0. A dimmer slider could previously bypass an active interlock group.
+- **TimePeriod empty string crash** — `strip_default_values()` / `clean_dict()` now skips empty strings and `None` values. Frontend could send `""` for optional TimePeriod fields (e.g. `output_start_delay`), causing Cerberus coercion error: `Unknown value ''`.
+- **Config cache staleness** — `invalidate_config_cache()` now also clears `ConfigHelper._config_cache`, fixing stale schedule data after save.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev10...v1.4.0dev11
+
+---
+
 ## v1.4.0dev10 (2026-05-24)
 
 ### ✨ New Features
