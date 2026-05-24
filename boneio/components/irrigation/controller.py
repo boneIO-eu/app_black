@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import logging
 import time
 import traceback
@@ -1063,10 +1064,8 @@ def _local_now() -> datetime:
 
     Extracted as a module-level function so tests can mock it easily.
     """
-    import datetime as _dt
-
-    local_tz = _dt.datetime.now().astimezone().tzinfo
-    return _dt.datetime.now(local_tz)
+    local_tz = dt.datetime.now().astimezone().tzinfo
+    return dt.datetime.now(local_tz)
 
 
 def _next_fire_time(time_str: str, days: str) -> datetime:
@@ -1084,8 +1083,6 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
     Returns:
         Next fire time as a timezone-aware UTC datetime.
     """
-    import datetime as _dt
-
     now_local = _local_now()
 
     try:
@@ -1106,7 +1103,7 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
         )
         if candidate_local.weekday() in allowed_days and candidate_local > now_local:
             # Convert to UTC for consistent comparison with utcnow()
-            return candidate_local.astimezone(_dt.UTC)
+            return candidate_local.astimezone(dt.UTC)
 
     fallback_local = (now_local + timedelta(days=1)).replace(
         hour=target_h,
@@ -1114,5 +1111,5 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
         second=0,
         microsecond=0,
     )
-    return fallback_local.astimezone(_dt.UTC)
+    return fallback_local.astimezone(dt.UTC)
 
