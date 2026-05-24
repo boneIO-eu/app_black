@@ -1925,7 +1925,10 @@
     "ai_apply_success": "AI configuration applied to the form. Review the zones and schedule, then save.",
     "ai_conflict": "Controller(s) already exist: {ids}. Remove them first or use different IDs.",
     "ai_invalid_json": "Invalid JSON. Make sure you paste the complete JSON block from the AI response.",
-    "ai_context_error": "Failed to load device context. Check your connection."
+    "ai_context_error": "Failed to load device context. Check your connection.",
+    "ha_dashboard": "HA Dashboard",
+    "copy_ha_dashboard": "Copy HA irrigation dashboard YAML to clipboard",
+    "dashboard_copied": "Copied!"
   },
   "migrations": {
     "title": "System migrations",

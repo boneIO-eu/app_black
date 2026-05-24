@@ -1924,7 +1924,10 @@
     "ai_apply_success": "Konfiguracja AI zastosowana w formularzu. Sprawdź strefy i harmonogram, potem zapisz.",
     "ai_conflict": "Kontroler(y) już istnieją: {ids}. Najpierw je usuń lub użyj innych ID.",
     "ai_invalid_json": "Nieprawidłowy JSON. Upewnij się, że wklejasz kompletny blok JSON z odpowiedzi AI.",
-    "ai_context_error": "Nie udało się pobrać kontekstu urządzenia. Sprawdź połączenie."
+    "ai_context_error": "Nie udało się pobrać kontekstu urządzenia. Sprawdź połączenie.",
+    "ha_dashboard": "Dashboard HA",
+    "copy_ha_dashboard": "Skopiuj YAML dashboardu HA nawadniania do schowka",
+    "dashboard_copied": "Skopiowano!"
   },
   "migrations": {
     "title": "Migracje systemowe",

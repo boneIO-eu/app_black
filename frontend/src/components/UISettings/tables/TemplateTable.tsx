@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import axios from '@/api/axios';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
@@ -30,7 +31,30 @@ const PLATFORM_ICONS: Record<string, string> = {
 const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, onDelete, onDuplicate }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
+  const [dashboardCopied, setDashboardCopied] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('template');
+
+  const hasIrrigation = useMemo(
+    () => items.some((item) => item.platform === 'irrigation'),
+    [items]
+  );
+
+  const handleCopyDashboard = useCallback(async () => {
+    setDashboardLoading(true);
+    try {
+      const { data } = await axios.get('/api/irrigation/dashboard');
+      if (data?.yaml) {
+        await navigator.clipboard.writeText(data.yaml);
+        setDashboardCopied(true);
+        setTimeout(() => setDashboardCopied(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard YAML', err);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
 
   const filteredItems = useMemo(() => {
     if (!filter.trim()) return items.map((item, index) => ({ item, originalIndex: index }));
@@ -89,6 +113,24 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
             filteredCount={sortedItems.length}
           />
         </div>
+        {hasIrrigation && (
+          <div className="tooltip tooltip-bottom" data-tip={t('irrigation.copy_ha_dashboard')}>
+            <button
+              onClick={handleCopyDashboard}
+              className={`btn btn-ghost btn-sm ${dashboardCopied ? 'btn-success' : ''}`}
+              disabled={dashboardLoading}
+            >
+              {dashboardLoading ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : dashboardCopied ? '✅' : '🏠'}
+              <span className="hidden sm:inline ml-1">
+                {dashboardCopied
+                  ? t('irrigation.dashboard_copied')
+                  : t('irrigation.ha_dashboard')}
+              </span>
+            </button>
+          </div>
+        )}
         <ResetSortButton isSorted={isSorted} onReset={resetSort} />
       </div>
 
