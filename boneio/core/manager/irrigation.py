@@ -551,6 +551,10 @@ class IrrigationManager:
                 ),
             )
 
+            # Duration max: configured time + 20min, clamped to [30, 120]
+            zone_duration_min = max(1, round(zone.run_duration / 60))
+            duration_max = min(120, max(30, zone_duration_min + 20))
+
             _pub(
                 id=f"{ctrl.id}_zone_{zone.id}_duration",
                 ha_type="number",
@@ -560,7 +564,7 @@ class IrrigationManager:
                     suffix=f"zone/{zone.id}/duration",
                     name=f"{ctrl.name} {zone.name} Duration",
                     min_val=1,
-                    max_val=1440,
+                    max_val=duration_max,
                     step=1,
                     unit="min",
                     config_helper=cfg,

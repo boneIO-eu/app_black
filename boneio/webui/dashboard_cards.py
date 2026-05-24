@@ -184,7 +184,7 @@ def slider_tile(
         "entity": entity,
         "name": name,
         "icon": icon,
-        "features": [{"type": "numeric-input", "style": "slider"}],
+        "features": [{"type": "numeric-input", "style": "buttons"}],
     }
 
 

@@ -606,12 +606,12 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     controls.append(eid("number", "repeat"))
     cards.append(entities_card(controls, title="Ustawienia"))
 
-    # Action buttons
-    cards.append(horizontal_stack([
-        button_card(eid("button", "pause"), "Pauza", "mdi:pause"),
-        button_card(eid("button", "resume"), "Wznów", "mdi:play"),
-        button_card(eid("button", "next_valve"), "Następna", "mdi:skip-next"),
-    ]))
+    # Action buttons (compact — entities card renders them as single rows)
+    cards.append(entities_card([
+        eid("button", "pause"),
+        eid("button", "resume"),
+        eid("button", "next_valve"),
+    ], title="Sterowanie"))
 
     # Water source select (if multiple)
     if len(ctrl.water_sources) > 1:
