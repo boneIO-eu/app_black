@@ -626,8 +626,13 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
 
     # ── 4. Ustawienia ─────────────────────────────────────────────────
     cards.append(heading_card("Ustawienia", style="subtitle"))
-    for s in ("auto_advance", "standby", "skip_next_run", "reverse"):
-        cards.append(inline_tile(eid("switch", s)))
+    # Multi-zone-only switches
+    if len(ctrl.zones) > 1:
+        for s in ("auto_advance", "standby", "skip_next_run", "reverse"):
+            cards.append(inline_tile(eid("switch", s)))
+    else:
+        for s in ("standby", "skip_next_run"):
+            cards.append(inline_tile(eid("switch", s)))
     cards.append(inline_tile(
         eid("number", "multiplier"),
         features=[{"type": "numeric-input", "style": "buttons"}],
@@ -642,11 +647,12 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
 
     # ── 5. Sterowanie ─────────────────────────────────────────────────
     cards.append(heading_card("Sterowanie", style="subtitle"))
-    cards.append(horizontal_stack([
-        tile_card(eid("button", "next_valve"), "Next valve", "mdi:skip-next"),
-        tile_card(eid("button", "pause"), "Pause", "mdi:pause"),
-        tile_card(eid("button", "resume"), "Resume", "mdi:play"),
-    ]))
+    control_tiles = []
+    if len(ctrl.zones) > 1:
+        control_tiles.append(tile_card(eid("button", "next_valve"), "Next valve", "mdi:skip-next"))
+    control_tiles.append(tile_card(eid("button", "pause"), "Pause", "mdi:pause"))
+    control_tiles.append(tile_card(eid("button", "resume"), "Resume", "mdi:play"))
+    cards.append(horizontal_stack(control_tiles))
 
     # Water source select (if multiple)
     if len(ctrl.water_sources) > 1:

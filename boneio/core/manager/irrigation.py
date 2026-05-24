@@ -276,17 +276,21 @@ class IrrigationManager:
         # Build list of discovery IDs to remove
         discovery_ids: list[tuple[str, str]] = [
             (f"{ctrl.id}", "switch"),
-            (f"{ctrl.id}_auto_advance", "switch"),
-            (f"{ctrl.id}_reverse", "switch"),
             (f"{ctrl.id}_skip_next_run", "switch"),
             (f"{ctrl.id}_standby", "switch"),
             (f"{ctrl.id}_multiplier", "number"),
             (f"{ctrl.id}_repeat", "number"),
-            (f"{ctrl.id}_next_valve", "button"),
             (f"{ctrl.id}_pause", "button"),
             (f"{ctrl.id}_resume", "button"),
             (f"{ctrl.id}_event", "event"),
         ]
+        # Multi-zone-only entities
+        if len(ctrl.zones) > 1:
+            discovery_ids.extend([
+                (f"{ctrl.id}_auto_advance", "switch"),
+                (f"{ctrl.id}_reverse", "switch"),
+                (f"{ctrl.id}_next_valve", "button"),
+            ])
         for zone in ctrl.zones:
             discovery_ids.append((f"{ctrl.id}_zone_{zone.id}", "valve"))
             discovery_ids.append((f"{ctrl.id}_zone_{zone.id}_enabled", "switch"))
@@ -338,8 +342,10 @@ class IrrigationManager:
         async def handle_standby(_topic: str, payload: str, _ctrl: IrrigationController = ctrl) -> None:
             await _ctrl.set_standby(payload.strip().upper() == ON)
 
-        await self._subscribe_topic(ctrl._setting_cmd_topic("auto_advance"), handle_auto_advance)
-        await self._subscribe_topic(ctrl._setting_cmd_topic("reverse"), handle_reverse)
+        # Subscribe multi-zone-only MQTT handlers
+        if len(ctrl.zones) > 1:
+            await self._subscribe_topic(ctrl._setting_cmd_topic("auto_advance"), handle_auto_advance)
+            await self._subscribe_topic(ctrl._setting_cmd_topic("reverse"), handle_reverse)
         await self._subscribe_topic(ctrl._setting_cmd_topic("multiplier"), handle_multiplier)
         await self._subscribe_topic(ctrl._setting_cmd_topic("repeat"), handle_repeat)
         await self._subscribe_topic(ctrl._setting_cmd_topic("skip_next_run"), handle_skip_next)
@@ -401,29 +407,31 @@ class IrrigationManager:
             payload=ha_irrigation_main_switch_message(ctrl.id, ctrl.name, cfg),
         )
 
-        _pub(
-            id=f"{ctrl.id}_auto_advance",
-            ha_type="switch",
-            payload=ha_irrigation_switch_message(
-                ctrl.id,
-                ctrl.name,
-                suffix="auto_advance",
-                name=f"{ctrl.name} Auto Advance",
-                config_helper=cfg,
-            ),
-        )
+        # Multi-zone-only switches: auto_advance, reverse
+        if len(ctrl.zones) > 1:
+            _pub(
+                id=f"{ctrl.id}_auto_advance",
+                ha_type="switch",
+                payload=ha_irrigation_switch_message(
+                    ctrl.id,
+                    ctrl.name,
+                    suffix="auto_advance",
+                    name=f"{ctrl.name} Auto Advance",
+                    config_helper=cfg,
+                ),
+            )
 
-        _pub(
-            id=f"{ctrl.id}_reverse",
-            ha_type="switch",
-            payload=ha_irrigation_switch_message(
-                ctrl.id,
-                ctrl.name,
-                suffix="reverse",
-                name=f"{ctrl.name} Reverse",
-                config_helper=cfg,
-            ),
-        )
+            _pub(
+                id=f"{ctrl.id}_reverse",
+                ha_type="switch",
+                payload=ha_irrigation_switch_message(
+                    ctrl.id,
+                    ctrl.name,
+                    suffix="reverse",
+                    name=f"{ctrl.name} Reverse",
+                    config_helper=cfg,
+                ),
+            )
 
         _pub(
             id=f"{ctrl.id}_skip_next_run",
@@ -481,18 +489,20 @@ class IrrigationManager:
             ),
         )
 
-        _pub(
-            id=f"{ctrl.id}_next_valve",
-            ha_type="button",
-            payload=ha_irrigation_button_message(
-                ctrl.id,
-                ctrl.name,
-                suffix="next_valve",
-                name=f"{ctrl.name} Next Valve",
-                payload_press=NEXT_VALVE,
-                config_helper=cfg,
-            ),
-        )
+        # Multi-zone-only button: next_valve
+        if len(ctrl.zones) > 1:
+            _pub(
+                id=f"{ctrl.id}_next_valve",
+                ha_type="button",
+                payload=ha_irrigation_button_message(
+                    ctrl.id,
+                    ctrl.name,
+                    suffix="next_valve",
+                    name=f"{ctrl.name} Next Valve",
+                    payload_press=NEXT_VALVE,
+                    config_helper=cfg,
+                ),
+            )
 
         _pub(
             id=f"{ctrl.id}_pause",
