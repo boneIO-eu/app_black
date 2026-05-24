@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
 import OutputSelectDropdown from './OutputSelectDropdown';
@@ -32,15 +33,19 @@ interface ZoneData {
 interface ZoneRowProps {
   zone: ZoneData;
   index: number;
+  totalZones: number;
   onChange: (index: number, zone: ZoneData) => void;
   onRemove: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
   allOutputs: any[];
   allAreas: Area[];
   usedValveIds: string[];
 }
 
-function IrrigationZoneRow({ zone, index, onChange, onRemove, allOutputs, allAreas, usedValveIds }: ZoneRowProps) {
+function IrrigationZoneRow({ zone, index, totalZones, onChange, onRemove, onMoveUp, onMoveDown, allOutputs, allAreas, usedValveIds }: ZoneRowProps) {
   const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(!zone.name && !zone.valve_id);
 
   const updateField = (field: string, value: any) => {
     const updated = { ...zone, [field]: value };
@@ -54,104 +59,178 @@ function IrrigationZoneRow({ zone, index, onChange, onRemove, allOutputs, allAre
   // Exclude other zones' valve_ids from dropdown, but allow this zone's current selection
   const excludeIds = usedValveIds.filter((id) => id !== zone.valve_id);
 
+  // Find valve output name for summary
+  const valveOutput = allOutputs.find((o: any) => (o.id || o.boneio_output) === zone.valve_id);
+  const valveName = valveOutput?.name || zone.valve_id || '';
+
+  // Summary line
+  const zoneName = zone.name || `${t('irrigation.zone')} #${index + 1}`;
+  const isDisabled = zone.enabled === false;
+
   return (
-    <div className="border border-base-300 rounded-lg p-3 space-y-3 bg-base-200/30">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">{t('irrigation.zone')} #{index + 1}</span>
-        <button type="button" className="btn btn-ghost btn-xs text-error" onClick={() => onRemove(index)}>✕</button>
-      </div>
+    <div className={`border rounded-lg overflow-hidden ${isDisabled ? 'border-base-300/50 bg-base-200/20 opacity-60' : 'border-base-300 bg-base-200/30'}`}>
+      {/* Accordion header — always visible */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none hover:bg-base-300/30 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {/* Expand indicator */}
+        <svg
+          className={`w-3 h-3 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+          fill="currentColor" viewBox="0 0 20 20"
+        >
+          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+        </svg>
 
-      {/* Name */}
-      <div className="form-control">
-        <label className="label py-1">
-          <span className="label-text text-sm font-semibold">{t('irrigation.zone_name')}</span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered input-sm w-full"
-          value={zone.name || ''}
-          onChange={(e) => updateField('name', e.target.value)}
-          placeholder={t('irrigation.zone_name_placeholder')}
-        />
-      </div>
+        {/* Zone number */}
+        <span className="text-xs font-bold text-base-content/40 w-5 text-center shrink-0">#{index + 1}</span>
 
-      {/* ID */}
-      <div className="form-control">
-        <label className="label py-1">
-          <span className="label-text text-sm font-semibold">
-            {t('template.entity_id')} <span className="font-normal opacity-50">({t('template.optional')})</span>
-          </span>
-        </label>
-        <input
-          type="text"
-          className="input input-bordered input-sm w-full"
-          value={zone.id || ''}
-          onChange={(e) => updateField('id', sanitizeId(e.target.value))}
-          placeholder={sanitizeId(zone.name || '') || 'greenhouse'}
-        />
-      </div>
-
-      {/* Valve Output */}
-      <div className="form-control">
-        <label className="label py-1">
-          <span className="label-text text-sm font-semibold">{t('irrigation.valve_output')}</span>
-        </label>
-        <OutputSelectDropdown
-          value={zone.valve_id || ''}
-          onChange={(v) => updateField('valve_id', v)}
-          allOutputs={allOutputs}
-          allAreas={allAreas}
-          placeholder={t('irrigation.select_valve')}
-          excludeIds={excludeIds}
-          emptyHint={t('irrigation.no_valve_outputs_hint')}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {/* Run Duration */}
-        <div className="form-control">
-          <SimpleTimePeriodInput
-            value={zone.run_duration || '5min'}
-            onChange={(v) => updateField('run_duration', v)}
-            label={t('irrigation.run_duration')}
-            required
-            allowedUnits={['s', 'min', 'h']}
-            unitlessNumberUnit="s"
-          />
+        {/* Summary text */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm truncate">{zoneName}</span>
+            {isDisabled && (
+              <span className="badge badge-xs badge-warning">{t('irrigation.zone_disabled')}</span>
+            )}
+          </div>
+          {!isOpen && (
+            <div className="flex items-center gap-3 text-xs text-base-content/50 mt-0.5">
+              {zone.valve_id ? (
+                <span>{t('irrigation.zone_summary_valve')}: {valveName}</span>
+              ) : (
+                <span className="text-warning">{t('irrigation.zone_no_valve')}</span>
+              )}
+              <span>⏱ {zone.run_duration || '5min'}</span>
+              {(zone.run_every_n || 1) > 1 && (
+                <span>🔄 {t('irrigation.run_every_n')}: {zone.run_every_n}</span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Run every N scheduled runs */}
-        <div className="form-control">
-          <label className="label py-1">
-            <span className="label-text text-sm font-semibold">{t('irrigation.run_every_n')}</span>
-          </label>
-          <div className="flex items-center gap-2">
+        {/* Action buttons */}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Move up */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs"
+            disabled={index === 0}
+            onClick={() => onMoveUp(index)}
+            title={t('irrigation.zone_move_up')}
+          >
+            <FaChevronUp className="w-3 h-3" />
+          </button>
+          {/* Move down */}
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs"
+            disabled={index === totalZones - 1}
+            onClick={() => onMoveDown(index)}
+            title={t('irrigation.zone_move_down')}
+          >
+            <FaChevronDown className="w-3 h-3" />
+          </button>
+          {/* Remove */}
+          <button type="button" className="btn btn-ghost btn-xs text-error" onClick={() => onRemove(index)}>✕</button>
+        </div>
+      </div>
+
+      {/* Accordion content — edit fields */}
+      {isOpen && (
+        <div className="px-3 pb-3 space-y-3 border-t border-base-300/50">
+          {/* Name */}
+          <div className="form-control">
+            <label className="label py-1">
+              <span className="label-text text-sm font-semibold">{t('irrigation.zone_name')}</span>
+            </label>
             <input
-              type="number"
-              min={1}
-              max={30}
-              className="input input-bordered input-sm w-20 text-center"
-              value={zone.run_every_n || 1}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 1) updateField('run_every_n', val);
-              }}
+              type="text"
+              className="input input-bordered input-sm w-full"
+              value={zone.name || ''}
+              onChange={(e) => updateField('name', e.target.value)}
+              placeholder={t('irrigation.zone_name_placeholder')}
             />
           </div>
-          <p className="text-xs text-base-content/50 mt-1">{t('irrigation.run_every_n_hint')}</p>
-        </div>
-      </div>
 
-      {/* Enabled */}
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          className="checkbox checkbox-sm checkbox-primary"
-          checked={zone.enabled !== false}
-          onChange={(e) => updateField('enabled', e.target.checked)}
-        />
-        <span className="text-sm">{t('irrigation.zone_enabled')}</span>
-      </label>
+          {/* ID */}
+          <div className="form-control">
+            <label className="label py-1">
+              <span className="label-text text-sm font-semibold">
+                {t('template.entity_id')} <span className="font-normal opacity-50">({t('template.optional')})</span>
+              </span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered input-sm w-full"
+              value={zone.id || ''}
+              onChange={(e) => updateField('id', sanitizeId(e.target.value))}
+              placeholder={sanitizeId(zone.name || '') || 'greenhouse'}
+            />
+          </div>
+
+          {/* Valve Output */}
+          <div className="form-control">
+            <label className="label py-1">
+              <span className="label-text text-sm font-semibold">{t('irrigation.valve_output')}</span>
+            </label>
+            <OutputSelectDropdown
+              value={zone.valve_id || ''}
+              onChange={(v) => updateField('valve_id', v)}
+              allOutputs={allOutputs}
+              allAreas={allAreas}
+              placeholder={t('irrigation.select_valve')}
+              excludeIds={excludeIds}
+              emptyHint={t('irrigation.no_valve_outputs_hint')}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Run Duration */}
+            <div className="form-control">
+              <SimpleTimePeriodInput
+                value={zone.run_duration || '5min'}
+                onChange={(v) => updateField('run_duration', v)}
+                label={t('irrigation.run_duration')}
+                required
+                allowedUnits={['s', 'min', 'h']}
+                unitlessNumberUnit="s"
+              />
+            </div>
+
+            {/* Run every N scheduled runs */}
+            <div className="form-control">
+              <label className="label py-1">
+                <span className="label-text text-sm font-semibold">{t('irrigation.run_every_n')}</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  className="input input-bordered input-sm w-20 text-center"
+                  value={zone.run_every_n || 1}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1) updateField('run_every_n', val);
+                  }}
+                />
+              </div>
+              <p className="text-xs text-base-content/50 mt-1">{t('irrigation.run_every_n_hint')}</p>
+            </div>
+          </div>
+
+          {/* Enabled */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-sm checkbox-primary"
+              checked={zone.enabled !== false}
+              onChange={(e) => updateField('enabled', e.target.checked)}
+            />
+            <span className="text-sm">{t('irrigation.zone_enabled')}</span>
+          </label>
+        </div>
+      )}
     </div>
   );
 }
@@ -607,6 +686,15 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
     onChange({ ...data, zones: [...zones, { enabled: true, run_duration: '5min', run_every_n: 1 }] });
   };
 
+  /** Move a zone up (swap with previous). */
+  const handleZoneMove = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= zones.length) return;
+    const updated = [...zones];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    onChange({ ...data, zones: updated });
+  };
+
   const handleScheduleChange = (index: number, sched: ScheduleData) => {
     const updated = [...schedule];
     updated[index] = sched;
@@ -958,13 +1046,21 @@ Rules:
             key={idx}
             zone={zone}
             index={idx}
+            totalZones={zones.length}
             onChange={handleZoneChange}
             onRemove={handleZoneRemove}
+            onMoveUp={(i) => handleZoneMove(i, i - 1)}
+            onMoveDown={(i) => handleZoneMove(i, i + 1)}
             allOutputs={valveOutputs}
             allAreas={allAreas}
             usedValveIds={[...usedValveIds, ...allSourceOutputIds]}
           />
         ))}
+        {zones.length > 0 && (
+          <button type="button" className="btn btn-xs btn-outline btn-primary w-full" onClick={handleZoneAdd}>
+            + {t('irrigation.add_zone')}
+          </button>
+        )}
       </div>
 
       {/* ── Schedule ─────────────────────────────────────────────── */}

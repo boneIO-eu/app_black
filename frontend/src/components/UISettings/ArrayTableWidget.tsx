@@ -200,6 +200,30 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     setIsModalOpen(true);
   };
 
+  /**
+   * Duplicate an item: deep-copy it, adjust id/name to avoid conflicts,
+   * then open it as a new item for editing.
+   */
+  const handleDuplicate = (index: number) => {
+    const item = JSON.parse(JSON.stringify(value[index]));
+    // Append suffix to avoid id/name collision
+    if (item.id) item.id = `${item.id}_copy`;
+    if (item.name) item.name = `${item.name} (copy)`;
+    // For irrigation zones, also reset zone IDs to avoid conflicts
+    if (item.zones && Array.isArray(item.zones)) {
+      item.zones = item.zones.map((z: any) => ({
+        ...z,
+        id: z.id ? `${z.id}_copy` : undefined,
+      }));
+    }
+    setEditingItem(item);
+    setEditingIndex(null); // null = creating a new item
+    originalItemRef.current = null;
+    setHasValidationErrors(false);
+    setAttemptedSubmit(false);
+    setIsModalOpen(true);
+  };
+
   const handleAdd = () => {
     setEditingIndex(null);
     if (sectionType === 'remote_devices') {
@@ -470,6 +494,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
           allRemoteDevices={allRemoteDevices}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onDuplicate={sectionType === 'template' ? handleDuplicate : undefined}
           onAddFromDiscovery={handleAddFromDiscovery}
         />
       ) : (

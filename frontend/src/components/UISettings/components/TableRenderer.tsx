@@ -28,6 +28,7 @@ interface TableRendererProps {
   allRemoteDevices: any[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
+  onDuplicate?: (index: number) => void;
   onAddFromDiscovery: (device: any) => void;
 }
 
@@ -43,6 +44,7 @@ const TableRenderer: React.FC<TableRendererProps> = ({
   allRemoteDevices,
   onEdit,
   onDelete,
+  onDuplicate,
   onAddFromDiscovery,
 }) => {
   const commonProps = { items, onEdit, onDelete };
@@ -70,7 +72,7 @@ const TableRenderer: React.FC<TableRendererProps> = ({
     case 'remote_devices':
       return <RemoteDeviceTable {...commonProps} onAddFromDiscovery={onAddFromDiscovery} />;
     case 'template':
-      return <TemplateTable {...commonProps} allAreas={allAreas} />;
+      return <TemplateTable {...commonProps} allAreas={allAreas} onDuplicate={onDuplicate} />;
     case 'adc':
       return <ADCTable {...commonProps} allAreas={allAreas} />;
     case 'board_sensors':

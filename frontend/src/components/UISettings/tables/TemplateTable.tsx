@@ -17,14 +17,17 @@ interface TemplateTableProps {
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
+  onDuplicate?: (index: number) => void;
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
   thermostat: '🌡️',
   alarm_control_panel: '🚨',
+  irrigation: '💧',
+  gate_cover: '🚪',
 };
 
-const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, onDelete }) => {
+const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, onDelete, onDuplicate }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('template');
@@ -104,6 +107,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
               subtitle={item.name ? item.id : undefined}
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
+              onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
               fields={[
                 { label: t('template.platform'), value: <span className="badge badge-primary badge-xs">{getPlatformLabel(item.platform)}</span> },
                 { label: t('array_table_widget.details'), value: getDetails(item) || '-' },
@@ -156,6 +160,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
                     <TableActions
                       onEdit={() => onEdit(originalIndex)}
                       onDelete={() => onDelete(originalIndex)}
+                      onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
                     />
                   </Td>
                 </Tr>
