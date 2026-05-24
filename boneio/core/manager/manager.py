@@ -1769,13 +1769,12 @@ class Manager:
             if target_device and target_device.output_type != "none" and message != "":
                 brightness_val = int(message)
                 # Brightness > 0 effectively turns ON — must respect interlock
-                if brightness_val > 0 and hasattr(target_device, "check_interlock"):
-                    if not target_device.check_interlock():
-                        _LOGGER.warning(
-                            "Interlock active: cannot set brightness on '%s'",
-                            device_id,
-                        )
-                        return
+                if brightness_val > 0 and hasattr(target_device, "check_interlock") and not target_device.check_interlock():
+                    _LOGGER.warning(
+                        "Interlock active: cannot set brightness on '%s'",
+                        device_id,
+                    )
+                    return
                 target_device.set_brightness(brightness_val)
             else:
                 _LOGGER.debug("Target device not found %s.", device_id)
