@@ -4,6 +4,16 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev12 (2026-05-24)
+
+### 🐛 Bug Fixes
+
+- **Irrigation schedule timezone** — `_next_fire_time()` was treating user-configured schedule times (e.g. "18:00") as UTC instead of local time, causing schedules to fire 2h late in CEST and HA sensor to show wrong time. Now builds candidate in system local timezone and converts to UTC.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev11...v1.4.0dev12
+
+---
+
 ## v1.4.0dev11 (2026-05-24)
 
 ### 🐛 Bug Fixes
