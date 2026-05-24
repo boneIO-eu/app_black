@@ -640,11 +640,12 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     cards.append(entities_card(controls, title="Ustawienia"))
 
     # ── 5. Sterowanie ─────────────────────────────────────────────────
-    cards.append(entities_card([
-        eid("button", "pause"),
-        eid("button", "resume"),
-        eid("button", "next_valve"),
-    ], title="Sterowanie"))
+    cards.append(heading_card("Sterowanie", style="subtitle"))
+    cards.append(horizontal_stack([
+        tile_card(eid("button", "next_valve"), "Next valve", "mdi:skip-next"),
+        tile_card(eid("button", "pause"), "Pause", "mdi:pause"),
+        tile_card(eid("button", "resume"), "Resume", "mdi:play"),
+    ]))
 
     # Water source select (if multiple)
     if len(ctrl.water_sources) > 1:
