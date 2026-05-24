@@ -4,6 +4,26 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev7 (2026-05-24)
+
+### ✨ New Features
+
+- **Next Run Time sensor** — New `device_class=timestamp` sensor for irrigation controllers that shows when the next scheduled run will occur (e.g. "in 19 hours"). Uses `mdi:calendar-clock` icon. Updates on schedule/skip/standby changes.
+- **HA Dashboard YAML generator** — New `/api/irrigation/dashboard?ctrl_id=` endpoint generates complete HA Lovelace dashboard YAML for irrigation controllers. Includes: heading with badges, settings entities, action buttons, sensor tiles (zone end time, next run), zone tiles with duration sliders, schedule skip switches, and event entity.
+- **Dashboard export button** — Per-row `FaFileExport` button in TemplateTable for irrigation items. Copies the generated HA dashboard YAML to clipboard for the specific controller.
+- **Suggested area in HA discovery** — Irrigation controllers now include `suggested_area` in their HA MQTT discovery device metadata, allowing Home Assistant to auto-assign entities to the correct area.
+
+### ♻️ Refactoring
+
+- **Reusable dashboard card builders** — Extracted generic HA card primitives (`heading_card`, `tile_card`, `entities_card`, `button_card`, `entity_badge`, `horizontal_stack`, `sensor_tile`, `slider_tile`, `cards_to_yaml`) into `boneio/webui/dashboard_cards.py`. Reusable for future cover/light/alarm dashboard generators.
+- **`build_entity_id` with configurable prefix** — Entity ID builder now accepts a domain prefix parameter (`irrigation`, `cover`, etc.) instead of hardcoded `irrigation`.
+- **`ha_irrigation_timestamp_sensor_message` icon param** — Added optional `icon` parameter with `mdi:timer-sand` default, allowing custom icons per sensor type.
+- **TableActions / MobileCard** — Extended with optional `onDashboard` callback; renders `FaFileExport` icon between Duplicate and Delete buttons.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev6...v1.4.0dev7
+
+---
+
 ## v1.4.0dev6 (2026-05-24)
 
 ### ✨ New Features
