@@ -4,6 +4,34 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev6 (2026-05-24)
+
+### ✨ New Features
+
+- **Irrigation zones — collapsible accordion** — Zones are now displayed as collapsible accordions with a compact summary (name, valve, duration, frequency, enabled status). New zones auto-expand for editing; existing zones are collapsed by default for better overview.
+- **Irrigation zones — reorder** — Added ▲/▼ buttons to move zones up/down in the list. Zone order determines irrigation sequence.
+- **Irrigation zones — add button at bottom** — "Add zone" button is now shown both at the top and bottom of the zone list to avoid scrolling.
+- **Template duplication** — New 📋 (copy) button in template table. Deep-clones the template with `_copy` suffix on IDs and `(copy)` suffix on names. Opens as a new item for editing. Irrigation zone IDs are also adjusted to avoid conflicts.
+- **Platform icons** — Added dedicated emoji icons for irrigation (💧) and gate/cover (🚪) templates in the table view.
+
+### 🐛 Bug Fixes
+
+- **Irrigation AI prompt — light output filter** — AI prompt now explicitly forbids using "light" type outputs for irrigation valves and pumps.
+- **AI context — output type awareness** — Added `output_type` ("light"/"switch") to each output in AI context. Prompt now guides AI to use appropriate action types per output type.
+- **AI context — remote devices guidance** — Added instructions for `remote_output` and `remote_cover` actions with `remote_device`, `output_id`, and `cover_id` fields.
+- **AI context — remote binary sensors** — Added `binary_sensors` from ESPHome devices to remote device context.
+- **httpx test dependency** — Added `httpx>=0.28.0` to test dependencies (required by FastAPI's `TestClient`).
+
+### ♻️ Refactoring
+
+- **TableActions** — Extended with optional `onDuplicate` prop; renders copy icon between Edit and Delete.
+- **MobileCard** — Added `onDuplicate` support for mobile template view.
+- **TableRenderer** — Passes `onDuplicate` through to TemplateTable.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev5...v1.4.0dev6
+
+---
+
 ## v1.4.0dev5 (2026-05-23)
 
 ### ✨ New Features
