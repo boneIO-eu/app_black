@@ -1,25 +1,29 @@
 import React from 'react';
-import { FaEdit, FaCopy, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaCopy, FaTrash, FaHome } from 'react-icons/fa';
 
 interface TableActionsProps {
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate?: () => void;
+  onDashboard?: () => void;
   editTitle?: string;
   deleteTitle?: string;
   duplicateTitle?: string;
+  dashboardTitle?: string;
 }
 
 /**
- * Shared table action buttons (Edit/Duplicate/Delete) for all table types.
+ * Shared table action buttons (Edit/Duplicate/Dashboard/Delete) for all table types.
  */
 const TableActions: React.FC<TableActionsProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
+  onDashboard,
   editTitle = 'Edit',
   deleteTitle = 'Delete',
   duplicateTitle = 'Duplicate',
+  dashboardTitle = 'HA Dashboard',
 }) => {
   return (
     <div className="flex space-x-1">
@@ -37,6 +41,15 @@ const TableActions: React.FC<TableActionsProps> = ({
           title={duplicateTitle}
         >
           <FaCopy />
+        </button>
+      )}
+      {onDashboard && (
+        <button
+          onClick={onDashboard}
+          className="btn btn-ghost btn-xs text-info"
+          title={dashboardTitle}
+        >
+          <FaHome />
         </button>
       )}
       <button

@@ -31,28 +31,25 @@ const PLATFORM_ICONS: Record<string, string> = {
 const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, onDelete, onDuplicate }) => {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
-  const [dashboardCopied, setDashboardCopied] = useState(false);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('template');
 
-  const hasIrrigation = useMemo(
-    () => items.some((item) => item.platform === 'irrigation'),
-    [items]
-  );
-
-  const handleCopyDashboard = useCallback(async () => {
-    setDashboardLoading(true);
+  /**
+   * Copy HA dashboard YAML for a specific irrigation controller to clipboard.
+   */
+  const handleCopyDashboard = useCallback(async (ctrlId: string) => {
     try {
-      const { data } = await axios.get('/api/irrigation/dashboard');
+      setCopiedId(ctrlId);
+      const { data } = await axios.get(`/api/irrigation/dashboard?ctrl_id=${encodeURIComponent(ctrlId)}`);
       if (data?.yaml) {
         await navigator.clipboard.writeText(data.yaml);
-        setDashboardCopied(true);
-        setTimeout(() => setDashboardCopied(false), 3000);
+        setTimeout(() => setCopiedId(null), 2000);
+      } else {
+        setCopiedId(null);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard YAML', err);
-    } finally {
-      setDashboardLoading(false);
+      setCopiedId(null);
     }
   }, []);
 
@@ -113,24 +110,6 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
             filteredCount={sortedItems.length}
           />
         </div>
-        {hasIrrigation && (
-          <div className="tooltip tooltip-bottom" data-tip={t('irrigation.copy_ha_dashboard')}>
-            <button
-              onClick={handleCopyDashboard}
-              className={`btn btn-ghost btn-sm ${dashboardCopied ? 'btn-success' : ''}`}
-              disabled={dashboardLoading}
-            >
-              {dashboardLoading ? (
-                <span className="loading loading-spinner loading-xs" />
-              ) : dashboardCopied ? '✅' : '🏠'}
-              <span className="hidden sm:inline ml-1">
-                {dashboardCopied
-                  ? t('irrigation.dashboard_copied')
-                  : t('irrigation.ha_dashboard')}
-              </span>
-            </button>
-          </div>
-        )}
         <ResetSortButton isSorted={isSorted} onReset={resetSort} />
       </div>
 
@@ -150,6 +129,9 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
               onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
+              onDashboard={item.platform === 'irrigation' && item.id
+                ? () => handleCopyDashboard(item.id)
+                : undefined}
               fields={[
                 { label: t('template.platform'), value: <span className="badge badge-primary badge-xs">{getPlatformLabel(item.platform)}</span> },
                 { label: t('array_table_widget.details'), value: getDetails(item) || '-' },
@@ -203,6 +185,12 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
                       onEdit={() => onEdit(originalIndex)}
                       onDelete={() => onDelete(originalIndex)}
                       onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
+                      onDashboard={item.platform === 'irrigation' && item.id
+                        ? () => handleCopyDashboard(item.id)
+                        : undefined}
+                      dashboardTitle={copiedId === item.id
+                        ? t('irrigation.dashboard_copied')
+                        : t('irrigation.copy_ha_dashboard')}
                     />
                   </Td>
                 </Tr>

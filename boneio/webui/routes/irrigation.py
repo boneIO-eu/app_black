@@ -655,12 +655,16 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
 
 
 @router.get("/dashboard")
-async def generate_dashboard(manager: Manager = Depends(get_manager)):
-    """Generate HA dashboard YAML for all irrigation controllers.
+async def generate_dashboard(
+    manager: Manager = Depends(get_manager),
+    ctrl_id: str | None = None,
+):
+    """Generate HA dashboard YAML for irrigation controllers.
 
-    Returns a grid card containing all irrigation controllers with their
-    zones, controls, sensors and schedule toggles. Can be pasted directly
-    into HA dashboard YAML editor.
+    Args:
+        ctrl_id: Optional controller ID. When provided, generates
+            dashboard for only that controller. Otherwise generates
+            for all controllers.
 
     Returns:
         Dict with 'yaml' key containing the dashboard YAML string.
@@ -668,10 +672,16 @@ async def generate_dashboard(manager: Manager = Depends(get_manager)):
     serial = manager.config_helper.serial_number
     all_cards: list[dict] = []
 
-    for ctrl in manager.irrigation._controllers.values():
+    if ctrl_id:
+        ctrl = manager.irrigation._controllers.get(ctrl_id)
+        if not ctrl:
+            raise HTTPException(status_code=404, detail=f"Controller '{ctrl_id}' not found")
         all_cards.extend(_generate_irrigation_dashboard_cards(ctrl, serial))
+    else:
+        for ctrl in manager.irrigation._controllers.values():
+            all_cards.extend(_generate_irrigation_dashboard_cards(ctrl, serial))
 
     return {
         "yaml": cards_to_yaml(all_cards),
-        "controllers_count": len(manager.irrigation._controllers),
+        "controllers_count": 1 if ctrl_id else len(manager.irrigation._controllers),
     }
