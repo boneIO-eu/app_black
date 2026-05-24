@@ -593,6 +593,20 @@ class IrrigationManager:
             ),
         )
 
+        # Next scheduled run time sensor
+        _pub(
+            id=f"{ctrl.id}_next_run_time",
+            ha_type="sensor",
+            payload=ha_irrigation_timestamp_sensor_message(
+                ctrl.id,
+                ctrl.name,
+                suffix="next_run_time",
+                name=f"{ctrl.name} Next Run",
+                config_helper=cfg,
+                icon="mdi:calendar-clock",
+            ),
+        )
+
         # Water source select — only when multiple sources exist
         if len(ctrl.water_sources) > 1:
             _pub(

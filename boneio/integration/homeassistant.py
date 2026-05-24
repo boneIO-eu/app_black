@@ -449,6 +449,7 @@ def ha_irrigation_timestamp_sensor_message(
     suffix: str,
     name: str,
     config_helper: ConfigHelper,
+    icon: str = "mdi:timer-sand",
 ) -> dict[str, Any]:
     """Create timestamp sensor discovery for irrigation countdown.
 
@@ -466,7 +467,7 @@ def ha_irrigation_timestamp_sensor_message(
     msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
     msg["value_template"] = "{{ value_json.value }}"
     msg["device_class"] = "timestamp"
-    msg["icon"] = "mdi:timer-sand"
+    msg["icon"] = icon
     return msg
 
 

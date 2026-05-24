@@ -372,6 +372,16 @@ class IrrigationController:
             {"value": end_time_value},
         )
 
+        # Publish next scheduled run time
+        next_run_value = ""
+        next_run_dt = self._compute_next_run_time()
+        if next_run_dt is not None:
+            next_run_value = next_run_dt.isoformat()
+        self._publish(
+            self._setting_state_topic("next_run_time"),
+            {"value": next_run_value},
+        )
+
     async def shutdown(self) -> None:
         _LOGGER.debug(
             "Irrigation %s shutdown called (state=%s, active_zone=%s). Caller: %s",
@@ -1002,6 +1012,24 @@ class IrrigationController:
         self._schedule[schedule_idx]["skip"] = value
         self._save(f"schedule/{schedule_idx}/skip", value)
         await self.publish_all_states()
+
+    def _compute_next_run_time(self) -> datetime | None:
+        """Compute the next scheduled run time across all schedules.
+
+        Returns the earliest upcoming fire time, or None if no schedules
+        are configured or the controller is in standby.
+        """
+        if not self._schedule or self._standby:
+            return None
+
+        earliest: datetime | None = None
+        for schedule in self._schedule:
+            time_str = schedule.get("time", "06:00")
+            days = str(schedule.get("days", "daily")).strip().lower()
+            candidate = _next_fire_time(time_str, days)
+            if earliest is None or candidate < earliest:
+                earliest = candidate
+        return earliest
 
     def start_schedules(self) -> None:
         self.stop_schedules()
