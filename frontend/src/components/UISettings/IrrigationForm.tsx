@@ -17,6 +17,42 @@ import {
 import type { TemplateSubFormProps, Area } from './types/template';
 import { SCHEDULE_DAY_OPTIONS } from './types/template';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Convert a value that may be a raw millisecond integer (from Cerberus coercion)
+ * back to a human-readable time string like "2s" or "500ms".
+ * If the value is already a string, returns it unchanged.
+ */
+function msToTimeString(val: string | number | undefined): string | undefined {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val === 'string') return val;
+  if (typeof val !== 'number' || val === 0) return undefined;
+  const ms = val;
+  if (ms >= 3600000 && ms % 3600000 === 0) return `${ms / 3600000}h`;
+  if (ms >= 60000 && ms % 60000 === 0) return `${ms / 60000}min`;
+  if (ms >= 1000 && ms % 1000 === 0) return `${ms / 1000}s`;
+  return `${ms}ms`;
+}
+
+/** Fields in WaterSourceData that hold time period values. */
+const WS_TIME_FIELDS = [
+  'output_start_delay', 'output_stop_delay',
+  'pump_start_pump_delay', 'pump_start_valve_delay',
+  'pump_stop_pump_delay', 'pump_stop_valve_delay',
+] as const;
+
+/** Normalize numeric ms values in a water source to time strings. */
+function normalizeWaterSource(ws: any): any {
+  const out = { ...ws };
+  for (const field of WS_TIME_FIELDS) {
+    if (typeof out[field] === 'number') {
+      out[field] = msToTimeString(out[field]);
+    }
+  }
+  return out;
+}
+
 // ─── Zone sub-form ────────────────────────────────────────────────────────────
 
 
@@ -537,8 +573,11 @@ function WaterSourceRow({ source, index, onChange, onRemove, allOutputs, allArea
 
 function AdvancedTimingSection({ data, updateField }: { data: any; updateField: (field: string, value: any) => void }) {
   const { t } = useTranslation();
+  // Normalize numeric ms values (backend Cerberus coercion may produce raw ints)
+  const voDelay = msToTimeString(data.valve_open_delay) ?? data.valve_open_delay;
+  const voOverlap = msToTimeString(data.valve_overlap) ?? data.valve_overlap;
   const [expanded, setExpanded] = useState(
-    () => !!(data.valve_overlap || data.valve_open_delay)
+    () => !!(voOverlap || voDelay)
   );
 
   return (
@@ -559,7 +598,7 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
           <div className="grid grid-cols-2 gap-3">
             <div className="form-control">
               <SimpleTimePeriodInput
-                value={data.valve_open_delay || '0s'}
+                value={voDelay || '0s'}
                 onChange={(v) => {
                   const updates: Record<string, any> = { valve_open_delay: v };
                   if (v && v !== '0s' && v !== '0ms') updates.valve_overlap = undefined;
@@ -573,7 +612,7 @@ function AdvancedTimingSection({ data, updateField }: { data: any; updateField: 
             </div>
             <div className="form-control">
               <SimpleTimePeriodInput
-                value={data.valve_overlap || '0s'}
+                value={voOverlap || '0s'}
                 onChange={(v) => {
                   const updates: Record<string, any> = { valve_overlap: v };
                   if (v && v !== '0s' && v !== '0ms') updates.valve_open_delay = undefined;
@@ -638,11 +677,24 @@ const IrrigationForm: React.FC<TemplateSubFormProps> = ({
     }
   };
 
-  const zones: ZoneData[] = data.zones || [];
+  // Normalize zone run_duration (backend may send raw ms integers)
+  const zones: ZoneData[] = useMemo(
+    () => (data.zones || []).map((z: any) => ({
+      ...z,
+      run_duration: typeof z.run_duration === 'number' ? msToTimeString(z.run_duration) : z.run_duration,
+    })),
+    [data.zones]
+  );
   const schedule: ScheduleData[] = data.schedule || [];
-  const waterSources: WaterSourceData[] = data.water_sources || [];
+  // Normalize water source time fields (backend may send raw ms integers)
+  const waterSources: WaterSourceData[] = useMemo(
+    () => (data.water_sources || []).map(normalizeWaterSource),
+    [data.water_sources]
+  );
+  // Also normalize top-level time fields
+  const valveOpenDelay = msToTimeString(data.valve_open_delay) ?? data.valve_open_delay;
 
-  const hasValveOpenDelay = Boolean(data.valve_open_delay && data.valve_open_delay !== '0s' && data.valve_open_delay !== '0ms');
+  const hasValveOpenDelay = Boolean(valveOpenDelay && valveOpenDelay !== '0s' && valveOpenDelay !== '0ms');
 
   // Collect all used output IDs: zone valve_ids + all water source outputs
   const usedValveIds = useMemo(() => {
