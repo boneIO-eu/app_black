@@ -1118,6 +1118,9 @@ def strip_default_values(data: Any, schema: dict | None = None, section: str | N
         """Remove keys with default values from dict."""
         cleaned = {}
         for key, value in obj.items():
+            # Skip empty strings and None values — they are never valid config
+            if value is None or value == "":
+                continue
             # Special handling for nested structures
             if key == "actions" and isinstance(value, dict):
                 # Clean actions recursively
