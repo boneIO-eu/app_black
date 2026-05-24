@@ -577,6 +577,16 @@ def _irr_id(serial: str, entity_type: str, ctrl_id: str, suffix: str = "") -> st
 def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     """Generate HA dashboard cards for a single irrigation controller.
 
+    Layout:
+      1. Header — controller name + main switch badge + next run badge
+      2. Podlewanie ręczne — valve tiles for manual control
+      3. Czasy podlewania — zone durations (inline entities card)
+      4. Ustawienia — auto-advance, standby, multiplier, etc.
+      5. Sterowanie — pause / resume / next valve buttons
+      6. Harmonogramy — schedule skip switches
+      7. Sensory — zone end time, next run time
+      8. Zdarzenia — event entity
+
     Args:
         ctrl: IrrigationController instance.
         serial: Device serial number.
@@ -591,14 +601,37 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     next_run = eid("sensor", "next_run_time")
     zone_end = eid("sensor", "zone_end_time")
 
-    # Controller header
+    # ── 1. Controller header ──────────────────────────────────────────
     cards.append(heading_card(
         f"🌿 {ctrl.name}",
         style="title",
         badges=[entity_badge(main_switch), entity_badge(next_run)],
     ))
 
-    # Settings entities
+    # ── 2. Podlewanie ręczne — valve tiles in rows of 2 ──────────────
+    cards.append(heading_card("Podlewanie ręczne", style="subtitle"))
+    zone_tiles: list[dict] = []
+    for zone in ctrl.zones:
+        zone_valve = eid("valve", f"zone_{zone.id}")
+        zone_tiles.append(tile_card(
+            zone_valve, zone.name, "mdi:sprinkler-variant",
+            state_content=["last_changed", "state"],
+        ))
+    # Pack tiles into horizontal-stacks of 2
+    for i in range(0, len(zone_tiles), 2):
+        pair = zone_tiles[i : i + 2]
+        if len(pair) == 1:
+            cards.append(pair[0])
+        else:
+            cards.append(horizontal_stack(pair))
+
+    # ── 3. Czasy podlewania — inline entities card ────────────────────
+    duration_entities: list[str] = [
+        eid("number", f"zone_{zone.id}_duration") for zone in ctrl.zones
+    ]
+    cards.append(entities_card(duration_entities, title="Czasy podlewania"))
+
+    # ── 4. Ustawienia ─────────────────────────────────────────────────
     controls: list[str | dict] = [
         eid("switch", s) for s in ("auto_advance", "standby", "skip_next_run", "reverse")
     ]
@@ -606,7 +639,7 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     controls.append(eid("number", "repeat"))
     cards.append(entities_card(controls, title="Ustawienia"))
 
-    # Action buttons (compact — entities card renders them as single rows)
+    # ── 5. Sterowanie ─────────────────────────────────────────────────
     cards.append(entities_card([
         eid("button", "pause"),
         eid("button", "resume"),
@@ -617,31 +650,7 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
     if len(ctrl.water_sources) > 1:
         cards.append(entities_card([eid("select", "water_source")], title="Źródło wody"))
 
-    # Sensors row
-    cards.append(horizontal_stack([
-        sensor_tile(zone_end, "Koniec strefy", "mdi:timer-sand", state_content=["state", "last_changed"]),
-        sensor_tile(next_run, "Następne uruchomienie", "mdi:calendar-clock", state_content=["state", "last_changed"]),
-    ]))
-
-    # Zone cards
-    for zone in ctrl.zones:
-        zone_valve = eid("valve", f"zone_{zone.id}")
-        zone_enabled = eid("switch", f"zone_{zone.id}_enabled")
-        zone_duration = eid("number", f"zone_{zone.id}_duration")
-
-        cards.append(heading_card(
-            zone.name, style="subtitle",
-            badges=[entity_badge(zone_valve), entity_badge(zone_enabled)],
-        ))
-        cards.append(horizontal_stack([
-            tile_card(
-                zone_valve, zone.name, "mdi:sprinkler-variant",
-                state_content=["last_changed", "state"],
-            ),
-            slider_tile(zone_duration, f"{zone.name} czas"),
-        ]))
-
-    # Schedule skip switches
+    # ── 6. Harmonogramy ───────────────────────────────────────────────
     for idx, sched in enumerate(ctrl._schedule):
         sched_skip = eid("switch", f"schedule_{idx}_skip")
         time_str = sched.get("time", "")
@@ -650,7 +659,13 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
             [sched_skip], title=f"Harmonogram {idx + 1}: {time_str} ({days_str})",
         ))
 
-    # Event entity
+    # ── 7. Sensory ────────────────────────────────────────────────────
+    cards.append(horizontal_stack([
+        sensor_tile(zone_end, "Koniec strefy", "mdi:timer-sand", state_content=["state", "last_changed"]),
+        sensor_tile(next_run, "Następne uruchomienie", "mdi:calendar-clock", state_content=["state", "last_changed"]),
+    ]))
+
+    # ── 8. Zdarzenia ──────────────────────────────────────────────────
     cards.append(entities_card([eid("event", "event")], title="Zdarzenia"))
 
     return cards
