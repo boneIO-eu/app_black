@@ -76,6 +76,7 @@ class IrrigationController:
         auto_advance: bool = True,
         reverse: bool = False,
         pause_timeout_s: int = 1800,
+        area_id: str | None = None,
     ) -> None:
         """Initialize irrigation controller.
 
@@ -101,6 +102,7 @@ class IrrigationController:
         """
         self.id = id
         self.name = name
+        self.area_id = area_id
         self._topic_prefix = topic_prefix
         self._message_bus = message_bus
         self._event_bus = event_bus

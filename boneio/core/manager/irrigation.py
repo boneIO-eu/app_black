@@ -10,6 +10,7 @@ from boneio.components.irrigation import IrrigationController, IrrigationZone, W
 from boneio.const import NEXT_VALVE, ON, PAUSE, RESUME
 from boneio.core.utils.timeperiod import parse_time_to_seconds
 from boneio.integration.homeassistant import (
+    _ha_irrigation_device,
     ha_irrigation_button_message,
     ha_irrigation_event_message,
     ha_irrigation_main_switch_message,
@@ -93,6 +94,7 @@ class IrrigationManager:
             auto_advance=bool(cfg.get("auto_advance", True)),
             reverse=bool(cfg.get("reverse", False)),
             pause_timeout_s=int(parse_time_to_seconds(cfg.get("pause_timeout"), 1800)),
+            area_id=cfg.get("area"),
         )
 
     def _build_zone(self, zone_cfg: dict[str, Any]) -> IrrigationZone | None:
@@ -383,14 +385,23 @@ class IrrigationManager:
 
     def _publish_discovery(self, ctrl: IrrigationController) -> None:
         cfg = self._manager.config_helper
+        # Resolve area name for HA suggested_area
+        area_name = cfg.get_area_name(ctrl.area_id) if ctrl.area_id else None
+        device = _ha_irrigation_device(ctrl.id, ctrl.name, cfg, area=ctrl.area_id, area_name=area_name)
 
-        self._manager.publish_ha_discovery(
+        def _pub(id: str, ha_type: str, payload: dict | str) -> None:
+            """Publish discovery with area-enriched device info."""
+            if isinstance(payload, dict) and "device" in payload:
+                payload["device"] = device
+            self._manager.publish_ha_discovery(id=id, ha_type=ha_type, payload=payload)
+
+        _pub(
             id=f"{ctrl.id}",
             ha_type="switch",
             payload=ha_irrigation_main_switch_message(ctrl.id, ctrl.name, cfg),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_auto_advance",
             ha_type="switch",
             payload=ha_irrigation_switch_message(
@@ -402,7 +413,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_reverse",
             ha_type="switch",
             payload=ha_irrigation_switch_message(
@@ -414,7 +425,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_skip_next_run",
             ha_type="switch",
             payload=ha_irrigation_switch_message(
@@ -426,7 +437,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_standby",
             ha_type="switch",
             payload=ha_irrigation_switch_message(
@@ -438,7 +449,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_multiplier",
             ha_type="number",
             payload=ha_irrigation_number_message(
@@ -454,7 +465,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_repeat",
             ha_type="number",
             payload=ha_irrigation_number_message(
@@ -470,7 +481,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_next_valve",
             ha_type="button",
             payload=ha_irrigation_button_message(
@@ -483,7 +494,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_pause",
             ha_type="button",
             payload=ha_irrigation_button_message(
@@ -496,7 +507,7 @@ class IrrigationManager:
             ),
         )
 
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_resume",
             ha_type="button",
             payload=ha_irrigation_button_message(
@@ -516,7 +527,7 @@ class IrrigationManager:
                 ha_type="switch",
                 payload="",
             )
-            self._manager.publish_ha_discovery(
+            _pub(
                 id=f"{ctrl.id}_zone_{zone.id}",
                 ha_type="valve",
                 payload=ha_irrigation_valve_message(
@@ -528,7 +539,7 @@ class IrrigationManager:
                 ),
             )
 
-            self._manager.publish_ha_discovery(
+            _pub(
                 id=f"{ctrl.id}_zone_{zone.id}_enabled",
                 ha_type="switch",
                 payload=ha_irrigation_switch_message(
@@ -540,7 +551,7 @@ class IrrigationManager:
                 ),
             )
 
-            self._manager.publish_ha_discovery(
+            _pub(
                 id=f"{ctrl.id}_zone_{zone.id}_duration",
                 ha_type="number",
                 payload=ha_irrigation_number_message(
@@ -557,7 +568,7 @@ class IrrigationManager:
             )
 
         for idx, _schedule in enumerate(ctrl._schedule):
-            self._manager.publish_ha_discovery(
+            _pub(
                 id=f"{ctrl.id}_schedule_{idx}_skip",
                 ha_type="switch",
                 payload=ha_irrigation_switch_message(
@@ -570,7 +581,7 @@ class IrrigationManager:
             )
 
         # Zone end time sensor — HA shows countdown automatically
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_zone_end_time",
             ha_type="sensor",
             payload=ha_irrigation_timestamp_sensor_message(
@@ -584,7 +595,7 @@ class IrrigationManager:
 
         # Water source select — only when multiple sources exist
         if len(ctrl.water_sources) > 1:
-            self._manager.publish_ha_discovery(
+            _pub(
                 id=f"{ctrl.id}_water_source",
                 ha_type="select",
                 payload=ha_irrigation_select_message(
@@ -596,7 +607,7 @@ class IrrigationManager:
             )
 
         # Event entity — fires on interlock faults, cycle completions, etc.
-        self._manager.publish_ha_discovery(
+        _pub(
             id=f"{ctrl.id}_event",
             ha_type="event",
             payload=ha_irrigation_event_message(

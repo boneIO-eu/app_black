@@ -283,11 +283,17 @@ def ha_button_availabilty_message(
     return msg
 
 
-def _ha_irrigation_device(ctrl_id: str, ctrl_name: str, config_helper: ConfigHelper) -> dict[str, Any]:
+def _ha_irrigation_device(
+    ctrl_id: str,
+    ctrl_name: str,
+    config_helper: ConfigHelper,
+    area: str | None = None,
+    area_name: str | None = None,
+) -> dict[str, Any]:
     """Create HA child-device metadata for one irrigation controller."""
     topic = config_helper.topic_prefix
     model = f"boneIO Black {config_helper.device_type.title().replace('X', 'x')}"
-    return {
+    device: dict[str, Any] = {
         "identifiers": [f"{topic}_{IRRIGATION}_{ctrl_id}"],
         "manufacturer": "boneIO",
         "model": model,
@@ -297,6 +303,9 @@ def _ha_irrigation_device(ctrl_id: str, ctrl_name: str, config_helper: ConfigHel
         "sw_version": __version__,
         "via_device": topic,
     }
+    if area_name:
+        device["suggested_area"] = area_name
+    return device
 
 
 def ha_irrigation_main_switch_message(
