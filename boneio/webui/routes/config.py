@@ -137,6 +137,13 @@ def invalidate_config_cache():
     """
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
+    # Also invalidate ConfigHelper's internal cache so GET /api/config
+    # re-reads from disk instead of returning stale data.
+    try:
+        app_state = _get_app_state()
+        app_state.manager.config_helper._config_cache = None
+    except Exception:
+        pass
     try:
         config_file = _get_app_state().yaml_config_file
         clear_config_cache(config_file)
