@@ -105,8 +105,10 @@
           "name": "Filter reset command",
           "address": 24,
           "write_address": 24,
-          "entity_type": "writeable_sensor_discrete",
-          "value_type": "S_WORD"
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "S_WORD",
+          "payload_on": "1",
+          "payload_off": "0"
         }
       ]
     },
@@ -182,7 +184,7 @@
     {
       "name": "Operating mode",
       "source": "operating_mode_number",
-      "entity_type": "select",
+      "entity_type": "text_sensor",
       "x_mapping": {
         "0": "Off",
         "1": "Ventilation",
@@ -212,6 +214,72 @@
         "0": "Winter",
         "1": "Summer"
       }
+    },
+    {
+      "name": "Ventilation switch",
+      "source": "ventilation",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Dehumidification switch",
+      "source": "dehumidifier",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Integration switch",
+      "source": "integration",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Recirculation switch",
+      "source": "recirculation",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Fan speed control",
+      "source": "fan_speed",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Off",
+        "1": "Low",
+        "2": "Medium",
+        "3": "High"
+      }
+    },
+    {
+      "name": "Filter reset",
+      "source": "filter_reset_command",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "RESET"
+      },
+      "payload_off": "OFF",
+      "payload_on": "RESET"
     },
     {
       "name": "Alarm code",
