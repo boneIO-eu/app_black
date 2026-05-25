@@ -352,6 +352,15 @@ class IrrigationController:
                 {"state": ON if zone.enabled else OFF},
             )
             self._publish(self._zone_duration_topic(zone.id), {"value": max(1, round(zone.run_duration / 60))})
+            # Publish per-zone next run time (accounts for run_every_n)
+            zone_next_run_value = ""
+            zone_next_dt = self._compute_zone_next_run_time(zone)
+            if zone_next_dt is not None:
+                zone_next_run_value = zone_next_dt.isoformat()
+            self._publish(
+                self._setting_state_topic(f"zone/{zone.id}/next_run"),
+                {"value": zone_next_run_value},
+            )
 
         for idx, sched in enumerate(self._schedule):
             self._publish(
@@ -1032,6 +1041,46 @@ class IrrigationController:
                 earliest = candidate
         return earliest
 
+    def _compute_zone_next_run_time(self, zone: IrrigationZone) -> datetime | None:
+        """Compute when a specific zone will actually run next.
+
+        Accounts for ``run_every_n``: if the zone needs 2 more skipped
+        cycles before it's eligible, this returns the fire time of the
+        (skip_remaining + 1)th upcoming schedule.
+
+        Args:
+            zone: The irrigation zone to compute for.
+
+        Returns:
+            Timezone-aware UTC datetime of the zone's next actual run,
+            or None if no schedules are configured or the controller
+            is in standby or the zone is disabled.
+        """
+        if not self._schedule or self._standby or not zone.enabled:
+            return None
+
+        if zone.run_every_n <= 1:
+            # Runs every cycle — same as controller next_run_time
+            return self._compute_next_run_time()
+
+        counter_key = f"zone/{zone.id}/skip_count"
+        skip_count = int(self._get(counter_key, 0))
+        remaining_skips = max(0, (zone.run_every_n - 1) - skip_count)
+
+        # The zone will run on the (remaining_skips + 1)th cycle
+        cycles_until_run = remaining_skips + 1
+
+        # Find the Nth fire time across all schedules
+        # Strategy: collect fire times from all schedules, sort, pick Nth
+        earliest: datetime | None = None
+        for schedule in self._schedule:
+            time_str = schedule.get("time", "06:00")
+            days = str(schedule.get("days", "daily")).strip().lower()
+            candidate = _nth_fire_time(time_str, days, n=cycles_until_run)
+            if earliest is None or candidate < earliest:
+                earliest = candidate
+        return earliest
+
     def start_schedules(self) -> None:
         self.stop_schedules()
         for idx, schedule in enumerate(self._schedule):
@@ -1071,17 +1120,25 @@ def _local_now() -> datetime:
 def _next_fire_time(time_str: str, days: str) -> datetime:
     """Compute next fire time for a schedule entry.
 
+    Shorthand for ``_nth_fire_time(time_str, days, n=1)``.
+    """
+    return _nth_fire_time(time_str, days, n=1)
+
+
+def _nth_fire_time(time_str: str, days: str, n: int = 1) -> datetime:
+    """Compute the Nth upcoming fire time for a schedule entry.
+
     The user-configured ``time_str`` (e.g. "18:00") is in **local time**.
-    We build the candidate in the system's local timezone and then convert
-    to UTC so that comparisons with ``utcnow()`` and HA's
-    ``device_class: timestamp`` work correctly.
+    We build candidates in the system's local timezone and then convert
+    to UTC.
 
     Args:
         time_str: Schedule time in "HH:MM" format (local time).
-        days: Day filter string ("daily", "weekdays", "weekends", "mon,wed,fri", etc.).
+        days: Day filter string ("daily", "weekdays", "weekends", etc.).
+        n: Which occurrence to return (1 = next, 2 = the one after, etc.).
 
     Returns:
-        Next fire time as a timezone-aware UTC datetime.
+        Nth fire time as a timezone-aware UTC datetime.
     """
     now_local = _local_now()
 
@@ -1093,8 +1150,9 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
         target_h, target_m = 6, 0
 
     allowed_days = _DAYS_MAP.get(days, _DAYS_MAP["daily"])
+    found = 0
 
-    for plus_days in range(0, 8):
+    for plus_days in range(0, 366):
         candidate_local = (now_local + timedelta(days=plus_days)).replace(
             hour=target_h,
             minute=target_m,
@@ -1102,14 +1160,17 @@ def _next_fire_time(time_str: str, days: str) -> datetime:
             microsecond=0,
         )
         if candidate_local.weekday() in allowed_days and candidate_local > now_local:
-            # Convert to UTC for consistent comparison with utcnow()
-            return candidate_local.astimezone(dt.UTC)
+            found += 1
+            if found >= n:
+                return candidate_local.astimezone(dt.UTC)
 
-    fallback_local = (now_local + timedelta(days=1)).replace(
+    # Fallback (should never reach for n <= 365)
+    fallback_local = (now_local + timedelta(days=n)).replace(
         hour=target_h,
         minute=target_m,
         second=0,
         microsecond=0,
     )
     return fallback_local.astimezone(dt.UTC)
+
 

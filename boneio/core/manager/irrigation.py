@@ -581,6 +581,21 @@ class IrrigationManager:
                 ),
             )
 
+            # Per-zone next run sensor — only for zones with run_every_n > 1
+            if zone.run_every_n > 1:
+                _pub(
+                    id=f"{ctrl.id}_zone_{zone.id}_next_run",
+                    ha_type="sensor",
+                    payload=ha_irrigation_timestamp_sensor_message(
+                        ctrl.id,
+                        ctrl.name,
+                        suffix=f"zone/{zone.id}/next_run",
+                        name=f"{ctrl.name} {zone.name} Next Run",
+                        config_helper=cfg,
+                        icon="mdi:calendar-clock",
+                    ),
+                )
+
         for idx, _schedule in enumerate(ctrl._schedule):
             _pub(
                 id=f"{ctrl.id}_schedule_{idx}_skip",
