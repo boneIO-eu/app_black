@@ -581,19 +581,12 @@ class IrrigationManager:
                 ),
             )
 
-            # Per-zone next run sensor — only for zones with run_every_n > 1
+            # Remove stale per-zone next_run sensor (migrated to valve attributes)
             if zone.run_every_n > 1:
-                _pub(
+                self._manager.publish_ha_discovery(
                     id=f"{ctrl.id}_zone_{zone.id}_next_run",
                     ha_type="sensor",
-                    payload=ha_irrigation_timestamp_sensor_message(
-                        ctrl.id,
-                        ctrl.name,
-                        suffix=f"zone/{zone.id}/next_run",
-                        name=f"{ctrl.name} {zone.name} Next Run",
-                        config_helper=cfg,
-                        icon="mdi:calendar-clock",
-                    ),
+                    payload="",
                 )
 
         for idx, _schedule in enumerate(ctrl._schedule):

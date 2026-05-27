@@ -346,21 +346,28 @@ class IrrigationController:
                 active,
                 self._active_zone_idx,
             )
-            self._publish(self._zone_state_topic(zone.id), {"state": active})
+            zone_payload: dict[str, Any] = {"state": active}
+            # Add next_run attributes for zones with run_every_n > 1
+            if zone.run_every_n > 1:
+                zone_next_dt = self._compute_zone_next_run_time(zone)
+                counter_key = f"zone/{zone.id}/skip_count"
+                skip_count = int(self._get(counter_key, 0))
+                zone_payload["run_every_n"] = zone.run_every_n
+                zone_payload["skip_count"] = skip_count
+                if zone_next_dt is not None:
+                    local_tz = _local_now().tzinfo
+                    next_local = zone_next_dt.astimezone(local_tz)
+                    zone_payload["next_run_iso"] = zone_next_dt.isoformat()
+                    zone_payload["next_run_pretty"] = next_local.strftime("%d %b %Y, %H:%M")
+                else:
+                    zone_payload["next_run_iso"] = ""
+                    zone_payload["next_run_pretty"] = ""
+            self._publish(self._zone_state_topic(zone.id), zone_payload)
             self._publish(
                 self._setting_state_topic(f"zone/{zone.id}/enabled"),
                 {"state": ON if zone.enabled else OFF},
             )
             self._publish(self._zone_duration_topic(zone.id), {"value": max(1, round(zone.run_duration / 60))})
-            # Publish per-zone next run time (accounts for run_every_n)
-            zone_next_run_value = ""
-            zone_next_dt = self._compute_zone_next_run_time(zone)
-            if zone_next_dt is not None:
-                zone_next_run_value = zone_next_dt.isoformat()
-            self._publish(
-                self._setting_state_topic(f"zone/{zone.id}/next_run"),
-                {"value": zone_next_run_value},
-            )
 
         for idx, sched in enumerate(self._schedule):
             self._publish(

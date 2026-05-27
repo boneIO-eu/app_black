@@ -439,6 +439,10 @@ def ha_irrigation_valve_message(
     msg["state_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
     msg["command_topic"] = f"{topic}/cmd/{IRRIGATION}/{ctrl_id}/{suffix}/set"
     msg["value_template"] = "{{ value_json.state }}"
+    msg["json_attributes_topic"] = f"{topic}/{IRRIGATION}/{ctrl_id}/{suffix}"
+    msg["json_attributes_template"] = (
+        "{{ value_json | tojson }}"
+    )
     msg["icon"] = "mdi:sprinkler-variant"
     return msg
 
