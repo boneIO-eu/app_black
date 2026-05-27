@@ -609,14 +609,16 @@ def _generate_irrigation_dashboard_cards(ctrl: Any, serial: str) -> list[dict]:
         badges=[entity_badge(main_switch), entity_badge(next_run)],
     ))
 
-    # ── 2. Podlewanie ręczne — valve tiles ──────────────────────────
+    # ── 2. Podlewanie ręczne — valve tiles + enabled toggle ──────────
     cards.append(heading_card("Podlewanie ręczne", style="subtitle"))
     for zone in ctrl.zones:
         zone_valve = eid("valve", f"zone_{zone.id}")
+        zone_enabled = eid("switch", f"zone_{zone.id}_enabled")
         cards.append(tile_card(
             zone_valve, zone.name, "mdi:sprinkler-variant",
             state_content=["last_changed", "state"],
         ))
+        cards.append(inline_tile(zone_enabled))
 
     # ── 3. Czasy podlewania — tile cards with +/- buttons ──────────
     cards.append(heading_card("Czasy podlewania", style="subtitle"))
