@@ -1926,7 +1926,7 @@
     "ai_invalid_json": "Nieprawidłowy JSON. Upewnij się, że wklejasz kompletny blok JSON z odpowiedzi AI.",
     "ai_context_error": "Nie udało się pobrać kontekstu urządzenia. Sprawdź połączenie.",
     "ha_dashboard": "Dashboard HA",
-    "copy_ha_dashboard": "Skopiuj YAML dashboardu HA nawadniania do schowka",
+    "copy_ha_dashboard": "Skopiuj YAML dashboardu (obsługuje tryb Sekcje) HA nawadniania do schowka",
     "dashboard_copied": "Skopiowano!"
   },
   "migrations": {

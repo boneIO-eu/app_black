@@ -1927,7 +1927,7 @@
     "ai_invalid_json": "Invalid JSON. Make sure you paste the complete JSON block from the AI response.",
     "ai_context_error": "Failed to load device context. Check your connection.",
     "ha_dashboard": "HA Dashboard",
-    "copy_ha_dashboard": "Copy HA irrigation dashboard YAML to clipboard",
+    "copy_ha_dashboard": "Copy HA irrigation dashboard YAML (Sections layout only) to clipboard",
     "dashboard_copied": "Copied!"
   },
   "migrations": {
