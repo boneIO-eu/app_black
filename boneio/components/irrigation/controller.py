@@ -262,43 +262,62 @@ class IrrigationController:
     def _eligible_zones(self) -> list[tuple[int, IrrigationZone]]:
         """Determine which zones are eligible to run in this cycle.
 
+        This is a **pure** function — it does NOT modify skip counters.
+        Use :meth:`_apply_skip_counters` once at the start of a scheduled
+        cycle to advance counters.
+
         Uses a counter-based system: each zone has a skip counter that
         increments every scheduled cycle. When the counter reaches
         run_every_n - 1, the zone is eligible and the counter resets.
-        Manual starts do not affect the counter.
         """
         eligible: list[tuple[int, IrrigationZone]] = []
         for idx, zone in self._ordered_zones():
             if not zone.enabled:
-                _LOGGER.debug("Irrigation %s: zone %s skipped (disabled)", self.id, zone.id)
                 continue
             if zone.run_every_n <= 1:
-                # run_every_n=1 means run every time
                 eligible.append((idx, zone))
                 continue
             counter_key = f"zone/{zone.id}/skip_count"
             skip_count = int(self._get(counter_key, 0))
             if skip_count >= zone.run_every_n - 1:
+                eligible.append((idx, zone))
+        return eligible
+
+    def _apply_skip_counters(self) -> None:
+        """Advance skip counters for all zones at the start of a scheduled cycle.
+
+        For each enabled zone with ``run_every_n > 1``:
+        - If the zone IS eligible (skip_count >= run_every_n - 1),
+          reset counter to 0 (zone will run this cycle).
+        - If the zone is NOT eligible, increment the counter.
+
+        Must be called **exactly once** per scheduled cycle, before
+        ``_eligible_zones()`` is used to build the run list.
+        """
+        for _idx, zone in self._ordered_zones():
+            if not zone.enabled or zone.run_every_n <= 1:
+                continue
+            counter_key = f"zone/{zone.id}/skip_count"
+            skip_count = int(self._get(counter_key, 0))
+            if skip_count >= zone.run_every_n - 1:
+                # Zone is eligible — reset counter
+                self._save(counter_key, 0)
                 _LOGGER.debug(
-                    "Irrigation %s: zone %s eligible (skip_count=%d >= %d)",
+                    "Irrigation %s: zone %s counter reset (was %d, eligible)",
                     self.id,
                     zone.id,
                     skip_count,
-                    zone.run_every_n - 1,
                 )
-                eligible.append((idx, zone))
-                # Reset counter — will be saved when zone finishes in _advance_to_next_zone
             else:
                 skip_count += 1
                 self._save(counter_key, skip_count)
                 _LOGGER.debug(
-                    "Irrigation %s: zone %s NOT eligible (skip_count=%d < %d)",
+                    "Irrigation %s: zone %s counter incremented to %d/%d",
                     self.id,
                     zone.id,
                     skip_count,
                     zone.run_every_n - 1,
                 )
-        return eligible
 
     async def publish_all_states(self) -> None:
         controller_state = ON if self._state in (ControllerState.RUNNING, ControllerState.PAUSED) else OFF
@@ -480,6 +499,10 @@ class IrrigationController:
             _LOGGER.info("Irrigation %s skipped one full cycle", self.id)
             return
 
+        # Advance skip counters ONCE at the start of the scheduled cycle.
+        # This must happen before _eligible_zones() is called.
+        self._apply_skip_counters()
+
         await self._start_cycle_from_eligible()
 
     async def start_single_zone(self, zone_id: str) -> None:
@@ -551,9 +574,6 @@ class IrrigationController:
 
         finished_idx = self._active_zone_idx
         finished_zone = self._zones[finished_idx]
-        # Reset skip counter for scheduled runs only (manual starts don't affect counters)
-        if not self._single_zone_mode:
-            self._save(f"zone/{finished_zone.id}/skip_count", 0)
 
         if self._single_zone_mode:
             _LOGGER.debug("Irrigation %s: single zone mode complete for zone '%s'", self.id, finished_zone.id)
