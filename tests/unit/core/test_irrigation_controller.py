@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -978,6 +979,182 @@ class TestEligibleZones:
         ctrl = _make_controller(zones=zones)
         eligible = ctrl._eligible_zones()
         assert len(eligible) == 1
+
+
+# ── Multi-cycle skip counter synchronization ─────────────────────────────────
+
+
+def _dict_state_manager() -> MagicMock:
+    """State manager backed by a real dict so saves persist across calls."""
+    store: dict[str, Any] = {}
+    sm = MagicMock()
+    sm.get = MagicMock(side_effect=lambda section, key, default: store.get(key, default))
+    sm.save_attribute = MagicMock(side_effect=lambda section, key, value: store.__setitem__(key, value))
+    sm._store = store  # expose for assertions
+    return sm
+
+
+class TestMultiCycleSkipCounterSync:
+    """Regression tests for run_every_n across multiple full cycles.
+
+    These test the exact scenario from production: multiple zones with
+    the same run_every_n in one controller, running daily schedule over
+    multiple days. Before the fix, _eligible_zones() had side effects
+    that desynchronized counters.
+
+    Flow per scheduled cycle:
+      1. ``_eligible_zones()`` reads current skip_count to decide eligibility
+      2. ``_apply_skip_counters()`` then modifies counters for the NEXT cycle
+    """
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_9_zones_run_every_4_stays_synchronized(self, _utc, _timer):
+        """9 zones: 1 always + 8 with run_every_n=4. After N cycles all
+        run_every_n=4 zones must have identical skip_count."""
+        zones = _make_zones(9, duration=10)
+        zones[0].run_every_n = 1  # warzywnik — always
+        for z in zones[1:]:
+            z.run_every_n = 4  # trawniki
+
+        sm = _dict_state_manager()
+        ctrl = _make_controller(zones=zones, state_manager=sm, auto_advance=True)
+
+        for cycle_num in range(1, 9):
+            # Replicate the production flow: eligible FIRST, then apply
+            eligible = ctrl._eligible_zones()
+            ctrl._apply_skip_counters()
+
+            if cycle_num in (1, 2, 3, 5, 6, 7):
+                # Not eligible — only zone_0 (always) eligible
+                assert len(eligible) == 1, f"Cycle {cycle_num}: expected 1 eligible, got {len(eligible)}"
+                assert eligible[0][1].id == "zone_0"
+            elif cycle_num in (4, 8):
+                # Eligible — all 9 zones should run
+                assert len(eligible) == 9, f"Cycle {cycle_num}: expected 9 eligible, got {len(eligible)}"
+
+            # Verify all run_every_n=4 zones have the SAME skip_count
+            skip_counts = {}
+            for z in zones[1:]:
+                key = f"test_ctrl/zone/{z.id}/skip_count"
+                skip_counts[z.id] = sm._store.get(key, 0)
+            values = list(skip_counts.values())
+            assert len(set(values)) == 1, (
+                f"Cycle {cycle_num}: skip_counts desynchronized: {skip_counts}"
+            )
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_apply_skip_counters_increments_correctly(self, _utc, _timer):
+        """Verify counter progression with eligible-first, apply-after flow.
+
+        run_every_n=4: eligible when skip_count >= 3.
+        Flow: check eligible → apply → check eligible → apply → ...
+        """
+        zones = _make_zones(2, duration=10)
+        zones[0].run_every_n = 4
+        zones[1].run_every_n = 1
+
+        sm = _dict_state_manager()
+        ctrl = _make_controller(zones=zones, state_manager=sm)
+
+        # (expected_eligible, expected_skip_after_apply)
+        expectations = [
+            (False, 1),  # cycle 1: skip=0 < 3 → not eligible; apply: 0→1
+            (False, 2),  # cycle 2: skip=1 < 3 → not eligible; apply: 1→2
+            (False, 3),  # cycle 3: skip=2 < 3 → not eligible; apply: 2→3
+            (True, 0),   # cycle 4: skip=3 >= 3 → eligible; apply: reset→0
+            (False, 1),  # cycle 5: skip=0 < 3 → not eligible; apply: 0→1
+            (False, 2),  # cycle 6: skip=1 < 3 → not eligible; apply: 1→2
+            (False, 3),  # cycle 7: skip=2 < 3 → not eligible; apply: 2→3
+            (True, 0),   # cycle 8: skip=3 >= 3 → eligible; apply: reset→0
+        ]
+        for cycle_num, (expect_eligible, expect_skip) in enumerate(expectations, 1):
+            eligible = ctrl._eligible_zones()
+            ctrl._apply_skip_counters()
+            zone0_eligible = any(z.id == "zone_0" for _, z in eligible)
+            key = "test_ctrl/zone/zone_0/skip_count"
+            actual_skip = sm._store.get(key, 0)
+            assert zone0_eligible == expect_eligible, (
+                f"Cycle {cycle_num}: expected eligible={expect_eligible}, got {zone0_eligible}"
+            )
+            assert actual_skip == expect_skip, (
+                f"Cycle {cycle_num}: expected skip_count={expect_skip}, got {actual_skip}"
+            )
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_eligible_zones_is_pure_no_side_effects(self, _utc, _timer):
+        """_eligible_zones() must NOT modify state — calling it multiple
+        times must return the same result."""
+        zones = _make_zones(3, duration=10)
+        for z in zones:
+            z.run_every_n = 3
+
+        sm = _dict_state_manager()
+        ctrl = _make_controller(zones=zones, state_manager=sm)
+
+        # Set skip_count=1 for all zones
+        for z in zones:
+            sm._store[f"test_ctrl/zone/{z.id}/skip_count"] = 1
+
+        result1 = ctrl._eligible_zones()
+        result2 = ctrl._eligible_zones()
+        result3 = ctrl._eligible_zones()
+
+        # All calls should return the same result
+        assert len(result1) == len(result2) == len(result3)
+        # State should be unchanged
+        for z in zones:
+            assert sm._store[f"test_ctrl/zone/{z.id}/skip_count"] == 1
+
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_mixed_run_every_n_zones_independent(self, _utc, _timer):
+        """Zones with different run_every_n values track independently."""
+        zones = _make_zones(3, duration=10)
+        zones[0].run_every_n = 2  # runs every 2nd cycle
+        zones[1].run_every_n = 3  # runs every 3rd cycle
+        zones[2].run_every_n = 1  # runs every cycle
+
+        sm = _dict_state_manager()
+        ctrl = _make_controller(zones=zones, state_manager=sm)
+
+        # Cycle 1: zone_0 skip=0<1→skip, zone_1 skip=0<2→skip
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_2"}
+
+        # Cycle 2: zone_0 skip=1>=1→eligible, zone_1 skip=1<2→skip
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_0", "zone_2"}
+
+        # Cycle 3: zone_0 skip=0<1→skip, zone_1 skip=2>=2→eligible
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_1", "zone_2"}
+
+        # Cycle 4: zone_0 skip=1>=1→eligible, zone_1 skip=0<2→skip
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_0", "zone_2"}
+
+        # Cycle 5: zone_0 skip=0<1→skip, zone_1 skip=1<2→skip
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_2"}
+
+        # Cycle 6: zone_0 skip=1>=1→eligible, zone_1 skip=2>=2→eligible
+        eligible = ctrl._eligible_zones()
+        ctrl._apply_skip_counters()
+        eligible_ids = {z.id for _, z in eligible}
+        assert eligible_ids == {"zone_0", "zone_1", "zone_2"}
 
 
 # ── Topic generation ─────────────────────────────────────────────────────────

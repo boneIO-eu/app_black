@@ -499,11 +499,7 @@ class IrrigationController:
             _LOGGER.info("Irrigation %s skipped one full cycle", self.id)
             return
 
-        # Advance skip counters ONCE at the start of the scheduled cycle.
-        # This must happen before _eligible_zones() is called.
-        self._apply_skip_counters()
-
-        await self._start_cycle_from_eligible()
+        await self._start_cycle_from_eligible(scheduled=True)
 
     async def start_single_zone(self, zone_id: str) -> None:
         _LOGGER.debug(
@@ -541,8 +537,17 @@ class IrrigationController:
         _LOGGER.debug("Irrigation %s calling _start_zone(%d) for zone '%s'", self.id, match_idx, zone_id)
         await self._start_zone(match_idx)
 
-    async def _start_cycle_from_eligible(self) -> None:
+    async def _start_cycle_from_eligible(self, scheduled: bool = False) -> None:
+        """Build the eligible zone list and start the first zone.
+
+        When ``scheduled`` is True (i.e. triggered by the daily schedule,
+        not a repeat), skip counters are advanced **after** reading
+        eligibility so that the current counter values decide this cycle
+        and the increments prepare counters for the next one.
+        """
         eligible = self._eligible_zones()
+        if scheduled:
+            self._apply_skip_counters()
         _LOGGER.debug(
             "Irrigation %s _start_cycle_from_eligible: %d eligible zones: %s",
             self.id,
