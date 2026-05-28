@@ -4,6 +4,26 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev13 (2026-05-28)
+
+### 🐛 Bug Fixes
+
+- **Critical: run_every_n skip counter desynchronization** — `_eligible_zones()` had side effects (incrementing skip counters) and was called multiple times per cycle (once at start + once per zone advance + once per repeat). This caused skip_count values to diverge across zones even when all had the same `run_every_n`. Fixed by splitting into pure `_eligible_zones()` (no side effects) and `_apply_skip_counters()` (called exactly once per scheduled cycle).
+
+### ✨ New Features
+
+- **Zone next_run as valve attributes** — Zones with `run_every_n > 1` now publish `next_run_iso`, `next_run_pretty`, `skip_count`, and `run_every_n` as JSON attributes on the valve entity. Visible in HA's "more info" dialog without extra sensor entities.
+- **Zone enabled toggle in HA dashboard export** — Each zone valve tile now includes an inline "Enabled" switch in the exported HA dashboard YAML.
+- **EHT Top Ventil config fix** — Modbus input configuration fix for EHT Top Ventil Plus (community contribution).
+
+### 🧪 Tests
+
+- 4 new regression tests for multi-cycle skip counter synchronization (9 zones × 8 cycles, mixed `run_every_n`, purity check).
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev12...v1.4.0dev13
+
+---
+
 ## v1.4.0dev12 (2026-05-24)
 
 ### 🐛 Bug Fixes
