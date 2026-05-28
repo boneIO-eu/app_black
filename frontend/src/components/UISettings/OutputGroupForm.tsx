@@ -29,16 +29,21 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
-  // Get available outputs from allOutputs with their names
-  // Filter out outputs with output_type 'cover' - they cannot be part of groups
+  // Get available outputs from allOutputs with their effective IDs
+  // The backend keys outputs by custom `id` if set, otherwise by `boneio_output`.
+  // Groups must reference the effective ID so the backend can look them up in _outputs.
   const availableOutputs = allOutputs
     .filter(output => output.boneio_output && output.output_type !== 'cover')
-    .map(output => ({
-      id: output.boneio_output,
-      name: output.name || output.id || output.boneio_output,
-      displayName: `${output.name || output.id || output.boneio_output} : ${output.boneio_output}`,
-      outputType: output.output_type
-    }))
+    .map(output => {
+      const effectiveId = output.id || output.boneio_output;
+      return {
+        id: effectiveId,
+        name: output.name || effectiveId,
+        displayName: `${output.name || effectiveId} : ${output.boneio_output}`,
+        outputType: output.output_type,
+        boneioOutput: output.boneio_output,
+      };
+    })
     .sort((a, b) => a.id.localeCompare(b.id));
 
   // Extract enums from schema
@@ -133,7 +138,9 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
                             />
                             <span className="label-text flex-1">
                               <span className="font-medium">{output.name}</span>
-                              <span className="text-base-content/60 ml-2 uppercase text-xs">({output.id})</span>
+                              <span className="text-base-content/60 ml-2 uppercase text-xs">
+                                ({output.id}{output.boneioOutput !== output.id ? ` → ${output.boneioOutput}` : ''})
+                              </span>
                             </span>
                           </label>
                         ))}
