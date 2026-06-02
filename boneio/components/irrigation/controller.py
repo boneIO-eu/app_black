@@ -691,6 +691,13 @@ class IrrigationController:
         self._active_zone_remaining_s = duration
         self._state = ControllerState.RUNNING
 
+        # Publish state immediately so the UI (frontend + HA) shows
+        # RUNNING right away, before any pump/valve delay sleeps.
+        # The timer has not been armed yet so zone_end_time will be
+        # empty, but a second publish happens after hardware activation.
+        self._run_start_utc = utcnow()
+        await self.publish_all_states()
+
         if src is not None:
             if src.pump_start_valve_delay_s > 0:
                 # Source first (pump+valve), then zone valve after delay

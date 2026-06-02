@@ -118,7 +118,13 @@ async def controller_command(
     """Send a command to an irrigation controller.
 
     Supported commands: ON, OFF, PAUSE, RESUME, NEXT_VALVE.
+
+    Long-running commands (ON, RESUME, NEXT_VALVE) are dispatched as
+    background tasks so the HTTP response returns immediately and the
+    UI is not blocked by pump/valve startup delays.
     """
+    import asyncio
+
     ctrl = manager.irrigation._controllers.get(ctrl_id)
     if not ctrl:
         raise HTTPException(status_code=404, detail="Irrigation controller not found")
@@ -126,15 +132,15 @@ async def controller_command(
     command = str(data.get("command", "")).upper()
 
     if command == ON:
-        await ctrl.start_full_cycle()
+        asyncio.create_task(ctrl.start_full_cycle())
     elif command == OFF:
         await ctrl.shutdown()
     elif command == PAUSE:
         await ctrl.pause()
     elif command == RESUME:
-        await ctrl.resume()
+        asyncio.create_task(ctrl.resume())
     elif command == NEXT_VALVE:
-        await ctrl.next_valve()
+        asyncio.create_task(ctrl.next_valve())
     else:
         raise HTTPException(status_code=400, detail=f"Unknown command: {command}")
 
@@ -156,7 +162,12 @@ async def zone_command(
     """Send a command to a specific irrigation zone.
 
     Supported commands: ON (start zone), OFF (stop), ENABLE, DISABLE, NEXT_VALVE (skip to next).
+
+    ON and NEXT_VALVE are dispatched as background tasks so the HTTP
+    response returns immediately (pump/valve delays can take seconds).
     """
+    import asyncio
+
     ctrl = manager.irrigation._controllers.get(ctrl_id)
     if not ctrl:
         raise HTTPException(status_code=404, detail="Irrigation controller not found")
@@ -168,11 +179,11 @@ async def zone_command(
     command = str(data.get("command", "")).upper()
 
     if command == ON:
-        await ctrl.start_single_zone(zone_id)
+        asyncio.create_task(ctrl.start_single_zone(zone_id))
     elif command == OFF:
         await ctrl.shutdown()
     elif command == NEXT_VALVE:
-        await ctrl.next_valve()
+        asyncio.create_task(ctrl.next_valve())
     elif command == "ENABLE":
         zone.enabled = True
         ctrl._save(f"zone/{zone_id}/enabled", True)
