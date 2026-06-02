@@ -4,6 +4,25 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.0dev14 (2026-06-02)
+
+### 🐛 Bug Fixes
+
+- **Clipboard not working in HA addon iframe** — `navigator.clipboard.writeText()` silently failed inside HA ingress iframe due to missing `allow="clipboard-write"` Permissions Policy. Added `iframe.allow = 'clipboard-read; clipboard-write'` to the addon dashboard iframe and created a reusable `copyToClipboard()` utility with `document.execCommand('copy')` fallback for HTTP contexts. Replaced all 10 occurrences across the frontend.
+- **Irrigation manual start delay** — Clicking "Start" on a zone took 2-4 seconds to respond in the UI due to `valve_open_delay` and pump delays blocking the MQTT state publish. Added early `publish_all_states()` immediately after setting `RUNNING` state, before any hardware sleep delays.
+- **Irrigation API response delay** — HTTP API endpoints for start/resume/next_valve blocked until all pump/valve delays completed. Changed to `asyncio.create_task()` fire-and-forget dispatch so the UI receives an instant response.
+- **InputsView long press navigation** — Long press on an input item navigated to the wrong settings section (e.g. `/settings/event` instead of `/settings/local_inputs`).
+- **Output group form ID** — Output group form used effective ID instead of `boneio_output`, causing mismatched entity references.
+
+### ♻️ Refactoring
+
+- **OLED screensaver timer** — Screensaver countdown now resets from the last button press instead of the first, improving UX.
+- **Input type change** — Changing input type between "Event Entity" and "Binary Sensor" now takes effect immediately without requiring app restart.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.0dev13...v1.4.0dev14
+
+---
+
 ## v1.4.0dev13 (2026-05-28)
 
 ### 🐛 Bug Fixes
