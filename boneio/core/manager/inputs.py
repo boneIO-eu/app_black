@@ -130,8 +130,16 @@ class InputManager:
                 return False
             return False
 
-        def configure_single_input(configure_sensor_func: Callable, gpio: dict) -> None:
-            """Configure a single input (event or binary sensor)."""
+        def configure_single_input(
+            configure_sensor_func: Callable, gpio: dict, expected_class: type
+        ) -> None:
+            """Configure a single input (event or binary sensor).
+
+            Args:
+                configure_sensor_func: The _configure_event_sensor or _configure_binary_sensor method.
+                gpio: GPIO configuration dictionary.
+                expected_class: The expected class type (GpioEventButton or GpioInputBinarySensor).
+            """
             # Work on a copy to avoid modifying the cached config
             gpio_copy = gpio.copy()
 
@@ -148,6 +156,18 @@ class InputManager:
                 return
 
             existing_input = self._inputs.get(input_id, None) if reload_config else None
+
+            # Guard: if the existing input is a different class (type changed,
+            # e.g. event → binary_sensor), do NOT pass it as existing_input.
+            # A new object with the correct detector must be created instead.
+            if existing_input is not None and not isinstance(existing_input, expected_class):
+                _LOGGER.info(
+                    "Input %s type changed from %s to %s, creating new input object",
+                    input_id,
+                    type(existing_input).__name__,
+                    expected_class.__name__,
+                )
+                existing_input = None
 
             input_device = configure_sensor_func(
                 gpio=gpio_copy,
@@ -172,14 +192,22 @@ class InputManager:
         # Configure event buttons
         for gpio in self._event_pins:
             try:
-                configure_single_input(configure_sensor_func=self._configure_event_sensor, gpio=gpio)
+                configure_single_input(
+                    configure_sensor_func=self._configure_event_sensor,
+                    gpio=gpio,
+                    expected_class=GpioEventButton,
+                )
             except GPIOInputException as err:
                 _LOGGER.error("Failed to configure event input: %s", err)
 
         # Configure binary sensors
         for gpio in self._binary_pins:
             try:
-                configure_single_input(configure_sensor_func=self._configure_binary_sensor, gpio=gpio)
+                configure_single_input(
+                    configure_sensor_func=self._configure_binary_sensor,
+                    gpio=gpio,
+                    expected_class=GpioInputBinarySensor,
+                )
             except GPIOInputException as err:
                 _LOGGER.error("Failed to configure binary sensor: %s", err)
 
@@ -490,21 +518,25 @@ class InputManager:
         # Get config from ConfigHelper (already reloaded by Manager)
         config = self._manager._config_helper.get_config()
 
-        # Build map of new inputs from config (input_id -> {pin, area})
+        # Build map of new inputs from config (input_id -> {pin, area, ha_type})
         # Note: boneio_input is normalized to lowercase to match yaml_util.py behavior
         new_input_map: dict[str, dict] = {}
-        for gpio in config.get(EVENT_ENTITY, []) + config.get(BINARY_SENSOR, []):
-            pin = gpio.get("pin")
-            # Determine input ID (same logic as in _configure_event_sensor/_configure_binary_sensor)
-            if "id" in gpio:
-                input_id = gpio["id"]
-            elif "boneio_input" in gpio:
-                input_id = gpio["boneio_input"].lower()
-            elif pin:
-                input_id = pin
-            else:
-                continue
-            new_input_map[input_id] = {"pin": pin, "area": gpio.get("area")}
+        for ha_type, gpio_list in [
+            (EVENT_ENTITY, config.get(EVENT_ENTITY, [])),
+            (BINARY_SENSOR, config.get(BINARY_SENSOR, [])),
+        ]:
+            for gpio in gpio_list:
+                pin = gpio.get("pin")
+                # Determine input ID (same logic as in _configure_event_sensor/_configure_binary_sensor)
+                if "id" in gpio:
+                    input_id = gpio["id"]
+                elif "boneio_input" in gpio:
+                    input_id = gpio["boneio_input"].lower()
+                elif pin:
+                    input_id = pin
+                else:
+                    continue
+                new_input_map[input_id] = {"pin": pin, "area": gpio.get("area"), "ha_type": ha_type}
 
         # Find inputs to remove (in current config but not in new config)
         current_input_ids = set(self._inputs.keys())
@@ -512,12 +544,29 @@ class InputManager:
 
         inputs_to_remove = current_input_ids - new_input_ids
 
-        _LOGGER.info(f"Input reload: current={current_input_ids}, new={new_input_ids}, to_remove={inputs_to_remove}")
+        _LOGGER.info("Input reload: current=%s, new=%s, to_remove=%s", current_input_ids, new_input_ids, inputs_to_remove)
+
+        # Detect inputs whose type changed (event <-> binary_sensor).
+        # These must be removed and re-created with the correct detector class.
+        inputs_type_changed: set[str] = set()
+        for input_id, new_info in new_input_map.items():
+            existing = self._inputs.get(input_id)
+            if existing is None:
+                continue
+            new_ha_type = new_info["ha_type"]
+            # GpioEventButton has input_type=INPUT, GpioInputBinarySensor has input_type=INPUT_SENSOR
+            if new_ha_type == EVENT_ENTITY and not isinstance(existing, GpioEventButton):
+                inputs_type_changed.add(input_id)
+            elif new_ha_type == BINARY_SENSOR and not isinstance(existing, GpioInputBinarySensor):
+                inputs_type_changed.add(input_id)
+
+        if inputs_type_changed:
+            _LOGGER.info("Input type changed for: %s — will recreate with new detector", inputs_type_changed)
 
         # Remove deleted inputs from internal state (GPIO pin stays registered - minimal overhead)
         ha_discovery_changed = False
 
-        for input_id in inputs_to_remove:
+        for input_id in inputs_to_remove | inputs_type_changed:
             input_device = self._inputs.get(input_id)
             if input_device:
                 old_area = getattr(input_device, "area", None)
@@ -528,7 +577,7 @@ class InputManager:
 
                 # Remove from internal state (GPIO detector will be replaced by new input class)
                 del self._inputs[input_id]
-                _LOGGER.info(f"Removed input {input_id}")
+                _LOGGER.info("Removed input %s (type_changed=%s)", input_id, input_id in inputs_type_changed)
 
         # Check for area changes on remaining inputs
         for input_id, input_device in self._inputs.items():
@@ -537,7 +586,7 @@ class InputManager:
 
             if old_area != new_area:
                 ha_discovery_changed = True
-                _LOGGER.info(f"Input {input_id} area changed: {old_area} -> {new_area}, removing old HA Discovery")
+                _LOGGER.info("Input %s area changed: %s -> %s, removing old HA Discovery", input_id, old_area, new_area)
                 self._remove_input_ha_discovery(input_id, old_area)
 
         # Wait for HA to process the removal before sending new discovery
@@ -547,6 +596,7 @@ class InputManager:
 
         # _configure_inputs with reload_config=True will:
         # - Update existing inputs (actions, area, name)
+        # - Create new inputs for type-changed entries (old objects removed above)
         # - Add new inputs if their GPIO pin is already registered
         self._configure_inputs(reload_config=True)
 

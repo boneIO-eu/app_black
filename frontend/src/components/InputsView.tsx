@@ -6,6 +6,7 @@ import ViewToggle from './ViewToggle';
 import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
+import { copyToClipboard } from '@/utils/clipboard';
 import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi } from 'react-icons/fa';
 import {
   Dialog,
@@ -212,8 +213,8 @@ export default function InputsView() {
   // Copy input name to clipboard
   const [copiedName, setCopiedName] = useState<string | null>(null);
 
-  const copyToClipboard = useCallback((name: string) => {
-    navigator.clipboard.writeText(name).then(() => {
+  const handleCopyName = useCallback((name: string) => {
+    copyToClipboard(name).then(() => {
       setCopiedName(name);
       setTimeout(() => setCopiedName(null), 1500);
     });
@@ -233,10 +234,9 @@ export default function InputsView() {
     if (!longPressDialog.inputEvent) return;
     // Use entity_id for filtering instead of name to avoid duplicates
     const inputId = longPressDialog.inputEvent.entity_id;
-    const inputType = longPressDialog.inputEvent.state.type;
     const isRemote = longPressDialog.inputEvent.state.remote;
     // Navigate to settings with edit query param
-    const section = isRemote ? 'remote_inputs' : inputType === 'input' ? 'event' : 'binary_sensor';
+    const section = isRemote ? 'remote_inputs' : 'local_inputs';
     navigate(`/settings/${section}?edit=${encodeURIComponent(inputId)}`);
     setLongPressDialog({ open: false, inputEvent: null });
   }, [longPressDialog.inputEvent, navigate]);
@@ -421,7 +421,7 @@ export default function InputsView() {
                 isGrid={isGrid}
                 t={t}
                 isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
-                onCopy={copyToClipboard}
+                onCopy={handleCopyName}
                 onLongPress={handleLongPress}
                 duration={inputEvent.duration}
               />
@@ -448,7 +448,7 @@ export default function InputsView() {
                 isGrid={isGrid}
                 t={t}
                 isHighlighted={recentlyChanged.has(inputEvent.entity_id)}
-                onCopy={copyToClipboard}
+                onCopy={handleCopyName}
                 onLongPress={handleLongPress}
                 duration={inputEvent.duration}
                 isRemote
@@ -474,7 +474,7 @@ export default function InputsView() {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              onClick={() => toast.inputName && copyToClipboard(toast.inputName)}
+              onClick={() => toast.inputName && handleCopyName(toast.inputName)}
               className={clsx(
                 'alert shadow-lg animate-fade-in cursor-pointer hover:opacity-80',
                 toast.type === 'single' && 'alert-success',

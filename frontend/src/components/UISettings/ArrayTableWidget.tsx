@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '@/api/axios';
+import { copyToClipboard } from '@/utils/clipboard';
 import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
 import {
@@ -431,7 +432,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         allConfiguredInputs: value,
         actionTypeOptions, actionOutputOptions, actionCoverOptions,
       });
-      await navigator.clipboard.writeText(prompt);
+      await copyToClipboard(prompt);
       setWizardCopied(true);
       setTimeout(() => setWizardCopied(false), 3000);
     } catch (err) {

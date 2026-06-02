@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from '@/api/axios';
 import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
 import { useTranslation } from '../hooks/useTranslation';
+import { copyToClipboard } from '@/utils/clipboard';
 
 // Create formatter once, not on every function call
 const dateFormatter = new Intl.DateTimeFormat('sv-SE', {
@@ -398,7 +399,7 @@ export default function LogViewer() {
   const handleCopyToClipboard = () => {
     const selectedLogs = getSelectedLogsText();
 
-    navigator.clipboard.writeText(selectedLogs).then(() => {
+    copyToClipboard(selectedLogs).then(() => {
       showToast(t('log_viewer.copied_clipboard'));
     });
   };
@@ -407,7 +408,7 @@ export default function LogViewer() {
     const selectedLogs = getSelectedLogsText();
     const discordFormatted = '```bash\n' + selectedLogs + '\n```';
 
-    navigator.clipboard.writeText(discordFormatted).then(() => {
+    copyToClipboard(discordFormatted).then(() => {
       showToast(t('log_viewer.copied_discord'));
     });
   };
@@ -638,7 +639,7 @@ export default function LogViewer() {
                 longPressTriggered.current = false;
                 longPressTimer.current = setTimeout(() => {
                   longPressTriggered.current = true;
-                  navigator.clipboard.writeText(log.message).then(() => {
+                  copyToClipboard(log.message).then(() => {
                     showToast(t('log_viewer.copied_line'));
                   });
                 }, 500);
@@ -661,7 +662,7 @@ export default function LogViewer() {
                 longPressTriggered.current = false;
                 longPressTimer.current = setTimeout(() => {
                   longPressTriggered.current = true;
-                  navigator.clipboard.writeText(log.message).then(() => {
+                  copyToClipboard(log.message).then(() => {
                     showToast(t('log_viewer.copied_line'));
                   });
                 }, 500);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '@/hooks/useTranslation';
 import type {
   AreaEntity,
@@ -85,7 +86,7 @@ export default function AiConfigAssistant<T extends SupportedEntity>({
    */
   const handleCopyPrompt = async (): Promise<boolean> => {
     try {
-      await navigator.clipboard.writeText(prompt);
+      await copyToClipboard(prompt);
       return true;
     } catch {
       return false;

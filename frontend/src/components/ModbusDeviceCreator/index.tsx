@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from '@/api/axios';
+import { copyToClipboard } from '@/utils/clipboard';
 import { Register, DeviceConfig, CreatorState, generateId, groupRegistersIntoBlocks, parseDeviceConfig, STORAGE_KEY } from './types';
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaUpload, FaTrash, FaUndo } from 'react-icons/fa';
@@ -240,7 +241,7 @@ export default function ModbusDeviceCreator() {
 
   const copyJSON = async () => {
     const json = JSON.stringify(generateJSON(), null, 2);
-    await navigator.clipboard.writeText(json);
+    await copyToClipboard(json);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

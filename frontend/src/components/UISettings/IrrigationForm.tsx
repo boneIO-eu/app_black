@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { copyToClipboard } from '@/utils/clipboard';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
@@ -887,7 +888,7 @@ Rules:
 - Generate a single controller object (not an array).
 - When done, output ONLY the JSON block inside \`\`\`json ... \`\`\` markers.`;
 
-      await navigator.clipboard.writeText(prompt);
+      await copyToClipboard(prompt);
       return true;
     } catch (err) {
       console.error('Failed to copy wizard prompt:', err);

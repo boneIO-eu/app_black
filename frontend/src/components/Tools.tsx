@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
+import { copyToClipboard } from '@/utils/clipboard';
 import { GiElectric } from 'react-icons/gi';
 import { IoWarning } from 'react-icons/io5';
 import ModbusHelper from './ModbusHelper';
@@ -114,7 +115,7 @@ function I2CSection() {
 
   const handleCopyRaw = () => {
     if (!result?.raw_output) return;
-    navigator.clipboard.writeText(result.raw_output).then(() => {
+    copyToClipboard(result.raw_output).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

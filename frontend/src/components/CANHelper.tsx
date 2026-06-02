@@ -14,6 +14,7 @@ import {
   FaBroadcastTower,
 } from 'react-icons/fa';
 import axios from '@/api/axios';
+import { copyToClipboard } from '@/utils/clipboard';
 
 interface CANStatus {
   interface: string;
@@ -159,7 +160,7 @@ export default function CANHelper() {
 
   // Copy dump output
   const handleCopyDump = () => {
-    navigator.clipboard.writeText(dumpLines.join('\n')).then(() => {
+    copyToClipboard(dumpLines.join('\n')).then(() => {
       setDumpCopied(true);
       setTimeout(() => setDumpCopied(false), 2000);
     });

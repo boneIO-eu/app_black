@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import axios from '@/api/axios';
+import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from '../../../hooks/useTranslation';
 import { useTableSort } from '@/hooks/useTableSort';
 import TableActions from './TableActions';
@@ -42,7 +43,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
       setCopiedId(ctrlId);
       const { data } = await axios.get(`/api/irrigation/dashboard?ctrl_id=${encodeURIComponent(ctrlId)}`);
       if (data?.yaml) {
-        await navigator.clipboard.writeText(data.yaml);
+        await copyToClipboard(data.yaml);
         setTimeout(() => setCopiedId(null), 2000);
       } else {
         setCopiedId(null);
