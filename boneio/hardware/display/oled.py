@@ -541,7 +541,7 @@ class Oled:
         else:
             self._next_screen()
 
-        if not self._cancel_sleep_handle and self._sleep_timeout.total_seconds > 0:
+        if self._sleep_timeout.total_seconds > 0:
             self.start_sleep_timer()
 
     def _update_display(self) -> None:

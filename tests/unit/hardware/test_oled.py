@@ -227,8 +227,8 @@ class TestOledSleepWake:
         assert oled._cancel_sleep_handle is not None
 
     @pytest.mark.asyncio
-    async def test_render_display_does_not_double_start_timer(self):
-        """If a sleep timer is already active, render_display should not replace it."""
+    async def test_render_display_restarts_timer_on_each_call(self):
+        """Each render_display should restart the sleep timer (count from last interaction)."""
         loop = asyncio.get_running_loop()
         oled, _ = _make_oled(loop, sleep_seconds=30)
 
@@ -238,8 +238,8 @@ class TestOledSleepWake:
         oled.render_display()
         second_handle = oled._cancel_sleep_handle
 
-        # They should be the same handle (not re-created)
-        assert first_handle is second_handle
+        # Timer should be restarted — new handle each time
+        assert first_handle is not second_handle, "render_display must restart sleep timer"
 
     # -- wake_up cancels old timer before render_display re-creates one --
 
