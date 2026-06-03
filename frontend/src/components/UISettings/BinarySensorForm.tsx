@@ -5,6 +5,7 @@ import ActionFields, { validateAction, cleanActionFields } from './ActionFields'
 import AiConfigAssistant from './AiConfigAssistant';
 import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
+import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import AreaSelect from './widgets/AreaSelect';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
@@ -357,7 +358,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                       type="number"
                       className="input w-full"
                       placeholder="120"
-                      value={typeof data.bounce_time === 'number' ? data.bounce_time : 120}
+                      value={convertTimeperiodToMilliseconds(data.bounce_time) || 120}
                       onChange={(e) => updateField('bounce_time', parseInt(e.target.value) || 120)}
                     />
                     <label className="label">
