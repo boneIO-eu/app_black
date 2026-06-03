@@ -75,6 +75,7 @@ export interface SensorState {
   state: number | string | null;
   unit: string | null;
   timestamp: number | null;
+  attributes?: Record<string, number | string | boolean | null> | null;
 }
 
 export interface ModbusDeviceState {

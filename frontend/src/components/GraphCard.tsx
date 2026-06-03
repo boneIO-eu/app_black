@@ -34,6 +34,8 @@ export interface GraphCardProps {
   fillColor?: string;
   /** Optional subtitle below the name (e.g. sensor id) */
   subtitle?: string;
+  /** Optional key-value attributes to display (e.g. disk_total_gb: 868.6) */
+  attributes?: Record<string, number | string | boolean | null> | null;
 }
 
 /** Format a numeric/string value for display */
@@ -41,6 +43,53 @@ function formatValue(value: number | string | null): string {
   if (value === null || value === undefined) return 'N/A';
   if (typeof value === 'number') return value.toFixed(2);
   return value;
+}
+
+/** Format an attribute key into a human-readable label */
+function formatAttrKey(key: string): string {
+  // e.g. "disk_total_gb" → "Total" , "memory_available_gb" → "Available"
+  return key
+    .replace(/^(disk|memory)_/, '')
+    .replace(/_gb$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Format an attribute value */
+function formatAttrValue(value: number | string | boolean | null): string {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') {
+    return value % 1 === 0 ? value.toString() : value.toFixed(2);
+  }
+  return value;
+}
+
+/** Extract unit suffix from attribute key (e.g. _gb → GB, _mb → MB) */
+function extractAttrUnit(key: string): string {
+  if (key.endsWith('_gb')) return ' GB';
+  if (key.endsWith('_mb')) return ' MB';
+  if (key.endsWith('_pct') || key.endsWith('_percent')) return ' %';
+  return '';
+}
+
+/** Render attribute tags as compact chips */
+function AttributeTags({ attributes }: { attributes?: Record<string, number | string | boolean | null> | null }) {
+  if (!attributes || Object.keys(attributes).length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {Object.entries(attributes).map(([key, val]) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-base-300/60 text-base-content/60 font-medium"
+          title={key}
+        >
+          <span className="opacity-70">{formatAttrKey(key)}:</span>
+          <span>{formatAttrValue(val)}{extractAttrUnit(key)}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function GraphCardBase({
@@ -55,6 +104,7 @@ function GraphCardBase({
   strokeColor = '#10b981',
   fillColor = 'rgba(16, 185, 129, 0.10)',
   subtitle,
+  attributes,
 }: GraphCardProps) {
   const hasChart = historyPoints.length > 1;
 
@@ -88,6 +138,8 @@ function GraphCardBase({
           </div>
         </div>
 
+        <AttributeTags attributes={attributes} />
+
         {hasChart && (
           <div className="mt-auto overflow-hidden rounded-md border border-base-content/8 bg-base-100/65 px-2 py-1.5">
             <div className="relative h-[48px] w-full overflow-hidden opacity-90">
@@ -112,6 +164,7 @@ function GraphCardBase({
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-lg">{name}</h3>
           <p className="text-sm text-base-content/70">{subtitle ?? id}</p>
+          <AttributeTags attributes={attributes} />
         </div>
         {hasChart && (
           <div className="relative h-[56px] w-[180px] shrink-0 overflow-hidden opacity-85">
@@ -152,6 +205,7 @@ function areEqual(prev: GraphCardProps, next: GraphCardProps): boolean {
     prev.timestamp === next.timestamp &&
     prev.isGrid === next.isGrid &&
     prev.accentColor === next.accentColor &&
+    prev.attributes === next.attributes &&
     (prev.historyPoints?.length ?? 0) === (next.historyPoints?.length ?? 0) &&
     prevLast?.timestamp === nextLast?.timestamp &&
     prevLast?.value === nextLast?.value

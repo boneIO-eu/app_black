@@ -69,6 +69,7 @@ class SensorState(BaseModel):
     state: float | str | None
     unit: str | None
     timestamp: float | None
+    attributes: dict[str, float | str | int | bool | None] | None = None
 
 class ModbusDeviceState(BaseModel):
     """Modbus device state model."""

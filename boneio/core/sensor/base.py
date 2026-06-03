@@ -154,6 +154,7 @@ class BaseSensor(BasicMqtt, AsyncUpdater, Filter):
                 state=self.state,   
                 unit=self.unit_of_measurement,
                 timestamp=self.last_timestamp,
+                attributes=self._attributes if self._attributes else None,
             )
         ))
         

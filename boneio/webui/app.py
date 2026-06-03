@@ -506,6 +506,7 @@ async def send_initial_states(
                     state=sensor.state,
                     unit=sensor.unit_of_measurement,
                     timestamp=sensor.last_timestamp,
+                    attributes=sensor._attributes if hasattr(sensor, "_attributes") and sensor._attributes else None,
                 )
                 update = SensorEvent(entity_id=sensor.id, state=sensor_state)
                 if not await send_state_update(update):
