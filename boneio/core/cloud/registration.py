@@ -300,20 +300,57 @@ class CloudRegistration:
         """
         Check if certificate needs to be refreshed.
 
+        Parses the actual X.509 Not After date from the PEM file using openssl.
+        Returns True if cert expires within 14 days or can't be parsed.
+
         Returns:
-            True if cert is older than 30 days or doesn't exist
+            True if certificate should be refreshed
         """
         if not self._cert_exists():
             return True
 
         try:
-            # Check cert file age
-            import time
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    ["openssl", "x509", "-enddate", "-noout", "-in", str(CERT_FILE)],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ),
+            )
 
-            cert_age = time.time() - CERT_FILE.stat().st_mtime
-            # Refresh if older than 30 days
-            return cert_age > (30 * 24 * 3600)
-        except Exception:
+            if result.returncode != 0:
+                _LOGGER.warning("Failed to read cert expiry: %s", result.stderr.strip())
+                return True
+
+            # Output format: "notAfter=Jun  3 12:00:00 2026 GMT"
+            line = result.stdout.strip()
+            date_str = line.split("=", 1)[1]
+
+            from datetime import datetime, timezone
+
+            expiry = datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z").replace(
+                tzinfo=timezone.utc
+            )
+            now = datetime.now(tz=timezone.utc)
+            days_left = (expiry - now).total_seconds() / 86400
+
+            _LOGGER.debug(
+                "SSL certificate expires: %s (%.1f days left)", expiry.isoformat(), days_left
+            )
+
+            # Refresh if expiring within 14 days
+            if days_left < 14:
+                _LOGGER.info(
+                    "SSL certificate expires in %.1f days, refreshing", days_left
+                )
+                return True
+
+            return False
+
+        except Exception as e:
+            _LOGGER.warning("Error checking cert expiry, forcing refresh: %s", e)
             return True
 
     def update_ip(self, new_ip: str) -> None:
