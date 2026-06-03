@@ -41,8 +41,23 @@ function isTemperatureOrHumidityDevice(device: ModbusDeviceState): boolean {
   return unit === '%' || unit === 'rh%' || unit === 'c' || unit === '°c' || unit === 'degc';
 }
 
+/**
+ * Check if a device should have history tracked and rendered as a sparkline.
+ *
+ * Shows charts for all numeric, read-only sensors that have a unit of measurement.
+ * Writeable entities (select, switch, number) are excluded.
+ */
 export function shouldRenderHistory(device: ModbusDeviceState): boolean {
-  return isTemperatureOrHumidityDevice(device) && isNumericState(device.state);
+  if (isWriteableEntityType(device.entity_type)) {
+    return false;
+  }
+
+  const hasUnit = typeof device.unit === 'string' && device.unit.trim().length > 0;
+  if (!hasUnit) {
+    return false;
+  }
+
+  return isNumericState(device.state);
 }
 
 function canUseStorage(): boolean {
