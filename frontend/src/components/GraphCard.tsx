@@ -77,7 +77,7 @@ function extractAttrUnit(key: string): string {
 function AttributeTags({ attributes }: { attributes?: Record<string, number | string | boolean | null> | null }) {
   if (!attributes || Object.keys(attributes).length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1 mt-1.5">
+    <div className="flex flex-wrap gap-1 mt-0.5">
       {Object.entries(attributes).map(([key, val]) => (
         <span
           key={key}
@@ -108,20 +108,22 @@ function GraphCardBase({
 }: GraphCardProps) {
   const hasChart = historyPoints.length > 1;
 
-  // Grid layout — compact card with chart below
+   // Grid layout — compact card with chart below
   if (isGrid) {
+    const hasAttrs = attributes && Object.keys(attributes).length > 0;
     return (
       <div
         className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-200 p-4 shadow-sm transition-all duration-300 ${hasChart ? 'min-h-[166px]' : 'min-h-[88px]'} h-full flex flex-col`}
       >
-        <div className="grid grid-cols-[1fr_auto] gap-4 min-h-[78px]">
+        <div className="grid grid-cols-[1fr_auto] gap-4">
           <div className="min-w-0">
             <h3 className="font-semibold text-lg leading-tight truncate">
               {name}
             </h3>
-            <p className="mt-1 text-sm text-base-content/65 leading-5 line-clamp-2 break-all min-h-[40px]">
+            <p className={`mt-1 text-sm text-base-content/65 leading-5 line-clamp-2 break-all${hasAttrs ? '' : ' min-h-[40px]'}`}>
               {subtitle ?? id}
             </p>
+            <AttributeTags attributes={attributes} />
           </div>
           <div className="shrink-0 text-right">
             <div className="flex items-baseline justify-end gap-2">
@@ -137,8 +139,6 @@ function GraphCardBase({
             </p>
           </div>
         </div>
-
-        <AttributeTags attributes={attributes} />
 
         {hasChart && (
           <div className="mt-auto overflow-hidden rounded-md border border-base-content/8 bg-base-100/65 px-2 py-1.5">
