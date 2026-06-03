@@ -83,6 +83,7 @@ class BaseSensor(BasicMqtt, AsyncUpdater, Filter):
         
         # Sensor state
         self._state: Any = None
+        self._attributes: dict[str, Any] = {}
         self._timestamp: float | None = None
         self._unit_of_measurement = unit_of_measurement or ""
         
@@ -135,10 +136,13 @@ class BaseSensor(BasicMqtt, AsyncUpdater, Filter):
         """
         self._timestamp = timestamp
         
-        # Send to MQTT
+        # Send to MQTT — include extra attributes if set by subclass
+        payload: dict[str, Any] = {STATE: self.state}
+        if self._attributes:
+            payload.update(self._attributes)
         self._message_bus.send_message(
             topic=self._send_topic,
-            payload={STATE: self.state},
+            payload=payload,
         )
         
         

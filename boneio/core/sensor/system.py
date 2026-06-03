@@ -89,14 +89,17 @@ class DiskUsageSensor(BaseSensor):
 
     async def async_update(self, timestamp: float) -> None:
         """Fetch disk usage and publish to MQTT.
-        
+
+        Publishes percentage as main state plus extra attributes
+        (disk_total_gb, disk_used_gb, disk_free_gb) for HA.
+
         Args:
             timestamp: Current timestamp
         """
         try:
             disk = psutil.disk_usage(self._mount_point)
             usage_percent = round(disk.percent, 1)
-            
+
             _LOGGER.debug(
                 "Disk usage for %s: %.1f%% (used: %d bytes, total: %d bytes)",
                 self._mount_point,
@@ -104,10 +107,15 @@ class DiskUsageSensor(BaseSensor):
                 disk.used,
                 disk.total
             )
-            
+
             self._state = usage_percent
+            self._attributes = {
+                "disk_total_gb": round(disk.total / (1024 ** 3), 2),
+                "disk_used_gb": round(disk.used / (1024 ** 3), 2),
+                "disk_free_gb": round(disk.free / (1024 ** 3), 2),
+            }
             self._publish_state(timestamp=timestamp)
-            
+
         except Exception as err:
             _LOGGER.error("Error reading disk usage: %s", err)
 
@@ -161,24 +169,32 @@ class MemoryUsageSensor(BaseSensor):
 
     async def async_update(self, timestamp: float) -> None:
         """Fetch memory usage and publish to MQTT.
-        
+
+        Publishes percentage as main state plus extra attributes
+        (memory_total_gb, memory_used_gb, memory_available_gb) for HA.
+
         Args:
             timestamp: Current timestamp
         """
         try:
             memory = psutil.virtual_memory()
             usage_percent = round(memory.percent, 1)
-            
+
             _LOGGER.debug(
                 "Memory usage: %.1f%% (used: %d bytes, total: %d bytes)",
                 usage_percent,
                 memory.used,
                 memory.total
             )
-            
+
             self._state = usage_percent
+            self._attributes = {
+                "memory_total_gb": round(memory.total / (1024 ** 3), 2),
+                "memory_used_gb": round(memory.used / (1024 ** 3), 2),
+                "memory_available_gb": round(memory.available / (1024 ** 3), 2),
+            }
             self._publish_state(timestamp=timestamp)
-            
+
         except Exception as err:
             _LOGGER.error("Error reading memory usage: %s", err)
 

@@ -776,7 +776,10 @@ def ha_sensor_system_availabilty_message(
     **kwargs
 ):
     """Create availability topic for system sensors (disk, memory, CPU).
-    
+
+    Includes json_attributes_topic so HA picks up extra attributes
+    (e.g. disk_total_gb, memory_used_gb) from the same state topic.
+
     Args:
         id: Sensor ID
         name: Sensor name
@@ -785,7 +788,7 @@ def ha_sensor_system_availabilty_message(
         device_class: HA device class (optional)
         icon: MDI icon (optional)
         **kwargs: Additional fields
-        
+
     Returns:
         HA discovery message dict
     """
@@ -801,12 +804,19 @@ def ha_sensor_system_availabilty_message(
     msg["state_class"] = "measurement"
     msg["value_template"] = "{{ value_json.state }}"
     msg["entity_category"] = "diagnostic"
-    
+
+    # Expose extra attributes (e.g. disk_total_gb, memory_available_gb)
+    state_topic = msg.get("state_topic", f"{config_helper.topic_prefix}/{SENSOR}/{id}")
+    msg["json_attributes_topic"] = state_topic
+    msg["json_attributes_template"] = (
+        "{{ value_json | tojson }}"
+    )
+
     if device_class:
         msg["device_class"] = device_class
     if icon:
         msg["icon"] = icon
-        
+
     return msg
 
 

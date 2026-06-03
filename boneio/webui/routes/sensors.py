@@ -124,12 +124,15 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
     
     # System sensors
     for sensor in manager.sensors.get_system_sensors():
-        result["system"].append({
+        entry: dict = {
             "id": sensor.id,
             "name": sensor.name,
             "state": sensor.state,
             "unit": sensor.unit_of_measurement,
-        })
+        }
+        if hasattr(sensor, "_attributes") and sensor._attributes:
+            entry["attributes"] = sensor._attributes
+        result["system"].append(entry)
     
     return result
 
