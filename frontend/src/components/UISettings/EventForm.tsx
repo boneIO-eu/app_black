@@ -5,6 +5,7 @@ import ActionFields, { validateAction, cleanActionFields } from './ActionFields'
 import AiConfigAssistant from './AiConfigAssistant';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import {
   Select,
   SelectContent,
@@ -786,18 +787,9 @@ const EventForm: React.FC<EventFormProps> = ({
 
           {/* Timing validation warning */}
           {(() => {
-            const parseMs = (val: string | number | undefined, defaultVal: number): number => {
-              if (val === undefined) return defaultVal;
-              if (typeof val === 'number') return val;
-              const match = val.match(/^(\d+(?:\.\d+)?)(ms|s)?$/);
-              if (!match) return defaultVal;
-              const num = parseFloat(match[1]);
-              const unit = match[2] || 'ms';
-              return unit === 's' ? num * 1000 : num;
-            };
-            const doubleMs = parseMs(data.double_click_duration, 220);
-            const longMs = parseMs(data.long_press_duration, 400);
-            if (doubleMs >= longMs) {
+            const doubleMs = convertTimeperiodToMilliseconds(data.double_click_duration);
+            const longMs = convertTimeperiodToMilliseconds(data.long_press_duration);
+            if (doubleMs > 0 && longMs > 0 && doubleMs >= longMs) {
               return (
                 <div className="alert alert-warning mt-2">
                   <span>{t('event_form.timing_validation_error')}</span>
