@@ -1,84 +1,110 @@
-# boneIO v1.4.0dev1 — Release Notes
+# Changelog — v1.4.0
 
-## ✨ New Features
+## v1.4.0 (2026-06-03)
 
-### Remote Outputs (`remote_outputs` section)
-Register switches and lights from remote ESPHome/MQTT devices as first-class outputs in boneIO.  
-Outputs appear in the WebUI with full ON/OFF/TOGGLE control and area assignment.
+Major release — remote device support, irrigation overhaul, AI-assisted configuration, system monitoring, and dozens of bug fixes.
 
-### Brightness Control for Remote ESPHome Lights
-If an ESPHome light supports brightness, the remote output gains a **brightness slider** in the WebUI.
-- Real-time synchronization: changes from Home Assistant or ESPHome reflect live in the boneIO frontend
-- Smooth animated slider transitions (ease-out cubic, 250ms) for server-driven value updates
-- Debounced API calls with 800ms cooldown to prevent race-condition "jump-back" artifacts
+---
 
-### Remote Binary Sensors (ESPHome)
-Subscribe to binary sensors on ESPHome devices and use them as triggers for boneIO actions.
-- Only sensors with registered callbacks are logged (reduces noise from unrelated ESPHome entities)
-- Callback-based architecture: `register_binary_sensor_callback()` / `unregister_binary_sensor_callback()`
+### 🔌 Remote Devices
 
-### Remote Inputs Refactor
-Unified local and remote input handling with consistent state management and alarm integration.
-- Remote devices can now trigger alarm panel actions
+- **Remote Outputs (`remote_outputs`)** — register switches and lights from remote ESPHome/MQTT devices as first-class outputs with ON/OFF/TOGGLE, area assignment, and interlock groups.
+- **Brightness control** — remote ESPHome lights get a real-time brightness slider with smooth animations and debounced API calls.
+- **Remote Binary Sensors** — subscribe to binary sensors on ESPHome devices for use as action triggers.
+- **WLED brightness support** — WLED devices support brightness via the remote device API.
+- **Remote cover tilt** — tilt actions for venetian blinds on remote boneIO devices.
 
-### WLED Brightness Support
-Merged PR #65 — WLED devices now support brightness control via the remote device API.
+---
 
-### OLED Display Improvements
-- Added OLED display tests
-- Fixed OLED sleep behavior on single click
-- Cover change settings via OLED display
+### 🌿 Irrigation
 
-### Modbus Device Temporary Disable
-Added the ability to temporarily turn off a single Modbus device without removing its configuration.
+- **Multi-zone irrigation controller** — schedules, per-zone intervals (`run_every_n`), water source management, master valve/pump support, and a full dashboard UI with real-time zone countdown.
+- **Sequential water source activation** — water sources with multiple outputs activate in order with configurable delays (`output_start_delay`, `output_stop_delay`). Deactivation in reverse order.
+- **Interlock-aware activation** — if an output is blocked by an interlock during water source activation, already-activated outputs are rolled back and a fault notification is sent.
+- **Zone enabled toggle** — each zone can be individually enabled/disabled. Reflected in HA dashboard.
+- **Zone `run_every_n` skip counter** — zones with `run_every_n > 1` correctly track their skip counters across multi-cycle runs. `next_run_iso`, `next_run_pretty`, `skip_count` published as valve entity attributes in HA.
+- **Next Run Time sensor** — `device_class=timestamp` sensor showing when the next scheduled run will occur (e.g. "in 19 hours").
+- **HA Dashboard YAML generator** — one-click export of a complete Lovelace dashboard per controller, with zones, durations, schedules, and controls.
+- **Irrigation AI assistant** — AI-powered configuration wizard for creating irrigation setups from natural language descriptions.
+- **Schedule timezone fix** — schedule times are now treated as local time instead of UTC.
+- **Dynamic duration max** — zone duration max is based on configured duration + 20 min (clamped to [30, 120]) instead of hardcoded 1440 min.
+- **Single-zone optimization** — controllers with 1 zone skip unnecessary `auto_advance`, `reverse`, and `next_valve` entities.
+- **Manual start responsiveness** — clicking "Start" responds instantly; pump/valve delays no longer block the UI.
 
-## 🐛 Bug Fixes
+---
 
-### Frontend — Brightness State Not Updating
-WebSocket output deduplication compared only `state` (ON/OFF) and `name`, ignoring `brightness`.  
-Brightness changes on a light that was already ON were silently discarded.
+### 📊 System Monitoring
 
-### Frontend — MQTT Discovery Shows 0 Outputs/Covers
-Backend nests outputs/covers under `mqtt` key in `to_dict()`, but frontend read top-level fields.  
-All MQTT autodiscovered devices showed "0 out | 0 cov" despite having many entities.
+- **System sensors (CPU, Disk, Memory)** — percentage-based sensors with rich attributes:
+  - Disk: `disk_total_gib`, `disk_used_gib`, `disk_free_gib`
+  - Memory: `memory_total_gib`, `memory_used_gib`, `memory_available_gib`
+- **Instant sensor values on UI load** — system sensors are included in WebSocket initial states, eliminating the 10-60s blank period after opening the UI.
+- **Sensor attributes in UI** — GraphCard displays compact attribute chips (e.g. `Total: 28.65 GiB | Used: 2.28 GiB | Free: 25.19 GiB`) with dynamic unit extraction.
+- **HA `json_attributes_topic`** — system sensors publish attributes as JSON, visible in HA's "More Info" dialog without extra entities.
 
-### Frontend — Slider Jump-Back on Brightness Change
-After user set brightness, slider briefly jumped back to the old value before settling.  
-Root cause: `isActive` flag cleared immediately after API call, allowing stale ESPHome callbacks through.
+---
 
-### Backend — Entity Type Routing in ESPHome
-`control_output()` always delegated to `control_switch()` — failed for light entities.  
-Now auto-detects entity type by checking `_switches` then `_lights`.
+### 🏠 Home Assistant Integration
 
-### Backend — Connect Before Entity Lookup
-`control_switch()` and `control_light()` looked up entity keys before `connect()`.  
-If `_on_entities()` hadn't run yet, entity lists were empty.
+- **`suggested_area` in HA discovery** — irrigation and other entities auto-assign to the correct area.
+- **`json_attributes_topic`** — system sensors expose detailed metrics as HA entity attributes.
+- **Entity category reorganization** — entities placed in proper HA categories (diagnostic, config).
+- **Republish states on MQTT reconnect** — ensures HA always has the latest state.
+- **Output groups in HA** — groups exposed with member outputs visible.
+- **Remote output interlock** — interlock checks enforced for remote outputs and dimmer brightness.
 
-### Backend — Remote Output Lazy Resolution
-`register_remote_outputs()` was called during `Manager.__init__()` before device connections were established.  
-`get_device()` returned `None` → all remote outputs were silently skipped.
+---
 
-### Input Selection — Case Sensitivity
-Fixed inputs not appearing in selection dropdown when named with capital letters.
+### 🖥️ OLED Display
 
-### Help Label Display
-Fixed help label rendering issues in the Settings UI.
+- **Screensaver timer reset** — screensaver countdown now resets from the last button press instead of the first.
+- **Sleep behavior fix** — fixed single-click sleep toggle.
 
-## ♻️ Refactoring
+---
 
-- Cleaned up trailing whitespace and formatting in `esphome.py` (Ruff compliance)
-- Shared `RangeSlider` component for both cover position/tilt and output brightness/duration
-- Improved ESPHome remote device Settings UI with entity discovery workflow
-- AI wizard prompt improvements for input configuration
+### 🎛️ Covers
 
-## 📦 Files Changed (highlights)
+- **Venetian tilt restore** — new `tilt_restore_after_close` option automatically restores the previous tilt angle after moving to an intermediate position. Skipped at extremes (0% / 100%).
+- **Cover relay dropdown fix** — filter now accepts outputs with `output_type` of `cover`, `none`, or missing.
+- **Cover position precision** — fixed float/int rounding drift during movement.
 
-| Area | Key Files |
-|------|-----------|
-| Remote Outputs | `boneio/components/output/remote.py`, `boneio/schema/remote_outputs.yaml` |
-| ESPHome Integration | `boneio/core/remote/esphome.py` |
-| Remote Inputs | `boneio/components/input/remote/base.py`, `boneio/core/manager/inputs.py` |
-| WebSocket Sync | `frontend/src/App.tsx`, `frontend/src/hooks/useWebSocket.ts` |
-| Slider Animation | `frontend/src/components/RangeSlider.tsx` |
-| MQTT Discovery | `frontend/src/components/UISettings/tables/RemoteDeviceTable.tsx` |
-| Alarm Integration | `boneio/core/manager/manager.py` |
+---
+
+### 🤖 AI Configuration Assistant
+
+- **Output type awareness** — AI correctly distinguishes between lights (brightness actions) and switches (toggle/on/off).
+- **Remote device guidance** — AI knows about remote outputs, covers, and binary sensors.
+- **Irrigation valve type filter** — AI explicitly avoids "light" type outputs for irrigation.
+
+---
+
+### 🧩 UI / UX Improvements
+
+- **Input type change without restart** — switching between "Event Entity" and "Binary Sensor" takes effect immediately.
+- **InputsView navigation fix** — long press on an input correctly navigates to its settings (not areas).
+- **Clipboard in HA addon iframe** — fixed `navigator.clipboard.writeText()` in HA ingress iframe with `document.execCommand('copy')` fallback.
+- **Sidebar section grouping** — remote and restart-required sections visually grouped.
+- **Template duplication** — deep-clone templates with adjusted IDs.
+- **Irrigation zones — collapsible accordion** with reorder buttons and add-at-bottom.
+- **Live graphs** — sparkline charts in sensor/modbus views.
+- **Modbus device temporary disable** — turn off a single Modbus device without removing config.
+
+---
+
+### 🐛 Bug Fixes
+
+- **Irrigation `run_every_n` skip counter desync** — `_eligible_zones()` side effects caused counters to diverge. Split into pure filter + single-call counter update.
+- **Config cache staleness** — `invalidate_config_cache()` now clears `ConfigHelper._config_cache`.
+- **TimePeriod empty string crash** — frontend-sent `""` for optional TimePeriod fields no longer crashes Cerberus.
+- **Remote output MQTT state** — remote outputs now publish state to MQTT (previously HA showed "unavailable").
+- **Interlock bypass on dimmer brightness** — brightness changes now check interlock before allowing > 0.
+- **ESPHome entity type routing** — `control_output()` auto-detects entity type instead of always delegating to `control_switch()`.
+- **ESPHome connect-before-lookup** — entity commands no longer silently fail when entities haven't been populated.
+- **Output group form ID** — form now uses correct `boneio_output` reference.
+- **Interlock Groups API** — fixed always-returning-empty due to wrong attribute reference; added config-based fallback.
+- **Frontend brightness deduplication** — WebSocket now considers `brightness` field in deduplication.
+- **Frontend slider jump-back** — eliminated stale ESPHome callback processing.
+
+---
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.3.1...v1.4.0

@@ -1,2 +1,2 @@
 # flake8: noqa
-__version__ = "1.4.0dev14"
+__version__ = "1.4.0"
