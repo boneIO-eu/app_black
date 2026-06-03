@@ -108,7 +108,7 @@ function GraphCardBase({
 }: GraphCardProps) {
   const hasChart = historyPoints.length > 1;
 
-   // Grid layout — compact card with chart below
+  // Grid layout — compact card with chart below
   if (isGrid) {
     const hasAttrs = attributes && Object.keys(attributes).length > 0;
     return (
@@ -123,7 +123,6 @@ function GraphCardBase({
             <p className={`mt-1 text-sm text-base-content/65 leading-5 line-clamp-2 break-all${hasAttrs ? '' : ' min-h-[40px]'}`}>
               {subtitle ?? id}
             </p>
-            <AttributeTags attributes={attributes} />
           </div>
           <div className="shrink-0 text-right">
             <div className="flex items-baseline justify-end gap-2">
@@ -139,6 +138,7 @@ function GraphCardBase({
             </p>
           </div>
         </div>
+        <AttributeTags attributes={attributes} />
 
         {hasChart && (
           <div className="mt-auto overflow-hidden rounded-md border border-base-content/8 bg-base-100/65 px-2 py-1.5">
