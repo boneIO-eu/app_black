@@ -91,7 +91,7 @@ class DiskUsageSensor(BaseSensor):
         """Fetch disk usage and publish to MQTT.
 
         Publishes percentage as main state plus extra attributes
-        (disk_total_gb, disk_used_gb, disk_free_gb) for HA.
+        (disk_total_gib, disk_used_gib, disk_free_gib) for HA.
 
         Args:
             timestamp: Current timestamp
@@ -110,9 +110,9 @@ class DiskUsageSensor(BaseSensor):
 
             self._state = usage_percent
             self._attributes = {
-                "disk_total_gb": round(disk.total / (1024 ** 3), 2),
-                "disk_used_gb": round(disk.used / (1024 ** 3), 2),
-                "disk_free_gb": round(disk.free / (1024 ** 3), 2),
+                "disk_total_gib": round(disk.total / (1024 ** 3), 2),
+                "disk_used_gib": round(disk.used / (1024 ** 3), 2),
+                "disk_free_gib": round(disk.free / (1024 ** 3), 2),
             }
             self._publish_state(timestamp=timestamp)
 
@@ -171,7 +171,7 @@ class MemoryUsageSensor(BaseSensor):
         """Fetch memory usage and publish to MQTT.
 
         Publishes percentage as main state plus extra attributes
-        (memory_total_gb, memory_used_gb, memory_available_gb) for HA.
+        (memory_total_gib, memory_used_gib, memory_available_gib) for HA.
 
         Args:
             timestamp: Current timestamp
@@ -189,9 +189,9 @@ class MemoryUsageSensor(BaseSensor):
 
             self._state = usage_percent
             self._attributes = {
-                "memory_total_gb": round(memory.total / (1024 ** 3), 2),
-                "memory_used_gb": round(memory.used / (1024 ** 3), 2),
-                "memory_available_gb": round(memory.available / (1024 ** 3), 2),
+                "memory_total_gib": round(memory.total / (1024 ** 3), 2),
+                "memory_used_gib": round(memory.used / (1024 ** 3), 2),
+                "memory_available_gib": round(memory.available / (1024 ** 3), 2),
             }
             self._publish_state(timestamp=timestamp)
 

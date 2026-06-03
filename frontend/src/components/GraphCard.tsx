@@ -47,10 +47,10 @@ function formatValue(value: number | string | null): string {
 
 /** Format an attribute key into a human-readable label */
 function formatAttrKey(key: string): string {
-  // e.g. "disk_total_gb" → "Total" , "memory_available_gb" → "Available"
+  // e.g. "disk_total_gib" → "Total" , "memory_available_gib" → "Available"
   return key
     .replace(/^(disk|memory)_/, '')
-    .replace(/_gb$/, '')
+    .replace(/_(gib|gb|mb|pct|percent)$/, '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -65,8 +65,9 @@ function formatAttrValue(value: number | string | boolean | null): string {
   return value;
 }
 
-/** Extract unit suffix from attribute key (e.g. _gb → GB, _mb → MB) */
+/** Extract unit suffix from attribute key (e.g. _gib → GiB, _gb → GB) */
 function extractAttrUnit(key: string): string {
+  if (key.endsWith('_gib')) return ' GiB';
   if (key.endsWith('_gb')) return ' GB';
   if (key.endsWith('_mb')) return ' MB';
   if (key.endsWith('_pct') || key.endsWith('_percent')) return ' %';
