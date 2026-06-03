@@ -6,7 +6,6 @@ export interface ModbusHistoryPoint {
   value: number;
 }
 
-const TEMPERATURE_HUMIDITY_PATTERN = /temperature|temp|humidity|humid|wilgoc|wilgotnosc/i;
 const MODBUS_HISTORY_STORAGE_KEY = 'modbusHistory';
 
 function roundHistoryValue(value: number): number {
@@ -19,26 +18,6 @@ function isWriteableEntityType(entityType?: string | null): boolean {
 
 function isNumericState(value: ModbusDeviceState['state']): value is number {
   return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isTemperatureOrHumidityDevice(device: ModbusDeviceState): boolean {
-  const hasUnit = typeof device.unit === 'string' && device.unit.trim().length > 0;
-  const combinedLabel = `${device.custom_label || ''} ${device.name || ''} ${device.id || ''}`.toLowerCase();
-  const unit = (device.unit || '').toLowerCase().replace(/\s+/g, '');
-
-  if (!hasUnit) {
-    return false;
-  }
-
-  if (isWriteableEntityType(device.entity_type)) {
-    return false;
-  }
-
-  if (TEMPERATURE_HUMIDITY_PATTERN.test(combinedLabel)) {
-    return true;
-  }
-
-  return unit === '%' || unit === 'rh%' || unit === 'c' || unit === '°c' || unit === 'degc';
 }
 
 /**
