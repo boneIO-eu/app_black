@@ -11,16 +11,23 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - edge
-
-  nginx:
-    image: nginx:1.29-alpine-slim
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
-    depends_on:
-      - node-red
+    hostname: ${HOSTNAME}
     ports:
-      - "${NGINX_PORT:-8091}:80"
+      - "${HTTP_PORT:-8091}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    environment:
+      - HOST_HOSTNAME=${HOSTNAME}
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./caddy/502.html:/srv/502.html:ro
+      - ./caddy/init-certs.sh:/init-certs.sh:ro
+      - ./caddy/data:/data
+      - ./caddy/config:/config
+      - /etc/hostname:/etc/host_hostname:ro
+    entrypoint: /bin/sh
+    command: ["/init-certs.sh"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
