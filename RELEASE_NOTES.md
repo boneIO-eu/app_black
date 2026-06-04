@@ -1,14 +1,20 @@
-## v1.4.2 (2026-06-03)
+# boneIO v1.4.3 Release Notes
 
-Hotfix — TimePeriod object handling in input forms.
+## 🐛 Bug Fixes
 
-### 🐛 Bug Fixes
+### System Migration Helper (`boneio-migrate`)
+- **Tolerant `systemctl reload/restart`**: Migration helper no longer fails when reloading or restarting a service that isn't currently active. This fixes the critical issue where `setup_boneio.sh` failed to apply migrations during image building because `mosquitto` was stopped at the time.
 
-- **EventForm crash** — `parseMs()` called `.match()` on TimePeriod objects (`{milliseconds: 220}`) instead of strings, causing `Uncaught TypeError: val.match is not a function`. Replaced with the existing `convertTimeperiodToMilliseconds()` utility.
-- **BinarySensorForm wrong bounce_time** — `typeof data.bounce_time === 'number'` always returned `false` for TimePeriod objects, displaying default `120ms` instead of the configured value. Fixed using `convertTimeperiodToMilliseconds()`.
+## ✨ New Features
 
-### 🛡️ Improvements
+### OLED Shutdown Messages
+- **Late-phase shutdown service** (`boneio-oled-shutdown.service`): New systemd service that displays "System stopped. Safe to unplug." on the OLED screen **after** the network has gone down during shutdown.
+- **Restart-aware ExecStopPost**: `boneio.service` now only shows "Shutting down..." during actual system shutdown. During `systemctl restart boneio`, the OLED skips the stop message and goes directly to "is starting...".
 
-- **Pre-commit hook** — Added `tsc --noEmit` TypeScript type-check before vitest to catch build-breaking issues (unused variables, type errors) before commit.
+## 📦 Migration: v1.4.3
 
-**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.1...v1.4.2
+This release includes migration `v1.4.3` which automatically:
+1. Installs `boneio-oled-shutdown.service` (late-phase shutdown OLED message)
+2. Updates `boneio.service` with shutdown-aware `ExecStopPost`
+
+The migration runs automatically on first startup after upgrade.

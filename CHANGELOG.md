@@ -4,6 +4,28 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.4.3 (2026-06-04)
+
+Migration helper fixes and OLED shutdown UX improvements.
+
+### 🐛 Bug Fixes
+
+- **boneio-migrate helper** — `systemctl reload/restart` actions now tolerate inactive services instead of failing the entire migration. Fixes image build failures when mosquitto was stopped during `setup_boneio.sh`.
+
+### ✨ New Features
+
+- **OLED late-shutdown service** — New `boneio-oled-shutdown.service` displays "System stopped. Safe to unplug." on the OLED **after** the network is down during shutdown.
+- **Restart-aware ExecStopPost** — `boneio.service` only shows "Shutting down..." during actual system shutdown, not during `systemctl restart boneio`.
+
+### 📦 Migration: v1.4.3
+
+- Installs `boneio-oled-shutdown.service` (late-phase shutdown OLED message)
+- Updates `boneio.service` with shutdown-aware `ExecStopPost`
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.2...v1.4.3
+
+---
+
 ## v1.4.2 (2026-06-03)
 
 Hotfix — TimePeriod object handling in input forms.

@@ -237,7 +237,7 @@ def handle_systemctl_disable(action: dict[str, Any], assets_base: str) -> None:
 
 
 def handle_systemctl_restart(action: dict[str, Any], assets_base: str) -> None:
-    """Restart a systemd service.
+    """Restart a systemd service (tolerant of inactive services).
 
     Args:
         action: Action dict with unit.
@@ -245,11 +245,16 @@ def handle_systemctl_restart(action: dict[str, Any], assets_base: str) -> None:
     """
     unit = action["unit"]
     _LOGGER.info("systemctl restart %s", unit)
-    subprocess.run(["systemctl", "restart", unit], check=True, timeout=30)
+    result = subprocess.run(["systemctl", "restart", unit], capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        if "not active" in result.stderr or "not loaded" in result.stderr or "not found" in result.stderr:
+            _LOGGER.warning("systemctl restart %s skipped (not active)", unit)
+        else:
+            raise subprocess.CalledProcessError(result.returncode, ["systemctl", "restart", unit], result.stdout, result.stderr)
 
 
 def handle_systemctl_reload(action: dict[str, Any], assets_base: str) -> None:
-    """Reload a systemd service.
+    """Reload a systemd service (tolerant of inactive services).
 
     Args:
         action: Action dict with unit.
@@ -257,7 +262,12 @@ def handle_systemctl_reload(action: dict[str, Any], assets_base: str) -> None:
     """
     unit = action["unit"]
     _LOGGER.info("systemctl reload %s", unit)
-    subprocess.run(["systemctl", "reload", unit], check=True, timeout=30)
+    result = subprocess.run(["systemctl", "reload", unit], capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        if "not active" in result.stderr or "not loaded" in result.stderr or "not found" in result.stderr:
+            _LOGGER.warning("systemctl reload %s skipped (not active)", unit)
+        else:
+            raise subprocess.CalledProcessError(result.returncode, ["systemctl", "reload", unit], result.stdout, result.stderr)
 
 
 def handle_append_line_if_missing(action: dict[str, Any], assets_base: str) -> None:

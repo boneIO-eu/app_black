@@ -1,0 +1,12 @@
+[Unit]
+Description=OLED shutdown message (runs after network is down)
+DefaultDependencies=no
+Before=final.target
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/oled_msg.sh "boneIO Black" "System stopped." "Safe to unplug."
+
+[Install]
+WantedBy=final.target
