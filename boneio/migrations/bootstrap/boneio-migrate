@@ -132,10 +132,17 @@ def handle_install_file(action: dict[str, Any], assets_base: str) -> None:
     # Check if destination already matches (idempotency)
     dst_path = Path(dst)
     if dst_path.exists():
-        existing = dst_path.read_bytes()
-        if existing == content:
-            _LOGGER.info("SKIP (unchanged): %s", dst)
-            return
+        # Docker creates missing bind-mount sources as empty directories.
+        # If dst is a directory, remove it so we can write the file.
+        if dst_path.is_dir():
+            _LOGGER.info("Removing ghost directory at %s (Docker bind-mount artifact)", dst)
+            import shutil
+            shutil.rmtree(dst_path)
+        else:
+            existing = dst_path.read_bytes()
+            if existing == content:
+                _LOGGER.info("SKIP (unchanged): %s", dst)
+                return
 
     # Write to temp file first, then validate, then move (atomic)
     dst_path.parent.mkdir(parents=True, exist_ok=True)
