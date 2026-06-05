@@ -9,17 +9,22 @@ services:
       - ./node-red/settings.js:/data/settings.js:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
     networks:
       - edge
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    hostname: ${HOSTNAME}
+    hostname: ${HOSTNAME:-boneio}
     ports:
       - "${HTTP_PORT:-8091}:80"
       - "${HTTPS_PORT:-8443}:443"
     environment:
-      - HOST_HOSTNAME=${HOSTNAME}
+      - HOST_HOSTNAME=${HOSTNAME:-boneio}
     volumes:
       - ./caddy/502.html:/srv/502.html:ro
       - ./caddy/init-certs.sh:/init-certs.sh:ro
@@ -30,6 +35,11 @@ services:
     command: ["/init-certs.sh"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
     networks:
       - edge
 

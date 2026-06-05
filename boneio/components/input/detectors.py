@@ -467,11 +467,24 @@ class MultiClickDetector:
         if event.event_type is event.Type.FALLING_EDGE:
             # Button pressed (FALLING_EDGE on BeagleBone with pull-up)
             
-            # Software debounce
+            # Software debounce (press-vs-press)
             if self._state.last_press_ts and (timestamp_s - self._state.last_press_ts) < self._debounce_seconds:
                 delta_ms = (timestamp_s - self._state.last_press_ts) * 1000
                 _LOGGER.debug(
                     "Ignoring bounced press on %s (%.3f ms since last press, debounce %.3f ms)",
+                    self._name,
+                    delta_ms,
+                    self._debounce_seconds * 1000,
+                )
+                return
+
+            # Cross-debounce: ignore press too close to release (bounce on falling edge
+            # after a real release). Without this, releasing a long-held button can
+            # generate a bounce FALLING that starts a new phantom press cycle.
+            if self._state.last_release_ts and (timestamp_s - self._state.last_release_ts) < self._debounce_seconds:
+                delta_ms = (timestamp_s - self._state.last_release_ts) * 1000
+                _LOGGER.debug(
+                    "Ignoring bounced press on %s (%.3f ms since release, debounce %.3f ms)",
                     self._name,
                     delta_ms,
                     self._debounce_seconds * 1000,
@@ -618,10 +631,17 @@ class MultiClickDetector:
         timestamp_s = time.time()
 
         if is_pressed:
-            # Debounce
+            # Debounce (press-vs-press)
             if (
                 self._state.last_press_ts
                 and (timestamp_s - self._state.last_press_ts) < self._debounce_seconds
+            ):
+                return
+
+            # Cross-debounce: ignore press too close to release (bounce)
+            if (
+                self._state.last_release_ts
+                and (timestamp_s - self._state.last_release_ts) < self._debounce_seconds
             ):
                 return
 
