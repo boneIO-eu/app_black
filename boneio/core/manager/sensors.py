@@ -843,29 +843,40 @@ class SensorManager:
 
         Creates sensors for monitoring system resources and sends
         HA autodiscovery messages for each.
+
+        For disk sensors, auto-detects mounted partitions:
+        - eMMC (/dev/mmcblk1) → "eMMC Usage"
+        - SD card (/dev/mmcblk0) → "SD Card Usage"
+        - Other root partitions → "System Disk Usage"
         """
         from boneio.core.sensor.system import (
             CpuUsageSensor,
             DiskUsageSensor,
             MemoryUsageSensor,
+            detect_disk_sensors,
         )
         from boneio.integration.homeassistant import ha_sensor_system_availabilty_message
 
-        # Disk Usage Sensor
-        disk_sensor = DiskUsageSensor(
-            manager=self._manager,
-            message_bus=self._manager._message_bus,
-            topic_prefix=self._manager._topic_prefix,
-        )
-        self._system_sensors.append(disk_sensor)
-        payload = ha_sensor_system_availabilty_message(
-            id=disk_sensor.id,
-            name=disk_sensor.name,
-            config_helper=self._manager._config_helper,
-            unit_of_measurement="%",
-            icon="mdi:harddisk",
-        )
-        self._manager.publish_ha_discovery(id=disk_sensor.id, ha_type=SENSOR, payload=payload)
+        # Disk Usage Sensors — auto-detect all connected disks
+        disk_configs = detect_disk_sensors()
+        for disk_cfg in disk_configs:
+            disk_sensor = DiskUsageSensor(
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                topic_prefix=self._manager._topic_prefix,
+                mount_point=disk_cfg["mount_point"],
+                sensor_id=disk_cfg["id"],
+                name=disk_cfg["name"],
+            )
+            self._system_sensors.append(disk_sensor)
+            payload = ha_sensor_system_availabilty_message(
+                id=disk_sensor.id,
+                name=disk_sensor.name,
+                config_helper=self._manager._config_helper,
+                unit_of_measurement="%",
+                icon=disk_cfg["icon"],
+            )
+            self._manager.publish_ha_discovery(id=disk_sensor.id, ha_type=SENSOR, payload=payload)
 
         # Memory Usage Sensor
         memory_sensor = MemoryUsageSensor(
@@ -1382,14 +1393,20 @@ class SensorManager:
         # System sensors
         from boneio.integration.homeassistant import ha_sensor_system_availabilty_message
 
-        _icon_map = {"disk_usage": "mdi:harddisk", "memory_usage": "mdi:memory", "cpu_usage": "mdi:cpu-64-bit"}
+        _icon_map = {
+            "disk_usage": "mdi:harddisk",
+            "emmc_usage": "mdi:harddisk",
+            "sd_card_usage": "mdi:micro-sd",
+            "memory_usage": "mdi:memory",
+            "cpu_usage": "mdi:cpu-64-bit",
+        }
         for sensor in self._system_sensors:
             payload = ha_sensor_system_availabilty_message(
                 id=sensor.id,
                 name=sensor.name,
                 config_helper=self._manager._config_helper,
                 unit_of_measurement="%",
-                icon=_icon_map.get(sensor.id, "mdi:chip"),
+                icon=_icon_map.get(sensor.id, "mdi:harddisk"),
             )
             self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
 
