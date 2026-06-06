@@ -469,7 +469,7 @@ class IrrigationController:
         await self._advance_to_next_zone(force=True)
 
     async def start_full_cycle(self) -> None:
-        _LOGGER.debug(
+        _LOGGER.info(
             "Irrigation %s start_full_cycle: state=%s standby=%s skip_next=%s",
             self.id,
             self._state.value,
@@ -486,6 +486,11 @@ class IrrigationController:
             return
 
         if self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
+            _LOGGER.info(
+                "Irrigation %s: already %s, shutting down before new cycle",
+                self.id,
+                self._state.value,
+            )
             await self.shutdown()
 
         self._single_zone_mode = False
@@ -548,7 +553,7 @@ class IrrigationController:
         eligible = self._eligible_zones()
         if scheduled:
             self._apply_skip_counters()
-        _LOGGER.debug(
+        _LOGGER.info(
             "Irrigation %s _start_cycle_from_eligible: %d eligible zones: %s",
             self.id,
             len(eligible),
@@ -1121,31 +1126,128 @@ class IrrigationController:
         return earliest
 
     def start_schedules(self) -> None:
+        """Start all schedule loops as asyncio tasks.
+
+        Cancels any existing schedule tasks first, then creates new ones.
+        Each schedule entry gets its own long-lived asyncio.Task that
+        sleeps until the next fire time.
+        """
         self.stop_schedules()
+        if not self._schedule:
+            _LOGGER.debug("Irrigation %s: no schedules configured", self.id)
+            return
         for idx, schedule in enumerate(self._schedule):
-            task = asyncio.create_task(self._run_schedule_loop(idx, schedule))
+            task = asyncio.create_task(
+                self._run_schedule_loop(idx, schedule),
+                name=f"irrigation_{self.id}_schedule_{idx}",
+            )
             self._schedule_tasks.append(task)
+            _LOGGER.info(
+                "Irrigation %s: schedule task #%d started (time=%s, days=%s)",
+                self.id,
+                idx,
+                schedule.get("time", "06:00"),
+                schedule.get("days", "daily"),
+            )
 
     def stop_schedules(self) -> None:
+        """Cancel all schedule tasks."""
+        if self._schedule_tasks:
+            _LOGGER.info(
+                "Irrigation %s: stopping %d schedule task(s)",
+                self.id,
+                len(self._schedule_tasks),
+            )
         for task in self._schedule_tasks:
             task.cancel()
         self._schedule_tasks = []
 
     async def _run_schedule_loop(self, schedule_idx: int, schedule: dict[str, Any]) -> None:
+        """Run a single schedule entry in a loop.
+
+        Sleeps until the next fire time, then starts a full irrigation cycle.
+        This task runs for the entire lifetime of the controller.
+
+        CRITICAL: This method must NEVER raise an unhandled exception,
+        as that would permanently kill the schedule task with no recovery.
+        All exceptions are caught, logged, and the loop continues with
+        a back-off delay.
+
+        Args:
+            schedule_idx: Index of this schedule in the schedule list.
+            schedule: Schedule configuration dict with 'time' and 'days'.
+        """
         time_str = schedule.get("time", "06:00")
         days = str(schedule.get("days", "daily")).strip().lower()
+        consecutive_errors = 0
+
+        _LOGGER.info(
+            "Irrigation %s: schedule loop #%d started (time=%s, days=%s)",
+            self.id,
+            schedule_idx,
+            time_str,
+            days,
+        )
+
         while True:
-            next_run = _next_fire_time(time_str, days)
-            wait_s = max(1.0, (next_run - utcnow()).total_seconds())
-            await asyncio.sleep(wait_s)
+            try:
+                next_run = _next_fire_time(time_str, days)
+                now = utcnow()
+                wait_s = max(1.0, (next_run - now).total_seconds())
 
-            if bool(schedule.get("skip", False)):
-                schedule["skip"] = False
-                self._save(f"schedule/{schedule_idx}/skip", False)
-                await self.publish_all_states()
-                continue
+                # Convert to local for human-readable log
+                local_tz = _local_now().tzinfo
+                next_run_local = next_run.astimezone(local_tz)
+                _LOGGER.info(
+                    "Irrigation %s: schedule #%d next fire at %s (in %.0f seconds)",
+                    self.id,
+                    schedule_idx,
+                    next_run_local.strftime("%Y-%m-%d %H:%M:%S %Z"),
+                    wait_s,
+                )
 
-            await self.start_full_cycle()
+                await asyncio.sleep(wait_s)
+
+                # Reset error counter on successful wake-up
+                consecutive_errors = 0
+
+                if bool(schedule.get("skip", False)):
+                    _LOGGER.info(
+                        "Irrigation %s: schedule #%d skipped (one-time skip)",
+                        self.id,
+                        schedule_idx,
+                    )
+                    schedule["skip"] = False
+                    self._save(f"schedule/{schedule_idx}/skip", False)
+                    await self.publish_all_states()
+                    continue
+
+                _LOGGER.info(
+                    "Irrigation %s: schedule #%d firing — starting full cycle",
+                    self.id,
+                    schedule_idx,
+                )
+                await self.start_full_cycle()
+
+            except asyncio.CancelledError:
+                _LOGGER.info(
+                    "Irrigation %s: schedule loop #%d cancelled",
+                    self.id,
+                    schedule_idx,
+                )
+                raise
+            except Exception:
+                consecutive_errors += 1
+                backoff_s = min(300, 30 * consecutive_errors)
+                _LOGGER.exception(
+                    "Irrigation %s: schedule loop #%d encountered an error "
+                    "(attempt %d, retrying in %ds)",
+                    self.id,
+                    schedule_idx,
+                    consecutive_errors,
+                    backoff_s,
+                )
+                await asyncio.sleep(backoff_s)
 
 def _local_now() -> datetime:
     """Return the current time in the system's local timezone.

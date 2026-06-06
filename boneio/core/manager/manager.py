@@ -855,6 +855,8 @@ class Manager:
         """Resolve a boneIO entity by type and ID for condition evaluation.
 
         Used by the conditions system to check entity states.
+        Remote outputs from ``remote_outputs`` config are registered in
+        OutputManager, so they are resolved via ``entity_type='output'``.
 
         Args:
             entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light')
@@ -865,13 +867,13 @@ class Manager:
         """
         if entity_type in ("output", "light"):
             return self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
-        elif entity_type == "cover":
+        if entity_type == "cover":
             return self.covers.get_cover(entity_id)
-        elif entity_type == "binary_sensor":
+        if entity_type == "binary_sensor":
             return self.inputs.get_input(entity_id)
-        else:
-            _LOGGER.warning("Unknown entity type for condition: %s", entity_type)
-            return None
+        _LOGGER.warning("Unknown entity type for condition: %s", entity_type)
+        return None
+
 
     async def execute_actions(
         self,
@@ -1691,6 +1693,13 @@ class Manager:
         """Function to invoke when connection to MQTT is (re-)established.
 
         Sends online status to MQTT and starts template MQTT subscriptions.
+
+        IMPORTANT: This is called on every MQTT reconnect, not just the first
+        connection.  Schedule tasks must NOT be restarted here — they are
+        long-lived ``asyncio.Task``s that sleep until the next fire time.
+        Restarting them on reconnect would cancel the pending sleep and
+        recalculate the next fire time from "now", potentially skipping
+        a schedule that was about to fire.
         """
         _LOGGER.info("Sending online state.")
         topic = f"{self._config_helper.topic_prefix}/{STATE}"
@@ -1701,7 +1710,7 @@ class Manager:
 
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()
-        await self.irrigation.start()
+        await self.irrigation.reconnect()
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving MQTT messages.

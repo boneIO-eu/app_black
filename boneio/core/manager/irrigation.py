@@ -176,9 +176,36 @@ class IrrigationManager:
             self._publish_discovery(ctrl)
 
     async def start(self) -> None:
+        """Start irrigation controllers — called once on first MQTT connection.
+
+        Subscribes MQTT command topics, starts schedule tasks, and publishes
+        initial states.
+        """
         for ctrl in self._controllers.values():
             await self._subscribe_controller(ctrl)
             ctrl.start_schedules()
+            await ctrl.publish_all_states()
+            _LOGGER.info(
+                "Irrigation controller '%s' started with %d schedule(s), %d zone(s)",
+                ctrl.id,
+                len(ctrl._schedule),
+                len(ctrl.zones),
+            )
+
+    async def reconnect(self) -> None:
+        """Handle MQTT reconnect — re-subscribe topics and re-publish states.
+
+        IMPORTANT: This does NOT restart schedule tasks.  Schedule tasks are
+        long-lived asyncio.Tasks that sleep until the next fire time.
+        Restarting them on every MQTT reconnect would cancel the pending sleep
+        and recalculate the next fire time from "now", potentially skipping
+        a schedule that was about to fire.
+
+        Only MQTT subscriptions and state publication are refreshed.
+        """
+        _LOGGER.info("Irrigation MQTT reconnect: re-subscribing topics and re-publishing states")
+        for ctrl in self._controllers.values():
+            await self._subscribe_controller(ctrl)
             await ctrl.publish_all_states()
 
     async def stop(self) -> None:
