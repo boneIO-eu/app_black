@@ -1571,7 +1571,11 @@
     "date_active": "Date filter",
     "date_from": "From",
     "date_to": "To",
-    "date_apply": "Apply"
+    "date_apply": "Apply",
+    "exclude_modules": "Exclude",
+    "excluded_count_one": "{{count}} excluded",
+    "excluded_count_other": "{{count}} excluded",
+    "search_placeholder": "Search logs..."
   },
   "tools": {
     "title": "Tools",

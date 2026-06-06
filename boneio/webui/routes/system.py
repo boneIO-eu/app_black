@@ -57,6 +57,7 @@ async def get_logs(
     priority: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    grep: str | None = None,
 ) -> LogsResponse:
     """
     Get logs with cursor-based pagination and optional filtering.
@@ -67,6 +68,7 @@ async def get_logs(
         priority: Log level filter (systemd only, e.g. '3' for err, '0..4' for range).
         since: Start of date range filter (ISO or microsecond timestamp).
         until: End of date range filter (ISO or microsecond timestamp).
+        grep: Text search filter (case-insensitive substring match).
         
     Returns:
         LogsResponse with list of log entries, has_more flag, and source.
@@ -74,14 +76,14 @@ async def get_logs(
     try:
         if is_running_as_service():
             log_entries, has_more = await get_systemd_logs(
-                limit, before, priority, since, until
+                limit, before, priority, since, until, grep
             )
             if log_entries:
                 return LogsResponse(
                     logs=log_entries, has_more=has_more, source="systemd"
                 )
 
-        log_entries, has_more = get_standalone_logs(limit, before, since, until)
+        log_entries, has_more = get_standalone_logs(limit, before, since, until, grep)
         if log_entries:
             return LogsResponse(
                 logs=log_entries, has_more=has_more, source="standalone"

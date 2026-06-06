@@ -1570,7 +1570,11 @@
     "date_active": "Filtr dat",
     "date_from": "Od",
     "date_to": "Do",
-    "date_apply": "Zastosuj"
+    "date_apply": "Zastosuj",
+    "exclude_modules": "Wyklucz",
+    "excluded_count_one": "{{count}} wykluczony",
+    "excluded_count_other": "{{count}} wykluczonych",
+    "search_placeholder": "Szukaj w logach..."
   },
   "tools": {
     "title": "Narzędzia",

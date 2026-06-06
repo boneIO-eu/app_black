@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from '@/api/axios';
-import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
+import { FaSync, FaArrowUp, FaArrowDown, FaCopy, FaFilter, FaEyeSlash, FaSearch, FaDiscord, FaBug, FaCalendarAlt } from 'react-icons/fa';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
 
@@ -32,6 +32,21 @@ interface LogEntry {
   level: string;
 }
 
+/**
+ * Aggregated log entry — collapses consecutive identical messages
+ * into a single entry with a repeat count (like Home Assistant).
+ */
+interface AggregatedLog {
+  /** First occurrence timestamp */
+  timestamp: string;
+  /** Last occurrence timestamp (differs from timestamp when count > 1) */
+  lastTimestamp: string;
+  message: string;
+  level: string;
+  /** Number of consecutive identical messages collapsed into this entry */
+  count: number;
+}
+
 const LOG_LEVELS: { value: string; label: string; color: string; activeColor: string }[] = [
   { value: '3', label: 'ERROR', color: 'var(--log-error)', activeColor: 'var(--log-error-bg)' },
   { value: '4', label: 'WARNING', color: 'var(--log-warning)', activeColor: 'var(--log-warning-bg)' },
@@ -59,6 +74,9 @@ export default function LogViewer() {
   const longPressTriggered = useRef(false);
   const [moduleDropdownOpen, setModuleDropdownOpen] = useState(false);
   const moduleDropdownRef = useRef<HTMLDivElement>(null);
+  const [excludedModules, setExcludedModules] = useState<Set<string>>(new Set());
+  const [excludeDropdownOpen, setExcludeDropdownOpen] = useState(false);
+  const excludeDropdownRef = useRef<HTMLDivElement>(null);
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
   const [debugActive, setDebugActive] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
@@ -68,6 +86,9 @@ export default function LogViewer() {
   const [dateTo, setDateTo] = useState('');
   const [dateFilterOpen, setDateFilterOpen] = useState(false);
   const dateFilterRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedGrep, setDebouncedGrep] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSystemd = logSource === 'systemd';
 
   /**
@@ -79,11 +100,12 @@ export default function LogViewer() {
     if (serverPriority) params.set('priority', serverPriority);
     if (dateFrom) params.set('since', dateFrom);
     if (dateTo) params.set('until', dateTo);
+    if (debouncedGrep) params.set('grep', debouncedGrep);
     for (const [k, v] of Object.entries(extra)) {
       if (v) params.set(k, v);
     }
     return params.toString();
-  }, [serverPriority, dateFrom, dateTo]);
+  }, [serverPriority, dateFrom, dateTo, debouncedGrep]);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -173,6 +195,9 @@ export default function LogViewer() {
       if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(e.target as Node)) {
         setModuleDropdownOpen(false);
       }
+      if (excludeDropdownRef.current && !excludeDropdownRef.current.contains(e.target as Node)) {
+        setExcludeDropdownOpen(false);
+      }
       if (dateFilterRef.current && !dateFilterRef.current.contains(e.target as Node)) {
         setDateFilterOpen(false);
       }
@@ -216,26 +241,50 @@ export default function LogViewer() {
   };
 
   /**
-   * Logs filtered by selected modules and log levels
+   * Logs filtered by selected modules and log levels, then aggregated.
+   * Consecutive identical messages are collapsed into single entries with count.
    */
-  const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
+  const filteredLogs = useMemo((): AggregatedLog[] => {
+    const filtered = logs.filter(log => {
       if (selectedModules.size > 0) {
         const mod = extractModule(log.message);
         if (mod === null || !selectedModules.has(mod)) return false;
+      }
+      if (excludedModules.size > 0) {
+        const mod = extractModule(log.message);
+        if (mod !== null && excludedModules.has(mod)) return false;
       }
       if (selectedLevels.size > 0) {
         if (!selectedLevels.has(normalizeLevel(log.level))) return false;
       }
       return true;
     });
-  }, [logs, selectedModules, selectedLevels]);
+
+    // Aggregate consecutive identical messages (like HA)
+    const aggregated: AggregatedLog[] = [];
+    for (const log of filtered) {
+      const last = aggregated[aggregated.length - 1];
+      if (last && last.message === log.message && last.level === log.level) {
+        last.count += 1;
+        last.lastTimestamp = log.timestamp;
+      } else {
+        aggregated.push({
+          timestamp: log.timestamp,
+          lastTimestamp: log.timestamp,
+          message: log.message,
+          level: log.level,
+          count: 1,
+        });
+      }
+    }
+    return aggregated;
+  }, [logs, selectedModules, excludedModules, selectedLevels]);
 
   // Clear selection when filter criteria change (indices become stale)
   useEffect(() => {
     setSelectedLogIndices(new Set());
     setSelectionStart(null);
-  }, [selectedModules, selectedLevels]);
+  }, [selectedModules, excludedModules, selectedLevels]);
 
   const toggleLevel = (level: string) => {
     if (isSystemd) {
@@ -257,15 +306,27 @@ export default function LogViewer() {
     }
   };
 
-  // Re-fetch when server-side priority filter changes
+  // Re-fetch when server-side filters change (priority or grep)
   useEffect(() => {
     if (logSource !== null) {
       fetchLogs();
     }
-  }, [serverPriority]);
+  }, [serverPriority, debouncedGrep]);
 
   const toggleModule = (mod: string) => {
     setSelectedModules(prev => {
+      const next = new Set(prev);
+      if (next.has(mod)) {
+        next.delete(mod);
+      } else {
+        next.add(mod);
+      }
+      return next;
+    });
+  };
+
+  const toggleExcludedModule = (mod: string) => {
+    setExcludedModules(prev => {
       const next = new Set(prev);
       if (next.has(mod)) {
         next.delete(mod);
@@ -473,6 +534,42 @@ export default function LogViewer() {
           })}
         </div>
 
+        <div className="relative flex items-center">
+          <FaSearch className="absolute left-2 w-3 h-3 text-base-content/40 pointer-events-none" />
+          <input
+            type="text"
+            className="input input-sm input-bordered pl-7 w-36 sm:w-48 font-mono text-xs"
+            placeholder={t('log_viewer.search_placeholder')}
+            value={searchQuery}
+            onChange={(e) => {
+              const val = e.target.value;
+              setSearchQuery(val);
+              if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+              searchDebounceRef.current = setTimeout(() => {
+                setDebouncedGrep(val.trim());
+              }, 600);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                setDebouncedGrep(searchQuery.trim());
+              }
+            }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                setDebouncedGrep('');
+              }}
+              className="absolute right-1 btn btn-ghost btn-xs px-1 text-base-content/40 hover:text-base-content"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <div className="relative" ref={dateFilterRef}>
           <button
             onClick={() => setDateFilterOpen(!dateFilterOpen)}
@@ -553,6 +650,47 @@ export default function LogViewer() {
                       onChange={() => toggleModule(mod)}
                     />
                     <span className="font-mono truncate">{mod}</span>
+                  </label>
+                ))}
+                {availableModules.length === 0 && (
+                  <div className="text-xs text-base-content/50 p-2 text-center">{t('log_viewer.no_modules_found')}</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={excludeDropdownRef}>
+          <button
+            onClick={() => setExcludeDropdownOpen(!excludeDropdownOpen)}
+            className={`btn btn-sm gap-1 ${excludedModules.size > 0 ? 'btn-error btn-outline' : 'btn-ghost'}`}
+          >
+            <FaEyeSlash className="w-3 h-3" />
+            {excludedModules.size > 0 ? t(excludedModules.size === 1 ? 'log_viewer.excluded_count_one' : 'log_viewer.excluded_count_other', { count: excludedModules.size }) : t('log_viewer.exclude_modules')}
+          </button>
+          {excludeDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-base-100 border border-base-content/20 rounded-lg shadow-xl w-72 max-h-80 flex flex-col">
+              <div className="p-2 border-b border-base-content/10 flex gap-1">
+                <button
+                  onClick={() => setExcludedModules(new Set())}
+                  className="btn btn-ghost btn-xs flex-1"
+                >
+                  {t('log_viewer.clear')}
+                </button>
+              </div>
+              <div className="overflow-y-auto p-1">
+                {availableModules.map(mod => (
+                  <label
+                    key={mod}
+                    className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-base-200 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-xs checkbox-error"
+                      checked={excludedModules.has(mod)}
+                      onChange={() => toggleExcludedModule(mod)}
+                    />
+                    <span className={`font-mono truncate ${excludedModules.has(mod) ? 'line-through opacity-50' : ''}`}>{mod}</span>
                   </label>
                 ))}
                 {availableModules.length === 0 && (
@@ -692,6 +830,22 @@ export default function LogViewer() {
               >
                 {log.message}
               </span>
+              {log.count > 1 && (
+                <span
+                  className="shrink-0 self-center badge badge-sm font-mono opacity-80"
+                  style={{
+                    backgroundColor: 'var(--log-error-bg, oklch(0.3 0.05 25))',
+                    color: 'var(--log-error, oklch(0.8 0.15 25))',
+                    borderColor: 'var(--log-error-border, oklch(0.5 0.1 25))',
+                  }}
+                  title={log.count > 1 && log.timestamp !== log.lastTimestamp
+                    ? `${formatTimestamp(log.timestamp)} — ${formatTimestamp(log.lastTimestamp)}`
+                    : undefined
+                  }
+                >
+                  ×{log.count}
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -122,6 +122,7 @@ async def _run_journalctl(
     priority: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    grep: str | None = None,
 ) -> bytes | None:
     """Run journalctl for a specific service name with cursor-based pagination.
     
@@ -132,6 +133,7 @@ async def _run_journalctl(
         priority: journalctl priority filter (e.g. '3' for err, '0..4' for range).
         since: Start of date range filter (ISO or microsecond timestamp).
         until: End of date range filter (ISO or microsecond timestamp).
+        grep: Text search filter (case-insensitive regex passed to journalctl --grep).
         
     Returns:
         stdout bytes if logs found, None otherwise.
@@ -148,6 +150,8 @@ async def _run_journalctl(
     ]
     if priority:
         cmd.extend(["--priority", priority])
+    if grep:
+        cmd.extend(["--grep", grep, "--case-sensitive=no"])
     # Date range takes precedence over cursor-based 'before'
     if since:
         cmd.extend(["--since", _timestamp_to_journalctl(since)])
@@ -184,6 +188,7 @@ async def get_systemd_logs(
     priority: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    grep: str | None = None,
 ) -> tuple[list[LogEntry], bool]:
     """
     Get logs from journalctl for boneio service with cursor-based pagination.
@@ -197,6 +202,7 @@ async def get_systemd_logs(
         priority: journalctl priority filter (e.g. '3' for err, '0..4' for range).
         since: Start of date range filter.
         until: End of date range filter.
+        grep: Text search filter (case-insensitive).
         
     Returns:
         Tuple of (list of LogEntry objects, has_more flag).
@@ -209,7 +215,7 @@ async def get_systemd_logs(
     
     for service_name in service_names:
         stdout = await _run_journalctl(
-            service_name, fetch_limit, before, priority, since, until
+            service_name, fetch_limit, before, priority, since, until, grep
         )
         if stdout:
             break
@@ -272,18 +278,21 @@ def get_standalone_logs(
     before: str | None = None,
     since: str | None = None,
     until: str | None = None,
+    grep: str | None = None,
 ) -> tuple[list[LogEntry], bool]:
     """
     Get logs from log file when running standalone (not as systemd service).
     
     Uses cursor-based pagination. Returns the last `limit` entries
-    that are older than `before` timestamp, optionally filtered by date range.
+    that are older than `before` timestamp, optionally filtered by date range
+    and text search.
     
     Args:
         limit: Maximum number of log entries to return.
         before: Timestamp cursor — return entries older than this.
         since: Start of date range filter.
         until: End of date range filter.
+        grep: Text search filter (case-insensitive substring match).
         
     Returns:
         Tuple of (list of LogEntry objects, has_more flag).
@@ -295,6 +304,7 @@ def get_standalone_logs(
     before_time = _parse_standalone_timestamp(before) if before else None
     since_time = _parse_standalone_timestamp(since) if since else None
     until_time = _parse_standalone_timestamp(until) if until else None
+    grep_lower = grep.lower() if grep else None
 
     level_map = {
         "DEBUG": "7",
@@ -327,6 +337,8 @@ def get_standalone_logs(
                         if since_time and log_time < since_time:
                             continue
                         if until_time and log_time > until_time:
+                            continue
+                        if grep_lower and grep_lower not in message.lower():
                             continue
 
                         all_entries.append(
