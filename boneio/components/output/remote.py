@@ -178,14 +178,27 @@ class RemoteOutputBase:
     def _sync_initial_state(self) -> None:
         """Sync initial state from device manager's current known states.
 
-        Reads _light_states or _switch_states from the ESPHome device
-        to populate brightness and on/off state immediately, without
-        waiting for the next state change event.
+        Reads cached states from ESPHome (_light_states / _switch_states)
+        or WLED (_cached_state) to populate brightness and on/off state
+        immediately, without waiting for the next state change event.
         """
         if self._device_manager is None:
             return
 
-        # Try light state first
+        # WLED: sync from WebSocket cached state
+        get_output_is_on = getattr(self._device_manager, "get_output_is_on", None)
+        if get_output_is_on is not None:
+            is_on = get_output_is_on(self._output_id)
+            if is_on is not None:
+                self.on_remote_state_change(is_on)
+                _LOGGER.debug(
+                    "Synced initial WLED state for '%s': on=%s",
+                    self._id,
+                    is_on,
+                )
+                return
+
+        # ESPHome: try light state first
         light_states = getattr(self._device_manager, "_light_states", {})
         _LOGGER.debug(
             "Sync initial state for '%s': output_id='%s', light_states_keys=%s, switch_states_keys=%s",
@@ -208,7 +221,7 @@ class RemoteOutputBase:
             )
             return
 
-        # Try switch state
+        # ESPHome: try switch state
         switch_states = getattr(self._device_manager, "_switch_states", {})
         if self._output_id in switch_states:
             is_on = switch_states[self._output_id]

@@ -309,11 +309,11 @@ class RemoteDeviceManager:
         """Initialize remote devices in background.
 
         Configures devices from pending config (importing ESPHome/WLED modules
-        only at this point) and starts persistent ESPHome connections.
+        only at this point) and starts persistent ESPHome and WLED connections.
         This runs as a background task so it does not block application startup.
 
         Args:
-            delay_seconds: Seconds to wait before starting ESPHome connections
+            delay_seconds: Seconds to wait before starting connections
         """
         # 1. Configure devices (this triggers lazy module imports)
         if self._pending_config:
@@ -322,7 +322,10 @@ class RemoteDeviceManager:
             self._pending_config = None
         self._initialized = True
 
-        # 2. Start ESPHome connections after delay
+        # 2. Start WLED WebSocket listeners immediately (lightweight)
+        self._start_wled_ws_listeners()
+
+        # 3. Start ESPHome connections after delay
         esphome_devices = [
             (device_id, device)
             for device_id, device in self._devices.items()
@@ -344,6 +347,24 @@ class RemoteDeviceManager:
                 _LOGGER.info("Started connection for ESPHome device '%s'", device_id)
             except Exception as e:
                 _LOGGER.error("Failed to start connection for ESPHome device '%s': %s", device_id, e)
+
+    def _start_wled_ws_listeners(self) -> None:
+        """Start WebSocket listeners for all WLED devices.
+
+        Each WLED device gets a background task that maintains a persistent
+        WebSocket connection for real-time state updates.
+        """
+        wled_devices = [
+            (device_id, device)
+            for device_id, device in self._devices.items()
+            if device.protocol == RemoteDeviceProtocol.WLED
+        ]
+
+        for device_id, device in wled_devices:
+            try:
+                cast(Any, device).start_ws_listener()
+            except Exception as e:
+                _LOGGER.error("Failed to start WLED WS for '%s': %s", device_id, e)
 
     async def stop_all_connections(self) -> None:
         """Stop all persistent connections.
@@ -685,6 +706,9 @@ class RemoteDeviceManager:
 
         if remote_devices_config:
             self._configure_devices(remote_devices_config)
+
+        # Start WLED WS listeners immediately
+        self._start_wled_ws_listeners()
 
         # Start ESPHome connections immediately (no delay for reload)
         await self._start_esphome_connections_immediate()

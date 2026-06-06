@@ -32,7 +32,7 @@ schema:
     remote_source:
       type: string
       required: True
-      allowed: ['esphome_api', 'can', 'mqtt']
+      allowed: ['esphome_api', 'can', 'mqtt', 'wled']
       meta:
         label: Remote Source Protocol
         description: |
@@ -40,6 +40,7 @@ schema:
           - esphome_api: ESPHome native API switch/light
           - can: CAN bus output control
           - mqtt: MQTT switch topic
+          - wled: WLED HTTP/WebSocket API (main or segment)
     device_id:
       type: string
       required: True

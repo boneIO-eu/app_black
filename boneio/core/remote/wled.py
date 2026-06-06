@@ -83,6 +83,16 @@ class WLEDRemoteDevice(RemoteDevice):
         self._device_info: dict[str, Any] = {}
         self._session: aiohttp.ClientSession | None = None
         
+        # WebSocket state tracking — real-time state cache
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._ws_task: asyncio.Task | None = None
+        self._cached_state: dict[str, Any] = {}  # {"on": bool, "bri": int, "seg": [...]}
+        self._ws_connected = False
+        self._state_callbacks: list[Any] = []  # Callable[[dict], None]
+        # Per-output callbacks for RemoteOutputBase integration.
+        # Key: output_id ("main" or segment ID str), Value: Callable(bool, brightness=int|None)
+        self._output_callbacks: dict[str, Any] = {}
+        
         _LOGGER.info(
             "Configured WLED remote device '%s' (host=%s:%d, segments=%d)",
             name, host, port, len(self._segments)
@@ -136,11 +146,27 @@ class WLEDRemoteDevice(RemoteDevice):
         return None
     
     async def close(self) -> None:
-        """Close aiohttp session."""
+        """Close WebSocket and aiohttp session."""
+        # Stop WebSocket listener
+        if self._ws_task and not self._ws_task.done():
+            self._ws_task.cancel()
+            try:
+                await self._ws_task
+            except asyncio.CancelledError:
+                pass
+            self._ws_task = None
+        
+        # Close WebSocket
+        if self._ws and not self._ws.closed:
+            await self._ws.close()
+            self._ws = None
+            self._ws_connected = False
+        
+        # Close HTTP session
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
-            _LOGGER.debug("Closed aiohttp session for WLED '%s'", self._name)
+            _LOGGER.debug("Closed session for WLED '%s'", self._name)
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -338,6 +364,8 @@ class WLEDRemoteDevice(RemoteDevice):
         output_id: str,
         action: str,
         message_bus: Any = None,
+        brightness: int | None = None,
+        **kwargs: Any,
     ) -> bool:
         """Control an output (segment) on the WLED device.
         
@@ -345,13 +373,16 @@ class WLEDRemoteDevice(RemoteDevice):
             output_id: Segment ID as string (e.g., "0", "1", "main")
             action: Action to perform (ON, OFF, TOGGLE)
             message_bus: Not used for WLED
+            brightness: Optional brightness value (0-255)
             
         Returns:
             True if command was sent successfully
         """
         # Parse segment_id - "main" means whole device
         segment_id = None if output_id == "main" else int(output_id)
-        return await self.control_light(segment_id=segment_id, action=action)
+        return await self.control_light(
+            segment_id=segment_id, action=action, brightness=brightness,
+        )
     
     async def control_cover(
         self,
@@ -468,8 +499,295 @@ class WLEDRemoteDevice(RemoteDevice):
             _LOGGER.error("WLED discovery unexpected error for %s: %s", self._host, e)
             return {"error": str(e)}
     
+    # ── WebSocket real-time state tracking ────────────────────────────────
+
+    @property
+    def is_on(self) -> bool:
+        """Check if WLED device (main power) is ON.
+        
+        Returns:
+            True if device is on (from cached WebSocket state).
+        """
+        return bool(self._cached_state.get("on", False))
+    
+    @property
+    def brightness(self) -> int:
+        """Get current brightness (0-255).
+        
+        Returns:
+            Brightness value from cached state.
+        """
+        return int(self._cached_state.get("bri", 0))
+    
+    def segment_is_on(self, seg_id: int) -> bool:
+        """Check if a specific segment is ON.
+        
+        Args:
+            seg_id: Segment ID to check.
+            
+        Returns:
+            True if segment is on.
+        """
+        for seg in self._cached_state.get("seg", []):
+            if seg.get("id") == seg_id:
+                return bool(seg.get("on", False))
+        return False
+    
+    def segment_brightness(self, seg_id: int) -> int:
+        """Get brightness of a specific segment.
+        
+        Args:
+            seg_id: Segment ID.
+            
+        Returns:
+            Segment brightness (0-255).
+        """
+        for seg in self._cached_state.get("seg", []):
+            if seg.get("id") == seg_id:
+                return int(seg.get("bri", 0))
+        return 0
+    
+    def get_output_is_on(self, output_id: str) -> bool | None:
+        """Get ON/OFF state for an output (segment or main).
+        
+        Used by condition evaluation system.
+        
+        Args:
+            output_id: "main" for whole device, or segment ID as string.
+            
+        Returns:
+            True/False if state is known, None if no cached state.
+        """
+        if not self._cached_state:
+            return None
+        if output_id == "main":
+            return self.is_on
+        try:
+            return self.segment_is_on(int(output_id))
+        except (ValueError, TypeError):
+            return None
+    
+    def on_state_change(self, callback: Any) -> None:
+        """Register a callback for state changes.
+        
+        Args:
+            callback: Callable invoked with the new state dict on each update.
+        """
+        self._state_callbacks.append(callback)
+    
+    def register_output_callback(self, output_id: str, callback: Any) -> None:
+        """Register a callback for specific output state changes.
+        
+        Compatible with ESPHome ``register_output_callback`` API so that
+        ``RemoteOutputBase._register_state_callback`` works transparently.
+        
+        Args:
+            output_id: Output identifier ("main" for device, or segment ID
+                       as string e.g. "0", "1").
+            callback: Callable(new_state: bool, brightness: int | None)
+                      invoked when output state changes.
+        """
+        self._output_callbacks[output_id] = callback
+        _LOGGER.debug(
+            "Registered output callback for '%s' on WLED '%s'",
+            output_id, self._name,
+        )
+    
+    def unregister_output_callback(self, output_id: str) -> None:
+        """Remove an output state callback.
+        
+        Args:
+            output_id: Output identifier.
+        """
+        self._output_callbacks.pop(output_id, None)
+    
+    def start_ws_listener(self) -> None:
+        """Start the background WebSocket listener task.
+        
+        Connects to ``ws://<host>/ws`` and receives real-time state pushes.
+        Automatically reconnects on disconnection with exponential backoff.
+        """
+        if self._ws_task and not self._ws_task.done():
+            _LOGGER.debug("WLED WS listener already running for '%s'", self._name)
+            return
+        
+        self._ws_task = asyncio.create_task(
+            self._ws_listen_loop(),
+            name=f"wled_ws_{self._id}",
+        )
+        _LOGGER.info("Started WLED WebSocket listener for '%s'", self._name)
+    
+    async def _ws_listen_loop(self) -> None:
+        """WebSocket listener loop with automatic reconnection.
+        
+        Connects to the WLED WebSocket endpoint, requests full state on connect,
+        and processes incoming state updates. Reconnects with exponential backoff
+        (5s → 10s → 20s → max 60s) on connection loss.
+        """
+        backoff_seconds = 5
+        max_backoff = 60
+        
+        while True:
+            try:
+                session = await self._get_session()
+                url = f"ws://{self._host}:{self._port}/ws"
+                
+                _LOGGER.debug("Connecting WLED WS: %s", url)
+                self._ws = await session.ws_connect(url, heartbeat=30)
+                self._ws_connected = True
+                backoff_seconds = 5  # Reset on successful connect
+                
+                _LOGGER.info(
+                    "WLED WebSocket connected to '%s' (%s)",
+                    self._name, self._host,
+                )
+                
+                # Request full state immediately
+                await self._ws.send_json({"v": True})
+                
+                async for msg in self._ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        try:
+                            data = msg.json()
+                            self._process_ws_state(data)
+                        except Exception as e:
+                            _LOGGER.warning(
+                                "WLED WS parse error for '%s': %s",
+                                self._name, e,
+                            )
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
+                        _LOGGER.warning(
+                            "WLED WS error for '%s': %s",
+                            self._name, self._ws.exception(),
+                        )
+                        break
+                    elif msg.type in (
+                        aiohttp.WSMsgType.CLOSE,
+                        aiohttp.WSMsgType.CLOSED,
+                        aiohttp.WSMsgType.CLOSING,
+                    ):
+                        break
+                
+                _LOGGER.warning("WLED WS disconnected from '%s'", self._name)
+            
+            except asyncio.CancelledError:
+                _LOGGER.debug("WLED WS listener cancelled for '%s'", self._name)
+                return
+            except Exception as e:
+                _LOGGER.warning(
+                    "WLED WS connection failed for '%s': %s (retry in %ds)",
+                    self._name, e, backoff_seconds,
+                )
+            finally:
+                self._ws_connected = False
+                self._ws = None
+            
+            # Reconnect with exponential backoff
+            try:
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(backoff_seconds * 2, max_backoff)
+            except asyncio.CancelledError:
+                return
+    
+    def _process_ws_state(self, data: dict[str, Any]) -> None:
+        """Process incoming WebSocket state update.
+        
+        Updates the cached state and notifies registered callbacks.
+        WLED sends partial updates — only changed fields are included.
+        We merge them into the cached state.
+        
+        Args:
+            data: JSON state object from WLED WebSocket.
+        """
+        state = data.get("state")
+        if state is None:
+            # Some messages are info-only (no state key)
+            return
+        
+        # Merge top-level state fields
+        old_on = self._cached_state.get("on")
+        self._cached_state.update({
+            k: v for k, v in state.items() if k != "seg"
+        })
+        
+        # Merge segment states (by ID)
+        if "seg" in state:
+            existing_segs = {
+                s.get("id"): s for s in self._cached_state.get("seg", [])
+            }
+            for seg in state["seg"]:
+                seg_id = seg.get("id")
+                if seg_id is not None:
+                    if seg_id in existing_segs:
+                        existing_segs[seg_id].update(seg)
+                    else:
+                        existing_segs[seg_id] = seg
+            self._cached_state["seg"] = list(existing_segs.values())
+        
+        new_on = self._cached_state.get("on")
+        if old_on != new_on:
+            _LOGGER.debug(
+                "WLED '%s' state: on=%s, bri=%s",
+                self._name, new_on, self._cached_state.get("bri"),
+            )
+        
+        # Notify per-output callbacks (for RemoteOutputBase integration)
+        self._notify_output_callbacks(old_on, state)
+        
+        # Notify generic state callbacks
+        for cb in self._state_callbacks:
+            try:
+                cb(self._cached_state)
+            except Exception as e:
+                _LOGGER.warning("WLED state callback error: %s", e)
+    
+    def _notify_output_callbacks(
+        self,
+        old_main_on: bool | None,
+        state: dict[str, Any],
+    ) -> None:
+        """Notify per-output callbacks for main and segment state changes.
+        
+        Called by ``_process_ws_state`` after merging the new state.
+        Only fires callbacks when the actual on/off state has changed.
+        
+        Args:
+            old_main_on: Previous main power state (None if first update).
+            state: The raw state update from WLED WebSocket.
+        """
+        # Main power callback
+        new_main_on = self._cached_state.get("on", False)
+        main_cb = self._output_callbacks.get("main")
+        if main_cb is not None and old_main_on != new_main_on:
+            try:
+                main_cb(new_main_on)
+            except Exception as e:
+                _LOGGER.warning("WLED output callback error (main): %s", e)
+        
+        # Segment callbacks
+        if "seg" in state:
+            for seg in state["seg"]:
+                seg_id = seg.get("id")
+                if seg_id is None:
+                    continue
+                seg_cb = self._output_callbacks.get(str(seg_id))
+                if seg_cb is None:
+                    continue
+                if "on" in seg:
+                    try:
+                        seg_cb(seg["on"], brightness=seg.get("bri"))
+                    except Exception as e:
+                        _LOGGER.warning(
+                            "WLED output callback error (seg %s): %s",
+                            seg_id, e,
+                        )
+    
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
+        
+        Exposes WLED outputs as ``lights`` so the frontend
+        ``RemoteOutputForm`` can list them in the output dropdown,
+        identical to ESPHome devices.
         
         Returns:
             Dictionary with device information
@@ -483,6 +801,19 @@ class WLEDRemoteDevice(RemoteDevice):
             "port": self._port,
             "segments": self._segments,
         }
+        # Expose outputs as lights for RemoteOutputForm compatibility
+        lights: list[dict[str, Any]] = [
+            {"id": "main", "name": f"{self._name} (Main)", "supports_brightness": True},
+        ]
+        for seg in self._segments:
+            seg_id = str(seg.get("id", seg.get("seg_id", "")))
+            seg_name = seg.get("name", f"Segment {seg_id}")
+            lights.append({
+                "id": seg_id,
+                "name": seg_name,
+                "supports_brightness": True,
+            })
+        data["lights"] = lights
         return data
 
 
