@@ -111,7 +111,9 @@
     "badge_unsaved": "Unsaved",
     "no_outputs_available": "No outputs available",
     "device_label": "Device",
-    "area_label": "Area"
+    "area_label": "Area",
+    "copy_ha_dashboard": "HA Dashboard",
+    "dashboard_copied": "Copied!"
   },
   "inputs": {
     "title": "Inputs",
@@ -1994,5 +1996,33 @@
     "doorbell_desc": "Turn on output while pressed, turn off when released.",
     "quick_setup": "Quick action setup",
     "quick_setup_hint": "Configure actions for motion sensor, door sensor, doorbell — one click"
+  },
+  "dashboard_wizard": {
+    "title": "Dashboard HA",
+    "heading": "Sekcje dashboardu HA",
+    "step_types": "Type",
+    "step_area": "Area",
+    "step_export": "Export",
+    "select_types": "What do you want to export?",
+    "select_area": "For which area?",
+    "all_areas": "All areas",
+    "no_area": "No area assigned",
+    "outputs": "Outputs (lights, switches)",
+    "covers": "Covers",
+    "irrigation": "Irrigation",
+    "groups": "Output groups",
+    "alarms": "Alarm panels",
+    "gates": "Gates & doors",
+    "modbus": "Modbus sensors",
+    "ready_title": "Ready!",
+    "ready_desc": "Your dashboard contains:",
+    "copy_yaml": "Copy YAML to clipboard",
+    "copied": "Copied!",
+    "paste_hint": "Paste in HA: Dashboard → Edit → Add Card → Manual (YAML)",
+    "back": "Back",
+    "next": "Next",
+    "new_export": "New export",
+    "no_entities": "No entities found for this selection",
+    "count": "{{count}} entities"
   }
 }

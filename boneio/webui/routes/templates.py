@@ -36,7 +36,7 @@ async def list_templates(manager: Manager = Depends(get_manager)):
         Dictionary with thermostats, alarms, and gates arrays.
     """
     thermostats = []
-    for t in manager.templates.thermostats.items:
+    for t in manager.templates.thermostat_manager.items:
         thermostats.append({
             "id": t.id,
             "name": t.name,
@@ -47,7 +47,7 @@ async def list_templates(manager: Manager = Depends(get_manager)):
         })
 
     alarms = []
-    for a in manager.templates.alarms.items:
+    for a in manager.templates.alarm_manager.items:
         alarm_data = {
             "id": a.id,
             "name": a.name,
@@ -62,7 +62,7 @@ async def list_templates(manager: Manager = Depends(get_manager)):
         alarms.append(alarm_data)
 
     gates = []
-    for g in manager.templates.gates.items:
+    for g in manager.templates.gate_manager.items:
         gates.append({
             "id": g.id,
             "name": g.name,
@@ -94,7 +94,7 @@ async def set_thermostat_mode(
     Returns:
         Status response.
     """
-    thermostat = manager.templates.thermostats.get(entity_id)
+    thermostat = manager.templates.thermostat_manager.get(entity_id)
     if not thermostat:
         raise HTTPException(status_code=404, detail="Thermostat not found")
 
@@ -118,7 +118,7 @@ async def set_thermostat_temperature(
     Returns:
         Status response.
     """
-    thermostat = manager.templates.thermostats.get(entity_id)
+    thermostat = manager.templates.thermostat_manager.get(entity_id)
     if not thermostat:
         raise HTTPException(status_code=404, detail="Thermostat not found")
 
@@ -147,7 +147,7 @@ async def alarm_command(
     Returns:
         Status response.
     """
-    alarm = manager.templates.alarms.get(entity_id)
+    alarm = manager.templates.alarm_manager.get(entity_id)
     if not alarm:
         raise HTTPException(status_code=404, detail="Alarm panel not found")
 
@@ -186,7 +186,7 @@ async def gate_command(
     Returns:
         Status response.
     """
-    gate = manager.templates.gates.get(entity_id)
+    gate = manager.templates.gate_manager.get(entity_id)
     if not gate:
         raise HTTPException(status_code=404, detail="Gate cover not found")
 

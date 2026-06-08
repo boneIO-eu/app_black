@@ -111,7 +111,9 @@
     "badge_unsaved": "Niezapisane",
     "no_outputs_available": "Brak dostępnych wyjść",
     "device_label": "Urządzenie",
-    "area_label": "Strefa"
+    "area_label": "Strefa",
+    "copy_ha_dashboard": "Dashboard HA",
+    "dashboard_copied": "Skopiowano!"
   },
   "inputs": {
     "title": "Wejścia",
@@ -1993,5 +1995,33 @@
     "doorbell_desc": "Włącz wyjście gdy wciśnięte, wyłącz po zwolnieniu.",
     "quick_setup": "Szybka konfiguracja akcji",
     "quick_setup_hint": "Skonfiguruj akcje dla czujki ruchu, czujnika drzwi, dzwonka — jednym kliknięciem"
+  },
+  "dashboard_wizard": {
+    "title": "Dashboard HA",
+    "heading": "Sekcje dashboardu HA",
+    "step_types": "Typ",
+    "step_area": "Obszar",
+    "step_export": "Eksport",
+    "select_types": "Co chcesz wyeksportować?",
+    "select_area": "Dla jakiego obszaru?",
+    "all_areas": "Wszystkie obszary",
+    "no_area": "Bez przypisanego obszaru",
+    "outputs": "Wyjścia (światła, przełączniki)",
+    "covers": "Rolety",
+    "irrigation": "Nawadnianie",
+    "groups": "Grupy wyjść",
+    "alarms": "Panele alarmowe",
+    "gates": "Bramy i drzwi",
+    "modbus": "Czujniki Modbus",
+    "ready_title": "Gotowe!",
+    "ready_desc": "Twój dashboard zawiera:",
+    "copy_yaml": "Kopiuj YAML do schowka",
+    "copied": "Skopiowano!",
+    "paste_hint": "Wklej w HA: Dashboard → Edytuj → Dodaj kartę → Ręcznie (YAML)",
+    "back": "Wstecz",
+    "next": "Dalej",
+    "new_export": "Nowy eksport",
+    "no_entities": "Brak encji dla tego wyboru",
+    "count": "{{count}} encji"
   }
 }

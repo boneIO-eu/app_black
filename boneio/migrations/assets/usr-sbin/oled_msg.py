@@ -165,6 +165,7 @@ def _serve() -> int:
     except FileNotFoundError:
         pass
     os.mkfifo(_FIFO_PATH)
+    os.chmod(_FIFO_PATH, 0o666)
 
     # Write PID file
     with open(_PID_PATH, "w") as f:

@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
+from boneio.const import NONE as OUTPUT_NONE
+from boneio.const import cover_actions, output_actions
 from boneio.core.messaging.basic import MessageBus
 
 if TYPE_CHECKING:
@@ -24,15 +26,13 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 # Entity types whose state changes should be forwarded to Loxone
-_LOX_ENTITY_TYPES = frozenset(
-    ("output", "cover", "sensor", "event", "binary_sensor", "input")
-)
+_LOX_ENTITY_TYPES = frozenset(("output", "cover", "sensor", "event", "binary_sensor", "input"))
 
 
 class LoxUDPProtocol(asyncio.DatagramProtocol):
     """Protocol for handling Lox UDP communication."""
 
-    def __init__(self, callback: Callable[[str, str], Awaitable[None]]):
+    def __init__(self, callback: Callable[[str, str], Coroutine[Any, Any, None]]):
         self._callback = callback
         self._loop = asyncio.get_running_loop()
 
@@ -47,7 +47,7 @@ class LoxUDPProtocol(asyncio.DatagramProtocol):
         """
         try:
             message = data.decode("utf-8").strip()
-            _LOGGER.debug("Received Lox UDP message: %s from %s", message, addr)
+            _LOGGER.info("Received Lox UDP message: %s from %s", message, addr)
 
             # Message format expected: "device=value" or just "device"
             if "=" in message:
@@ -98,7 +98,7 @@ class LoxUDPClient(MessageBus):
         self.send_port = send_port
         self.listen_port = listen_port
         self._transport: asyncio.DatagramTransport | None = None
-        self._listeners: dict[str, Callable[[str, str], Awaitable[None]]] = {}
+        self._listeners: dict[str, Callable[[str, str], Coroutine[Any, Any, None]]] = {}
         self._state = False
 
     def send_message(
@@ -265,9 +265,7 @@ class LoxUDPClient(MessageBus):
         if self._transport:
             self._transport.sendto(b"boneio=offline", (self.host, self.send_port))
 
-    async def subscribe_and_listen(
-        self, topic: str, callback: Callable[[str, str], Awaitable[None]]
-    ) -> None:
+    async def subscribe_and_listen(self, topic: str, callback: Callable[[str, str], Coroutine[Any, Any, None]]) -> None:
         """Register a listener for a topic pattern."""
         self._listeners[topic] = callback
 
@@ -277,50 +275,140 @@ class LoxUDPClient(MessageBus):
             del self._listeners[topic]
 
     async def _handle_incoming(self, device: str, payload: str) -> None:
-        """Handle incoming Lox messages and route them to Manager.
+        """Handle incoming Lox messages and execute commands directly.
 
-        Resolves the device name to an entity type (output/cover) and
-        forwards the command to the Manager's receive_message method.
+        Resolves the device name to an output, output group, or cover and
+        executes the command (ON/OFF/TOGGLE) directly on the entity.
+
+        Falls back to case-insensitive lookup if exact match fails, since
+        Loxone may alter the casing of device identifiers.
 
         Args:
-            device: Device identifier from UDP message (e.g. "relay1").
+            device: Device identifier from UDP message (e.g. "OUT_10").
             payload: Command value from UDP message (e.g. "ON").
         """
-        _LOGGER.debug("Lox handle incoming: %s = %s", device, payload)
+        _LOGGER.info("Lox UDP incoming command: %s = %s", device, payload)
 
         if not self._manager:
+            _LOGGER.warning("Lox UDP: manager not set, ignoring command %s=%s", device, payload)
             return
 
         try:
-            cmd_prefix = self._config_helper.cmd_topic_prefix
-            msg_type = None
+            # --- Resolve target entity ---
+            target = self._manager.outputs.get_output(device)
+            entity_type = "output" if target else None
 
-            output = self._manager.outputs.get_output(
-                device
-            ) or self._manager.outputs.get_output_group(device)
-            if output:
-                msg_type = "output"
-            else:
+            if not target:
+                target = self._manager.outputs.get_output_group(device)
+                entity_type = "group" if target else None
+
+            if not target:
                 cover = self._manager.covers.get_cover(device)
                 if cover:
-                    msg_type = "cover"
+                    target = cover
+                    entity_type = "cover"
 
-            if not msg_type:
+            # Fallback: case-insensitive lookup for outputs
+            if not target:
+                device_lower = device.lower()
+                for oid, out in self._manager.outputs.get_all_outputs().items():
+                    if oid.lower() == device_lower:
+                        target = out
+                        entity_type = "output"
+                        _LOGGER.info(
+                            "Lox UDP: matched '%s' to output '%s' (case-insensitive)",
+                            device,
+                            oid,
+                        )
+                        break
+
+            if not target:
                 _LOGGER.warning(
-                    "Lox UDP device %s not found in outputs/covers", device
+                    "Lox UDP: device '%s' not found in outputs, groups, or covers",
+                    device,
                 )
                 return
 
-            full_topic = f"{cmd_prefix}{msg_type}/{device}/set"
+            # --- Notify explicit listeners (for compatibility) ---
+            if self._listeners:
+                cmd_prefix = self._config_helper.cmd_topic_prefix
+                msg_type_str = entity_type if entity_type != "group" else "output"
+                full_topic = f"{cmd_prefix}{msg_type_str}/{device}/set"
+                for listen_topic, callback in self._listeners.items():
+                    if listen_topic == full_topic or (
+                        listen_topic.endswith("/#") and full_topic.startswith(listen_topic[:-2])
+                    ):
+                        await callback(full_topic, payload)
 
-            # Check explicit listeners
-            for listen_topic, callback in self._listeners.items():
-                if listen_topic == full_topic or (
-                    listen_topic.endswith("/#")
-                    and full_topic.startswith(listen_topic[:-2])
-                ):
-                    await callback(full_topic, payload)
+            # --- Execute command ---
+            action_name = payload.upper()
 
-            await self._manager.receive_message(full_topic, payload)
-        except Exception as e:
-            _LOGGER.error("Error passing Lox message to manager: %s", e)
+            if entity_type in ("output", "group"):
+                if getattr(target, "output_type", None) == OUTPUT_NONE:
+                    _LOGGER.debug("Lox UDP: ignoring command for '%s' (output_type=none)", device)
+                    return
+
+                action_method_name = output_actions.get(action_name)
+                if not action_method_name:
+                    _LOGGER.warning(
+                        "Lox UDP: unknown output action '%s' for device '%s'",
+                        action_name,
+                        device,
+                    )
+                    return
+
+                action_method = getattr(target, action_method_name, None)
+                if not action_method:
+                    _LOGGER.error(
+                        "Lox UDP: output '%s' has no method '%s'",
+                        device,
+                        action_method_name,
+                    )
+                    return
+
+                _LOGGER.info(
+                    "Lox UDP: executing %s on %s '%s'",
+                    action_method_name,
+                    entity_type,
+                    device,
+                )
+                await action_method()
+
+            elif entity_type == "cover":
+                action_method_name = cover_actions.get(action_name)
+                if not action_method_name:
+                    # Try as position value (e.g. "50")
+                    try:
+                        position = int(payload)
+                        _LOGGER.info(
+                            "Lox UDP: setting cover '%s' position to %d",
+                            device,
+                            position,
+                        )
+                        await target.set_cover_position(position)
+                        return
+                    except ValueError:
+                        _LOGGER.warning(
+                            "Lox UDP: unknown cover action '%s' for device '%s'",
+                            action_name,
+                            device,
+                        )
+                        return
+
+                action_method = getattr(target, action_method_name, None)
+                if action_method:
+                    _LOGGER.info(
+                        "Lox UDP: executing %s on cover '%s'",
+                        action_method_name,
+                        device,
+                    )
+                    await action_method()
+                else:
+                    _LOGGER.error(
+                        "Lox UDP: cover '%s' has no method '%s'",
+                        device,
+                        action_method_name,
+                    )
+
+        except Exception:
+            _LOGGER.exception("Lox UDP: error handling command %s=%s", device, payload)

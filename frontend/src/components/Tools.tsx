@@ -1,13 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
-import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch } from 'react-icons/fa';
+import { FaNetworkWired, FaMicrochip, FaCopy, FaSearch, FaFileExport } from 'react-icons/fa';
 import { copyToClipboard } from '@/utils/clipboard';
 import { GiElectric } from 'react-icons/gi';
 import { IoWarning } from 'react-icons/io5';
 import ModbusHelper from './ModbusHelper';
 import CANHelper from './CANHelper';
 import CANNetwork from './CANNetwork';
+import HaDashboardWizard from './HaDashboardWizard';
 import axios from '@/api/axios';
 
 interface I2CDevice {
@@ -27,14 +28,20 @@ interface I2CScanResult {
 export default function Tools() {
   const { t } = useTranslation();
   const { canSupported, boardVersion } = useConfig();
-  const [activeSection, setActiveSection] = useState<'modbus' | 'i2c' | 'can' | 'can_network'>('modbus');
+  const [activeSection, setActiveSection] = useState<'ha_dashboard' | 'modbus' | 'i2c' | 'can' | 'can_network'>('ha_dashboard');
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <h1 className="text-2xl font-bold mb-6">{t('tools.title')}</h1>
 
       {/* Section tabs */}
-      <div className="tabs tabs-boxed mb-6">
+      <div className="tabs tabs-boxed mb-6 flex-wrap">
+        <button
+          className={`tab tab-lg gap-2 ${activeSection === 'ha_dashboard' ? 'tab-active' : ''}`}
+          onClick={() => setActiveSection('ha_dashboard')}
+        >
+          <FaFileExport /> {t('dashboard_wizard.title')}
+        </button>
         <button
           className={`tab tab-lg gap-2 ${activeSection === 'modbus' ? 'tab-active' : ''}`}
           onClick={() => setActiveSection('modbus')}
@@ -63,6 +70,7 @@ export default function Tools() {
         </button>
       </div>
 
+      {activeSection === 'ha_dashboard' && <HaDashboardWizard />}
       {activeSection === 'modbus' && <ModbusHelper />}
       {activeSection === 'i2c' && <I2CSection />}
       {activeSection === 'can' && (canSupported ? <CANHelper /> : <CANNotSupported boardVersion={boardVersion} />)}

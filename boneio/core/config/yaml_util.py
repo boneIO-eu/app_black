@@ -895,7 +895,7 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             _LOGGER.debug("Schema file changed, cache invalidated")
             return None
 
-        _LOGGER.info("Loading validated config from cache (skipping Cerberus validation)")
+        _LOGGER.debug("Loading validated config from cache (skipping Cerberus validation)")
         return cached["data"]
     except (FileNotFoundError, pickle.UnpicklingError, OSError, EOFError) as e:
         _LOGGER.debug("Config cache not available: %s", e)

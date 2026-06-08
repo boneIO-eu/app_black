@@ -50,6 +50,7 @@ from boneio.webui.routes import (
     can_router,
     config_router,
     covers_router,
+    dashboard_router,
     irrigation_router,
     migrations_router,
     modbus_router,
@@ -141,6 +142,7 @@ def get_config_helper():
 app.include_router(auth_router)
 app.include_router(outputs_router)
 app.include_router(covers_router)
+app.include_router(dashboard_router)
 app.include_router(irrigation_router)
 app.include_router(system_router)
 app.include_router(config_router)
@@ -157,6 +159,7 @@ app.include_router(migrations_router)
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
 from boneio.webui.routes import covers as covers_module
+from boneio.webui.routes import dashboard as dashboard_module
 from boneio.webui.routes import irrigation as irrigation_module
 from boneio.webui.routes import migrations as migrations_module
 from boneio.webui.routes import modbus as modbus_module
@@ -170,6 +173,7 @@ from boneio.webui.routes import update as update_module
 # Use dependency_overrides to replace the placeholder get_manager functions
 app.dependency_overrides[outputs_module.get_manager] = get_manager
 app.dependency_overrides[covers_module.get_manager] = get_manager
+app.dependency_overrides[dashboard_module.get_manager] = get_manager
 app.dependency_overrides[irrigation_module.get_manager] = get_manager
 app.dependency_overrides[modbus_module.get_manager] = get_manager
 app.dependency_overrides[sensors_module.get_manager] = get_manager

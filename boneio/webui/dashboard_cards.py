@@ -308,3 +308,51 @@ def cards_to_yaml(cards: list[dict[str, Any]], *, grid: bool = True) -> str:
         allow_unicode=True,
         sort_keys=False,
     )
+
+
+def sections_to_yaml(
+    sections: dict[str, list[dict[str, Any]]],
+    *,
+    title: str = "boneIO",
+    path: str = "boneio",
+    max_columns: int = 4,
+) -> str:
+    """Serialize area-grouped cards to HA Sections dashboard YAML.
+
+    Generates the ``views > type: sections`` format where each area
+    becomes a separate ``section`` with ``type: grid`` containing its cards.
+
+    Args:
+        sections: Dict mapping area display name to list of card dicts.
+        title: Dashboard view title.
+        path: Dashboard view path (URL slug).
+        max_columns: Max columns for the sections layout.
+
+    Returns:
+        YAML string for a complete HA Sections dashboard view.
+    """
+    section_list: list[dict[str, Any]] = []
+    for _area_name, cards in sections.items():
+        section_list.append({
+            "type": "grid",
+            "cards": cards,
+        })
+
+    view: dict[str, Any] = {
+        "views": [
+            {
+                "type": "sections",
+                "max_columns": max_columns,
+                "title": title,
+                "path": path,
+                "sections": section_list,
+            }
+        ]
+    }
+
+    return yaml.dump(
+        view,
+        default_flow_style=False,
+        allow_unicode=True,
+        sort_keys=False,
+    )

@@ -6,7 +6,6 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
-
 interface Area {
   id: string;
   name: string;
@@ -23,6 +22,7 @@ const OutputTable: React.FC<OutputTableProps> = ({ items, allAreas, onEdit, onDe
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('output');
+
 
   // Filter items by name, id or boneio_output
   const filteredItems = useMemo(() => {

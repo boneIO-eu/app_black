@@ -158,23 +158,83 @@ def test_lox_send_message_dict_with_value_key(config_helper_mock):
 
 @pytest.mark.asyncio
 async def test_lox_handle_incoming(config_helper_mock, manager_mock):
-    """Test incoming UDP payload is parsed and routed to Manager."""
+    """Test incoming UDP payload is parsed and executed directly on output."""
     client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
     client.set_manager(manager_mock)
 
-    # Output message
-    await client._handle_incoming("relay1", "ON")
-    manager_mock.receive_message.assert_awaited_once_with("boneio/test/cmd/output/relay1/set", "ON")
+    # Create a proper mock output with output_type and async methods
+    mock_output = AsyncMock()
+    mock_output.output_type = "switch"
+    mock_output.async_turn_on = AsyncMock()
+    mock_output.async_turn_off = AsyncMock()
+    mock_output.async_toggle = AsyncMock()
 
-    manager_mock.receive_message.reset_mock()
+    manager_mock.outputs.get_output.return_value = mock_output
+    manager_mock.outputs.get_all_outputs.return_value = {}
+
+    # Output ON command
+    await client._handle_incoming("relay1", "ON")
+    mock_output.async_turn_on.assert_awaited_once()
+
+    mock_output.async_turn_on.reset_mock()
+
+    # Output OFF command
+    await client._handle_incoming("relay1", "OFF")
+    mock_output.async_turn_off.assert_awaited_once()
+
+    # Output TOGGLE command
+    await client._handle_incoming("relay1", "TOGGLE")
+    mock_output.async_toggle.assert_awaited_once()
 
     # Cover message
     manager_mock.outputs.get_output.return_value = None
     manager_mock.outputs.get_output_group.return_value = None
-    manager_mock.covers.get_cover.return_value = True
 
-    await client._handle_incoming("cover1", "UP")
-    manager_mock.receive_message.assert_awaited_once_with("boneio/test/cmd/cover/cover1/set", "UP")
+    mock_cover = AsyncMock()
+    mock_cover.open = AsyncMock()
+    manager_mock.covers.get_cover.return_value = mock_cover
+
+    await client._handle_incoming("cover1", "OPEN")
+    mock_cover.open.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_lox_handle_incoming_case_insensitive(config_helper_mock, manager_mock):
+    """Test case-insensitive fallback for device lookup."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client.set_manager(manager_mock)
+
+    mock_output = AsyncMock()
+    mock_output.output_type = "switch"
+    mock_output.async_turn_on = AsyncMock()
+
+    # Exact match fails
+    manager_mock.outputs.get_output.return_value = None
+    manager_mock.outputs.get_output_group.return_value = None
+    manager_mock.covers.get_cover.return_value = None
+    # Case-insensitive match succeeds
+    manager_mock.outputs.get_all_outputs.return_value = {"OUT_10": mock_output}
+
+    await client._handle_incoming("out_10", "ON")
+    mock_output.async_turn_on.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_lox_handle_incoming_output_group(config_helper_mock, manager_mock):
+    """Test output group commands are properly routed."""
+    client = LoxUDPClient(config_helper_mock, "127.0.0.1", 4444, 4445)
+    client.set_manager(manager_mock)
+
+    mock_group = AsyncMock()
+    mock_group.output_type = "switch"
+    mock_group.async_turn_on = AsyncMock()
+
+    manager_mock.outputs.get_output.return_value = None
+    manager_mock.outputs.get_output_group.return_value = mock_group
+    manager_mock.outputs.get_all_outputs.return_value = {}
+
+    await client._handle_incoming("group1", "ON")
+    mock_group.async_turn_on.assert_awaited_once()
 
 
 @pytest.mark.asyncio

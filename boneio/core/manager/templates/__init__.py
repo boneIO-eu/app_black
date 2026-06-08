@@ -65,17 +65,17 @@ class TemplateManager:
     # -- Sub-manager accessors -----------------------------------------------
 
     @property
-    def thermostats(self) -> ThermostatManager:
+    def thermostat_manager(self) -> ThermostatManager:
         """Thermostat sub-manager."""
         return self._thermostats
 
     @property
-    def alarms(self) -> AlarmManager:
+    def alarm_manager(self) -> AlarmManager:
         """Alarm panel sub-manager."""
         return self._alarms
 
     @property
-    def gates(self) -> GateCoverManager:
+    def gate_manager(self) -> GateCoverManager:
         """Gate cover sub-manager."""
         return self._gates
 

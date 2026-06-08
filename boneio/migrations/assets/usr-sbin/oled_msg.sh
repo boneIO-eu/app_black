@@ -48,7 +48,8 @@ fi
 if [ -p "$OLED_FIFO" ] && [ -f "$OLED_PID" ]; then
     # Daemon is running — send via FIFO (instant, no Python startup)
     MSG=$(IFS='|'; echo "$*")
-    echo "$MSG" > "$OLED_FIFO" 2>/dev/null && exit 0
+    # Use subshell so bash file-open errors are also suppressed
+    (echo "$MSG" > "$OLED_FIFO") 2>/dev/null && exit 0
 fi
 
 # Fallback: direct Python call

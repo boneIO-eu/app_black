@@ -5,6 +5,7 @@ from boneio.webui.routes.caddy import router as caddy_router
 from boneio.webui.routes.can import router as can_router
 from boneio.webui.routes.config import router as config_router
 from boneio.webui.routes.covers import router as covers_router
+from boneio.webui.routes.dashboard import router as dashboard_router
 from boneio.webui.routes.irrigation import router as irrigation_router
 from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
@@ -22,6 +23,7 @@ __all__ = [
     "can_router",
     "config_router",
     "covers_router",
+    "dashboard_router",
     "irrigation_router",
     "migrations_router",
     "modbus_router",

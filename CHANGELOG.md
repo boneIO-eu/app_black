@@ -4,6 +4,36 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev1 (2026-06-08)
+
+HA Dashboard export wizard, LoxUDP improvements, disk sensor discovery, WLED remote outputs, and various fixes.
+
+### ✨ New Features
+
+- **HA Dashboard Export Wizard** — New multi-step wizard in the Tools tab for generating Home Assistant Lovelace dashboard YAML sections. Supports outputs (lights, switches, valves), covers, output groups, irrigation, alarm panels, gate covers, and Modbus devices. Per-entity selection with localStorage persistence, per-area YAML copy buttons, and entity count statistics per area.
+- **WLED Remote Output support** — Added support for WLED devices as remote outputs with brightness control.
+- **All disk sensors** — Disk sensor discovery now finds all mounted partitions, not just the root filesystem.
+- **OLED FIFO permissions migration** — New migration `v1_5_0_fix_oled_fifo_permissions` ensures correct permissions on OLED message FIFO.
+
+### 🐛 Bug Fixes
+
+- **Irrigation scheduler** — Fixed scheduler timing issues causing missed or delayed zone activations.
+- **LoxUDP protocol** — Improved reliability of Lox UDP communication with better keepalive handling, reconnection logic, and binary value encoding.
+- **Docker ghost dirs in boneio-migrate** — `install_file` now tolerates Docker overlay filesystem ghost directories during migration.
+- **HA entity slugify** — `_ha_slugify()` now collapses multiple consecutive underscores into a single one, matching Home Assistant behavior for entities with stripped non-ASCII characters.
+
+### ♻️ Refactoring
+
+- **TemplateManager property rename** — Renamed sub-manager accessors from `alarms`/`gates`/`thermostats` to `alarm_manager`/`gate_manager`/`thermostat_manager` to clarify they return manager objects, not entity lists.
+- **Dashboard card builders** — Extended `dashboard_cards.py` with generators for alarm, gate, cover, and Modbus tile cards.
+- **LogViewer improvements** — Enhanced log viewer UI with better filtering and display.
+- **Output table HA entity preview** — Output table now shows HA entity ID preview for each output.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.4.4dev1...v1.5.0dev1
+
+---
+
+
 ## v1.4.3 (2026-06-04)
 
 Migration helper fixes and OLED shutdown UX improvements.
