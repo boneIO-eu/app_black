@@ -16,11 +16,11 @@ export default defineConfig(({ mode }) => {
         // Manifest is served dynamically by backend (app.py) with device name
         manifest: false,
         workbox: {
-          // Cache app shell (Monaco editor bundle is ~4MB)
-          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          // Monaco editor workers can be ~7MB after updates
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-          // Exclude manifest - it's served dynamically by backend
-          globIgnores: ['**/manifest.webmanifest'],
+          // Exclude manifest (served dynamically) and large workers (cached at runtime)
+          globIgnores: ['**/manifest.webmanifest', '**/*.worker-*.js'],
           // Don't precache API calls
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api/, /^\/schema/, /^\/nodered/],
@@ -37,6 +37,18 @@ export default defineConfig(({ mode }) => {
               // Always fetch fresh manifest (dynamic device name)
               urlPattern: /\/manifest\.webmanifest$/,
               handler: 'NetworkFirst',
+            },
+            {
+              // Monaco workers — cache on first load, serve from cache thereafter
+              urlPattern: /\.worker-.*\.js$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'monaco-workers',
+                expiration: {
+                  maxEntries: 5,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+              },
             },
           ],
         },

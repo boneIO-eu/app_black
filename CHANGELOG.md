@@ -4,6 +4,23 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev2 (2026-06-13)
+
+Critical irrigation fix — schedule tasks were never started after v1.5.0dev1.
+
+### 🐛 Bug Fixes
+
+- **Irrigation schedules not starting** — Commit `c8a0841` ("fix irrigation scheduler") split `IrrigationManager.start()` into `start()` (with schedule tasks) and `reconnect()` (without schedule tasks) to prevent resetting timers on MQTT reconnect. However, `reconnect_callback()` — the only entry point for both first connection and reconnections — was changed to call `reconnect()` instead of `start()`. This meant `start_schedules()` was **never called**, silently disabling all irrigation schedules. Fixed by detecting first connection (no running schedule tasks) in `reconnect()` and starting schedules automatically.
+- **PWA build failure** — Monaco editor TS worker grew to 6.9 MB after dependency updates, exceeding the 5 MB workbox precache limit. Excluded worker chunks from precache (they're loaded on-demand) and added runtime `CacheFirst` strategy for workers instead.
+
+### 📦 Other Changes
+
+- **Frontend dependency updates** — Bumped React 19.2.7, Vite 8.0.16, Tailwind 4.3.0, DaisyUI 5.5.23, ESLint 10.x, and other dependencies.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.5.0dev1...v1.5.0dev2
+
+---
+
 ## v1.5.0dev1 (2026-06-08)
 
 HA Dashboard export wizard, LoxUDP improvements, disk sensor discovery, WLED remote outputs, and various fixes.

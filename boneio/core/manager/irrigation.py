@@ -193,19 +193,30 @@ class IrrigationManager:
             )
 
     async def reconnect(self) -> None:
-        """Handle MQTT reconnect — re-subscribe topics and re-publish states.
+        """Handle MQTT (re-)connect — re-subscribe topics and re-publish states.
 
-        IMPORTANT: This does NOT restart schedule tasks.  Schedule tasks are
-        long-lived asyncio.Tasks that sleep until the next fire time.
-        Restarting them on every MQTT reconnect would cancel the pending sleep
-        and recalculate the next fire time from "now", potentially skipping
-        a schedule that was about to fire.
-
-        Only MQTT subscriptions and state publication are refreshed.
+        On **first connection** (no schedule tasks running yet), schedule tasks
+        are started for each controller.  On subsequent MQTT reconnects the
+        existing schedule tasks are left untouched — they are long-lived
+        ``asyncio.Task``s that sleep until the next fire time.  Restarting
+        them would cancel the pending sleep and recalculate the next fire time
+        from "now", potentially skipping a schedule that was about to fire.
         """
-        _LOGGER.info("Irrigation MQTT reconnect: re-subscribing topics and re-publishing states")
+        # Detect first connection: if any controller has no schedule tasks yet,
+        # we treat this as the initial start.
+        first_connect = any(
+            ctrl._schedule and not ctrl._schedule_tasks
+            for ctrl in self._controllers.values()
+        )
+        if first_connect:
+            _LOGGER.info("Irrigation: first MQTT connection — starting schedule tasks")
+        else:
+            _LOGGER.info("Irrigation MQTT reconnect: re-subscribing topics and re-publishing states")
+
         for ctrl in self._controllers.values():
             await self._subscribe_controller(ctrl)
+            if first_connect and ctrl._schedule and not ctrl._schedule_tasks:
+                ctrl.start_schedules()
             await ctrl.publish_all_states()
 
     async def stop(self) -> None:
