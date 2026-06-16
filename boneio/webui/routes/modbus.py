@@ -51,6 +51,17 @@ class ModbusSetRequest(BaseModel):
     value: int | float
 
 
+class ModbusSetMultipleRequest(BaseModel):
+    """Request model for Modbus SET multiple registers operation (FC16).
+
+    Writes a list of 16-bit values to consecutive registers starting
+    at ``register_address``.
+    """
+    address: int
+    register_address: int
+    values: list[int]
+
+
 class ModbusSearchRequest(BaseModel):
     """Request model for Modbus SEARCH operation."""
     register_address: int = 1
@@ -217,6 +228,75 @@ async def modbus_set(
                 
         except Exception as e:
             _LOGGER.error(f"Modbus SET error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
+
+@router.post("/modbus/set_multiple")
+async def modbus_set_multiple(
+    request: ModbusSetMultipleRequest,
+    boneio_manager: Manager = Depends(get_manager)
+):
+    """Write multiple registers to a Modbus device (FC16).
+
+    Sends a Write Multiple Registers (FC16) request to write a list
+    of 16-bit values to consecutive registers starting at
+    ``register_address``.
+
+    Args:
+        request: ModbusSetMultipleRequest with device address, starting
+            register and list of values.
+
+    Returns:
+        Success status with number of registers written.
+    """
+    modbus_client = boneio_manager.modbus.get_modbus_client()
+    if not modbus_client:
+        return {
+            "success": False,
+            "error": "Modbus is not configured. Add 'modbus' section to your config.",
+        }
+
+    if not request.values:
+        return {
+            "success": False,
+            "error": "Values list cannot be empty.",
+        }
+
+    # Validate each value fits in 16-bit unsigned range
+    for i, val in enumerate(request.values):
+        if val < 0 or val > 65535:
+            return {
+                "success": False,
+                "error": f"Value at index {i} ({val}) is out of 16-bit range (0-65535).",
+            }
+
+    modbus_client.suspend()
+    async with _modbus_helper_lock:
+        try:
+            result = await modbus_client.write_registers_direct(
+                unit=request.address,
+                address=request.register_address,
+                values=request.values,
+            )
+
+            if result:
+                return {
+                    "success": True,
+                    "message": f"{len(request.values)} register(s) written successfully (FC16).",
+                    "message_key": "write_multiple_success",
+                    "count": len(request.values),
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "FC16 write operation failed - no response from device",
+                }
+
+        except Exception as e:
+            _LOGGER.error("Modbus SET_MULTIPLE (FC16) error: %s", e)
             return {
                 "success": False,
                 "error": str(e),

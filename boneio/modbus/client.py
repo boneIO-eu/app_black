@@ -578,3 +578,103 @@ class Modbus:
             if self._inter_device_delay > 0:
                 await asyncio.sleep(self._inter_device_delay)
             return result
+
+    def write_registers_blocking(self, unit: int | str, address: int, values: list[int]):
+        """Write multiple registers blocking (synchronous) - FC16.
+
+        Sends a Modbus FC16 (Write Multiple Registers) request to write
+        a list of 16-bit values starting at the given register address.
+
+        Args:
+            unit: Device address (1-247).
+            address: Starting register address.
+            values: List of 16-bit integer values to write.
+
+        Returns:
+            Pymodbus response object on success, None on failure.
+        """
+        start_time = time.perf_counter()
+        result = None
+        try:
+            connected = self._pymodbus_connect()
+            if not connected:
+                _LOGGER.error("Can't connect to Modbus.")
+                return None
+
+            _LOGGER.debug(
+                "Writing %d registers starting at %s with values %s to device %s (FC16).",
+                len(values),
+                address,
+                values,
+                unit,
+            )
+
+            assert self._client is not None
+            result = self._client.write_registers(
+                address=address, values=values, device_id=int(unit)
+            )
+
+            if isinstance(result, ExceptionResponse):
+                _LOGGER.error("FC16 write operation failed: %s", result)
+                result = None
+
+        except ValueError as exception_error:
+            _LOGGER.error("ValueError: Error writing multiple registers: %s", exception_error)
+        except (ModbusException, struct.error) as exception_error:
+            _LOGGER.error("ModbusException: Error writing multiple registers: %s", exception_error)
+        except TimeoutError:
+            _LOGGER.error("Timeout writing multiple registers to device %s", unit)
+        except asyncio.CancelledError as err:
+            _LOGGER.error("Operation cancelled writing multiple registers to device %s: %s", unit, err)
+        except Exception as e:
+            _LOGGER.error("Unexpected error writing multiple registers: %s - %s", type(e).__name__, e)
+        finally:
+            end_time = time.perf_counter()
+            _LOGGER.debug(
+                "FC16 write completed in %.3f seconds.",
+                end_time - start_time,
+            )
+        return result
+
+    async def write_registers(self, unit: int | str, address: int, values: list[int]):
+        """Write multiple registers async (FC16).
+
+        Returns None immediately when suspended.
+
+        Args:
+            unit: Device address (1-247).
+            address: Starting register address.
+            values: List of 16-bit integer values to write.
+        """
+        if self._suspended:
+            return None
+        async with self._lock:
+            result = await self._loop.run_in_executor(
+                self._executor, self.write_registers_blocking, unit, address, values
+            )
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result
+
+    async def write_registers_direct(self, unit: int | str, address: int, values: list[int]):
+        """Write multiple registers bypassing the suspend check (FC16).
+
+        Used by Tools API for manual writes while coordinators are
+        suspended.  Still acquires the UART lock to serialize access.
+
+        Args:
+            unit: Device address (1-247).
+            address: Starting register address.
+            values: List of 16-bit integer values to write.
+        """
+        async with self._lock:
+            result = await self._loop.run_in_executor(
+                self._executor,
+                self.write_registers_blocking,
+                unit,
+                address,
+                values,
+            )
+            if self._inter_device_delay > 0:
+                await asyncio.sleep(self._inter_device_delay)
+            return result

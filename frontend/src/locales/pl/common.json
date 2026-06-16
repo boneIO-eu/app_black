@@ -1084,7 +1084,19 @@
     "broadcast_mode": "Tryb Broadcast (adres 0)",
     "broadcast_warning": "Tryb broadcast zmieni ustawienia na WSZYSTKICH urządzeniach podłączonych do tej magistrali UART!",
     "creator": "Kreator",
-    "device_creator": "Kreator Konfiguracji Urządzenia"
+    "device_creator": "Kreator Konfiguracji Urządzenia",
+    "fc06_single": "Pojedynczy",
+    "fc16_multiple": "Wiele",
+    "fc06_value_placeholder": "Wartość do zapisu",
+    "fc16_hint": "Zapisz wiele 16-bitowych wartości do kolejnych rejestrów zaczynając od podanego adresu (Modbus FC16).",
+    "fc16_start_register": "Adres Początkowego Rejestru",
+    "fc16_values": "Wartości (16-bit)",
+    "fc16_values_hint": "0\u201365535, oddzielone przecinkami",
+    "fc16_values_placeholder": "np. 100, 200, 300",
+    "fc16_registers_count": "Rejestrów do zapisu",
+    "fc16_invalid_values": "Nieprawidłowe wartości. Wpisz liczby całkowite oddzielone przecinkami (0\u201365535).",
+    "fc16_write_button": "Zapisz Rejestry (FC16)",
+    "write_multiple_success": "Rejestry zapisane pomyślnie (FC16)."
   },
   "modbus_creator": {
     "device_info": "Informacje o Urządzeniu",

@@ -29,6 +29,9 @@ interface ModbusResult {
   total?: number;
 }
 
+/** Write mode: FC06 = single register, FC16 = multiple registers */
+type WriteMode = 'fc06' | 'fc16';
+
 /**
  * ModbusHelper - UI component for Modbus operations (GET, SET, SEARCH)
  * Uses the existing Modbus client from the manager.
@@ -54,8 +57,10 @@ export default function ModbusHelper() {
   const [valueType, setValueType] = useState('S_WORD');
 
   // SET parameters
+  const [writeMode, setWriteMode] = useState<WriteMode>('fc06');
   const [writeRegisterAddress, setWriteRegisterAddress] = useState(0);
   const [writeValue, setWriteValue] = useState<number | ''>('');
+  const [writeMultipleValues, setWriteMultipleValues] = useState('');
 
   // SEARCH parameters
   const [searchRegisterAddress, setSearchRegisterAddress] = useState(0);
@@ -136,6 +141,45 @@ export default function ModbusHelper() {
         address,
         register_address: writeRegisterAddress,
         value: writeValue,
+      });
+      setResult(data);
+    } catch (err) {
+      setResult({ success: false, error: String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Parse comma-separated values string into array of 16-bit integers.
+   * Returns null if any value is invalid.
+   */
+  const parseMultipleValues = (input: string): number[] | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    const parts = trimmed.split(',').map(s => s.trim()).filter(s => s !== '');
+    const values: number[] = [];
+    for (const part of parts) {
+      const num = parseInt(part, 10);
+      if (isNaN(num) || num < 0 || num > 65535) return null;
+      values.push(num);
+    }
+    return values.length > 0 ? values : null;
+  };
+
+  const handleSetMultiple = async () => {
+    const values = parseMultipleValues(writeMultipleValues);
+    if (!values) {
+      setResult({ success: false, error: t('modbus_helper.fc16_invalid_values') });
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    try {
+      const { data } = await axios.post('/api/modbus/set_multiple', {
+        address,
+        register_address: writeRegisterAddress,
+        values,
       });
       setResult(data);
     } catch (err) {
@@ -400,62 +444,162 @@ export default function ModbusHelper() {
       {activeTab === 'set' && (
         <div className="card bg-base-200 mb-6">
           <div className="card-body">
-            <h2 className="card-title text-lg">{t('modbus_helper.write_register')}</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Device Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.address')}</span>
-                </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
-                  value={address}
-                  onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
-                  min={1}
-                  max={247}
-                />
-              </div>
-
-              {/* Register Address */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.register_address')}</span>
-                </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
-                  value={writeRegisterAddress}
-                  onChange={(e) => setWriteRegisterAddress(parseInt(e.target.value) || 0)}
-                  min={0}
-                />
-              </div>
-
-              {/* Value */}
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text">{t('modbus_helper.custom_value')}</span>
-                </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
-                  value={writeValue}
-                  onChange={(e) => setWriteValue(e.target.value ? parseFloat(e.target.value) : '')}
-                  placeholder="Value to write"
-                />
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="card-title text-lg">{t('modbus_helper.write_register')}</h2>
+              {/* FC06 / FC16 toggle */}
+              <div className="flex gap-1 bg-base-300 rounded-lg p-1">
+                <button
+                  className={`btn btn-sm ${writeMode === 'fc06' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setWriteMode('fc06')}
+                >
+                  FC06 – {t('modbus_helper.fc06_single')}
+                </button>
+                <button
+                  className={`btn btn-sm ${writeMode === 'fc16' ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setWriteMode('fc16')}
+                >
+                  FC16 – {t('modbus_helper.fc16_multiple')}
+                </button>
               </div>
             </div>
 
-            <div className="card-actions justify-end mt-4">
-              <button
-                className={`btn btn-warning ${loading ? 'loading' : ''}`}
-                onClick={handleSet}
-                disabled={loading || writeValue === ''}
-              >
-                <FaCog className="mr-2" /> {t('modbus_helper.write')}
-              </button>
-            </div>
+            {/* FC06 – single register */}
+            {writeMode === 'fc06' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  {/* Device Address */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('modbus_helper.address')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered"
+                      value={address}
+                      onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
+                      min={1}
+                      max={247}
+                    />
+                  </div>
+
+                  {/* Register Address */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('modbus_helper.register_address')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered"
+                      value={writeRegisterAddress}
+                      onChange={(e) => setWriteRegisterAddress(parseInt(e.target.value) || 0)}
+                      min={0}
+                    />
+                  </div>
+
+                  {/* Value */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('modbus_helper.custom_value')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered"
+                      value={writeValue}
+                      onChange={(e) => setWriteValue(e.target.value ? parseFloat(e.target.value) : '')}
+                      placeholder={t('modbus_helper.fc06_value_placeholder')}
+                    />
+                  </div>
+                </div>
+
+                <div className="card-actions justify-end mt-4">
+                  <button
+                    className={`btn btn-warning ${loading ? 'loading' : ''}`}
+                    onClick={handleSet}
+                    disabled={loading || writeValue === ''}
+                  >
+                    <FaCog className="mr-2" /> {t('modbus_helper.write')}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* FC16 – multiple registers */}
+            {writeMode === 'fc16' && (
+              <>
+                <p className="text-sm text-base-content/70 mt-2">
+                  {t('modbus_helper.fc16_hint')}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  {/* Device Address */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text">{t('modbus_helper.address')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered"
+                      value={address}
+                      onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
+                      min={1}
+                      max={247}
+                    />
+                  </div>
+
+                  {/* Starting Register Address */}
+                  <div className="form-control md:col-span-2">
+                    <label className="label">
+                      <span className="label-text">{t('modbus_helper.fc16_start_register')}</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input input-bordered"
+                      value={writeRegisterAddress}
+                      onChange={(e) => setWriteRegisterAddress(parseInt(e.target.value) || 0)}
+                      min={0}
+                    />
+                  </div>
+                </div>
+
+                {/* Values (comma-separated) */}
+                <div className="form-control mt-4">
+                  <label className="label">
+                    <span className="label-text">{t('modbus_helper.fc16_values')}</span>
+                    <span className="label-text-alt">{t('modbus_helper.fc16_values_hint')}</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full"
+                    value={writeMultipleValues}
+                    onChange={(e) => setWriteMultipleValues(e.target.value)}
+                    placeholder={t('modbus_helper.fc16_values_placeholder')}
+                  />
+                  {writeMultipleValues && parseMultipleValues(writeMultipleValues) && (
+                    <label className="label">
+                      <span className="label-text-alt text-info">
+                        {t('modbus_helper.fc16_registers_count')}: {parseMultipleValues(writeMultipleValues)!.length}
+                      </span>
+                    </label>
+                  )}
+                  {writeMultipleValues && !parseMultipleValues(writeMultipleValues) && (
+                    <label className="label">
+                      <span className="label-text-alt text-error">
+                        {t('modbus_helper.fc16_invalid_values')}
+                      </span>
+                    </label>
+                  )}
+                </div>
+
+                <div className="card-actions justify-end mt-4">
+                  <button
+                    className={`btn btn-warning ${loading ? 'loading' : ''}`}
+                    onClick={handleSetMultiple}
+                    disabled={loading || !parseMultipleValues(writeMultipleValues)}
+                  >
+                    <FaCog className="mr-2" /> {t('modbus_helper.fc16_write_button')}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

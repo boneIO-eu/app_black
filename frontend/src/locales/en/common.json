@@ -1083,7 +1083,19 @@
     "broadcast_mode": "Broadcast Mode (address 0)",
     "broadcast_warning": "Broadcast mode will change settings on ALL devices connected to this UART bus!",
     "creator": "Creator",
-    "device_creator": "Device Configuration Creator"
+    "device_creator": "Device Configuration Creator",
+    "fc06_single": "Single",
+    "fc16_multiple": "Multiple",
+    "fc06_value_placeholder": "Value to write",
+    "fc16_hint": "Write multiple 16-bit values to consecutive registers starting from the given address (Modbus FC16).",
+    "fc16_start_register": "Starting Register Address",
+    "fc16_values": "Values (16-bit)",
+    "fc16_values_hint": "0\u201365535, comma-separated",
+    "fc16_values_placeholder": "e.g. 100, 200, 300",
+    "fc16_registers_count": "Registers to write",
+    "fc16_invalid_values": "Invalid values. Enter comma-separated integers (0\u201365535).",
+    "fc16_write_button": "Write Registers (FC16)",
+    "write_multiple_success": "Registers written successfully (FC16)."
   },
   "modbus_creator": {
     "device_info": "Device Information",
