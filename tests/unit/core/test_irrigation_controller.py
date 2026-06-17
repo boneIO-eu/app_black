@@ -1619,3 +1619,88 @@ class TestEventPublishing:
         await ctrl.shutdown()
 
         assert _find_event(ctrl, "cycle_complete") is None
+
+
+# ── Schedule survival after shutdown ──────────────────────────────────────────
+
+
+class TestScheduleSurvival:
+    """Regression tests: shutdown() must NOT kill schedule tasks.
+
+    Previously, shutdown() called stop_schedules() which cancelled the
+    schedule asyncio.Tasks.  When a scheduled cycle completed and called
+    shutdown() internally (via _advance_to_next_zone → shutdown), the
+    schedule task was killed permanently — the next day's schedule would
+    never fire.
+    """
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_shutdown_preserves_schedule_tasks(self, _utc, _timer, _sleep):
+        """shutdown() should NOT cancel schedule tasks."""
+        ctrl = _make_controller(schedule=[{"time": "08:00", "days": "daily"}])
+        # Simulate schedule tasks being present
+        mock_task = MagicMock()
+        ctrl._schedule_tasks = [mock_task]
+
+        await ctrl.start_full_cycle()
+        await ctrl.shutdown()
+
+        # Schedule tasks must survive
+        assert len(ctrl._schedule_tasks) == 1
+        mock_task.cancel.assert_not_called()
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_full_stop_cancels_schedule_tasks(self, _utc, _timer, _sleep):
+        """full_stop() SHOULD cancel schedule tasks (used for teardown)."""
+        ctrl = _make_controller(schedule=[{"time": "08:00", "days": "daily"}])
+        mock_task = MagicMock()
+        ctrl._schedule_tasks = [mock_task]
+
+        await ctrl.full_stop()
+
+        # Schedule tasks must be cancelled and cleared
+        mock_task.cancel.assert_called_once()
+        assert len(ctrl._schedule_tasks) == 0
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_cycle_complete_preserves_schedule(self, _utc, _timer, _sleep):
+        """Full cycle completion via _advance_to_next_zone should NOT kill schedule."""
+        zones = _make_zones(2)
+        ctrl = _make_controller(zones=zones, auto_advance=True)
+        mock_task = MagicMock()
+        ctrl._schedule_tasks = [mock_task]
+
+        await ctrl.start_full_cycle()
+        await ctrl._advance_to_next_zone()  # 0 -> 1
+        await ctrl._advance_to_next_zone()  # 1 -> shutdown (cycle complete)
+
+        assert ctrl.state == ControllerState.IDLE
+        # Schedule task must survive
+        assert len(ctrl._schedule_tasks) == 1
+        mock_task.cancel.assert_not_called()
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_start_full_cycle_while_running_preserves_schedule(self, _utc, _timer, _sleep):
+        """Starting new cycle while running should shutdown previous but keep schedule."""
+        ctrl = _make_controller()
+        mock_task = MagicMock()
+        ctrl._schedule_tasks = [mock_task]
+
+        await ctrl.start_full_cycle()
+        assert ctrl.state == ControllerState.RUNNING
+
+        # Start again — should shutdown previous cycle
+        await ctrl.start_full_cycle()
+        assert ctrl.state == ControllerState.RUNNING
+
+        # Schedule must survive both cycles
+        assert len(ctrl._schedule_tasks) == 1
+        mock_task.cancel.assert_not_called()

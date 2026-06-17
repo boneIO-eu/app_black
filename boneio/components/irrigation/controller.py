@@ -419,6 +419,12 @@ class IrrigationController:
         )
 
     async def shutdown(self) -> None:
+        """Stop the active irrigation cycle without killing schedule tasks.
+
+        This method is safe to call from within a schedule task — it does NOT
+        cancel schedule loops.  Use :meth:`full_stop` to tear down the
+        controller completely (including schedule tasks).
+        """
         _LOGGER.debug(
             "Irrigation %s shutdown called (state=%s, active_zone=%s). Caller: %s",
             self.id,
@@ -426,7 +432,6 @@ class IrrigationController:
             self._active_zone_idx,
             "".join(traceback.format_stack(limit=5)),
         )
-        self.stop_schedules()
         self._cancel_pause_timer()
         await self._stop_current_zone()
         await self._handle_pump_stop_sequence()
@@ -436,6 +441,16 @@ class IrrigationController:
         self._single_zone_mode = False
         self._single_zone_target_idx = None
         await self.publish_all_states()
+
+    async def full_stop(self) -> None:
+        """Fully stop the controller including schedule tasks.
+
+        Should only be called by the IrrigationManager when stopping
+        or reloading controllers — never from within a schedule task.
+        """
+        _LOGGER.info("Irrigation %s full_stop: stopping schedules and active cycle", self.id)
+        self.stop_schedules()
+        await self.shutdown()
 
     async def pause(self) -> None:
         if self._state != ControllerState.RUNNING or self._active_zone_idx is None:

@@ -386,8 +386,8 @@ class BaseCover(BaseCoverABC, BasicMqtt):
             **json_position,
         )
         self._event_bus.trigger_event(CoverEvent(entity_id=self.id, state=event))
-        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state)
-        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json.dumps(json_position))
+        self._message_bus.send_message(topic=f"{self._send_topic}/state", payload=state, retain=True)
+        self._message_bus.send_message(topic=f"{self._send_topic}/pos", payload=json.dumps(json_position), retain=True)
 
     @property
     def saved_position(self) -> SavedPositionDict:

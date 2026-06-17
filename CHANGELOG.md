@@ -4,6 +4,27 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev3 (2026-06-17)
+
+Critical irrigation schedule fix — schedule tasks were permanently killed after the first cycle completed.
+
+### 🐛 Bug Fixes
+
+- **Irrigation schedule dies after first cycle** — `shutdown()` called `stop_schedules()` which cancelled the `asyncio.Task` running `_run_schedule_loop()`. When a scheduled cycle completed normally (`_advance_to_next_zone` → `shutdown`), the schedule task was killed permanently — the next day's schedule would never fire, with zero log output. Split into `shutdown()` (stops active cycle only, safe to call from schedule tasks) and `full_stop()` (stops cycle + cancels schedule tasks, used by IrrigationManager for teardown/reload).
+- **Cover state not retained on MQTT broker restart** — `send_state()` in `BaseCover` published state and position without `retain=True`. After an MQTT broker restart, HA would show covers as "unavailable" until the next state change. Added `retain=True` to both state and position MQTT publishes.
+
+### ✨ Improvements
+
+- **Resend all entity states on MQTT reconnect** — New `_resend_all_states()` method in Manager publishes current state of all outputs and covers after MQTT reconnect, ensuring HA always has correct state after a broker restart.
+
+### 🧪 Tests
+
+- 4 new regression tests in `TestScheduleSurvival` — verify `shutdown()` preserves schedule tasks, `full_stop()` cancels them, cycle completion preserves schedule, and `start_full_cycle()` while running preserves schedule.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.5.0dev2...v1.5.0dev3
+
+---
+
 ## v1.5.0dev2 (2026-06-13)
 
 Critical irrigation fix — schedule tasks were never started after v1.5.0dev1.

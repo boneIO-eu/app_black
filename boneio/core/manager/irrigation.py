@@ -226,7 +226,7 @@ class IrrigationManager:
         self._subscribed_topics.clear()
 
         for ctrl in self._controllers.values():
-            await ctrl.shutdown()
+            await ctrl.full_stop()
 
     async def reload_irrigation(self) -> None:
         """Reload irrigation configuration from file.
@@ -256,7 +256,7 @@ class IrrigationManager:
             ctrl = self._controllers[ctrl_id]
             _LOGGER.info("Removing irrigation controller '%s'", ctrl_id)
             ctrl.stop_schedules()
-            await ctrl.shutdown()
+            await ctrl.full_stop()
             # Remove HA discovery for this controller
             self._remove_discovery(ctrl)
             del self._controllers[ctrl_id]
@@ -271,7 +271,7 @@ class IrrigationManager:
             if ctrl_id in self._controllers:
                 old_ctrl = self._controllers[ctrl_id]
                 old_ctrl.stop_schedules()
-                await old_ctrl.shutdown()
+                await old_ctrl.full_stop()
                 del self._controllers[ctrl_id]
 
             # Build new controller

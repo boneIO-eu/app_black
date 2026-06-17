@@ -1692,7 +1692,9 @@ class Manager:
     async def reconnect_callback(self) -> None:
         """Function to invoke when connection to MQTT is (re-)established.
 
-        Sends online status to MQTT and starts template MQTT subscriptions.
+        Sends online status to MQTT, resends all entity states with retain
+        so that Home Assistant immediately knows device positions after a
+        broker restart, and starts template MQTT subscriptions.
 
         IMPORTANT: This is called on every MQTT reconnect, not just the first
         connection.  Schedule tasks must NOT be restarted here — they are
@@ -1708,9 +1710,40 @@ class Manager:
         # Immediately refresh OLED MQTT status (event-driven, no polling delay)
         self.display.notify_mqtt_state_changed()
 
+        # Resend all entity states with retain so HA has correct state
+        # after a broker restart (retained messages may have been lost).
+        _LOGGER.info("Resending all entity states after MQTT reconnect.")
+        await self._resend_all_states()
+
         # Start template entities (subscribe to MQTT command topics)
         await self.templates.start()
         await self.irrigation.reconnect()
+
+    async def _resend_all_states(self) -> None:
+        """Resend current state of all entities via MQTT with retain.
+
+        Called on MQTT reconnect to ensure the broker has up-to-date
+        retained messages after a broker restart.  Each entity's
+        ``send_state`` / ``async_send_state`` already publishes with
+        ``retain=True``, so calling them here refreshes the broker's
+        retained store.
+        """
+        # Resend output states
+        for output in self.outputs.get_all_outputs().values():
+            try:
+                if output.output_type not in ("cover", "none"):
+                    await output.async_send_state()
+            except Exception as e:
+                _LOGGER.debug("Error resending output state %s: %s", output.id, e)
+
+        # Resend cover states (send_state now uses retain=True)
+        self.covers._broadcast_all_states()
+
+        _LOGGER.info(
+            "Resent states: %d outputs, %d covers.",
+            len([o for o in self.outputs.get_all_outputs().values() if o.output_type not in ("cover", "none")]),
+            len(self.covers.get_all_covers()),
+        )
 
     async def receive_message(self, topic: str, message: str) -> None:
         """Callback for receiving MQTT messages.
