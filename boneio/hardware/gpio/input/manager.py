@@ -302,6 +302,58 @@ class GpioManager:
                     _LOGGER.error("Error in on-start callback: %s", e)
             self._on_start_callbacks.clear()
 
+        # Seed detectors with current GPIO state to prevent phantom events
+        # at boot.  Must run after on-start callbacks so detectors are ready.
+        self._seed_initial_states()
+
+    def _seed_initial_states(self) -> None:
+        """Read current GPIO states and seed detectors to prevent phantom presses.
+
+        At boot, some GPIO pins may already be LOW (e.g. button circuits pulling
+        down through pull-up resistors).  gpiod generates a FALLING_EDGE for
+        this initial state, which the detector interprets as a real button
+        press — scheduling a long press timer that fires 400ms later and
+        triggers an action.
+
+        By setting ``_boot_press_suppressed`` on the detector, the first
+        FALLING_EDGE records the kernel timestamp (for debounce) but does
+        NOT schedule the long press timer.  The subsequent RISING_EDGE
+        (when the user actually presses) is caught by the stale-release
+        guard and handled correctly.
+        """
+        from boneio.components.input.detectors import MultiClickDetector
+
+        seeded = 0
+        for chip, request in self._requests.items():
+            for (c, line), detector in self._detectors.items():
+                if c != chip:
+                    continue
+                if not isinstance(detector, MultiClickDetector):
+                    continue
+                try:
+                    values = request.get_values([line])
+                    pin_is_low = not bool(values[0])
+                except Exception as exc:
+                    _LOGGER.debug(
+                        "Could not read initial state for chip%d/line%d: %s",
+                        chip, line, exc,
+                    )
+                    continue
+
+                if pin_is_low:
+                    alias = self._aliases.get((chip, line), f"chip{chip}/line{line}")
+                    _LOGGER.info(
+                        "GPIO %s is LOW at startup — arming boot press suppression",
+                        alias,
+                    )
+                    detector._boot_press_suppressed = True
+                    seeded += 1
+
+        if seeded:
+            _LOGGER.info(
+                "Armed boot press suppression on %d GPIO detector(s)", seeded
+            )
+
     def _handle_gpiod_events(self, chip: int, request: gpiod.LineRequest) -> None:
         """Handle GPIO events from libgpiod.
 

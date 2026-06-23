@@ -109,6 +109,7 @@ class MultiClickDetector:
         self._pin = pin
         self._max_long_press_seconds = max_long_press_seconds
         self._state = ClickState()
+        self._boot_press_suppressed = False  # Set by GpioManager._seed_initial_states
         
         # Pre-compute which click types should be delayed in exclusive mode
         # based on enabled sequences
@@ -491,6 +492,21 @@ class MultiClickDetector:
                 )
                 return
 
+            # Boot-press suppression: if GpioManager detected this pin was
+            # LOW at startup, the first FALLING_EDGE is a phantom boot event.
+            # Record the timestamp (for debounce) but do NOT schedule timers.
+            if self._boot_press_suppressed:
+                _LOGGER.info(
+                    "Suppressing phantom boot press on %s (%s) — recording timestamp only",
+                    self._name,
+                    self._pin,
+                )
+                self._state.last_press_ts = timestamp_s
+                self._state.last_press_loop_ts = None
+                self._state.last_release_ts = None
+                self._boot_press_suppressed = False
+                return
+
             _LOGGER.debug("PRESSED: %s (%s)", self._name, self._pin)
             self._state.last_press_ts = timestamp_s
             self._state.last_press_loop_ts = self._loop.time()  # Store loop time for duration calc
@@ -552,6 +568,35 @@ class MultiClickDetector:
 
             press_duration_ms = (timestamp_s - self._state.last_press_ts) * 1000 if self._state.last_press_ts else 0
             _LOGGER.debug("RELEASED: %s (%s) after %.1f ms", self._name, self._pin, press_duration_ms)
+
+            # Guard: stale release from phantom press at boot.
+            # If time since press exceeds max_long_press_seconds, the press
+            # was a startup artifact (GPIO settling at boot), not a real user
+            # action.  Reset the detector so the next real press is accepted.
+            if self._state.last_press_ts and press_duration_ms > self._max_long_press_seconds * 1000:
+                _LOGGER.warning(
+                    "Stale release on %s (%s): %.1fs since press exceeds max %.0fs. "
+                    "Likely phantom press from boot. Resetting detector.",
+                    self._name,
+                    self._pin,
+                    press_duration_ms / 1000,
+                    self._max_long_press_seconds,
+                )
+                self._state.last_press_ts = None
+                self._state.last_press_loop_ts = None
+                self._state.last_release_ts = timestamp_s
+                self._state.click_count = 0
+                if self._state.long_press_timer:
+                    self._state.long_press_timer.cancel()
+                    self._state.long_press_timer = None
+                    self._state.long_press_scheduled_loop_ts = None
+                if self._state.long_hold_periodic_timer:
+                    self._state.long_hold_periodic_timer.cancel()
+                    self._state.long_hold_periodic_timer = None
+                self._state.executed_long_actions = set()
+                self._state.last_repeat_times = {}
+                return
+
             self._state.last_release_ts = timestamp_s
             
             _LOGGER.debug(
