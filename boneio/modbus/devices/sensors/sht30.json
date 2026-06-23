@@ -1,10 +1,20 @@
 {
-  "model": "SHT30 Temp and Humidity sensor",
+  "model": "SHT30 Sensor",
+  "manufacturer": "Sensirion",
+  "description": "SHT30 Temperature & humidity sensor",
+  "description_pl": "Czujnik temperatury i wilgotności SHT30",
+  "category": "sensors",
+  "default_address": 1,
+  "default_update_interval": "10s",
   "set_base": {
     "set_address_address": 256,
     "set_baudrate": {
       "address": 257,
-      "possible_baudrates": { "9600": 9600, "14400": 14400, "19200": 19200 }
+      "possible_baudrates": {
+        "9600": 9600,
+        "14400": 14400,
+        "19200": 19200
+      }
     }
   },
   "registers_base": [
@@ -20,7 +30,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Humidity",
@@ -29,7 +46,14 @@
           "state_class": "measurement",
           "device_class": "humidity",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         }
       ]
     }

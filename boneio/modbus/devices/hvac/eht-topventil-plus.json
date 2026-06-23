@@ -1,5 +1,11 @@
 {
-  "model": "EHT TOP VENTIL 300 PLUS",
+  "model": "EHT Topventil Plus",
+  "manufacturer": "EHT",
+  "description": "EHT Topventil Plus ventilation system",
+  "description_pl": "Wentylacja EHT Topventil Plus",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "registers_base": [
     {
       "base": 0,
@@ -125,7 +131,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         },
         {
           "name": "Fresh air temperature",
@@ -135,7 +145,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         },
         {
           "name": "Return air temperature",
@@ -145,7 +159,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         },
         {
           "name": "Water temperature",
@@ -155,7 +173,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         },
         {
           "name": "Condenser temperature",
@@ -165,7 +187,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         },
         {
           "name": "Evaporator temperature",
@@ -175,7 +201,11 @@
           "value_type": "S_WORD",
           "unit_of_measurement": "°C",
           "device_class": "temperature",
-          "filters": [{ "multiply": 0.1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
         }
       ]
     }

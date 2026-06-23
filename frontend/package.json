@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "generate:modbus": "node scripts/generate-modbus-catalog.cjs",
+    "dev": "npm run generate:modbus && vite",
+    "build": "npm run generate:modbus && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

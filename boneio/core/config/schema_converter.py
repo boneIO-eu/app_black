@@ -271,7 +271,10 @@ def main():
     # Load the schema
     with open(schema_file) as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
-    
+
+    from boneio.core.config.yaml_util import _inject_modbus_models
+    _inject_modbus_models(schema)
+
     # Convert and save the main schema
     json_schema = convert_cerberus_to_json_schema(schema)
     main_schema_file = os.path.join(output_dir, "config.schema.json")

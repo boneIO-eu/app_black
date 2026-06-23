@@ -1,5 +1,11 @@
 {
   "model": "SDM630",
+  "manufacturer": "Eastron",
+  "description": "Eastron SDM630 3-phase energy meter",
+  "description_pl": "3-fazowy licznik energii Eastron SDM630",
+  "category": "energy_meters",
+  "default_address": 1,
+  "default_update_interval": "10s",
   "registers_base": [
     {
       "base": 0,

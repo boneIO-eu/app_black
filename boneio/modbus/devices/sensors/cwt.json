@@ -1,10 +1,21 @@
 {
-  "model": "CWT Temp and Humidity sensor",
+  "model": "CWT Soil Sensor",
+  "manufacturer": "CWT",
+  "description": "CWT Soil moisture, temperature and EC sensor",
+  "description_pl": "Czujnik wilgotności, temperatury i zasolenia gleby CWT",
+  "category": "sensors",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "set_base": {
     "set_address_address": 2000,
     "set_baudrate": {
       "address": 2001,
-      "possible_baudrates": { "2400": 0, "4800": 1, "9600": 2, "19200": 3 }
+      "possible_baudrates": {
+        "2400": 0,
+        "4800": 1,
+        "9600": 2,
+        "19200": 3
+      }
     }
   },
   "registers_base": [
@@ -20,7 +31,14 @@
           "state_class": "measurement",
           "device_class": "humidity",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature",
@@ -29,7 +47,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         }
       ]
     }

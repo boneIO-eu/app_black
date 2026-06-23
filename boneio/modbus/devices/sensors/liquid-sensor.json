@@ -1,5 +1,11 @@
 {
-  "model": "Liquid sensor",
+  "model": "Liquid Level Sensor",
+  "manufacturer": "Generic",
+  "description": "Generic Modbus liquid level sensor",
+  "description_pl": "Uniwersalny czujnik poziomu cieczy Modbus",
+  "category": "sensors",
+  "default_address": 1,
+  "default_update_interval": "10s",
   "set_base": {
     "set_address_address": 0,
     "set_baudrate": {
@@ -29,7 +35,14 @@
           "state_class": "measurement",
           "device_class": "distance",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         }
       ]
     }
@@ -42,7 +55,10 @@
       "device_class": "volume_storage",
       "state_class": "measurement",
       "formula": "width * length * X * 10",
-      "config_keys": ["width", "length"]
+      "config_keys": [
+        "width",
+        "length"
+      ]
     }
   ]
 }

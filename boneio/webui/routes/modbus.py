@@ -700,8 +700,25 @@ async def modbus_configure_device(
                     modbus_client.client.baudrate = request.current_baudrate
                     modbus_client.client.connect()
             
+            devices_dir = os.path.normpath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "modbus", "devices")
+            )
+            device_file = f"{request.device}.json"
+            device_path = None
+            for root, _dirs, files in os.walk(devices_dir):
+                if device_file in files:
+                    device_path = root
+                    break
+
+            if device_path is None:
+                return {
+                    "success": False,
+                    "error_key": "configure_error_not_found",
+                    "error_params": {"device": request.device}
+                }
+
             _db = open_json(
-                path=os.path.join(os.path.dirname(__file__), "..", "..", "modbus", "devices", "sensors"),
+                path=device_path,
                 model=request.device
             )
             set_base = _db.get(SET_BASE, {})
@@ -894,3 +911,25 @@ async def set_entity_labels(
 
     _LOGGER.info("Entity labels saved for %s: %s", coordinator_id, labels)
     return {"coordinator_id": coordinator_id, "labels": labels}
+
+
+@router.get("/modbus/used-addresses")
+async def get_used_addresses(
+    manager: Manager = Depends(get_manager),
+):
+    """Return Modbus addresses currently configured in config.yaml.
+
+    Used by the frontend wizard to prevent address conflicts.
+    """
+    config = manager.config_helper.get_config()
+    used = []
+    for device in config.get("modbus_devices", []):
+        addr = device.get("address")
+        if addr is not None:
+            used.append({
+                "address": int(addr),
+                "model": device.get("model", ""),
+                "id": device.get("id", ""),
+                "name": device.get("name", ""),
+            })
+    return {"used_addresses": used}

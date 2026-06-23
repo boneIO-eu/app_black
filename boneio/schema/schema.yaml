@@ -471,33 +471,7 @@ modbus_devices:
         coerce:
           - str
           - lower
-        allowed:
-          [
-            'boneio-edge-temp',
-            'cwt',
-            'dts1964_3f',
-            'dyp-a12-ultrasonic',
-            'eht-topventil-plus',
-            'gdfs',
-            'gdfx',
-            'liquid-sensor',
-            'orno-or-we-517',
-            'pt100',
-            'fujitsu-ac',
-            'le-03mw',
-            'le-03mwct',
-            'n4dsc08',
-            'r4dcb08',
-            'sdm120',
-            'sdm630',
-            'sht20',
-            'sht30',
-            'socomec_e03',
-            'socomec_e23',
-            'sofar',
-            'ventclear',
-            'esp32_relay_x4_modbus',
-          ]
+        # allowed list is dynamically injected at runtime from modbus/devices/ files
         meta:
           label: Model to load from database.
       update_interval:

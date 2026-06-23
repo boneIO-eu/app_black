@@ -857,7 +857,8 @@
             "enum": [
               "esphome_api",
               "can",
-              "mqtt"
+              "mqtt",
+              "wled"
             ],
             "examples": [
               "esphome_api"
@@ -1819,8 +1820,12 @@
               "Socomec_E03",
               "Socomec_E23",
               "Sofar",
+              "THESSLA",
+              "Thessla",
               "VENTCLEAR",
               "Ventclear",
+              "WANAS415",
+              "Wanas415",
               "boneio-edge-temp",
               "cwt",
               "dts1964_3f",
@@ -1844,7 +1849,9 @@
               "socomec_e03",
               "socomec_e23",
               "sofar",
-              "ventclear"
+              "thessla",
+              "ventclear",
+              "wanas415"
             ],
             "examples": [
               "boneio-edge-temp"

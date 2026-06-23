@@ -74,7 +74,7 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
               onEdit={() => onEdit(originalIndex)}
               onDelete={() => onDelete(originalIndex)}
               fields={[
-                ...(item.model ? [{ label: t('modbus.model'), value: <span className="badge badge-info badge-xs uppercase">{item.model}</span> }] : []),
+                ...(item.model ? [{ label: t('modbus.model'), value: <span className="badge badge-info h-auto py-0.5 px-2 text-[10px] uppercase font-medium">{item.model}</span> }] : []),
                 { label: t('modbus.address'), value: item.address || '-' },
                 ...(item.update_interval ? [{ label: t('modbus.update_interval'), value: formatTimeperiod(item.update_interval) }] : []),
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
@@ -116,7 +116,7 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
                   </Td>
                   <Td>
                     {item.model ? (
-                      <span className="badge badge-info badge-sm uppercase">{item.model}</span>
+                      <span className="badge badge-info h-auto py-0.5 px-2 text-xs uppercase font-medium">{item.model}</span>
                     ) : (
                       '-'
                     )}

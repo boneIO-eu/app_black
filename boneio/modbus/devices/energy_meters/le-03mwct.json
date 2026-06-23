@@ -1,5 +1,11 @@
 {
-  "model": "F&F LE-03MW-CT",
+  "model": "LE-03MW CT",
+  "manufacturer": "F&F",
+  "description": "F&F LE-03MW CT 3-phase energy meter with current transformers",
+  "description_pl": "3-fazowy licznik energii z przekładnikami F&F LE-03MW CT",
+  "category": "energy_meters",
+  "default_address": 1,
+  "default_update_interval": "10s",
   "registers_base": [
     {
       "base": 14,
@@ -151,7 +157,7 @@
           "state_class": "measurement",
           "value_type": "FP32"
         },
-		{
+        {
           "name": "System_Power_Factor_Total",
           "address": 52,
           "unit_of_measurement": "%",
@@ -181,13 +187,12 @@
         }
       ]
     },
-	
     {
       "base": 256,
       "length": 42,
       "register_type": "holding",
       "registers": [
-       {
+        {
           "name": "Total_kWh",
           "address": 256,
           "unit_of_measurement": "kWh",
@@ -195,7 +200,7 @@
           "device_class": "energy",
           "value_type": "FP32"
         },
-		{
+        {
           "name": "Total_kWh_Phase1",
           "address": 258,
           "unit_of_measurement": "kWh",
@@ -203,22 +208,22 @@
           "device_class": "energy",
           "value_type": "FP32"
         },
-		{
+        {
           "name": "Total_kWh_Phase2",
           "address": 260,
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
           "value_type": "FP32"
-        },		
-		{
+        },
+        {
           "name": "Total_kWh_Phase3",
           "address": 262,
           "unit_of_measurement": "kWh",
           "state_class": "total_increasing",
           "device_class": "energy",
           "value_type": "FP32"
-        },		
+        },
         {
           "name": "Import_Energy_kWh_Total",
           "address": 264,
@@ -309,7 +314,7 @@
     {
       "base": 304,
       "length": 20,
-	  "register_type": "holding",
+      "register_type": "holding",
       "registers": [
         {
           "name": "Tariff1_kWh_Total",
@@ -335,7 +340,7 @@
           "device_class": "energy",
           "value_type": "FP32"
         },
-		        {
+        {
           "name": "Tariff2_kWh_Total",
           "address": 316,
           "unit_of_measurement": "kWh",

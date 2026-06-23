@@ -1,267 +1,397 @@
 {
-    "model": "Sofar",
-    "registers_base": [
+  "model": "Sofar Solar Inverter",
+  "manufacturer": "Sofar",
+  "description": "Sofar Solar PV Inverter",
+  "description_pl": "Falownik fotowoltaiczny Sofar Solar",
+  "category": "inverters",
+  "default_address": 1,
+  "default_update_interval": "30s",
+  "registers_base": [
+    {
+      "base": 1048,
+      "length": 20,
+      "register_type": "holding",
+      "registers": [
         {
-            "base": 1048,
-            "length": 20,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "Temp_Inverter",
-                    "address": 1048,
-                    "unit_of_measurement": "°C",
-                    "state_class": "measurement",
-                    "device_class": "temperature",
-                    "value_type": "U_WORD"
-                },
-                {
-                    "name": "Temp_Module",
-                    "address": 1050,
-                    "unit_of_measurement": "°C",
-                    "state_class": "measurement",
-                    "device_class": "temperature",
-                    "value_type": "U_WORD"
-                },
-                {
-                    "name": "Generation_Time_Today",
-                    "address": 1062,
-                    "unit_of_measurement": "min",
-                    "state_class": "measurement",
-                    "value_type": "U_WORD"
-                },
-                {
-                    "name": "Generation_Time_Total",
-                    "address": 1063,
-                    "unit_of_measurement": "min",
-                    "state_class": "total_increasing",
-                    "value_type": "U_DWORD"
-                },
-                {
-                    "name": "Isolation_Resistance",
-                    "address": 1067,
-                    "unit_of_measurement": "Ohm",
-                    "state_class": "measurement",
-                    "value_type": "U_WORD"
-                }
-            ]
+          "name": "Temp_Inverter",
+          "address": 1048,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "U_WORD"
         },
         {
-            "base": 1156,
-            "length": 33,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "AC_Frequency",
-                    "address": 1156,
-                    "unit_of_measurement": "Hz",
-                    "state_class": "measurement",
-                    "device_class": "frequency",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "AC_Power",
-                    "address": 1157,
-                    "unit_of_measurement": "W",
-                    "state_class": "measurement",
-                    "device_class": "power",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 10 }]
-                },
-                {
-                    "name": "AC_Reactive_Power",
-                    "address": 1159,
-                    "unit_of_measurement": "kVar",
-                    "state_class": "measurement",
-                    "value_type": "S_WORD",
-                    "filters": [{ "multiply": 10 }]
-                },
-                {
-                    "name": "L1_Voltage",
-                    "address": 1165,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                },
-                {
-                    "name": "L1_Current",
-                    "address": 1166,
-                    "unit_of_measurement": "A",
-                    "state_class": "measurement",
-                    "device_class": "current",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "L2_Voltage",
-                    "address": 1176,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                },
-                {
-                    "name": "L2_Current",
-                    "address": 1177,
-                    "unit_of_measurement": "A",
-                    "state_class": "measurement",
-                    "device_class": "current",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "L3_Voltage",
-                    "address": 1187,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                },
-                {
-                    "name": "L3_Current",
-                    "address": 1188,
-                    "unit_of_measurement": "A",
-                    "state_class": "measurement",
-                    "device_class": "current",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                }
-            ]
+          "name": "Temp_Module",
+          "address": 1050,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "U_WORD"
         },
         {
-            "base": 1412,
-            "length": 6,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "DC1_Voltage",
-                    "address": 1412,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                },
-                {
-                    "name": "DC1_Current",
-                    "address": 1413,
-                    "unit_of_measurement": "A",
-                    "state_class": "measurement",
-                    "device_class": "current",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "DC1_Power",
-                    "address": 1414,
-                    "unit_of_measurement": "W",
-                    "state_class": "measurement",
-                    "device_class": "power",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 10 }]
-                },
-                {
-                    "name": "DC2_Voltage",
-                    "address": 1415,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                },
-                {
-                    "name": "DC2_Current",
-                    "address": 1416,
-                    "unit_of_measurement": "A",
-                    "state_class": "measurement",
-                    "device_class": "current",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "DC2_Power",
-                    "address": 1417,
-                    "unit_of_measurement": "W",
-                    "state_class": "measurement",
-                    "device_class": "power",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 10 }]
-                }
-            ]
+          "name": "Generation_Time_Today",
+          "address": 1062,
+          "unit_of_measurement": "min",
+          "state_class": "measurement",
+          "value_type": "U_WORD"
         },
         {
-            "base": 1669,
-            "length": 4,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "Energy_Today",
-                    "address": 1669,
-                    "unit_of_measurement": "kWh",
-                    "state_class": "measurement",
-                    "device_class": "energy",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.01 }, { "round": 2 }]
-                },
-                {
-                    "name": "Energy_Total",
-                    "address": 1670,
-                    "unit_of_measurement": "kWh",
-                    "state_class": "total_increasing",
-                    "device_class": "energy",
-                    "value_type": "U_DWORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                }
-            ]
+          "name": "Generation_Time_Total",
+          "address": 1063,
+          "unit_of_measurement": "min",
+          "state_class": "total_increasing",
+          "value_type": "U_DWORD"
         },
         {
-            "base": 1740,
-            "length": 1,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "Bus_Voltage",
-                    "address": 1740,
-                    "unit_of_measurement": "V",
-                    "state_class": "measurement",
-                    "device_class": "voltage",
-                    "value_type": "U_WORD",
-                    "filters": [{ "multiply": 0.1 }, { "round": 1 }]
-                }
-            ]
+          "name": "Isolation_Resistance",
+          "address": 1067,
+          "unit_of_measurement": "Ohm",
+          "state_class": "measurement",
+          "value_type": "U_WORD"
         }
-    ],
-    "additional_entities": [
+      ]
+    },
+    {
+      "base": 1156,
+      "length": 33,
+      "register_type": "holding",
+      "registers": [
         {
-            "name": "AC_Current_Total",
-            "entity_type": "sensor",
-            "source": ["L1_Current", "L2_Current", "L3_Current"],
-            "operation": "sum",
-            "unit_of_measurement": "A",
-            "state_class": "measurement",
-            "device_class": "current"
+          "name": "AC_Frequency",
+          "address": 1156,
+          "unit_of_measurement": "Hz",
+          "state_class": "measurement",
+          "device_class": "frequency",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         },
         {
-            "name": "DC_Current_Total",
-            "entity_type": "sensor",
-            "source": ["DC1_Current", "DC2_Current"],
-            "operation": "sum",
-            "unit_of_measurement": "A",
-            "state_class": "measurement",
-            "device_class": "current"
+          "name": "AC_Power",
+          "address": 1157,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
         },
         {
-            "name": "DC_Power_Total",
-            "entity_type": "sensor",
-            "source": ["DC1_Power", "DC2_Power"],
-            "operation": "sum",
-            "unit_of_measurement": "W",
-            "state_class": "measurement",
-            "device_class": "power"
+          "name": "AC_Reactive_Power",
+          "address": 1159,
+          "unit_of_measurement": "kVar",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "L1_Voltage",
+          "address": 1165,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "L1_Current",
+          "address": 1166,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        },
+        {
+          "name": "L2_Voltage",
+          "address": 1176,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "L2_Current",
+          "address": 1177,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        },
+        {
+          "name": "L3_Voltage",
+          "address": 1187,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "L3_Current",
+          "address": 1188,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         }
-    ]
+      ]
+    },
+    {
+      "base": 1412,
+      "length": 6,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "DC1_Voltage",
+          "address": 1412,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "DC1_Current",
+          "address": 1413,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        },
+        {
+          "name": "DC1_Power",
+          "address": 1414,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "DC2_Voltage",
+          "address": 1415,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        },
+        {
+          "name": "DC2_Current",
+          "address": 1416,
+          "unit_of_measurement": "A",
+          "state_class": "measurement",
+          "device_class": "current",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        },
+        {
+          "name": "DC2_Power",
+          "address": 1417,
+          "unit_of_measurement": "W",
+          "state_class": "measurement",
+          "device_class": "power",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1669,
+      "length": 4,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Energy_Today",
+          "address": 1669,
+          "unit_of_measurement": "kWh",
+          "state_class": "measurement",
+          "device_class": "energy",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
+        },
+        {
+          "name": "Energy_Total",
+          "address": 1670,
+          "unit_of_measurement": "kWh",
+          "state_class": "total_increasing",
+          "device_class": "energy",
+          "value_type": "U_DWORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 1740,
+      "length": 1,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Bus_Voltage",
+          "address": 1740,
+          "unit_of_measurement": "V",
+          "state_class": "measurement",
+          "device_class": "voltage",
+          "value_type": "U_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "AC_Current_Total",
+      "entity_type": "sensor",
+      "source": [
+        "L1_Current",
+        "L2_Current",
+        "L3_Current"
+      ],
+      "operation": "sum",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "device_class": "current"
+    },
+    {
+      "name": "DC_Current_Total",
+      "entity_type": "sensor",
+      "source": [
+        "DC1_Current",
+        "DC2_Current"
+      ],
+      "operation": "sum",
+      "unit_of_measurement": "A",
+      "state_class": "measurement",
+      "device_class": "current"
+    },
+    {
+      "name": "DC_Power_Total",
+      "entity_type": "sensor",
+      "source": [
+        "DC1_Power",
+        "DC2_Power"
+      ],
+      "operation": "sum",
+      "unit_of_measurement": "W",
+      "state_class": "measurement",
+      "device_class": "power"
+    }
+  ]
 }

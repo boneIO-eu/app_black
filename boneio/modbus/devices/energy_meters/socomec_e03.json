@@ -1,5 +1,11 @@
 {
-  "model": "Socomec E03",
+  "model": "Socomec Countis E03",
+  "manufacturer": "Socomec",
+  "description": "Socomec Countis E03 energy meter",
+  "description_pl": "Licznik energii Socomec Countis E03",
+  "category": "energy_meters",
+  "default_address": 1,
+  "default_update_interval": "10s",
   "registers_base": [
     {
       "base": 50520,
@@ -13,7 +19,14 @@
           "state_class": "measurement",
           "device_class": "voltage",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         },
         {
           "name": "Frequency",
@@ -22,7 +35,14 @@
           "state_class": "measurement",
           "device_class": "frequency",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         },
         {
           "name": "Current",
@@ -31,7 +51,14 @@
           "state_class": "measurement",
           "device_class": "current",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
+          "filters": [
+            {
+              "multiply": 0.001
+            },
+            {
+              "round": 3
+            }
+          ]
         },
         {
           "name": "Sum_Active_Power",
@@ -39,7 +66,11 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
         },
         {
           "name": "Sum_Reactive_Power",
@@ -47,7 +78,11 @@
           "unit_of_measurement": "var",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
         },
         {
           "name": "Sum_Apparent_Power",
@@ -55,7 +90,11 @@
           "unit_of_measurement": "VA",
           "state_class": "measurement",
           "value_type": "U_DWORD",
-          "filters": [{ "multiply": 10 }]
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
         },
         {
           "name": "Sum_Power_Factor",
@@ -63,7 +102,14 @@
           "unit_of_measurement": "",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 0.001 }, { "round": 3 }]
+          "filters": [
+            {
+              "multiply": 0.001
+            },
+            {
+              "round": 3
+            }
+          ]
         },
         {
           "name": "Active_Power_Phase",
@@ -71,7 +117,11 @@
           "unit_of_measurement": "W",
           "state_class": "measurement",
           "value_type": "S_DWORD",
-          "filters": [{ "multiply": 10 }]
+          "filters": [
+            {
+              "multiply": 10
+            }
+          ]
         }
       ]
     },
@@ -87,7 +137,14 @@
           "value_type": "U_DWORD",
           "state_class": "total",
           "device_class": "energy",
-          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         },
         {
           "name": "Total_Negative_Active_Energy",
@@ -96,7 +153,14 @@
           "state_class": "total",
           "value_type": "U_DWORD",
           "device_class": "energy",
-          "filters": [{ "multiply": 0.01 }, { "round": 2 }]
+          "filters": [
+            {
+              "multiply": 0.01
+            },
+            {
+              "round": 2
+            }
+          ]
         }
       ]
     }

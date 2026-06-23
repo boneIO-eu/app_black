@@ -1,5 +1,11 @@
 {
-  "model": "Ventclear ventilation system",
+  "model": "Ventclear",
+  "manufacturer": "Ventclear",
+  "description": "Ventclear ventilation system",
+  "description_pl": "Wentylacja Ventclear",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "registers_base": [
     {
       "base": 4,
@@ -118,7 +124,7 @@
           "entity_type": "writeable_sensor_discrete",
           "state_class": "measurement",
           "value_type": "S_WORD"
-        },  
+        },
         {
           "name": "Party mode status",
           "address": 34,

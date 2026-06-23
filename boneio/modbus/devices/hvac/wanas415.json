@@ -1,5 +1,11 @@
 {
   "model": "Wanas 415",
+  "manufacturer": "Wanas",
+  "description": "Wanas heat recovery ventilation unit (rekuperator)",
+  "description_pl": "Rekuperator Wanas",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "registers_base": [
     {
       "base": 4001,

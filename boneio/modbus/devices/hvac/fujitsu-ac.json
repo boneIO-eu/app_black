@@ -1,5 +1,11 @@
 {
-  "model": "Fujitsu Air Conditioner UTY-VMSX",
+  "model": "Fujitsu AC",
+  "manufacturer": "Fujitsu",
+  "description": "Fujitsu Air Conditioning control interface",
+  "description_pl": "Sterowanie klimatyzacją Fujitsu",
+  "category": "hvac",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "registers_base": [
     {
       "base": 53,

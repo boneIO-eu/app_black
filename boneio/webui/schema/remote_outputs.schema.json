@@ -28,7 +28,8 @@
             "enum": [
               "esphome_api",
               "can",
-              "mqtt"
+              "mqtt",
+              "wled"
             ],
             "examples": [
               "esphome_api"

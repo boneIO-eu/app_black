@@ -1,148 +1,164 @@
 {
-    "model": "boneIO Edge Temp and Humidity sensor",
-    "set_base": {
-        "set_address_address": 100,
-        "set_baudrate": {
-            "address": 101,
-            "possible_baudrates": {
-                "2400": 0,
-                "4800": 1,
-                "9600": 2,
-                "19200": 3
+  "model": "boneIO Edge Temp",
+  "manufacturer": "boneIO",
+  "description": "boneIO temperature sensor extension board",
+  "description_pl": "Rozszerzenie czujników temperatury boneIO Edge Temp",
+  "category": "sensors",
+  "default_address": 1,
+  "default_update_interval": "10s",
+  "set_base": {
+    "set_address_address": 100,
+    "set_baudrate": {
+      "address": 101,
+      "possible_baudrates": {
+        "2400": 0,
+        "4800": 1,
+        "9600": 2,
+        "19200": 3
+      }
+    }
+  },
+  "registers_base": [
+    {
+      "base": 0,
+      "length": 2,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Humidity",
+          "address": 0,
+          "unit_of_measurement": "%",
+          "state_class": "measurement",
+          "device_class": "humidity",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
             }
+          ]
+        },
+        {
+          "name": "Temperature",
+          "address": 1,
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "value_type": "S_WORD",
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         }
+      ]
     },
-    "registers_base": [
+    {
+      "base": 102,
+      "length": 1,
+      "register_type": "holding",
+      "update_every_n": 60,
+      "registers": [
         {
-            "base": 0,
-            "length": 2,
-            "register_type": "holding",
-            "registers": [
-                {
-                    "name": "Humidity",
-                    "address": 0,
-                    "unit_of_measurement": "%",
-                    "state_class": "measurement",
-                    "device_class": "humidity",
-                    "value_type": "S_WORD",
-                    "filters": [
-                        {
-                            "multiply": 0.1
-                        },
-                        {
-                            "round": 1
-                        }
-                    ]
-                },
-                {
-                    "name": "Temperature",
-                    "address": 1,
-                    "unit_of_measurement": "°C",
-                    "state_class": "measurement",
-                    "device_class": "temperature",
-                    "value_type": "S_WORD",
-                    "filters": [
-                        {
-                            "multiply": 0.1
-                        },
-                        {
-                            "round": 1
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "base": 102,
-            "length": 1,
-            "register_type": "holding",
-            "update_every_n": 60,
-            "registers": [
-                {
-                    "name": "LED Mode Value",
-                    "address": 102,
-                    "write_address": 102,
-                    "entity_type": "writeable_sensor_discrete",
-                    "entity_category": "config",
-                    "value_type": "U_WORD",
-                    "x_mapping": {
-                        "0": "off",
-                        "1": "on",
-                        "2": "beacon",
-                        "3": "auto"
-                    }
-                }
-            ]
-        },
-        {
-            "base": 103,
-            "length": 3,
-            "register_type": "holding",
-            "update_every_n": 1440,
-            "registers": [
-                {
-                    "name": "FW Version",
-                    "address": 103,
-                    "value_type": "U_WORD",
-                    "ha_filter": null,
-                    "entity_category": "diagnostic",
-                    "filters": [
-                        {"firmware_version": 0}
-                    ]
-                },
-                {
-                    "name": "Temperature Calibration",
-                    "address": 104,
-                    "write_address": 104,
-                    "entity_type": "writeable_sensor",
-                    "entity_category": "config",
-                    "value_type": "S_WORD",
-                    "unit_of_measurement": "°C",
-                    "state_class": "measurement",
-                    "device_class": "temperature",
-                    "step": 0.1,
-                    "ha_filter": "round(1)",
-                    "filters": [
-                        {"multiply": 0.1}
-                    ],
-                    "write_filters": [
-                        {"multiply": 10}
-                    ]
-                },
-                {
-                    "name": "Humidity Calibration",
-                    "address": 105,
-                    "write_address": 105,
-                    "entity_type": "writeable_sensor",
-                    "entity_category": "config",
-                    "value_type": "S_WORD",
-                    "unit_of_measurement": "%",
-                    "state_class": "measurement",
-                    "device_class": "humidity",
-                    "step": 0.1,
-                    "ha_filter": "round(1)",
-                    "filters": [
-                        {"multiply": 0.1}
-                    ],
-                    "write_filters": [
-                        {"multiply": 10}
-                    ]
-                }
-            ]
+          "name": "LED Mode Value",
+          "address": 102,
+          "write_address": 102,
+          "entity_type": "writeable_sensor_discrete",
+          "entity_category": "config",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "off",
+            "1": "on",
+            "2": "beacon",
+            "3": "auto"
+          }
         }
-    ],
-    "additional_entities": [
+      ]
+    },
+    {
+      "base": 103,
+      "length": 3,
+      "register_type": "holding",
+      "update_every_n": 1440,
+      "registers": [
         {
-            "name": "LED Mode",
-            "source": "ledmodevalue",
-            "entity_category": "config",
-            "entity_type": "select",
-            "x_mapping": {
-                "0": "off",
-                "1": "on",
-                "2": "beacon",
-                "3": "auto"
+          "name": "FW Version",
+          "address": 103,
+          "value_type": "U_WORD",
+          "ha_filter": null,
+          "entity_category": "diagnostic",
+          "filters": [
+            {
+              "firmware_version": 0
             }
+          ]
+        },
+        {
+          "name": "Temperature Calibration",
+          "address": 104,
+          "write_address": 104,
+          "entity_type": "writeable_sensor",
+          "entity_category": "config",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "state_class": "measurement",
+          "device_class": "temperature",
+          "step": 0.1,
+          "ha_filter": "round(1)",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
+        },
+        {
+          "name": "Humidity Calibration",
+          "address": 105,
+          "write_address": 105,
+          "entity_type": "writeable_sensor",
+          "entity_category": "config",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "%",
+          "state_class": "measurement",
+          "device_class": "humidity",
+          "step": 0.1,
+          "ha_filter": "round(1)",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ],
+          "write_filters": [
+            {
+              "multiply": 10
+            }
+          ]
         }
-    ]
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "LED Mode",
+      "source": "ledmodevalue",
+      "entity_category": "config",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "off",
+        "1": "on",
+        "2": "beacon",
+        "3": "auto"
+      }
+    }
+  ]
 }

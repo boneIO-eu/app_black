@@ -21,6 +21,7 @@ import TableRenderer from './components/TableRenderer';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog';
 import ImportDialog from './components/ImportDialog';
 import TemplatePicker from './components/TemplatePicker';
+import { AddModbusDeviceWizard } from './AddModbusDeviceWizard';
 import type { AffectedAction } from './hooks/useItemActions';
 
 interface Area {
@@ -94,6 +95,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const editItemProcessedRef = useRef<string | null>(null);
   const [wizardCopied, setWizardCopied] = useState(false);
+  const [isModbusWizardOpen, setIsModbusWizardOpen] = useState(false);
 
   // Extracted hooks
   const { findItemsUsingArea, findAffectedActions, removeOrphanedActions } = useItemActions({
@@ -227,6 +229,10 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleAdd = () => {
     setEditingIndex(null);
+    if (sectionType === 'modbus_devices') {
+      setIsModbusWizardOpen(true);
+      return;
+    }
     if (sectionType === 'remote_devices') {
       setEditingItem({ protocol: 'mqtt', device_type: 'boneio_black' });
     } else if (sectionType === 'template') {
@@ -606,6 +612,20 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         onConfirm={confirmImport}
         onCancel={cancelImport}
       />
+
+      {/* Modbus Device Wizard */}
+      {sectionType === 'modbus_devices' && (
+        <AddModbusDeviceWizard
+          open={isModbusWizardOpen}
+          onOpenChange={setIsModbusWizardOpen}
+          allAreas={allAreas}
+          allModbusDevices={value}
+          onAdd={(deviceConfig) => {
+            const newValue = [...value, deviceConfig];
+            onChange(newValue);
+          }}
+        />
+      )}
     </div>
   );
 };

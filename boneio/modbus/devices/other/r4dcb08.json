@@ -1,5 +1,11 @@
 {
-  "model": "R4DCB08",
+  "model": "R4DCB08 Relay",
+  "manufacturer": "R4D",
+  "description": "R4DCB08 8-channel Modbus relay board",
+  "description_pl": "8-kanałowy sterownik przekaźników Modbus R4DCB08",
+  "category": "other",
+  "default_address": 1,
+  "default_update_interval": "30s",
   "set_base": {
     "set_address_address": 254,
     "set_baudrate": {
@@ -26,7 +32,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 2",
@@ -35,7 +48,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 3",
@@ -44,7 +64,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 4",
@@ -53,7 +80,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 5",
@@ -62,7 +96,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 6",
@@ -71,7 +112,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 7",
@@ -80,7 +128,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         },
         {
           "name": "Temperature 8",
@@ -89,7 +144,14 @@
           "state_class": "measurement",
           "device_class": "temperature",
           "value_type": "S_WORD",
-          "filters": [{ "multiply": 0.1 }, { "round": 1 }]
+          "filters": [
+            {
+              "multiply": 0.1
+            },
+            {
+              "round": 1
+            }
+          ]
         }
       ]
     }

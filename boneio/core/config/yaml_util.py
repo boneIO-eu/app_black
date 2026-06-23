@@ -26,12 +26,40 @@ _SCHEMA_CACHE = None
 _BOARD_CONFIG_CACHE = {}
 
 
+def _get_modbus_device_models() -> list[str]:
+    """Scan modbus/devices/ directory and return filenames as model keys.
+
+    Only does os.walk (no JSON parsing) — <1ms even on BeagleBone.
+    """
+    devices_dir = os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "../../modbus/devices")
+    )
+    models = []
+    if os.path.isdir(devices_dir):
+        for root, _dirs, files in os.walk(devices_dir):
+            for fname in files:
+                if fname.endswith(".json"):
+                    models.append(fname[:-5])
+    return sorted(models)
+
+
+def _inject_modbus_models(schema: dict) -> None:
+    """Dynamically set allowed modbus model values from device files."""
+    try:
+        model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
+        model_field["allowed"] = _get_modbus_device_models()
+        _LOGGER.debug("Injected %d modbus models into schema", len(model_field["allowed"]))
+    except (KeyError, TypeError):
+        _LOGGER.warning("Could not inject modbus models into schema")
+
+
 def _get_schema():
     """Get schema from cache or load it if not cached."""
     global _SCHEMA_CACHE
     if _SCHEMA_CACHE is None:
         _LOGGER.debug("Loading schema from file (first time)")
         _SCHEMA_CACHE = load_yaml_file(schema_file)
+        _inject_modbus_models(_SCHEMA_CACHE)
     return _SCHEMA_CACHE
 
 
