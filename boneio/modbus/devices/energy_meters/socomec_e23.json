@@ -2,7 +2,6 @@
   "model": "Socomec Countis E23",
   "manufacturer": "Socomec",
   "description": "Socomec Countis E23 energy meter",
-  "description_pl": "Licznik energii Socomec Countis E23",
   "category": "energy_meters",
   "default_address": 1,
   "default_update_interval": "10s",

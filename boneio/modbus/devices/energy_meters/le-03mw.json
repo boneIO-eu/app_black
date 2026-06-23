@@ -2,7 +2,6 @@
   "model": "LE-03MW",
   "manufacturer": "F&F",
   "description": "F&F LE-03MW 3-phase energy meter",
-  "description_pl": "3-fazowy licznik energii F&F LE-03MW",
   "category": "energy_meters",
   "default_address": 1,
   "default_update_interval": "10s",

@@ -17,10 +17,12 @@ from fastapi import APIRouter, Depends, Query
 from boneio.const import COVER, LED, LIGHT, NONE, SWITCH, VALVE
 from boneio.webui.dashboard_cards import (
     cards_to_yaml,
+    ha_slugify,
     heading_card,
     sections_to_yaml,
     tile_card,
 )
+from boneio.webui.modbus_card_templates import generate_cards_for_device
 
 
 def get_manager():
@@ -76,9 +78,7 @@ _OUTPUT_TYPE_EMOJI = {
 def _ha_slugify(text: str) -> str:
     """Normalize text to match HA entity_id format.
 
-    HA strips non-ASCII characters (does NOT decompose to ASCII equivalent),
-    replaces non-alphanumeric with underscore, and lowercases.
-    E.g. 'Garaż_Outside' -> 'gara__outside' (ż removed, __ kept).
+    Delegates to the canonical ha_slugify in dashboard_cards.
 
     Args:
         text: Raw entity ID text.
@@ -86,14 +86,7 @@ def _ha_slugify(text: str) -> str:
     Returns:
         HA-compatible slugified string.
     """
-    text = text.lower()
-    # Remove non-ASCII characters (HA drops them, doesn't decompose)
-    text = text.encode("ascii", "ignore").decode("ascii")
-    # Replace any non-alphanumeric, non-underscore with underscore
-    text = re.sub(r"[^a-z0-9_]", "_", text)
-    # Replace multiple underscores with a single one
-    text = text.replace("__", "_")
-    return text
+    return ha_slugify(text)
 
 
 def _get_irrigation_output_ids(manager: Any) -> set[str]:
@@ -404,7 +397,9 @@ def _generate_modbus_cards(
 ) -> list[dict]:
     """Generate modbus sensor cards (per device, not per area).
 
-    Each modbus device gets its own section with all sensor entities.
+    Dispatches to category-specific card templates (HVAC, energy meters, etc.)
+    via generate_cards_for_device(). Each modbus device gets its own section
+    with semantically grouped entities and proper MDI icons.
 
     Args:
         coordinators: Dict of device_id -> ModbusCoordinator.
@@ -419,30 +414,33 @@ def _generate_modbus_cards(
         device_name = getattr(coord, "_name", device_id)
         model = getattr(coord, "_model", "")
 
-        cards: list[dict] = [
-            heading_card(f"📡 {device_name}", style="title"),
-        ]
+        # Build device_info from coordinator attributes
+        device_info = {
+            "model": model,
+            "name": device_name,
+            "device_id": device_id,
+            "manufacturer": getattr(coord, "manufacturer", "boneIO"),
+            "category": getattr(coord, "category", "other"),
+        }
 
-        # Collect all entity names from modbus entities
-        entity_count = 0
-        for entities_dict in coord.get_all_entities():
-            for decoded_name, entity in entities_dict.items():
-                entity_type = "sensor"
-                ha_entity = getattr(entity, "entity_type", "sensor")
-                if ha_entity in ("binary_sensor",):
-                    entity_type = "binary_sensor"
+        # Try to get category from the device JSON db
+        db = getattr(coord, "_db", {})
+        if isinstance(db, dict):
+            device_info["category"] = db.get("category", device_info["category"])
+            device_info["manufacturer"] = db.get(
+                "manufacturer", device_info["manufacturer"]
+            )
 
-                entity_id = f"{entity_type}.{_ha_slugify(f'{device_id}_{decoded_name}')}"
-                label = getattr(entity, "_custom_label", None) or getattr(entity, "name", decoded_name)
-                cards.append(
-                    tile_card(
-                        entity=entity_id,
-                        name=label,
-                        icon="mdi:chip",
-                        state_content=["state", "last_changed"],
-                    )
-                )
-                entity_count += 1
+        cards = generate_cards_for_device(
+            device_id=device_id,
+            entities_list=coord.get_all_entities(),
+            serial=serial,
+            device_info=device_info,
+        )
+
+        entity_count = sum(
+            1 for c in cards if c.get("type") not in ("heading", None)
+        )
 
         if entity_count > 0:
             result_sections.append(

@@ -17,6 +17,8 @@ from boneio.webui.routes.templates import router as templates_router
 from boneio.webui.routes.tools import router as tools_router
 from boneio.webui.routes.update import router as update_router
 
+from boneio.webui.routes.dev_fake_device import router as dev_fake_device_router
+
 __all__ = [
     "auth_router",
     "caddy_router",
@@ -24,6 +26,7 @@ __all__ = [
     "config_router",
     "covers_router",
     "dashboard_router",
+    "dev_fake_device_router",
     "irrigation_router",
     "migrations_router",
     "modbus_router",

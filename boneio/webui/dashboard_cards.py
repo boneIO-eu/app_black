@@ -7,12 +7,51 @@ lights, etc.
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any
 
 import yaml
 
 
+# ─── HA Slugify ───────────────────────────────────────────────────────────
+
+
+def ha_slugify(text: str) -> str:
+    """Normalize text to match HA entity_id format.
+
+    HA uses NFKD decomposition to convert accented characters to their
+    ASCII base equivalents (ń→n, ą→a, ó→o), then strips remaining
+    non-ASCII chars.  Polish ł/Ł need manual substitution since NFKD
+    doesn't decompose them (they have no combining-mark form).
+
+    E.g. 'Błąd_strefy_1' -> 'blad_strefy_1'.
+
+    This is the canonical implementation — all entity ID construction
+    should use this function.
+
+    Args:
+        text: Raw entity ID text.
+
+    Returns:
+        HA-compatible slugified string.
+    """
+    text = text.lower()
+    # Manual substitution for chars NFKD doesn't decompose
+    text = text.replace("ł", "l")
+    # NFKD decomposition: ń → n + combining tilde, ą → a + combining ogonek, etc.
+    text = unicodedata.normalize("NFKD", text)
+    # Strip combining marks (accents, ogonek, etc.) leaving base ASCII chars
+    text = text.encode("ascii", "ignore").decode("ascii")
+    # Replace any non-alphanumeric, non-underscore with underscore
+    text = re.sub(r"[^a-z0-9_]", "_", text)
+    # Replace multiple underscores with a single one
+    text = text.replace("__", "_")
+    return text
+
+
 # ─── Entity ID ────────────────────────────────────────────────────────────
+
 
 
 def build_entity_id(

@@ -1095,7 +1095,21 @@
     "fc16_registers_count": "Registers to write",
     "fc16_invalid_values": "Invalid values. Enter comma-separated integers (0\u201365535).",
     "fc16_write_button": "Write Registers (FC16)",
-    "write_multiple_success": "Registers written successfully (FC16)."
+    "write_multiple_success": "Registers written successfully (FC16).",
+    "simulator": "Simulator",
+    "simulator_title": "Simulate Modbus Devices in Home Assistant",
+    "simulator_hint": "Create fake/mock devices to test dashboard YAML, icons, and HA cards without physical hardware. Values will update with realistic random data.",
+    "simulator_create": "Create Simulated Device",
+    "active_simulations": "Active Simulations",
+    "simulation_send_update": "Send Update",
+    "simulation_delete": "Delete",
+    "simulation_dashboard": "Dashboard YAML",
+    "simulation_dashboard_title": "Dashboard YAML for {{model}}",
+    "simulation_dashboard_hint": "Copy the YAML below and paste it into your Home Assistant dashboard (Edit Dashboard → Raw configuration editor).",
+    "simulation_dashboard_copied": "Copied to clipboard!",
+    "simulation_dashboard_copy": "Copy YAML",
+    "simulation_dashboard_close": "Close",
+    "simulation_visual": "Visual"
   },
   "modbus_creator": {
     "device_info": "Device Information",
@@ -2068,5 +2082,85 @@
     "id_help": "Unique alphanumeric ID",
     "back": "Back",
     "add_device": "Add Device"
+  },
+  "modbus_devices": {
+    "boneio-edge-temp": {
+      "description": "boneIO temperature sensor extension board"
+    },
+    "cwt": {
+      "description": "CWT Soil moisture, temperature and EC sensor"
+    },
+    "dts1964_3f": {
+      "description": "DTS1964 3-phase power & energy meter"
+    },
+    "dyp-a12-ultrasonic": {
+      "description": "DYP-A12 Ultrasonic distance/level sensor"
+    },
+    "eht-topventil-plus": {
+      "description": "EHT Topventil Plus ventilation system"
+    },
+    "esp32_relay_x4_modbus": {
+      "description": "boneIO ESP32 4-channel Modbus relay board"
+    },
+    "fujitsu-ac": {
+      "description": "Fujitsu Air Conditioning control interface"
+    },
+    "gdfs": {
+      "description": "GD series flow sensor (GDFS)"
+    },
+    "gdfx": {
+      "description": "GD series flow sensor (GDFX)"
+    },
+    "le-03mw": {
+      "description": "F&F LE-03MW 3-phase energy meter"
+    },
+    "le-03mwct": {
+      "description": "F&F LE-03MW CT 3-phase energy meter with current transformers"
+    },
+    "liquid-sensor": {
+      "description": "Generic Modbus liquid level sensor"
+    },
+    "n4dsc08": {
+      "description": "N4DSC08 8-channel Modbus relay board"
+    },
+    "orno-or-we-517": {
+      "description": "ORNO OR-WE-517 3-phase energy meter"
+    },
+    "pt100": {
+      "description": "PT100 RTD temperature transmitter to Modbus"
+    },
+    "r4dcb08": {
+      "description": "R4DCB08 8-channel Modbus relay board"
+    },
+    "sdm120": {
+      "description": "Eastron SDM120 1-phase energy meter"
+    },
+    "sdm630": {
+      "description": "Eastron SDM630 3-phase energy meter"
+    },
+    "sht20": {
+      "description": "SHT20 Temperature & humidity sensor"
+    },
+    "sht30": {
+      "description": "SHT30 Temperature & humidity sensor"
+    },
+    "socomec_e03": {
+      "description": "Socomec Countis E03 energy meter"
+    },
+    "socomec_e23": {
+      "description": "Socomec Countis E23 energy meter"
+    },
+    "sofar": {
+      "description": "Sofar Solar PV Inverter"
+    },
+    "thessla": {
+      "description": "Thessla Green heat recovery ventilation unit"
+    },
+    "ventclear": {
+      "description": "Ventclear ventilation system"
+    },
+    "wanas415": {
+      "description": "Wanas heat recovery ventilation unit (rekuperator)"
+    }
   }
 }

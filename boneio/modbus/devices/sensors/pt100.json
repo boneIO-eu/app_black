@@ -2,7 +2,6 @@
   "model": "PT100 Modbus",
   "manufacturer": "Generic",
   "description": "PT100 RTD temperature transmitter to Modbus",
-  "description_pl": "Przetwornik temperatury PT100 na Modbus",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "10s",

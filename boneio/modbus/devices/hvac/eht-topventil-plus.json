@@ -2,7 +2,6 @@
   "model": "EHT Topventil Plus",
   "manufacturer": "EHT",
   "description": "EHT Topventil Plus ventilation system",
-  "description_pl": "Wentylacja EHT Topventil Plus",
   "category": "hvac",
   "default_address": 1,
   "default_update_interval": "30s",

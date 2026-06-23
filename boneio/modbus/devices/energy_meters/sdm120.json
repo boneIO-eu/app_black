@@ -2,7 +2,6 @@
   "model": "SDM120",
   "manufacturer": "Eastron",
   "description": "Eastron SDM120 1-phase energy meter",
-  "description_pl": "1-fazowy licznik energii Eastron SDM120",
   "category": "energy_meters",
   "default_address": 1,
   "default_update_interval": "10s",

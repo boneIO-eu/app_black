@@ -116,7 +116,9 @@ const ModbusDeviceTable: React.FC<ModbusDeviceTableProps> = ({
                   </Td>
                   <Td>
                     {item.model ? (
-                      <span className="badge badge-info h-auto py-0.5 px-2 text-xs uppercase font-medium">{item.model}</span>
+                      <span className="badge badge-info h-auto py-0.5 px-2 text-xs uppercase font-medium max-w-[120px] truncate" title={item.model}>
+                        {item.model}
+                      </span>
                     ) : (
                       '-'
                     )}

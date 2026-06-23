@@ -2,7 +2,6 @@
   "model": "LE-03MW CT",
   "manufacturer": "F&F",
   "description": "F&F LE-03MW CT 3-phase energy meter with current transformers",
-  "description_pl": "3-fazowy licznik energii z przekładnikami F&F LE-03MW CT",
   "category": "energy_meters",
   "default_address": 1,
   "default_update_interval": "10s",

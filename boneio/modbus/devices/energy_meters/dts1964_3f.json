@@ -2,8 +2,7 @@
   "model": "DTS1964 3-phase meter",
   "manufacturer": "DTS",
   "description": "DTS1964 3-phase power & energy meter",
-  "description_pl": "3-fazowy licznik energii i mocy DTS1964",
-  "category": "sensors",
+  "category": "energy_meters",
   "default_address": 1,
   "default_update_interval": "10s",
   "registers_base": [

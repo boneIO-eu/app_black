@@ -51,6 +51,7 @@ from boneio.webui.routes import (
     config_router,
     covers_router,
     dashboard_router,
+    dev_fake_device_router,
     irrigation_router,
     migrations_router,
     modbus_router,
@@ -156,6 +157,8 @@ app.include_router(templates_router)
 app.include_router(tools_router)
 app.include_router(migrations_router)
 
+app.include_router(dev_fake_device_router)
+
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
 from boneio.webui.routes import covers as covers_module
@@ -182,6 +185,10 @@ app.dependency_overrides[update_module.get_manager] = get_manager
 app.dependency_overrides[migrations_module._get_manager] = get_manager
 app.dependency_overrides[templates_module.get_manager] = get_manager
 app.dependency_overrides[tools_module.get_manager] = get_manager
+
+from boneio.webui.routes import dev_fake_device as dev_fake_device_module
+app.dependency_overrides[dev_fake_device_module.get_manager] = get_manager
+
 system_module.set_config_helper_getter(get_config_helper)
 
 

@@ -2,7 +2,6 @@
   "model": "DYP-A12",
   "manufacturer": "DYP",
   "description": "DYP-A12 Ultrasonic distance/level sensor",
-  "description_pl": "Ultradźwiękowy czujnik odległości/poziomu DYP-A12",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "10s",

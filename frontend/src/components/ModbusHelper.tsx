@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
-import { FaPlay, FaSearch, FaCog, FaPlus, FaPause } from 'react-icons/fa';
+import { FaPlay, FaSearch, FaCog, FaPlus, FaPause, FaFlask, FaCode, FaCopy, FaCheck, FaImage } from 'react-icons/fa';
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
+import { MODBUS_DEVICE_CATALOG } from '../generated/modbusDeviceCatalog';
 
 interface ModbusConfig {
   configured: boolean;
@@ -42,7 +43,7 @@ type WriteMode = 'fc06' | 'fc16';
  */
 export default function ModbusHelper() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'get' | 'set' | 'search' | 'configure' | 'creator'>('get');
+  const [activeTab, setActiveTab] = useState<'get' | 'set' | 'search' | 'configure' | 'creator' | 'simulator'>('get');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ModbusResult | null>(null);
   const [config, setConfig] = useState<ModbusConfig | null>(null);
@@ -79,11 +80,37 @@ export default function ModbusHelper() {
   const [configNewBaudrate, setConfigNewBaudrate] = useState<number | ''>(9600);
   const [configBroadcast, setConfigBroadcast] = useState(false);
 
+  // SIMULATOR parameters
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [fakeDevices, setFakeDevices] = useState<any[]>([]);
+  const [selectedSimModel, setSelectedSimModel] = useState('wanas415');
+  const [simAddress, setSimAddress] = useState(1);
+  const [dashboardYaml, setDashboardYaml] = useState<string | null>(null);
+  const [dashboardModel, setDashboardModel] = useState('');
+  const [yamlCopied, setYamlCopied] = useState(false);
+
+  const loadFakeDevices = async () => {
+    try {
+      const { data } = await axios.get('/api/dev/fake-devices');
+      if (Array.isArray(data)) {
+        setFakeDevices(data);
+        setShowSimulator(true);
+      } else {
+        setFakeDevices([]);
+        setShowSimulator(false);
+      }
+    } catch (err) {
+      setFakeDevices([]);
+      setShowSimulator(false);
+    }
+  };
+
   // Load config on mount
   useEffect(() => {
     axios.get('/api/modbus/config')
       .then(res => setConfig(res.data))
       .catch(err => console.error('Failed to load modbus config:', err));
+    loadFakeDevices();
   }, []);
 
   // Pause coordinator polling on mount, resume on unmount
@@ -303,6 +330,97 @@ export default function ModbusHelper() {
     }
   };
 
+  const handleCreateFakeDevice = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      await axios.post(`/api/dev/fake-device/${selectedSimModel}?address=${simAddress}`);
+      await loadFakeDevices();
+      setResult({ success: true, message: `Created simulated device ${simAddress}_${selectedSimModel} in HA` });
+    } catch (err: any) {
+      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateFakeDevice = async (deviceId: string) => {
+    const match = deviceId.match(/^(\d+)_(.+)$/);
+    if (!match) return;
+    const address = Number(match[1]);
+    const model = match[2];
+    setLoading(true);
+    setResult(null);
+    try {
+      await axios.post(`/api/dev/fake-device/${model}/update?address=${address}`);
+      await loadFakeDevices();
+      setResult({ success: true, message: `Sent updated simulated data for ${deviceId}` });
+    } catch (err: any) {
+      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveFakeDevice = async (deviceId: string) => {
+    const match = deviceId.match(/^(\d+)_(.+)$/);
+    if (!match) return;
+    const address = Number(match[1]);
+    const model = match[2];
+    setLoading(true);
+    setResult(null);
+    try {
+      await axios.delete(`/api/dev/fake-device/${model}?address=${address}`);
+      await loadFakeDevices();
+      setResult({ success: true, message: `Removed simulated device ${deviceId} from HA` });
+    } catch (err: any) {
+      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDashboardYaml = async (deviceId: string, style: 'standard' | 'visual' = 'standard') => {
+    const match = deviceId.match(/^(\d+)_(.+)$/);
+    if (!match) return;
+    const address = Number(match[1]);
+    const model = match[2];
+    setLoading(true);
+    setResult(null);
+    try {
+      const { data } = await axios.get(`/api/dev/fake-device/${model}/dashboard?address=${address}&style=${style}`);
+      if (data.error) {
+        setResult({ success: false, error: data.error });
+      } else {
+        setDashboardYaml(data.yaml);
+        setDashboardModel(data.model || model);
+        setYamlCopied(false);
+      }
+    } catch (err: any) {
+      setResult({ success: false, error: err.response?.data?.error || String(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyYaml = async () => {
+    if (!dashboardYaml) return;
+    try {
+      await navigator.clipboard.writeText(dashboardYaml);
+      setYamlCopied(true);
+      setTimeout(() => setYamlCopied(false), 2000);
+    } catch {
+      // Fallback: select textarea content
+      const textarea = document.getElementById('dashboard-yaml-textarea') as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+        setYamlCopied(true);
+        setTimeout(() => setYamlCopied(false), 2000);
+      }
+    }
+  };
+
   // Show warning if Modbus is not configured
   if (config && !config.configured) {
     return (
@@ -315,7 +433,7 @@ export default function ModbusHelper() {
   }
 
   return (
-    <div>
+    <><div>
 
       {/* Suspended banner */}
       {suspended && (
@@ -357,6 +475,14 @@ export default function ModbusHelper() {
         >
           <FaPlus className="mr-2" /> {t('modbus_helper.creator')}
         </button>
+        {showSimulator && (
+          <button
+            className={`tab ${activeTab === 'simulator' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('simulator')}
+          >
+            <FaFlask className="mr-2" /> {t('modbus_helper.simulator')}
+          </button>
+        )}
       </div>
 
       {/* GET Tab */}
@@ -1080,13 +1206,181 @@ export default function ModbusHelper() {
         </div>
       )}
 
+      {/* SIMULATOR Tab */}
+      {activeTab === 'simulator' && showSimulator && (
+        <div className="space-y-4">
+          {/* Create form card */}
+          <div className="card bg-base-200 shadow-sm">
+            <div className="card-body p-4 sm:p-6">
+              <h2 className="card-title text-base sm:text-lg flex items-center gap-2">
+                <FaFlask className="text-primary shrink-0" /> {t('modbus_helper.simulator_title')}
+              </h2>
+              <p className="text-xs sm:text-sm text-base-content/70 mt-1">
+                {t('modbus_helper.simulator_hint')}
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_6rem_auto] gap-4 mt-4">
+                {/* Select Model */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-xs font-semibold">{t('modbus_wizard.step2_title')}</span>
+                  </label>
+                  <select
+                    className="select select-bordered w-full"
+                    value={selectedSimModel}
+                    onChange={(e) => setSelectedSimModel(e.target.value)}
+                  >
+                    {Object.values(MODBUS_DEVICE_CATALOG).map(d => (
+                      <option key={d.modelKey} value={d.modelKey}>
+                        {d.displayName} ({d.manufacturer})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Address */}
+                <div className="form-control">
+                  <label className="label">
+                    <span className="label-text text-xs font-semibold">{t('modbus_wizard.address')}</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input input-bordered w-full"
+                    value={simAddress}
+                    onChange={(e) => setSimAddress(parseInt(e.target.value) || 1)}
+                    min={1}
+                    max={247}
+                  />
+                </div>
+
+                {/* Action Button — aligned to bottom of the row */}
+                <div className="flex items-end">
+                  <button
+                    className={`btn btn-primary w-full md:w-auto whitespace-nowrap ${loading ? 'loading' : ''}`}
+                    onClick={handleCreateFakeDevice}
+                    disabled={loading}
+                  >
+                    <FaPlus className="mr-1.5" /> {t('modbus_helper.simulator_create')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Simulations — card per device */}
+          {Array.isArray(fakeDevices) && fakeDevices.length > 0 && (
+            <div>
+              <h3 className="font-bold text-sm sm:text-md mb-3 px-1">
+                {t('modbus_helper.active_simulations')}
+              </h3>
+              <div className="space-y-3">
+                {fakeDevices.map((dev) => (
+                  <div key={dev.device_id} className="card bg-base-200 shadow-sm">
+                    <div className="card-body p-4">
+                      {/* Top row: device info */}
+                      <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm sm:text-base truncate">{dev.model}</div>
+                          <div className="text-xs text-base-content/60">{dev.manufacturer}</div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="badge badge-outline badge-sm capitalize">{dev.category}</span>
+                          <span className="badge badge-ghost badge-sm font-mono">{dev.entity_count} entities</span>
+                        </div>
+                      </div>
+
+                      <div className="text-xs font-mono text-primary mt-1">ID: {dev.device_id}</div>
+
+                      {/* Action buttons — always visible, wrap on mobile */}
+                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-300">
+                        <button
+                          className="btn btn-sm btn-info flex-1 sm:flex-none min-w-0"
+                          onClick={() => handleUpdateFakeDevice(dev.device_id)}
+                          disabled={loading}
+                        >
+                          <FaPlay className="mr-1.5 shrink-0" />
+                          <span className="truncate">{t('modbus_helper.simulation_send_update')}</span>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-accent flex-1 sm:flex-none min-w-0"
+                          onClick={() => handleDashboardYaml(dev.device_id)}
+                          disabled={loading}
+                        >
+                          <FaCode className="mr-1.5 shrink-0" />
+                          <span className="truncate">{t('modbus_helper.simulation_dashboard')}</span>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-secondary flex-1 sm:flex-none min-w-0"
+                          onClick={() => handleDashboardYaml(dev.device_id, 'visual')}
+                          disabled={loading}
+                        >
+                          <FaImage className="mr-1.5 shrink-0" />
+                          <span className="truncate">{t('modbus_helper.simulation_visual')}</span>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-error flex-1 sm:flex-none min-w-0"
+                          onClick={() => handleRemoveFakeDevice(dev.device_id)}
+                          disabled={loading}
+                        >
+                          {t('modbus_helper.simulation_delete')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Loading indicator for other operations */}
-      {loading && (activeTab !== 'search' && activeTab !== 'creator' || !result?.total) && (
+      {loading && (activeTab !== 'search' && activeTab !== 'creator' && activeTab !== 'simulator' || !result?.total) && (
         <div className="flex justify-center items-center py-8">
           <span className="loading loading-spinner loading-lg"></span>
           <span className="ml-4">{t('modbus_helper.loading')}</span>
         </div>
       )}
     </div>
-  );
+
+    {/* Dashboard YAML Modal */}
+    {dashboardYaml && (
+      <dialog className="modal modal-open" onClick={(e) => { if (e.target === e.currentTarget) setDashboardYaml(null); }}>
+        <div className="modal-box max-w-4xl w-full">
+          <h3 className="font-bold text-lg mb-2">
+            <FaCode className="inline mr-2" />
+            {t('modbus_helper.simulation_dashboard_title', { model: dashboardModel })}
+          </h3>
+          <p className="text-sm text-base-content/70 mb-4">
+            {t('modbus_helper.simulation_dashboard_hint')}
+          </p>
+          <textarea
+            id="dashboard-yaml-textarea"
+            className="textarea textarea-bordered w-full font-mono text-xs leading-relaxed"
+            rows={20}
+            readOnly
+            value={dashboardYaml}
+          />
+          <div className="modal-action">
+            <button
+              className={`btn ${yamlCopied ? 'btn-success' : 'btn-primary'}`}
+              onClick={handleCopyYaml}
+            >
+              {yamlCopied ? (
+                <><FaCheck className="mr-2" /> {t('modbus_helper.simulation_dashboard_copied')}</>
+              ) : (
+                <><FaCopy className="mr-2" /> {t('modbus_helper.simulation_dashboard_copy')}</>
+              )}
+            </button>
+            <button
+              className="btn"
+              onClick={() => setDashboardYaml(null)}
+            >
+              {t('modbus_helper.simulation_dashboard_close')}
+            </button>
+          </div>
+        </div>
+      </dialog>
+    )}
+  </>);
 }

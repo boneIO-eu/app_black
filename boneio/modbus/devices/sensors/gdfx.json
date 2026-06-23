@@ -2,7 +2,6 @@
   "model": "GDFX Sensor",
   "manufacturer": "GD",
   "description": "GD series flow sensor (GDFX)",
-  "description_pl": "Przepływomierz serii GD (GDFX)",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "10s",

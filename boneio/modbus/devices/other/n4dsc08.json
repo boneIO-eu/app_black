@@ -2,7 +2,6 @@
   "model": "N4DSC08 Relay",
   "manufacturer": "N4",
   "description": "N4DSC08 8-channel Modbus relay board",
-  "description_pl": "8-kanałowy sterownik przekaźników Modbus N4DSC08",
   "category": "other",
   "default_address": 1,
   "default_update_interval": "30s",

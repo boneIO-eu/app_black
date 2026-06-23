@@ -2,7 +2,6 @@
   "model": "Thessla Green",
   "manufacturer": "Thessla Green",
   "description": "Thessla Green heat recovery ventilation unit",
-  "description_pl": "Rekuperator Thessla Green",
   "category": "hvac",
   "default_address": 1,
   "default_update_interval": "30s",

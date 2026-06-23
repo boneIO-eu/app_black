@@ -2,7 +2,6 @@
   "model": "CWT Soil Sensor",
   "manufacturer": "CWT",
   "description": "CWT Soil moisture, temperature and EC sensor",
-  "description_pl": "Czujnik wilgotności, temperatury i zasolenia gleby CWT",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "30s",

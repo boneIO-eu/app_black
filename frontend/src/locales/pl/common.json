@@ -1096,7 +1096,21 @@
     "fc16_registers_count": "Rejestrów do zapisu",
     "fc16_invalid_values": "Nieprawidłowe wartości. Wpisz liczby całkowite oddzielone przecinkami (0\u201365535).",
     "fc16_write_button": "Zapisz Rejestry (FC16)",
-    "write_multiple_success": "Rejestry zapisane pomyślnie (FC16)."
+    "write_multiple_success": "Rejestry zapisane pomyślnie (FC16).",
+    "simulator": "Symulator",
+    "simulator_title": "Symuluj urządzenia Modbus w Home Assistant",
+    "simulator_hint": "Utwórz symulowane (sztuczne) urządzenia, aby przetestować dashboard YAML, ikony i karty HA bez fizycznego sprzętu. Dane będą się automatycznie aktualizować realistycznymi wartościami.",
+    "simulator_create": "Stwórz symulowane urządzenie",
+    "active_simulations": "Aktywne symulacje",
+    "simulation_send_update": "Wyślij nowe wartości",
+    "simulation_delete": "Usuń",
+    "simulation_dashboard": "Dashboard YAML",
+    "simulation_dashboard_title": "Dashboard YAML dla {{model}}",
+    "simulation_dashboard_hint": "Skopiuj poniższy YAML i wklej go do dashboardu Home Assistant (Edytuj Dashboard → Edytor konfiguracji RAW).",
+    "simulation_dashboard_copied": "Skopiowano do schowka!",
+    "simulation_dashboard_copy": "Kopiuj YAML",
+    "simulation_dashboard_close": "Zamknij",
+    "simulation_visual": "Wizualny"
   },
   "modbus_creator": {
     "device_info": "Informacje o Urządzeniu",
@@ -2067,5 +2081,85 @@
     "id_help": "Unikalny identyfikator alfanumeryczny",
     "back": "Wstecz",
     "add_device": "Dodaj Urządzenie"
+  },
+  "modbus_devices": {
+    "boneio-edge-temp": {
+      "description": "Rozszerzenie czujników temperatury boneIO Edge Temp"
+    },
+    "cwt": {
+      "description": "Czujnik wilgotności, temperatury i zasolenia gleby CWT"
+    },
+    "dts1964_3f": {
+      "description": "3-fazowy licznik energii i mocy DTS1964"
+    },
+    "dyp-a12-ultrasonic": {
+      "description": "Ultradźwiękowy czujnik odległości/poziomu DYP-A12"
+    },
+    "eht-topventil-plus": {
+      "description": "Wentylacja EHT Topventil Plus"
+    },
+    "esp32_relay_x4_modbus": {
+      "description": "4-kanałowa płytka przekaźnikowa Modbus ESP32 boneIO"
+    },
+    "fujitsu-ac": {
+      "description": "Sterowanie klimatyzacją Fujitsu"
+    },
+    "gdfs": {
+      "description": "Przepływomierz serii GD (GDFS)"
+    },
+    "gdfx": {
+      "description": "Przepływomierz serii GD (GDFX)"
+    },
+    "le-03mw": {
+      "description": "3-fazowy licznik energii F&F LE-03MW"
+    },
+    "le-03mwct": {
+      "description": "3-fazowy licznik energii z przekładnikami F&F LE-03MW CT"
+    },
+    "liquid-sensor": {
+      "description": "Uniwersalny czujnik poziomu cieczy Modbus"
+    },
+    "n4dsc08": {
+      "description": "8-kanałowy sterownik przekaźników Modbus N4DSC08"
+    },
+    "orno-or-we-517": {
+      "description": "3-fazowy licznik energii ORNO OR-WE-517"
+    },
+    "pt100": {
+      "description": "Przetwornik temperatury PT100 na Modbus"
+    },
+    "r4dcb08": {
+      "description": "8-kanałowy sterownik przekaźników Modbus R4DCB08"
+    },
+    "sdm120": {
+      "description": "1-fazowy licznik energii Eastron SDM120"
+    },
+    "sdm630": {
+      "description": "3-fazowy licznik energii Eastron SDM630"
+    },
+    "sht20": {
+      "description": "Czujnik temperatury i wilgotności SHT20"
+    },
+    "sht30": {
+      "description": "Czujnik temperatury i wilgotności SHT30"
+    },
+    "socomec_e03": {
+      "description": "Licznik energii Socomec Countis E03"
+    },
+    "socomec_e23": {
+      "description": "Licznik energii Socomec Countis E23"
+    },
+    "sofar": {
+      "description": "Falownik fotowoltaiczny Sofar Solar"
+    },
+    "thessla": {
+      "description": "Rekuperator Thessla Green"
+    },
+    "ventclear": {
+      "description": "Wentylacja Ventclear"
+    },
+    "wanas415": {
+      "description": "Rekuperator Wanas"
+    }
   }
 }

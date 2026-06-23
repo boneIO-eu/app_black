@@ -2,7 +2,6 @@
   "model": "R4DCB08 Relay",
   "manufacturer": "R4D",
   "description": "R4DCB08 8-channel Modbus relay board",
-  "description_pl": "8-kanałowy sterownik przekaźników Modbus R4DCB08",
   "category": "other",
   "default_address": 1,
   "default_update_interval": "30s",

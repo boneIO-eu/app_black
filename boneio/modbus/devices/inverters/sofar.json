@@ -2,7 +2,6 @@
   "model": "Sofar Solar Inverter",
   "manufacturer": "Sofar",
   "description": "Sofar Solar PV Inverter",
-  "description_pl": "Falownik fotowoltaiczny Sofar Solar",
   "category": "inverters",
   "default_address": 1,
   "default_update_interval": "30s",

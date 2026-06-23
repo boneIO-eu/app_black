@@ -2,7 +2,6 @@
   "model": "SHT30 Sensor",
   "manufacturer": "Sensirion",
   "description": "SHT30 Temperature & humidity sensor",
-  "description_pl": "Czujnik temperatury i wilgotności SHT30",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "10s",

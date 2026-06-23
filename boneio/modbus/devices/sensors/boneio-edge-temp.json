@@ -2,7 +2,6 @@
   "model": "boneIO Edge Temp",
   "manufacturer": "boneIO",
   "description": "boneIO temperature sensor extension board",
-  "description_pl": "Rozszerzenie czujników temperatury boneIO Edge Temp",
   "category": "sensors",
   "default_address": 1,
   "default_update_interval": "10s",

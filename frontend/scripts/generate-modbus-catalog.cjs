@@ -16,14 +16,20 @@ function scanDevices() {
     
     for (const file of files) {
       const modelKey = file.replace('.json', '');
-      const data = JSON.parse(fs.readFileSync(path.join(categoryDir, file), 'utf8'));
+      const filePath = path.join(categoryDir, file);
+      let data;
+      try {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch (err) {
+        console.error(`⚠️  Failed to parse ${category}/${file}: ${err.message}`);
+        continue;
+      }
       
       catalog[modelKey] = {
         modelKey,
         displayName: data.model || modelKey,
         manufacturer: data.manufacturer || '',
         description: data.description || '',
-        descriptionPl: data.description_pl || '',
         category: data.category || category,
         defaultAddress: data.default_address ?? 1,
         defaultUpdateInterval: data.default_update_interval || '30s',
@@ -44,7 +50,6 @@ export interface ModbusDeviceInfo {
   displayName: string;
   manufacturer: string;
   description: string;
-  descriptionPl: string;
   category: string;
   defaultAddress: number;
   defaultUpdateInterval: string;

@@ -55,6 +55,19 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 }) => {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
+
+  /**
+   * Get translated device description from i18n.
+   * Falls back to the English description from the catalog.
+   */
+  const getDeviceDescription = (device: ModbusDeviceInfo): string => {
+    const translated = t(`modbus_devices.${device.modelKey}.description`);
+    // t() returns the key itself when translation is missing
+    if (translated !== `modbus_devices.${device.modelKey}.description`) {
+      return translated;
+    }
+    return device.description;
+  };
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModbusDeviceInfo | null>(null);
   
@@ -77,7 +90,20 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
     if (open) {
       axios.get('/api/modbus/used-addresses')
         .then(res => {
-          setUsedAddresses(res.data.used_addresses || []);
+          const apiUsed = res.data.used_addresses || [];
+          const localUsed: UsedAddress[] = allModbusDevices
+            .filter(d => d.address !== undefined)
+            .map(d => ({
+              address: Number(d.address),
+              model: d.model || '',
+              id: d.id || '',
+              name: d.name || '',
+            }));
+          // Merge based on address to prevent duplicates
+          const mergedMap = new Map<number, UsedAddress>();
+          apiUsed.forEach((u: UsedAddress) => mergedMap.set(u.address, u));
+          localUsed.forEach((u: UsedAddress) => mergedMap.set(u.address, u));
+          setUsedAddresses(Array.from(mergedMap.values()));
         })
         .catch(err => {
           console.error('Failed to fetch used Modbus addresses:', err);
@@ -118,13 +144,16 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   const allDevices = Object.values(MODBUS_DEVICE_CATALOG);
   const searchResults = searchQuery.trim() === ''
     ? []
-    : allDevices.filter(device => 
-        device.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        device.modelKey.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        device.manufacturer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        device.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        device.descriptionPl.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    : allDevices.filter(device => {
+        const q = searchQuery.toLowerCase();
+        return (
+          device.displayName.toLowerCase().includes(q) ||
+          device.modelKey.toLowerCase().includes(q) ||
+          device.manufacturer.toLowerCase().includes(q) ||
+          device.description.toLowerCase().includes(q) ||
+          getDeviceDescription(device).toLowerCase().includes(q)
+        );
+      });
 
   // Find conflicts and suggestions when address or model changes
   useEffect(() => {
@@ -321,9 +350,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                           </span>
                         </div>
                         <div className="text-xs text-base-content/70 mt-1 max-w-[400px] truncate">
-                          {navigator.language.startsWith('pl') && device.descriptionPl 
-                            ? device.descriptionPl 
-                            : device.description}
+                          {getDeviceDescription(device)}
                         </div>
                       </div>
                       <FaChevronRight className="text-base-content/30 text-xs" />
@@ -370,9 +397,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                       )}
                     </div>
                     <div className="text-xs text-base-content/70 mt-1 max-w-[400px] truncate">
-                      {navigator.language.startsWith('pl') && device.descriptionPl 
-                        ? device.descriptionPl 
-                        : device.description}
+                      {getDeviceDescription(device)}
                     </div>
                   </div>
                   <FaChevronRight className="text-base-content/30 text-xs" />

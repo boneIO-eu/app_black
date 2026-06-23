@@ -2,7 +2,6 @@
   "model": "Ventclear",
   "manufacturer": "Ventclear",
   "description": "Ventclear ventilation system",
-  "description_pl": "Wentylacja Ventclear",
   "category": "hvac",
   "default_address": 1,
   "default_update_interval": "30s",
