@@ -272,8 +272,29 @@ def main():
     with open(schema_file) as f:
         schema = yaml.load(f, Loader=BoneIOLoader)
 
-    from boneio.core.config.yaml_util import _inject_modbus_models
-    _inject_modbus_models(schema)
+    # Dynamically inject modbus device models into the schema.
+    # NOTE: This is a standalone copy of the logic from yaml_util.py.
+    # We cannot import yaml_util here because it pulls in the full boneIO
+    # dependency graph (cerberus, pymodbus, smbus2 …) which is NOT installed
+    # in the CI environment that runs this converter script.
+    devices_dir = os.path.normpath(
+        os.path.join(script_dir, "..", "..", "modbus", "devices")
+    )
+    models: list[str] = []
+    if os.path.isdir(devices_dir):
+        for root, dirs, files in os.walk(devices_dir):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for fname in files:
+                if fname.endswith(".json"):
+                    models.append(fname[:-5])
+    models.sort()
+
+    try:
+        model_field = schema["modbus_devices"]["schema"]["schema"]["model"]
+        model_field["allowed"] = models
+        print(f"Injected {len(models)} modbus models into schema")
+    except (KeyError, TypeError):
+        print("WARNING: Could not inject modbus models into schema")
 
     # Convert and save the main schema
     json_schema = convert_cerberus_to_json_schema(schema)
