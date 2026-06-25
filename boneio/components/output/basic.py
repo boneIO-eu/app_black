@@ -186,7 +186,13 @@ class BasicOutput(BasicMqtt):
         """
         can_turn_on = self.check_interlock()
         if can_turn_on:
-            await self._loop.run_in_executor(None, self.turn_on, timestamp)
+            try:
+                await self._loop.run_in_executor(None, self.turn_on, timestamp)
+            except RuntimeError as err:
+                if "Executor shutdown" in str(err):
+                    self.turn_on(timestamp)  # Fall back to sync during shutdown
+                else:
+                    raise
         else:
             _LOGGER.warning("Interlock active: cannot turn on %s.", self.id)
             # Workaround for HA is sendind state ON/OFF without physically changing the relay.
@@ -197,7 +203,13 @@ class BasicOutput(BasicMqtt):
 
     async def async_turn_off(self, timestamp=None) -> None:
         """Turn off the relay asynchronously."""
-        await self._loop.run_in_executor(None, self.turn_off, timestamp)
+        try:
+            await self._loop.run_in_executor(None, self.turn_off, timestamp)
+        except RuntimeError as err:
+            if "Executor shutdown" in str(err):
+                self.turn_off(timestamp)  # Fall back to sync during shutdown
+            else:
+                raise
         await self.async_send_state()
 
     async def async_toggle(self, timestamp=None) -> None:

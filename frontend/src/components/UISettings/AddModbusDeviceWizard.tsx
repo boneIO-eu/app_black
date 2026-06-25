@@ -264,7 +264,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl bg-base-100 text-base-content rounded-lg border border-base-300 shadow-2xl p-6">
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto bg-base-100 text-base-content rounded-lg border border-base-300 shadow-2xl p-4 sm:p-6">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
             {t('modbus_wizard.title') || 'Add Modbus Device'}
@@ -272,7 +272,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
         </DialogHeader>
 
         {/* Steps visual indicator */}
-        <div className="w-full mb-6">
+        <div className="w-full mb-3">
           <ul className="steps w-full text-xs">
             <li className={`step ${step >= 1 ? 'step-primary' : ''}`}>
               {t('modbus_wizard.step1_label') || 'Category'}
@@ -425,8 +425,8 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
         {/* Step 3: Parameters Configuration */}
         {step === 3 && selectedModel && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20 mb-2">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="bg-primary/5 p-2.5 rounded-lg border border-primary/20 mb-1">
               <div className="text-xs font-semibold text-primary uppercase">
                 {t('modbus_wizard.selected_device') || 'Selected Device'}
               </div>

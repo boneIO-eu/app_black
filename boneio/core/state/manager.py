@@ -25,6 +25,7 @@ class StateManager:
         _LOGGER.info("Loaded state file from %s", self._file)
         self._file_uptodate = False
         self._save_attributes_callback = None
+        self._shutting_down = False
 
     def load_states(self) -> dict:
         """Load state file.
@@ -105,6 +106,8 @@ class StateManager:
         if attr_type not in self._state:
             self._state[attr_type] = {}
         self._state[attr_type][attribute] = value
+        if self._shutting_down:
+            return
         if self._save_attributes_callback is not None:
             self._save_attributes_callback.cancel()
             self._save_attributes_callback = None
@@ -182,4 +185,26 @@ class StateManager:
             # Let's not save state if something happens same time.
             return False
         async with self._lock:
-            return await self._loop.run_in_executor(None, self._save_state)
+            try:
+                return await self._loop.run_in_executor(None, self._save_state)
+            except RuntimeError as err:
+                if "Executor shutdown" in str(err):
+                    # Python 3.13+: executor already closed, fall back to sync
+                    _LOGGER.debug("Executor shutdown, saving state synchronously")
+                    return self._save_state()
+                raise
+
+    def cancel_pending_and_save(self) -> None:
+        """Cancel any pending deferred save and do a final synchronous write.
+
+        Must be called during application shutdown BEFORE the event loop
+        closes the default executor. This prevents the RuntimeError:
+        'Executor shutdown has been called' on Python 3.13+.
+        """
+        self._shutting_down = True
+        if self._save_attributes_callback is not None:
+            self._save_attributes_callback.cancel()
+            self._save_attributes_callback = None
+        # Final synchronous save to persist any in-memory changes
+        self._save_state()
+        _LOGGER.debug("StateManager: pending save cancelled, final state written")

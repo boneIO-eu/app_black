@@ -418,6 +418,17 @@ async def async_run(
     finally:
         _LOGGER.info("Cleaning up resources...")
 
+        # Cancel pending deferred state saves and write final state synchronously.
+        # This MUST happen before event_bus.stop() which may trigger sigterm
+        # listeners that call save_attribute() (e.g. covers turning off).
+        # On Python 3.13+, the default executor is shut down after async_run returns,
+        # so any call_later(1, save_state) that fires later would crash with
+        # RuntimeError: Executor shutdown has been called.
+        try:
+            manager._state_manager.cancel_pending_and_save()
+        except Exception as e:
+            _LOGGER.error(f"Error cancelling pending state saves: {e}")
+
         # Trigger web server shutdown if it's running
         if web_server and hasattr(web_server, "trigger_shutdown"):
             try:

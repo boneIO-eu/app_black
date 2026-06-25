@@ -4,6 +4,25 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev5 (2026-06-25)
+
+Critical crash loop fix — application restarted indefinitely (restart counter 87+) on devices with Modbus text sensors (e.g., EHT Topventil Plus).
+
+### 🐛 Bug Fixes
+
+- **ModbusDerivedTextSensor crash loop** — `discovery_message` was decorated with `@property` instead of being a regular method. `BaseEntity.send_ha_discovery()` calls `self.discovery_message()` with parentheses — the property returned a `dict`, then `dict()` raised `TypeError: 'dict' object is not callable`. This crashed the Modbus coordinator task inside `asyncio.gather(FIRST_COMPLETED)`, causing immediate application shutdown and infinite restart loop. Removed the `@property` decorator to make it a regular method, consistent with all other entity classes.
+- **Python 3.13 executor shutdown RuntimeError** — `StateManager.save_state()` was scheduled via `call_later(1, ...)` timer handles that survive `_cancel_all_tasks()` during shutdown. When the timer fired after `shutdown_default_executor()`, `run_in_executor(None, ...)` raised `RuntimeError: Executor shutdown has been called` (new check in Python 3.13). Added `_shutting_down` flag, `try/except RuntimeError` fallback to synchronous write, and new `cancel_pending_and_save()` method for explicit cleanup.
+- **Output relay executor guard** — `BasicOutput.async_turn_on()` and `async_turn_off()` now catch `RuntimeError` from executor shutdown and fall back to synchronous `turn_on()`/`turn_off()` during application exit.
+
+### ♻️ Improvements
+
+- **Graceful shutdown ordering** — `runner.py` cleanup now calls `state_manager.cancel_pending_and_save()` before `event_bus.stop()` to prevent new state saves from being scheduled during shutdown.
+- **Modbus wizard dialog scrollable** — `AddModbusDeviceWizard` dialog is now scrollable (`max-h-[85vh] overflow-y-auto`) with tighter padding for better UX on smaller screens.
+
+**Full Changelog**: https://github.com/boneIO-eu/app_black/compare/v1.5.0dev4...v1.5.0dev5
+
+---
+
 ## v1.5.0dev3 (2026-06-17)
 
 Critical irrigation schedule fix — schedule tasks were permanently killed after the first cycle completed.

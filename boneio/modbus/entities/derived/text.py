@@ -45,7 +45,6 @@ class ModbusDerivedTextSensor(ModbusDerivedEntity):
     def context(self) -> dict:
         return self._context_config
 
-    @property
     def discovery_message(self):
         """Generate Home Assistant discovery message for this entity."""
         kwargs = {
