@@ -113,6 +113,7 @@ class IrrigationController:
         self._schedule = schedule or []
         self._water_sources = water_sources or []
         self._active_water_source_idx: int = 0
+        self._running_water_source: WaterSource | None = None
         self._valve_open_delay_s = max(0, valve_open_delay_s)
         self._valve_overlap_s = max(0, valve_overlap_s)
         self._standby = standby
@@ -435,6 +436,7 @@ class IrrigationController:
         self._cancel_pause_timer()
         await self._stop_current_zone()
         await self._handle_pump_stop_sequence()
+        self._running_water_source = None
         self._state = ControllerState.IDLE
         self._active_zone_idx = None
         self._active_zone_remaining_s = None
@@ -650,7 +652,7 @@ class IrrigationController:
             await self._stop_current_zone()
 
             # Handle valve_open_delay between zones
-            src = self.active_water_source
+            src = self._running_water_source or self.active_water_source
             if self._valve_open_delay_s > 0:
                 if src and src.pump_switch_off_during_valve_open_delay:
                     await self._deactivate_source()
@@ -818,12 +820,17 @@ class IrrigationController:
     async def _activate_source(self) -> bool:
         """Turn ON all outputs of the active water source.
 
+        Locks the source as ``_running_water_source`` so that mid-cycle
+        changes via HA select do not affect which outputs get deactivated
+        during shutdown.
+
         Returns:
             True if source was activated, False if blocked by interlock.
         """
         src = self.active_water_source
         if src is None:
             return True
+        self._running_water_source = src
         try:
             _LOGGER.debug("Irrigation %s: activating source '%s' outputs=%s", self.id, src.id, src.output_ids)
             return await src.activate(timestamp=time.time())
@@ -832,8 +839,13 @@ class IrrigationController:
             return False
 
     async def _deactivate_source(self) -> None:
-        """Turn OFF all outputs of the active water source."""
-        src = self.active_water_source
+        """Turn OFF all outputs of the running water source.
+
+        Uses ``_running_water_source`` (set during activation) instead of
+        ``active_water_source`` so that mid-cycle HA select changes don't
+        cause us to deactivate the wrong source's outputs.
+        """
+        src = self._running_water_source or self.active_water_source
         if src is None:
             return
         try:
@@ -892,8 +904,12 @@ class IrrigationController:
         await self.publish_all_states()
 
     async def _handle_pump_stop_sequence(self) -> None:
-        """Handle pump stop timing according to active water source's delays."""
-        src = self.active_water_source
+        """Handle pump stop timing according to the running water source's delays.
+
+        Uses ``_running_water_source`` to ensure we deactivate the source
+        that was actually used during the cycle, not the one currently selected.
+        """
+        src = self._running_water_source or self.active_water_source
         if src is None:
             return
         if src.pump_stop_valve_delay_s > 0:
@@ -1063,6 +1079,11 @@ class IrrigationController:
     async def set_water_source(self, source_id: str) -> None:
         """Switch active water source by ID.
 
+        If the controller is currently running, the change is deferred.
+        The selected source index is updated and persisted immediately,
+        but ``_running_water_source`` (used for activation/deactivation)
+        remains unchanged until the next cycle starts.
+
         Args:
             source_id: ID of the water source to activate.
         """
@@ -1070,7 +1091,16 @@ class IrrigationController:
             if ws.id == source_id:
                 self._active_water_source_idx = i
                 self._save("active_water_source", source_id)
-                _LOGGER.info("Irrigation %s: water source changed to '%s'", self.id, source_id)
+                if self._state in (ControllerState.RUNNING, ControllerState.PAUSED):
+                    _LOGGER.info(
+                        "Irrigation %s: water source will change to '%s' after current cycle ends "
+                        "(running source '%s' stays active)",
+                        self.id,
+                        source_id,
+                        self._running_water_source.id if self._running_water_source else "none",
+                    )
+                else:
+                    _LOGGER.info("Irrigation %s: water source changed to '%s'", self.id, source_id)
                 await self.publish_all_states()
                 return
         _LOGGER.warning("Irrigation %s: unknown water source '%s'", self.id, source_id)

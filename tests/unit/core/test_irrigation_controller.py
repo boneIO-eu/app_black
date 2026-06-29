@@ -795,6 +795,117 @@ class TestPumpStopDelays:
         assert ctrl.state == ControllerState.IDLE
 
 
+# ── Mid-cycle water source change (regression) ──────────────────────────────
+
+
+class TestMidCycleWaterSourceChange:
+    """Regression: changing water source via HA select during an active cycle
+    must still deactivate the OLD source's outputs on shutdown.
+
+    Bug scenario (before fix):
+      1. Cycle starts with source A → A outputs ON
+      2. User changes HA select to source B → _active_water_source_idx changes
+      3. Cycle ends → shutdown() calls _deactivate_source() which used
+         self.active_water_source (now source B) → B outputs turned OFF (never ON)
+      4. Source A outputs stay ON forever → interlock blocks source B next cycle
+    """
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_shutdown_deactivates_old_source_after_select_change(self, _utc, _timer, _sleep):
+        """After mid-cycle HA select change, shutdown must turn off the source that was activated."""
+        old_output = _mock_valve("old_valve")
+        new_output = _mock_valve("new_valve")
+
+        ws_old = _make_water_source(source_id="deszczowa", outputs=[old_output])
+        ws_new = _make_water_source(source_id="wodociagowa", outputs=[new_output])
+
+        ctrl = _make_controller(water_sources=[ws_old, ws_new])
+        assert ctrl.active_water_source is ws_old
+
+        # Start cycle with "deszczowa"
+        await ctrl.start_full_cycle()
+        old_output.async_turn_on.assert_awaited_once()
+        new_output.async_turn_on.assert_not_awaited()
+
+        # User changes HA select mid-cycle
+        await ctrl.set_water_source("wodociagowa")
+        assert ctrl.active_water_source is ws_new  # select updated
+        assert ctrl._running_water_source is ws_old  # but running source unchanged
+
+        # Shutdown → must turn off OLD source, not new
+        old_output.reset_mock()
+        new_output.reset_mock()
+        await ctrl.shutdown()
+
+        old_output.async_turn_off.assert_awaited()  # OLD source deactivated
+        new_output.async_turn_off.assert_not_awaited()  # NEW source was never ON
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_running_water_source_reset_after_shutdown(self, _utc, _timer, _sleep):
+        """After shutdown, _running_water_source must be None."""
+        output = _mock_valve("valve")
+        ws = _make_water_source(source_id="src", outputs=[output])
+        ctrl = _make_controller(water_sources=[ws])
+
+        await ctrl.start_full_cycle()
+        assert ctrl._running_water_source is ws
+
+        await ctrl.shutdown()
+        assert ctrl._running_water_source is None
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_next_cycle_uses_new_source_after_select_change(self, _utc, _timer, _sleep):
+        """After shutdown + source change, next cycle uses the new source."""
+        old_output = _mock_valve("old_valve")
+        new_output = _mock_valve("new_valve")
+
+        ws_old = _make_water_source(source_id="deszczowa", outputs=[old_output])
+        ws_new = _make_water_source(source_id="wodociagowa", outputs=[new_output])
+
+        ctrl = _make_controller(water_sources=[ws_old, ws_new])
+
+        # First cycle with old source
+        await ctrl.start_full_cycle()
+        await ctrl.shutdown()
+
+        # Change source
+        await ctrl.set_water_source("wodociagowa")
+        old_output.reset_mock()
+        new_output.reset_mock()
+
+        # Second cycle should use new source
+        await ctrl.start_full_cycle()
+        new_output.async_turn_on.assert_awaited_once()
+        old_output.async_turn_on.assert_not_awaited()
+        assert ctrl._running_water_source is ws_new
+
+    @patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock)
+    @patch(f"{MODULE}.async_track_point_in_time", return_value=MagicMock())
+    @patch(f"{MODULE}.utcnow", return_value=FIXED_NOW)
+    async def test_mid_cycle_change_logs_deferred_message(self, _utc, _timer, _sleep):
+        """Changing water source while running should log that it's deferred."""
+        old_output = _mock_valve("old_valve")
+        new_output = _mock_valve("new_valve")
+
+        ws_old = _make_water_source(source_id="deszczowa", outputs=[old_output])
+        ws_new = _make_water_source(source_id="wodociagowa", outputs=[new_output])
+
+        ctrl = _make_controller(water_sources=[ws_old, ws_new])
+        await ctrl.start_full_cycle()
+        assert ctrl.state == ControllerState.RUNNING
+
+        # Source change persisted but running source stays
+        await ctrl.set_water_source("wodociagowa")
+        assert ctrl._active_water_source_idx == 1
+        assert ctrl._running_water_source is ws_old
+
+
 # ── Settings persistence ────────────────────────────────────────────────────
 
 

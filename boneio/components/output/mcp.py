@@ -37,6 +37,8 @@ class MCPOutput(BasicOutput):
         ):
             _LOGGER.warning(f"Interlock active: cannot restore ON state for {self._pin_id} at startup")
             restored_state = False
+            # Fix: also reset the software state that was set in BasicOutput.__init__
+            self._state = OFF
         self._mcp.configure_pin_as_output(self._pin_id, restored_state)
 
     @property

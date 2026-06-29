@@ -6,7 +6,11 @@ in the same group from being active simultaneously.
 Formerly located in: boneio.helper.interlock
 """
 
+import logging
+
 from boneio.const import ON
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SoftwareInterlockManager:
@@ -41,6 +45,18 @@ class SoftwareInterlockManager:
         for group in group_names:
             for other_relay in self.groups.get(group, []):
                 if other_relay is not relay and getattr(other_relay, "state", None) == ON:
+                    # Log which relay is blocking and whether physical state matches
+                    other_id = getattr(other_relay, "id", "?")
+                    physical = getattr(other_relay, "is_active", None)
+                    relay_id = getattr(relay, "id", "?")
+                    _LOGGER.warning(
+                        "Interlock BLOCKED: '%s' cannot turn ON — "
+                        "'%s' in group '%s' has state=ON (physical=%s)",
+                        relay_id,
+                        other_id,
+                        group,
+                        physical,
+                    )
                     return False
         return True
 
