@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "areas": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Area ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Area Name",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "description": "Define areas/rooms for organizing entities in Home Assistant. Each area creates a sub-device linked to the main BoneIO device.",
+      "title": "Areas"
+    }
+  }
+}

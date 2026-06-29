@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "dallas": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Id of bus to use in sensor config.",
+          "title": "Id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/dallas \n Dallas section of boneIO Black. It enables Dallas bus in boneIO Black Kernel.",
+      "title": "Dallas"
+    }
+  }
+}

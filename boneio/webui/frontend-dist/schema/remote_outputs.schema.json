@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "remote_outputs": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Output ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "remote_source": {
+            "type": "string",
+            "enum": [
+              "esphome_api",
+              "can",
+              "mqtt",
+              "wled"
+            ],
+            "examples": [
+              "esphome_api"
+            ],
+            "description": "Remote Source Protocol",
+            "title": "Remote source"
+          },
+          "device_id": {
+            "type": "string",
+            "description": "Remote Device ID",
+            "title": "Device id"
+          },
+          "output_id": {
+            "type": "string",
+            "description": "Output/Entity ID",
+            "title": "Output id"
+          },
+          "output_type": {
+            "type": "string",
+            "default": "switch",
+            "enum": [
+              "switch",
+              "light",
+              "valve"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "Output Type",
+            "title": "Output type"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Forward to Home Assistant",
+            "title": "Show in ha"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area (for HA)",
+            "title": "Area"
+          },
+          "on_disconnect": {
+            "type": "string",
+            "default": "ignore",
+            "enum": [
+              "ignore",
+              "turn_off"
+            ],
+            "examples": [
+              "ignore"
+            ],
+            "description": "On Disconnect Behavior",
+            "title": "On disconnect"
+          },
+          "momentary_turn_on": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Momentary Turn On",
+            "title": "Momentary turn on"
+          },
+          "momentary_turn_off": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Momentary Turn Off",
+            "title": "Momentary turn off"
+          },
+          "adjustable_duration": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Adjustable Duration",
+            "title": "Adjustable duration"
+          },
+          "duration_default": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Default adjustable duration (e.g. \"60s\", \"5min\", \"1h\").",
+            "title": "Duration default"
+          },
+          "duration_min": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Minimum adjustable duration (e.g. \"1s\", \"10s\").",
+            "title": "Duration min"
+          },
+          "duration_max": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "description": "Maximum adjustable duration (e.g. \"3600s\", \"1h\").",
+            "title": "Duration max"
+          },
+          "duration_unit": {
+            "type": "string",
+            "default": "s",
+            "enum": [
+              "s",
+              "min"
+            ],
+            "examples": [
+              "s"
+            ],
+            "description": "Unit displayed on Home Assistant duration slider.",
+            "title": "Duration unit"
+          },
+          "interlock_group": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "default": [],
+            "description": "Interlock Groups",
+            "title": "Interlock group"
+          },
+          "enforce_interlock": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Enforce Interlock on External Changes",
+            "title": "Enforce interlock"
+          }
+        },
+        "required": [
+          "remote_source",
+          "device_id",
+          "output_id"
+        ]
+      },
+      "description": "Remote outputs from ESPHome, CAN, or other remote devices.",
+      "title": "Remote outputs"
+    }
+  }
+}

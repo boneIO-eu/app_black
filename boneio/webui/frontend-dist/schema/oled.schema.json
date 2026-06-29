@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "oled": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "default": {},
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Disable builtin screen.",
+          "title": "Enabled"
+        },
+        "screens": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "default": [
+            "uptime",
+            "network",
+            "ina219",
+            "cpu",
+            "disk",
+            "memory",
+            "swap",
+            "outputs"
+          ],
+          "items": {
+            "enum": [
+              "uptime",
+              "network",
+              "ina219",
+              "cpu",
+              "disk",
+              "memory",
+              "swap",
+              "outputs",
+              "inputs",
+              "extra_sensors",
+              "web"
+            ],
+            "examples": [
+              "uptime"
+            ]
+          }
+        },
+        "extra_screen_sensors": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "items": {
+            "type": [
+              "object",
+              "string"
+            ],
+            "properties": {
+              "sensor_type": {
+                "type": "string",
+                "enum": [
+                  "modbus",
+                  "dallas"
+                ],
+                "examples": [
+                  "modbus"
+                ]
+              },
+              "modbus_id": {
+                "type": "string",
+                "description": "Only needed if sensor type is modbus.",
+                "title": "Modbus id"
+              },
+              "sensor_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sensor_type",
+              "sensor_id"
+            ]
+          },
+          "description": "Extra sensors",
+          "title": "Extra screen sensors"
+        },
+        "screensaver_timeout": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "60s",
+          "description": "How many seconds to wait to enable screensaver. 0 means disable screensaver.",
+          "title": "Screensaver timeout"
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/oled \n Oled section of boneIO Black. It enables oled screen. You'd need enabled: true to make it work.",
+      "title": "Oled"
+    }
+  }
+}

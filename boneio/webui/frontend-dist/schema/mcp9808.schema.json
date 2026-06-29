@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mcp9808": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "default": 24,
+            "description": "Address of I2C device",
+            "title": "Address"
+          },
+          "update_interval": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "filters": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "unit_of_measurement": {
+            "type": "string",
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/mcp9808 \n MCP9808 Sensor list. Older boneIO Black had one MCP9808 instead of LM75on board, which measures temperature.",
+      "title": "Mcp9808"
+    }
+  }
+}

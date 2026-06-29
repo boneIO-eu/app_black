@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "pca9685": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          },
+          "init_sleep": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "0s",
+            "description": "How long to sleep for PCA to initialize.",
+            "title": "Init sleep"
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/pca9685 \n PCA9685 Pin config.",
+      "title": "Pca9685"
+    }
+  }
+}

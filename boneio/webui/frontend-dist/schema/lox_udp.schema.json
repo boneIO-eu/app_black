@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "lox_udp": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Enable Lox UDP protocol",
+          "title": "Enabled"
+        },
+        "host": {
+          "type": "string",
+          "description": "Target host",
+          "title": "Host"
+        },
+        "send_port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 4444,
+          "description": "Port to send UDP messages",
+          "title": "Send port"
+        },
+        "listen_port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 4445,
+          "description": "Port to listen for incoming UDP messages",
+          "title": "Listen port"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "description": "Lox UDP Messaging",
+      "title": "Lox udp"
+    }
+  }
+}

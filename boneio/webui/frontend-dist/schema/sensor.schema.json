@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "sensor": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id to use in HA if needed. Default to address.",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for the sensor in Home Assistant.",
+            "title": "Name"
+          },
+          "area": {
+            "type": "string",
+            "description": "Area/room where the sensor is located. Used for HA device grouping.",
+            "title": "Area"
+          },
+          "platform": {
+            "type": "string",
+            "default": "gpio_onewire",
+            "enum": [
+              "gpio_onewire",
+              "ds2482"
+            ],
+            "examples": [
+              "gpio_onewire"
+            ],
+            "description": "Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.",
+            "title": "Platform"
+          },
+          "address": {
+            "type": "string",
+            "description": "Address of Dallas device (e.g. 28-0000098c7df0)",
+            "title": "Address"
+          },
+          "bus_id": {
+            "type": "string",
+            "description": "DS2482 bus ID (only for ds2482 platform). References ds2482 section id.",
+            "title": "Bus id"
+          },
+          "show_in_ha": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": true,
+            "description": "If you want you can disable discovering this input in HA.",
+            "title": "Show in ha"
+          },
+          "filters": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "default": [
+              {
+                "round": 2
+              }
+            ],
+            "items": {
+              "type": [
+                "object",
+                "string"
+              ]
+            },
+            "description": "List of filters to apply. Allowed filters visible in allowed section.",
+            "title": "Filters"
+          },
+          "update_interval": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          },
+          "unit_of_measurement": {
+            "type": "string",
+            "default": "\u00b0C",
+            "enum": [
+              "\u00b0C",
+              "\u00b0F"
+            ],
+            "examples": [
+              "\u00b0C"
+            ]
+          }
+        },
+        "required": [
+          "address"
+        ]
+      },
+      "description": "Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.",
+      "title": "Sensor"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/boneio_fav.svg" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#570df8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="boneIO" />
+    <link rel="apple-touch-icon" href="/boneio-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>boneIO Black Web UI</title>
+    <script type="module" crossorigin src="/assets/index-D-EXMtm3.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-QTnfLwEv.js">
+    <link rel="modulepreload" crossorigin href="/assets/monaco-61yH0vfd.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-pmGLHP0_.js">
+    <link rel="stylesheet" crossorigin href="/assets/monaco-Br_kD0ds.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-D6g-vdBv.css">
+  </head>
+  <body>
+    <script>
+      // Set theme before React loads to prevent flash of wrong theme
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }
+    </script>
+    <div id="root"></div>
+  </body>
+</html>

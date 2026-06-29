@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "output_group": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Group ID",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display Name",
+            "title": "Name"
+          },
+          "outputs": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "description": "Output IDs",
+            "title": "Outputs"
+          },
+          "all_on_behaviour": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "default": false,
+            "description": "Behaviour if set true toggle when all outputs are on, otherwise if any is on then group is on.",
+            "title": "All on behaviour"
+          },
+          "output_type": {
+            "type": "string",
+            "default": "switch",
+            "enum": [
+              "LIGHT",
+              "Light",
+              "SWITCH",
+              "Switch",
+              "light",
+              "switch"
+            ],
+            "examples": [
+              "switch"
+            ],
+            "description": "If HA discovery is used device if relay is light or switch.",
+            "title": "Output type"
+          }
+        },
+        "required": [
+          "id",
+          "outputs"
+        ]
+      },
+      "description": "https://boneio.eu/docs/black/configuration/output_group \n List of grouped outputs to define. Output has to be defined first in output section!",
+      "title": "Output group"
+    }
+  }
+}

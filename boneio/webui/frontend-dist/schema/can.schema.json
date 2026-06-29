@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "can": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "Enable CAN bus communication.",
+          "title": "Enabled"
+        },
+        "channel": {
+          "type": "string",
+          "default": "can0",
+          "description": "CAN interface name",
+          "title": "Channel"
+        },
+        "bitrate": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 125000,
+          "enum": [
+            10000,
+            20000,
+            50000,
+            100000,
+            125000,
+            250000,
+            500000,
+            1000000
+          ],
+          "examples": [
+            10000
+          ],
+          "description": "CAN bus bitrate in bps",
+          "title": "Bitrate"
+        },
+        "node_id": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": "auto",
+          "description": "CANopen node ID (1-127 or 'auto')",
+          "title": "Node id"
+        },
+        "mode": {
+          "type": "string",
+          "default": "master",
+          "enum": [
+            "master",
+            "slave"
+          ],
+          "examples": [
+            "master"
+          ],
+          "description": "CAN bus mode",
+          "title": "Mode"
+        },
+        "auto_setup": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Auto-setup CAN interface",
+          "title": "Auto setup"
+        },
+        "restart_on_error": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Restart CAN interface on bus-off error",
+          "title": "Restart on error"
+        }
+      },
+      "description": "CAN bus configuration for inter-device communication via CANopen protocol.",
+      "title": "Can"
+    }
+  }
+}

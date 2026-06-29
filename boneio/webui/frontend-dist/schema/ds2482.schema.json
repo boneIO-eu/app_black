@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ds2482": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": "string",
+            "default": 24,
+            "description": "GPIO of I2C SDA",
+            "title": "Address"
+          }
+        }
+      },
+      "description": "https://boneio.eu/docs/black/configuration/ds2482 \n DS2482 section of boneIO Black. It enables DS2482 1 wire extenders, which you can use in sensor: config.",
+      "title": "Ds2482"
+    }
+  }
+}

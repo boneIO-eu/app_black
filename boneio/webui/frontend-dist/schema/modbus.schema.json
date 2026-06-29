@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "modbus": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "uart": {
+          "type": "string",
+          "enum": [
+            "uart1",
+            "uart2",
+            "uart3",
+            "uart4",
+            "uart5"
+          ],
+          "examples": [
+            "uart1"
+          ],
+          "description": "Uart ID to use",
+          "title": "Uart"
+        },
+        "baudrate": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 9600
+        },
+        "stopbits": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 1,
+          "enum": [
+            1,
+            2
+          ],
+          "examples": [
+            1
+          ]
+        },
+        "bytesize": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 8
+        },
+        "parity": {
+          "type": "string",
+          "default": "N",
+          "enum": [
+            "N",
+            "E",
+            "O"
+          ],
+          "examples": [
+            "N"
+          ]
+        },
+        "timeout": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "1500ms",
+          "description": "Response timeout. Increase for slow devices or long cables.",
+          "title": "Timeout"
+        },
+        "inter_device_delay": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-timeperiod": true,
+          "default": "5ms",
+          "description": "Delay between Modbus transactions. Helps with star topology wiring where signal reflections need time to settle. Recommended 5-50ms for star, 0 for daisy-chain.",
+          "title": "Inter device delay"
+        }
+      },
+      "required": [
+        "uart"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/modbus \n Modbus section of boneIO Black. It enables modbus support. You define on which uart it modbus defined. For new boneIO it is uart4. For old boneIO it is uart1.",
+      "title": "Modbus"
+    }
+  }
+}

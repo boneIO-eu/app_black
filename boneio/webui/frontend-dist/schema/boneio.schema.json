@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "boneio": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "config_version": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 0,
+          "description": "Schema version for config migrations. Managed automatically.",
+          "title": "Config version"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of boneio. Default is Black.",
+          "title": "Name"
+        },
+        "version": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "enum": [
+            "0.2",
+            "0.3",
+            "0.4",
+            "0.5",
+            "0.6",
+            "0.7",
+            "0.8",
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8
+          ],
+          "examples": [
+            "0.2"
+          ],
+          "description": "BoneIO Black Hardware version",
+          "title": "Version"
+        },
+        "device_type": {
+          "type": "string",
+          "enum": [
+            "24",
+            "24X16",
+            "24X16A",
+            "24x16",
+            "24x16A",
+            "24x16a",
+            "32",
+            "32X10",
+            "32X10A",
+            "32X5",
+            "32X5A",
+            "32x10",
+            "32x10A",
+            "32x10a",
+            "32x5",
+            "32x5A",
+            "32x5a",
+            "48",
+            "48X4",
+            "48X4A",
+            "48x4",
+            "48x4A",
+            "48x4a",
+            "CM",
+            "COVER",
+            "COVER MIX",
+            "COVER Mix",
+            "COVER mix",
+            "Cm",
+            "Cover",
+            "Cover MIX",
+            "Cover Mix",
+            "Cover mix",
+            "cm",
+            "cover",
+            "cover MIX",
+            "cover Mix",
+            "cover mix"
+          ],
+          "examples": [
+            "32x10A"
+          ],
+          "description": "Predefined device type configuration",
+          "title": "Device type"
+        },
+        "ha_child_devices": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": false,
+          "description": "[EXPERIMENTAL] HA child devices mode",
+          "title": "Ha child devices"
+        },
+        "ha_child_devices_naming": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "device_name",
+            "device_name_area"
+          ],
+          "examples": [
+            "default"
+          ],
+          "description": "Child device naming style",
+          "title": "Ha child devices naming"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "description": "https://boneio.eu/docs/black/0.9.x-dev/configuration/boneio \n BoneIO configuration section. It's new section for boneIO Black. It enables you to use predefined device types. For now only 0.7 and 0.8 devices are supported.",
+      "title": "Boneio"
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mqtt": {
+      "type": [
+        "object",
+        "string"
+      ],
+      "properties": {
+        "enabled": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable MQTT protocol",
+          "title": "Enabled"
+        },
+        "host": {
+          "type": "string",
+          "description": "Mqtt broker hostname or IP address",
+          "title": "Host"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username to connect ot mqtt broker",
+          "title": "Username"
+        },
+        "password": {
+          "type": "string",
+          "description": "Password to mqtt",
+          "title": "Password"
+        },
+        "port": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "default": 1883,
+          "description": "Port to connect to mqtt broker",
+          "title": "Port"
+        },
+        "ha_discovery": {
+          "type": [
+            "object",
+            "string"
+          ],
+          "default": {},
+          "properties": {
+            "enabled": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "yes",
+                    "no",
+                    "true",
+                    "false",
+                    "on",
+                    "off"
+                  ],
+                  "x-yaml-boolean": true
+                }
+              ],
+              "default": true,
+              "description": "Enable HA discovery.",
+              "title": "Enabled"
+            },
+            "topic_prefix": {
+              "type": "string",
+              "default": "homeassistant",
+              "description": "Prefix topic of HA discovery.",
+              "title": "Topic prefix"
+            }
+          },
+          "description": "Ha discovery sub section",
+          "title": "Ha discovery"
+        },
+        "send_boneio_autodiscovery": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable sending BoneIO autodiscovery messages",
+          "title": "Send boneio autodiscovery"
+        },
+        "receive_boneio_autodiscovery": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no",
+                "true",
+                "false",
+                "on",
+                "off"
+              ],
+              "x-yaml-boolean": true
+            }
+          ],
+          "default": true,
+          "description": "Enable receiving BoneIO autodiscovery messages",
+          "title": "Receive boneio autodiscovery"
+        },
+        "update_channel": {
+          "type": "string",
+          "default": "stable",
+          "enum": [
+            "stable",
+            "dev"
+          ],
+          "examples": [
+            "stable"
+          ],
+          "description": "Update channel",
+          "title": "Update channel"
+        }
+      },
+      "required": [
+        "host"
+      ],
+      "description": "https://boneio.eu/docs/black/configuration/mqtt \n Mqtt section of boneIO Black configuration file. It handled connecting to mqtt broker, which then is connected to Home Assistant or other smart home system.",
+      "title": "Mqtt"
+    }
+  }
+}
