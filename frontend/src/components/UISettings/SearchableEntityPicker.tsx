@@ -1,4 +1,10 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { AreaEntity } from '@/types/config';
 import type { EntityItem } from './EntitySelectDropdown';
@@ -26,8 +32,9 @@ interface SearchableEntityPickerProps {
 }
 
 /**
- * Searchable entity picker rendered as an inline dropdown/combobox.
+ * Searchable entity picker rendered as a modal dialog.
  * Features search input, grouping by area, colored badges, and recent items.
+ * Uses Radix Dialog to work correctly inside other dialogs (focus, scroll, position).
  * Drop-in replacement for EntitySelectDropdown with better mobile UX.
  */
 const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
@@ -44,9 +51,6 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const resolvedPlaceholder = placeholder || t('entity_picker.select');
 
@@ -138,58 +142,13 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
     [recentIds, filteredItems]
   );
 
-  // Focus search on open, reset search on close, calculate position
+  // Focus search on open, reset search
   useEffect(() => {
     if (open) {
       setSearch('');
-      // Calculate dropdown position from trigger
-      if (triggerRef.current) {
-        const rect = triggerRef.current.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const maxH = Math.min(400, window.innerHeight * 0.5);
-        // If not enough space below, position above
-        const showAbove = spaceBelow < 200 && rect.top > spaceBelow;
-        setDropdownStyle({
-          position: 'fixed',
-          left: rect.left,
-          width: rect.width,
-          maxHeight: showAbove ? Math.min(maxH, rect.top - 8) : Math.min(maxH, spaceBelow - 8),
-          ...(showAbove
-            ? { bottom: window.innerHeight - rect.top + 4 }
-            : { top: rect.bottom + 4 }),
-          zIndex: 9999,
-        });
-      }
-      const timer = setTimeout(() => searchRef.current?.focus(), 50);
+      const timer = setTimeout(() => searchRef.current?.focus(), 100);
       return () => clearTimeout(timer);
     }
-  }, [open]);
-
-  // Click-outside to close
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClick);
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClick);
-    };
-  }, [open]);
-
-  // Close on Escape key
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
   }, [open]);
 
   /** Handle item selection. */
@@ -237,12 +196,11 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   const showRecent = recentItems.length > 0 && !search.trim();
 
   return (
-    <div ref={containerRef} className="relative">
+    <>
       {/* Trigger button */}
       <button
-        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen(true)}
         className={`
           flex w-full items-center justify-between rounded-lg border border-(--input-border)
           bg-transparent text-left text-sm transition-[color,box-shadow]
@@ -279,14 +237,18 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
         </svg>
       </button>
 
-      {/* Dropdown — position:fixed escapes parent overflow clipping while staying in DOM for focus trap */}
-      {open && (
-        <div
-          style={dropdownStyle}
-          className="rounded-xl border border-base-300 bg-base-100 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col"
+      {/* Entity picker dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="bg-base-100 sm:max-w-md max-h-[85vh] flex flex-col p-0 gap-0"
+          showCloseButton={true}
         >
+          <DialogHeader className="px-4 pt-4 pb-0">
+            <DialogTitle>{resolvedPlaceholder}</DialogTitle>
+          </DialogHeader>
+
           {/* Search input */}
-          <div className="px-3 pt-3 pb-2 border-b border-base-200">
+          <div className="px-4 py-3 border-b border-base-200">
             <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-40"
@@ -303,7 +265,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('entity_picker.search_placeholder')}
-                className="input input-bordered input-sm w-full pl-9 h-9 bg-base-200/50"
+                className="input input-bordered w-full pl-9 h-10 bg-base-200/50"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
@@ -317,7 +279,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
                   }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-base-300 transition-colors"
                 >
-                  <svg className="h-3.5 w-3.5 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="h-4 w-4 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6 6 18M6 6l12 12" />
                   </svg>
                 </button>
@@ -326,26 +288,26 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
           </div>
 
           {/* Results list */}
-          <div className="flex-1 overflow-y-auto px-1.5 py-1.5 min-h-0">
+          <div className="flex-1 overflow-y-auto px-2 py-2 min-h-0">
             {!hasResults && (
-              <div className="text-center py-6 text-base-content/50">
-                <svg className="h-8 w-8 mx-auto mb-1.5 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <div className="text-center py-8 text-base-content/50">
+                <svg className="h-10 w-10 mx-auto mb-2 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="m21 21-4.34-4.34M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" />
                 </svg>
-                <p className="text-sm">{t('entity_picker.no_results')}</p>
+                <p>{t('entity_picker.no_results')}</p>
               </div>
             )}
 
             {/* Recent items section */}
             {showRecent && (
-              <div className="mb-1.5">
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1">
+              <div className="mb-2">
+                <div className="text-xs font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1.5">
                   {t('entity_picker.recent')}
                 </div>
-                <div className="space-y-px">
+                <div className="space-y-0.5">
                   {recentItems.map((item) => renderItem(item))}
                 </div>
-                <div className="border-b border-base-200 mx-2 mt-1.5" />
+                <div className="border-b border-base-200 mx-2 mt-2" />
               </div>
             )}
 
@@ -353,11 +315,11 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
             {hasResults && (
               <>
                 {grouped.sorted.map(([areaName, areaItems]) => (
-                  <div key={areaName} className="mb-1">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1 flex items-center gap-1">
+                  <div key={areaName} className="mb-2">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1.5 flex items-center gap-1">
                       <span>📍</span> {areaName}
                     </div>
-                    <div className="space-y-px">
+                    <div className="space-y-0.5">
                       {areaItems.map((item) => renderItem(item, false))}
                     </div>
                   </div>
@@ -365,13 +327,13 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
 
                 {/* Items without area */}
                 {grouped.noArea.length > 0 && (
-                  <div className="mb-1">
+                  <div className="mb-2">
                     {grouped.sorted.length > 0 && (
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-base-content/40 px-3 py-1.5">
                         {t('entity_picker.no_area')}
                       </div>
                     )}
-                    <div className="space-y-px">
+                    <div className="space-y-0.5">
                       {grouped.noArea.map((item) => renderItem(item))}
                     </div>
                   </div>
@@ -381,15 +343,15 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
           </div>
 
           {/* Item count footer */}
-          <div className="border-t border-base-200 px-3 py-1.5 text-[10px] text-base-content/40 text-center">
+          <div className="border-t border-base-200 px-4 py-2 text-xs text-base-content/40 text-center">
             {search.trim()
               ? t('entity_picker.showing_filtered', { count: searchFiltered.length, total: filteredItems.length })
               : t('entity_picker.total_items', { count: filteredItems.length })
             }
           </div>
-        </div>
-      )}
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
