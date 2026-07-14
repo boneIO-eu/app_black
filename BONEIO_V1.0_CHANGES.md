@@ -38,3 +38,18 @@ W ramach przystosowania oprogramowania do nowej rewizji płytki **v1.0** (która
   - Odczytywanie stanu aktywnego bezpośrednio z sysfs.
   - Bezpieczny fallback w przypadku braku pliku w sysfs (np. w środowisku testowym bez fizycznej płytki).
 - Wszystkie testy jednostkowe aplikacji przechodzą pomyślnie.
+
+## 5. Zmiany w WebUI
+### Sekcja „Ekspandery 1-Wire"
+- Nowa sekcja na sidebar: **🔌 Ekspandery 1-Wire** (wymaga restartu po zmianach).
+- Zarządzanie chipami DS2482/DS2484 I2C-to-1-Wire bridge.
+- Na płytkach **v1.0+**: wbudowany ekspander (0x18, `ds2482_bus`) jest wyświetlany jako **nieedytowalny** i **nieosiągalny do usunięcia**.
+- Użytkownik może dodawać kolejne ekspandery (np. pod adresem 0x19, 0x1A, 0x1B).
+
+### Platforma 1-Wire w sensorach
+- **v1.0+**: W formularzu sensora dostępna jest wyłącznie platforma `DS2482 I2C Bridge` (GPIO 1-Wire fizycznie nie istnieje na płytce).
+- **v0.x**: Obie platformy dostępne — `GPIO 1-Wire (DS18B20)` jako domyślna + `DS2482 I2C Bridge` dla zewnętrznych ekspanderów.
+
+### ConfigContext
+- Dodano flagę `ds2482Supported` (true dla wersji `1.0`+).
+- Wersja `1.0` dodana do `CAN_SUPPORTED_VERSIONS` i `MAX_INPUTS`.
