@@ -14,6 +14,7 @@ Flow:
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -155,6 +156,7 @@ class MigrationRunner:
                 self.status = MigrationStatus.BOOTSTRAP_REQUIRED
                 return self.status
 
+            self._ensure_helper_up_to_date()
             self._apply_pending(pending)
 
         except Exception as exc:
@@ -184,6 +186,7 @@ class MigrationRunner:
             self.status = MigrationStatus.OK
             return True
 
+        self._ensure_helper_up_to_date()
         return self._apply_pending(pending, progress_callback=progress_callback)
 
     def get_status_dict(self) -> dict[str, Any]:
@@ -281,6 +284,85 @@ class MigrationRunner:
     def _helper_installed(self) -> bool:
         """Return True when the helper binary exists and is executable."""
         return os.path.isfile(HELPER_PATH) and os.access(HELPER_PATH, os.X_OK)
+
+    def _ensure_helper_up_to_date(self) -> None:
+        """Auto-update /usr/sbin/boneio-migrate if the bundled version differs.
+
+        Compares SHA256 of the installed helper vs the one shipped in the
+        package. If they differ, sends an ``install_file`` action to the
+        currently installed helper to overwrite itself with the new version.
+        This works because ``sudo -n /usr/sbin/boneio-migrate`` is already
+        allowed in sudoers on all systems.
+        """
+        if not BOOTSTRAP_HELPER_SRC.exists():
+            return
+        if not self._helper_installed():
+            return
+
+        try:
+            installed_hash = hashlib.sha256(
+                Path(HELPER_PATH).read_bytes()
+            ).hexdigest()
+            bundled_hash = hashlib.sha256(
+                BOOTSTRAP_HELPER_SRC.read_bytes()
+            ).hexdigest()
+
+            if installed_hash == bundled_hash:
+                _LOGGER.debug("boneio-migrate helper is up to date.")
+                return
+
+            _LOGGER.info(
+                "boneio-migrate helper outdated (installed=%s, bundled=%s). Updating...",
+                installed_hash[:12],
+                bundled_hash[:12],
+            )
+
+            # Copy the new helper to assets dir so install_file can find it
+            update_asset = ASSETS_DIR / "_helper_update"
+            update_asset.mkdir(parents=True, exist_ok=True)
+            update_src = update_asset / "boneio-migrate"
+            update_src.write_bytes(BOOTSTRAP_HELPER_SRC.read_bytes())
+
+            # Send install_file action to the old helper to overwrite itself
+            plan_payload = {
+                "version": "_helper_update",
+                "actions": [
+                    {
+                        "action": "install_file",
+                        "src": "_helper_update/boneio-migrate",
+                        "dst": HELPER_PATH,
+                        "mode": 0o755,
+                        "owner": "root",
+                        "group": "root",
+                        "template_vars": {},
+                        "expected_sha256": bundled_hash,
+                    }
+                ],
+                "assets_base": str(ASSETS_DIR),
+            }
+
+            result = subprocess.run(
+                ["sudo", "-n", HELPER_PATH],
+                input=json.dumps(plan_payload),
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+            # Clean up temp asset
+            update_src.unlink(missing_ok=True)
+            update_asset.rmdir()
+
+            if result.returncode == 0:
+                _LOGGER.info("boneio-migrate helper updated successfully.")
+            else:
+                _LOGGER.warning(
+                    "Helper self-update failed (rc=%d): %s",
+                    result.returncode,
+                    result.stderr.strip(),
+                )
+        except Exception as exc:
+            _LOGGER.warning("Could not check/update boneio-migrate helper: %s", exc)
 
     def _load_manifest(self) -> None:
         """Load MANIFEST.sha256 from the assets directory."""
