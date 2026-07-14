@@ -1105,10 +1105,10 @@
     "fc16_hint": "Zapisz wiele 16-bitowych wartości do kolejnych rejestrów zaczynając od podanego adresu (Modbus FC16).",
     "fc16_start_register": "Adres Początkowego Rejestru",
     "fc16_values": "Wartości (16-bit)",
-    "fc16_values_hint": "0\u201365535, oddzielone przecinkami",
+    "fc16_values_hint": "0–65535, oddzielone przecinkami",
     "fc16_values_placeholder": "np. 100, 200, 300",
     "fc16_registers_count": "Rejestrów do zapisu",
-    "fc16_invalid_values": "Nieprawidłowe wartości. Wpisz liczby całkowite oddzielone przecinkami (0\u201365535).",
+    "fc16_invalid_values": "Nieprawidłowe wartości. Wpisz liczby całkowite oddzielone przecinkami (0–65535).",
     "fc16_write_button": "Zapisz Rejestry (FC16)",
     "write_multiple_success": "Rejestry zapisane pomyślnie (FC16).",
     "simulator": "Symulator",
@@ -2175,5 +2175,14 @@
     "wanas415": {
       "description": "Rekuperator Wanas"
     }
+  },
+  "entity_picker": {
+    "select": "Wybierz...",
+    "search_placeholder": "Szukaj po nazwie, ID lub strefie...",
+    "no_results": "Nie znaleziono pasujących elementów",
+    "recent": "Ostatnio używane",
+    "no_area": "Bez strefy",
+    "showing_filtered": "{{count}} z {{total}} elementów",
+    "total_items": "{{count}} elementów dostępnych"
   }
 }

@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import EntitySelectDropdown from '../EntitySelectDropdown';
+import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import type { OutputActionProps } from './types';
 import { formatActionLabel } from './helpers';
@@ -16,7 +16,7 @@ const OUTPUT_ONLY_ACTIONS = ['TOGGLE', 'ON', 'OFF'];
 
 /**
  * Output Action component - handles local boneIO outputs.
- * Uses EntitySelectDropdown for output selection with name + area display.
+ * Uses SearchableEntityPicker for output selection with search, area grouping and recent items.
  */
 const OutputAction: React.FC<OutputActionProps> = ({
   action,
@@ -117,12 +117,13 @@ const OutputAction: React.FC<OutputActionProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('event_form.output')}</span>
         </label>
-        <EntitySelectDropdown
+        <SearchableEntityPicker
           value={action.boneio_output || action.pin || ''}
           onChange={(value: string) => handleUpdate('boneio_output', value)}
           items={outputItems}
           allAreas={allAreas}
           placeholder={t('event_form.select_output')}
+          recentKey="outputs"
         />
       </div>
 

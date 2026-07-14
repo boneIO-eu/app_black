@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { normalizeCovers } from '../helpers/coverUtils';
-import EntitySelectDropdown from '../EntitySelectDropdown';
+import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import type { CoverActionProps } from './types';
 
@@ -16,7 +16,7 @@ const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
 
 /**
  * Cover Action component - handles local boneIO covers.
- * Uses EntitySelectDropdown for cover selection with name + area display.
+ * Uses SearchableEntityPicker for cover selection with search and area grouping.
  * Filters tilt-related actions based on the selected cover's platform.
  */
 const CoverAction: React.FC<CoverActionProps> = ({
@@ -79,7 +79,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('event_form.cover')}</span>
         </label>
-        <EntitySelectDropdown
+        <SearchableEntityPicker
           value={selectedCoverId}
           onChange={(value: string) => {
             handleUpdate('boneio_cover', value);
@@ -93,6 +93,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
           items={coverItems}
           allAreas={allAreas}
           placeholder={t('event_form.select_cover')}
+          recentKey="covers"
         />
       </div>
 

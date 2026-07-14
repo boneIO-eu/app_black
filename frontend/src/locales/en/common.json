@@ -1104,10 +1104,10 @@
     "fc16_hint": "Write multiple 16-bit values to consecutive registers starting from the given address (Modbus FC16).",
     "fc16_start_register": "Starting Register Address",
     "fc16_values": "Values (16-bit)",
-    "fc16_values_hint": "0\u201365535, comma-separated",
+    "fc16_values_hint": "0–65535, comma-separated",
     "fc16_values_placeholder": "e.g. 100, 200, 300",
     "fc16_registers_count": "Registers to write",
-    "fc16_invalid_values": "Invalid values. Enter comma-separated integers (0\u201365535).",
+    "fc16_invalid_values": "Invalid values. Enter comma-separated integers (0–65535).",
     "fc16_write_button": "Write Registers (FC16)",
     "write_multiple_success": "Registers written successfully (FC16).",
     "simulator": "Simulator",
@@ -2176,5 +2176,14 @@
     "wanas415": {
       "description": "Wanas heat recovery ventilation unit (rekuperator)"
     }
+  },
+  "entity_picker": {
+    "select": "Select...",
+    "search_placeholder": "Search by name, ID or area...",
+    "no_results": "No matching items found",
+    "recent": "Recent",
+    "no_area": "No area",
+    "showing_filtered": "{{count}} of {{total}} items",
+    "total_items": "{{count}} items available"
   }
 }
