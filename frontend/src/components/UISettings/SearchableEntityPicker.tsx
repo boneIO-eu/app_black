@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { AreaEntity } from '@/types/config';
 import type { EntityItem } from './EntitySelectDropdown';
@@ -47,7 +46,6 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   const searchRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const resolvedPlaceholder = placeholder || t('entity_picker.select');
@@ -167,15 +165,11 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
     }
   }, [open]);
 
-  // Click-outside to close (check both container and portal dropdown)
+  // Click-outside to close
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        containerRef.current && !containerRef.current.contains(target) &&
-        dropdownRef.current && !dropdownRef.current.contains(target)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -285,10 +279,9 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
         </svg>
       </button>
 
-      {/* Dropdown panel — rendered in portal to escape overflow:hidden */}
-      {open && createPortal(
+      {/* Dropdown — position:fixed escapes parent overflow clipping while staying in DOM for focus trap */}
+      {open && (
         <div
-          ref={dropdownRef}
           style={dropdownStyle}
           className="rounded-xl border border-base-300 bg-base-100 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col"
         >
@@ -394,8 +387,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
               : t('entity_picker.total_items', { count: filteredItems.length })
             }
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>
   );
