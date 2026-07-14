@@ -2219,6 +2219,16 @@
     "reset_input": "Resetuj",
     "link": "Połącz",
     "history": "Historia",
-    "button_label": "Tryb Nauki"
+    "button_label": "Tryb Nauki",
+    "cat_output": "Wyjście",
+    "cat_remote_output": "Zdalne Wyjście",
+    "cat_cover": "Roleta",
+    "cat_remote_cover": "Zdalna Roleta",
+    "tab_link": "Nowe Powiązanie",
+    "tab_bindings": "Obecne Powiązania",
+    "select_target": "Wybierz cel...",
+    "bindings_no_input": "Naciśnij przycisk, aby zobaczyć powiązania",
+    "bindings_empty": "Brak skonfigurowanych powiązań dla tego wejścia",
+    "bindings_for": "Powiązania dla {{name}}"
   }
 }

@@ -2220,6 +2220,16 @@
     "reset_input": "Reset",
     "link": "Link",
     "history": "History",
-    "button_label": "Teach Mode"
+    "button_label": "Teach Mode",
+    "cat_output": "Output",
+    "cat_remote_output": "Remote Output",
+    "cat_cover": "Cover",
+    "cat_remote_cover": "Remote Cover",
+    "tab_link": "New Link",
+    "tab_bindings": "Current Bindings",
+    "select_target": "Select target...",
+    "bindings_no_input": "Press a button to see its bindings",
+    "bindings_empty": "No bindings configured for this input",
+    "bindings_for": "Bindings for {{name}}"
   }
 }
