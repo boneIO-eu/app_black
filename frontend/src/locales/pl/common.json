@@ -2184,5 +2184,29 @@
     "no_area": "Bez strefy",
     "showing_filtered": "{{count}} z {{total}} elementów",
     "total_items": "{{count}} elementów dostępnych"
+  },
+  "quick_action": {
+    "title": "Szybka Akcja",
+    "click_type": "Typ kliknięcia",
+    "target_type": "Typ sterowania",
+    "output": "Wyjście",
+    "cover": "Roleta",
+    "select_output": "Wybierz wyjście...",
+    "select_cover": "Wybierz roletę...",
+    "action": "Akcja",
+    "save": "Dodaj Akcję",
+    "saved": "Akcja dodana pomyślnie!",
+    "save_error": "Nie udało się dodać akcji",
+    "click_types": {
+      "single": "Pojedyncze",
+      "double": "Podwójne",
+      "triple": "Potrójne",
+      "long": "Długie",
+      "pressed": "Wciśnięte",
+      "released": "Puszczone",
+      "double_then_long": "Podwójne+Długie",
+      "single_then_long": "Pojedyncze+Długie",
+      "double_then_single": "Podwójne+Pojedyncze"
+    }
   }
 }

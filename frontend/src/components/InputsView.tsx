@@ -7,15 +7,15 @@ import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
-import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi } from 'react-icons/fa';
+import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi, FaBolt } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
+import QuickActionSheet from '@/components/QuickActionSheet';
 
 interface ToastNotification {
   id: string;
@@ -229,6 +229,18 @@ export default function InputsView() {
   const handleLongPress = useCallback((inputEvent: InputEvent) => {
     setLongPressDialog({ open: true, inputEvent });
   }, []);
+
+  // Quick action sheet state
+  const [quickAction, setQuickAction] = useState<{ open: boolean; inputEvent: InputEvent | null }>({
+    open: false,
+    inputEvent: null
+  });
+
+  const handleOpenQuickAction = useCallback(() => {
+    if (!longPressDialog.inputEvent) return;
+    setQuickAction({ open: true, inputEvent: longPressDialog.inputEvent });
+    setLongPressDialog({ open: false, inputEvent: null });
+  }, [longPressDialog.inputEvent]);
 
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.inputEvent) return;
@@ -493,35 +505,44 @@ export default function InputsView() {
         </div>
       )}
 
-      {/* Long press dialog - go to settings */}
+      {/* Long press dialog - choose quick action or go to settings */}
       <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, inputEvent: open ? longPressDialog.inputEvent : null })}>
-        <DialogContent className="sm:max-w-md bg-base-200">
+        <DialogContent className="sm:max-w-sm bg-base-100">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaCog className="w-5 h-5" />
-              {t('inputs.go_to_settings')}
+            <DialogTitle className="text-center">
+              {longPressDialog.inputEvent?.state.name}
             </DialogTitle>
+            <p className="text-xs text-base-content/50 text-center">
+              {longPressDialog.inputEvent?.entity_id}
+            </p>
           </DialogHeader>
-          <div className="py-4">
-            <p>{t('inputs.go_to_settings_confirm')}</p>
-            <p className="font-semibold mt-2">{longPressDialog.inputEvent?.state.name}</p>
-          </div>
-          <DialogFooter className="gap-2">
+          <div className="py-2 space-y-2">
+            {/* Quick Action button */}
             <button
-              className="btn btn-ghost"
-              onClick={() => setLongPressDialog({ open: false, inputEvent: null })}
+              className="btn btn-primary btn-block gap-2 h-14 text-base"
+              onClick={handleOpenQuickAction}
             >
-              {t('common.cancel')}
+              <FaBolt className="w-5 h-5" />
+              {t('quick_action.title')}
             </button>
+            {/* Go to settings button */}
             <button
-              className="btn btn-primary"
+              className="btn btn-ghost btn-block gap-2 h-12"
               onClick={handleGoToSettings}
             >
+              <FaCog className="w-4 h-4" />
               {t('inputs.go_to_settings')}
             </button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Action Sheet */}
+      <QuickActionSheet
+        open={quickAction.open}
+        onOpenChange={(open) => setQuickAction({ open, inputEvent: open ? quickAction.inputEvent : null })}
+        inputEvent={quickAction.inputEvent}
+      />
     </div>
   );
 }

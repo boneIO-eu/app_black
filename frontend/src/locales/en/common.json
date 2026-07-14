@@ -2185,5 +2185,29 @@
     "no_area": "No area",
     "showing_filtered": "{{count}} of {{total}} items",
     "total_items": "{{count}} items available"
+  },
+  "quick_action": {
+    "title": "Quick Action",
+    "click_type": "When button is...",
+    "target_type": "Control type",
+    "output": "Output",
+    "cover": "Cover",
+    "select_output": "Select output...",
+    "select_cover": "Select cover...",
+    "action": "Action",
+    "save": "Add Action",
+    "saved": "Action added successfully!",
+    "save_error": "Failed to add action",
+    "click_types": {
+      "single": "Single",
+      "double": "Double",
+      "triple": "Triple",
+      "long": "Long",
+      "pressed": "Pressed",
+      "released": "Released",
+      "double_then_long": "Double+Long",
+      "single_then_long": "Single+Long",
+      "double_then_single": "Double+Single"
+    }
   }
 }

@@ -1413,3 +1413,142 @@ async def get_lox_commands():
     except Exception as e:
         _LOGGER.error("Failed to generate Lox commands: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate Lox commands: {e}") from e
+
+
+@router.post("/config/quick-action")
+async def add_quick_action(payload: dict = Body(...)):
+    """Add a single action to an input's click type without full section save.
+
+    This is a simplified endpoint for the Quick Action Sheet UI.
+    It reads the current config, finds the input by entity_id, adds or appends
+    the action to the specified click type, and saves the section.
+
+    Expected payload::
+
+        {
+            "entity_id": "in_01",
+            "click_type": "single",        # single/double/long/pressed/released
+            "action_type": "output",        # output/cover
+            "output_id": "OUT_01",          # for output type
+            "cover_id": "cover_01",         # for cover type
+            "action": "TOGGLE"              # TOGGLE/ON/OFF/OPEN/CLOSE/STOP
+        }
+
+    Returns:
+        Status response indicating success or failure.
+    """
+    entity_id = payload.get("entity_id", "").strip()
+    click_type = payload.get("click_type", "").strip()
+    action_type = payload.get("action_type", "output").strip()
+    output_id = payload.get("output_id", "").strip()
+    cover_id = payload.get("cover_id", "").strip()
+    action = payload.get("action", "TOGGLE").strip()
+
+    if not entity_id:
+        raise HTTPException(status_code=422, detail="entity_id is required")
+    if not click_type:
+        raise HTTPException(status_code=422, detail="click_type is required")
+
+    valid_click_types = {
+        "single", "double", "triple", "long",
+        "pressed", "released",
+        "double_then_long", "single_then_long", "double_then_single",
+    }
+    if click_type not in valid_click_types:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid click_type: '{click_type}'. Must be one of {sorted(valid_click_types)}",
+        )
+
+    # Build the action dict
+    if action_type == "cover":
+        if not cover_id:
+            raise HTTPException(status_code=422, detail="cover_id is required for cover action")
+        new_action = {"action_type": "cover", "boneio_cover": cover_id, "action_cover": action}
+    else:
+        if not output_id:
+            raise HTTPException(status_code=422, detail="output_id is required for output action")
+        new_action = {"action_type": "output", "boneio_output": output_id, "action_output": action}
+
+    try:
+        app_state = _get_app_state()
+        config = load_config_from_file(app_state.yaml_config_file)
+
+        # Determine which section the input belongs to (event or binary_sensor)
+        section = None
+        input_index = None
+        for sec_name in ("event", "binary_sensor"):
+            entries = config.get(sec_name, [])
+            if isinstance(entries, list):
+                for idx, entry in enumerate(entries):
+                    if isinstance(entry, dict):
+                        eid = entry.get("id", entry.get("pin", ""))
+                        if str(eid) == entity_id:
+                            section = sec_name
+                            input_index = idx
+                            break
+            if section:
+                break
+
+        if section is None or input_index is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Input '{entity_id}' not found in event or binary_sensor sections",
+            )
+
+        entries = config[section]
+        entry = entries[input_index]
+
+        # Map click_type to YAML key
+        # For event type: actions are under "actions" -> click_type -> list
+        # For binary_sensor: actions are under "actions_on_press" / "actions_on_release"
+        if section == "event":
+            actions_key = f"actions_{click_type}"
+            if actions_key not in entry:
+                entry[actions_key] = []
+            entry[actions_key].append(new_action)
+        else:
+            # binary_sensor uses pressed/released
+            if click_type in ("pressed", "single"):
+                actions_key = "actions_on_press"
+            else:
+                actions_key = "actions_on_release"
+            if actions_key not in entry:
+                entry[actions_key] = []
+            entry[actions_key].append(new_action)
+
+        entries[input_index] = entry
+
+        # Validate actions before saving
+        errors = _validate_section_actions(section, entries)
+        if errors:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Invalid action configuration", "errors": errors},
+            )
+
+        # Save section
+        result = update_config_section(app_state.yaml_config_file, section, entries)
+        if result["status"] == "error":
+            raise HTTPException(status_code=500, detail=result["message"])
+
+        invalidate_config_cache()
+
+        _LOGGER.info(
+            "Quick action added: %s -> %s -> %s %s (%s)",
+            entity_id, click_type, action_type, output_id or cover_id, action,
+        )
+
+        return {
+            "status": "ok",
+            "message": f"Action added to {entity_id} ({click_type})",
+            "section": section,
+            "click_type": click_type,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error adding quick action: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error adding quick action: {e}") from e
+
