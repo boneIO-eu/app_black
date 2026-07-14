@@ -17,7 +17,7 @@ import clsx from 'clsx';
 import {
   FaGraduationCap, FaTimes, FaCheck, FaExclamationTriangle,
   FaHandPointer, FaBolt, FaUndo, FaChevronDown, FaChevronUp,
-  FaLink, FaList,
+  FaLink, FaList, FaHistory
 } from 'react-icons/fa';
 
 /** Click types for event-type inputs. */
@@ -67,12 +67,6 @@ interface TeachModeProps {
 
 /**
  * Teach Mode — full-screen overlay for linking inputs to outputs.
- *
- * Flow:
- * 1. User presses physical button → input detected (left panel)
- * 2. User selects output from categorized picker (right panel)
- * 3. User picks click type + action → "Link"
- * 4. Loop back to step 1 for next input
  */
 const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
   const { t } = useTranslation();
@@ -141,7 +135,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
         }
         setSaveStatus('idle');
         setErrorMessage('');
-        // Collapse left panel on detect to give more space
         setLeftCollapsed(true);
       }
 
@@ -176,7 +169,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
             const eid = String(entry.id || entry.pin || '');
             if (eid !== entityId) continue;
 
-            // Parse actions from all click type keys
             for (const key of Object.keys(entry)) {
               if (!key.startsWith('actions_') && key !== 'actions_on_press' && key !== 'actions_on_release') continue;
 
@@ -204,7 +196,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
     };
 
     fetchBindings();
-  }, [detectedInput, linkCount]); // Re-fetch after new link
+  }, [detectedInput, linkCount]);
 
   // Build categorized entity items
   const localOutputItems: TeachEntityItem[] = useMemo(() => {
@@ -215,9 +207,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
         name: o.state.name || o.state.id || o.entity_id,
         area: o.state.area || undefined,
         badge: o.state.type || undefined,
-        badgeClass: o.state.type === 'light' ? 'badge-warning'
-          : o.state.type === 'switch' ? 'badge-info'
-          : o.state.type === 'valve' ? 'badge-accent'
+        badgeClass: o.state.type === 'light' ? 'badge-warning text-warning-content'
+          : o.state.type === 'switch' ? 'badge-info text-info-content'
+          : o.state.type === 'valve' ? 'badge-accent text-accent-content'
           : 'badge-ghost',
         actionType: 'output',
       }));
@@ -235,7 +227,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           name: o.state.name || entityId,
           area: o.state.area || undefined,
           badge: `🌐 ${o.state.type || 'remote'}`,
-          badgeClass: 'badge-secondary',
+          badgeClass: 'badge-secondary text-secondary-content',
           actionType: 'remote_output',
           remoteDevice,
         };
@@ -249,7 +241,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
         id: c.state.id || c.entity_id,
         name: c.state.name || c.state.id || c.entity_id,
         badge: c.state.kind || 'cover',
-        badgeClass: 'badge-accent',
+        badgeClass: 'badge-accent text-accent-content',
         actionType: 'cover',
       }));
   }, [covers]);
@@ -265,14 +257,13 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           id: entityId,
           name: c.state.name || entityId,
           badge: `🌐 ${c.state.kind || 'cover'}`,
-          badgeClass: 'badge-secondary',
+          badgeClass: 'badge-secondary text-secondary-content',
           actionType: 'remote_cover',
           remoteDevice,
         };
       });
   }, [covers]);
 
-  /** Available categories (only show tabs that have items). */
   const availableCategories = useMemo(() => {
     const cats: { key: TargetCategory; label: string; count: number }[] = [];
     if (localOutputItems.length > 0) cats.push({ key: 'output', label: t('teach_mode.cat_output'), count: localOutputItems.length });
@@ -300,7 +291,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
     [currentItems, targetId]
   );
 
-  /** Save the link. */
   const handleLink = useCallback(async () => {
     if (!detectedInput || !targetId || !selectedItem) return;
 
@@ -381,19 +371,21 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
   const canLink = detectedInput && targetId && selectedItem && saveStatus !== 'saving' && saveStatus !== 'success';
 
   return (
-    <div className="fixed inset-0 z-50 bg-base-100 flex flex-col">
+    <div className="fixed inset-0 z-50 bg-gradient-to-br from-base-100 via-base-100 to-base-200 flex flex-col font-sans">
       {/* Header bar */}
-      <div className="bg-primary text-primary-content px-4 py-3 flex items-center justify-between shadow-lg shrink-0">
+      <div className="bg-gradient-to-r from-primary to-primary-focus text-primary-content px-6 py-4 flex items-center justify-between shadow-xl shrink-0 border-b border-primary/20">
         <div className="flex items-center gap-3">
-          <FaGraduationCap className="w-6 h-6" />
+          <div className="p-2 bg-white/10 rounded-xl">
+            <FaGraduationCap className="w-6 h-6 text-white" />
+          </div>
           <div>
-            <h1 className="text-lg font-bold">{t('teach_mode.title')}</h1>
-            <p className="text-xs opacity-80">
+            <h1 className="text-lg font-bold tracking-tight text-white">{t('teach_mode.title')}</h1>
+            <p className="text-xs text-white/70 font-medium">
               {t('teach_mode.subtitle', { count: linkCount })}
             </p>
           </div>
         </div>
-        <button className="btn btn-sm btn-ghost text-primary-content" onClick={onClose}>
+        <button className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/10" onClick={onClose}>
           <FaTimes className="w-5 h-5" />
         </button>
       </div>
@@ -402,59 +394,71 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left panel — Input detection */}
         <div className={clsx(
-          'border-b md:border-b-0 md:border-r border-base-300 flex flex-col transition-all duration-300',
-          leftCollapsed ? 'md:w-72' : 'md:w-1/2',
+          'border-b md:border-b-0 md:border-r border-base-300 flex flex-col transition-all duration-300 bg-base-100',
+          leftCollapsed ? 'md:w-80 shrink-0' : 'md:w-1/2',
         )}>
           {/* Collapsible header */}
           <button
-            className="p-4 bg-base-200/50 border-b border-base-300 flex items-center justify-between w-full hover:bg-base-200/80 transition-colors"
+            className="p-4 bg-base-200/40 border-b border-base-300 flex items-center justify-between w-full hover:bg-base-200/70 transition-all duration-200"
             onClick={() => setLeftCollapsed(!leftCollapsed)}
           >
-            <h2 className="font-semibold text-sm flex items-center gap-2">
-              <span className="badge badge-primary badge-sm">1</span>
+            <h2 className="font-semibold text-sm flex items-center gap-2 text-base-content/80">
+              <span className="badge badge-primary badge-sm font-bold text-xs">1</span>
               {t('teach_mode.step_1')}
             </h2>
-            {leftCollapsed ? <FaChevronDown className="w-3 h-3 text-base-content/50" /> : <FaChevronUp className="w-3 h-3 text-base-content/50" />}
+            {leftCollapsed ? <FaChevronDown className="w-4.5 h-4.5 text-base-content/40 hover:text-base-content/75" /> : <FaChevronUp className="w-4.5 h-4.5 text-base-content/40 hover:text-base-content/75" />}
           </button>
 
           {!leftCollapsed ? (
-            <div className="flex-1 flex items-center justify-center p-6">
+            <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-b from-transparent to-base-200/10">
               {!detectedInput ? (
-                <div className="text-center space-y-4">
-                  <FaHandPointer className="w-16 h-16 text-base-content/20 mx-auto animate-pulse" />
-                  <p className="text-lg text-base-content/50">{t('teach_mode.waiting')}</p>
-                  <p className="text-sm text-base-content/30">{t('teach_mode.waiting_hint')}</p>
+                <div className="text-center space-y-5 max-w-sm">
+                  <div className="relative inline-flex items-center justify-center">
+                    <span className="absolute inline-flex h-20 w-20 rounded-full bg-primary/10 animate-ping" />
+                    <div className="relative p-6 bg-primary/5 rounded-full border border-primary/10">
+                      <FaHandPointer className="w-12 h-12 text-primary/60" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-bold tracking-tight text-base-content/70">{t('teach_mode.waiting')}</p>
+                    <p className="text-sm text-base-content/40 leading-relaxed">{t('teach_mode.waiting_hint')}</p>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center space-y-4 w-full max-w-sm">
-                  <FaCheck className="w-12 h-12 text-success mx-auto" />
-                  <div>
-                    <h3 className="text-xl font-bold">{detectedInput.state.name}</h3>
-                    <p className="text-sm text-base-content/50">{detectedInput.entity_id}</p>
+                <div className="text-center space-y-6 w-full max-w-sm p-6 rounded-2xl bg-base-100 border border-base-200 shadow-xl shadow-base-200/30">
+                  <div className="inline-flex p-3 bg-success/10 rounded-full text-success">
+                    <FaCheck className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-extrabold tracking-tight">{detectedInput.state.name}</h3>
+                    <p className="text-xs font-mono text-base-content/40 bg-base-200/50 py-1 px-2.5 rounded-md inline-block">{detectedInput.entity_id}</p>
                   </div>
                   <div className={clsx(
-                    'badge badge-lg',
-                    detectedInput.state.state === 'single' && 'badge-success',
-                    detectedInput.state.state === 'double' && 'badge-warning',
-                    detectedInput.state.state === 'long' && 'badge-info',
-                    detectedInput.state.state === 'pressed' && 'badge-success',
-                    detectedInput.state.state === 'released' && 'badge-warning',
+                    'badge badge-lg font-bold text-xs uppercase px-4 py-2 border-0',
+                    detectedInput.state.state === 'single' && 'bg-success/20 text-success',
+                    detectedInput.state.state === 'double' && 'bg-warning/20 text-warning-content',
+                    detectedInput.state.state === 'long' && 'bg-info/20 text-info-content',
+                    detectedInput.state.state === 'pressed' && 'bg-success/20 text-success',
+                    detectedInput.state.state === 'released' && 'bg-warning/20 text-warning-content',
                   )}>
                     {detectedInput.state.state}
                   </div>
 
                   {/* Click type override */}
-                  <div className="form-control">
+                  <div className="form-control space-y-2 pt-2 border-t border-base-100">
                     <label className="label pb-1 justify-center">
-                      <span className="label-text font-medium text-sm">{t('quick_action.click_type')}</span>
+                      <span className="label-text font-semibold text-xs text-base-content/50 uppercase tracking-wider">{t('quick_action.click_type')}</span>
                     </label>
-                    <div className="flex flex-wrap gap-2 justify-center">
+                    <div className="flex flex-wrap gap-1.5 justify-center">
                       {clickTypes.map((ct) => (
                         <button
                           key={ct}
                           type="button"
                           onClick={() => setClickType(ct)}
-                          className={`btn btn-sm ${clickType === ct ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
+                          className={clsx(
+                            'btn btn-xs rounded-lg transition-all duration-200 font-medium px-3',
+                            clickType === ct ? 'btn-primary shadow-sm shadow-primary/20 scale-[1.03]' : 'btn-ghost border border-base-300',
+                          )}
                         >
                           {t(`quick_action.click_types.${ct}`)}
                         </button>
@@ -463,7 +467,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   </div>
 
                   <button
-                    className="btn btn-ghost btn-sm gap-1"
+                    className="btn btn-ghost btn-xs gap-1.5 text-base-content/40 hover:text-base-content/80 mt-2"
                     onClick={() => { setDetectedInput(null); setSaveStatus('idle'); setLeftCollapsed(false); }}
                   >
                     <FaUndo className="w-3 h-3" />
@@ -474,59 +478,62 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
             </div>
           ) : detectedInput ? (
             /* Collapsed state with detected input summary */
-            <div className="p-3 flex items-center gap-3">
-              <FaCheck className="w-5 h-5 text-success shrink-0" />
-              <div className="min-w-0">
-                <p className="font-semibold text-sm truncate">{detectedInput.state.name}</p>
-                <p className="text-xs text-base-content/50 truncate">{detectedInput.entity_id}</p>
+            <div className="p-4 flex items-center gap-3 bg-primary/5 border-b border-primary/10">
+              <div className="p-2 bg-success/15 rounded-lg text-success shrink-0">
+                <FaCheck className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm truncate text-base-content">{detectedInput.state.name}</p>
+                <p className="text-xxs font-mono text-base-content/40 truncate">{detectedInput.entity_id}</p>
               </div>
               <div className={clsx(
-                'badge badge-sm shrink-0',
-                detectedInput.state.state === 'single' && 'badge-success',
-                detectedInput.state.state === 'double' && 'badge-warning',
-                detectedInput.state.state === 'long' && 'badge-info',
+                'badge badge-sm font-bold text-xxs uppercase shrink-0',
+                detectedInput.state.state === 'single' && 'bg-success/20 text-success border-0',
+                detectedInput.state.state === 'double' && 'bg-warning/20 text-warning-content border-0',
+                detectedInput.state.state === 'long' && 'bg-info/20 text-info-content border-0',
               )}>
                 {clickType}
               </div>
               <button
-                className="btn btn-ghost btn-xs ml-auto shrink-0"
+                className="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content/80 shrink-0"
                 onClick={() => { setDetectedInput(null); setSaveStatus('idle'); setLeftCollapsed(false); }}
               >
                 <FaUndo className="w-3 h-3" />
               </button>
             </div>
           ) : (
-            <div className="p-3 text-sm text-base-content/40 text-center">
+            <div className="p-5 text-sm text-base-content/40 text-center flex items-center justify-center gap-2">
+              <span className="loading loading-ring loading-xs" />
               {t('teach_mode.waiting')}
             </div>
           )}
         </div>
 
         {/* Right panel — Output selection + Bindings */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 bg-base-200/30">
           {/* Tab bar */}
-          <div className="flex border-b border-base-300 bg-base-200/50 shrink-0">
+          <div className="flex border-b border-base-300 bg-base-100 shadow-sm shrink-0 px-2">
             <button
               className={clsx(
-                'flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors',
-                rightTab === 'link' ? 'border-primary text-primary' : 'border-transparent text-base-content/50 hover:text-base-content',
+                'flex-1 py-3.5 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-all duration-200',
+                rightTab === 'link' ? 'border-primary text-primary font-bold' : 'border-transparent text-base-content/50 hover:text-base-content/85',
               )}
               onClick={() => setRightTab('link')}
             >
-              <FaBolt className="w-3 h-3" />
+              <FaBolt className="w-3.5 h-3.5" />
               {t('teach_mode.tab_link')}
             </button>
             <button
               className={clsx(
-                'flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 border-b-2 transition-colors',
-                rightTab === 'bindings' ? 'border-primary text-primary' : 'border-transparent text-base-content/50 hover:text-base-content',
+                'flex-1 py-3.5 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-all duration-200',
+                rightTab === 'bindings' ? 'border-primary text-primary font-bold' : 'border-transparent text-base-content/50 hover:text-base-content/85',
               )}
               onClick={() => setRightTab('bindings')}
             >
-              <FaList className="w-3 h-3" />
+              <FaList className="w-3.5 h-3.5" />
               {t('teach_mode.tab_bindings')}
               {bindings.length > 0 && (
-                <span className="badge badge-xs badge-primary">{bindings.length}</span>
+                <span className="badge badge-sm badge-primary text-xxs font-bold px-1.5">{bindings.length}</span>
               )}
             </button>
           </div>
@@ -534,44 +541,56 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           {/* Tab content */}
           {rightTab === 'link' ? (
             /* Link tab */
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-2xl mx-auto w-full">
               {/* Category tabs */}
-              <div className="flex flex-wrap gap-1">
-                {availableCategories.map(({ key, label, count }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => { setTargetCategory(key); setTargetId(''); setActionValue('TOGGLE'); }}
-                    className={clsx(
-                      'btn btn-sm gap-1',
-                      targetCategory === key ? 'btn-primary' : 'btn-ghost border border-base-300',
-                    )}
-                  >
-                    {label}
-                    <span className="badge badge-xs badge-ghost">{count}</span>
-                  </button>
-                ))}
+              <div className="space-y-2">
+                <label className="label-text font-semibold text-xs text-base-content/50 uppercase tracking-wider block">
+                  {t('teach_mode.step_2')}
+                </label>
+                <div className="flex flex-wrap gap-1.5 bg-base-100 p-1.5 rounded-xl border border-base-200 shadow-sm">
+                  {availableCategories.map(({ key, label, count }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setTargetCategory(key); setTargetId(''); setActionValue('TOGGLE'); }}
+                      className={clsx(
+                        'btn btn-sm rounded-lg flex-1 gap-1.5 font-medium transition-all duration-200',
+                        targetCategory === key
+                          ? 'btn-primary shadow-sm shadow-primary/10'
+                          : 'btn-ghost text-base-content/60 hover:bg-base-200/50',
+                      )}
+                    >
+                      {label}
+                      <span className={clsx(
+                        'badge badge-xs font-semibold',
+                        targetCategory === key ? 'bg-primary-content text-primary border-0' : 'badge-ghost',
+                      )}>{count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Entity picker */}
-              <SearchableEntityPicker
-                value={targetId}
-                onChange={setTargetId}
-                items={currentItems}
-                placeholder={t('teach_mode.select_target')}
-                recentKey={targetCategory}
-              />
+              <div className="space-y-2">
+                <SearchableEntityPicker
+                  value={targetId}
+                  onChange={setTargetId}
+                  items={currentItems}
+                  placeholder={t('teach_mode.select_target')}
+                  recentKey={targetCategory}
+                />
+              </div>
 
               {/* Action selector */}
-              <div className="form-control">
-                <label className="label pb-1">
-                  <span className="label-text font-medium text-sm">{t('quick_action.action')}</span>
+              <div className="form-control space-y-2">
+                <label className="label-text font-semibold text-xs text-base-content/50 uppercase tracking-wider">
+                  {t('quick_action.action')}
                 </label>
                 <Select value={actionValue} onValueChange={setActionValue}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full bg-base-100 border-base-200 shadow-sm rounded-xl h-11">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-base-100">
+                  <SelectContent className="bg-base-100 border-base-200">
                     {actionOptions.map((opt) => (
                       <SelectItem key={opt} value={opt}>
                         {opt}
@@ -583,7 +602,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
               {/* Link button */}
               <button
-                className="btn btn-primary btn-block gap-2 h-14 text-base"
+                className="btn btn-primary btn-block gap-2 h-13 text-base font-semibold shadow-lg shadow-primary/20 rounded-xl transition-all duration-200 active:scale-[0.98]"
                 disabled={!canLink}
                 onClick={handleLink}
               >
@@ -591,7 +610,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   <span className="loading loading-spinner loading-sm" />
                 ) : (
                   <>
-                    <FaLink className="w-5 h-5" />
+                    <FaLink className="w-4 h-4" />
                     {t('teach_mode.link')}
                   </>
                 )}
@@ -599,13 +618,13 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
               {/* Status messages */}
               {saveStatus === 'error' && errorMessage && (
-                <div className="alert alert-error text-sm py-2">
+                <div className="alert alert-error text-sm py-3 rounded-xl border border-error/10 shadow-sm">
                   <FaExclamationTriangle className="w-4 h-4" />
                   <span>{errorMessage}</span>
                 </div>
               )}
               {saveStatus === 'success' && (
-                <div className="alert alert-success text-sm py-2">
+                <div className="alert alert-success text-sm py-3 rounded-xl border border-success/10 shadow-sm">
                   <FaCheck className="w-4 h-4" />
                   <span>{t('quick_action.saved')}</span>
                 </div>
@@ -613,35 +632,37 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
             </div>
           ) : (
             /* Bindings tab */
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
               {!detectedInput ? (
-                <div className="text-center text-base-content/40 py-8">
-                  <FaList className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p>{t('teach_mode.bindings_no_input')}</p>
+                <div className="text-center text-base-content/40 py-12 bg-base-100 rounded-2xl border border-dashed border-base-300">
+                  <FaList className="w-10 h-10 mx-auto mb-3 opacity-25" />
+                  <p className="font-medium text-sm">{t('teach_mode.bindings_no_input')}</p>
                 </div>
               ) : bindingsLoading ? (
-                <div className="flex justify-center py-8">
-                  <span className="loading loading-spinner loading-md" />
+                <div className="flex justify-center py-12">
+                  <span className="loading loading-ring loading-md text-primary" />
                 </div>
               ) : bindings.length === 0 ? (
-                <div className="text-center text-base-content/40 py-8">
-                  <FaList className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p>{t('teach_mode.bindings_empty')}</p>
+                <div className="text-center text-base-content/40 py-12 bg-base-100 rounded-2xl border border-dashed border-base-300">
+                  <FaList className="w-10 h-10 mx-auto mb-3 opacity-25" />
+                  <p className="font-medium text-sm">{t('teach_mode.bindings_empty')}</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-base-content/50 mb-3">
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">
                     {t('teach_mode.bindings_for', { name: detectedInput.state.name })}
                   </p>
-                  {bindings.map((b, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-base-200 rounded-lg px-3 py-2 text-sm">
-                      <span className="badge badge-sm badge-primary">{b.clickType}</span>
-                      <span className="text-base-content/50">→</span>
-                      <span className="badge badge-sm badge-ghost">{b.actionType}</span>
-                      <span className="font-medium truncate flex-1">{b.target}</span>
-                      <span className="badge badge-sm badge-outline">{b.action}</span>
-                    </div>
-                  ))}
+                  <div className="space-y-2">
+                    {bindings.map((b, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-base-100 border border-base-200 shadow-sm rounded-xl px-4 py-3 text-sm hover:border-base-300 transition-colors">
+                        <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{b.clickType}</span>
+                        <span className="text-base-content/30 font-medium">→</span>
+                        <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{b.actionType}</span>
+                        <span className="font-bold text-base-content/80 truncate flex-1 font-mono text-xs">{b.target}</span>
+                        <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{b.action}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -651,24 +672,31 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
       {/* Bottom log panel */}
       {log.length > 0 && (
-        <div className="border-t border-base-300 bg-base-200/50 max-h-40 overflow-y-auto shrink-0">
-          <div className="p-2 px-4">
-            <h3 className="text-xs font-semibold text-base-content/50 mb-1">{t('teach_mode.history')}</h3>
-            <div className="space-y-1">
+        <div className="border-t border-base-300 bg-base-100 shrink-0 shadow-2xl">
+          <div className="p-3 px-6 max-h-40 overflow-y-auto">
+            <h3 className="text-xxs font-bold text-base-content/40 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <FaHistory className="w-3 h-3" />
+              {t('teach_mode.history')}
+            </h3>
+            <div className="space-y-1.5">
               {log.slice(0, 10).map((entry) => (
                 <div
                   key={entry.id}
                   className={clsx(
-                    'text-xs py-1 px-2 rounded flex items-center gap-2',
-                    entry.status === 'success' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
+                    'text-xs py-2 px-3 rounded-lg flex items-center gap-3 border shadow-sm transition-all duration-200',
+                    entry.status === 'success' 
+                      ? 'bg-success/5 border-success/10 text-success' 
+                      : 'bg-error/5 border-error/10 text-error'
                   )}
                 >
-                  {entry.status === 'success' ? <FaCheck className="w-3 h-3 shrink-0" /> : <FaExclamationTriangle className="w-3 h-3 shrink-0" />}
-                  <span className="font-medium">{entry.inputName}</span>
-                  <span className="opacity-60">→</span>
-                  <span>{entry.targetName}</span>
-                  <span className="badge badge-xs badge-ghost">{entry.clickType}</span>
-                  <span className="badge badge-xs badge-ghost">{entry.action}</span>
+                  {entry.status === 'success' ? <FaCheck className="w-3.5 h-3.5 shrink-0" /> : <FaExclamationTriangle className="w-3.5 h-3.5 shrink-0" />}
+                  <span className="font-bold text-base-content/85">{entry.inputName}</span>
+                  <span className="opacity-50 font-medium">→</span>
+                  <span className="font-semibold text-base-content/85">{entry.targetName}</span>
+                  <div className="flex items-center gap-1 ml-auto shrink-0 font-bold text-xxs uppercase">
+                    <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{entry.clickType}</span>
+                    <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{entry.action}</span>
+                  </div>
                 </div>
               ))}
             </div>
