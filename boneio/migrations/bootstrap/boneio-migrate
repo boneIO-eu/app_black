@@ -58,6 +58,7 @@ ALLOWED_ACTIONS = {
     "systemctl_restart",
     "systemctl_reload",
     "append_line_if_missing",
+    "ufw_allow",
 }
 
 
@@ -298,6 +299,40 @@ def handle_append_line_if_missing(action: dict[str, Any], assets_base: str) -> N
     _LOGGER.info("APPENDED: %s to %s", line, path)
 
 
+def handle_ufw_allow(action: dict[str, Any], assets_base: str) -> None:
+    """Allow a port/protocol through UFW firewall (idempotent).
+
+    Checks ``ufw status`` first; if the rule already exists, it is skipped.
+
+    Args:
+        action: Action dict with port, proto, and optional comment.
+        assets_base: Unused.
+    """
+    port = int(action["port"])
+    proto = action.get("proto", "udp")
+    comment = action.get("comment", "")
+    rule_spec = f"{port}/{proto}"
+
+    # Check if rule already exists
+    result = subprocess.run(
+        ["ufw", "status"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode == 0 and rule_spec in result.stdout:
+        _LOGGER.info("SKIP (rule exists): ufw allow %s", rule_spec)
+        return
+
+    # Add the rule
+    cmd = ["ufw", "allow", rule_spec]
+    if comment:
+        cmd.extend(["comment", comment])
+
+    _LOGGER.info("ufw allow %s", rule_spec)
+    subprocess.run(cmd, check=True, timeout=15)
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -311,6 +346,7 @@ ACTION_HANDLERS = {
     "systemctl_restart": handle_systemctl_restart,
     "systemctl_reload": handle_systemctl_reload,
     "append_line_if_missing": handle_append_line_if_missing,
+    "ufw_allow": handle_ufw_allow,
 }
 
 

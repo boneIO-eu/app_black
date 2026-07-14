@@ -154,7 +154,9 @@ async def async_run(
     _config_helper = ConfigHelper(
         name=main_config.get(NAME, BONEIO),
         device_type=main_config.get("device_type", "boneIO Black"),
+        version=main_config.get("version", "0.8"),
         network_info=network_state,
+
         is_web_active=web_active,
         web_port=web_config.get("port", 8090),
         proxy_port=web_config.get("proxy_port"),

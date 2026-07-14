@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +40,13 @@ class LoxUDPProtocol(asyncio.DatagramProtocol):
     def connection_made(self, transport: asyncio.DatagramTransport) -> None:
         """Handle connection established."""
         self.transport = transport
+        sock = transport.get_extra_info("socket")
+        sockname = transport.get_extra_info("sockname")
+        _LOGGER.info(
+            "Lox UDP protocol connection established, socket=%s, bound=%s",
+            sock,
+            sockname,
+        )
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
         """Handle incoming datagram.
@@ -56,9 +64,30 @@ class LoxUDPProtocol(asyncio.DatagramProtocol):
                 device = message
                 payload = "pressed"
 
-            self._loop.create_task(self._callback(device, payload))
+            task = self._loop.create_task(self._callback(device, payload))
+            task.add_done_callback(self._task_done)
         except Exception as e:
             _LOGGER.error("Error processing Lox UDP datagram: %s", e)
+
+    def error_received(self, exc: Exception) -> None:
+        """Handle protocol-level errors (e.g. ICMP port unreachable)."""
+        _LOGGER.warning("Lox UDP protocol error received: %s", exc)
+
+    def connection_lost(self, exc: Exception | None) -> None:
+        """Handle connection lost."""
+        if exc:
+            _LOGGER.error("Lox UDP connection lost with error: %s", exc)
+        else:
+            _LOGGER.info("Lox UDP connection closed")
+
+    @staticmethod
+    def _task_done(task: asyncio.Task) -> None:
+        """Log unhandled exceptions from fire-and-forget callback tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            _LOGGER.error("Lox UDP callback task failed: %s", exc, exc_info=exc)
 
 
 class LoxUDPClient(MessageBus):
@@ -228,15 +257,26 @@ class LoxUDPClient(MessageBus):
         """Start UDP server and client."""
         try:
             loop = asyncio.get_running_loop()
+            _LOGGER.info(
+                "Lox UDP: creating datagram endpoint on 0.0.0.0:%s (AF_INET) ...",
+                self.listen_port,
+            )
             transport, protocol = await loop.create_datagram_endpoint(
                 lambda: LoxUDPProtocol(self._handle_incoming),
                 local_addr=("0.0.0.0", self.listen_port),
+                family=socket.AF_INET,
+                reuse_port=True,
             )
             self._transport = transport
             self._state = True
+
+            # Log actual bound address for diagnostics
+            sock = transport.get_extra_info("socket")
+            sockname = transport.get_extra_info("sockname")
             _LOGGER.info(
-                "Lox UDP client started. Listening on port %s, sending to %s:%s",
-                self.listen_port,
+                "Lox UDP client started. Listening on %s (fd=%s), sending to %s:%s",
+                sockname,
+                sock.fileno() if sock else "?",
                 self.host,
                 self.send_port,
             )
@@ -250,7 +290,7 @@ class LoxUDPClient(MessageBus):
         except asyncio.CancelledError:
             _LOGGER.info("Lox UDP client shutting down...")
         except Exception as e:
-            _LOGGER.error("Failed to start Lox UDP client: %s", e)
+            _LOGGER.error("Failed to start Lox UDP client: %s", e, exc_info=True)
             self._state = False
         finally:
             if self._transport:

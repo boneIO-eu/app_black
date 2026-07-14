@@ -17,6 +17,7 @@ import time
 from typing import TYPE_CHECKING, Any, Literal
 
 from boneio.components.output.basic import BasicOutput
+from boneio.components.output.buzzer import BuzzerOutput
 from boneio.components.output.mcp import MCPOutput
 from boneio.components.output.pca import PWMOutput
 from boneio.components.output.pcf import PCFOutput
@@ -386,6 +387,16 @@ class OutputManager:
             OutputClass = BasicOutput
             extra_args = {
                 "pin": config.pop(PIN),
+            }
+        elif output_kind == "buzzer":
+            expander_id = "buzzer"
+            if "buzzer" not in self.grouped_outputs_by_expander:
+                self.grouped_outputs_by_expander["buzzer"] = {}
+            OutputClass = BuzzerOutput
+            sysfs_path = config.pop("sysfs_path", "/sys/class/leds/boneio:buzzer/brightness")
+            extra_args = {
+                "sysfs_path": sysfs_path,
+                "output_type": output_type,
             }
         else:
             _LOGGER.error("Unknown output kind: %s", output_kind)

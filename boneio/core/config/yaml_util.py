@@ -344,6 +344,11 @@ def merge_board_config(config: dict) -> dict:
     if "mcp23017" not in config and "mcp23017" in board_config:
         config["mcp23017"] = board_config["mcp23017"]
 
+    # Copy DS2482 configuration if not already defined
+    if "ds2482" not in config and "ds2482" in board_config:
+        config["ds2482"] = board_config["ds2482"]
+
+
     # Process outputs
     if board_name == "cover" and "output" not in config:
         output_mapping = board_config.get("output_mapping", {})

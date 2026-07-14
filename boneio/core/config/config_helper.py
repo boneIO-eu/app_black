@@ -38,6 +38,7 @@ class ConfigHelper:
         self,
         name: str = BONEIO,
         device_type: str = "boneIO Black",
+        version: str = "0.8",
         ha_discovery: bool = True,
         ha_discovery_prefix: str = HOMEASSISTANT,
         network_info: dict | None = None,
@@ -54,6 +55,7 @@ class ConfigHelper:
         ha_child_devices_naming: str = "default",
     ):
         self._name = name
+        self._version = version
         
         # Generate serial number from MAC - always required for topic prefix
         self._serial_no = get_serial_from_mac(network_info or {})
@@ -89,6 +91,7 @@ class ConfigHelper:
         self._web_port = web_port
         self._proxy_port = proxy_port
         self._fetch_old_discovery = None
+
         self._autodiscovery_messages = {
             SWITCH: {},
             LIGHT: {},
@@ -206,8 +209,14 @@ class ConfigHelper:
         return self._ha_discovery
 
     @property
+    def version(self) -> str:
+        """Get the board version."""
+        return self._version
+
+    @property
     def ha_discovery_prefix(self) -> str:
         return self._ha_discovery_prefix
+
 
     @property
     def send_boneio_autodiscovery(self) -> bool:

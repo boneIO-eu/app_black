@@ -210,6 +210,40 @@ class AppendLineIfMissing(MigrationAction):
 
 
 # ---------------------------------------------------------------------------
+# UFW firewall rules
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class UfwAllow(MigrationAction):
+    """Allow a port/protocol through UFW firewall (idempotent).
+
+    Runs ``ufw allow <port>/<proto> comment <comment>`` only if the rule
+    is not already present in ``ufw status``.
+
+    Args:
+        port: Port number to allow.
+        proto: Protocol (``"tcp"``, ``"udp"``, or ``"any"``).
+        comment: Human-readable comment stored in UFW rules.
+    """
+
+    port: int
+    proto: str = "udp"
+    comment: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        d: dict[str, Any] = {
+            "action": "ufw_allow",
+            "port": self.port,
+            "proto": self.proto,
+        }
+        if self.comment:
+            d["comment"] = self.comment
+        return d
+
+
+# ---------------------------------------------------------------------------
 # Helper utilities (used by runner, not sent to boneio-migrate)
 # ---------------------------------------------------------------------------
 

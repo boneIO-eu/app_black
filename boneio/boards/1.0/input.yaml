@@ -1,0 +1,202 @@
+input_mapping:
+  in_01:
+    pin: P8_37
+    gpiochip: 1
+    line: 14
+  in_02:
+    pin: P8_38
+    gpiochip: 1
+    line: 15
+  in_03:
+    pin: P8_39
+    gpiochip: 1
+    line: 12
+  in_04:
+    pin: P8_40
+    gpiochip: 1
+    line: 13
+  in_05:
+    pin: P8_41
+    gpiochip: 1
+    line: 10
+    #PU
+  in_06:
+    pin: P8_42
+    gpiochip: 1
+    line: 11
+    #PU
+  in_07:
+    pin: P8_43
+    gpiochip: 1
+    line: 8
+    #PU
+  in_08:
+    pin: P8_44
+    gpiochip: 1
+    line: 9
+  in_09:
+    pin: P8_45
+    gpiochip: 1
+    line: 6
+  in_10:
+    pin: P8_46
+    gpiochip: 1
+    line: 7
+  in_11:
+    pin: P9_42
+    gpiochip: 3
+    line: 7
+  in_12:
+    pin: P9_31
+    gpiochip: 2
+    line: 14
+  in_13:
+    pin: P9_30
+    gpiochip: 2
+    line: 16
+  in_14:
+    pin: P9_29
+    gpiochip: 2
+    line: 15
+  in_15:
+    pin: P9_28
+    gpiochip: 2
+    line: 17
+  in_16:
+    pin: P9_27
+    gpiochip: 2
+    line: 19
+  in_17:
+    pin: P9_25
+    gpiochip: 2
+    line: 21
+  in_18:
+    pin: P9_23
+    gpiochip: 0
+    line: 17
+  in_19:
+    pin: P9_22
+    gpiochip: 3
+    line: 2
+  in_20:
+    pin: P9_21
+    gpiochip: 3
+    line: 3
+  in_21:
+    pin: P9_18
+    gpiochip: 3
+    line: 4
+  in_22:
+    pin: P9_17
+    gpiochip: 3
+    line: 5
+  in_23:
+    pin: P9_16
+    gpiochip: 0
+    line: 19
+  in_24:
+    pin: P9_15
+    gpiochip: 0
+    line: 16
+  in_25:
+    pin: P9_14
+    gpiochip: 0
+    line: 18
+  in_26:
+    pin: P8_7
+    gpiochip: 1
+    line: 2
+  in_27:
+    pin: P8_8
+    gpiochip: 1
+    line: 3
+  in_28:
+    pin: P8_9
+    gpiochip: 1
+    line: 5
+  in_29:
+    pin: P8_36
+    gpiochip: 1
+    line: 16
+  in_30:
+    pin: P8_35
+    gpiochip: 3
+    line: 8
+  in_31:
+    pin: P8_34
+    gpiochip: 1
+    line: 17
+  in_32:
+    pin: P8_33
+    gpiochip: 3
+    line: 9
+  in_33:
+    pin: P8_32
+    gpiochip: 3
+    line: 11
+  in_34:
+    pin: P8_31
+    gpiochip: 3
+    line: 10
+  in_35:
+    pin: P8_30
+    gpiochip: 1
+    line: 25
+    ##
+  in_36:
+    pin: P8_29
+    gpiochip: 1
+    line: 23
+  in_37:
+    pin: P8_28
+    gpiochip: 1
+    line: 24
+  in_38:
+    pin: P8_27
+    gpiochip: 1
+    line: 22
+  in_39:
+    pin: P8_26
+    gpiochip: 0
+    line: 29
+    ##
+  in_40:
+    pin: P8_19
+    gpiochip: 3
+    line: 22
+  in_41:
+    pin: P8_18
+    gpiochip: 1
+    line: 1
+  in_42:
+    pin: P8_17
+    gpiochip: 3
+    line: 27
+  in_43:
+    pin: P8_16
+    gpiochip: 0
+    line: 14
+  in_44:
+    pin: P8_15
+    gpiochip: 0
+    line: 15
+  in_45:
+    pin: P8_14
+    gpiochip: 3
+    line: 26
+  in_46:
+    pin: P8_13
+    gpiochip: 3
+    line: 23
+  in_47:
+    pin: P8_12
+    gpiochip: 0
+    line: 12
+  in_48:
+    pin: P8_11
+    gpiochip: 0
+    line: 13
+  in_49:
+    pin: P8_10
+    gpiochip: 1
+    line: 4

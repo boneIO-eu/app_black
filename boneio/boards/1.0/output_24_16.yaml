@@ -1,0 +1,132 @@
+mcp23017:
+- id: mcp_left
+  address: 35
+- id: mcp_right
+  address: 36
+output_mapping:
+  out_01:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 8
+    output_type: switch
+  out_02:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 9
+    output_type: switch
+  out_03:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 10
+    output_type: switch
+  out_04:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 11
+    output_type: switch
+  out_05:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 12
+    output_type: switch
+  out_06:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 13
+    output_type: switch
+  out_07:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 14
+    output_type: switch
+  out_08:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 15
+    output_type: switch
+  out_09:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 8
+    output_type: switch
+  out_10:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 9
+    output_type: switch
+  out_11:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 10
+    output_type: switch
+  out_12:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 11
+    output_type: switch
+  out_13:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 7
+    output_type: switch
+  out_14:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 6
+    output_type: switch
+  out_15:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 5
+    output_type: switch
+  out_16:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 4
+    output_type: switch
+  out_17:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 3
+    output_type: switch
+  out_18:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 2
+    output_type: switch
+  out_19:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 1
+    output_type: switch
+  out_20:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 0
+    output_type: switch
+  out_21:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 12
+    output_type: switch
+  out_22:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 13
+    output_type: switch
+  out_23:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 14
+    output_type: switch
+  out_24:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 15
+    output_type: switch
+  buzzer:
+    kind: buzzer
+    output_type: switch
+ds2482:
+- id: ds2482_bus
+  address: '0x18'

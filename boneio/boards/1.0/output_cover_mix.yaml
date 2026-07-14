@@ -1,0 +1,172 @@
+mcp23017:
+- id: mcp_left
+  address: 35
+- id: mcp_right
+  address: 36
+output_mapping:
+  01_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 7
+    output_type: cover
+  01_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 6
+    output_type: cover
+  02_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 5
+    output_type: cover
+  02_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 4
+    output_type: cover
+  03_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 3
+    output_type: cover
+  03_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 2
+    output_type: cover
+  04_up:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 1
+    output_type: cover
+  04_down:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 0
+    output_type: cover
+  05_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 7
+    output_type: cover
+  05_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 6
+    output_type: cover
+  06_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 5
+    output_type: cover
+  06_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 4
+    output_type: cover
+  07_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 3
+    output_type: cover
+  07_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 2
+    output_type: cover
+  08_up:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 1
+    output_type: cover
+  08_down:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 0
+    output_type: cover
+  out_17:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 8
+    output_type: light
+  out_18:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 9
+    output_type: light
+  out_19:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 10
+    output_type: light
+  out_20:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 11
+    output_type: light
+  out_21:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 12
+    output_type: light
+  out_22:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 13
+    output_type: light
+  out_23:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 14
+    output_type: light
+  out_24:
+    kind: mcp
+    mcp_id: mcp_left
+    pin: 15
+    output_type: light
+  out_25:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 8
+    output_type: light
+  out_26:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 9
+    output_type: light
+  out_27:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 10
+    output_type: light
+  out_28:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 11
+    output_type: light
+  out_29:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 12
+    output_type: light
+  out_30:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 13
+    output_type: light
+  out_31:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 14
+    output_type: light
+  out_32:
+    kind: mcp
+    mcp_id: mcp_right
+    pin: 15
+    output_type: light
+  buzzer:
+    kind: buzzer
+    output_type: switch
+ds2482:
+- id: ds2482_bus
+  address: '0x18'
