@@ -718,6 +718,7 @@
     "modbus": "Modbus",
     "can": "CAN Bus",
     "mcp23017": "MCP23017 (Advanced)",
+    "ds2482": "1-Wire Expanders",
     "board_sensors": "Board Sensors",
     "oled": "OLED Display"
   },
@@ -728,6 +729,19 @@
     "right_description": "Right GPIO expander (OUT_17-OUT_32 for 32x10, OUT_13-OUT_24 for 24x16)",
     "address": "I2C Address",
     "address_hint": "Select I2C address for this expander"
+  },
+  "ds2482": {
+    "info_title": "1-Wire Expanders (DS2482/DS2484)",
+    "info_description": "Configure DS2482/DS2484 I2C-to-1-Wire bridge chips. Each bridge provides a 1-Wire bus for Dallas temperature sensors.",
+    "id": "Bus ID",
+    "address": "I2C Address",
+    "address_hint": "I2C address of the DS2482 chip (e.g. 0x18, 0x19, 0x1A, 0x1B)",
+    "builtin_info": "This is a built-in 1-Wire expander on your board. It cannot be edited or removed.",
+    "errors": {
+      "id_required": "Bus ID is required",
+      "address_required": "I2C address is required",
+      "duplicate_id": "This Bus ID is already in use"
+    }
   },
   "oled": {
     "enabled": "OLED Display Enabled",

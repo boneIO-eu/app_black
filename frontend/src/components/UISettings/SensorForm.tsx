@@ -246,10 +246,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
           </SelectTrigger>
           <SelectContent>
             {ds2482Supported ? (
-              <>
-                <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem>
-                <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>
-              </>
+              <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem>
             ) : (
               <>
                 <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>

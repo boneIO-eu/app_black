@@ -3,6 +3,7 @@ import axios from '@/api/axios';
 import { copyToClipboard } from '@/utils/clipboard';
 import { FaPlus, FaDownload, FaUpload } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useConfig } from '../../contexts/ConfigContext';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +36,7 @@ export interface ArrayTableWidgetProps {
   schema: any;
   title?: string;
   uiSchema?: any;
-  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'other';
+  sectionType?: 'binary_sensor' | 'event' | 'local_inputs' | 'remote_inputs' | 'remote_outputs' | 'output' | 'output_group' | 'cover' | 'modbus_devices' | 'areas' | 'sensor' | 'virtual_energy_sensor' | 'remote_devices' | 'template' | 'adc' | 'board_sensors' | 'ds2482' | 'other';
   deviceType?: string;
   allBinarySensors?: any[];
   allEvents?: any[];
@@ -76,6 +77,7 @@ const isInputSection = (s: string) => s === 'binary_sensor' || s === 'event' || 
  */
 const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChange, schema, title, uiSchema, sectionType = 'other', deviceType, allBinarySensors = [], allEvents = [], allOutputs = [], allOutputGroups = [], allCovers = [], allAreas = [], allSensors = [], allModbusDevices = [], allVirtualEnergySensors = [], allRemoteDevices = [], allRemoteInputs = [], savedOutputs, savedOutputGroups, savedCovers, onUpdateEvents, onUpdateBinarySensors, onSaveSection, editItemName, onEditItemOpened }) => {
   const { t } = useTranslation();
+  const { ds2482Supported } = useConfig();
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -351,6 +353,11 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   const handleDelete = (index: number) => {
     const item = value[index];
+
+    // Prevent deleting built-in DS2482 on v1.0+ boards
+    if (sectionType === 'ds2482' && ds2482Supported && item.id === 'ds2482_bus' && item.address === '0x18') {
+      return;
+    }
 
     if (sectionType === 'areas') {
       const affected = findItemsUsingArea(item.id);

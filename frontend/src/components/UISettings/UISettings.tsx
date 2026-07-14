@@ -681,6 +681,7 @@ export default function UISettings() {
       'remote_devices',
       'remote_outputs',
       'board_sensors',
+      'ds2482',
     ];
     const defaultValue = arraySections.includes(sectionName) ? [] : {};
     const originalValue =
