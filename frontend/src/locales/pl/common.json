@@ -2208,5 +2208,17 @@
       "single_then_long": "Pojedyncze+Długie",
       "double_then_single": "Podwójne+Pojedyncze"
     }
+  },
+  "teach_mode": {
+    "title": "Tryb Nauki",
+    "subtitle": "Utworzono {{count}} powiązań",
+    "step_1": "Naciśnij przycisk na ścianie",
+    "step_2": "Wybierz wyjście do sterowania",
+    "waiting": "Oczekiwanie na naciśnięcie...",
+    "waiting_hint": "Naciśnij dowolny przycisk fizyczny",
+    "reset_input": "Resetuj",
+    "link": "Połącz",
+    "history": "Historia",
+    "button_label": "Tryb Nauki"
   }
 }

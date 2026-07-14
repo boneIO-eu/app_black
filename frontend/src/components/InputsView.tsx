@@ -7,7 +7,7 @@ import { isInputEvent, InputEvent } from '../hooks/useWebSocket';
 import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
-import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi, FaBolt } from 'react-icons/fa';
+import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi, FaBolt, FaGraduationCap } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
 import QuickActionSheet from '@/components/QuickActionSheet';
+import TeachMode from '@/components/TeachMode';
 
 interface ToastNotification {
   id: string;
@@ -155,6 +156,7 @@ export default function InputsView() {
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
   const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set());
+  const [teachMode, setTeachMode] = useState(false);
 
   // Throttle refs for long press updates (to reduce CPU usage)
   const lastLongPressUpdateRef = useRef<Map<string, number>>(new Map());
@@ -414,6 +416,15 @@ export default function InputsView() {
             </ul>
           </div>
           <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+          {/* Teach Mode button */}
+          <button
+            className="btn btn-sm btn-accent gap-1"
+            onClick={() => setTeachMode(true)}
+            title={t('teach_mode.button_label')}
+          >
+            <FaGraduationCap className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('teach_mode.button_label')}</span>
+          </button>
         </div>
       </div>
       {/* Local inputs section */}
@@ -558,6 +569,11 @@ export default function InputsView() {
         onOpenChange={(open) => setQuickAction({ open, inputEvent: open ? quickAction.inputEvent : null })}
         inputEvent={quickAction.inputEvent}
       />
+
+      {/* Teach Mode overlay */}
+      {teachMode && (
+        <TeachMode onClose={() => setTeachMode(false)} />
+      )}
     </div>
   );
 }

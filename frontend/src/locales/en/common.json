@@ -2209,5 +2209,17 @@
       "single_then_long": "Single+Long",
       "double_then_single": "Double+Single"
     }
+  },
+  "teach_mode": {
+    "title": "Teach Mode",
+    "subtitle": "{{count}} links created",
+    "step_1": "Press a button on the wall",
+    "step_2": "Select output to control",
+    "waiting": "Waiting for button press...",
+    "waiting_hint": "Press any physical button to detect it",
+    "reset_input": "Reset",
+    "link": "Link",
+    "history": "History",
+    "button_label": "Teach Mode"
   }
 }
