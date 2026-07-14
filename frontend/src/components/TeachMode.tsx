@@ -578,6 +578,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   items={currentItems}
                   placeholder={t('teach_mode.select_target')}
                   recentKey={targetCategory}
+                  preferredArea={detectedInput?.state.area || undefined}
                 />
               </div>
 

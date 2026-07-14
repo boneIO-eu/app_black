@@ -28,6 +28,7 @@ const OutputAction: React.FC<OutputActionProps> = ({
   actionOutputOptions: _actionOutputOptions,
   savedOutputs,
   savedOutputGroups,
+  preferredArea,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
   const handleUpdate = (field: string, value: any) => {
@@ -124,6 +125,7 @@ const OutputAction: React.FC<OutputActionProps> = ({
           allAreas={allAreas}
           placeholder={t('event_form.select_output')}
           recentKey="outputs"
+          preferredArea={preferredArea}
         />
       </div>
 

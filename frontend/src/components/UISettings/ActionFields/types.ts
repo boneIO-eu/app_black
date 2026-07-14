@@ -46,6 +46,8 @@ export interface OutputActionProps extends BaseActionProps {
   actionOutputOptions: string[];
   savedOutputs?: OutputEntity[];
   savedOutputGroups?: any[];
+  /** Area ID of the input being configured — used to prioritize outputs from the same area. */
+  preferredArea?: string;
 }
 
 export interface CoverActionProps extends BaseActionProps {
@@ -54,6 +56,8 @@ export interface CoverActionProps extends BaseActionProps {
   actionCoverOptions: string[];
   savedCovers?: CoverEntity[];
   isCoverSaved: (coverId: string) => boolean;
+  /** Area ID of the input being configured — used to prioritize covers from the same area. */
+  preferredArea?: string;
 }
 
 export interface MqttActionProps extends BaseActionProps {}

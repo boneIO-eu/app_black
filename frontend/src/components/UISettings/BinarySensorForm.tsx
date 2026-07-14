@@ -220,6 +220,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         clickType={type}
         allBinarySensors={allBinarySensors}
         excludeEntityId={data.boneio_input}
+        preferredArea={data.area}
       />
     );
   };

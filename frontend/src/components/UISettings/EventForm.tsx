@@ -214,6 +214,7 @@ const EventForm: React.FC<EventFormProps> = ({
         savedCovers={savedCovers}
         clickType={type}
         allBinarySensors={allBinarySensors}
+        preferredArea={data.area}
       />
     );
   };

@@ -216,6 +216,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
       clickType={type as 'pressed' | 'released' | 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single'}
       allBinarySensors={allBinarySensors}
       excludeEntityId={data.id}
+      preferredArea={data.area}
     />
   );
 

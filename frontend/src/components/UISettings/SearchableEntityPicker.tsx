@@ -29,6 +29,8 @@ interface SearchableEntityPickerProps {
   compact?: boolean;
   /** Storage key suffix for recent items (default: 'default') */
   recentKey?: string;
+  /** Area ID to prioritize (items from this area appear first). */
+  preferredArea?: string;
 }
 
 /**
@@ -46,6 +48,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   excludeIds = [],
   compact = false,
   recentKey = 'default',
+  preferredArea,
 }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -128,10 +131,21 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
       }
     }
 
-    // Sort groups alphabetically
-    const sorted = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+    // Resolve preferred area name for matching
+    const preferredName = preferredArea ? (getAreaName(preferredArea) || preferredArea) : '';
+
+    // Sort groups: preferred area first, then alphabetical
+    const sorted = [...groups.entries()].sort(([a], [b]) => {
+      if (preferredName) {
+        const aMatch = a === preferredName;
+        const bMatch = b === preferredName;
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+      }
+      return a.localeCompare(b);
+    });
     return { sorted, noArea };
-  }, [searchFiltered, getAreaName]);
+  }, [searchFiltered, getAreaName, preferredArea]);
 
   // Recent items that exist in current items list
   const recentItems = useMemo(

@@ -27,6 +27,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
   allAreas,
   actionCoverOptions,
   isCoverSaved,
+  preferredArea,
 }) => {
   // Wrapper for onUpdate that removes deprecated 'pin' field
   const handleUpdate = (field: string, value: any) => {
@@ -94,6 +95,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
           allAreas={allAreas}
           placeholder={t('event_form.select_cover')}
           recentKey="covers"
+          preferredArea={preferredArea}
         />
       </div>
 

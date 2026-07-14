@@ -52,6 +52,8 @@ interface ActionFieldsProps {
   allBinarySensors?: BinarySensorEntity[];
   /** Entity ID to exclude from condition binary_sensor list (prevents self-reference) */
   excludeEntityId?: string;
+  /** Area ID of the input being configured — used to prioritize same-area entities in pickers. */
+  preferredArea?: string;
 }
 
 /**
@@ -78,6 +80,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   clickType,
   allBinarySensors = [],
   excludeEntityId,
+  preferredArea,
 }) => {
   const { t } = useTranslation();
   const actionType = action.action || 'output';
@@ -196,6 +199,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           actionCoverOptions={actionCoverOptions}
           savedCovers={savedCovers}
           isCoverSaved={isCoverSaved}
+          preferredArea={preferredArea}
         />
       )}
 
@@ -211,6 +215,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
           actionOutputOptions={actionOutputOptions}
           savedOutputs={savedOutputs}
           savedOutputGroups={savedOutputGroups}
+          preferredArea={preferredArea}
         />
       )}
 
