@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { AreaEntity } from '@/types/config';
 import type { EntityItem } from './EntitySelectDropdown';
@@ -45,6 +46,9 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   const resolvedPlaceholder = placeholder || t('entity_picker.select');
 
@@ -136,24 +140,45 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
     [recentIds, filteredItems]
   );
 
-  // Focus search on open, reset search on close
+  // Focus search on open, reset search on close, calculate position
   useEffect(() => {
     if (open) {
       setSearch('');
+      // Calculate dropdown position from trigger
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const maxH = Math.min(400, window.innerHeight * 0.5);
+        // If not enough space below, position above
+        const showAbove = spaceBelow < 200 && rect.top > spaceBelow;
+        setDropdownStyle({
+          position: 'fixed',
+          left: rect.left,
+          width: rect.width,
+          maxHeight: showAbove ? Math.min(maxH, rect.top - 8) : Math.min(maxH, spaceBelow - 8),
+          ...(showAbove
+            ? { bottom: window.innerHeight - rect.top + 4 }
+            : { top: rect.bottom + 4 }),
+          zIndex: 9999,
+        });
+      }
       const timer = setTimeout(() => searchRef.current?.focus(), 50);
       return () => clearTimeout(timer);
     }
   }, [open]);
 
-  // Click-outside to close
+  // Click-outside to close (check both container and portal dropdown)
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
-    // Use setTimeout to avoid the trigger click from immediately closing
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClick);
     }, 0);
@@ -221,6 +246,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         className={`
@@ -259,9 +285,13 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
         </svg>
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-xl border border-base-300 bg-base-100 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col max-h-[min(400px,50vh)]">
+      {/* Dropdown panel — rendered in portal to escape overflow:hidden */}
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="rounded-xl border border-base-300 bg-base-100 shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col"
+        >
           {/* Search input */}
           <div className="px-3 pt-3 pb-2 border-b border-base-200">
             <div className="relative">
@@ -364,7 +394,8 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
               : t('entity_picker.total_items', { count: filteredItems.length })
             }
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
