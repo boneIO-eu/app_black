@@ -10,7 +10,10 @@ import axios from '@/api/axios';
 import { useAuth } from '@/hooks/useAuth';
 
 /** Board versions that support CAN bus (0.5+) */
-const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8'];
+const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8', '1.0'];
+
+/** Board versions that use DS2482 I2C bridge for 1-Wire (no GPIO 1-Wire) */
+const DS2482_VERSIONS = ['1.0'];
 
 /** Max inputs per board version */
 const MAX_INPUTS: Record<string, number> = {
@@ -21,6 +24,7 @@ const MAX_INPUTS: Record<string, number> = {
   '0.6': 49,
   '0.7': 49,
   '0.8': 49,
+  '1.0': 49,
 };
 
 interface ConfigContextType {
@@ -34,6 +38,8 @@ interface ConfigContextType {
   boardVersion: string | null;
   /** Whether CAN bus is supported on this board version */
   canSupported: boolean;
+  /** Whether this board uses DS2482 I2C bridge for 1-Wire (true = no GPIO 1-Wire) */
+  ds2482Supported: boolean;
   /** Maximum number of inputs for this board version */
   maxInputs: number;
   /** Refresh the config state */
@@ -52,6 +58,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [boardVersion, setBoardVersion] = useState<string | null>(null);
   const [canSupported, setCanSupported] = useState(true);
+  const [ds2482Supported, setDs2482Supported] = useState(false);
   const [maxInputs, setMaxInputs] = useState(49);
   const { isAuthenticated, isAuthRequired } = useAuth();
 
@@ -75,6 +82,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
         : null;
       setBoardVersion(version);
       setCanSupported(version ? CAN_SUPPORTED_VERSIONS.includes(version) : true);
+      setDs2482Supported(version ? DS2482_VERSIONS.includes(version) : false);
       setMaxInputs(version && MAX_INPUTS[version] ? MAX_INPUTS[version] : 49);
 
       // Check for irrigation controllers:
@@ -109,6 +117,7 @@ export function ConfigProvider({ children }: ConfigProviderProps) {
       isLoading,
       boardVersion,
       canSupported,
+      ds2482Supported,
       maxInputs,
       refreshConfig,
     }}>

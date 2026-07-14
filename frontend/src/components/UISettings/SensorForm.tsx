@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useConfig } from '../../contexts/ConfigContext';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import {
@@ -66,7 +67,19 @@ const SensorForm: React.FC<SensorFormProps> = ({
   onValidationChange
 }) => {
   const { t } = useTranslation();
+  const { ds2482Supported } = useConfig();
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Auto-correct platform when board version changes
+  useEffect(() => {
+    if (ds2482Supported && (!data.platform || data.platform === 'gpio_onewire')) {
+      onChange({ ...data, platform: 'ds2482', bus_id: data.bus_id || 'ds2482_bus' });
+    } else if (!ds2482Supported && data.platform === 'ds2482') {
+      const { bus_id, ...rest } = data;
+      onChange({ ...rest, platform: 'gpio_onewire' });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ds2482Supported]);
 
   // Validate form
   useEffect(() => {
@@ -228,15 +241,26 @@ const SensorForm: React.FC<SensorFormProps> = ({
           <span className="label-text font-medium">{t('sensors.platform')}</span>
         </label>
         <Select
-          value={data.platform || 'gpio_onewire'}
-          onValueChange={(value) => handleChange('platform', value)}
+          value={data.platform || (ds2482Supported ? 'ds2482' : 'gpio_onewire')}
+          onValueChange={(value) => {
+            if (value === 'ds2482') {
+              handleChange('platform', value);
+              if (!data.bus_id) handleChange('bus_id', 'ds2482_bus');
+            } else {
+              handleChange('platform', value);
+            }
+          }}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select platform..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>
-            {/* <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem> */}
+            {!ds2482Supported && (
+              <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>
+            )}
+            {ds2482Supported && (
+              <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>
