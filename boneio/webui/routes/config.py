@@ -1443,6 +1443,10 @@ async def add_quick_action(payload: dict = Body(...)):
     output_id = payload.get("output_id", "").strip()
     cover_id = payload.get("cover_id", "").strip()
     action = payload.get("action", "TOGGLE").strip()
+    remote_device = payload.get("remote_device", "").strip()
+    boneio_id = payload.get("boneio_id", "").strip()
+    topic = payload.get("topic", "").strip()
+    mqtt_msg = payload.get("action_mqtt_msg", "").strip()
 
     if not entity_id:
         raise HTTPException(status_code=422, detail="entity_id is required")
@@ -1460,15 +1464,53 @@ async def add_quick_action(payload: dict = Body(...)):
             detail=f"Invalid click_type: '{click_type}'. Must be one of {sorted(valid_click_types)}",
         )
 
-    # Build the action dict
-    if action_type == "cover":
-        if not cover_id:
-            raise HTTPException(status_code=422, detail="cover_id is required for cover action")
-        new_action = {"action_type": "cover", "boneio_cover": cover_id, "action_cover": action}
-    else:
+    valid_action_types = {
+        "output", "cover", "remote_output", "remote_cover",
+        "mqtt", "output_over_mqtt", "cover_over_mqtt",
+    }
+    if action_type not in valid_action_types:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid action_type: '{action_type}'. Must be one of {sorted(valid_action_types)}",
+        )
+
+    # Build the action dict based on action_type
+    new_action: dict = {"action": action_type}
+
+    if action_type == "output":
         if not output_id:
             raise HTTPException(status_code=422, detail="output_id is required for output action")
-        new_action = {"action_type": "output", "boneio_output": output_id, "action_output": action}
+        new_action.update({"boneio_output": output_id, "action_output": action})
+
+    elif action_type == "cover":
+        if not cover_id:
+            raise HTTPException(status_code=422, detail="cover_id is required for cover action")
+        new_action.update({"boneio_cover": cover_id, "action_cover": action})
+
+    elif action_type == "remote_output":
+        if not remote_device or not output_id:
+            raise HTTPException(status_code=422, detail="remote_device and output_id are required for remote_output")
+        new_action.update({"remote_device": remote_device, "output_id": output_id, "action_output": action})
+
+    elif action_type == "remote_cover":
+        if not remote_device or not cover_id:
+            raise HTTPException(status_code=422, detail="remote_device and cover_id are required for remote_cover")
+        new_action.update({"remote_device": remote_device, "cover_id": cover_id, "action_cover": action})
+
+    elif action_type == "mqtt":
+        if not topic:
+            raise HTTPException(status_code=422, detail="topic is required for mqtt action")
+        new_action.update({"topic": topic, "action_mqtt_msg": mqtt_msg})
+
+    elif action_type == "output_over_mqtt":
+        if not boneio_id or not output_id:
+            raise HTTPException(status_code=422, detail="boneio_id and output_id are required for output_over_mqtt")
+        new_action.update({"boneio_id": boneio_id, "boneio_output": output_id, "action_output": action})
+
+    elif action_type == "cover_over_mqtt":
+        if not boneio_id or not cover_id:
+            raise HTTPException(status_code=422, detail="boneio_id and cover_id are required for cover_over_mqtt")
+        new_action.update({"boneio_id": boneio_id, "boneio_cover": cover_id, "action_cover": action})
 
     try:
         app_state = _get_app_state()

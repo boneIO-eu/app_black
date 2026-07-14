@@ -23,6 +23,17 @@ import { FaPlug, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 
+/**
+ * Extended EntityItem that tracks whether this is a local or remote entity
+ * and optionally stores the remote_device id for remote entities.
+ */
+interface QuickEntityItem extends EntityItem {
+  /** The action_type to use for this entity */
+  actionType: 'output' | 'cover' | 'remote_output' | 'remote_cover';
+  /** Remote device id (only for remote_output / remote_cover) */
+  remoteDevice?: string;
+}
+
 interface QuickActionSheetProps {
   /** Whether the sheet is open */
   open: boolean;
@@ -50,8 +61,9 @@ const BINARY_SENSOR_CLICK_TYPES = ['pressed', 'released'] as const;
  * Quick Action Sheet — a simplified dialog for adding an action to an input.
  * Opens from InputsView when user presses ⚡. Lets user pick:
  * 1. Click type (single/double/long)
- * 2. Target output or cover (via SearchableEntityPicker)
- * 3. Action (Toggle/On/Off)
+ * 2. Target type (output or cover — includes both local and remote)
+ * 3. Target entity (via SearchableEntityPicker)
+ * 4. Action (Toggle/On/Off)
  * Then saves via POST /api/config/quick-action.
  */
 const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
@@ -64,7 +76,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
 
   // Form state
   const [clickType, setClickType] = useState('single');
-  const [actionType, setActionType] = useState<'output' | 'cover'>('output');
+  const [targetMode, setTargetMode] = useState<'output' | 'cover'>('output');
   const [targetId, setTargetId] = useState('');
   const [actionValue, setActionValue] = useState('TOGGLE');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -75,7 +87,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
     if (open && inputEvent) {
       const isEvent = inputEvent.state.type === 'input';
       setClickType(isEvent ? 'single' : 'pressed');
-      setActionType('output');
+      setTargetMode('output');
       setTargetId('');
       setActionValue('TOGGLE');
       setSaveStatus('idle');
@@ -85,39 +97,106 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
 
   const isEvent = inputEvent?.state.type === 'input';
   const clickTypes = isEvent ? EVENT_CLICK_TYPES : BINARY_SENSOR_CLICK_TYPES;
-  const actionOptions = actionType === 'cover' ? COVER_ACTIONS : OUTPUT_ACTIONS;
+  const actionOptions = targetMode === 'cover' ? COVER_ACTIONS : OUTPUT_ACTIONS;
 
-  /** Convert outputs to EntityItem[] for SearchableEntityPicker. */
-  const outputItems: EntityItem[] = useMemo(() => {
-    return outputs
-      .filter((o: OutputEvent) => o.state.type?.toLowerCase() !== 'cover')
-      .map((o: OutputEvent): EntityItem => ({
-        id: o.state.id || o.entity_id,
-        name: o.state.name || o.state.id || o.entity_id,
-        area: o.state.area || undefined,
-        badge: o.state.type || undefined,
-        badgeClass: o.state.type === 'light' ? 'badge-warning'
-          : o.state.type === 'switch' ? 'badge-info'
-          : o.state.type === 'valve' ? 'badge-accent'
-          : 'badge-ghost',
-      }));
+  /**
+   * Build unified output items list (local + remote).
+   * Each item carries its actionType and optional remoteDevice for the API call.
+   */
+  const outputItems: QuickEntityItem[] = useMemo(() => {
+    const items: QuickEntityItem[] = [];
+
+    // Local outputs
+    outputs
+      .filter((o: OutputEvent) => !o.state.remote)
+      .forEach((o: OutputEvent) => {
+        items.push({
+          id: o.state.id || o.entity_id,
+          name: o.state.name || o.state.id || o.entity_id,
+          area: o.state.area || undefined,
+          badge: o.state.type || undefined,
+          badgeClass: o.state.type === 'light' ? 'badge-warning'
+            : o.state.type === 'switch' ? 'badge-info'
+            : o.state.type === 'valve' ? 'badge-accent'
+            : 'badge-ghost',
+          actionType: 'output',
+        });
+      });
+
+    // Remote outputs
+    outputs
+      .filter((o: OutputEvent) => o.state.remote)
+      .forEach((o: OutputEvent) => {
+        // entity_id for remote outputs is like "remote_device_id/output_id"
+        const entityId = o.entity_id;
+        const parts = entityId.split('/');
+        const remoteDevice = parts.length > 1 ? parts[0] : '';
+
+        items.push({
+          id: entityId,
+          name: o.state.name || entityId,
+          area: o.state.area || undefined,
+          badge: `🌐 ${o.state.type || 'remote'}`,
+          badgeClass: 'badge-secondary',
+          actionType: 'remote_output',
+          remoteDevice,
+        });
+      });
+
+    return items;
   }, [outputs]);
 
-  /** Convert covers to EntityItem[] for SearchableEntityPicker. */
-  const coverItems: EntityItem[] = useMemo(() => {
-    return covers.map((c: CoverEvent): EntityItem => ({
-      id: c.state.id || c.entity_id,
-      name: c.state.name || c.state.id || c.entity_id,
-      badge: c.state.kind || 'cover',
-      badgeClass: 'badge-accent',
-    }));
+  /**
+   * Build unified cover items list (local + remote).
+   */
+  const coverItems: QuickEntityItem[] = useMemo(() => {
+    const items: QuickEntityItem[] = [];
+
+    // Local covers
+    covers
+      .filter((c: CoverEvent) => !(c.state as any).remote)
+      .forEach((c: CoverEvent) => {
+        items.push({
+          id: c.state.id || c.entity_id,
+          name: c.state.name || c.state.id || c.entity_id,
+          badge: c.state.kind || 'cover',
+          badgeClass: 'badge-accent',
+          actionType: 'cover',
+        });
+      });
+
+    // Remote covers
+    covers
+      .filter((c: CoverEvent) => (c.state as any).remote)
+      .forEach((c: CoverEvent) => {
+        const entityId = c.entity_id;
+        const parts = entityId.split('/');
+        const remoteDevice = parts.length > 1 ? parts[0] : '';
+
+        items.push({
+          id: entityId,
+          name: c.state.name || entityId,
+          badge: `🌐 ${c.state.kind || 'cover'}`,
+          badgeClass: 'badge-secondary',
+          actionType: 'remote_cover',
+          remoteDevice,
+        });
+      });
+
+    return items;
   }, [covers]);
 
-  const currentItems = actionType === 'cover' ? coverItems : outputItems;
+  const currentItems = targetMode === 'cover' ? coverItems : outputItems;
+
+  /** Find the selected item to extract its actionType and remoteDevice. */
+  const selectedItem = useMemo(
+    () => currentItems.find((item) => item.id === targetId),
+    [currentItems, targetId]
+  );
 
   /** Handle save. */
   const handleSave = useCallback(async () => {
-    if (!inputEvent || !targetId) return;
+    if (!inputEvent || !targetId || !selectedItem) return;
 
     setSaveStatus('saving');
     setErrorMessage('');
@@ -126,14 +205,31 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
       const payload: Record<string, string> = {
         entity_id: inputEvent.entity_id,
         click_type: clickType,
-        action_type: actionType,
+        action_type: selectedItem.actionType,
         action: actionValue,
       };
 
-      if (actionType === 'cover') {
-        payload.cover_id = targetId;
-      } else {
-        payload.output_id = targetId;
+      // Set the right IDs based on action type
+      switch (selectedItem.actionType) {
+        case 'output':
+          payload.output_id = targetId;
+          break;
+        case 'cover':
+          payload.cover_id = targetId;
+          break;
+        case 'remote_output': {
+          payload.remote_device = selectedItem.remoteDevice || '';
+          // Extract output_id from entity_id (remove device prefix)
+          const parts = targetId.split('/');
+          payload.output_id = parts.length > 1 ? parts.slice(1).join('/') : targetId;
+          break;
+        }
+        case 'remote_cover': {
+          payload.remote_device = selectedItem.remoteDevice || '';
+          const coverParts = targetId.split('/');
+          payload.cover_id = coverParts.length > 1 ? coverParts.slice(1).join('/') : targetId;
+          break;
+        }
       }
 
       await axios.post('/api/config/quick-action', payload);
@@ -151,7 +247,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
           : detail?.message || t('quick_action.save_error')
       );
     }
-  }, [inputEvent, targetId, clickType, actionType, actionValue, onOpenChange, t]);
+  }, [inputEvent, targetId, selectedItem, clickType, actionValue, onOpenChange, t]);
 
   const canSave = targetId && saveStatus !== 'saving' && saveStatus !== 'success';
 
@@ -191,7 +287,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
             </div>
           </div>
 
-          {/* Action type toggle (output vs cover) */}
+          {/* Target mode toggle (output vs cover) */}
           <div className="form-control">
             <label className="label pb-1">
               <span className="label-text font-medium text-sm">{t('quick_action.target_type')}</span>
@@ -199,16 +295,16 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setActionType('output'); setTargetId(''); setActionValue('TOGGLE'); }}
-                className={`btn btn-sm flex-1 ${actionType === 'output' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
+                onClick={() => { setTargetMode('output'); setTargetId(''); setActionValue('TOGGLE'); }}
+                className={`btn btn-sm flex-1 ${targetMode === 'output' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
               >
                 {t('quick_action.output')}
               </button>
-              {covers.length > 0 && (
+              {coverItems.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => { setActionType('cover'); setTargetId(''); setActionValue('TOGGLE'); }}
-                  className={`btn btn-sm flex-1 ${actionType === 'cover' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
+                  onClick={() => { setTargetMode('cover'); setTargetId(''); setActionValue('TOGGLE'); }}
+                  className={`btn btn-sm flex-1 ${targetMode === 'cover' ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
                 >
                   {t('quick_action.cover')}
                 </button>
@@ -220,15 +316,15 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
           <div className="form-control">
             <label className="label pb-1">
               <span className="label-text font-medium text-sm">
-                {actionType === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
+                {targetMode === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
               </span>
             </label>
             <SearchableEntityPicker
               value={targetId}
               onChange={setTargetId}
               items={currentItems}
-              placeholder={actionType === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
-              recentKey={actionType === 'cover' ? 'covers' : 'outputs'}
+              placeholder={targetMode === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
+              recentKey={targetMode === 'cover' ? 'covers' : 'outputs'}
             />
           </div>
 
