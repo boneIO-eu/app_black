@@ -507,8 +507,23 @@ export default function InputsView() {
 
       {/* Long press dialog - choose quick action or go to settings */}
       <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, inputEvent: open ? longPressDialog.inputEvent : null })}>
-        <DialogContent className="sm:max-w-sm bg-base-100">
-          <DialogHeader>
+        <DialogContent
+          className={[
+            'bg-base-100 p-0 gap-0',
+            // Mobile: bottom sheet
+            'top-auto bottom-0 left-0 translate-x-0 translate-y-0',
+            'max-w-full rounded-t-2xl rounded-b-none',
+            // Desktop: centered modal
+            'sm:top-[50%] sm:left-[50%] sm:bottom-auto',
+            'sm:translate-x-[-50%] sm:translate-y-[-50%]',
+            'sm:max-w-sm sm:rounded-lg',
+          ].join(' ')}
+        >
+          {/* Drag handle - mobile only */}
+          <div className="flex justify-center pt-3 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-base-content/20" />
+          </div>
+          <DialogHeader className="px-5 pt-4 pb-0 sm:pt-5">
             <DialogTitle className="text-center">
               {longPressDialog.inputEvent?.state.name}
             </DialogTitle>
@@ -516,7 +531,7 @@ export default function InputsView() {
               {longPressDialog.inputEvent?.entity_id}
             </p>
           </DialogHeader>
-          <div className="py-2 space-y-2">
+          <div className="px-5 py-4 space-y-2">
             {/* Quick Action button */}
             <button
               className="btn btn-primary btn-block gap-2 h-14 text-base"

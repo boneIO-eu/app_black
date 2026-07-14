@@ -255,8 +255,27 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-base-100 sm:max-w-md p-0 gap-0">
-        <DialogHeader className="px-5 pt-5 pb-0">
+      <DialogContent
+        className={[
+          'bg-base-100 p-0 gap-0',
+          // Mobile: bottom sheet (override default centered positioning)
+          'top-auto bottom-0 left-0 translate-x-0 translate-y-0',
+          'max-w-full rounded-t-2xl rounded-b-none',
+          'max-h-[90vh] overflow-y-auto',
+          // Desktop: centered modal
+          'sm:top-[50%] sm:left-[50%] sm:bottom-auto',
+          'sm:translate-x-[-50%] sm:translate-y-[-50%]',
+          'sm:max-w-md sm:rounded-lg',
+          // Animation overrides for bottom sheet
+          'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
+          'sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0',
+        ].join(' ')}
+      >
+        {/* Drag handle - visible only on mobile bottom sheet */}
+        <div className="flex justify-center pt-3 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-base-content/20" />
+        </div>
+        <DialogHeader className="px-5 pt-4 pb-0 sm:pt-5">
           <DialogTitle className="flex items-center gap-2">
             <FaPlug className="w-4 h-4 text-primary" />
             {t('quick_action.title')}
