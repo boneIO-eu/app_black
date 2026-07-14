@@ -373,19 +373,19 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-50 bg-gradient-to-br from-base-100 via-base-100 to-base-200 flex flex-col font-sans">
       {/* Header bar */}
-      <div className="bg-gradient-to-r from-primary to-primary-focus text-primary-content px-6 py-4 flex items-center justify-between shadow-xl shrink-0 border-b border-primary/20">
+      <div className="bg-base-200/80 backdrop-blur-md text-base-content px-6 py-4 flex items-center justify-between shadow-sm shrink-0 border-b border-base-300">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/10 rounded-xl">
-            <FaGraduationCap className="w-6 h-6 text-white" />
+          <div className="p-2 bg-base-300 rounded-xl text-primary">
+            <FaGraduationCap className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">{t('teach_mode.title')}</h1>
-            <p className="text-xs text-white/70 font-medium">
+            <h1 className="text-lg font-bold tracking-tight">{t('teach_mode.title')}</h1>
+            <p className="text-xs text-base-content/60 font-medium">
               {t('teach_mode.subtitle', { count: linkCount })}
             </p>
           </div>
         </div>
-        <button className="btn btn-sm btn-circle btn-ghost text-white hover:bg-white/10" onClick={onClose}>
+        <button className="btn btn-sm btn-circle btn-ghost text-base-content/60 hover:text-base-content hover:bg-base-300" onClick={onClose}>
           <FaTimes className="w-5 h-5" />
         </button>
       </div>
