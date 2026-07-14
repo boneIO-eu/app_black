@@ -740,7 +740,7 @@ async def modbus_configure_device(
                     }
                 
                 _LOGGER.info(f"Writing new address {request.new_address} to register {address_register}")
-                result = await modbus_client.write_register(
+                result = await modbus_client.write_register_direct(
                     unit=request.current_address,
                     address=address_register,
                     value=request.new_address,
@@ -773,7 +773,7 @@ async def modbus_configure_device(
                     }
                 
                 _LOGGER.info(f"Writing baudrate value {baudrate_value} to register {baudrate_register}")
-                result = await modbus_client.write_register(
+                result = await modbus_client.write_register_direct(
                     unit=request.current_address,
                     address=baudrate_register,
                     value=baudrate_value,
