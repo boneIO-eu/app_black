@@ -293,10 +293,13 @@ class WLEDRemoteDevice(RemoteDevice):
             elif action == "OFF":
                 seg_state["on"] = False
             elif action == "TOGGLE":
-                seg_state["on"] = "t"  # WLED toggle syntax
-                # Ensure device is globally on — toggling a segment while
-                # the device is off would otherwise have no visible effect
-                state["on"] = True
+                # WLED ignores "on": "t" at segment level (tested on
+                # v0.15.0-b4) — resolve toggle using cached state.
+                current_on = self.segment_is_on(segment_id)
+                seg_state["on"] = not current_on
+                if not current_on:
+                    # Turning on — ensure device is globally on
+                    state["on"] = True
             
             if brightness is not None:
                 seg_state["bri"] = max(0, min(255, brightness))
