@@ -2266,6 +2266,8 @@
     "free_outputs": "Wolne wyjścia",
     "free_covers": "Wolne rolety",
     "free_remote_inputs": "Wolne zdalne wejścia",
-    "free_remote_outputs": "Wolne zdalne wyjścia"
+    "free_remote_outputs": "Wolne zdalne wyjścia",
+    "click_to_edit": "Kliknij aby edytować akcje",
+    "edit_input": "Edytuj akcje"
   }
 }

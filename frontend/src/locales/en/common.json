@@ -2267,6 +2267,8 @@
     "free_outputs": "Free outputs",
     "free_covers": "Free covers",
     "free_remote_inputs": "Free remote inputs",
-    "free_remote_outputs": "Free remote outputs"
+    "free_remote_outputs": "Free remote outputs",
+    "click_to_edit": "Click to edit actions",
+    "edit_input": "Edit actions"
   }
 }

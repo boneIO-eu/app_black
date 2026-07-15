@@ -5,10 +5,11 @@
  * Mobile: accordion list of inputs with their bindings + unconfigured sections.
  */
 import React, { useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   FaFilter, FaChevronDown, FaChevronUp, FaExclamationTriangle,
-  FaCheckCircle, FaTimesCircle, FaEye, FaEyeSlash,
+  FaCheckCircle, FaTimesCircle, FaEye, FaEyeSlash, FaPen,
 } from 'react-icons/fa';
 import clsx from 'clsx';
 
@@ -443,12 +444,13 @@ function FreeItemList({ title, items }: {
 // Desktop Matrix Table
 // ---------------------------------------------------------------------------
 
-function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t }: {
+function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput }: {
   inputs: InputRow[];
   outputs: OutputColumn[];
   areaFilter: string;
   hideEmpty: boolean;
   t: (key: string, opts?: any) => string;
+  onEditInput: (input: InputRow) => void;
 }) {
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [hoverCol, setHoverCol] = useState<string | null>(null);
@@ -539,13 +541,16 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t }: {
               >
                 <td
                   className={clsx(
-                    'sticky left-0 z-10 bg-base-100 border-r border-base-300 font-medium text-xs',
+                    'sticky left-0 z-10 bg-base-100 border-r border-base-300 font-medium text-xs cursor-pointer group/row',
                     hoverRow === row.id && 'bg-base-200/60',
                     row.bindings.length === 0 && 'text-base-content/30',
                   )}
+                  onClick={() => onEditInput(row)}
+                  title={t('binding_matrix.click_to_edit')}
                 >
-                  <div className="font-bold truncate max-w-[120px]" title={row.id}>
+                  <div className="font-bold truncate max-w-[120px] flex items-center gap-1" title={row.id}>
                     {row.name}
+                    <FaPen className="w-2.5 h-2.5 opacity-0 group-hover/row:opacity-40 transition-opacity shrink-0" />
                   </div>
                   {row.area && <div className="text-xxs text-base-content/40">{row.area}</div>}
                   {row.remoteDevice && <div className="text-xxs text-info/50">{row.remoteDevice}</div>}
@@ -559,14 +564,15 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t }: {
                       className={clsx(
                         'text-center text-xxs border-r border-base-300 px-1 py-1',
                         cellBindings.length > 0
-                          ? 'bg-success/15 text-success-content font-medium'
+                          ? 'bg-success/15 text-success-content font-medium cursor-pointer hover:bg-success/30'
                           : 'text-base-content/10',
                         isHighlighted && cellBindings.length > 0 && 'bg-success/25',
                         isHighlighted && cellBindings.length === 0 && 'bg-base-200/40',
                       )}
-                      title={cellBindings.length > 0 ? cellBindings.map(bindingTooltip).join('\n') : undefined}
+                      title={cellBindings.length > 0 ? `${cellBindings.map(bindingTooltip).join('\n')}\n\n${t('binding_matrix.click_to_edit')}` : undefined}
                       onMouseEnter={() => setHoverCol(col.id)}
                       onMouseLeave={() => setHoverCol(null)}
+                      onClick={cellBindings.length > 0 ? () => onEditInput(row) : undefined}
                     >
                       {cellBindings.length > 0 && (
                         <div className="flex flex-col gap-0.5">
@@ -591,11 +597,12 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t }: {
 // Mobile Accordion
 // ---------------------------------------------------------------------------
 
-function MobileAccordion({ inputs, areaFilter, hideEmpty, t }: {
+function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
   inputs: InputRow[];
   areaFilter: string;
   hideEmpty: boolean;
   t: (key: string, opts?: any) => string;
+  onEditInput: (input: InputRow) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -691,6 +698,14 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t }: {
                     </div>
                   </div>
                 ))}
+                {/* Edit button */}
+                <button
+                  className="btn btn-xs btn-primary btn-outline gap-1 mt-1"
+                  onClick={(e) => { e.stopPropagation(); onEditInput(input); }}
+                >
+                  <FaPen className="w-2.5 h-2.5" />
+                  {t('binding_matrix.edit_input')}
+                </button>
               </div>
             )}
           </div>
@@ -710,8 +725,17 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t }: {
  */
 const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [areaFilter, setAreaFilter] = useState('');
   const [hideEmpty, setHideEmpty] = useState(false);
+
+  /** Navigate to the input's edit form in Settings. */
+  const handleEditInput = useCallback((input: InputRow) => {
+    const section = input.type === 'remote' ? 'remote_inputs' : 'local_inputs';
+    // Use id for edit matching (matches item.name, item.id, or item.boneio_input)
+    const editKey = encodeURIComponent(input.id);
+    navigate(`/settings/${section}?edit=${editKey}`);
+  }, [navigate]);
 
   const inputs = useMemo(() => extractInputs(formData), [formData]);
   const outputs = useMemo(() => extractOutputs(formData), [formData]);
@@ -772,6 +796,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
           areaFilter={areaFilter}
           hideEmpty={hideEmpty}
           t={t}
+          onEditInput={handleEditInput}
         />
       </div>
 
@@ -782,6 +807,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
           areaFilter={areaFilter}
           hideEmpty={hideEmpty}
           t={t}
+          onEditInput={handleEditInput}
         />
       </div>
 
