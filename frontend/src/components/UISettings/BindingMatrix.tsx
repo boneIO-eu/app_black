@@ -487,6 +487,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [hoverCol, setHoverCol] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isMouseDown = useRef(false);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const scrollStartX = useRef(0);
@@ -538,12 +539,13 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
       ref={scrollRef}
       className="overflow-x-auto rounded-xl border border-base-300 cursor-grab active:cursor-grabbing"
       onMouseDown={(e) => {
-        isDragging.current = false; // not dragging yet — set after threshold
+        isMouseDown.current = true;
+        isDragging.current = false;
         dragStartX.current = e.clientX;
         scrollStartX.current = scrollRef.current?.scrollLeft || 0;
       }}
       onMouseMove={(e) => {
-        if (!scrollRef.current) return;
+        if (!isMouseDown.current || !scrollRef.current) return;
         const dx = e.clientX - dragStartX.current;
         // Only start dragging after 5px threshold to allow normal clicks
         if (!isDragging.current && Math.abs(dx) > 5) {
@@ -553,8 +555,8 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
           scrollRef.current.scrollLeft = scrollStartX.current - dx;
         }
       }}
-      onMouseUp={() => { isDragging.current = false; }}
-      onMouseLeave={() => { isDragging.current = false; }}
+      onMouseUp={() => { isMouseDown.current = false; isDragging.current = false; }}
+      onMouseLeave={() => { isMouseDown.current = false; isDragging.current = false; }}
       onClickCapture={(e) => {
         // If we were dragging, prevent the click from firing on cells
         if (isDragging.current) {
