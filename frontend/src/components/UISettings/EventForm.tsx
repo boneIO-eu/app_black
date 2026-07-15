@@ -96,9 +96,11 @@ const EventForm: React.FC<EventFormProps> = ({
     allBoneioInputs, allBinarySensors, allEvents, editingIndex, 'event',
   );
   const boneioInputOptions = buildInputOptions(availableInputs, data.boneio_input);
-  const actionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [
+  const rawActionTypeOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum || [
     'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover'
   ];
+  // Deduplicate: schema may provide both uppercase and lowercase variants
+  const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
   const actionCoverOptions = schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_cover?.enum || [
     'TOGGLE', 'OPEN', 'CLOSE', 'STOP', 'TOGGLE_OPEN', 'TOGGLE_CLOSE', 'SMART_TOGGLE', 'TILT', 'TILT_OPEN', 'TILT_CLOSE'
   ];

@@ -177,13 +177,18 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
             <SelectValue placeholder={t('event_form.select_action_type')} />
           </SelectTrigger>
           <SelectContent>
-            {actionTypeOptions.map((opt: string) => (
-              <SelectItem key={opt} value={opt}>
-                {opt.split('_').map(word =>
-                  word.charAt(0).toUpperCase() + word.slice(1)
-                ).join(' ')}
-              </SelectItem>
-            ))}
+            {actionTypeOptions.map((opt: string) => {
+              const typeKey = `actions.type_${opt}`;
+              const translated = t(typeKey);
+              const label = translated !== typeKey
+                ? translated
+                : opt.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+              return (
+                <SelectItem key={opt} value={opt}>
+                  {label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>

@@ -192,7 +192,7 @@ const RemoteOutputAction: React.FC<RemoteOutputActionProps> = ({
           <SelectContent>
             {filteredActionOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {formatActionLabel(option)}
+                {formatActionLabel(option, t)}
               </SelectItem>
             ))}
           </SelectContent>

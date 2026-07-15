@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/select';
 import RemoteDeviceSelect from '../widgets/RemoteDeviceSelect';
 import type { RemoteCoverActionProps } from './types';
-import { TILT_ACTIONS, coverSupportsTilt, filterCoverActionsByTilt } from './helpers';
+import { TILT_ACTIONS, coverSupportsTilt, filterCoverActionsByTilt, formatActionLabel } from './helpers';
 
 /**
  * Remote Cover Action component - handles ESPHome and MQTT remote covers.
@@ -133,9 +133,7 @@ const RemoteCoverAction: React.FC<RemoteCoverActionProps> = ({
           <SelectContent>
             {filteredCoverOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.split('_').map(word =>
-                  word.charAt(0) + word.slice(1).toLowerCase()
-                ).join(' ')}
+                {formatActionLabel(option, t)}
               </SelectItem>
             ))}
           </SelectContent>

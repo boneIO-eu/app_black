@@ -55,6 +55,8 @@ interface FormRendererProps {
   onValidationChange: (hasErrors: boolean) => void;
   onInterlockGroupCreated: (name: string) => void;
   attemptedSubmit: boolean;
+  /** Optional initial tab for EventForm (e.g., 'single', 'double', 'long'). */
+  initialTab?: string;
 }
 
 /**
@@ -81,6 +83,7 @@ function inputFormProps(props: FormRendererProps) {
     savedOutputs: props.savedOutputs,
     savedOutputGroups: props.savedOutputGroups,
     savedCovers: props.savedCovers,
+    initialTab: props.initialTab as 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced' | undefined,
   };
 }
 
@@ -141,6 +144,7 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           savedOutputs={props.savedOutputs}
           savedOutputGroups={props.savedOutputGroups}
           savedCovers={props.savedCovers}
+          initialTab={props.initialTab as any}
         />
       </div>
     );

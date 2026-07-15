@@ -10,6 +10,7 @@ import { normalizeCovers } from '../helpers/coverUtils';
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import type { CoverActionProps } from './types';
+import { formatActionLabel } from './helpers';
 
 /** Tilt-related cover actions that only apply to venetian covers. */
 const TILT_ACTIONS = ['TILT', 'TILT_OPEN', 'TILT_CLOSE'];
@@ -123,9 +124,7 @@ const CoverAction: React.FC<CoverActionProps> = ({
           <SelectContent>
             {filteredCoverOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.split('_').map(word => 
-                  word.charAt(0) + word.slice(1).toLowerCase()
-                ).join(' ')}
+                {formatActionLabel(option, t)}
               </SelectItem>
             ))}
           </SelectContent>

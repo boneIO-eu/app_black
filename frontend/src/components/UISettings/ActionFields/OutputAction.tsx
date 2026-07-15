@@ -143,7 +143,7 @@ const OutputAction: React.FC<OutputActionProps> = ({
           <SelectContent>
             {OUTPUT_ONLY_ACTIONS.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {formatActionLabel(option)}
+                {formatActionLabel(option, t)}
               </SelectItem>
             ))}
           </SelectContent>

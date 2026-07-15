@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { sanitizeId } from '../helpers/idValidation';
 import type { CoverOverMqttActionProps } from './types';
+import { formatActionLabel } from './helpers';
 
 /**
  * Cover Over MQTT Action component - controls covers on remote boneIO devices via MQTT.
@@ -74,9 +75,7 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
           <SelectContent>
             {actionCoverOptions.map((option: string) => (
               <SelectItem key={option} value={option}>
-                {option.split('_').map(word => 
-                  word.charAt(0) + word.slice(1).toLowerCase()
-                ).join(' ')}
+                {formatActionLabel(option, t)}
               </SelectItem>
             ))}
           </SelectContent>

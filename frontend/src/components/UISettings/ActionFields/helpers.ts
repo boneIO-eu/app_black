@@ -46,9 +46,16 @@ export const cleanActionFields = (newActionType: string, currentAction: Record<s
  * Formats an action option string into a human-readable label.
  * E.g. 'BRIGHTNESS_UP_CYCLE' -> 'Brightness Up Cycle'
  * @param option - The action option string (e.g. 'TOGGLE', 'BRIGHTNESS_UP_CYCLE')
- * @returns Formatted label string
+ * @param t - Optional translation function for i18n support
+ * @returns Formatted/translated label string
  */
-export const formatActionLabel = (option: string): string => {
+export const formatActionLabel = (option: string, t?: (key: string) => string): string => {
+  if (t) {
+    const key = `actions.${option.toLowerCase()}`;
+    const translated = t(key);
+    // If translation key is found (not returned as-is), use it
+    if (translated !== key) return translated;
+  }
   return option.split('_').map(word => word.charAt(0) + word.slice(1).toLowerCase()).join(' ');
 };
 

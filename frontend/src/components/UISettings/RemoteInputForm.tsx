@@ -65,6 +65,8 @@ interface RemoteInputFormProps {
   savedOutputs?: OutputEntity[];
   savedOutputGroups?: any[];
   savedCovers?: CoverEntity[];
+  /** Optional initial tab (e.g., 'single', 'double', 'long', 'pressed'). */
+  initialTab?: 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced' | 'pressed' | 'released';
 }
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +87,7 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
   savedOutputs,
   savedOutputGroups,
   savedCovers,
+  initialTab,
 }) => {
   const { t } = useTranslation();
 
@@ -93,19 +96,27 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
     data.mode === 'event' || data._type === 'event' ? 'event' : 'binary_sensor';
 
   // State for active tab — differs per mode
-  const [bsTab, setBsTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+  const [bsTab, setBsTab] = useState<'basic' | 'pressed' | 'released'>(
+    initialTab === 'pressed' || initialTab === 'released' ? initialTab : 'basic'
+  );
   const [evTab, setEvTab] = useState<
     'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'
-  >('basic');
+  >(
+    initialTab && ['single', 'double', 'triple', 'long', 'sequences', 'advanced'].includes(initialTab)
+      ? initialTab as any
+      : 'basic'
+  );
 
   /* ---------- schema-derived enums ---------- */
   const deviceClassOptions =
     schema?.items?.properties?.device_class?.enum || DEFAULT_DEVICE_CLASSES;
-  const actionTypeOptions =
+  const rawActionTypeOptions =
     schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action?.enum ||
     schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action?.enum || [
       'mqtt', 'output', 'cover', 'output_over_mqtt', 'cover_over_mqtt', 'remote_output', 'remote_cover',
     ];
+  // Deduplicate: schema may provide both uppercase and lowercase variants
+  const actionTypeOptions = [...new Set(rawActionTypeOptions.map((o: string) => o.toLowerCase()))] as string[];
   const actionOutputOptions =
     schema?.items?.properties?.actions?.properties?.single?.items?.properties?.action_output?.enum ||
     schema?.items?.properties?.actions?.properties?.pressed?.items?.properties?.action_output?.enum || [
