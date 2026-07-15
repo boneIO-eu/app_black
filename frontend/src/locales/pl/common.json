@@ -2237,6 +2237,7 @@
     "manual_select": "Wybierz wejście ręcznie (bez naciskania)",
     "manual_placeholder": "Wybierz wejście...",
     "ignored_title": "Ignorowane wejścia (czujki itp.)",
+    "add_to_ignored": "Dodaj wejście do ignorowanych...",
     "ignored_empty": "Brak ignorowanych wejść",
     "unignore": "Odblokuj",
     "clear_ignored": "Wyczyść listę ignorowanych",

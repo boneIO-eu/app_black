@@ -2238,6 +2238,7 @@
     "manual_select": "Select input manually (no pressing)",
     "manual_placeholder": "Choose an input...",
     "ignored_title": "Ignored inputs (sensors etc.)",
+    "add_to_ignored": "Add input to ignore...",
     "ignored_empty": "No ignored inputs",
     "unignore": "Unignore",
     "clear_ignored": "Clear all ignored",

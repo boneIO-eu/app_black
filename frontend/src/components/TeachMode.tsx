@@ -710,7 +710,19 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   {showIgnored ? <FaChevronUp className="w-3 h-3 text-base-content/30" /> : <FaChevronDown className="w-3 h-3 text-base-content/30" />}
                 </button>
                 {showIgnored && (
-                  <div className="p-4 border-b border-base-200 bg-base-200/20 max-h-48 overflow-y-auto">
+                  <div className="p-4 border-b border-base-200 bg-base-200/20 max-h-64 overflow-y-auto space-y-3">
+                    {/* Manual ignore picker */}
+                    <SearchableEntityPicker
+                      value=""
+                      onChange={(id) => addIgnored(id)}
+                      items={inputItems}
+                      excludeIds={[...ignoredIds]}
+                      placeholder={t('teach_mode.add_to_ignored')}
+                      recentKey="teach-ignore"
+                      compact
+                    />
+
+                    {/* List of ignored items */}
                     {ignoredItems.length === 0 ? (
                       <p className="text-xs text-base-content/40 text-center py-2">{t('teach_mode.ignored_empty')}</p>
                     ) : (
