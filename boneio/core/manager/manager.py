@@ -1590,9 +1590,9 @@ class Manager:
         _LOGGER.info("Starting config reload")
 
         # Reload config cache in ConfigHelper
-        # NOTE: reload_config() calls load_config_from_file() which may run
-        # full Cerberus validation (~20s) on disk cache miss. Run in a thread
-        # executor to keep the event loop responsive (MQTT, WS, modbus).
+        # Uses fast path: load_yaml_file() + merge_board_config() (~0.5-1s)
+        # instead of full Cerberus validation (~20s). Run in thread executor
+        # because it still does file I/O (reading YAML files from disk).
         try:
             config = await asyncio.to_thread(self._config_helper.reload_config)
             # Update areas mapping from reloaded config

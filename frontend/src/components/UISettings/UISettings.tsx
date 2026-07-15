@@ -875,7 +875,9 @@ export default function UISettings() {
               setIsReloading(true);
               console.log(`🔄 Granular reload for local_inputs: ${sectionsToReload.join(', ')}`);
               await axios.post('/api/config/reload', sectionsToReload, { timeout: 30000 });
-              await loadConfiguration();
+              // No need to call loadConfiguration() — formData already has
+              // the correct values (we just sent them). Server-side reload
+              // applies the changes to running entities (GPIO, MQTT, HA Discovery).
               console.log(`✅ Reloaded: ${sectionsToReload.join(', ')}`);
             } catch (reloadError) {
               console.warn('⚠️ Error reloading local_inputs:', reloadError);

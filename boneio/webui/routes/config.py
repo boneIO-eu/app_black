@@ -132,8 +132,9 @@ def invalidate_config_cache():
     the last config change so that rapid edits don't trigger multiple slow
     Cerberus validations (~20s each on BeagleBone).
 
-    Hot reload does NOT wait for this rebuild — it loads config independently.
-    The disk cache is only an optimization for faster application startup.
+    Hot reload uses a fast path (load_yaml_file + merge_board_config) that
+    does NOT depend on the disk cache. The disk cache is only an optimization
+    for faster application startup.
     """
     _config_cache["data"] = None
     _config_cache["mtime"] = 0

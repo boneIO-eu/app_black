@@ -390,16 +390,20 @@ class ConfigHelper:
         return self._config_cache
 
     def reload_config(self) -> dict[str, Any]:
-        """Reload configuration from file and update cache.
+        """Reload configuration from YAML file (fast path for hot-reload).
         
-        Loads config from file using load_config_from_file() which tries the
-        disk cache first (~0.5s) and falls back to full Cerberus validation
-        (~20s) on cache miss. This method does NOT wait for any background
-        cache rebuild — it's independent.
+        Uses load_yaml_file() + merge_board_config() to read the config
+        directly from YAML without running Cerberus validation. This is
+        much faster (~0.5-1s) than the full validation path (~20s on BB).
         
-        NOTE: This method may take up to ~20s on BeagleBone if disk cache
-        is not available. Callers should run it via asyncio.to_thread() to
-        avoid blocking the event loop.
+        Full Cerberus validation is only needed at:
+        - Application startup (via load_config_from_file)
+        - Background disk cache rebuild (debounced after config changes)
+        - Monaco YAML editor validation (load_config_from_string)
+        
+        NOTE: Migrations are not applied here — they run at startup and
+        are idempotent (version-gated). Config saved via the UI always
+        has current schema version.
         
         Returns:
             dict: Reloaded configuration dictionary
@@ -407,8 +411,27 @@ class ConfigHelper:
         Raises:
             ValueError: If config_file_path is not set
         """
-        _LOGGER.info("Reloading config from file: %s", self._config_file_path)
-        return self.get_config(force_reload=True)
+        import time as _time
+
+        if self._config_file_path is None:
+            raise ValueError("config_file_path not set in ConfigHelper")
+
+        _t0 = _time.monotonic()
+        _LOGGER.info("Fast-reloading config from: %s", self._config_file_path)
+
+        from boneio.core.config.yaml_util import load_yaml_file, merge_board_config
+
+        config_yaml = load_yaml_file(self._config_file_path)
+        if config_yaml is None:
+            raise ValueError(f"Failed to load config from: {self._config_file_path}")
+
+        merged = merge_board_config(config_yaml)
+        self._config_cache = merged
+
+        elapsed = _time.monotonic() - _t0
+        _LOGGER.info("Fast config reload completed in %.2fs", elapsed)
+
+        return merged
 
     def get_section(self, section_name: str, force_reload: bool = False) -> Any:
         """Get a specific configuration section.
