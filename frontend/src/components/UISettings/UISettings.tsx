@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import axios from '@/api/axios';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
@@ -17,6 +17,9 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
+
+/** Lazy-loaded binding matrix component (tool section, not schema-driven). */
+const BindingMatrix = lazy(() => import('./BindingMatrix'));
 
 /**
  * UISettings - Form-based configuration editor with tabs for each config section
@@ -1307,7 +1310,14 @@ export default function UISettings() {
 
       {/* Main content area */}
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
-        {activeSection_data && (
+        {/* Tool sections (not schema-driven) */}
+        {activeSection === 'binding_matrix' ? (
+          <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
+            <div className="flex-1 overflow-y-auto">
+              <BindingMatrix formData={formData} />
+            </div>
+          </Suspense>
+        ) : activeSection_data && (
           <>
             {/* Header */}
             <SectionHeader

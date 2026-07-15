@@ -295,6 +295,7 @@
     "restart_required": "Restart wymagany dla poniższych sekcji",
     "remote_sections": "Zdalne Urządzenia",
     "restart_sections": "Sekcje wymagające restartu",
+    "tools_sections": "Narzędzia",
     "badge_experimental": "Eksperymentalne",
     "unsaved_changes": "Masz niezapisane zmiany",
     "click_save": "Kliknij Zapisz aby zastosować zmiany.",
@@ -639,6 +640,7 @@
     "remote_inputs": "Wejścia Zdalne",
     "output": "Wyjścia Lokalne",
     "remote_outputs": "Wyjścia Zdalne",
+    "binding_matrix": "Macierz Powiązań",
     "output_group": "Grupy Wyjść",
     "cover": "Rolety",
     "remote_devices": "Zdalne Urządzenia",
@@ -2245,5 +2247,25 @@
     "clear_ignored": "Wyczyść listę ignorowanych",
     "recent_events": "Diagnostyka: ostatnie zdarzenia z sieci",
     "recent_events_empty": "Nie wykryto jeszcze żadnych zdarzeń"
+  },
+  "binding_matrix": {
+    "title": "Macierz Powiązań",
+    "subtitle": "Przegląd wszystkich powiązań wejść → wyjść/rolet",
+    "local": "Lokalne",
+    "remote": "Zdalne",
+    "inputs": "Wejścia",
+    "outputs": "Wyjścia",
+    "covers": "Rolety",
+    "total_bindings": "Łączna liczba powiązań",
+    "all_areas": "Wszystkie strefy",
+    "hide_empty": "Ukryj niepowiązane",
+    "no_data": "Brak elementów do wyświetlenia z aktualnymi filtrami",
+    "unconfigured_local": "Nieskonfigurowane lokalne",
+    "unconfigured_remote": "Nieskonfigurowane zdalne",
+    "free_inputs": "Wolne wejścia",
+    "free_outputs": "Wolne wyjścia",
+    "free_covers": "Wolne rolety",
+    "free_remote_inputs": "Wolne zdalne wejścia",
+    "free_remote_outputs": "Wolne zdalne wyjścia"
   }
 }

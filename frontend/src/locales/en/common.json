@@ -295,6 +295,7 @@
     "restart_required": "Restart required for sections below",
     "remote_sections": "External Devices",
     "restart_sections": "Sections requiring restart",
+    "tools_sections": "Tools",
     "badge_experimental": "Experimental",
     "unsaved_changes": "You have unsaved changes",
     "click_save": "Click Save to apply your changes.",
@@ -675,6 +676,7 @@
     "remote_inputs": "Remote Inputs",
     "output": "Local Outputs",
     "remote_outputs": "Remote Outputs",
+    "binding_matrix": "Binding Matrix",
     "output_group": "Output Groups",
     "cover": "Covers",
     "remote_devices": "Remote Devices",
@@ -2246,5 +2248,25 @@
     "clear_ignored": "Clear all ignored",
     "recent_events": "Diagnostics: recent network events",
     "recent_events_empty": "No events detected yet"
+  },
+  "binding_matrix": {
+    "title": "Binding Matrix",
+    "subtitle": "Overview of all input → output/cover bindings",
+    "local": "Local",
+    "remote": "Remote",
+    "inputs": "Inputs",
+    "outputs": "Outputs",
+    "covers": "Covers",
+    "total_bindings": "Total bindings",
+    "all_areas": "All areas",
+    "hide_empty": "Hide unbound",
+    "no_data": "No items to display with current filters",
+    "unconfigured_local": "Unconfigured local",
+    "unconfigured_remote": "Unconfigured remote",
+    "free_inputs": "Free inputs",
+    "free_outputs": "Free outputs",
+    "free_covers": "Free covers",
+    "free_remote_inputs": "Free remote inputs",
+    "free_remote_outputs": "Free remote outputs"
   }
 }

@@ -33,6 +33,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'remote_devices', icon: '🌐', translationKey: 'sections.remote_devices', group: 'remote' },
   { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', group: 'remote' },
   { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs', group: 'remote' },
+  { name: 'binding_matrix', icon: '📊', translationKey: 'sections.binding_matrix', group: 'tools' },
 ];
 
 /**

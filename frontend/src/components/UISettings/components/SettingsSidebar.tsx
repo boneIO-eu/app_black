@@ -148,9 +148,10 @@ function SidebarContent({
 }: Omit<SettingsSidebarProps, 'isSidebarOpen' | 'onSidebarToggle'>) {
   const { t } = useTranslation();
 
-  // Split reload sections into local (no group) and remote (group === 'remote')
+  // Split reload sections into local (no group), remote, and tools
   const localReloadSections = reloadSections.filter(s => !s.group);
   const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
+  const toolsSections = reloadSections.filter(s => s.group === 'tools');
 
   return (
     <>
@@ -204,6 +205,29 @@ function SidebarContent({
           onNavigate={onNavigate}
         />
       </div>
+
+      {/* Tools sections — not schema-driven, rendered directly */}
+      {toolsSections.length > 0 && (
+        <div className="mt-4 border border-accent/20 rounded-xl bg-accent/5 p-3">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-sm font-semibold text-accent">
+              🛠️ {t('settings.tools_sections')}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {toolsSections.map(tool => (
+              <SectionButton
+                key={tool.name}
+                sectionConfig={{ ...tool, title: t(tool.translationKey) }}
+                isActive={activeSection === tool.name}
+                status={undefined}
+                hasUnsavedChanges={false}
+                onClick={() => onNavigate(tool.name)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 }
