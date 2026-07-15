@@ -93,6 +93,19 @@ const ACTION_SHORT: Record<string, string> = {
   STOP: '■',
 };
 
+/** Map binding clickType → EventForm tab name. */
+const CLICK_TYPE_TO_TAB: Record<string, 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'> = {
+  single: 'single',
+  double: 'double',
+  triple: 'triple',
+  long: 'long',
+  pressed: 'basic',
+  released: 'basic',
+  double_then_long: 'sequences',
+  single_then_long: 'sequences',
+  double_then_single: 'sequences',
+};
+
 /**
  * Get a short label for a binding cell.
  * e.g. "1× ⇆" for single-click toggle.
@@ -469,10 +482,14 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
   areaFilter: string;
   hideEmpty: boolean;
   t: (key: string, opts?: any) => string;
-  onEditInput: (input: InputRow) => void;
+  onEditInput: (input: InputRow, clickType?: string) => void;
 }) {
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [hoverCol, setHoverCol] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
 
   // Filter by area
   const filteredInputs = useMemo(() => {
@@ -517,7 +534,35 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-base-300">
+    <div
+      ref={scrollRef}
+      className="overflow-x-auto rounded-xl border border-base-300 cursor-grab active:cursor-grabbing"
+      onMouseDown={(e) => {
+        isDragging.current = false; // not dragging yet — set after threshold
+        dragStartX.current = e.clientX;
+        scrollStartX.current = scrollRef.current?.scrollLeft || 0;
+      }}
+      onMouseMove={(e) => {
+        if (!scrollRef.current) return;
+        const dx = e.clientX - dragStartX.current;
+        // Only start dragging after 5px threshold to allow normal clicks
+        if (!isDragging.current && Math.abs(dx) > 5) {
+          isDragging.current = true;
+        }
+        if (isDragging.current) {
+          scrollRef.current.scrollLeft = scrollStartX.current - dx;
+        }
+      }}
+      onMouseUp={() => { isDragging.current = false; }}
+      onMouseLeave={() => { isDragging.current = false; }}
+      onClickCapture={(e) => {
+        // If we were dragging, prevent the click from firing on cells
+        if (isDragging.current) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
+    >
       <table className="table table-xs w-auto">
         <thead>
           <tr>
@@ -591,7 +636,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
                       title={cellBindings.length > 0 ? `${cellBindings.map(bindingTooltip).join('\n')}\n\n${t('binding_matrix.click_to_edit')}` : undefined}
                       onMouseEnter={() => setHoverCol(col.id)}
                       onMouseLeave={() => setHoverCol(null)}
-                      onClick={cellBindings.length > 0 ? () => onEditInput(row) : undefined}
+                      onClick={cellBindings.length > 0 ? () => onEditInput(row, cellBindings[0].clickType) : undefined}
                     >
                       {cellBindings.length > 0 && (
                         <div className="flex flex-col gap-0.5">
@@ -621,7 +666,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
   areaFilter: string;
   hideEmpty: boolean;
   t: (key: string, opts?: any) => string;
-  onEditInput: (input: InputRow) => void;
+  onEditInput: (input: InputRow, clickType?: string) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -752,12 +797,13 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingSection, setEditingSection] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [editingInitialTab, setEditingInitialTab] = useState<'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'>('basic');
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const originalItemRef = useRef<string | null>(null);
 
-  /** Open inline edit dialog for an input. */
-  const handleEditInput = useCallback((input: InputRow) => {
+  /** Open inline edit dialog for an input, optionally on a specific tab. */
+  const handleEditInput = useCallback((input: InputRow, clickType?: string) => {
     // Find the raw item in formData
     const section = input.type === 'remote' ? 'remote_inputs' : 'local_inputs';
     const items: any[] = formData[section] || [];
@@ -771,6 +817,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
     setEditingIndex(idx);
     setEditingItem(JSON.parse(JSON.stringify(items[idx])));
     originalItemRef.current = JSON.stringify(items[idx]);
+    setEditingInitialTab(clickType ? (CLICK_TYPE_TO_TAB[clickType] || 'basic') : 'basic');
     setHasValidationErrors(false);
     setEditDialogOpen(true);
   }, [formData]);
@@ -938,6 +985,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
                 savedOutputs={allOutputs}
                 savedOutputGroups={allOutputGroups}
                 savedCovers={allCovers}
+                initialTab={editingInitialTab}
               />
             )}
           </div>
