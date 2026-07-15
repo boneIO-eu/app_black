@@ -176,8 +176,9 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
 
   // Local inputs (event + binary_sensor via composite section 'local_inputs')
   const localInputs = formData.local_inputs || [];
-  for (const input of localInputs) {
-    const id = input.id || input.pin || '';
+  for (let i = 0; i < localInputs.length; i++) {
+    const input = localInputs[i];
+    const id = input.id || input.pin || `local_${i}`;
     const bindings: Binding[] = [];
     for (const ct of clickTypes) {
       const actions = input.actions?.[ct] || [];
@@ -199,10 +200,11 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
 
   // Remote inputs
   const remoteInputs = formData.remote_inputs || [];
-  for (const input of remoteInputs) {
+  for (let i = 0; i < remoteInputs.length; i++) {
+    const input = remoteInputs[i];
     const device = input.boneio_id || input.remote_device || '';
     const inputId = input.id || input.entity_id || '';
-    const id = device ? `${device}/${inputId}` : inputId;
+    const id = device ? `${device}/${inputId}` : (inputId || `remote_${i}`);
     const bindings: Binding[] = [];
     for (const ct of clickTypes) {
       const actions = input.actions?.[ct] || [];
@@ -234,8 +236,9 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
 
   // Local outputs
   const outputs = formData.output || [];
-  for (const o of outputs) {
-    const id = o.id || '';
+  for (let i = 0; i < outputs.length; i++) {
+    const o = outputs[i];
+    const id = o.id || `output_${i}`;
     cols.push({
       id,
       name: o.name || o.id || id,
@@ -246,8 +249,9 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
 
   // Local covers
   const covers = formData.cover || [];
-  for (const c of covers) {
-    const id = c.id || '';
+  for (let i = 0; i < covers.length; i++) {
+    const c = covers[i];
+    const id = c.id || `cover_${i}`;
     cols.push({
       id,
       name: c.name || c.id || id,
@@ -258,10 +262,11 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
 
   // Remote outputs
   const remoteOutputs = formData.remote_outputs || [];
-  for (const ro of remoteOutputs) {
+  for (let i = 0; i < remoteOutputs.length; i++) {
+    const ro = remoteOutputs[i];
     const device = ro.boneio_id || ro.remote_device || '';
     const outputId = ro.id || ro.output_id || '';
-    const id = device ? `${device}/${outputId}` : outputId;
+    const id = device ? `${device}/${outputId}` : (outputId || `remote_out_${i}`);
     cols.push({
       id,
       name: ro.name || ro.id || outputId,
