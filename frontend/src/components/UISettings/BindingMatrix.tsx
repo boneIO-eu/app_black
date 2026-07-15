@@ -4,14 +4,22 @@
  * Desktop: full cross-reference table (inputs as rows, outputs/covers as columns).
  * Mobile: accordion list of inputs with their bindings + unconfigured sections.
  */
-import React, { useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   FaFilter, FaChevronDown, FaChevronUp, FaExclamationTriangle,
   FaCheckCircle, FaTimesCircle, FaEye, FaEyeSlash, FaPen,
 } from 'react-icons/fa';
 import clsx from 'clsx';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import EventForm from './EventForm';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,8 +53,19 @@ interface OutputColumn {
   remoteDevice?: string;
 }
 
+interface ConfigSection {
+  name: string;
+  schema: any;
+  normalizedSchema: any;
+  uiSchema: any;
+  data: Record<string, any>;
+}
+
 interface BindingMatrixProps {
   formData: Record<string, any>;
+  sections: ConfigSection[];
+  onSaveSection: (sectionName: string, dataOverride?: any) => Promise<void>;
+  onUpdateFormData: (section: string, data: any) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -723,19 +742,64 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
  * BindingMatrix — read-only view of all input→output/cover bindings.
  * Desktop: full matrix table. Mobile: accordion list.
  */
-const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
+const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSaveSection, onUpdateFormData }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [areaFilter, setAreaFilter] = useState('');
   const [hideEmpty, setHideEmpty] = useState(false);
 
-  /** Navigate to the input's edit form in Settings. */
+  // Inline edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingSection, setEditingSection] = useState<string>('');
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [hasValidationErrors, setHasValidationErrors] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const originalItemRef = useRef<string | null>(null);
+
+  /** Open inline edit dialog for an input. */
   const handleEditInput = useCallback((input: InputRow) => {
+    // Find the raw item in formData
     const section = input.type === 'remote' ? 'remote_inputs' : 'local_inputs';
-    // Use id for edit matching (matches item.name, item.id, or item.boneio_input)
-    const editKey = encodeURIComponent(input.id);
-    navigate(`/settings/${section}?edit=${editKey}`);
-  }, [navigate]);
+    const items: any[] = formData[section] || [];
+    const idx = items.findIndex((item: any) => {
+      const itemId = item.id || item.pin || '';
+      return itemId === input.id || item.name === input.id;
+    });
+    if (idx < 0) return;
+
+    setEditingSection(section);
+    setEditingIndex(idx);
+    setEditingItem(JSON.parse(JSON.stringify(items[idx])));
+    originalItemRef.current = JSON.stringify(items[idx]);
+    setHasValidationErrors(false);
+    setEditDialogOpen(true);
+  }, [formData]);
+
+  /** Save the edited input and persist via API. */
+  const handleSaveEdit = useCallback(async () => {
+    if (hasValidationErrors || editingIndex < 0 || !editingItem) return;
+
+    const items = [...(formData[editingSection] || [])];
+    items[editingIndex] = editingItem;
+
+    setIsSaving(true);
+    try {
+      // Update formData first, then save
+      onUpdateFormData(editingSection, items);
+      await onSaveSection(editingSection, items);
+      setEditDialogOpen(false);
+      setEditingItem(null);
+    } catch (err) {
+      console.error('Failed to save input:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editingItem, editingIndex, editingSection, formData, hasValidationErrors, onSaveSection, onUpdateFormData]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditDialogOpen(false);
+    setEditingItem(null);
+  }, []);
 
   const inputs = useMemo(() => extractInputs(formData), [formData]);
   const outputs = useMemo(() => extractOutputs(formData), [formData]);
@@ -747,6 +811,27 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
     outputs.forEach(o => { if (o.area) areas.add(o.area); });
     return [...areas].sort();
   }, [inputs, outputs]);
+
+  // Collect data needed by EventForm
+  const allOutputs = useMemo(() => formData.output || [], [formData.output]);
+  const allCovers = useMemo(() => formData.cover || [], [formData.cover]);
+  const allOutputGroups = useMemo(() => formData.output_group || [], [formData.output_group]);
+  const allRemoteDevices = useMemo(() => formData.remote_devices || [], [formData.remote_devices]);
+  const allBinarySensors = useMemo(() => {
+    return (formData.local_inputs || []).filter((i: any) => i._inputType === 'binary_sensor');
+  }, [formData.local_inputs]);
+  const allEvents = useMemo(() => {
+    return (formData.local_inputs || []).filter((i: any) => i._inputType !== 'binary_sensor');
+  }, [formData.local_inputs]);
+  const allAreasData = useMemo(() => formData.areas || [], [formData.areas]);
+
+  // Get the event/binary_sensor schema for EventForm
+  const eventSchema = useMemo(() => {
+    const localInputsSection = sections.find(s => s.name === 'local_inputs');
+    return localInputsSection?.schema || localInputsSection?.normalizedSchema || {};
+  }, [sections]);
+
+  const isDirty = editingItem && originalItemRef.current && JSON.stringify(editingItem) !== originalItemRef.current;
 
   return (
     <div className="p-4 md:p-6 max-w-full">
@@ -813,6 +898,69 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData }) => {
 
       {/* Unconfigured items (both views) */}
       <UnconfiguredSection inputs={inputs} outputs={outputs} t={t} />
+
+      {/* Inline Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl sm:max-w-3xl lg:w-[120vw] max-h-[85vh] flex flex-col gap-0 bg-base-100">
+          <DialogHeader>
+            <DialogTitle>
+              {t('binding_matrix.edit_input')}
+              {editingItem && (
+                <span className="font-normal text-base-content/70">
+                  {' — '}{editingItem.name || editingItem.id || ''}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t('binding_matrix.edit_input')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6">
+            {editingItem && (
+              <EventForm
+                data={editingItem}
+                onChange={setEditingItem}
+                onSave={handleSaveEdit}
+                onCancel={handleCancelEdit}
+                isNew={false}
+                schema={eventSchema}
+                allBinarySensors={allBinarySensors}
+                allEvents={allEvents}
+                allOutputs={allOutputs}
+                allOutputGroups={allOutputGroups}
+                allCovers={allCovers}
+                allAreas={allAreasData}
+                allRemoteDevices={allRemoteDevices}
+                editingIndex={editingIndex}
+                onValidationChange={setHasValidationErrors}
+                attemptedSubmit={false}
+                savedOutputs={allOutputs}
+                savedOutputGroups={allOutputGroups}
+                savedCovers={allCovers}
+              />
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 mt-2">
+            <button type="button" onClick={handleCancelEdit} className="btn btn-ghost">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              className="btn btn-primary"
+              disabled={hasValidationErrors || !isDirty || isSaving}
+            >
+              {isSaving ? (
+                <><span className="loading loading-spinner loading-xs" /> {t('settings.saving')}</>
+              ) : (
+                t('settings.save_changes')
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

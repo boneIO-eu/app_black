@@ -1314,7 +1314,15 @@ export default function UISettings() {
         {activeSection === 'binding_matrix' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
             <div className="flex-1 overflow-y-auto">
-              <BindingMatrix formData={formData} />
+              <BindingMatrix
+                formData={formData}
+                sections={sections}
+                onSaveSection={saveSection}
+                onUpdateFormData={(section: string, data: any) => {
+                  setFormData(prev => ({ ...prev, [section]: data }));
+                  setUnsavedChanges(prev => ({ ...prev, [section]: true }));
+                }}
+              />
             </div>
           </Suspense>
         ) : activeSection_data && (
