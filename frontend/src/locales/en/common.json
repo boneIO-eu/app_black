@@ -2228,6 +2228,7 @@
     "tab_link": "New Link",
     "tab_bindings": "Current Bindings",
     "select_target": "Select target...",
+    "test_action": "Test",
     "bindings_no_input": "Press a button to see its bindings",
     "bindings_empty": "No bindings configured for this input",
     "bindings_for": "Bindings for {{name}}",

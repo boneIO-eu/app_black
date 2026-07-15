@@ -2227,6 +2227,7 @@
     "tab_link": "Nowe Powiązanie",
     "tab_bindings": "Obecne Powiązania",
     "select_target": "Wybierz cel...",
+    "test_action": "Testuj",
     "bindings_no_input": "Naciśnij przycisk, aby zobaczyć powiązania",
     "bindings_empty": "Brak skonfigurowanych powiązań dla tego wejścia",
     "bindings_for": "Powiązania dla {{name}}",

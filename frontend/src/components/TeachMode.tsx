@@ -18,7 +18,7 @@ import {
   FaGraduationCap, FaTimes, FaCheck, FaExclamationTriangle,
   FaHandPointer, FaBolt, FaUndo, FaChevronDown, FaChevronUp,
   FaLink, FaList, FaHistory, FaMousePointer, FaBan, FaFilter,
-  FaNetworkWired,
+  FaNetworkWired, FaPlay,
 } from 'react-icons/fa';
 
 /** Click types for event-type inputs. */
@@ -523,6 +523,60 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
     }
   }, [detectedInput, targetId, selectedItem, clickType, actionValue, t]);
 
+  // --- Test action ---
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
+
+  /**
+   * Build the action definition in the same format as YAML config,
+   * and execute it via POST /api/test-action.
+   */
+  const handleTestAction = useCallback(async () => {
+    if (!targetId || !selectedItem) return;
+    setTestStatus('loading');
+    setTestError(null);
+
+    try {
+      const actionDef: Record<string, string> = {};
+
+      switch (selectedItem.actionType) {
+        case 'output':
+          actionDef.action = 'output';
+          actionDef.boneio_output = targetId;
+          actionDef.action_output = actionValue;
+          break;
+        case 'cover':
+          actionDef.action = 'cover';
+          actionDef.boneio_cover = targetId;
+          actionDef.action_cover = actionValue;
+          break;
+        case 'remote_output':
+          actionDef.action = 'remote_output';
+          actionDef.boneio_id = selectedItem.remoteDevice || '';
+          actionDef.output_id = targetId.includes('/') ? targetId.split('/').slice(1).join('/') : targetId;
+          actionDef.action_output = actionValue;
+          break;
+        case 'remote_cover':
+          actionDef.action = 'remote_cover';
+          actionDef.boneio_id = selectedItem.remoteDevice || '';
+          actionDef.cover_id = targetId.includes('/') ? targetId.split('/').slice(1).join('/') : targetId;
+          actionDef.action_cover = actionValue;
+          break;
+      }
+
+      await axios.post('/api/test-action', { action: actionDef });
+      setTestStatus('success');
+      setTimeout(() => setTestStatus('idle'), 2000);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err.message || 'Unknown error';
+      setTestError(typeof detail === 'string' ? detail : 'Test failed');
+      setTestStatus('error');
+      setTimeout(() => { setTestStatus('idle'); setTestError(null); }, 4000);
+    }
+  }, [targetId, selectedItem, actionValue]);
+
+  const canTest = targetId && selectedItem && testStatus !== 'loading';
+
   const canLink = detectedInput && targetId && selectedItem && saveStatus !== 'saving' && saveStatus !== 'success';
 
   // Ignored items resolved to names
@@ -931,21 +985,51 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                 </Select>
               </div>
 
-              {/* Link button */}
-              <button
-                className="btn btn-primary btn-block gap-2 h-13 text-base font-semibold shadow-lg shadow-primary/20 rounded-xl transition-all duration-200 active:scale-[0.98]"
-                disabled={!canLink}
-                onClick={handleLink}
-              >
-                {saveStatus === 'saving' ? (
-                  <span className="loading loading-spinner loading-sm" />
-                ) : (
-                  <>
-                    <FaLink className="w-4 h-4" />
-                    {t('teach_mode.link')}
-                  </>
-                )}
-              </button>
+              {/* Test + Link buttons */}
+              <div className="flex gap-2">
+                <button
+                  className={clsx(
+                    'btn gap-2 h-13 rounded-xl font-semibold transition-all duration-200 active:scale-[0.98] shrink-0',
+                    testStatus === 'success' ? 'btn-success' :
+                    testStatus === 'error' ? 'btn-error' :
+                    'btn-info btn-outline',
+                  )}
+                  disabled={!canTest}
+                  onClick={handleTestAction}
+                  title={t('teach_mode.test_action')}
+                >
+                  {testStatus === 'loading' ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : testStatus === 'success' ? (
+                    <FaCheck className="w-4 h-4" />
+                  ) : (
+                    <FaPlay className="w-4 h-4" />
+                  )}
+                  {t('teach_mode.test_action')}
+                </button>
+                <button
+                  className="btn btn-primary flex-1 gap-2 h-13 text-base font-semibold shadow-lg shadow-primary/20 rounded-xl transition-all duration-200 active:scale-[0.98]"
+                  disabled={!canLink}
+                  onClick={handleLink}
+                >
+                  {saveStatus === 'saving' ? (
+                    <span className="loading loading-spinner loading-sm" />
+                  ) : (
+                    <>
+                      <FaLink className="w-4 h-4" />
+                      {t('teach_mode.link')}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Test error */}
+              {testStatus === 'error' && testError && (
+                <div className="alert alert-error text-sm py-2 rounded-xl border border-error/10 shadow-sm">
+                  <FaExclamationTriangle className="w-3.5 h-3.5" />
+                  <span className="text-xs">{testError}</span>
+                </div>
+              )}
 
               {/* Status messages */}
               {saveStatus === 'error' && errorMessage && (
