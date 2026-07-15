@@ -147,16 +147,20 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
   const validInputs = useMemo(() => inputs.filter(isInputEvent), [inputs]);
 
-  // Unique areas from inputs for area filter
-  const inputAreas = useMemo(() => {
+  // Unique areas from all entities (inputs + outputs + covers) for area filter
+  const allAreas = useMemo(() => {
     const areas = new Map<string, string>();
     validInputs.forEach((input: InputEvent) => {
-      if (input.state.area) {
-        areas.set(input.state.area, input.state.area);
-      }
+      if (input.state.area) areas.set(input.state.area, input.state.area);
+    });
+    outputs.forEach((o: OutputEvent) => {
+      if (o.state.area) areas.set(o.state.area, o.state.area);
+    });
+    covers.forEach((c: CoverEvent) => {
+      if ((c.state as any).area) areas.set((c.state as any).area, (c.state as any).area);
     });
     return [...areas.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [validInputs]);
+  }, [validInputs, outputs, covers]);
 
   /** Persist ignored IDs to localStorage. */
   const persistIgnored = useCallback((ids: Set<string>) => {
@@ -592,7 +596,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                       onChange={(e) => setAreaFilter(e.target.value)}
                     >
                       <option value="">{t('teach_mode.all_areas')}</option>
-                      {inputAreas.map(({ id, name }) => (
+                      {allAreas.map(({ id, name }) => (
                         <option key={id} value={id}>{name}</option>
                       ))}
                     </select>
