@@ -235,10 +235,11 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
 function extractOutputs(formData: Record<string, any>): OutputColumn[] {
   const cols: OutputColumn[] = [];
 
-  // Local outputs
+  // Local outputs (skip kind: cover/none — cover relays and disabled outputs)
   const outputs = formData.output || [];
   for (let i = 0; i < outputs.length; i++) {
     const o = outputs[i];
+    if (o.kind === 'cover' || o.kind === 'none') continue;
     const id = o.id || `output_${i}`;
     cols.push({
       id,
