@@ -537,7 +537,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
   return (
     <div
       ref={scrollRef}
-      className="overflow-x-auto rounded-xl border border-base-300 cursor-grab active:cursor-grabbing"
+      className="overflow-x-auto rounded-xl border border-base-300 cursor-grab active:cursor-grabbing select-none"
       onMouseDown={(e) => {
         isMouseDown.current = true;
         isDragging.current = false;
