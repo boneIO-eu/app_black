@@ -371,7 +371,8 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
   const canLink = detectedInput && targetId && selectedItem && saveStatus !== 'saving' && saveStatus !== 'success';
 
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-br from-base-100 via-base-100 to-base-200 flex flex-col font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center md:bg-black/40 md:backdrop-blur-sm">
+      <div className="w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl md:mx-4 md:rounded-2xl md:shadow-2xl md:border md:border-base-300 bg-base-100 flex flex-col overflow-hidden font-sans">
       {/* Header bar */}
       <div className="bg-base-200/80 backdrop-blur-md text-base-content px-6 py-4 flex items-center justify-between shadow-sm shrink-0 border-b border-base-300">
         <div className="flex items-center gap-3">
@@ -704,6 +705,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
