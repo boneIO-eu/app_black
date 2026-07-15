@@ -2230,6 +2230,18 @@
     "select_target": "Select target...",
     "bindings_no_input": "Press a button to see its bindings",
     "bindings_empty": "No bindings configured for this input",
-    "bindings_for": "Bindings for {{name}}"
+    "bindings_for": "Bindings for {{name}}",
+    "area_filter": "Filter by area",
+    "all_areas": "All areas",
+    "auto_ignore": "Auto-ignore sensors",
+    "auto_ignore_hint": "Motion sensors and other binary sensors are added to the ignored list instead of being detected",
+    "manual_select": "Select input manually (no pressing)",
+    "manual_placeholder": "Choose an input...",
+    "ignored_title": "Ignored inputs (sensors etc.)",
+    "ignored_empty": "No ignored inputs",
+    "unignore": "Unignore",
+    "clear_ignored": "Clear all ignored",
+    "recent_events": "Diagnostics: recent network events",
+    "recent_events_empty": "No events detected yet"
   }
 }

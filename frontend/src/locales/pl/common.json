@@ -2229,6 +2229,18 @@
     "select_target": "Wybierz cel...",
     "bindings_no_input": "Naciśnij przycisk, aby zobaczyć powiązania",
     "bindings_empty": "Brak skonfigurowanych powiązań dla tego wejścia",
-    "bindings_for": "Powiązania dla {{name}}"
+    "bindings_for": "Powiązania dla {{name}}",
+    "area_filter": "Filtruj po strefie",
+    "all_areas": "Wszystkie strefy",
+    "auto_ignore": "Auto-ignoruj czujki",
+    "auto_ignore_hint": "Czujki ruchu i inne czujniki binarne trafiają na listę ignorowanych zamiast być wykrywane",
+    "manual_select": "Wybierz wejście ręcznie (bez naciskania)",
+    "manual_placeholder": "Wybierz wejście...",
+    "ignored_title": "Ignorowane wejścia (czujki itp.)",
+    "ignored_empty": "Brak ignorowanych wejść",
+    "unignore": "Odblokuj",
+    "clear_ignored": "Wyczyść listę ignorowanych",
+    "recent_events": "Diagnostyka: ostatnie zdarzenia z sieci",
+    "recent_events_empty": "Nie wykryto jeszcze żadnych zdarzeń"
   }
 }
