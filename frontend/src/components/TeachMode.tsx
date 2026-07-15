@@ -200,6 +200,12 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
     }));
   }, [validInputs]);
 
+  /** Input items filtered by area filter (used in manual picker and ignore picker). */
+  const filteredInputItems = useMemo(() => {
+    if (!areaFilter) return inputItems;
+    return inputItems.filter((item) => item.area === areaFilter);
+  }, [inputItems, areaFilter]);
+
   // Detect input events via WebSocket
   useEffect(() => {
     const eventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple',
@@ -569,6 +575,30 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
           {!leftCollapsed ? (
             <div className="flex-1 overflow-y-auto">
+              {/* Area filter — always visible at top */}
+              <div className="p-3 px-6 bg-base-200/30 border-b border-base-200 space-y-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-base-content/60 uppercase tracking-wider">
+                  <FaFilter className="w-3 h-3" />
+                  {t('teach_mode.area_filter')}
+                </label>
+                <select
+                  className="select select-sm select-bordered w-full"
+                  value={areaFilter}
+                  onChange={(e) => setAreaFilter(e.target.value)}
+                >
+                  <option value="">{t('teach_mode.all_areas')}</option>
+                  {allAreas.map(({ id, name }) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
+                </select>
+                {areaFilter && (
+                  <p className="text-xs text-info flex items-center gap-1.5">
+                    <FaFilter className="w-3 h-3 shrink-0" />
+                    {t('teach_mode.area_filter_active', { area: areaFilter })}
+                  </p>
+                )}
+              </div>
+
               {/* Detected input or waiting */}
               {!detectedInput ? (
                 <div className="p-6 space-y-4">
@@ -582,24 +612,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                     </div>
                     <p className="text-base font-bold tracking-tight text-base-content/70">{t('teach_mode.waiting')}</p>
                     <p className="text-xs text-base-content/40">{t('teach_mode.waiting_hint')}</p>
-                  </div>
-
-                  {/* Area filter */}
-                  <div className="bg-base-200/30 border border-base-200 rounded-xl p-3 space-y-2">
-                    <label className="flex items-center gap-2 text-xs font-semibold text-base-content/60 uppercase tracking-wider">
-                      <FaFilter className="w-3 h-3" />
-                      {t('teach_mode.area_filter')}
-                    </label>
-                    <select
-                      className="select select-sm select-bordered w-full"
-                      value={areaFilter}
-                      onChange={(e) => setAreaFilter(e.target.value)}
-                    >
-                      <option value="">{t('teach_mode.all_areas')}</option>
-                      {allAreas.map(({ id, name }) => (
-                        <option key={id} value={id}>{name}</option>
-                      ))}
-                    </select>
                   </div>
 
                   {/* Auto-ignore sensors checkbox */}
@@ -688,7 +700,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                     <SearchableEntityPicker
                       value=""
                       onChange={handleManualSelect}
-                      items={inputItems}
+                      items={filteredInputItems}
                       placeholder={t('teach_mode.manual_placeholder')}
                       recentKey="teach-inputs"
                     />
@@ -715,7 +727,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                     <SearchableEntityPicker
                       value=""
                       onChange={(id) => addIgnored(id)}
-                      items={inputItems}
+                      items={filteredInputItems}
                       excludeIds={[...ignoredIds]}
                       placeholder={t('teach_mode.add_to_ignored')}
                       recentKey="teach-ignore"

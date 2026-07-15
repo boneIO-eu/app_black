@@ -2232,6 +2232,7 @@
     "bindings_for": "Powiązania dla {{name}}",
     "area_filter": "Filtruj po strefie",
     "all_areas": "Wszystkie strefy",
+    "area_filter_active": "Ignorowane wszystkie wejścia poza strefą {{area}}",
     "auto_ignore": "Auto-ignoruj czujki",
     "auto_ignore_hint": "Czujki ruchu i inne czujniki binarne trafiają na listę ignorowanych zamiast być wykrywane",
     "manual_select": "Wybierz wejście ręcznie (bez naciskania)",
