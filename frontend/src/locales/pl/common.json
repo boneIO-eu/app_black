@@ -2268,6 +2268,7 @@
     "free_remote_inputs": "Wolne zdalne wejścia",
     "free_remote_outputs": "Wolne zdalne wyjścia",
     "click_to_edit": "Kliknij aby edytować akcje",
-    "edit_input": "Edytuj akcje"
+    "edit_input": "Edytuj akcje",
+    "edit_output": "Edytuj wyjście"
   }
 }

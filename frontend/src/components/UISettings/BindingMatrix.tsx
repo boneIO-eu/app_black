@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import EventForm from './EventForm';
+import OutputForm from './OutputForm';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -481,13 +482,14 @@ function FreeItemList({ title, items }: {
 // Desktop Matrix Table
 // ---------------------------------------------------------------------------
 
-function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput }: {
+function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput, onEditOutput }: {
   inputs: InputRow[];
   outputs: OutputColumn[];
   areaFilter: string;
   hideEmpty: boolean;
   t: (key: string, opts?: any) => string;
   onEditInput: (input: InputRow, clickType?: string) => void;
+  onEditOutput: (output: OutputColumn) => void;
 }) {
   const [hoverRow, setHoverRow] = useState<string | null>(null);
   const [hoverCol, setHoverCol] = useState<string | null>(null);
@@ -578,14 +580,17 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput 
               <th
                 key={col.id}
                 className={clsx(
-                  'text-center text-xxs font-bold px-1.5 py-2 min-w-[80px] max-w-[100px] border-r border-base-300 bg-base-200',
+                  'text-center text-xxs font-bold px-1.5 py-2 min-w-[80px] max-w-[100px] border-r border-base-300 bg-base-200 cursor-pointer group/col',
                   hoverCol === col.id && 'bg-primary/10',
                 )}
                 onMouseEnter={() => setHoverCol(col.id)}
                 onMouseLeave={() => setHoverCol(null)}
+                onClick={() => onEditOutput(col)}
+                title={t('binding_matrix.click_to_edit')}
               >
-                <div className="truncate" title={`${col.name}${col.area ? ` (${col.area})` : ''}`}>
+                <div className="truncate flex items-center justify-center gap-1" title={`${col.name}${col.area ? ` (${col.area})` : ''}`}>
                   {col.name}
+                  <FaPen className="w-2 h-2 opacity-0 group-hover/col:opacity-40 transition-opacity shrink-0" />
                 </div>
                 {col.area && (
                   <div className="text-xxs font-normal text-base-content/40 truncate">{col.area}</div>
@@ -809,6 +814,14 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const [isSaving, setIsSaving] = useState(false);
   const originalItemRef = useRef<string | null>(null);
 
+  // Output edit dialog state
+  const [outputDialogOpen, setOutputDialogOpen] = useState(false);
+  const [editingOutput, setEditingOutput] = useState<any>(null);
+  const [editingOutputSection, setEditingOutputSection] = useState<string>('');
+  const [editingOutputIndex, setEditingOutputIndex] = useState<number>(-1);
+  const [isSavingOutput, setIsSavingOutput] = useState(false);
+  const originalOutputRef = useRef<string | null>(null);
+
   /** Open inline edit dialog for an input, optionally on a specific tab. */
   const handleEditInput = useCallback((input: InputRow, clickType?: string) => {
     // Find the raw item in formData
@@ -885,7 +898,68 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
     return localInputsSection?.schema || localInputsSection?.normalizedSchema || {};
   }, [sections]);
 
-  const isDirty = editingItem && originalItemRef.current && JSON.stringify(editingItem) !== originalItemRef.current;
+  // Get the output schema for OutputForm
+  const outputSchema = useMemo(() => {
+    const outputSection = sections.find(s => s.name === 'output');
+    return outputSection?.schema || outputSection?.normalizedSchema || {};
+  }, [sections]);
+
+  const outputUiSchema = useMemo(() => {
+    const outputSection = sections.find(s => s.name === 'output');
+    return outputSection?.uiSchema || {};
+  }, [sections]);
+
+  /** Open inline edit dialog for an output. */
+  const handleEditOutput = useCallback((output: OutputColumn) => {
+    // Map OutputColumn type to formData section
+    const sectionMap: Record<string, string> = {
+      output: 'output',
+      cover: 'cover',
+      remote_output: 'remote_outputs',
+      remote_cover: 'remote_covers',
+    };
+    const section = sectionMap[output.type] || 'output';
+    const items: any[] = formData[section] || [];
+    const idx = items.findIndex((item: any) => {
+      const itemId = item.id || '';
+      return itemId === output.id;
+    });
+    if (idx < 0) return;
+
+    setEditingOutputSection(section);
+    setEditingOutputIndex(idx);
+    setEditingOutput(JSON.parse(JSON.stringify(items[idx])));
+    originalOutputRef.current = JSON.stringify(items[idx]);
+    setOutputDialogOpen(true);
+  }, [formData]);
+
+  /** Save the edited output and persist via API. */
+  const handleSaveOutput = useCallback(async () => {
+    if (editingOutputIndex < 0 || !editingOutput) return;
+
+    const items = [...(formData[editingOutputSection] || [])];
+    items[editingOutputIndex] = editingOutput;
+
+    setIsSavingOutput(true);
+    try {
+      onUpdateFormData(editingOutputSection, items);
+      await onSaveSection(editingOutputSection, items);
+      setOutputDialogOpen(false);
+      setEditingOutput(null);
+    } catch (err) {
+      console.error('Failed to save output:', err);
+    } finally {
+      setIsSavingOutput(false);
+    }
+  }, [editingOutput, editingOutputIndex, editingOutputSection, formData, onSaveSection, onUpdateFormData]);
+
+  const handleCancelOutputEdit = useCallback(() => {
+    setOutputDialogOpen(false);
+    setEditingOutput(null);
+  }, []);
+
+  const isInputDirty = editingItem && originalItemRef.current && JSON.stringify(editingItem) !== originalItemRef.current;
+  const isOutputDirty = editingOutput && originalOutputRef.current && JSON.stringify(editingOutput) !== originalOutputRef.current;
 
   return (
     <div className="p-4 md:p-6 max-w-full">
@@ -936,6 +1010,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
           hideEmpty={hideEmpty}
           t={t}
           onEditInput={handleEditInput}
+          onEditOutput={handleEditOutput}
         />
       </div>
 
@@ -1005,9 +1080,64 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
               type="button"
               onClick={handleSaveEdit}
               className="btn btn-primary"
-              disabled={hasValidationErrors || !isDirty || isSaving}
+              disabled={hasValidationErrors || !isInputDirty || isSaving}
             >
               {isSaving ? (
+                <><span className="loading loading-spinner loading-xs" /> {t('settings.saving')}</>
+              ) : (
+                t('settings.save_changes')
+              )}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Edit Dialog */}
+      <Dialog open={outputDialogOpen} onOpenChange={setOutputDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-0 bg-base-100">
+          <DialogHeader>
+            <DialogTitle>
+              {t('binding_matrix.edit_output')}
+              {editingOutput && (
+                <span className="font-normal text-base-content/70">
+                  {' — '}{editingOutput.name || editingOutput.id || ''}
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t('binding_matrix.edit_output')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6">
+            {editingOutput && (
+              <OutputForm
+                data={editingOutput}
+                onChange={setEditingOutput}
+                onSave={handleSaveOutput}
+                onCancel={handleCancelOutputEdit}
+                isNew={false}
+                schema={outputSchema}
+                uiSchema={outputUiSchema}
+                allOutputs={allOutputs}
+                allAreas={allAreasData}
+                editingIndex={editingOutputIndex}
+                allCovers={allCovers}
+              />
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 mt-2">
+            <button type="button" onClick={handleCancelOutputEdit} className="btn btn-ghost">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveOutput}
+              className="btn btn-primary"
+              disabled={!isOutputDirty || isSavingOutput}
+            >
+              {isSavingOutput ? (
                 <><span className="loading loading-spinner loading-xs" /> {t('settings.saving')}</>
               ) : (
                 t('settings.save_changes')
