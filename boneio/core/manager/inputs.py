@@ -255,13 +255,17 @@ class InputManager:
 
             # Reload: update existing input's actions and name
             if existing_input:
-                # Check if HA-relevant fields changed (name, area, mqtt_sequences)
+                # Check if HA-relevant fields changed (name, area, device_class, mqtt_sequences)
                 old_name = existing_input._name if hasattr(existing_input, "_name") else None
                 old_area = getattr(existing_input, "area", None)
+                old_device_class = getattr(existing_input, "_device_class", None)
+                new_device_class = gpio.get(DEVICE_CLASS)
                 old_mqtt_sequences = existing_input.mqtt_sequences if hasattr(existing_input, "mqtt_sequences") else {}
                 new_mqtt_sequences = gpio.get("mqtt_sequences", {})
                 ha_fields_changed = (
-                    (old_name != name) or (old_area != area) or (old_mqtt_sequences != new_mqtt_sequences)
+                    (old_name != name) or (old_area != area)
+                    or (old_device_class != new_device_class)
+                    or (old_mqtt_sequences != new_mqtt_sequences)
                 )
 
                 # Update actions (always - this is internal to the controller)
@@ -383,10 +387,15 @@ class InputManager:
 
             # Reload: update existing input's actions and name
             if existing_input:
-                # Check if HA-relevant fields changed (name, area)
+                # Check if HA-relevant fields changed (name, area, device_class)
                 old_name = existing_input._name if hasattr(existing_input, "_name") else None
                 old_area = getattr(existing_input, "area", None)
-                ha_fields_changed = (old_name != name) or (old_area != area)
+                old_device_class = getattr(existing_input, "_device_class", None)
+                new_device_class = gpio.get(DEVICE_CLASS)
+                ha_fields_changed = (
+                    (old_name != name) or (old_area != area)
+                    or (old_device_class != new_device_class)
+                )
 
                 # Update actions (always - this is internal to the controller)
                 existing_input.set_actions(actions=actions)

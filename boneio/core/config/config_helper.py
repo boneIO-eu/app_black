@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from _collections_abc import dict_values
 from typing import TYPE_CHECKING, Any
+import time as _time
 
 if TYPE_CHECKING:
     from boneio.integration.homeassistant import HomeAssistantDiscoveryMessage
@@ -28,7 +29,6 @@ from boneio.const import (
     VALVE,
 )
 from boneio.core.system import get_serial_from_mac
-from boneio.core.utils.util import sanitize_mqtt_topic
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -411,7 +411,6 @@ class ConfigHelper:
         Raises:
             ValueError: If config_file_path is not set
         """
-        import time as _time
 
         if self._config_file_path is None:
             raise ValueError("config_file_path not set in ConfigHelper")
