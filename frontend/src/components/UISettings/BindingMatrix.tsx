@@ -157,7 +157,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
     }
     rows.push({
       id,
-      name: input.id || input.pin || id,
+      name: input.name || input.id || input.pin || id,
       area: input.area || undefined,
       type: 'local',
       bindings,
@@ -182,7 +182,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
     }
     rows.push({
       id,
-      name: input.id || inputId,
+      name: input.name || input.id || inputId,
       area: input.area || undefined,
       type: 'remote',
       remoteDevice: device,
@@ -205,7 +205,7 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
     const id = o.id || '';
     cols.push({
       id,
-      name: o.id || id,
+      name: o.name || o.id || id,
       area: o.area || undefined,
       type: 'output',
     });
@@ -217,7 +217,7 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
     const id = c.id || '';
     cols.push({
       id,
-      name: c.id || id,
+      name: c.name || c.id || id,
       area: c.area || undefined,
       type: 'cover',
     });
@@ -231,7 +231,7 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
     const id = device ? `${device}/${outputId}` : outputId;
     cols.push({
       id,
-      name: outputId,
+      name: ro.name || ro.id || outputId,
       area: ro.area || undefined,
       type: 'remote_output',
       remoteDevice: device,
