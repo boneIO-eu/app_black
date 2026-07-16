@@ -68,6 +68,22 @@ function AppContent() {
   const { isApiAvailable } = useApiAvailability();
   const { error, addMessageListener, addConnectionStateListener } = useWebSocket();
 
+  // Select all text in number inputs on focus for better mobile UX.
+  // Without this, tapping a number input on mobile places the cursor at the end,
+  // forcing users to manually delete the old value before typing a new one.
+  useEffect(() => {
+    const handler = (e: FocusEvent) => {
+      const target = e.target;
+      if (target instanceof HTMLInputElement && target.type === 'number') {
+        // requestAnimationFrame ensures the selection happens after the browser
+        // has finished its default focus handling (needed for iOS Safari)
+        requestAnimationFrame(() => target.select());
+      }
+    };
+    document.addEventListener('focusin', handler);
+    return () => document.removeEventListener('focusin', handler);
+  }, []);
+
   // Listen to WebSocket connection state changes and request state resync on reconnect
   // Note: Initial state is sent automatically by backend on WebSocket connect
   // This handles reconnection scenarios where we need to resync
