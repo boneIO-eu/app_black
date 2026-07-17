@@ -4,7 +4,7 @@
   "description": "boneIO temperature sensor extension board",
   "category": "sensors",
   "default_address": 1,
-  "default_update_interval": "10s",
+  "default_update_interval": "30s",
   "set_base": {
     "set_address_address": 100,
     "set_baudrate": {
