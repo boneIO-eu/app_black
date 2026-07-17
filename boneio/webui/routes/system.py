@@ -16,6 +16,7 @@ from boneio.core.config.yaml_util import load_config_from_file, update_yaml_fiel
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
+from boneio.webui.middleware.auth import is_auth_required
 from boneio.webui.services.logs import (
     get_standalone_logs,
     get_systemd_logs,
@@ -137,6 +138,57 @@ async def get_version(config_helper: ConfigHelper = Depends(get_config_helper)):
     """
     return {"version": __version__, "serial_no": config_helper.serial_no}
 
+
+@router.get("/init")
+async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
+    """
+    Combined initialization endpoint returning all data needed for initial page load.
+
+    Merges version, auth, pwa_name, and cloud/status into a single response
+    to reduce the number of HTTP round-trips on startup.
+
+    Returns:
+        Dictionary with version, auth, pwa, and cloud sections.
+    """
+    # Version info
+    serial_suffix = config_helper.serial_no.replace("blk_", "").replace("blk", "")
+
+    # Cloud status
+    cloud_data: dict = {"enabled": False}
+    ch: ConfigHelper | None = getattr(_app_state, "config_helper", None)
+    if ch:
+        cloud_reg = getattr(ch, "_cloud_reg", None)
+        if cloud_reg:
+            cloud_data = {
+                "enabled": cloud_reg.enabled,
+                "domain": cloud_reg.domain,
+                "cloud_config_active": cloud_reg.is_cloud_config_active(),
+                "compose_writable": cloud_reg.is_compose_writable,
+                "last_error": cloud_reg.last_error,
+            }
+        else:
+            cloud_data = {
+                "enabled": ch.cloud_registration,
+                "domain": None,
+                "cloud_config_active": False,
+                "last_error": None,
+            }
+
+    # Auth required check
+    try:
+        auth_required = is_auth_required()
+    except Exception:
+        auth_required = True
+
+    return {
+        "version": __version__,
+        "serial_no": config_helper.serial_no,
+        "auth_required": auth_required,
+        "pwa_name": config_helper.pwa_name,
+        "pwa_default": f"bIO {serial_suffix}",
+        "pwa_max_length": 12,
+        "cloud": cloud_data,
+    }
 
 @router.get("/name")
 async def get_name(config_helper: ConfigHelper = Depends(get_config_helper)):

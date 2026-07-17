@@ -131,6 +131,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             or request.url.path == "/api/login"
             or request.url.path == "/api/auth/required"
             or request.url.path == "/api/version"
+            or request.url.path == "/api/init"
         ):
             return await call_next(request)
 

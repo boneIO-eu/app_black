@@ -2,51 +2,27 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import clsx from 'clsx';
-import axios from '@/api/axios';
 import { useAuth } from '../hooks/useAuth';
 import { useDeviceName } from '../hooks/useDeviceName';
 import { useConfig } from '../contexts/ConfigContext';
 import { useNodeRedAvailability } from '../hooks/useNodeRedAvailability';
 import { useTranslation } from '../hooks/useTranslation';
+import { useAppInit } from '../contexts/AppInitContext';
 import Logo from "./Logo"
 
 export default function Navigation() {
   const { isAuthenticated, logout } = useAuth();
-  const [version, setVersion] = useState<string>('');
-  const [serialNo, setSerialNo] = useState<string>('');
+  const { data: initData } = useAppInit();
   const { deviceName } = useDeviceName();
-  const [pwaName, setPwaName] = useState<string>('');
-  const [cloudDomain, setCloudDomain] = useState<string>('');
 
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await axios.get('/api/version');
-        setVersion(response.data.version);
-        if (response.data.serial_no) {
-          setSerialNo(response.data.serial_no);
-        }
-      } catch (error) {
-        console.error('Error fetching version:', error);
-      }
-    };
-
-    fetchVersion();
-  }, []);
-
-  useEffect(() => {
-    axios.get('/api/pwa_name').then(({ data }) => {
-      setPwaName(data.pwa_name || '');
-    }).catch(() => {});
-
-    axios.get('/api/cloud/status').then(({ data }) => {
-      if (data.domain && data.cloud_config_active) {
-        setCloudDomain(data.domain);
-      }
-    }).catch(() => {});
-  }, []);
+  // Derive from init data (single API call, no duplicates)
+  const version = initData?.version || '';
+  const serialNo = initData?.serial_no || '';
+  const pwaName = initData?.pwa_name || '';
+  const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
+    ? initData.cloud.domain : '';
 
   useEffect(() => {
     if (deviceName) {
@@ -226,7 +202,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
           <a
             onClick={() => handleClick(item.path)}
             className={clsx(
-              'flex items-center gap-4 px-4 py-4 rounded-xl text-lg font-medium transition-all',
+              'flex items-center gap-4 px-4 py-4 rounded-lg text-lg font-medium transition-all',
               'active:scale-[0.98] cursor-pointer',
               isActive(item)
                 ? 'bg-primary text-primary-content shadow-md'
@@ -248,31 +224,13 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
 }
 
 export const DrawerSide = () => {
-  const [version, setVersion] = useState<string>('');
-  const [serialNo, setSerialNo] = useState<string>('');
-  const [cloudDomain, setCloudDomain] = useState<string>('');
+  const { data: initData } = useAppInit();
   const { deviceName } = useDeviceName();
 
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await axios.get('/api/version');
-        setVersion(response.data.version);
-        if (response.data.serial_no) {
-          setSerialNo(response.data.serial_no);
-        }
-      } catch (error) {
-        console.error('Error fetching version:', error);
-      }
-    };
-    fetchVersion();
-
-    axios.get('/api/cloud/status').then(({ data }) => {
-      if (data.domain && data.cloud_config_active) {
-        setCloudDomain(data.domain);
-      }
-    }).catch(() => {});
-  }, []);
+  const version = initData?.version || '';
+  const serialNo = initData?.serial_no || '';
+  const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
+    ? initData.cloud.domain : '';
 
   return (
     <div className="drawer-side z-40">

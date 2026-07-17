@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from '@/api/axios';
 import { closeWebSocket } from './useWebSocket';
+import { useAppInit } from '@/contexts/AppInitContext';
 
 export interface AuthContextType {
   isAuthenticated: boolean;
@@ -25,31 +26,26 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthRequired, setIsAuthRequired] = useState(true);
+  const { data: initData, isLoading: initLoading } = useAppInit();
 
+  // Read auth_required from /api/init data instead of making a separate call
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await axios.get('/api/auth/required');
-        setIsAuthRequired(response.data.required);
-        console.log("required", response.data.required);
-        
-        const token = localStorage.getItem('token');
-        if (token) {
-          // Token is automatically added by axios interceptor from localStorage
-          setIsAuthenticated(true);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setIsLoading(false);
+    if (initLoading) return;
+    if (initData) {
+      setIsAuthRequired(initData.auth_required);
+      const token = localStorage.getItem('token');
+      if (token) {
+        setIsAuthenticated(true);
       }
-    };
-
-    checkAuth();
-  }, []);
+      setIsLoading(false);
+    } else {
+      // Fallback if init data is not available
+      setIsLoading(false);
+    }
+  }, [initData, initLoading]);
 
   const login = async (username: string, password: string) => {
     try {
