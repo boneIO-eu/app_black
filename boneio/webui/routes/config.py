@@ -1526,7 +1526,12 @@ async def add_quick_action(payload: dict = Body(...)):
                 for idx, entry in enumerate(entries):
                     if isinstance(entry, dict):
                         eid = entry.get("id", entry.get("pin", ""))
-                        if str(eid) == entity_id:
+                        boneio_in = entry.get("boneio_input", "")
+                        if (
+                            str(eid) == entity_id
+                            or str(eid).lower() == entity_id.lower()
+                            or str(boneio_in).lower() == entity_id.lower()
+                        ):
                             section = sec_name
                             input_index = idx
                             break
