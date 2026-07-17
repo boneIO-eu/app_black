@@ -90,6 +90,7 @@
     "sort_name": "Sort by Name",
     "sort_recent": "Sort by Recent Event",
     "long_press_to_edit": "Long press to edit settings",
+    "no_timestamp": "No timestamp available",
     "go_to_settings": "Go to Settings",
     "go_to_settings_confirm": "Do you want to edit settings for this output?",
     "divider_adjustable_duration": "Adjustable Duration",

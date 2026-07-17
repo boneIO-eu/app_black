@@ -253,7 +253,10 @@ const EntityCard: React.FC<OutputItemProps> = ({
           />
         )}
 
-        <p className={`text-gray-500 text-xs ${isGrid ? 'mt-auto pt-2' : 'mt-2'}`}>
+        <p
+          className={`text-gray-500 text-xs whitespace-nowrap ${isGrid ? 'mt-auto pt-2' : 'mt-2'}`}
+          title={output.timestamp ? undefined : t('outputs.no_timestamp')}
+        >
           {formatTimestamp(output.timestamp ?? null)}
         </p>
       </div>

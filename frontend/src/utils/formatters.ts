@@ -1,5 +1,5 @@
 export const formatTimestamp = (timestamp?: number | null) => {
-  if (!timestamp) return 'No timestamp available'; 
+  if (!timestamp) return '—'; 
   try {
     if (timestamp === 0) return 'No updates yet';
     const date = new Date(timestamp * 1000); // Convert Unix timestamp to milliseconds
