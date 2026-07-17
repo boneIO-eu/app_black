@@ -2255,3 +2255,16 @@ boneio:
           - default: Entity name only (e.g., "OUT 17"). May cause duplicates if multiple boneIO devices share output names.
           - device_name: Adds boneIO device name prefix (e.g., "boneIO Black - OUT 17").
           - device_name_area: Adds device name and area (e.g., "boneIO Black - Living Room - OUT 17"). Falls back to device_name if no area is assigned.
+    serial_override:
+      required: False
+      type: string
+      nullable: True
+      regex: '^blk[a-f0-9]{6}$'
+      meta:
+        label: Serial number override
+        description: |
+          Override the auto-detected serial number (based on MAC address).
+          Use this when restoring config from a different device (e.g., RMA replacement).
+          Format: blk followed by 6 hex characters (e.g., blk8c7df0).
+          WARNING: Two devices with the same serial on the same MQTT broker will conflict!
+

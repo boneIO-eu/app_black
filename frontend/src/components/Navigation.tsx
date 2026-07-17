@@ -20,6 +20,7 @@ export default function Navigation() {
   // Derive from init data (single API call, no duplicates)
   const version = initData?.version || '';
   const serialNo = initData?.serial_no || '';
+  const serialOverride = initData?.serial_override || '';
   const pwaName = initData?.pwa_name || '';
   const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
     ? initData.cloud.domain : '';
@@ -62,7 +63,14 @@ export default function Navigation() {
             <span><span className="opacity-60">v</span>{version}</span>
           )}
           {serialNo && (
-            <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+            <span>
+              <span className="opacity-60">S/N:</span> {serialNo}
+              {serialOverride && (
+                <span className="text-warning font-semibold ml-1">
+                  (override: {serialOverride})
+                </span>
+              )}
+            </span>
           )}
           {cloudDomain && (
             <a
@@ -229,6 +237,7 @@ export const DrawerSide = () => {
 
   const version = initData?.version || '';
   const serialNo = initData?.serial_no || '';
+  const serialOverride = initData?.serial_override || '';
   const cloudDomain = initData?.cloud?.domain && initData?.cloud?.cloud_config_active
     ? initData.cloud.domain : '';
 
@@ -255,7 +264,14 @@ export const DrawerSide = () => {
             <span><span className="opacity-60">v</span>{version}</span>
           )}
           {serialNo && (
-            <span><span className="opacity-60">S/N:</span> {serialNo}</span>
+            <span>
+              <span className="opacity-60">S/N:</span> {serialNo}
+              {serialOverride && (
+                <span className="text-warning font-semibold ml-1">
+                  (override: {serialOverride})
+                </span>
+              )}
+            </span>
           )}
           {cloudDomain && (
             <a

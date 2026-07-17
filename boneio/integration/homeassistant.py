@@ -123,9 +123,9 @@ def ha_availabilty_message(
             "identifiers": [child_identifier],
             "manufacturer": manufacturer,
             "model": model,
-            "model_id": config_helper.serial_number,
+            "model_id": config_helper.real_serial,
             "name": child_device_name,
-            "serial_number": config_helper.serial_number,
+            "serial_number": config_helper.real_serial,
             "sw_version": __version__,
             "via_device": topic,  # Link to main BoneIO device
             **web_url_dict,
@@ -144,9 +144,9 @@ def ha_availabilty_message(
             "identifiers": [f"{topic}_{area}"],  # Use area ID for consistent grouping
             "manufacturer": manufacturer,
             "model": model,
-            "model_id": config_helper.serial_number,
+            "model_id": config_helper.real_serial,
             "name": sub_device_name,
-            "serial_number": config_helper.serial_number,
+            "serial_number": config_helper.real_serial,
             "sw_version": __version__,
             "via_device": topic,  # Link to main BoneIO device
             "suggested_area": area_name,  # Use area ID (lowercase) - HA converts area names to lowercase
@@ -158,9 +158,9 @@ def ha_availabilty_message(
             "identifiers": [topic],
             "manufacturer": manufacturer,
             "model": model,
-            "model_id": config_helper.serial_number,
+            "model_id": config_helper.real_serial,
             "name": device_name,
-            "serial_number": config_helper.serial_number,
+            "serial_number": config_helper.real_serial,
             "sw_version": __version__,
             **web_url_dict
         }
@@ -297,9 +297,9 @@ def _ha_irrigation_device(
         "identifiers": [f"{topic}_{IRRIGATION}_{ctrl_id}"],
         "manufacturer": "boneIO",
         "model": model,
-        "model_id": config_helper.serial_number,
+        "model_id": config_helper.real_serial,
         "name": ctrl_name,
-        "serial_number": config_helper.serial_number,
+        "serial_number": config_helper.real_serial,
         "sw_version": __version__,
         "via_device": topic,
     }

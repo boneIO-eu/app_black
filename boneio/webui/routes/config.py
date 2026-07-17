@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 
 if TYPE_CHECKING:
     from starlette.datastructures import State
@@ -34,6 +34,62 @@ from boneio.version import __version__
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
 
 _LOGGER = logging.getLogger(__name__)
+
+def _add_backup_metadata_to_tar(tar: tarfile.TarFile, config_helper):
+    import json
+    import socket
+    
+    meta = {
+        "effective_serial": config_helper.serial_number,
+        "real_serial": config_helper.real_serial,
+        "hostname": socket.gethostname(),
+        "created_at": datetime.now().isoformat(),
+        "version": __version__,
+    }
+    meta_bytes = json.dumps(meta, indent=2).encode("utf-8")
+    
+    tarinfo = tarfile.TarInfo(name="_boneio_meta.json")
+    tarinfo.size = len(meta_bytes)
+    tarinfo.mtime = int(datetime.now().timestamp())
+    
+    tar.addfile(tarinfo, io.BytesIO(meta_bytes))
+
+def _apply_serial_override_from_tar(fileobj, config_file):
+    import json
+    try:
+        fileobj.seek(0)
+    except Exception:
+        pass
+    effective_serial = None
+    try:
+        with tarfile.open(fileobj=fileobj, mode="r:gz") as tar:
+            try:
+                meta_member = tar.getmember("_boneio_meta.json")
+                meta_file = tar.extractfile(meta_member)
+                if meta_file:
+                    meta = json.loads(meta_file.read().decode("utf-8"))
+                    effective_serial = meta.get("effective_serial")
+            except KeyError:
+                pass
+    except Exception as e:
+        _LOGGER.warning("Could not read backup metadata for override: %s", e)
+
+    if not effective_serial:
+        _LOGGER.info("No effective_serial found in backup metadata, skipping override")
+        return
+
+    try:
+        from boneio.core.config.yaml_util import load_yaml_file, update_config_section
+        config_content = load_yaml_file(config_file)
+        boneio_data = config_content.get("boneio", {})
+        if not isinstance(boneio_data, dict):
+            boneio_data = {}
+        
+        boneio_data["serial_override"] = effective_serial
+        update_config_section(config_file, "boneio", boneio_data)
+        _LOGGER.info("Successfully applied serial_override: %s", effective_serial)
+    except Exception as e:
+        _LOGGER.error("Failed to write serial_override to config: %s", e)
 
 router = APIRouter(prefix="/api", tags=["config"])
 
@@ -644,6 +700,9 @@ async def download_config():
                             tar.add(str(yaml_file), arcname=arcname)
                             _LOGGER.debug(f"Added {arcname} to config archive")
 
+        manager: Manager = _get_app_state().manager
+        _add_backup_metadata_to_tar(tar, manager.config_helper)
+
     buffer.seek(0)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -675,7 +734,7 @@ async def get_config_checksum():
 
 
 @router.post("/config/restore")
-async def restore_config(file: UploadFile = File(...)):
+async def restore_config(file: UploadFile = File(...), override_serial: bool = Form(False)):
     """
     Restore configuration from a tar.gz archive.
 
@@ -715,6 +774,8 @@ async def restore_config(file: UploadFile = File(...)):
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+            
+            _add_backup_metadata_to_tar(tar, _get_app_state().manager.config_helper)
 
         _LOGGER.info(f"Created backup before restore: {backup_path}")
 
@@ -745,6 +806,9 @@ async def restore_config(file: UploadFile = File(...)):
 
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
+
+        if override_serial:
+            _apply_serial_override_from_tar(io.BytesIO(contents), config_file)
 
         invalidate_config_cache()
 
@@ -1115,7 +1179,10 @@ async def list_config_backups():
 
 
 @router.post("/config/restore_backup")
-async def restore_config_backup(backup_path: str = Body(..., embed=True)):
+async def restore_config_backup(
+    backup_path: str = Body(..., embed=True),
+    override_serial: bool = Body(False, embed=True),
+):
     """
     Restore configuration from a backup file on disk.
 
@@ -1159,6 +1226,8 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+            
+            _add_backup_metadata_to_tar(tar, _get_app_state().manager.config_helper)
 
         _LOGGER.info(f"Created backup before restore: {new_backup_path}")
 
@@ -1183,6 +1252,10 @@ async def restore_config_backup(backup_path: str = Body(..., embed=True)):
 
                     restored_files.append(member.name)
                     _LOGGER.info(f"Restored: {member.name}")
+
+        if override_serial:
+            with open(backup_file, "rb") as f:
+                _apply_serial_override_from_tar(f, config_file)
 
         invalidate_config_cache()
 
@@ -1264,6 +1337,8 @@ async def create_config_backup():
                         for yaml_file in subdir.glob(pattern):
                             if yaml_file.is_file():
                                 tar.add(str(yaml_file), arcname=f"{subdir.name}/{yaml_file.name}")
+
+            _add_backup_metadata_to_tar(tar, _get_app_state().manager.config_helper)
 
         _LOGGER.info(f"Created config backup: {backup_path}")
 
@@ -1599,4 +1674,77 @@ async def add_quick_action(payload: dict = Body(...)):
     except Exception as e:
         _LOGGER.error("Error adding quick action: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error adding quick action: {e}") from e
+
+
+@router.post("/config/inspect_backup_file")
+async def inspect_backup_file(file: UploadFile = File(...)):
+    """Inspect uploaded backup file to extract metadata."""
+    try:
+        contents = await file.read()
+        fileobj = io.BytesIO(contents)
+        config_helper = _get_app_state().manager.config_helper
+        return _inspect_tar_fileobj(fileobj, config_helper)
+    except Exception as e:
+        _LOGGER.error("Failed to inspect backup file: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/config/inspect_backup_path")
+async def inspect_backup_path(backup_path: str = Body(..., embed=True)):
+    """Inspect backup file on disk to extract metadata."""
+    try:
+        config_file = _get_app_state().yaml_config_file
+        config_dir = Path(config_file).parent
+        backup_file = Path(backup_path)
+
+        # Security: ensure backup is in the backups directory
+        backup_dir = config_dir / "backups"
+        backup_file = backup_file.resolve()
+        backup_dir = backup_dir.resolve()
+        if not str(backup_file).startswith(str(backup_dir)):
+            raise HTTPException(status_code=400, detail="Invalid backup path")
+
+        if not backup_file.exists():
+            raise HTTPException(status_code=404, detail="Backup file not found")
+
+        config_helper = _get_app_state().manager.config_helper
+        with open(backup_file, "rb") as f:
+            return _inspect_tar_fileobj(f, config_helper)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Failed to inspect backup path: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _inspect_tar_fileobj(fileobj, config_helper):
+    import json
+    meta = None
+    try:
+        try:
+            fileobj.seek(0)
+        except Exception:
+            pass
+        with tarfile.open(fileobj=fileobj, mode="r:gz") as tar:
+            try:
+                meta_member = tar.getmember("_boneio_meta.json")
+                meta_file = tar.extractfile(meta_member)
+                if meta_file:
+                    meta = json.loads(meta_file.read().decode("utf-8"))
+            except KeyError:
+                pass
+    except Exception as e:
+        _LOGGER.warning("Failed to extract backup metadata: %s", e)
+
+    current_serial = config_helper.serial_number
+    mismatch = False
+    if meta and "effective_serial" in meta:
+        mismatch = meta["effective_serial"] != current_serial
+
+    return {
+        "backup_meta": meta,
+        "current_serial": current_serial,
+        "serial_mismatch": mismatch,
+    }
+
 

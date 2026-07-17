@@ -170,6 +170,7 @@ async def async_run(
         pwa_name=web_config.get("cloud", {}).get("pwa_name"),
         ha_child_devices=main_config.get("ha_child_devices", False),
         ha_child_devices_naming=main_config.get("ha_child_devices_naming", "default"),
+        serial_override=main_config.get("serial_override"),
     )
 
     # Load areas configuration

@@ -11,6 +11,20 @@ import {
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import axios from '@/api/axios';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+interface MismatchData {
+  backupMeta: any;
+  currentSerial: string;
+  onConfirm: (keepOld: boolean) => void;
+  onCancel: () => void;
+}
 
 /**
  * Section for configuration backup, restore, download, and management.
@@ -24,6 +38,7 @@ export default function BackupSection() {
   const [error, setError] = useState<string | null>(null);
   const [availableBackups, setAvailableBackups] = useState<any[]>([]);
   const [showAvailableBackups, setShowAvailableBackups] = useState(false);
+  const [mismatchData, setMismatchData] = useState<MismatchData | null>(null);
 
   const fetchAvailableBackups = useCallback(async () => {
     try {
@@ -91,28 +106,65 @@ export default function BackupSection() {
     }
   };
 
+  const handleRestoreResponse = async (data: any) => {
+    if (data.status === 'success') {
+      setRestoreResult(data);
+      if (confirm(t('device_management.restore_success_restart'))) {
+        await axios.post('/api/restart');
+        setTimeout(() => window.location.reload(), 3000);
+      }
+    } else {
+      setError(data.message || t('device_management.restore_failed'));
+    }
+  };
+
+  const performPathRestore = async (backupPath: string, keepOld: boolean) => {
+    setIsRestoring(true);
+    try {
+      const { data } = await axios.post(
+        '/api/config/restore_backup',
+        { backup_path: backupPath, override_serial: keepOld },
+        { timeout: 30000 }
+      );
+      await handleRestoreResponse(data);
+    } catch (err) {
+      setError(t('device_management.restore_failed'));
+      console.error('Error restoring config:', err);
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
   const restoreFromBackup = async (backupPath: string) => {
-    if (!confirm(t('device_management.confirm_restore'))) return;
     setIsRestoring(true);
     setError(null);
     setRestoreResult(null);
     try {
-      const { data } = await axios.post('/api/config/restore_backup', { backup_path: backupPath }, { timeout: 30000 });
-      if (data.status === 'success') {
-        setRestoreResult(data);
-        if (data.restart_required) {
-          if (confirm(t('device_management.restore_success_restart'))) {
-            await axios.post('/api/restart');
-            setTimeout(() => window.location.reload(), 3000);
+      const { data: inspectData } = await axios.post('/api/config/inspect_backup_path', { backup_path: backupPath });
+      
+      if (inspectData.serial_mismatch) {
+        setMismatchData({
+          backupMeta: inspectData.backup_meta,
+          currentSerial: inspectData.current_serial,
+          onConfirm: (keepOld: boolean) => {
+            setMismatchData(null);
+            performPathRestore(backupPath, keepOld);
+          },
+          onCancel: () => {
+            setMismatchData(null);
+            setIsRestoring(false);
           }
-        }
+        });
       } else {
-        setError(data.message || t('device_management.restore_failed'));
+        if (confirm(t('device_management.confirm_restore'))) {
+          await performPathRestore(backupPath, false);
+        } else {
+          setIsRestoring(false);
+        }
       }
     } catch (err) {
       setError(t('device_management.restore_failed'));
-      console.error('Error restoring from backup:', err);
-    } finally {
+      console.error('Error inspecting backup path:', err);
       setIsRestoring(false);
     }
   };
@@ -145,26 +197,17 @@ export default function BackupSection() {
     }
   };
 
-  const restoreConfig = async (file: File) => {
+  const performFileRestore = async (file: File, keepOld: boolean) => {
     setIsRestoring(true);
-    setError(null);
-    setRestoreResult(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('override_serial', keepOld ? 'true' : 'false');
       const { data } = await axios.post('/api/config/restore', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,
       });
-      if (data.status === 'success') {
-        setRestoreResult(data);
-        if (confirm(t('device_management.restore_success_restart'))) {
-          await axios.post('/api/restart');
-          setTimeout(() => window.location.reload(), 3000);
-        }
-      } else {
-        setError(data.message || t('device_management.restore_failed'));
-      }
+      await handleRestoreResponse(data);
     } catch (err) {
       setError(t('device_management.restore_failed'));
       console.error('Error restoring config:', err);
@@ -173,11 +216,43 @@ export default function BackupSection() {
     }
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (confirm(t('device_management.confirm_restore'))) {
-        restoreConfig(file);
+      setIsRestoring(true);
+      setError(null);
+      setRestoreResult(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data: inspectData } = await axios.post('/api/config/inspect_backup_file', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (inspectData.serial_mismatch) {
+          setMismatchData({
+            backupMeta: inspectData.backup_meta,
+            currentSerial: inspectData.current_serial,
+            onConfirm: (keepOld: boolean) => {
+              setMismatchData(null);
+              performFileRestore(file, keepOld);
+            },
+            onCancel: () => {
+              setMismatchData(null);
+              setIsRestoring(false);
+            }
+          });
+        } else {
+          if (confirm(t('device_management.confirm_restore'))) {
+            await performFileRestore(file, false);
+          } else {
+            setIsRestoring(false);
+          }
+        }
+      } catch (err) {
+        setError(t('device_management.restore_failed'));
+        console.error('Error inspecting backup file:', err);
+        setIsRestoring(false);
       }
     }
     if (fileInputRef.current) {
@@ -395,6 +470,77 @@ export default function BackupSection() {
               </table>
             </div>
           )}
+      {mismatchData && (
+        <Dialog open={true} onOpenChange={(open) => { if (!open) mismatchData.onCancel(); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-warning">
+                <FaExclamationTriangle />
+                {t('device_management.serial_mismatch_title') || 'Serial Number Mismatch'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-4 text-sm space-y-4">
+              <p>
+                {t('device_management.serial_mismatch_desc') || 
+                  'The uploaded configuration backup was created on a device with a different serial number:'}
+              </p>
+              
+              <div className="bg-base-300 p-3 rounded-lg font-mono text-xs space-y-1">
+                <div>
+                  <span className="opacity-60">{t('device_management.backup_serial') || 'Backup Serial'}:</span>{' '}
+                  <span className="text-warning font-semibold">
+                    {mismatchData.backupMeta?.effective_serial || 'Unknown'}
+                  </span>
+                </div>
+                {mismatchData.backupMeta?.hostname && (
+                  <div>
+                    <span className="opacity-60">{t('device_management.backup_hostname') || 'Backup Hostname'}:</span>{' '}
+                    <span>{mismatchData.backupMeta.hostname}</span>
+                  </div>
+                )}
+                {mismatchData.backupMeta?.created_at && (
+                  <div>
+                    <span className="opacity-60">{t('device_management.backup_created_at') || 'Created At'}:</span>{' '}
+                    <span>{new Date(mismatchData.backupMeta.created_at).toLocaleString()}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="opacity-60">{t('device_management.current_serial') || 'Current Serial'}:</span>{' '}
+                  <span className="text-info font-semibold">{mismatchData.currentSerial}</span>
+                </div>
+              </div>
+
+              <div className="alert alert-warning text-xs">
+                <FaExclamationTriangle className="shrink-0" />
+                <span>
+                  {t('device_management.serial_override_warning') ||
+                    'WARNING: If both controllers are running at the same time on the same MQTT broker with the same serial number, conflicts will occur!'}
+                </span>
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2">
+              <button
+                className="btn btn-warning btn-sm"
+                onClick={() => mismatchData.onConfirm(true)}
+              >
+                {t('device_management.keep_old_serial') || 'Keep Old Serial'}
+              </button>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => mismatchData.onConfirm(false)}
+              >
+                {t('device_management.use_new_serial') || 'Use New Serial'}
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={mismatchData.onCancel}
+              >
+                {t('common.cancel') || 'Cancel'}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
         </div>
       </div>
     </div>

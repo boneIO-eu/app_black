@@ -21,6 +21,7 @@ interface CloudStatus {
 interface AppInitData {
   version: string;
   serial_no: string;
+  serial_override?: string | null;
   auth_required: boolean;
   pwa_name: string;
   pwa_default: string;

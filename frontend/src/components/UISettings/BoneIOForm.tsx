@@ -231,6 +231,21 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         </div>
       )}
 
+      {/* Serial Override */}
+      <div className="form-control">
+        <label className="label">
+          <span className="label-text font-medium">{t('boneio_config.serial_override')}</span>
+        </label>
+        <input
+          type="text"
+          className="input input-bordered w-full"
+          value={data?.serial_override || ''}
+          onChange={(e) => handleChange('serial_override', e.target.value || undefined)}
+          placeholder="e.g. blk8c7df0"
+        />
+        <HelpLabel>{t('boneio_config.serial_override_help')}</HelpLabel>
+      </div>
+
       {/* Device Type Change Warning Modal */}
       {showWarningModal && validationResult && (
         <div className="modal modal-open">

@@ -134,9 +134,13 @@ async def get_version(config_helper: ConfigHelper = Depends(get_config_helper)):
         config_helper: ConfigHelper instance.
     
     Returns:
-        Dictionary with version and serial_no strings.
+        Dictionary with version, serial_no, and serial_override strings.
     """
-    return {"version": __version__, "serial_no": config_helper.serial_no}
+    return {
+        "version": __version__,
+        "serial_no": config_helper.real_serial,
+        "serial_override": config_helper.serial_override,
+    }
 
 
 @router.get("/init")
@@ -182,7 +186,8 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
 
     return {
         "version": __version__,
-        "serial_no": config_helper.serial_no,
+        "serial_no": config_helper.real_serial,
+        "serial_override": config_helper.serial_override,
         "auth_required": auth_required,
         "pwa_name": config_helper.pwa_name,
         "pwa_default": f"bIO {serial_suffix}",

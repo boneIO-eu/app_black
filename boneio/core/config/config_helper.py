@@ -53,21 +53,29 @@ class ConfigHelper:
         pwa_name: str | None = None,
         ha_child_devices: bool = False,
         ha_child_devices_naming: str = "default",
+        serial_override: str | None = None,
     ):
         self._name = name
         self._version = version
         
-        # Generate serial number from MAC - always required for topic prefix
-        self._serial_no = get_serial_from_mac(network_info or {})
+        # Generate real serial number from MAC - always required for physical identification
+        self._real_serial = get_serial_from_mac(network_info or {})
         
-        # Build fixed topic prefix: boneio/blk_{serial}
+        # If override is provided, use it as effective serial, otherwise use real MAC-based serial
+        if serial_override:
+            self._serial_no = serial_override
+            _LOGGER.warning("Serial override active: effective=%s, real=%s", serial_override, self._real_serial)
+        else:
+            self._serial_no = self._real_serial
+        
+        # Build fixed topic prefix: boneio/blk_{serial} using effective serial
         # This is no longer configurable - always uses this format
         if self._serial_no:
             self._topic_prefix = f"boneio/{self._serial_no}"
         else:
             # Fallback if MAC not available (should rarely happen)
             self._topic_prefix = "boneio/blk_unknown"
-            _LOGGER.warning("Could not determine serial number from MAC, using fallback topic prefix")
+            _LOGGER.warning("Could not determine serial number, using fallback topic prefix")
 
         # PWA short name for Android home screen (max 12 chars)
         if pwa_name:
@@ -186,8 +194,20 @@ class ConfigHelper:
         return self._topic_prefix
 
     @property
+    def real_serial(self) -> str:
+        """Real serial from MAC — for HA device_info and UI display."""
+        return self._real_serial or "blk_unknown"
+
+    @property
+    def serial_override(self) -> str | None:
+        """Return override value if active, None otherwise."""
+        if self._serial_no != self._real_serial:
+            return self._serial_no
+        return None
+
+    @property
     def serial_no(self) -> str:
-        """Get device serial number (e.g., 'blk_abc123')."""
+        """Get effective device serial number (e.g., 'blk_abc123')."""
         return self._serial_no or "blk_unknown"
 
     @property
