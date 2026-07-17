@@ -20,6 +20,7 @@ import {
   FaLink, FaList, FaHistory, FaMousePointer, FaBan, FaFilter,
   FaNetworkWired, FaPlay,
 } from 'react-icons/fa';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 /** Click types for event-type inputs. */
 const EVENT_CLICK_TYPES = ['single', 'double', 'triple', 'long'] as const;
@@ -75,6 +76,8 @@ interface RecentEvent {
 }
 
 interface TeachModeProps {
+  /** Whether the dialog is open */
+  open: boolean;
   /** Close teach mode */
   onClose: () => void;
 }
@@ -91,7 +94,7 @@ interface TeachModeProps {
  * - Categorized output picker (Output / Remote Output / Cover / Remote Cover)
  * - Current bindings viewer
  */
-const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
+const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   const { t } = useTranslation();
   const { inputs, outputs, covers } = useContext(WebSocketContext);
 
@@ -143,7 +146,6 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
 
   // Track previous input states to detect changes
   const prevInputsRef = useRef<Map<string, { state: string; timestamp: number }>>(new Map());
-  const isInitializedRef = useRef(false);
 
   const validInputs = useMemo(() => inputs.filter(isInputEvent), [inputs]);
 
@@ -206,33 +208,30 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
     return inputItems.filter((item) => item.area === areaFilter);
   }, [inputItems, areaFilter]);
 
-  // Detect input events via WebSocket
+  // Detect input events via WebSocket — runs CONTINUOUSLY (even when dialog closed).
+  // Events are always collected into recentEvents so the user sees them when opening the dialog.
+  // Auto-selection of detected input only happens when the dialog is open.
   useEffect(() => {
     const eventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple',
       'double_then_long', 'single_then_long', 'double_then_single'];
-    const now = Date.now() / 1000;
-
-    if (!isInitializedRef.current) {
-      validInputs.forEach((inputEvent: InputEvent) => {
-        prevInputsRef.current.set(inputEvent.entity_id, {
-          state: inputEvent.state.state,
-          timestamp: inputEvent.state.timestamp
-        });
-      });
-      isInitializedRef.current = true;
-      return;
-    }
 
     validInputs.forEach((inputEvent: InputEvent) => {
       const prevData = prevInputsRef.current.get(inputEvent.entity_id);
       const currentState = inputEvent.state.state;
       const currentTimestamp = inputEvent.state.timestamp;
 
-      const isRecent = (now - currentTimestamp) < 5;
-      const hasChanged = prevData && prevData.timestamp !== currentTimestamp && isRecent;
+      // First time seeing this input — just record it, no event
+      if (!prevData) {
+        prevInputsRef.current.set(inputEvent.entity_id, {
+          state: currentState,
+          timestamp: currentTimestamp
+        });
+        return;
+      }
 
-      if (hasChanged && eventTypes.includes(currentState)) {
-        // Add to recent events log (always, regardless of filters)
+      // Detect change: timestamp must differ from last seen value.
+      if (prevData.timestamp !== currentTimestamp && eventTypes.includes(currentState)) {
+        // Add to recent events log (always, even when dialog is closed)
         setRecentEvents((prev) => [{
           entityId: inputEvent.entity_id,
           name: inputEvent.state.name,
@@ -242,35 +241,39 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           timestamp: Date.now(),
         }, ...prev].slice(0, MAX_RECENT_EVENTS));
 
-        // Check if ignored
-        if (ignoredIds.has(inputEvent.entity_id)) {
-          // Skip — on ignored list
-        } else if (autoIgnoreSensors && inputEvent.state.type !== 'input') {
-          // Auto-ignore: binary_sensor detected → add to ignored list
-          addIgnored(inputEvent.entity_id);
-        } else if (areaFilter && inputEvent.state.area !== areaFilter) {
-          // Skip — wrong area
-        } else {
-          // Accept this input!
-          setDetectedInput(inputEvent);
-          const isEvent = inputEvent.state.type === 'input';
-          if (isEvent) {
-            setClickType(currentState);
+        // Auto-select input only when dialog is open
+        if (open) {
+          // Check if ignored
+          if (ignoredIds.has(inputEvent.entity_id)) {
+            // Skip — on ignored list
+          } else if (autoIgnoreSensors && inputEvent.state.type !== 'input') {
+            // Auto-ignore: binary_sensor detected → add to ignored list
+            addIgnored(inputEvent.entity_id);
+          } else if (areaFilter && inputEvent.state.area !== areaFilter) {
+            // Skip — wrong area
           } else {
-            setClickType(currentState === 'pressed' || currentState === 'ON' ? 'pressed' : 'released');
+            // Accept this input!
+            setDetectedInput(inputEvent);
+            const isEvent = inputEvent.state.type === 'input';
+            if (isEvent) {
+              setClickType(currentState);
+            } else {
+              setClickType(currentState === 'pressed' || currentState === 'ON' ? 'pressed' : 'released');
+            }
+            setSaveStatus('idle');
+            setErrorMessage('');
+            setLeftCollapsed(true);
           }
-          setSaveStatus('idle');
-          setErrorMessage('');
-          setLeftCollapsed(true);
         }
       }
 
+      // Always update prevInputsRef
       prevInputsRef.current.set(inputEvent.entity_id, {
         state: currentState,
         timestamp: currentTimestamp
       });
     });
-  }, [validInputs, ignoredIds, autoIgnoreSensors, areaFilter, addIgnored]);
+  }, [validInputs, open, ignoredIds, autoIgnoreSensors, areaFilter, addIgnored]);
 
   /** Handle manual input selection from picker. */
   const handleManualSelect = useCallback((entityId: string) => {
@@ -588,16 +591,19 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
   }, [ignoredIds, validInputs]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center md:bg-black/40 md:backdrop-blur-sm">
-      <div className="w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl md:mx-4 md:rounded-2xl md:shadow-2xl md:border md:border-base-300 bg-base-100 flex flex-col overflow-hidden font-sans">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        className="px-0 pb-0 gap-0 max-h-[92vh] sm:max-h-[90vh] sm:max-w-5xl sm:pt-0 flex flex-col overflow-y-auto sm:overflow-hidden"
+      >
       {/* Header bar */}
-      <div className="bg-base-200/80 backdrop-blur-md text-base-content px-6 py-4 flex items-center justify-between shadow-sm shrink-0 border-b border-base-300">
+      <DialogHeader className="bg-base-200/80 backdrop-blur-md text-base-content px-6 py-4 flex flex-row items-center justify-between shadow-sm shrink-0 border-b border-base-300">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-base-300 rounded-xl text-primary">
             <FaGraduationCap className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">{t('teach_mode.title')}</h1>
+            <DialogTitle className="text-lg font-bold tracking-tight">{t('teach_mode.title')}</DialogTitle>
             <p className="text-xs text-base-content/60 font-medium">
               {t('teach_mode.subtitle', { count: linkCount })}
             </p>
@@ -606,10 +612,10 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
         <button className="btn btn-sm btn-circle btn-ghost text-base-content/60 hover:text-base-content hover:bg-base-300" onClick={onClose}>
           <FaTimes className="w-5 h-5" />
         </button>
-      </div>
+      </DialogHeader>
 
       {/* Main content - split layout */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
         {/* Left panel — Input detection */}
         <div className={clsx(
           'border-b md:border-b-0 md:border-r border-base-300 flex flex-col transition-all duration-300 bg-base-100',
@@ -715,7 +721,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                             type="button"
                             onClick={() => setClickType(ct)}
                             className={clsx(
-                              'btn btn-xs rounded-lg transition-all duration-200 font-medium px-3',
+                              'btn btn-xs transition-all duration-200 font-medium px-3',
                               clickType === ct ? 'btn-primary shadow-sm shadow-primary/20 scale-[1.03]' : 'btn-ghost border border-base-300',
                             )}
                           >
@@ -938,7 +944,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                       type="button"
                       onClick={() => { setTargetCategory(key); setTargetId(''); setActionValue('TOGGLE'); }}
                       className={clsx(
-                        'btn btn-sm rounded-lg flex-1 gap-1.5 font-medium transition-all duration-200',
+                        'btn btn-sm flex-1 gap-1.5 font-medium transition-all duration-200',
                         targetCategory === key
                           ? 'btn-primary shadow-sm shadow-primary/10'
                           : 'btn-ghost text-base-content/60 hover:bg-base-200/50',
@@ -978,7 +984,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   <SelectContent className="bg-base-100 border-base-200">
                     {actionOptions.map((opt) => (
                       <SelectItem key={opt} value={opt}>
-                        {opt}
+                        {t(`quick_action.actions.${opt}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -989,7 +995,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
               <div className="flex gap-2">
                 <button
                   className={clsx(
-                    'btn gap-2 h-13 rounded-xl font-semibold transition-all duration-200 active:scale-[0.98] shrink-0',
+                    'btn gap-2 h-11 font-semibold transition-all duration-200 active:scale-[0.98] shrink-0',
                     testStatus === 'success' ? 'btn-success' :
                     testStatus === 'error' ? 'btn-error' :
                     'btn-info btn-outline',
@@ -1008,7 +1014,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
                   {t('teach_mode.test_action')}
                 </button>
                 <button
-                  className="btn btn-primary flex-1 gap-2 h-13 text-base font-semibold shadow-lg shadow-primary/20 rounded-xl transition-all duration-200 active:scale-[0.98]"
+                  className="btn btn-primary flex-1 gap-2 h-11 text-base font-semibold shadow-lg shadow-primary/20 transition-all duration-200 active:scale-[0.98]"
                   disabled={!canLink}
                   onClick={handleLink}
                 >
@@ -1117,8 +1123,8 @@ const TeachMode: React.FC<TeachModeProps> = ({ onClose }) => {
           </div>
         </div>
       )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

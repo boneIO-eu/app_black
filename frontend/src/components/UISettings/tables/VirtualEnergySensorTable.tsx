@@ -54,9 +54,11 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
       {/* Mobile card view */}
       <div className="sm:hidden space-y-2">
         {sortedItems.map(({ item, originalIndex }) => {
-          const areaName = item.area 
-            ? allAreas.find(a => a.id === item.area)?.name || item.area 
-            : '';
+          const areaName = item.area === '_same_as_output_'
+            ? t('virtual_energy_sensor.same_area_as_output')
+            : item.area 
+              ? allAreas.find(a => a.id === item.area)?.name || item.area 
+              : '';
 
           return (
             <MobileCard
@@ -88,9 +90,11 @@ const VirtualEnergySensorTable: React.FC<VirtualEnergySensorTableProps> = ({
           </Thead>
           <Tbody>
             {sortedItems.map(({ item, originalIndex }) => {
-              const areaName = item.area 
-                ? allAreas.find(a => a.id === item.area)?.name || item.area 
-                : '-';
+              const areaName = item.area === '_same_as_output_'
+                ? t('virtual_energy_sensor.same_area_as_output')
+                : item.area 
+                  ? allAreas.find(a => a.id === item.area)?.name || item.area 
+                  : '-';
               
               return (
                 <Tr key={originalIndex}>

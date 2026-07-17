@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { TabsBox } from '@/components/ui/tabs-box';
 import MqttForm from './MqttForm';
 import LoxForm from './LoxForm';
 
@@ -49,96 +50,81 @@ const MessagingProtocolsForm: React.FC<MessagingProtocolsFormProps> = ({
   }, [onLoxValidationChange]);
 
   return (
-    <div className="space-y-4">
-      {/* Tabs */}
-      <div role="tablist" className="tabs tabs-bordered tabs-lg">
-        <button
-          role="tab"
-          className={`tab ${activeTab === 'mqtt' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('mqtt')}
-        >
-          <span className="flex items-center gap-2">
-            📡 MQTT
-            {mqttEnabled && (
-              <span className="badge badge-success badge-xs" />
-            )}
-          </span>
-        </button>
-        <button
-          role="tab"
-          className={`tab ${activeTab === 'lox_udp' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('lox_udp')}
-        >
-          <span className="flex items-center gap-2">
-            📨 Lox UDP
-            {loxEnabled && (
-              <span className="badge badge-success badge-xs" />
-            )}
-          </span>
-        </button>
-      </div>
+    <div className="space-y-0">
+      <TabsBox
+        name="messaging_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as 'mqtt' | 'lox_udp')}
+        bordered={false}
+        tabs={[
+          {
+            id: 'mqtt',
+            label: '📡 MQTT',
+            content: (
+              <div className="space-y-4">
+                {/* Enabled checkbox */}
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-4">
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary"
+                      checked={mqttEnabled}
+                      onChange={(e) => handleMqttEnabledChange(e.target.checked)}
+                    />
+                    <div className="flex flex-col">
+                      <span className="label-text font-medium">{t('messaging.enable_mqtt')}</span>
+                      <span className="label-text-alt text-base-content/60">{t('messaging.enable_mqtt_help')}</span>
+                    </div>
+                  </label>
+                </div>
 
-      {/* MQTT Tab */}
-      {activeTab === 'mqtt' && (
-        <div className="space-y-4">
-          {/* Enabled checkbox */}
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={mqttEnabled}
-                onChange={(e) => handleMqttEnabledChange(e.target.checked)}
-              />
-              <div className="flex flex-col">
-                <span className="label-text font-medium">{t('messaging.enable_mqtt')}</span>
-                <span className="label-text-alt text-base-content/60">{t('messaging.enable_mqtt_help')}</span>
+                {mqttEnabled ? (
+                  <MqttForm data={mqttData} onChange={onMqttChange} />
+                ) : (
+                  <div className="alert">
+                    <span>{t('messaging.mqtt_disabled_info')}</span>
+                  </div>
+                )}
               </div>
-            </label>
-          </div>
+            ),
+          },
+          {
+            id: 'lox_udp',
+            label: '📨 Lox UDP',
+            content: (
+              <div className="space-y-4">
+                {/* Enabled checkbox */}
+                <div className="form-control">
+                  <label className="label cursor-pointer justify-start gap-4">
+                    <input
+                      type="checkbox"
+                      className="toggle toggle-primary"
+                      checked={loxEnabled}
+                      onChange={(e) => handleLoxEnabledChange(e.target.checked)}
+                    />
+                    <div className="flex flex-col">
+                      <span className="label-text font-medium">{t('messaging.enable_lox')}</span>
+                      <span className="label-text-alt text-base-content/60">{t('messaging.enable_lox_help')}</span>
+                    </div>
+                  </label>
+                </div>
 
-          {mqttEnabled ? (
-            <MqttForm data={mqttData} onChange={onMqttChange} />
-          ) : (
-            <div className="alert">
-              <span>{t('messaging.mqtt_disabled_info')}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Lox UDP Tab */}
-      {activeTab === 'lox_udp' && (
-        <div className="space-y-4">
-          {/* Enabled checkbox */}
-          <div className="form-control">
-            <label className="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                className="toggle toggle-primary"
-                checked={loxEnabled}
-                onChange={(e) => handleLoxEnabledChange(e.target.checked)}
-              />
-              <div className="flex flex-col">
-                <span className="label-text font-medium">{t('messaging.enable_lox')}</span>
-                <span className="label-text-alt text-base-content/60">{t('messaging.enable_lox_help')}</span>
+                {loxEnabled ? (
+                  <LoxForm
+                    data={loxData}
+                    onChange={onLoxChange}
+                    onValidationChange={handleLoxValidation}
+                  />
+                ) : (
+                  <div className="alert">
+                    <span>{t('messaging.lox_disabled_info')}</span>
+                  </div>
+                )}
               </div>
-            </label>
-          </div>
-
-          {loxEnabled ? (
-            <LoxForm
-              data={loxData}
-              onChange={onLoxChange}
-              onValidationChange={handleLoxValidation}
-            />
-          ) : (
-            <div className="alert">
-              <span>{t('messaging.lox_disabled_info')}</span>
-            </div>
-          )}
-        </div>
-      )}
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

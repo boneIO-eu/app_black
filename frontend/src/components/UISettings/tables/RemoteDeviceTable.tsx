@@ -270,31 +270,31 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
           <div className="grow" />
           <div className="flex gap-2">
             <button
-              className={`btn btn-sm btn-secondary gap-1 ${scanningNetwork ? 'loading' : ''}`}
+              className="btn btn-sm btn-secondary gap-1"
               onClick={scanEsphomeNetwork}
               disabled={scanningNetwork}
               title={t('remote_devices.scan_network') || 'Scan for ESPHome devices'}
             >
-              <FaSearch className="w-3 h-3" />
+              {scanningNetwork ? <span className="loading loading-spinner loading-xs" /> : <FaSearch className="w-3 h-3" />}
               {scanningNetwork ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_esphome') || 'Scan ESPHome')}
             </button>
             <button
-              className={`btn btn-sm btn-accent gap-1 ${scanningWled ? 'loading' : ''}`}
+              className="btn btn-sm btn-accent gap-1"
               onClick={scanWledNetwork}
               disabled={scanningWled}
               title={t('remote_devices.scan_wled') || 'Scan for WLED devices'}
             >
-              <FaSearch className="w-3 h-3" />
+              {scanningWled ? <span className="loading loading-spinner loading-xs" /> : <FaSearch className="w-3 h-3" />}
               {scanningWled ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_wled') || 'Scan WLED')}
             </button>
             {canEnabled && (
               <button
-                className={`btn btn-sm btn-warning gap-1 ${scanningCan ? 'loading' : ''}`}
+                className="btn btn-sm btn-warning gap-1"
                 onClick={scanCanNodes}
                 disabled={scanningCan}
                 title={t('remote_devices.scan_can') || 'Scan CAN bus'}
               >
-                <FaNetworkWired className="w-3 h-3" />
+                {scanningCan ? <span className="loading loading-spinner loading-xs" /> : <FaNetworkWired className="w-3 h-3" />}
                 {scanningCan ? (t('remote_devices.scanning') || 'Scanning...') : (t('remote_devices.scan_can') || 'Scan CAN')}
               </button>
             )}

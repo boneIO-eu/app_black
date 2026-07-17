@@ -149,7 +149,7 @@ const InputTypeSwitcher: React.FC<InputTypeSwitcherProps> = ({ currentType, data
   return (
     <>
       {/* Segmented control */}
-      <div className="flex flex-wrap items-center gap-2 p-3 bg-base-200 rounded-lg">
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-base-200 rounded-[var(--radius-field)]">
         <span className="text-sm font-medium text-base-content/70 shrink-0">{t('common.type')}:</span>
         <div className="join">
           <button
@@ -176,7 +176,7 @@ const InputTypeSwitcher: React.FC<InputTypeSwitcherProps> = ({ currentType, data
 
       {/* Confirmation dialog for data loss */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-md bg-base-100">
+        <DialogContent className="sm:max-w-md bg-base-100">
           <DialogHeader>
             <DialogTitle className="text-warning flex items-center gap-2">
               ⚠️ {t('inputs.switch_type_warning_title')}

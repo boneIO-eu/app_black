@@ -8,7 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import OutputSelectDropdown from './OutputSelectDropdown';
+import SearchableEntityPicker from './SearchableEntityPicker';
+import type { EntityItem } from './EntitySelectDropdown';
+import AreaSelect from './widgets/AreaSelect';
 
 interface VirtualEnergySensorData {
   id?: string;
@@ -127,6 +129,24 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
     handleChange('id', sanitizeId(value));
   };
 
+  /** Convert allOutputs to EntityItem[] for SearchableEntityPicker. */
+  const outputItems: EntityItem[] = useMemo(
+    () =>
+      allOutputs
+        .filter((o: any) => o && (o.id || o.boneio_output))
+        .map((output: any) => {
+          const effectiveId = output.id || output.boneio_output;
+          return {
+            id: effectiveId,
+            name: output.name || effectiveId,
+            area: output.area || '',
+            badge: output.boneio_output !== effectiveId ? output.boneio_output : undefined,
+            badgeClass: 'badge-ghost',
+          };
+        }),
+    [allOutputs]
+  );
+
   return (
     <div className="space-y-4">
       {/* Name (required) */}
@@ -186,19 +206,13 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
         <label className="label">
           <span className="label-text font-medium">{t('virtual_energy_sensor.output_id')} *</span>
         </label>
-        {allOutputs.filter((o: any) => o && (o.id || o.boneio_output)).length > 0 ? (
-          <OutputSelectDropdown
-            value={data.output_id || ''}
-            onChange={(value: string) => handleChange('output_id', value)}
-            allOutputs={allOutputs.filter((output: any) => output && typeof output === 'object' && (output.id || output.boneio_output))}
-            allAreas={allAreas}
-            placeholder={t('virtual_energy_sensor.select_output')}
-          />
-        ) : (
-          <div className="alert alert-warning text-sm">
-            <span>{t('virtual_energy_sensor.no_outputs_available') || 'No outputs available. Please configure outputs first.'}</span>
-          </div>
-        )}
+        <SearchableEntityPicker
+          value={data.output_id || ''}
+          onChange={(value: string) => handleChange('output_id', value)}
+          items={outputItems}
+          allAreas={allAreas}
+          placeholder={t('virtual_energy_sensor.select_output')}
+        />
         {errors.output_id && (
           <label className="label">
             <span className="label-text-alt text-error">{t(`virtual_energy_sensor.${errors.output_id}`)}</span>
@@ -282,31 +296,15 @@ const VirtualEnergySensorForm: React.FC<VirtualEnergySensorFormProps> = ({
       )}
 
       {/* Area (optional) */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('virtual_energy_sensor.area')}</span>
-        </label>
-        <Select
-          value={data.area || '_none_'}
-          onValueChange={(value) => handleChange('area', value === '_none_' ? undefined : value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('virtual_energy_sensor.no_area')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem key="_none_" value="_none_">{t('virtual_energy_sensor.no_area')}</SelectItem>
-            <SelectItem key="_same_as_output_" value="_same_as_output_">{t('virtual_energy_sensor.same_area_as_output')}</SelectItem>
-            {allAreas.map((area, index) => (
-              <SelectItem key={`area-${index}-${area.id}`} value={area.id}>
-                {area.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="label">
-          <span className="label-text-alt">{t('virtual_energy_sensor.area_hint')}</span>
-        </label>
-      </div>
+      <AreaSelect
+        value={data.area}
+        onChange={(v) => handleChange('area', v)}
+        areas={allAreas}
+        extraOptions={[
+          { value: '_same_as_output_', label: t('virtual_energy_sensor.same_area_as_output') },
+        ]}
+        hint={t('virtual_energy_sensor.area_hint')}
+      />
     </div>
   );
 };

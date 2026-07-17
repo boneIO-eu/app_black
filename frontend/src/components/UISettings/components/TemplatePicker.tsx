@@ -39,7 +39,7 @@ const TemplatePicker: React.FC<TemplatePickerProps> = ({ open, onOpenChange, onS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-base-100">
+      <DialogContent className="sm:max-w-md bg-base-100">
         <DialogHeader>
           <DialogTitle>{t('template.select_platform_title')}</DialogTitle>
         </DialogHeader>

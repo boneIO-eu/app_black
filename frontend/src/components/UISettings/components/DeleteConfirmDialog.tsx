@@ -37,7 +37,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-base-100">
+      <DialogContent className="sm:max-w-md bg-base-100">
         <DialogHeader>
           <DialogTitle className="text-warning flex items-center gap-2">
             ⚠️ {isArea ? t('settings.area_in_use_title') : t('settings.delete_warning_title')}

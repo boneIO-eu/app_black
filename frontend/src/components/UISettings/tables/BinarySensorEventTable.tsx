@@ -107,10 +107,8 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <FilterInput filter={filter} setFilter={setFilter} totalCount={items.length} filteredCount={sortedItems.length} />
-        </div>
+      <FilterInput filter={filter} setFilter={setFilter} totalCount={items.length} filteredCount={sortedItems.length} />
+      <div className="flex items-center justify-end gap-2">
         <button
           onClick={toggleExpandAll}
           className="btn btn-ghost btn-xs gap-1 text-base-content/60 hover:text-base-content"
@@ -140,11 +138,11 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
               onDelete={() => onDelete(originalIndex)}
               onClick={itemHasActions ? () => toggleRow(originalIndex) : undefined}
               fields={[
-                ...(areaName ? [{ label: t('inputs.area'), value: areaName }] : []),
                 { label: t('inputs.has_actions'), value: itemHasActions
                   ? <span className="badge badge-success badge-xs">{t('common.yes')}</span>
                   : <span className="badge badge-ghost badge-xs">{t('common.no')}</span>
                 },
+                { label: t('inputs.area'), value: areaName || '–' },
               ]}
             >
               {isExpanded && itemHasActions && (

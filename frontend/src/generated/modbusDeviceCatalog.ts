@@ -191,7 +191,7 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "description": "boneIO temperature sensor extension board",
     "category": "sensors",
     "defaultAddress": 1,
-    "defaultUpdateInterval": "10s",
+    "defaultUpdateInterval": "30s",
     "hasSetBase": true
   },
   "cwt": {

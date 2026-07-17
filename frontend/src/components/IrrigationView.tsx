@@ -414,7 +414,7 @@ function ControllerCard({
                   return (
                     <button
                       key={ws.id}
-                      className={`btn btn-sm gap-1.5 min-h-10 px-4 rounded-full transition-all ${isSelected
+                      className={`btn btn-sm gap-1.5 min-h-10 px-4 transition-all ${isSelected
                         ? 'btn-primary shadow-md'
                         : 'btn-outline btn-ghost border-base-300'
                         }`}

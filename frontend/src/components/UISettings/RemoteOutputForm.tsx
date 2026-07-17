@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -351,21 +352,17 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                 {/* ---- Options ---- */}
                 <div className="divider">{t('settings.options')}</div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {/* Forward to HA — default OFF */}
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('inputs.forward_to_ha')}</legend>
-                    <label className="label cursor-pointer justify-start gap-4">
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.show_in_ha === true}
-                        onChange={(e) => updateField('show_in_ha', e.target.checked)}
-                      />
-                      <span className="label-text wrap-break-word">{t('remote_outputs.forward_to_ha_hint')}</span>
-                    </label>
-                  </fieldset>
-                </div>
+                <SettingsToggleGroup
+                  items={[
+                    {
+                      key: 'show_in_ha',
+                      label: t('inputs.forward_to_ha'),
+                      description: t('remote_outputs.forward_to_ha_hint'),
+                      checked: data.show_in_ha === true,
+                      onChange: (checked) => updateField('show_in_ha', checked),
+                    },
+                  ]}
+                />
               </div>
             ),
           },
@@ -416,25 +413,26 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                 {/* --- Adjustable Duration --- */}
                 <div className="divider">{t('outputs.divider_adjustable_duration')}</div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('outputs.adjustable_duration_label')}</legend>
-                    <label className={`label cursor-pointer justify-start gap-4 ${data.momentary_turn_on ? 'opacity-50' : ''}`}>
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.adjustable_duration === true}
-                        onChange={() => updateField('adjustable_duration', !data.adjustable_duration)}
-                        disabled={!!data.momentary_turn_on}
-                      />
-                      <span className="label-text">{t('outputs.adjustable_duration_desc')}</span>
-                    </label>
+                  <div className="space-y-2">
+                    <SettingsToggleGroup
+                      items={[
+                        {
+                          key: 'adjustable_duration',
+                          label: t('outputs.adjustable_duration_label'),
+                          description: t('outputs.adjustable_duration_desc'),
+                          checked: data.adjustable_duration === true,
+                          onChange: () => updateField('adjustable_duration', !data.adjustable_duration),
+                          disabled: !!data.momentary_turn_on,
+                        },
+                      ]}
+                    />
                     {data.momentary_turn_on && (
-                      <p className="text-xs text-warning mt-1 px-1">
+                      <p className="text-xs text-warning px-1">
                         {t('outputs.adjustable_duration_conflict')}
                       </p>
                     )}
-                  </fieldset>
+                  </div>
+
 
                   {data.adjustable_duration && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-l-2 border-primary/30">
@@ -490,7 +488,6 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                       </div>
                     </div>
                   )}
-                </div>
 
                 <div className="alert alert-info">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -598,20 +595,17 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
 
                 {/* Enforce Interlock — visible when interlock_group is set */}
                 {interlockValue && (
-                  <div className="grid grid-cols-1 gap-4 mt-2">
-                    <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                      <legend className="fieldset-legend">{t('remote_outputs.enforce_interlock')}</legend>
-                      <label className="label cursor-pointer justify-start gap-4">
-                        <input
-                          type="checkbox"
-                          className="toggle toggle-warning"
-                          checked={data.enforce_interlock === true}
-                          onChange={(e) => updateField('enforce_interlock', e.target.checked)}
-                        />
-                        <span className="label-text wrap-break-word">{t('remote_outputs.enforce_interlock_hint')}</span>
-                      </label>
-                    </fieldset>
-                  </div>
+                  <SettingsToggleGroup
+                    items={[
+                      {
+                        key: 'enforce_interlock',
+                        label: t('remote_outputs.enforce_interlock'),
+                        description: t('remote_outputs.enforce_interlock_hint'),
+                        checked: data.enforce_interlock === true,
+                        onChange: (checked) => updateField('enforce_interlock', checked),
+                      },
+                    ]}
+                  />
                 )}
 
                 <div className="alert alert-info">

@@ -143,12 +143,12 @@ function resolveActionTarget(
     let targetName = '';
     if (action.output_id) {
       const remoteOutput = device?.mqtt?.outputs?.find((o: any) => o.id === action.output_id);
-      targetName = remoteOutput?.name ? `${remoteOutput.name} (${action.output_id})` : action.output_id;
+      targetName = remoteOutput?.name || action.output_id;
     } else if (action.cover_id) {
       const remoteCover = device?.mqtt?.covers?.find((c: any) => c.id === action.cover_id);
-      targetName = remoteCover?.name ? `${remoteCover.name} (${action.cover_id})` : action.cover_id;
+      targetName = remoteCover?.name || action.cover_id;
     }
-    details.push(`${deviceName}/${targetName}`);
+    details.push(targetName ? `${deviceName} → ${targetName}` : deviceName);
   }
 
   if (action.action_output) details.push(action.action_output);
@@ -173,22 +173,35 @@ const ActionDetails: React.FC<ActionDetailsProps> = ({ item, allAreas, allOutput
   if (available.length === 0) return null;
 
   return (
-    <div className="p-4 bg-base-200 space-y-3">
+    <div className="mt-2 space-y-2">
       {available.map(type => {
         const actions = item.actions?.[type];
         return (
-          <div key={type} className="space-y-1">
-            <div className="font-semibold text-sm">{getLabel(type)}</div>
-            <div className="flex flex-wrap gap-2">
+          <div key={type} className="space-y-1.5">
+            <div className="font-semibold text-xs text-base-content/70">{getLabel(type)}</div>
+            <div className="space-y-1.5">
               {actions?.map((action: any, idx: number) => {
                 const { details, areaName } = resolveActionTarget(action, allOutputs, allCovers, allAreas, allRemoteDevices);
                 return (
-                  <div key={idx} className="inline-flex flex-col">
-                    <div className="badge badge-primary badge-sm gap-1">
-                      <span className="font-mono text-xs">{action.action}</span>
-                      {details.length > 0 && <span className="opacity-70">→ {details.join(' ')}</span>}
-                      {areaName && <span className="opacity-50">[{areaName}]</span>}
+                  <div key={idx} className="bg-base-100 rounded-lg p-2.5 text-xs space-y-1">
+                    {/* Action type + target */}
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className="badge badge-primary badge-xs shrink-0 mt-0.5">
+                        {action.action}
+                      </span>
+                      {details.length > 0 && (
+                        <span className="text-base-content/80 break-all leading-tight">
+                          {details.join(' ')}
+                        </span>
+                      )}
                     </div>
+                    {/* Area */}
+                    {areaName && (
+                      <div className="text-base-content/50 pl-0.5">
+                        📍 {areaName}
+                      </div>
+                    )}
+                    {/* Conditions */}
                     <ConditionBadges action={action} />
                   </div>
                 );

@@ -5,6 +5,8 @@ import ActionFields, { validateAction, cleanActionFields } from './ActionFields'
 import AiConfigAssistant from './AiConfigAssistant';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
+import { TabsBox } from '@/components/ui/tabs-box';
 import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import {
   Select,
@@ -255,77 +257,15 @@ const EventForm: React.FC<EventFormProps> = ({
         onApply={onChange}
       />
 
-      {/* DaisyUI Tabs - lifted style with bordered content */}
-      <div role="tablist" className="tabs tabs-box">
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={t('settings.basic_settings')}
-          checked={activeTab === 'basic'}
-          onChange={() => setActiveTab('basic')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={`${t('event_form.single_click')}${data.actions?.single?.length ? ` (${data.actions.single.length})` : ''}`}
-          checked={activeTab === 'single'}
-          onChange={() => setActiveTab('single')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={`${t('event_form.double_click')}${data.actions?.double?.length ? ` (${data.actions.double.length})` : ''}`}
-          checked={activeTab === 'double'}
-          onChange={() => setActiveTab('double')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={`${t('event_form.triple_click')}${data.actions?.triple?.length ? ` (${data.actions.triple.length})` : ''}`}
-          checked={activeTab === 'triple'}
-          onChange={() => setActiveTab('triple')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={`${t('event_form.long_click')}${data.actions?.long?.length ? ` (${data.actions.long.length})` : ''}`}
-          checked={activeTab === 'long'}
-          onChange={() => setActiveTab('long')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={`${t('event_form.sequences')}${((data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)) > 0 ? ` (${(data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)})` : ''}`}
-          checked={activeTab === 'sequences'}
-          onChange={() => setActiveTab('sequences')}
-        />
-        <input 
-          type="radio" 
-          name="event_tabs" 
-          role="tab" 
-          className="tab" 
-          aria-label={t('settings.advanced_settings')}
-          checked={activeTab === 'advanced'}
-          onChange={() => setActiveTab('advanced')}
-        />
-      </div>
-
-      {/* Tab Content with border */}
-      <div className="border border-base-300 rounded-b-box rounded-tr-box bg-base-100 p-4">
-        {/* Basic Settings Tab */}
-        {activeTab === 'basic' && (
+      <TabsBox
+        name="event_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        tabs={[
+          {
+            id: 'basic',
+            label: t('settings.basic_settings'),
+            content: (
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="form-control">
@@ -382,42 +322,22 @@ const EventForm: React.FC<EventFormProps> = ({
                 )}
               </div>
 
-              <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('common.area')}</span>
-                </label>
-                <Select
-                  value={data.area || '_none_'}
-                  onValueChange={(value) => updateField('area', value === '_none_' ? undefined : value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('common.no_area')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none_">{t('common.no_area')}</SelectItem>
-                    {allAreas.map((area) => (
-                      <SelectItem key={area.id} value={area.id}>
-                        {area.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <label className="label">
-                  <span className="label-text-alt">
-                    {allAreas.length === 0 
-                      ? t('outputs.area_empty_hint')
-                      : t('outputs.area_hint')
-                    }
-                  </span>
-                </label>
-              </div>
+              <AreaSelect
+                value={data.area}
+                onChange={(areaId) => updateField('area', areaId)}
+                areas={allAreas}
+                className="md:col-span-2"
+              />
 
             </div>
           </div>
-        )}
-
-        {/* Single Press Actions Tab */}
-        {activeTab === 'single' && (
+            ),
+          },
+          {
+            id: 'single',
+            label: t('event_form.single_click'),
+            badge: data.actions?.single?.length || undefined,
+            content: (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.single_actions')}</h3>
@@ -441,10 +361,13 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           )}
         </div>
-      )}
-
-        {/* Double Press Actions Tab */}
-        {activeTab === 'double' && (
+            ),
+          },
+          {
+            id: 'double',
+            label: t('event_form.double_click'),
+            badge: data.actions?.double?.length || undefined,
+            content: (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.double_actions')}</h3>
@@ -468,10 +391,13 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           )}
         </div>
-      )}
-
-        {/* Triple Press Actions Tab */}
-        {activeTab === 'triple' && (
+            ),
+          },
+          {
+            id: 'triple',
+            label: t('event_form.triple_click'),
+            badge: data.actions?.triple?.length || undefined,
+            content: (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.triple_actions')}</h3>
@@ -503,10 +429,13 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           )}
         </div>
-      )}
-
-        {/* Long Press Actions Tab */}
-        {activeTab === 'long' && (
+            ),
+          },
+          {
+            id: 'long',
+            label: t('event_form.long_click'),
+            badge: data.actions?.long?.length || undefined,
+            content: (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold">{t('event_form.long_actions')}</h3>
@@ -530,10 +459,13 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           )}
         </div>
-      )}
-
-        {/* Sequences Tab */}
-        {activeTab === 'sequences' && (
+            ),
+          },
+          {
+            id: 'sequences',
+            label: t('event_form.sequences'),
+            badge: ((data.actions?.double_then_long?.length || 0) + (data.actions?.single_then_long?.length || 0) + (data.actions?.double_then_single?.length || 0)) || undefined,
+            content: (
         <div className="space-y-6">
           <div className="alert alert-info">
             <span>{t('event_form.sequences_hint')}</span>
@@ -653,10 +585,12 @@ const EventForm: React.FC<EventFormProps> = ({
             </div>
           </div>
         </div>
-      )}
-
-        {/* Advanced Settings Tab */}
-        {activeTab === 'advanced' && (
+            ),
+          },
+          {
+            id: 'advanced',
+            label: t('settings.advanced_settings'),
+            content: (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="form-control">
@@ -821,8 +755,10 @@ const EventForm: React.FC<EventFormProps> = ({
             </button>
           </div>
         </div>
-      )}
-      </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

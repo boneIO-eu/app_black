@@ -16,6 +16,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { TabsBox } from '@/components/ui/tabs-box';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import {
@@ -415,35 +416,24 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
       {/* ---- Options ---- */}
       <div className="divider">{t('settings.options')}</div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {/* Forward state to HA — default OFF */}
-        <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-          <legend className="fieldset-legend">{t('inputs.forward_to_ha')}</legend>
-          <label className="label cursor-pointer justify-start gap-4">
-            <input
-              type="checkbox"
-              className="toggle toggle-primary"
-              checked={data.show_in_ha === true}
-              onChange={(e) => updateField('show_in_ha', e.target.checked)}
-            />
-            <span className="label-text wrap-break-word">{t('inputs.forward_to_ha_hint')}</span>
-          </label>
-        </fieldset>
-
-        {/* Inverted */}
-        <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-          <legend className="fieldset-legend">{t('inputs.inverted')}</legend>
-          <label className="label cursor-pointer justify-start gap-4">
-            <input
-              type="checkbox"
-              className="toggle toggle-primary"
-              checked={data.inverted === true}
-              onChange={(e) => updateField('inverted', e.target.checked)}
-            />
-            <span className="label-text">{t('inputs.inverted_hint')}</span>
-          </label>
-        </fieldset>
-      </div>
+      <SettingsToggleGroup
+        items={[
+          {
+            key: 'show_in_ha',
+            label: t('inputs.forward_to_ha'),
+            description: t('inputs.forward_to_ha_hint'),
+            checked: data.show_in_ha === true,
+            onChange: (checked) => updateField('show_in_ha', checked),
+          },
+          {
+            key: 'inverted',
+            label: t('inputs.inverted'),
+            description: t('inputs.inverted_hint'),
+            checked: data.inverted === true,
+            onChange: (checked) => updateField('inverted', checked),
+          },
+        ]}
+      />
     </div>
   );
 
@@ -678,18 +668,17 @@ const RemoteInputForm: React.FC<RemoteInputFormProps> = ({
             </div>
 
             {/* Enable triple click */}
-            <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-              <legend className="fieldset-legend">{t('event_form.enable_triple_click')}</legend>
-              <label className="label cursor-pointer justify-start gap-4">
-                <input
-                  type="checkbox"
-                  className="toggle toggle-primary"
-                  checked={data.enable_triple_click === true}
-                  onChange={(e) => updateField('enable_triple_click', e.target.checked)}
-                />
-                <span className="label-text">{t('event_form.enable_triple_click_hint')}</span>
-              </label>
-            </fieldset>
+            <SettingsToggleGroup
+              items={[
+                {
+                  key: 'enable_triple_click',
+                  label: t('event_form.enable_triple_click'),
+                  description: t('event_form.enable_triple_click_hint'),
+                  checked: data.enable_triple_click === true,
+                  onChange: (checked) => updateField('enable_triple_click', checked),
+                },
+              ]}
+            />
 
             {/* Long press MQTT mode */}
             <div className="form-control">

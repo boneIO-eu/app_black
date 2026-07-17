@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
+import SearchableMultiEntityPicker from './SearchableMultiEntityPicker';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -32,19 +34,19 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
   // Get available outputs from allOutputs with their effective IDs
   // The backend keys outputs by custom `id` if set, otherwise by `boneio_output`.
   // Groups must reference the effective ID so the backend can look them up in _outputs.
-  const availableOutputs = allOutputs
+  const availableOutputs = useMemo(() => allOutputs
     .filter(output => output.boneio_output && output.output_type !== 'cover')
     .map(output => {
       const effectiveId = output.id || output.boneio_output;
       return {
         id: effectiveId,
         name: output.name || effectiveId,
-        displayName: `${output.name || effectiveId} : ${output.boneio_output}`,
-        outputType: output.output_type,
-        boneioOutput: output.boneio_output,
+        area: output.area || '',
+        badge: output.boneio_output !== effectiveId ? output.boneio_output : undefined,
+        badgeClass: 'badge-ghost',
       };
     })
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .sort((a, b) => a.id.localeCompare(b.id)), [allOutputs]);
 
   // Extract enums from schema
   const outputTypeOptions = schema?.items?.properties?.output_type?.enum || ['switch', 'light'];
@@ -57,13 +59,6 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
     updateField('outputs', selectedOutputs);
   };
 
-  const toggleOutput = (outputId: string) => {
-    const currentOutputs = Array.isArray(data.outputs) ? data.outputs : [];
-    const newOutputs = currentOutputs.includes(outputId)
-      ? currentOutputs.filter((o: string) => o !== outputId)
-      : [...currentOutputs, outputId];
-    handleOutputsChange(newOutputs);
-  };
 
   const selectedOutputs = Array.isArray(data.outputs) ? data.outputs : [];
 
@@ -115,53 +110,16 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
 
                 {/* Outputs Selection */}
                 <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-medium">{t('groups.member_outputs')} *</span>
-                  </label>
-                  <div className="border border-base-300 rounded-lg p-3">
-                    {availableOutputs.length === 0 ? (
-                      <p className="text-warning">{t('groups.no_outputs_available')}</p>
-                    ) : (
-                      <div className="flex flex-col gap-1">
-                        {availableOutputs.map((output) => (
-                          <label 
-                            key={output.id} 
-                            className={`label cursor-pointer justify-start gap-3 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors ${
-                              selectedOutputs.includes(output.id) ? 'bg-primary/10' : ''
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="checkbox checkbox-sm checkbox-primary"
-                              checked={selectedOutputs.includes(output.id)}
-                              onChange={() => toggleOutput(output.id)}
-                            />
-                            <span className="label-text flex-1">
-                              <span className="font-medium">{output.name}</span>
-                              <span className="text-base-content/60 ml-2 uppercase text-xs">
-                                ({output.id}{output.boneioOutput !== output.id ? ` → ${output.boneioOutput}` : ''})
-                              </span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap justify-between gap-2 mt-2">
-                    <p className="text-xs text-base-content/60">
-                      {t('groups.selected')}: {selectedOutputs.length > 0 
-                        ? selectedOutputs.map((id: string) => {
-                            const output = availableOutputs.find(o => o.id === id);
-                            return output ? output.name : id;
-                          }).join(', ') 
-                        : t('common.no')}
-                    </p>
-                    {selectedOutputs.length === 0 && (
-                      <p className="text-xs text-error">
-                        {t('groups.at_least_one_required')}
-                      </p>
-                    )}
-                  </div>
+                  <SearchableMultiEntityPicker
+                    value={selectedOutputs}
+                    onChange={handleOutputsChange}
+                    items={availableOutputs}
+                    allAreas={allAreas}
+                    label={t('groups.member_outputs')}
+                    placeholder={t('groups.select_outputs')}
+                    required
+                    errorMessage={t('groups.at_least_one_required')}
+                  />
                 </div>
 
                 {/* Output Type */}
@@ -204,21 +162,17 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
             label: t('settings.advanced_settings'),
             content: (
               <div className="space-y-4">
-                {/* All On Behaviour */}
-                <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-4">
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={data.all_on_behaviour || false}
-                      onChange={(e) => updateField('all_on_behaviour', e.target.checked)}
-                    />
-                    <span className="label-text font-medium">{t('groups.all_on_behaviour')}</span>
-                  </label>
-                  <p className="text-xs text-base-content/60 ml-10">
-                    {t('groups.all_on_behaviour_hint')}
-                  </p>
-                </div>
+                <SettingsToggleGroup
+                  items={[
+                    {
+                      key: 'all_on_behaviour',
+                      label: t('groups.all_on_behaviour'),
+                      description: t('groups.all_on_behaviour_hint'),
+                      checked: data.all_on_behaviour || false,
+                      onChange: (checked) => updateField('all_on_behaviour', checked),
+                    },
+                  ]}
+                />
               </div>
             ),
           },

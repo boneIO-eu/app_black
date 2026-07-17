@@ -8,6 +8,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import ModbusDeviceItem from './ModbusDeviceItem';
 import { shouldRenderHistory, useModbusHistory } from '../hooks/useModbusHistory';
 import { LongPressWrapper } from '@/components/ui/LongPressWrapper';
+import { EntityGrid, SENSOR_GRID_CLASS } from './EntityGrid';
 import { FaCog, FaSyncAlt } from 'react-icons/fa';
 import {
   Dialog,
@@ -200,99 +201,98 @@ export default function ModbusView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">{t('modbus_view.title')}</h2>
-        <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
-      </div>
+      <div className="card bg-base-200 shadow-xl">
+        <div className="card-body">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="card-title">{t('modbus_view.title')}</h2>
+            <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+          </div>
 
-      {error && (
-        <div className="alert alert-error mb-4">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Grouped Modbus Devices */}
-      {sortedGroupedEntries.length === 0 ? (
-        <div className="text-center py-8 text-base-content/60">
-          {t('modbus_view.no_devices')}
-        </div>
-      ) : (
-        sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
-          return (
-            <div key={groupKey} className={`card bg-base-200/80 shadow-lg mb-6 border-l-4 ${accentColor}`}>
-              <div className="card-body">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="card-title text-lg font-semibold text-base-content/80">{groupName}</h3>
-                  <label
-                    className="flex items-center gap-2 cursor-pointer"
-                    title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
-                  >
-                    <FaSyncAlt className={`w-3.5 h-3.5 transition-colors ${
-                      pollingState[groupKey] === false ? 'text-base-content/30' : 'text-success'
-                    }`} />
-                    <input
-                      type="checkbox"
-                      className="toggle toggle-sm toggle-success"
-                      checked={pollingState[groupKey] !== false}
-                      onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
-                    />
-                  </label>
-                </div>
-
-                {/* Sensors Section */}
-                {sensors.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.sensors')}</h4>
-                    <div className={isGrid
-                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
-                      : "flex flex-col gap-4"
-                    }>
-                      {sensors.map((device) => (
-                        <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
-                          <ModbusDeviceItem
-                            device={device}
-                            isGrid={isGrid}
-                            historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
-                            onValueChange={handleValueChange}
-                            accentColor={accentColor}
-                            strokeColor={strokeColor}
-                            fillColor={fillColor}
-                          />
-                        </LongPressWrapper>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Writeable Entities Section */}
-                {writeable.length > 0 && (
-                  <div>
-                    <h4 className="text-md font-medium text-base-content/70 mb-3">{t('modbus_view.controls')}</h4>
-                    <div className={isGrid
-                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
-                      : "flex flex-col gap-4"
-                    }>
-                      {writeable.map((device) => (
-                        <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
-                          <ModbusDeviceItem
-                            device={device}
-                            isGrid={isGrid}
-                            historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
-                            onValueChange={handleValueChange}
-                            accentColor={accentColor}
-                            strokeColor={strokeColor}
-                            fillColor={fillColor}
-                          />
-                        </LongPressWrapper>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+          {error && (
+            <div className="alert alert-error mb-4">
+              <span>{error}</span>
             </div>
-          );
-        })
-      )}
+          )}
+
+          {/* Grouped Modbus Devices */}
+          {sortedGroupedEntries.length === 0 ? (
+            <div className="text-center py-8 text-base-content/60">
+              {t('modbus_view.no_devices')}
+            </div>
+          ) : (
+            sortedGroupedEntries.map(({ groupKey, groupName, sensors, writeable, accentColor, strokeColor, fillColor }) => {
+              return (
+                <section key={groupKey}>
+                  {/* Group header with name and polling toggle */}
+                  <div className="flex items-center gap-2">
+                    <div className="divider flex-1">{groupName}</div>
+                    <label
+                      className="flex items-center gap-1.5 cursor-pointer shrink-0"
+                      title={pollingState[groupKey] === false ? t('modbus_view.polling_disabled') : t('modbus_view.polling_enabled')}
+                    >
+                      <FaSyncAlt className={`w-3 h-3 transition-colors ${
+                        pollingState[groupKey] === false ? 'text-base-content/30' : 'text-success'
+                      }`} />
+                      <input
+                        type="checkbox"
+                        className="toggle toggle-xs toggle-success"
+                        checked={pollingState[groupKey] !== false}
+                        onChange={(e) => handlePollingToggle(groupKey, e.target.checked)}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Sensors Section */}
+                  {sensors.length > 0 && (
+                    <>
+                      {writeable.length > 0 && (
+                        <div className="divider divider-start text-xs text-base-content/50">{t('modbus_view.sensors')}</div>
+                      )}
+                      <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                        {sensors.map((device) => (
+                          <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                            <ModbusDeviceItem
+                              device={device}
+                              isGrid={isGrid}
+                              historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                              onValueChange={handleValueChange}
+                              accentColor={accentColor}
+                              strokeColor={strokeColor}
+                              fillColor={fillColor}
+                            />
+                          </LongPressWrapper>
+                        ))}
+                      </EntityGrid>
+                    </>
+                  )}
+
+                  {/* Writeable Entities Section */}
+                  {writeable.length > 0 && (
+                    <>
+                      <div className="divider divider-start text-xs text-base-content/50">{t('modbus_view.controls')}</div>
+                      <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                        {writeable.map((device) => (
+                          <LongPressWrapper key={device.id} onLongPress={() => handleLongPress(device)} className={isGrid ? 'h-full' : undefined}>
+                            <ModbusDeviceItem
+                              device={device}
+                              isGrid={isGrid}
+                              historyPoints={shouldRenderHistory(device) ? (historyByDeviceId.get(device.id) || []) : undefined}
+                              onValueChange={handleValueChange}
+                              accentColor={accentColor}
+                              strokeColor={strokeColor}
+                              fillColor={fillColor}
+                            />
+                          </LongPressWrapper>
+                        ))}
+                      </EntityGrid>
+                    </>
+                  )}
+                </section>
+              );
+            })
+          )}
+        </div>
+      </div>
 
       {/* Long press dialog - go to settings */}
       <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, device: open ? longPressDialog.device : null })}>

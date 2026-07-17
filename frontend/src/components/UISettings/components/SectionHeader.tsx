@@ -59,10 +59,11 @@ export default function SectionHeader({
               YAML
             </button>
           )}
+          {/* Save/Restore — hidden on mobile, shown in bottom bar instead */}
           {hasUnsavedChanges && (
             <button
               onClick={onRestore}
-              className="btn btn-warning btn-sm"
+              className="btn btn-warning btn-sm hidden lg:inline-flex"
               title="Restore to last saved state"
             >
               <FaUndo />
@@ -72,7 +73,7 @@ export default function SectionHeader({
           <button
             onClick={onSave}
             disabled={!hasUnsavedChanges || saveDisabled}
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm hidden lg:inline-flex"
           >
             {saveStatus === 'saving' ? (
               <div className="loading loading-spinner loading-xs"></div>

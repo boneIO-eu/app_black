@@ -68,7 +68,14 @@ export default function UISettings() {
   const [isReloading, setIsReloading] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
   const [isRestarting, setIsRestarting] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // On mobile, start sidebar closed when arriving with a section URL or deep link
+  // so content is immediately visible (e.g. from InputsView long-press → "Go to settings")
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      return !section && !searchParams.get('edit');
+    }
+    return true;
+  });
   const [schemaLoaded, setSchemaLoaded] = useState(false);
   const [loxFormValid, setLoxFormValid] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -102,6 +109,11 @@ export default function UISettings() {
   // Function to navigate to a section
   const navigateToSection = (sectionName: string) => {
     navigate(`/settings/${sectionName}`);
+    // Scroll content to top so the new section starts at the top
+    window.scrollTo({ top: 0 });
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
     // On mobile: close sidebar accordion so content is immediately visible
     if (window.innerWidth < 1024) {
       setIsSidebarOpen(false);
@@ -1308,10 +1320,23 @@ export default function UISettings() {
         isSidebarOpen={isSidebarOpen}
         onSidebarToggle={setIsSidebarOpen}
         onNavigate={navigateToSection}
+        onRestore={() => {
+          restoreSection(activeSection);
+          if (activeSection === 'mqtt') restoreSection('lox_udp');
+        }}
+        onSave={async () => {
+          if (activeSection === 'mqtt') {
+            if (unsavedChanges['mqtt']) await saveSection('mqtt');
+            if (unsavedChanges['lox_udp']) await saveSection('lox_udp');
+          } else {
+            await saveSection(activeSection);
+          }
+        }}
+        saveDisabled={activeSection === 'mqtt' && unsavedChanges['lox_udp'] && !loxFormValid}
       />
 
       {/* Main content area */}
-      <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0">
+      <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0 pb-14 lg:pb-0">
         {/* Tool sections (not schema-driven) */}
         {activeSection === 'binding_matrix' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>

@@ -114,7 +114,7 @@ function GraphCardBase({
     const hasAttrs = attributes && Object.keys(attributes).length > 0;
     return (
       <div
-        className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-200 p-4 shadow-sm transition-all duration-300 ${hasChart ? 'min-h-[166px]' : 'min-h-[88px]'} h-full flex flex-col`}
+        className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-100 p-4 shadow-sm transition-all duration-300 ${hasChart ? 'min-h-[166px]' : 'min-h-[88px]'} h-full flex flex-col`}
       >
         <div className="grid grid-cols-[1fr_auto] gap-4">
           <div className="min-w-0">
@@ -159,7 +159,7 @@ function GraphCardBase({
   // List layout — horizontal card with inline chart
   return (
     <div
-      className={`relative overflow-hidden bg-base-200 shadow-sm rounded-lg p-4 border-l-8 ${accentColor} min-h-[84px] transition-all duration-300`}
+      className={`relative overflow-hidden bg-base-100 shadow-sm rounded-lg p-4 border-l-8 ${accentColor} min-h-[84px] transition-all duration-300`}
     >
       <div className="relative z-10 flex items-center gap-4">
         <div className="min-w-0 flex-1">

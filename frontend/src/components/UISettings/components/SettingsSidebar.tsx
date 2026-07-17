@@ -1,9 +1,12 @@
 /**
  * SettingsSidebar - Sidebar navigation for configuration sections.
- * Handles both mobile (accordion) and desktop (always visible) layouts.
+ *
+ * Mobile: Sticky section selector that opens a bottom sheet with the full list.
+ * Desktop: Always-visible sidebar with section list.
  */
-import { FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCheck, FaExclamationTriangle, FaUndo, FaSave } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import { BottomPeekBar } from '@/components/ui/bottom-peek-bar';
 
 interface SectionConfig {
   name: string;
@@ -33,6 +36,12 @@ interface SettingsSidebarProps {
   isSidebarOpen: boolean;
   onSidebarToggle: (open: boolean) => void;
   onNavigate: (sectionName: string) => void;
+  /** Called when Save button is pressed in mobile bottom bar */
+  onSave?: () => void;
+  /** Called when Restore button is pressed in mobile bottom bar */
+  onRestore?: () => void;
+  /** Whether the save button should be disabled */
+  saveDisabled?: boolean;
 }
 
 /**
@@ -134,7 +143,7 @@ function SectionList({
 }
 
 /**
- * Sidebar content - shared between mobile and desktop.
+ * Sidebar content - shared between mobile bottom sheet and desktop sidebar.
  */
 function SidebarContent({
   sections,
@@ -168,7 +177,7 @@ function SidebarContent({
         />
       </div>
 
-      {/* Remote sections — visually grouped */}
+      {/* Remote sections */}
       {remoteReloadSections.length > 0 && (
         <div className="mb-4 border border-info/20 rounded-xl bg-info/5 p-3">
           <div className="flex items-center gap-2 mb-2 px-1">
@@ -188,7 +197,7 @@ function SidebarContent({
         </div>
       )}
 
-      {/* Restart sections — visually grouped */}
+      {/* Restart-required sections */}
       <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
         <div className="flex items-center gap-2 mb-2 px-1">
           <span className="text-sm font-semibold text-warning">
@@ -234,6 +243,9 @@ function SidebarContent({
 
 /**
  * Main SettingsSidebar component.
+ *
+ * Mobile: sticky dropdown bar showing active section. Tap opens bottom sheet.
+ * Desktop: always-visible sidebar panel.
  */
 export default function SettingsSidebar({
   sections,
@@ -246,47 +258,80 @@ export default function SettingsSidebar({
   isSidebarOpen,
   onSidebarToggle,
   onNavigate,
+  onSave,
+  onRestore,
+  saveDisabled,
 }: SettingsSidebarProps) {
   const { t } = useTranslation();
   const activeSectionConfig = configSections.find(s => s.name === activeSection);
+  const hasActiveUnsaved = activeSection === 'mqtt'
+    ? (unsavedChanges['mqtt'] || unsavedChanges['lox_udp'] || false)
+    : (unsavedChanges[activeSection] || false);
+  const isSaving = saveStatus[activeSection] === 'saving';
+
+  /** Navigate to section and close mobile bottom sheet. */
+  const handleMobileNavigate = (sectionName: string) => {
+    onNavigate(sectionName);
+    onSidebarToggle(false);
+  };
+
+  /** Action buttons for bottom bar — only when active section has unsaved changes. */
+  const actionButtons = hasActiveUnsaved ? (
+    <>
+      <button
+        type="button"
+        className="btn btn-sm btn-ghost flex-1"
+        onClick={onRestore}
+      >
+        <FaUndo className="text-xs" />
+        {t('settings.restore')}
+      </button>
+      <button
+        type="button"
+        className="btn btn-sm btn-primary flex-1 animate-subtle-glow"
+        onClick={onSave}
+        disabled={saveDisabled || isSaving}
+      >
+        {isSaving ? (
+          <span className="loading loading-spinner loading-xs" />
+        ) : (
+          <FaSave className="text-xs" />
+        )}
+        {t('settings.save')}
+      </button>
+    </>
+  ) : undefined;
   
   return (
-    <div className="w-full lg:w-80 bg-base-200 border-r lg:border-r border-b lg:border-b-0 border-base-content/10 lg:min-h-0">
-      {/* Mobile accordion - only on mobile */}
-      <div className="lg:hidden">
-        <div className="collapse collapse-arrow bg-base-200 border-b border-base-content/10">
-          <input 
-            type="checkbox" 
-            checked={isSidebarOpen}
-            onChange={(e) => onSidebarToggle(e.target.checked)}
-          />
-          <div className="collapse-title text-lg font-bold text-base-content p-3">
-            {isSidebarOpen ? t('settings.configuration_sections') : (
-              <span className="flex items-center gap-2">
-                <span>{activeSectionConfig?.icon}</span>
-                <span>{activeSectionConfig?.title || t('settings.configuration_sections')}</span>
-              </span>
-            )}
-          </div>
-          <div className="collapse-content">
-            <div className="p-3 pt-0">
-              <SidebarContent
-                sections={sections}
-                reloadSections={reloadSections}
-                restartSections={restartSections}
-                configSections={configSections}
-                activeSection={activeSection}
-                saveStatus={saveStatus}
-                unsavedChanges={unsavedChanges}
-                onNavigate={onNavigate}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+    <>
+      {/* Mobile: bottom peek bar + sheet */}
+      <BottomPeekBar
+        open={isSidebarOpen}
+        onOpenChange={onSidebarToggle}
+        icon={activeSectionConfig?.icon || '⚙️'}
+        label={activeSectionConfig?.title || t('settings.configuration_sections')}
+        indicator={
+          hasActiveUnsaved
+            ? <span className="flex-shrink-0 w-2 h-2 bg-warning rounded-full" />
+            : undefined
+        }
+        actions={actionButtons}
+        sheetTitle={t('settings.configuration_sections')}
+      >
+        <SidebarContent
+          sections={sections}
+          reloadSections={reloadSections}
+          restartSections={restartSections}
+          configSections={configSections}
+          activeSection={activeSection}
+          saveStatus={saveStatus}
+          unsavedChanges={unsavedChanges}
+          onNavigate={handleMobileNavigate}
+        />
+      </BottomPeekBar>
 
-      {/* Desktop version - always visible */}
-      <div className="hidden lg:block overflow-y-auto max-h-none">
+      {/* Desktop version - always visible sidebar */}
+      <div className="hidden lg:block w-80 bg-base-200 border-r border-base-content/10 overflow-y-auto">
         <div className="p-4">
           <h2 className="text-xl font-bold text-base-content mb-4">{t('settings.configuration_sections')}</h2>
           <SidebarContent
@@ -301,6 +346,6 @@ export default function SettingsSidebar({
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

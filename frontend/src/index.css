@@ -38,6 +38,29 @@ body {
   height: 100%;
 }
 
+/* Utility: hide scrollbar but allow scroll */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Utility: safe area padding for iOS home indicator */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Animation: subtle shadow glow pulse for action buttons */
+@keyframes subtle-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.65 0.2 250 / 0); }
+  50% { box-shadow: 0 0 8px 2px oklch(0.65 0.2 250 / 0.3); }
+}
+.animate-subtle-glow {
+  animation: subtle-glow 2.5s ease-in-out infinite;
+}
+
 @plugin "daisyui" {
   themes: light --default, dark --prefersdark;
 }
@@ -173,8 +196,13 @@ body {
   max-width: 100% !important;
 }
 
-/* Ensure form-control itself is full width */
+/* Ensure form-control itself and its form children are full width */
 .form-control {
+  width: 100% !important;
+}
+
+.form-control input:not([type="checkbox"]):not([type="radio"]),
+.form-control select {
   width: 100% !important;
 }
 
@@ -216,4 +244,126 @@ body {
 .modbus-sparkline canvas,
 .sparkline-chart canvas {
   opacity: 0.95;
+}
+
+/* ===================================================================
+   Dialog transitions (base-ui)
+   Uses data-open / data-starting-style / data-ending-style attributes
+   =================================================================== */
+
+/* --- Backdrop (overlay) --- */
+[data-dialog-backdrop] {
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+[data-dialog-backdrop][data-open] {
+  opacity: 1;
+}
+[data-dialog-backdrop][data-starting-style],
+[data-dialog-backdrop][data-ending-style] {
+  opacity: 0;
+}
+
+/* --- Popup (shared) --- */
+[data-dialog-popup] {
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+[data-dialog-popup][data-open] {
+  opacity: 1;
+}
+[data-dialog-popup][data-starting-style],
+[data-dialog-popup][data-ending-style] {
+  opacity: 0;
+}
+
+/* --- Mobile: slide up from bottom --- */
+@media (max-width: 639px) {
+  [data-dialog-popup] {
+    transform: translateY(100%);
+  }
+  [data-dialog-popup][data-open] {
+    transform: translateY(0);
+  }
+  [data-dialog-popup][data-starting-style] {
+    transform: translateY(100%);
+  }
+  [data-dialog-popup][data-ending-style] {
+    transform: translateY(100%);
+  }
+}
+
+/* --- Desktop: zoom in/out, centered via translate --- */
+@media (min-width: 640px) {
+  [data-dialog-popup] {
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  [data-dialog-popup][data-open] {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  [data-dialog-popup][data-starting-style] {
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0;
+  }
+  [data-dialog-popup][data-ending-style] {
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0;
+  }
+}
+
+/* ===================================================================
+   Select transitions (base-ui)
+   =================================================================== */
+
+/* --- Backdrop (mobile only) --- */
+[data-select-backdrop] {
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+@starting-style {
+  [data-select-backdrop][data-open] {
+    opacity: 0;
+  }
+}
+[data-select-backdrop][data-ending-style] {
+  opacity: 0;
+}
+
+/* --- Mobile: slide up from bottom --- */
+@media (max-width: 639px) {
+  [data-select-popup] {
+    transform: translateY(0);
+    transition: transform 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @starting-style {
+    [data-select-popup][data-open] {
+      transform: translateY(100%);
+    }
+  }
+  [data-select-popup][data-ending-style] {
+    transform: translateY(100%);
+  }
+}
+
+/* --- Desktop: subtle fade + small zoom --- */
+@media (min-width: 640px) {
+  [data-select-popup] {
+    opacity: 1;
+    transform: scale(1);
+    transition: 
+      opacity 150ms ease,
+      transform 150ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @starting-style {
+    [data-select-popup][data-open] {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  [data-select-popup][data-ending-style] {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }

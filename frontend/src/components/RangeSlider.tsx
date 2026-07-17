@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /**
- * Shared range slider component used by OutputItem (duration/brightness)
+ * Shared range slider component used by EntityCard (duration/brightness)
  * and CoverItem (position/tilt).
  *
  * Provides debounced onChange, local state for responsive UI,

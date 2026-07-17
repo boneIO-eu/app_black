@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -441,20 +442,17 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   {/* Restore State */}
                   <div className="divider">{t('outputs.divider_options')}</div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                      <legend className="fieldset-legend">{t('outputs.restore_state')}</legend>
-                      <label className="label cursor-pointer justify-start gap-4">
-                        <input
-                          type="checkbox"
-                          className="toggle toggle-primary"
-                          checked={data.restore_state === true}
-                          onChange={toggleRestoreState}
-                        />
-                        <span className="label-text">{getFieldDescription('restore_state')}</span>
-                      </label>
-                    </fieldset>
-                  </div>
+                  <SettingsToggleGroup
+                    items={[
+                      {
+                        key: 'restore_state',
+                        label: t('outputs.restore_state'),
+                        description: getFieldDescription('restore_state'),
+                        checked: data.restore_state === true,
+                        onChange: () => toggleRestoreState(),
+                      },
+                    ]}
+                  />
                 </div>
               ),
             },
@@ -505,81 +503,80 @@ const OutputForm: React.FC<OutputFormProps> = ({
                   {/* Adjustable Duration */}
                   <div className="divider">{t('outputs.divider_adjustable_duration')}</div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                      <legend className="fieldset-legend">{t('outputs.adjustable_duration_label')}</legend>
-                      <label className={`label cursor-pointer justify-start gap-4 ${data.momentary_turn_on ? 'opacity-50' : ''}`}>
-                        <input
-                          type="checkbox"
-                          className="toggle toggle-primary"
-                          checked={data.adjustable_duration === true}
-                          onChange={() => updateField('adjustable_duration', !data.adjustable_duration)}
-                          disabled={!!data.momentary_turn_on}
-                        />
-                        <span className="label-text">{t('outputs.adjustable_duration_desc')}</span>
-                      </label>
-                      {data.momentary_turn_on && (
-                        <p className="text-xs text-warning mt-1 px-1">
-                          {t('outputs.adjustable_duration_conflict')}
-                        </p>
-                      )}
-                    </fieldset>
-
-                    {data.adjustable_duration && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-l-2 border-primary/30">
-                        {/* Duration Default */}
-                        <SimpleTimePeriodInput
-                          value={data.duration_default || '60s'}
-                          onChange={(value: string) => updateField('duration_default', value || undefined)}
-                          label={t('outputs.duration_default')}
-                          required={false}
-                          minimum={1000}
-                          allowedUnits={['s', 'min', 'h']}
-                          unitlessNumberUnit="s"
-                        />
-
-                        {/* Duration Min */}
-                        <SimpleTimePeriodInput
-                          value={data.duration_min || '1s'}
-                          onChange={(value: string) => updateField('duration_min', value || undefined)}
-                          label={t('outputs.duration_min')}
-                          required={false}
-                          minimum={1000}
-                          allowedUnits={['s', 'min', 'h']}
-                          unitlessNumberUnit="s"
-                        />
-
-                        {/* Duration Max */}
-                        <SimpleTimePeriodInput
-                          value={data.duration_max || '1h'}
-                          onChange={(value: string) => updateField('duration_max', value || undefined)}
-                          label={t('outputs.duration_max')}
-                          required={false}
-                          minimum={1000}
-                          allowedUnits={['s', 'min', 'h']}
-                          unitlessNumberUnit="s"
-                        />
-
-                        {/* Duration Unit for HA */}
-                        <div className="form-control">
-                          <label className="label">
-                            <span className="label-text font-medium">{t('outputs.duration_unit')}</span>
-                          </label>
-                          <select
-                            className="select select-bordered w-full min-h-12"
-                            value={data.duration_unit || 's'}
-                            onChange={(e) => updateField('duration_unit', e.target.value)}
-                          >
-                            <option value="s">{t('outputs.duration_unit_seconds')}</option>
-                            <option value="min">{t('outputs.duration_unit_minutes')}</option>
-                          </select>
-                          <label className="label">
-                            <span className="label-text-alt text-base-content/70">{t('outputs.duration_unit_hint')}</span>
-                          </label>
-                        </div>
-                      </div>
+                  <div className="space-y-2">
+                    <SettingsToggleGroup
+                      items={[
+                        {
+                          key: 'adjustable_duration',
+                          label: t('outputs.adjustable_duration_label'),
+                          description: t('outputs.adjustable_duration_desc'),
+                          checked: data.adjustable_duration === true,
+                          onChange: () => updateField('adjustable_duration', !data.adjustable_duration),
+                          disabled: !!data.momentary_turn_on,
+                        },
+                      ]}
+                    />
+                    {data.momentary_turn_on && (
+                      <p className="text-xs text-warning px-1">
+                        {t('outputs.adjustable_duration_conflict')}
+                      </p>
                     )}
                   </div>
+
+                  {data.adjustable_duration && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-l-2 border-primary/30">
+                      {/* Duration Default */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_default || '60s'}
+                        onChange={(value: string) => updateField('duration_default', value || undefined)}
+                        label={t('outputs.duration_default')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Min */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_min || '1s'}
+                        onChange={(value: string) => updateField('duration_min', value || undefined)}
+                        label={t('outputs.duration_min')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Max */}
+                      <SimpleTimePeriodInput
+                        value={data.duration_max || '1h'}
+                        onChange={(value: string) => updateField('duration_max', value || undefined)}
+                        label={t('outputs.duration_max')}
+                        required={false}
+                        minimum={1000}
+                        allowedUnits={['s', 'min', 'h']}
+                        unitlessNumberUnit="s"
+                      />
+
+                      {/* Duration Unit for HA */}
+                      <div className="form-control">
+                        <label className="label">
+                          <span className="label-text font-medium">{t('outputs.duration_unit')}</span>
+                        </label>
+                        <select
+                          className="select select-bordered w-full min-h-12"
+                          value={data.duration_unit || 's'}
+                          onChange={(e) => updateField('duration_unit', e.target.value)}
+                        >
+                          <option value="s">{t('outputs.duration_unit_seconds')}</option>
+                          <option value="min">{t('outputs.duration_unit_minutes')}</option>
+                        </select>
+                        <label className="label">
+                          <span className="label-text-alt text-base-content/70">{t('outputs.duration_unit_hint')}</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="alert alert-info">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>

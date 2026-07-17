@@ -31,7 +31,7 @@ module.exports = {
           "error": "#ef4444",
           
           "--rounded-box": "0.5rem",
-          "--rounded-btn": "0.25rem",
+          "--rounded-btn": "0.5rem",
           "--rounded-badge": "1.9rem",
           "--animation-btn": "0.25s",
           "--animation-input": "0.2s",
@@ -69,7 +69,7 @@ module.exports = {
           "error": "#ef4444",
           
           "--rounded-box": "0.5rem",
-          "--rounded-btn": "0.25rem",
+          "--rounded-btn": "0.5rem",
           "--rounded-badge": "1.9rem",
           "--animation-btn": "0.25s",
           "--animation-input": "0.2s",

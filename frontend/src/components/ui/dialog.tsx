@@ -1,42 +1,48 @@
 import * as React from "react"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { Dialog as BaseDialog } from "@base-ui/react/dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
 function Dialog({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+}: React.ComponentProps<typeof BaseDialog.Root>) {
+  return <BaseDialog.Root {...props} />
 }
 
 function DialogTrigger({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+}: React.ComponentProps<typeof BaseDialog.Trigger>) {
+  return <BaseDialog.Trigger {...props} />
 }
 
 function DialogPortal({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+}: React.ComponentProps<typeof BaseDialog.Portal>) {
+  return <BaseDialog.Portal {...props} />
 }
 
 function DialogClose({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+}: React.ComponentProps<typeof BaseDialog.Close>) {
+  return <BaseDialog.Close {...props} />
 }
 
+/**
+ * Dialog backdrop / overlay.
+ *
+ * Uses base-ui's `data-open`, `data-starting-style` and `data-ending-style`
+ * attributes for CSS-transition-based animations (see index.css).
+ */
 function DialogOverlay({
   className,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+}: React.ComponentProps<typeof BaseDialog.Backdrop>) {
   return (
-    <DialogPrimitive.Overlay
-      data-slot="dialog-overlay"
+    <BaseDialog.Backdrop
+      data-dialog-backdrop
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "fixed inset-0 z-50 bg-black/50",
         className
       )}
       {...props}
@@ -44,36 +50,79 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Dialog popup / content.
+ *
+ * Responsive layout:
+ *  • Mobile  (<640px): bottom sheet — slides up from the bottom, full width,
+ *    rounded top corners, drag handle.
+ *  • Desktop (≥640px): centered modal — zoom-in, rounded all corners.
+ *
+ * Animations are driven by CSS transitions on `[data-dialog-popup]`
+ * targeting base-ui data attributes (see index.css).
+ */
 function DialogContent({
   className,
   children,
   showCloseButton = true,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+}: React.ComponentProps<typeof BaseDialog.Popup> & {
   showCloseButton?: boolean
 }) {
+  const touchStartY = React.useRef<number | null>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+
   return (
-    <DialogPortal data-slot="dialog-portal">
+    <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
+      <BaseDialog.Popup
+        data-dialog-popup
         className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg",
+          // Base styles
+          "bg-base-100 text-base-content fixed z-50 w-full border border-base-300 shadow-xl outline-none",
+          // Layout
+          "grid gap-4",
+          // Mobile: bottom sheet
+          "bottom-0 inset-x-0 rounded-t-2xl border-b-0 px-6 pb-6 pt-3 max-h-[92vh]",
+          // Desktop: centered modal
+          "sm:bottom-auto sm:inset-x-auto sm:top-1/2 sm:left-1/2 sm:max-w-lg sm:rounded-lg sm:border-b sm:p-6 sm:max-h-[85vh]",
           className
         )}
         {...props}
       >
+        {/* Drag handle — visible only on mobile, swipe down to close */}
+        <div
+          className="flex justify-center pb-1 -mt-1 sm:hidden touch-none cursor-grab active:cursor-grabbing"
+          aria-hidden="true"
+          onTouchStart={(e) => {
+            touchStartY.current = e.touches[0].clientY;
+          }}
+          onTouchMove={(e) => {
+            if (touchStartY.current === null) return;
+            const dy = e.touches[0].clientY - touchStartY.current;
+            if (dy > 30) {
+              touchStartY.current = null;
+              closeRef.current?.click();
+            }
+          }}
+          onTouchEnd={() => {
+            touchStartY.current = null;
+          }}
+        >
+          <div className="h-1 w-10 rounded-full bg-base-content/20" />
+        </div>
         {children}
+        {/* Hidden close button for programmatic dismiss */}
+        <BaseDialog.Close ref={closeRef} className="hidden" tabIndex={-1} aria-hidden="true" />
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+          <BaseDialog.Close
+            className="ring-offset-base-100 focus:ring-primary data-[open]:bg-base-200 data-[open]:text-base-content/80 absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 cursor-pointer"
           >
             <XIcon />
             <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+          </BaseDialog.Close>
         )}
-      </DialogPrimitive.Content>
+      </BaseDialog.Popup>
     </DialogPortal>
   )
 }
@@ -81,7 +130,6 @@ function DialogContent({
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      data-slot="dialog-header"
       className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
       {...props}
     />
@@ -91,7 +139,6 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      data-slot="dialog-footer"
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className
@@ -104,10 +151,9 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
 function DialogTitle({
   className,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Title>) {
+}: React.ComponentProps<typeof BaseDialog.Title>) {
   return (
-    <DialogPrimitive.Title
-      data-slot="dialog-title"
+    <BaseDialog.Title
       className={cn("text-lg leading-none font-semibold", className)}
       {...props}
     />
@@ -117,11 +163,10 @@ function DialogTitle({
 function DialogDescription({
   className,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
+}: React.ComponentProps<typeof BaseDialog.Description>) {
   return (
-    <DialogPrimitive.Description
-      data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+    <BaseDialog.Description
+      className={cn("text-base-content/70 text-sm", className)}
       {...props}
     />
   )

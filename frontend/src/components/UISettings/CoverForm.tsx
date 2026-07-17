@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import OutputSelectDropdown from './OutputSelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -228,22 +229,17 @@ const CoverForm: React.FC<CoverFormProps> = ({
                     />
 
                     {/* Tilt Restore After Close */}
-                    <div className="form-control">
-                      <label className="label cursor-pointer justify-start gap-4">
-                        <input
-                          type="checkbox"
-                          className="checkbox"
-                          checked={data.tilt_restore_after_close || false}
-                          onChange={(e) => updateField('tilt_restore_after_close', e.target.checked)}
-                        />
-                        <div>
-                          <span className="label-text font-medium">{t('covers.tilt_restore')}</span>
-                          <p className="text-sm text-base-content/70 mt-1">
-                            {t('covers.tilt_restore_hint')}
-                          </p>
-                        </div>
-                      </label>
-                    </div>
+                    <SettingsToggleGroup
+                      items={[
+                        {
+                          key: 'tilt_restore_after_close',
+                          label: t('covers.tilt_restore'),
+                          description: t('covers.tilt_restore_hint'),
+                          checked: data.tilt_restore_after_close || false,
+                          onChange: (checked) => updateField('tilt_restore_after_close', checked),
+                        },
+                      ]}
+                    />
                   </>
                 )}
 
@@ -283,41 +279,25 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   </label>
                 </div>
 
-                {/* Restore State */}
-                <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-4">
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={data.restore_state || false}
-                      onChange={(e) => updateField('restore_state', e.target.checked)}
-                    />
-                    <div>
-                      <span className="label-text font-medium">{t('covers.restore_state')}</span>
-                      <p className="text-sm text-base-content/70 mt-1">
-                        {t('covers.restore_state_hint')}
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Show in HA */}
-                <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-4">
-                    <input
-                      type="checkbox"
-                      className="checkbox"
-                      checked={data.show_in_ha !== false}
-                      onChange={(e) => updateField('show_in_ha', e.target.checked)}
-                    />
-                    <div>
-                      <span className="label-text font-medium">{t('inputs.show_in_ha')}</span>
-                      <p className="text-sm text-base-content/70 mt-1">
-                        {t('covers.show_in_ha_hint')}
-                      </p>
-                    </div>
-                  </label>
-                </div>
+                {/* Restore State & Show in HA */}
+                <SettingsToggleGroup
+                  items={[
+                    {
+                      key: 'restore_state',
+                      label: t('covers.restore_state'),
+                      description: t('covers.restore_state_hint'),
+                      checked: data.restore_state || false,
+                      onChange: (checked) => updateField('restore_state', checked),
+                    },
+                    {
+                      key: 'show_in_ha',
+                      label: t('inputs.show_in_ha'),
+                      description: t('covers.show_in_ha_hint'),
+                      checked: data.show_in_ha !== false,
+                      onChange: (checked) => updateField('show_in_ha', checked),
+                    },
+                  ]}
+                />
               </div>
             ),
           },

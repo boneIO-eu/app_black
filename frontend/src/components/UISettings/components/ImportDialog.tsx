@@ -39,7 +39,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-base-100">
+      <DialogContent className="sm:max-w-md bg-base-100">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             📥 {t('import_export.import_title')}

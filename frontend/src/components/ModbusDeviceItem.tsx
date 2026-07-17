@@ -4,6 +4,13 @@ import { ModbusDeviceState } from '../hooks/useWebSocket';
 import { useTranslation } from '../hooks/useTranslation';
 import { ModbusHistoryPoint } from '../hooks/useModbusHistory';
 import Sparkline from './Sparkline';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export interface ModbusDeviceItemProps {
   device: ModbusDeviceState;
@@ -76,24 +83,31 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
     }));
 
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
+      <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
-          <div className={`${isGrid ? 'w-full' : 'w-[280px] shrink-0'}`}>
-            <select
-              className="select ed w-full select-sm"
-              value={(device.state as string) || ''}
-              onChange={(e) => handleSelectChange(e.target.value)}
-            >
-              {options.map((option) => (
-                <option key={option.key} value={option.value}>
-                  {option.value}
-                </option>
-              ))}
-            </select>
+          <div 
+            className={`${isGrid ? 'w-full' : 'w-[280px] shrink-0'}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            <Select value={(device.state as string) || undefined} onValueChange={handleSelectChange}>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((option) => (
+                  <SelectItem key={option.key} value={option.value}>
+                    {option.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className={`text-gray-500 text-xs mt-2 ${!isGrid ? 'text-right' : ''}`}>{formatTimestamp(device?.timestamp ?? null)}</p>
           </div>
         </div>
@@ -103,13 +117,19 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
 
   if (isSwitch) {
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
+      <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
-          <div className={`${isGrid ? 'w-full' : 'flex flex-col items-end gap-2'}`}>
+          <div 
+            className={`${isGrid ? 'w-full' : 'flex flex-col items-end gap-2'}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
@@ -157,13 +177,19 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
     };
 
     return (
-      <div className={`bg-base-200 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
+      <div className={`bg-base-100 shadow-sm rounded-lg p-4 ${isGrid ? 'border-l-4 min-h-[88px] h-full' : 'border-l-8 min-h-[72px]'} ${accentColor} transition-all duration-300`}>
         <div className={`flex ${isGrid ? 'flex-col gap-3' : 'justify-between items-center'}`}>
           <div>
             <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
             <p className="text-sm text-base-content/70">{device.id}</p>
           </div>
-          <div className={`${isGrid ? 'w-full' : 'w-[280px] shrink-0'}`}>
+          <div 
+            className={`${isGrid ? 'w-full' : 'w-[280px] shrink-0'}`}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
             <div className="flex gap-2 items-center">
               <input
                 type="number"
@@ -196,7 +222,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
   if (isGrid) {
     if (!device.unit) {
       return (
-        <div className={`bg-base-200 shadow-sm rounded-lg p-4 border-l-4 min-h-[88px] h-full ${accentColor} transition-all duration-300`}>
+        <div className={`bg-base-100 shadow-sm rounded-lg p-4 border-l-4 min-h-[88px] h-full ${accentColor} transition-all duration-300`}>
           <div className="flex justify-between items-start">
             <div>
               <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>
@@ -227,7 +253,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
     }
 
     return (
-      <div className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-200 p-4 shadow-sm transition-all duration-300 min-h-[166px] h-full flex flex-col`}>
+      <div className={`overflow-hidden rounded-lg border-l-4 ${accentColor} bg-base-100 p-4 shadow-sm transition-all duration-300 min-h-[166px] h-full flex flex-col`}>
         <div className="grid grid-cols-[1fr_auto] gap-4 min-h-[78px]">
           <div className="min-w-0">
             <h3 className="font-semibold text-lg leading-tight truncate">{device.custom_label || device.name}</h3>
@@ -268,7 +294,7 @@ function ModbusDeviceItemBase({ device, isGrid, historyPoints, onValueChange, ac
   }
 
   return (
-    <div className={`relative overflow-hidden bg-base-200 shadow-sm rounded-lg p-4 border-l-8 min-h-[84px] ${accentColor} transition-all duration-300`}>
+    <div className={`relative overflow-hidden bg-base-100 shadow-sm rounded-lg p-4 border-l-8 min-h-[84px] ${accentColor} transition-all duration-300`}>
       <div className="relative z-10 flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-lg">{device.custom_label || device.name}</h3>

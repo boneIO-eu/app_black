@@ -131,8 +131,8 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl sm:max-w-3xl lg:w-[120vw] max-h-[85vh] flex flex-col gap-0 bg-base-100">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-3xl lg:max-w-4xl flex flex-col gap-0 bg-base-100">
+        <DialogHeader className="pb-4">
           <DialogTitle>
             {editingIndex !== null ? (
               <>
@@ -154,60 +154,69 @@ const EditItemDialog: React.FC<EditItemDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 wrap-break-words [&_.label-text]:whitespace-normal [&_.label-text]:wrap-break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:wrap-break-words [&_.form-control]:min-w-0">
-          {editingItem && (
-            <FormRenderer
-              sectionType={sectionType}
-              editingItem={editingItem}
-              editingIndex={editingIndex}
-              schema={schema}
-              uiSchema={uiSchema}
-              deviceType={deviceType}
-              allBinarySensors={allBinarySensors}
-              allEvents={allEvents}
-              allOutputs={allOutputs}
-              allOutputGroups={allOutputGroups}
-              allCovers={allCovers}
-              allAreas={allAreas}
-              allSensors={allSensors}
-              allModbusDevices={allModbusDevices}
-              allRemoteDevices={allRemoteDevices}
-              allRemoteInputs={allRemoteInputs}
-              savedOutputs={savedOutputs}
-              savedOutputGroups={savedOutputGroups}
-              savedCovers={savedCovers}
-              value={value || []}
-              interlockGroups={interlockGroups}
-              availableDallasSensors={availableDallasSensors}
-              onChange={onChange}
-              onSave={onSave}
-              onCancel={onCancel}
-              onValidationChange={onValidationChange || (() => {})}
-              onInterlockGroupCreated={onInterlockGroupCreated || (() => {})}
-              attemptedSubmit={attemptedSubmit}
-              initialTab={initialTab}
-            />
-          )}
-        </div>
-
-        <DialogFooter className="shrink-0 mt-2">
-          <button type="button" onClick={onCancel} className="btn btn-ghost">
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="btn btn-primary"
-            disabled={saveDisabled || isSaving}
-            title={saveDisabled ? t('settings.fix_validation_errors') : ''}
-          >
-            {isSaving ? (
-              <><span className="loading loading-spinner loading-xs" /> {t('settings.saving')}</>
-            ) : (
-              editingIndex !== null ? t('settings.save_changes') : t('settings.add_item')
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!saveDisabled && !isSaving) {
+              onSave();
+            }
+          }}
+          className="flex flex-col flex-1 min-h-0"
+        >
+          <div className="flex-1 overflow-y-auto overflow-x-hidden -mx-6 px-6 wrap-break-words [&_.label-text]:whitespace-normal [&_.label-text]:wrap-break-words [&_.label-text-alt]:whitespace-normal [&_.label-text-alt]:wrap-break-words [&_.form-control]:min-w-0">
+            {editingItem && (
+              <FormRenderer
+                sectionType={sectionType}
+                editingItem={editingItem}
+                editingIndex={editingIndex}
+                schema={schema}
+                uiSchema={uiSchema}
+                deviceType={deviceType}
+                allBinarySensors={allBinarySensors}
+                allEvents={allEvents}
+                allOutputs={allOutputs}
+                allOutputGroups={allOutputGroups}
+                allCovers={allCovers}
+                allAreas={allAreas}
+                allSensors={allSensors}
+                allModbusDevices={allModbusDevices}
+                allRemoteDevices={allRemoteDevices}
+                allRemoteInputs={allRemoteInputs}
+                savedOutputs={savedOutputs}
+                savedOutputGroups={savedOutputGroups}
+                savedCovers={savedCovers}
+                value={value || []}
+                interlockGroups={interlockGroups}
+                availableDallasSensors={availableDallasSensors}
+                onChange={onChange}
+                onSave={onSave}
+                onCancel={onCancel}
+                onValidationChange={onValidationChange || (() => { })}
+                onInterlockGroupCreated={onInterlockGroupCreated || (() => { })}
+                attemptedSubmit={attemptedSubmit}
+                initialTab={initialTab}
+              />
             )}
-          </button>
-        </DialogFooter>
+          </div>
+
+          <DialogFooter className="shrink-0 mt-2">
+            <button type="button" onClick={onCancel} className="btn btn-ghost">
+              {t('common.cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={saveDisabled || isSaving}
+              title={saveDisabled ? t('settings.fix_validation_errors') : ''}
+            >
+              {isSaving ? (
+                <><span className="loading loading-spinner loading-xs" /> {t('settings.saving')}</>
+              ) : (
+                editingIndex !== null ? t('settings.save_changes') : t('settings.add_item')
+              )}
+            </button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

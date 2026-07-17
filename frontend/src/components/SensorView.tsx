@@ -3,6 +3,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
 import GraphCard from './GraphCard';
+import { EntityGrid, SENSOR_GRID_CLASS } from './EntityGrid';
 import { isSensorEvent, SensorState } from '../hooks/useWebSocket';
 import { useSensorHistory } from '../hooks/useSensorHistory';
 
@@ -110,51 +111,52 @@ export default function SensorView() {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">{t('sensors.view_title')}</h2>
-        <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
-      </div>
+      <div className="card bg-base-200 shadow-xl">
+        <div className="card-body">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="card-title">{t('sensors.view_title')}</h2>
+            <ViewToggle isGrid={isGrid} onToggle={handleViewToggle} />
+          </div>
 
-      {validSensors.length === 0 ? (
-        <div className="text-center py-8 text-base-content/60">
-          {t('sensors.no_sensors')}
+          {validSensors.length === 0 ? (
+            <div className="text-center py-8 text-base-content/60">
+              {t('sensors.no_sensors')}
+            </div>
+          ) : (
+            <>
+              {sensorGroups.map(group => (
+                <section key={group.key}>
+                  <div className="divider">
+                    <span>{group.icon}</span>
+                    {group.label}
+                    <span className="text-xs font-normal text-base-content/50">
+                      ({group.sensors.length})
+                    </span>
+                  </div>
+                  <EntityGrid isGrid={isGrid} gridClassName={SENSOR_GRID_CLASS}>
+                    {group.sensors.map(sensor => (
+                      <GraphCard
+                        key={sensor.id}
+                        id={sensor.id}
+                        name={sensor.name}
+                        value={sensor.state}
+                        unit={sensor.unit}
+                        timestamp={sensor.timestamp}
+                        historyPoints={historyMap.get(sensor.id) || []}
+                        isGrid={isGrid}
+                        accentColor={group.accentColor}
+                        strokeColor={group.strokeColor}
+                        fillColor={group.fillColor}
+                        attributes={sensor.attributes}
+                      />
+                    ))}
+                  </EntityGrid>
+                </section>
+              ))}
+            </>
+          )}
         </div>
-      ) : (
-        <div className="space-y-6">
-          {sensorGroups.map(group => (
-            <section key={group.key}>
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-base-content/80">
-                <span>{group.icon}</span>
-                {group.label}
-                <span className="text-xs font-normal text-base-content/50">
-                  ({group.sensors.length})
-                </span>
-              </h3>
-              <div className={isGrid
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4"
-                : "flex flex-col gap-4"
-              }>
-                {group.sensors.map(sensor => (
-                  <GraphCard
-                    key={sensor.id}
-                    id={sensor.id}
-                    name={sensor.name}
-                    value={sensor.state}
-                    unit={sensor.unit}
-                    timestamp={sensor.timestamp}
-                    historyPoints={historyMap.get(sensor.id) || []}
-                    isGrid={isGrid}
-                    accentColor={group.accentColor}
-                    strokeColor={group.strokeColor}
-                    fillColor={group.fillColor}
-                    attributes={sensor.attributes}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

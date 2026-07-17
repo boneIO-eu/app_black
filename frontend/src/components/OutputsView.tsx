@@ -4,7 +4,9 @@ import axios from '@/api/axios';
 import { WebSocketContext } from '../App';
 import ViewToggle from './ViewToggle';
 import { isOutputEvent, isCoverEvent, isGroupEvent, CoverState, OutputState } from '../hooks/useWebSocket';
-import OutputItem from './OutputItem';
+import EntityCard from './EntityCard';
+import type { EntityData } from './EntityCard';
+import { EntityGrid, ENTITY_GRID_CLASS } from './EntityGrid';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
 import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog, FaWifi } from 'react-icons/fa';
@@ -214,20 +216,20 @@ export default function OutputsView({error}: {error: string | null}) {
     type: 'output'
   });
 
-  const handleLongPress = useCallback((output: OutputState) => {
-    setLongPressDialog({ open: true, output, type: 'output' });
+  const handleLongPress = useCallback((output: EntityData) => {
+    setLongPressDialog({ open: true, output: output as OutputState, type: 'output' });
   }, []);
 
-  const handleGroupLongPress = useCallback((output: OutputState) => {
-    setLongPressDialog({ open: true, output, type: 'output_group' });
+  const handleGroupLongPress = useCallback((output: EntityData) => {
+    setLongPressDialog({ open: true, output: output as OutputState, type: 'output_group' });
   }, []);
 
   const handleCoverLongPress = useCallback((cover: CoverState) => {
     setLongPressDialog({ open: true, output: cover, type: 'cover' });
   }, []);
 
-  const handleRemoteOutputLongPress = useCallback((output: OutputState) => {
-    setLongPressDialog({ open: true, output, type: 'remote_outputs' });
+  const handleRemoteOutputLongPress = useCallback((output: EntityData) => {
+    setLongPressDialog({ open: true, output: output as OutputState, type: 'remote_outputs' });
   }, []);
 
   const handleGoToSettings = useCallback(() => {
@@ -359,8 +361,7 @@ export default function OutputsView({error}: {error: string | null}) {
     }
   }, []);
 
-  const gridClass = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4";
-  const listClass = "flex flex-col gap-4";
+
 
   /**
    * Render a section with outputs
@@ -376,9 +377,9 @@ export default function OutputsView({error}: {error: string | null}) {
     return (
       <div key={category}>
         <div className="divider">{getCategoryLabel(category)}</div>
-        <div className={isGrid ? gridClass : listClass}>
+        <EntityGrid isGrid={isGrid}>
           {items.map((output) => (
-            <OutputItem 
+            <EntityCard 
               key={output.id}
               output={output}
               onToggle={isStateOnly ? undefined : onToggle}
@@ -391,7 +392,7 @@ export default function OutputsView({error}: {error: string | null}) {
               onLongPress={handleLongPress}
             />
           ))}
-        </div>
+        </EntityGrid>
       </div>
     );
   };
@@ -446,7 +447,7 @@ export default function OutputsView({error}: {error: string | null}) {
           {validCovers.length > 0 && (
             <>
               <div className="divider">{getCategoryLabel('cover')}</div>
-              <div className={isGrid ? cn(gridClass, "grid-cols-1") : listClass}>
+              <EntityGrid isGrid={isGrid} gridClassName={cn(ENTITY_GRID_CLASS, "grid-cols-1")}>
                 {validCovers.map((cover) => (
                   <CoverItem 
                     key={cover.id}
@@ -457,7 +458,7 @@ export default function OutputsView({error}: {error: string | null}) {
                     onLongPress={handleCoverLongPress}
                   />
                 ))}
-              </div>
+              </EntityGrid>
             </>
           )}
 
@@ -465,17 +466,15 @@ export default function OutputsView({error}: {error: string | null}) {
           {validGroups.length > 0 && (
             <>
               <div className="divider">{getCategoryLabel('group')}</div>
-              <div className={isGrid ? gridClass : listClass}>
+              <EntityGrid isGrid={isGrid}>
                 {validGroups.map((group) => (
-                  <OutputItem 
+                  <EntityCard 
                     key={group.id}
                     output={{
                       id: group.id,
                       name: group.name,
                       state: group.state,
                       type: group.type,
-                      expander_id: null,
-                      pin: 0,
                       timestamp: group.timestamp,
                       area: null,
                       interlock_groups: []
@@ -487,7 +486,7 @@ export default function OutputsView({error}: {error: string | null}) {
                     onLongPress={handleGroupLongPress}
                   />
                 ))}
-              </div>
+              </EntityGrid>
             </>
           )}
 
@@ -503,9 +502,9 @@ export default function OutputsView({error}: {error: string | null}) {
                   {t('sections.remote_outputs')}
                 </span>
               </div>
-              <div className={isGrid ? gridClass : listClass}>
+              <EntityGrid isGrid={isGrid}>
                 {remoteOutputs.map((output) => (
-                  <OutputItem
+                  <EntityCard
                     key={output.id}
                     output={output}
                     onToggle={toggleOutput}
@@ -517,7 +516,7 @@ export default function OutputsView({error}: {error: string | null}) {
                     onLongPress={handleRemoteOutputLongPress}
                   />
                 ))}
-              </div>
+              </EntityGrid>
             </>
           )}
 
