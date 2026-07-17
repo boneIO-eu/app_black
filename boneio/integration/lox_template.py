@@ -52,7 +52,7 @@ def generate_lox_template(manager: Manager) -> str:
     Returns:
         XML string ready to be saved as a .xml template file.
     """
-    serial = manager.config_helper.serial_no or "boneio"
+    serial = manager.config_helper.serial_number or "boneio"
     device_name = manager.config_helper.name or serial
 
     # Get Lox UDP config (host/ports) from running config
@@ -275,7 +275,7 @@ def generate_lox_summary(manager: Manager) -> dict[str, Any]:
     Returns:
         Dictionary with 'commands' and 'status' sections.
     """
-    serial = manager.config_helper.serial_no or "boneio"
+    serial = manager.config_helper.serial_number or "boneio"
     device_name = manager.config_helper.name or serial
 
     commands: list[dict[str, str]] = []

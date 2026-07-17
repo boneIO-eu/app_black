@@ -309,7 +309,7 @@ class IrrigationManager:
         Sends empty payload to discovery topics to remove entities from HA.
         """
         cfg = self._manager.config_helper
-        serial = cfg.serial_no
+        serial = cfg.serial_number
 
         # Build list of discovery IDs to remove
         discovery_ids: list[tuple[str, str]] = [

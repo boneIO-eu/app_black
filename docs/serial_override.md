@@ -14,8 +14,10 @@ This feature allows overriding the default serial number of the controller, allo
 
 In `ConfigHelper`, we split the concept of device serial numbers into two distinct properties:
 
-1. **`real_serial`**: Always generated from the MAC address. It is used to identify the physical device (e.g. for Home Assistant `device_info.serial_number` and `device_info.model_id`, so users can see the actual physical serial of the controller).
-2. **`effective_serial`**: Used for MQTT topics, entity unique IDs, and BoneIO PWA/cloud registration. It defaults to the `real_serial`, but can be overridden by setting `serial_override` in the `boneio` section of the configuration files.
+1. **`real_serial`** (property): Always generated from the MAC address. Used for Home Assistant `device_info.serial_number` and `device_info.model_id`, so users can see the actual physical serial.
+2. **`serial_number`** (property, a.k.a. effective serial): Used for MQTT topics, entity unique IDs, Cloud/PWA registration, and HA discovery paths. Defaults to `real_serial`, but returns the override value when `serial_override` is set in the `boneio` YAML section.
+
+> **Note**: The deprecated `serial_no` alias has been removed. All code should use `serial_number`.
 
 ---
 
@@ -54,5 +56,9 @@ boneio:
 
 ## UI Display
 - In the top-left navigation corner and the mobile drawer footer, the active override is shown next to the physical serial number:
-  `S/N: blk445566 (override: blk112233)`
-- In the system configuration forms, the override can be manually changed or removed under the `boneio` settings tab.
+  `S/N: blk445566 (as: blk112233)`
+- In the system configuration forms (`boneIO` settings tab), the override can be manually changed or removed. The input validates format in real-time (`blk` + 6 hex chars).
+
+## Validation
+- **Schema YAML**: `regex: '^blk[a-f0-9]{6}$'` — enforced when saving config.
+- **Frontend**: Real-time format validation with `input-error` class and error message when invalid.

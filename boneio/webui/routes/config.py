@@ -707,7 +707,7 @@ async def download_config():
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     manager: Manager = _get_app_state().manager
-    device_name = manager.config_helper.serial_no
+    device_name = manager.config_helper.serial_number
     filename = f"{device_name}_config_{timestamp}.tar.gz"
 
     _LOGGER.info(f"Downloading config archive: {filename}")
@@ -1457,7 +1457,7 @@ async def get_lox_template():
 
     try:
         xml_content = generate_lox_template(manager)
-        serial = manager.config_helper.serial_no or "boneio"
+        serial = manager.config_helper.serial_number or "boneio"
         filename = f"boneio_{serial}_lox_template.xml"
 
         return StreamingResponse(

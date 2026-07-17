@@ -67,7 +67,7 @@ export default function Navigation() {
               <span className="opacity-60">S/N:</span> {serialNo}
               {serialOverride && (
                 <span className="text-warning font-semibold ml-1">
-                  (override: {serialOverride})
+                  (as: {serialOverride})
                 </span>
               )}
             </span>
@@ -268,7 +268,7 @@ export const DrawerSide = () => {
               <span className="opacity-60">S/N:</span> {serialNo}
               {serialOverride && (
                 <span className="text-warning font-semibold ml-1">
-                  (override: {serialOverride})
+                  (as: {serialOverride})
                 </span>
               )}
             </span>

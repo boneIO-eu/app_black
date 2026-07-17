@@ -910,6 +910,7 @@
     "hardware_version_help": "boneIO Black Hardware version",
     "serial_override": "Serial Number Override",
     "serial_override_help": "Manually override the serial number used for MQTT topic prefix and entity IDs. Leave empty to use auto-detected serial from MAC address.",
+    "serial_override_format_error": "Format must be 'blk' followed by 6 hex characters (e.g. blk8c7df0)",
     "device_type": "Device Type",
     "select_device_type": "-- Select device type --",
     "device_type_help": "Predefined device type configuration",

@@ -359,7 +359,7 @@ async def async_run(
     cloud_reg = None
     if _config_helper.cloud_registration:
         local_ip = network_state.get("ip", "")
-        serial = _config_helper.serial_no
+        serial = _config_helper.serial_number
         if local_ip and serial:
             cloud_reg = CloudRegistration(
                 serial_number=serial,

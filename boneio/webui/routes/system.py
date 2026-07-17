@@ -155,7 +155,7 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
         Dictionary with version, auth, pwa, and cloud sections.
     """
     # Version info
-    serial_suffix = config_helper.serial_no.replace("blk_", "").replace("blk", "")
+    serial_suffix = config_helper.serial_number.replace("blk_", "").replace("blk", "")
 
     # Cloud status
     cloud_data: dict = {"enabled": False}
@@ -221,7 +221,7 @@ async def get_pwa_name(config_helper: ConfigHelper = Depends(get_config_helper))
     Returns:
         Dictionary with pwa_name string and max_length.
     """
-    serial_suffix = config_helper.serial_no.replace("blk_", "").replace("blk", "")
+    serial_suffix = config_helper.serial_number.replace("blk_", "").replace("blk", "")
     return {
         "pwa_name": config_helper.pwa_name,
         "default": f"bIO {serial_suffix}",

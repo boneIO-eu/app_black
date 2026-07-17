@@ -880,7 +880,7 @@ def modbus_polling_switch_message(
 
     discovery_topic = (
         f"{config_helper.ha_discovery_prefix}/switch/"
-        f"{config_helper.serial_no}/{entity_id}/config"
+        f"{config_helper.serial_number}/{entity_id}/config"
     )
 
     area_name = config_helper.get_area_name(area) if area else None

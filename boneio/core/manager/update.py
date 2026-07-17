@@ -737,7 +737,7 @@ class UpdateManager(AsyncUpdater):
         # --- Remove legacy event entity discovery (if any) ---
         old_event_topic = (
             f"{config.ha_discovery_prefix}/event/"
-            f"{config.serial_no}/migration_alert/config"
+            f"{config.serial_number}/migration_alert/config"
         )
         self._manager.send_message(topic=old_event_topic, payload="", retain=True)
         _LOGGER.debug("Removed legacy migration_alert event entity discovery")

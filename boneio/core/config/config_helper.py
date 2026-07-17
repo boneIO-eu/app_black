@@ -173,7 +173,8 @@ class ConfigHelper:
 
     @property
     def serial_number(self) -> str:
-        return self._serial_no
+        """Get effective device serial number (e.g., 'blk_abc123')."""
+        return self._serial_no or "blk_unknown"
 
     @property
     def proxy_port(self) -> int | None:
@@ -204,11 +205,6 @@ class ConfigHelper:
         if self._serial_no != self._real_serial:
             return self._serial_no
         return None
-
-    @property
-    def serial_no(self) -> str:
-        """Get effective device serial number (e.g., 'blk_abc123')."""
-        return self._serial_no or "blk_unknown"
 
     @property
     def pwa_name(self) -> str:

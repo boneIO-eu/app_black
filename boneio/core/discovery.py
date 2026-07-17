@@ -62,9 +62,9 @@ class BlackDiscoveryPublisher:
 
         config_helper = self._manager._config_helper
         device_info = {
-            "id": config_helper._serial_no or "unknown",
+            "id": config_helper.serial_number,
             "name": config_helper.name,
-            "serial_number": config_helper._serial_no or "unknown",
+            "serial_number": config_helper.serial_number,
             "type": "black",
             "firmware": __version__,
             "topic_prefix": config_helper.topic_prefix,

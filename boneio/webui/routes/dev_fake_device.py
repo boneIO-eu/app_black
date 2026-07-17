@@ -406,7 +406,7 @@ async def create_fake_device(
         manufacturer=manufacturer_name,
         topic_prefix=topic_prefix,
         ha_discovery_prefix=config_helper.ha_discovery_prefix,
-        serial_no=config_helper.serial_no,
+        serial_no=config_helper.serial_number,
     )
 
     # 1. Register discovery topics in config_helper so BoneIO's MQTT handler
@@ -633,7 +633,7 @@ async def generate_fake_device_dashboard(
     except FileNotFoundError as exc:
         return {"error": str(exc)}
 
-    serial = manager.config_helper.serial_no
+    serial = manager.config_helper.serial_number
     device_info = mock_coord.get_device_info()
     device_id = f"{address}_{model}"
 

@@ -910,6 +910,7 @@
     "hardware_version_help": "Wersja sprzętowa boneIO Black",
     "serial_override": "Nadpisanie numeru seryjnego",
     "serial_override_help": "Ręcznie nadpisz numer seryjny używany do prefixu tematów MQTT oraz identyfikatorów encji. Pozostaw puste, aby używać automatycznie wykrytego z adresu MAC.",
+    "serial_override_format_error": "Format musi być 'blk' + 6 znaków hex (np. blk8c7df0)",
     "device_type": "Typ Urządzenia",
     "select_device_type": "-- Wybierz typ urządzenia --",
     "device_type_help": "Predefiniowana konfiguracja typu urządzenia",

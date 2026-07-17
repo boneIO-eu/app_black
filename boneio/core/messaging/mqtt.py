@@ -59,7 +59,7 @@ class MQTTClient(MessageBus):
         self._mqtt_energy_listeners: dict[str, Callable[[str, str], Awaitable[None]]] = {}
         self._discovery_topics = (
             [
-                f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_no}/#"
+                f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_number}/#"
                 for ha_type in self._config_helper.ha_types
             ]
             if self._config_helper.ha_discovery

@@ -243,7 +243,7 @@ class Manager:
         self.remote_devices = RemoteDeviceManager(
             message_bus=message_bus,
             remote_devices_config=remote_devices,
-            own_serial=config_helper.serial_no,
+            own_serial=config_helper.serial_number,
             name=self.config_helper.name,
         )
 
@@ -625,7 +625,7 @@ class Manager:
             ha_type: Home Assistant entity type (sensor, light, cover …).
             payload: Ready-to-publish discovery payload dict.
         """
-        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_no}/{id}/config"
+        topic = f"{self._config_helper.ha_discovery_prefix}/{ha_type}/{self._config_helper.serial_number}/{id}/config"
         _LOGGER.debug("Sending HA discovery for %s entity %s.", ha_type, id)
         self._config_helper.add_autodiscovery_msg(topic=topic, ha_type=ha_type, payload=payload)
         self.send_message(topic=topic, payload=payload, retain=True)

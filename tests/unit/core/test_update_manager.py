@@ -161,12 +161,11 @@ def _make_update_manager(
     manager._config_helper.topic_prefix = "boneio_test"
     manager._config_helper.update_channel = "stable"
     manager._config_helper.name = "Test Device"
-    manager._config_helper.serial_no = "TEST123"
+    manager._config_helper.serial_number = "TEST123"
     manager._config_helper.ha_discovery_prefix = "homeassistant"
     manager._config_helper.device_type = "24x16"
     manager._config_helper.is_web_active = False
     manager._config_helper.cloud_registration = False
-    manager._config_helper.serial_number = None
     manager._config_helper.network_info = {}
     manager._config_helper.get_area_name = MagicMock(return_value=None)
     manager._config_helper.child_devices = {}
