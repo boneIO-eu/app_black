@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Plus, Trash2, GripVertical, Monitor, Moon, Thermometer } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 
 interface OledFormProps {
   data: any;
@@ -24,7 +25,23 @@ const AVAILABLE_SCREENS = [
   { id: 'web', icon: '📱' },
 ] as const;
 
-const SENSOR_TYPES = ['modbus', 'dallas'] as const;
+interface ModbusCoordinator {
+  id: string;
+  name: string;
+  model: string;
+  entities: { decoded_name: string; name: string; unit: string; state: any }[];
+}
+
+interface DallasSensor {
+  id: string;
+  name: string;
+  state: any;
+}
+
+interface ScreenAvailableSensors {
+  modbus: ModbusCoordinator[];
+  dallas: DallasSensor[];
+}
 
 /**
  * Custom form for OLED display section configuration.
@@ -38,6 +55,8 @@ const SENSOR_TYPES = ['modbus', 'dallas'] as const;
 const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [availableSensors, setAvailableSensors] = useState<ScreenAvailableSensors | null>(null);
+  const [loadingSensors, setLoadingSensors] = useState(false);
 
   const handleChange = useCallback((field: string, value: any) => {
     onChange({ ...data, [field]: value });
@@ -54,6 +73,18 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
   // Screensaver timeout
   const screensaverTimeout = data?.screensaver_timeout || '60s';
+
+  // Load available sensors when extra_sensors screen is active
+  useEffect(() => {
+    if (!screens.includes('extra_sensors')) return;
+    if (availableSensors) return; // already loaded
+
+    setLoadingSensors(true);
+    axios.get('/api/sensors/screen_available')
+      .then(({ data }) => setAvailableSensors(data))
+      .catch((err) => console.error('Failed to load available sensors:', err))
+      .finally(() => setLoadingSensors(false));
+  }, [screens, availableSensors]);
 
   // --- Screen list management ---
 
@@ -95,16 +126,31 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   // --- Extra sensors management ---
 
   const addExtraSensor = () => {
-    const newSensor = { sensor_type: 'modbus', sensor_id: '' };
+    // Default to first available modbus coordinator if available
+    const defaultType = availableSensors?.modbus?.length ? 'modbus' : 
+                        availableSensors?.dallas?.length ? 'dallas' : 'modbus';
+    const newSensor: any = { sensor_type: defaultType, sensor_id: '' };
+    if (defaultType === 'modbus' && availableSensors?.modbus?.length) {
+      newSensor.modbus_id = availableSensors.modbus[0].id;
+    }
     handleChange('extra_screen_sensors', [...extraSensors, newSensor]);
   };
 
   const updateExtraSensor = (index: number, field: string, value: string) => {
     const newSensors = [...extraSensors];
     newSensors[index] = { ...newSensors[index], [field]: value };
-    // Clear modbus_id when switching to dallas
-    if (field === 'sensor_type' && value === 'dallas') {
-      delete newSensors[index].modbus_id;
+    // Clear modbus_id and sensor_id when switching sensor type
+    if (field === 'sensor_type') {
+      newSensors[index].sensor_id = '';
+      if (value === 'dallas') {
+        delete newSensors[index].modbus_id;
+      } else if (value === 'modbus' && availableSensors?.modbus?.length) {
+        newSensors[index].modbus_id = availableSensors.modbus[0].id;
+      }
+    }
+    // Clear sensor_id when switching modbus coordinator
+    if (field === 'modbus_id') {
+      newSensors[index].sensor_id = '';
     }
     handleChange('extra_screen_sensors', newSensors);
   };
@@ -113,6 +159,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
     const newSensors = [...extraSensors];
     newSensors.splice(index, 1);
     handleChange('extra_screen_sensors', newSensors);
+  };
+
+  /** Get entities for the selected modbus coordinator. */
+  const getModbusEntities = (modbusId: string) => {
+    if (!availableSensors?.modbus) return [];
+    const coord = availableSensors.modbus.find(c => c.id === modbusId);
+    return coord?.entities || [];
   };
 
   // --- Screensaver timeout parsing ---
@@ -145,6 +198,9 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   const getScreenInfo = (screenId: string) => {
     return AVAILABLE_SCREENS.find(s => s.id === screenId);
   };
+
+  const hasModbus = !!availableSensors?.modbus?.length;
+  const hasDallas = !!availableSensors?.dallas?.length;
 
   return (
     <div className="space-y-6">
@@ -250,6 +306,10 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                   {t('oled.extra_sensors_hint')}
                 </p>
 
+                {loadingSensors && (
+                  <p className="text-xs text-base-content/50 animate-pulse">{t('common.loading')}...</p>
+                )}
+
                 {/* Sensors list */}
                 <div className="space-y-3">
                   {extraSensors.map((sensor, index) => (
@@ -267,44 +327,96 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                           value={sensor.sensor_type || 'modbus'}
                           onChange={(e) => updateExtraSensor(index, 'sensor_type', e.target.value)}
                         >
-                          {SENSOR_TYPES.map((type) => (
-                            <option key={type} value={type}>
-                              {type === 'modbus' ? 'Modbus' : 'Dallas (1-Wire)'}
-                            </option>
-                          ))}
+                          {hasModbus && <option value="modbus">Modbus</option>}
+                          {hasDallas && <option value="dallas">Dallas (1-Wire)</option>}
+                          {!hasModbus && !hasDallas && (
+                            <>
+                              <option value="modbus">Modbus</option>
+                              <option value="dallas">Dallas (1-Wire)</option>
+                            </>
+                          )}
                         </select>
                       </div>
 
-                      {/* Modbus ID (only for modbus type) */}
+                      {/* Modbus Coordinator select (only for modbus type) */}
                       {sensor.sensor_type === 'modbus' && (
                         <div className="form-control flex-1 min-w-[120px]">
                           <label className="label py-0.5">
                             <span className="label-text text-xs">{t('oled.modbus_id')}</span>
                           </label>
-                          <input
-                            type="text"
-                            className="input input-bordered input-sm w-full"
-                            placeholder={t('oled.modbus_id_placeholder')}
-                            value={sensor.modbus_id || ''}
-                            onChange={(e) => updateExtraSensor(index, 'modbus_id', e.target.value)}
-                          />
+                          {availableSensors?.modbus?.length ? (
+                            <select
+                              className="select select-bordered select-sm w-full"
+                              value={sensor.modbus_id || ''}
+                              onChange={(e) => updateExtraSensor(index, 'modbus_id', e.target.value)}
+                            >
+                              <option value="" disabled>
+                                {t('oled.select_modbus_device')}
+                              </option>
+                              {availableSensors.modbus.map((coord) => (
+                                <option key={coord.id} value={coord.id}>
+                                  {coord.name} ({coord.model})
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              className="input input-bordered input-sm w-full"
+                              placeholder={t('oled.modbus_id_placeholder')}
+                              value={sensor.modbus_id || ''}
+                              onChange={(e) => updateExtraSensor(index, 'modbus_id', e.target.value)}
+                            />
+                          )}
                         </div>
                       )}
 
-                      {/* Sensor ID */}
+                      {/* Sensor ID — select for modbus, select for dallas */}
                       <div className="form-control flex-1 min-w-[120px]">
                         <label className="label py-0.5">
                           <span className="label-text text-xs">
                             {t('oled.sensor_id')} <span className="text-error">*</span>
                           </span>
                         </label>
-                        <input
-                          type="text"
-                          className={`input input-bordered input-sm w-full ${!sensor.sensor_id ? 'input-error' : ''}`}
-                          placeholder={t('oled.sensor_id_placeholder')}
-                          value={sensor.sensor_id || ''}
-                          onChange={(e) => updateExtraSensor(index, 'sensor_id', e.target.value)}
-                        />
+                        {sensor.sensor_type === 'modbus' && sensor.modbus_id && getModbusEntities(sensor.modbus_id).length > 0 ? (
+                          <select
+                            className={`select select-bordered select-sm w-full ${!sensor.sensor_id ? 'select-error' : ''}`}
+                            value={sensor.sensor_id || ''}
+                            onChange={(e) => updateExtraSensor(index, 'sensor_id', e.target.value)}
+                          >
+                            <option value="" disabled>
+                              {t('oled.select_sensor')}
+                            </option>
+                            {getModbusEntities(sensor.modbus_id).map((entity) => (
+                              <option key={entity.decoded_name} value={entity.decoded_name}>
+                                {entity.name}{entity.state != null ? ` (${entity.state} ${entity.unit || ''})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : sensor.sensor_type === 'dallas' && availableSensors?.dallas?.length ? (
+                          <select
+                            className={`select select-bordered select-sm w-full ${!sensor.sensor_id ? 'select-error' : ''}`}
+                            value={sensor.sensor_id || ''}
+                            onChange={(e) => updateExtraSensor(index, 'sensor_id', e.target.value)}
+                          >
+                            <option value="" disabled>
+                              {t('oled.select_sensor')}
+                            </option>
+                            {availableSensors.dallas.map((ds) => (
+                              <option key={ds.id} value={ds.id}>
+                                {ds.name}{ds.state != null ? ` (${ds.state} °C)` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            className={`input input-bordered input-sm w-full ${!sensor.sensor_id ? 'input-error' : ''}`}
+                            placeholder={t('oled.sensor_id_placeholder')}
+                            value={sensor.sensor_id || ''}
+                            onChange={(e) => updateExtraSensor(index, 'sensor_id', e.target.value)}
+                          />
+                        )}
                       </div>
 
                       {/* Remove button */}
@@ -320,15 +432,21 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                   ))}
                 </div>
 
-                {/* Add sensor button */}
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm gap-1 mt-2"
-                  onClick={addExtraSensor}
-                >
-                  <Plus size={14} />
-                  {t('oled.add_sensor')}
-                </button>
+                {/* Add sensor button - max 3 */}
+                {extraSensors.length < 3 && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm gap-1 mt-2"
+                    onClick={addExtraSensor}
+                    disabled={loadingSensors}
+                  >
+                    <Plus size={14} />
+                    {t('oled.add_sensor')}
+                  </button>
+                )}
+                {extraSensors.length >= 3 && (
+                  <p className="text-xs text-warning mt-2">{t('oled.max_sensors_reached')}</p>
+                )}
               </div>
             </div>
           )}

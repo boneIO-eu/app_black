@@ -136,3 +136,44 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
     
     return result
 
+
+@router.get("/sensors/screen_available")
+async def get_screen_available_sensors(manager: Manager = Depends(get_manager)):
+    """Get available sensors for OLED extra_screen_sensors configuration.
+
+    Returns modbus coordinators with their sensor entities and dallas sensors
+    so the frontend can present selects instead of free-text inputs.
+
+    Returns:
+        Dictionary with modbus and dallas sensor lists.
+    """
+    modbus: list[dict] = []
+    if hasattr(manager, "modbus") and hasattr(manager.modbus, "get_all_coordinators"):
+        for dev_id, coordinator in manager.modbus.get_all_coordinators().items():
+            if not coordinator:
+                continue
+            entities: list[dict] = []
+            for entities_dict in coordinator.get_all_entities():
+                for decoded_name, entity in entities_dict.items():
+                    entities.append({
+                        "decoded_name": decoded_name,
+                        "name": entity.name,
+                        "unit": entity.unit_of_measurement,
+                        "state": entity.state,
+                    })
+            modbus.append({
+                "id": dev_id,
+                "name": coordinator.name,
+                "model": getattr(coordinator, "_model_name", dev_id),
+                "entities": entities,
+            })
+
+    dallas: list[dict] = []
+    for sensor in manager.sensors.get_dallas_sensors():
+        dallas.append({
+            "id": sensor.id,
+            "name": sensor.name,
+            "state": sensor.state,
+        })
+
+    return {"modbus": modbus, "dallas": dallas}
