@@ -4,6 +4,27 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev8 (2026-07-17)
+
+Consolidation of startup API requests, UI styling upgrades, reusable layout components, and configuration search improvements.
+
+### ✨ New Features
+
+- **Optimized Startup (/api/init)** — Added a unified `/api/init` endpoint and React `AppInitContext` to bundle startup data (version, serial number, authentication status, PWA config, and cloud registration info) into a single HTTP request, eliminating 5 duplicate requests on page load.
+- **Reusable Entity Components** — Introduced `EntityCard` and `EntityGrid` components to consolidate and standardize card styles, hover actions, locking/interlocks, and responsive layouts across `InputsView`, `OutputsView`, and `ModbusView`. Removed the deprecated and duplicate `OutputItem` component.
+- **Reusable Settings Widgets** — Added `SearchableMultiEntityPicker` (for multi-selection area dialogs), `SettingsToggleGroup` (for HA/iOS-style grouped toggle settings), and `BottomPeekBar` (reusable mobile bottom sheet component with swipe-to-expand gesture).
+
+### 🐛 Bug Fixes
+
+- **Quick Action Lookup** — Supported case-insensitive name comparisons and matching against the `boneio_input` parameter when registering or identifying inputs for quick actions.
+
+### ♻️ Improvements
+
+- **Mobile View & Transitions** — Added smooth slide animations for mobile dialog overlays and select menus via BaseUI attributes, adjusted container padding, and improved mobile button/input styling.
+- **Modbus Device Defaults** — Updated default update interval for `boneio-edge-temp` sensors to 30s.
+
+---
+
 ## v1.5.0dev5 (2026-06-25)
 
 Critical crash loop fix — application restarted indefinitely (restart counter 87+) on devices with Modbus text sensors (e.g., EHT Topventil Plus).
