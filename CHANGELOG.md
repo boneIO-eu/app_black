@@ -4,6 +4,41 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev9 (2026-07-17)
+
+Major UI overhaul for mobile, new configuration tools (Teach Mode, Binding Matrix, Quick Actions), serial number override for RMA exchanges, and significant performance improvements.
+
+### ✨ New Features
+
+- **Quick Action Sheet (Phase 2)** — Long-press any input to open a bottom sheet for one-tap output toggling. Supports remote outputs and covers. On mobile, dialogs render as native bottom sheets with swipe-to-dismiss.
+- **Teach Mode (Phase 3)** — Batch input→output linking tool with area filters, auto-ignore for sensors, manual ignore picker, category tabs, bindings viewer, and a Test (Play) button. Responsive: modal on desktop, full-screen on mobile.
+- **Binding Matrix** — New settings section showing all input→output bindings in a grid. Clickable cells open inline edit dialogs, drag-to-scroll on large matrices, pencil icon for editing, and full i18n support.
+- **Serial Number Override (Backup/Restore)** — When restoring a backup from a different controller, the system detects serial mismatches and offers to adopt the old controller's identity. Preserves MQTT topics, HA entity IDs, and dashboard mappings across RMA exchanges. Manual override with real-time regex validation in boneIO settings.
+- **OLED Extra Sensors Auto-Detection** — Extra screen sensors form now fetches available modbus coordinators and dallas sensors from `/api/sensors/screen_available` and presents dynamic select dropdowns instead of error-prone text inputs.
+- **Optimized Startup (`/api/init`)** — Unified endpoint bundles version, serial, auth, PWA, and cloud data into a single HTTP request, eliminating 5 duplicate requests on page load.
+- **Reusable Entity Components** — `EntityCard`, `EntityGrid`, `SearchableMultiEntityPicker`, `SettingsToggleGroup`, and `BottomPeekBar` components consolidate card styles, hover actions, and responsive layouts across all views.
+- **NumericInput Component** — All `type="number"` inputs migrated to a dedicated component with select-all-on-focus for better mobile UX.
+
+### ⚡ Performance
+
+- **Fast Config Reload** — Skip Cerberus schema validation during reload, reducing config reload time from ~20s to ~1s.
+
+### 🐛 Bug Fixes
+
+- **WebSocket Race Condition** — Resolved race condition causing empty views on initial page load.
+- **Quick Action Lookup** — Case-insensitive name matching and `boneio_input` parameter support when registering inputs.
+- **HA Discovery Re-send** — Include `device_class` when re-sending discovery messages during reload.
+- **Binding Matrix** — Fixed duplicate React keys, text selection interference, and drag-to-scroll only activating when mouse is held.
+
+### ♻️ Improvements
+
+- **Mobile UI Overhaul** — Dialogs and select menus render as bottom sheets on mobile with slide animations. Adjusted container padding, button/input sizing for touch.
+- **Removed `serial_no` alias** — Deprecated `serial_no` property removed from `ConfigHelper`; all code uses `serial_number`.
+- **Navigation label** — Serial override label changed from `(override: X)` to `(as: X)`.
+- **Modbus Device Defaults** — Default update interval for `boneio-edge-temp` sensors set to 30s.
+
+---
+
 ## v1.5.0dev8 (2026-07-17)
 
 Consolidation of startup API requests, UI styling upgrades, reusable layout components, and configuration search improvements.
