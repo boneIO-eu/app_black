@@ -1,0 +1,1 @@
+function e(){return typeof window<`u`&&window.__BONEIO_BASE_PATH__?window.__BONEIO_BASE_PATH__:``}function t(){let t=e();return!t||t.startsWith(`http`)?`/`:t}export{t as n,e as t};
