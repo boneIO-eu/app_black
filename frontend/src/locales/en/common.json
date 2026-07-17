@@ -192,6 +192,7 @@
     "no_area": "No area",
     "custom_id": "Custom ID",
     "show_in_ha": "Show in Home Assistant",
+    "show_in_ha_hint": "When enabled, sensor will be visible in Home Assistant via MQTT discovery",
     "update_interval": "Update Interval",
     "update_interval_hint": "e.g. 60s, 5min",
     "detected_sensors": "Detected Sensors",
@@ -283,7 +284,8 @@
     "at_least_one_required": "At least one output is required",
     "all_on_behaviour": "All On Behaviour",
     "all_on_behaviour_hint": "If true, toggle when all outputs are on. Otherwise, group is on if any output is on.",
-    "output_used_as_cover": "This output is used as a cover relay and will be ignored in this group"
+    "output_used_as_cover": "This output is used as a cover relay and will be ignored in this group",
+    "select_outputs": "Select outputs"
   },
   "settings": {
     "title": "Settings",
@@ -1028,7 +1030,8 @@
     "of": "of",
     "area": "Area",
     "no_area": "No area",
-    "type": "Type"
+    "type": "Type",
+    "done": "Done"
   },
   "validation": {
     "id_required": "ID is required",
@@ -2129,7 +2132,8 @@
     "id": "Device ID",
     "id_help": "Unique alphanumeric ID",
     "back": "Back",
-    "add_device": "Add Device"
+    "add_device": "Add Device",
+    "no_areas_defined": "No areas defined. Add areas in outputs/inputs/sensors settings."
   },
   "modbus_devices": {
     "boneio-edge-temp": {
@@ -2218,7 +2222,10 @@
     "recent": "Recent",
     "no_area": "No area",
     "showing_filtered": "{{count}} of {{total}} items",
-    "total_items": "{{count}} items available"
+    "total_items": "{{count}} items available",
+    "selected_count": "{{count}} selected",
+    "deselect_all": "Deselect All",
+    "select_all": "Select All"
   },
   "quick_action": {
     "title": "Quick Action",
@@ -2242,6 +2249,14 @@
       "double_then_long": "Double+Long",
       "single_then_long": "Single+Long",
       "double_then_single": "Double+Single"
+    },
+    "actions": {
+      "TOGGLE": "Toggle",
+      "ON": "Turn On",
+      "OFF": "Turn Off",
+      "OPEN": "Open",
+      "CLOSE": "Close",
+      "STOP": "Stop"
     }
   },
   "teach_mode": {

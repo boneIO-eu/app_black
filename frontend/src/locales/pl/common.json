@@ -33,7 +33,7 @@
     "display_name": "Nazwa Wyświetlana",
     "area": "Obszar / Pokój",
     "area_short": "Obszar",
-    "no_area": "Brak obszaru (główne urządzenie)",
+    "no_area": "Brak obszaru",
     "area_hint": "Tworzy pod-urządzenie powiązane z głównym urządzeniem boneIO",
     "area_empty_hint": "Najpierw zdefiniuj obszary w sekcji Obszary/Pokoje",
     "interlock_group": "Grupa Interlock",
@@ -197,6 +197,7 @@
     "no_area": "Brak obszaru",
     "custom_id": "Własne ID",
     "show_in_ha": "Pokaż w Home Assistant",
+    "show_in_ha_hint": "Włącz autodiscovery Home Assistant dla tego czujnika",
     "update_interval": "Interwał Aktualizacji",
     "update_interval_hint": "np. 60s, 5min",
     "detected_sensors": "Wykryte Czujniki",
@@ -269,6 +270,7 @@
     "id_hint": "Identyfikator techniczny używany w tematach MQTT i akcjach",
     "name_hint": "Opcjonalna przyjazna nazwa wyświetlana w Home Assistant. Jeśli nie ustawiona, używa ID.",
     "member_outputs": "Wyjścia Członkowskie",
+    "select_outputs": "Wybierz wyjścia...",
     "type": "Typ",
     "all_on": "Wszystkie Włączone",
     "actions": "Akcje",
@@ -1006,6 +1008,7 @@
     "save": "Zapisz",
     "cancel": "Anuluj",
     "close": "Zamknij",
+    "done": "Gotowe",
     "details": "Szczegóły",
     "delete": "Usuń",
     "edit": "Edytuj",
@@ -1435,7 +1438,7 @@
     "flow_rate_required": "Przepływ jest wymagany dla sensorów wody",
     "area": "Obszar / Pokój",
     "area_hint": "Przypisz do konkretnego obszaru, użyj tego samego urządzenia co powiązane wyjście, lub zostaw na głównym urządzeniu",
-    "no_area": "Brak obszaru (główne urządzenie)",
+    "no_area": "Brak obszaru",
     "same_area_as_output": "To samo urządzenie co output",
     "no_outputs_available": "Brak dostępnych wyjść. Najpierw skonfiguruj wyjścia.",
     "duplicate_id_error": "Wykryto zduplikowane ID sensorów",
@@ -2128,7 +2131,8 @@
     "id": "Identyfikator urządzenia (ID)",
     "id_help": "Unikalny identyfikator alfanumeryczny",
     "back": "Wstecz",
-    "add_device": "Dodaj Urządzenie"
+    "add_device": "Dodaj Urządzenie",
+    "no_areas_defined": "Brak zdefiniowanych obszarów. Dodaj obszary w ustawieniach wyjść/wejść/czujników."
   },
   "modbus_devices": {
     "boneio-edge-temp": {
@@ -2217,7 +2221,10 @@
     "recent": "Ostatnio używane",
     "no_area": "Bez strefy",
     "showing_filtered": "{{count}} z {{total}} elementów",
-    "total_items": "{{count}} elementów dostępnych"
+    "total_items": "{{count}} elementów dostępnych",
+    "selected_count": "Zaznaczono: {{count}}",
+    "select_all": "Zaznacz wszystkie",
+    "deselect_all": "Odznacz wszystkie"
   },
   "quick_action": {
     "title": "Szybka Akcja",
@@ -2241,6 +2248,14 @@
       "double_then_long": "Podwójne+Długie",
       "single_then_long": "Pojedyncze+Długie",
       "double_then_single": "Podwójne+Pojedyncze"
+    },
+    "actions": {
+      "TOGGLE": "Przełącz",
+      "ON": "Włącz",
+      "OFF": "Wyłącz",
+      "OPEN": "Otwórz",
+      "CLOSE": "Zamknij",
+      "STOP": "Stop"
     }
   },
   "teach_mode": {
