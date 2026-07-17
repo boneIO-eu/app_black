@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   FaPlay,
@@ -324,11 +325,10 @@ export default function CANHelper() {
               <label className="label">
                 <span className="label-text">Duration (s)</span>
               </label>
-              <input
-                type="number"
-                className="input input-bordered input-sm w-24"
+              <NumericInput
+                className="input-sm w-24"
                 value={dumpDuration}
-                onChange={(e) => setDumpDuration(Math.max(5, Math.min(120, parseInt(e.target.value) || 30)))}
+                onChange={(v) => setDumpDuration(v === '' ? 30 : v)}
                 min={5}
                 max={120}
                 disabled={dumpRunning}

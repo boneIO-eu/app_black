@@ -1,4 +1,5 @@
 import React from 'react';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 // TimePeriod object from backend
 interface TimePeriodObject {
@@ -180,26 +181,33 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
         </span>
       </label>
       <div className="flex gap-2 w-full">
-        <input
-          type="number"
+        <NumericInput
           value={inputValue}
-          onChange={(e) => handleValueChange(e.target.value)}
+          onChange={(v) => handleValueChange(String(v === '' ? 0 : v))}
           min={minValue}
           max={maxValue}
-          step={inputUnit === 'ms' ? 10 : 1}
-          className="input input-bordered flex-1 w-3/4 min-h-12"
+          className="flex-1 w-3/4 min-h-12"
           placeholder="0"
         />
-        <select
-          className="select select-bordered w-20 min-h-12"
-          value={inputUnit}
-          onChange={(e) => handleUnitChange(e.target.value)}
-        >
-          {allowedUnits.includes('ms') && <option value="ms">ms</option>}
-          {allowedUnits.includes('s') && <option value="s">s</option>}
-          {allowedUnits.includes('min') && <option value="min">min</option>}
-          {allowedUnits.includes('h') && <option value="h">h</option>}
-        </select>
+        <div className="join border border-base-300 rounded-lg overflow-hidden shrink-0">
+          {allowedUnits.map((u) => {
+            const isSelected = inputUnit === u;
+            return (
+              <button
+                key={u}
+                type="button"
+                onClick={() => handleUnitChange(u)}
+                className={`btn btn-sm min-h-12 h-12 rounded-none border-0 join-item px-3 font-medium transition-all ${
+                  isSelected 
+                    ? 'btn-primary' 
+                    : 'bg-base-100 hover:bg-base-200/50 text-base-content/70'
+                }`}
+              >
+                {u}
+              </button>
+            );
+          })}
+        </div>
       </div>
       {(minimum > 0 || maximum !== undefined) && (
         <label className="label">

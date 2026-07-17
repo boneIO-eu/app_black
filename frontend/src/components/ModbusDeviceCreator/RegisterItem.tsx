@@ -1,5 +1,6 @@
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaTrash, FaPlay, FaCheck, FaPlus, FaTimes } from 'react-icons/fa';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { Register, REGISTER_TYPES, UNITS_OF_MEASUREMENT, VALUE_TYPES, DEVICE_CLASSES, STATE_CLASSES } from './types';
 
 interface RegisterItemProps {
@@ -48,11 +49,10 @@ export default function RegisterItem({
               <label className="label py-0">
                 <span className="label-text text-xs">{t('modbus_creator.address')}</span>
               </label>
-              <input
-                type="number"
-                className="input input-bordered input-sm w-full"
+              <NumericInput
+                className="input-sm"
                 value={register.address}
-                onChange={(e) => onUpdate({ address: parseInt(e.target.value) || 0 })}
+                onChange={(v) => onUpdate({ address: v === '' ? 0 : v })}
               />
             </div>
             

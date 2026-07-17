@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useConfig } from '../../contexts/ConfigContext';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import {
   Select,
   SelectContent,
@@ -203,27 +206,11 @@ const SensorForm: React.FC<SensorFormProps> = ({
       </div>
 
       {/* Area */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('sensors.area')}</span>
-        </label>
-        <Select
-          value={data.area || '_none_'}
-          onValueChange={(value) => handleChange('area', value === '_none_' ? undefined : value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('sensors.no_area')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_none_">{t('sensors.no_area')}</SelectItem>
-            {allAreas.map((area) => (
-              <SelectItem key={area.id} value={area.id}>
-                {area.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <AreaSelect
+        value={data.area}
+        onChange={(v) => handleChange('area', v)}
+        areas={allAreas}
+      />
 
       {/* Platform */}
       <div className="form-control">
@@ -277,17 +264,17 @@ const SensorForm: React.FC<SensorFormProps> = ({
       )}
 
       {/* Show in HA */}
-      <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
-          <input
-            type="checkbox"
-            className="checkbox checkbox-primary"
-            checked={data.show_in_ha !== false}
-            onChange={(e) => handleChange('show_in_ha', e.target.checked)}
-          />
-          <span className="label-text">{t('sensors.show_in_ha')}</span>
-        </label>
-      </div>
+      <SettingsToggleGroup
+        items={[
+          {
+            key: 'show_in_ha',
+            label: t('sensors.show_in_ha'),
+            description: t('sensors.show_in_ha_hint'),
+            checked: data.show_in_ha !== false,
+            onChange: (checked) => handleChange('show_in_ha', checked),
+          },
+        ]}
+      />
 
       {/* Update Interval */}
       <SimpleTimePeriodInput
@@ -341,15 +328,14 @@ const SensorForm: React.FC<SensorFormProps> = ({
                         ))}
                       </SelectContent>
                     </Select>
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="input input-bordered input-sm w-24"
+                    <NumericInput
+                      className="input-sm w-24"
+                      decimal
                       value={filterValue ?? ''}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const newFilters = [...(data.filters || [])];
                         const newFilter: Filter = {};
-                        newFilter[filterType] = parseFloat(e.target.value) || undefined;
+                        newFilter[filterType] = v === '' ? undefined : v;
                         newFilters[index] = newFilter;
                         handleChange('filters', newFilters);
                       }}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axiosInstance from '@/api/axios';
 import { useTranslation } from '@/hooks/useTranslation';
+import { NumericInput } from '@/components/ui/NumericInput';
 import HelpLabel from './components/HelpLabel';
 
 interface MqttFormProps {
@@ -86,11 +87,9 @@ const MqttForm: React.FC<MqttFormProps> = ({ data, onChange }) => {
         <label className="label">
           <span className="label-text font-medium">{t('mqtt_config.port')}</span>
         </label>
-        <input
-          type="number"
-          className="input input-bordered w-full"
+        <NumericInput
           value={data?.port ?? 1883}
-          onChange={(e) => handleChange('port', parseInt(e.target.value) || 1883)}
+          onChange={(v) => handleChange('port', v === '' ? 1883 : v)}
           placeholder="1883"
         />
         <HelpLabel>{t('mqtt_config.port_help')}</HelpLabel>

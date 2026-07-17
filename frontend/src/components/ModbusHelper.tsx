@@ -4,6 +4,14 @@ import { FaPlay, FaSearch, FaCog, FaPlus, FaPause, FaFlask, FaCode, FaCopy, FaCh
 import ModbusDeviceCreator from './ModbusDeviceCreator';
 import axios from '@/api/axios';
 import { MODBUS_DEVICE_CATALOG } from '../generated/modbusDeviceCatalog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface ModbusConfig {
   configured: boolean;
@@ -496,11 +504,9 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.address')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
+                <NumericInput
                   value={address}
-                  onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
+                  onChange={(v) => setAddress(v === '' ? 1 : v)}
                   min={1}
                   max={247}
                 />
@@ -511,11 +517,9 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.register_address')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
+                <NumericInput
                   value={registerAddress}
-                  onChange={(e) => setRegisterAddress(parseInt(e.target.value) || 0)}
+                  onChange={(v) => setRegisterAddress(v === '' ? 0 : v)}
                   min={0}
                 />
               </div>
@@ -525,15 +529,16 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.register_type')}</span>
                 </label>
-                <select
-                  className="select select-bordered"
-                  value={registerType}
-                  onChange={(e) => setRegisterType(e.target.value)}
-                >
-                  {config?.register_types.map(rt => (
-                    <option key={rt} value={rt}>{rt}</option>
-                  ))}
-                </select>
+                <Select value={registerType} onValueChange={setRegisterType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {config?.register_types.map(rt => (
+                      <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Value Type */}
@@ -541,15 +546,16 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.value_type')}</span>
                 </label>
-                <select
-                  className="select select-bordered"
-                  value={valueType}
-                  onChange={(e) => setValueType(e.target.value)}
-                >
-                  {config?.value_types.map(vt => (
-                    <option key={vt} value={vt}>{vt}</option>
-                  ))}
-                </select>
+                <Select value={valueType} onValueChange={setValueType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {config?.value_types.map(vt => (
+                      <SelectItem key={vt} value={vt}>{vt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -598,11 +604,9 @@ export default function ModbusHelper() {
                     <label className="label">
                       <span className="label-text">{t('modbus_helper.address')}</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input input-bordered"
+                    <NumericInput
                       value={address}
-                      onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
+                      onChange={(v) => setAddress(v === '' ? 1 : v)}
                       min={1}
                       max={247}
                     />
@@ -613,11 +617,9 @@ export default function ModbusHelper() {
                     <label className="label">
                       <span className="label-text">{t('modbus_helper.register_address')}</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input input-bordered"
+                    <NumericInput
                       value={writeRegisterAddress}
-                      onChange={(e) => setWriteRegisterAddress(parseInt(e.target.value) || 0)}
+                      onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
                       min={0}
                     />
                   </div>
@@ -627,11 +629,10 @@ export default function ModbusHelper() {
                     <label className="label">
                       <span className="label-text">{t('modbus_helper.custom_value')}</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input input-bordered"
+                    <NumericInput
                       value={writeValue}
-                      onChange={(e) => setWriteValue(e.target.value ? parseFloat(e.target.value) : '')}
+                      onChange={(v) => setWriteValue(v)}
+                      decimal
                       placeholder={t('modbus_helper.fc06_value_placeholder')}
                     />
                   </div>
@@ -661,11 +662,9 @@ export default function ModbusHelper() {
                     <label className="label">
                       <span className="label-text">{t('modbus_helper.address')}</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input input-bordered"
+                    <NumericInput
                       value={address}
-                      onChange={(e) => setAddress(parseInt(e.target.value) || 1)}
+                      onChange={(v) => setAddress(v === '' ? 1 : v)}
                       min={1}
                       max={247}
                     />
@@ -676,11 +675,9 @@ export default function ModbusHelper() {
                     <label className="label">
                       <span className="label-text">{t('modbus_helper.fc16_start_register')}</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input input-bordered"
+                    <NumericInput
                       value={writeRegisterAddress}
-                      onChange={(e) => setWriteRegisterAddress(parseInt(e.target.value) || 0)}
+                      onChange={(v) => setWriteRegisterAddress(v === '' ? 0 : v)}
                       min={0}
                     />
                   </div>
@@ -745,11 +742,9 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.start_address')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
+                <NumericInput
                   value={searchStartAddress}
-                  onChange={(e) => setSearchStartAddress(parseInt(e.target.value) || 1)}
+                  onChange={(v) => setSearchStartAddress(v === '' ? 1 : v)}
                   min={1}
                   max={247}
                 />
@@ -760,11 +755,9 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.end_address')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
+                <NumericInput
                   value={searchEndAddress}
-                  onChange={(e) => setSearchEndAddress(parseInt(e.target.value) || 247)}
+                  onChange={(v) => setSearchEndAddress(v === '' ? 247 : v)}
                   min={1}
                   max={247}
                 />
@@ -775,11 +768,9 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.register_address')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered"
+                <NumericInput
                   value={searchRegisterAddress}
-                  onChange={(e) => setSearchRegisterAddress(parseInt(e.target.value) || 0)}
+                  onChange={(v) => setSearchRegisterAddress(v === '' ? 0 : v)}
                   min={0}
                 />
               </div>
@@ -789,15 +780,16 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.register_type')}</span>
                 </label>
-                <select
-                  className="select select-bordered"
-                  value={searchRegisterType}
-                  onChange={(e) => setSearchRegisterType(e.target.value)}
-                >
-                  {config?.register_types.map(rt => (
-                    <option key={rt} value={rt}>{rt}</option>
-                  ))}
-                </select>
+                <Select value={searchRegisterType} onValueChange={setSearchRegisterType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {config?.register_types.map(rt => (
+                      <SelectItem key={rt} value={rt}>{rt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Timeout */}
@@ -805,16 +797,17 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text">{t('modbus_helper.timeout')}</span>
                 </label>
-                <select
-                  className="select select-bordered"
-                  value={searchTimeout}
-                  onChange={(e) => setSearchTimeout(parseFloat(e.target.value))}
-                >
-                  <option value={0.2}>0.2s</option>
-                  <option value={0.3}>0.3s</option>
-                  <option value={0.5}>0.5s</option>
-                  <option value={1.0}>1.0s</option>
-                </select>
+                <Select value={String(searchTimeout)} onValueChange={(v) => setSearchTimeout(parseFloat(v))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.2">0.2s</SelectItem>
+                    <SelectItem value="0.3">0.3s</SelectItem>
+                    <SelectItem value="0.5">0.5s</SelectItem>
+                    <SelectItem value="1">1.0s</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -963,25 +956,26 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text font-semibold">{t('modbus_helper.device_model')}</span>
                 </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={configDevice}
-                  onChange={(e) => {
-                    setConfigDevice(e.target.value);
+                <Select value={configDevice} onValueChange={(v) => {
+                    setConfigDevice(v);
                     setConfigBroadcast(false);
-                    if (e.target.value === 'dyp-a12-ultrasonic') {
+                    if (v === 'dyp-a12-ultrasonic') {
                       setConfigOperation('address');
                       setConfigCurrentBaudrate(9600);
-                    } else if (e.target.value === 'boneio-edge-temp') {
+                    } else if (v === 'boneio-edge-temp') {
                       setConfigCurrentBaudrate(9600);
                     }
-                  }}
-                >
-                  <option value="boneio-edge-temp">boneIO Edge Sensor (Temp & Humidity)</option>
-                  <option value="cwt">CWT (Temp & Humidity)</option>
-                  <option value="sht30">SHT30 (Temp & Humidity)</option>
-                  <option value="dyp-a12-ultrasonic">DYP-A12 (Ultrasonic Distance)</option>
-                </select>
+                  }}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="boneio-edge-temp">boneIO Edge Sensor (Temp & Humidity)</SelectItem>
+                    <SelectItem value="cwt">CWT (Temp & Humidity)</SelectItem>
+                    <SelectItem value="sht30">SHT30 (Temp & Humidity)</SelectItem>
+                    <SelectItem value="dyp-a12-ultrasonic">DYP-A12 (Ultrasonic Distance)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* UART */}
@@ -989,16 +983,17 @@ export default function ModbusHelper() {
                 <label className="label">
                   <span className="label-text font-semibold">{t('modbus_helper.uart')}</span>
                 </label>
-                <select
-                  className="select select-bordered w-full"
-                  value={configUart}
-                  onChange={(e) => setConfigUart(e.target.value)}
-                >
-                  <option value="uart1">UART1</option>
-                  <option value="uart2">UART2</option>
-                  <option value="uart4">UART4</option>
-                  <option value="uart5">UART5</option>
-                </select>
+                <Select value={configUart} onValueChange={setConfigUart}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="uart1">UART1</SelectItem>
+                    <SelectItem value="uart2">UART2</SelectItem>
+                    <SelectItem value="uart4">UART4</SelectItem>
+                    <SelectItem value="uart5">UART5</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1008,7 +1003,7 @@ export default function ModbusHelper() {
                 <label className="label cursor-pointer justify-start gap-3">
                   <input
                     type="checkbox"
-                    className="checkbox checkbox-warning"
+                    className="toggle toggle-warning"
                     checked={configBroadcast}
                     onChange={(e) => {
                       setConfigBroadcast(e.target.checked);
@@ -1070,11 +1065,9 @@ export default function ModbusHelper() {
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.current_address')}</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input input-bordered w-full"
+                  <NumericInput
                     value={configCurrentAddress}
-                    onChange={(e) => setConfigCurrentAddress(Number(e.target.value))}
+                    onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
                     min={1}
                     max={247}
                   />
@@ -1091,27 +1084,26 @@ export default function ModbusHelper() {
                       disabled
                     />
                   ) : (
-                    <select
-                      className="select select-bordered w-full"
-                      value={configCurrentBaudrate}
-                      onChange={(e) => setConfigCurrentBaudrate(Number(e.target.value))}
-                    >
-                      <option value={2400}>2400</option>
-                      <option value={4800}>4800</option>
-                      <option value={9600}>9600</option>
-                      <option value={19200}>19200</option>
-                    </select>
+                    <Select value={String(configCurrentBaudrate)} onValueChange={(v) => setConfigCurrentBaudrate(Number(v))}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2400">2400</SelectItem>
+                        <SelectItem value="4800">4800</SelectItem>
+                        <SelectItem value="9600">9600</SelectItem>
+                        <SelectItem value="19200">19200</SelectItem>
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
                 <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.new_address')} *</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input input-bordered w-full"
+                  <NumericInput
                     value={configNewAddress}
-                    onChange={(e) => setConfigNewAddress(e.target.value ? Number(e.target.value) : '')}
+                    onChange={(v) => setConfigNewAddress(v)}
                     min={1}
                     max={247}
                     placeholder={t('modbus_helper.new_address_placeholder')}
@@ -1127,11 +1119,9 @@ export default function ModbusHelper() {
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.current_address')}</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input input-bordered w-full"
+                  <NumericInput
                     value={configCurrentAddress}
-                    onChange={(e) => setConfigCurrentAddress(Number(e.target.value))}
+                    onChange={(v) => setConfigCurrentAddress(v === '' ? 1 : v)}
                     min={1}
                     max={247}
                   />
@@ -1140,32 +1130,33 @@ export default function ModbusHelper() {
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.current_baudrate')}</span>
                   </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={configCurrentBaudrate}
-                    onChange={(e) => setConfigCurrentBaudrate(Number(e.target.value))}
-                  >
-                    <option value={2400}>2400</option>
-                    <option value={4800}>4800</option>
-                    <option value={9600}>9600</option>
-                    <option value={19200}>19200</option>
-                  </select>
+                  <Select value={String(configCurrentBaudrate)} onValueChange={(v) => setConfigCurrentBaudrate(Number(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2400">2400</SelectItem>
+                      <SelectItem value="4800">4800</SelectItem>
+                      <SelectItem value="9600">9600</SelectItem>
+                      <SelectItem value="19200">19200</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="form-control md:col-span-2">
                   <label className="label">
                     <span className="label-text">{t('modbus_helper.new_baudrate')} *</span>
                   </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={configNewBaudrate}
-                    onChange={(e) => setConfigNewBaudrate(e.target.value ? Number(e.target.value) : '')}
-                  >
-                    <option value="">{t('modbus_helper.new_baudrate_placeholder')}</option>
-                    <option value={2400}>2400</option>
-                    <option value={4800}>4800</option>
-                    <option value={9600}>9600</option>
-                    <option value={19200}>19200</option>
-                  </select>
+                  <Select value={configNewBaudrate ? String(configNewBaudrate) : undefined} onValueChange={(v) => setConfigNewBaudrate(v ? Number(v) : '')}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('modbus_helper.new_baudrate_placeholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2400">2400</SelectItem>
+                      <SelectItem value="4800">4800</SelectItem>
+                      <SelectItem value="9600">9600</SelectItem>
+                      <SelectItem value="19200">19200</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
@@ -1225,17 +1216,18 @@ export default function ModbusHelper() {
                   <label className="label">
                     <span className="label-text text-xs font-semibold">{t('modbus_wizard.step2_title')}</span>
                   </label>
-                  <select
-                    className="select select-bordered w-full"
-                    value={selectedSimModel}
-                    onChange={(e) => setSelectedSimModel(e.target.value)}
-                  >
-                    {Object.values(MODBUS_DEVICE_CATALOG).map(d => (
-                      <option key={d.modelKey} value={d.modelKey}>
-                        {d.displayName} ({d.manufacturer})
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={selectedSimModel} onValueChange={setSelectedSimModel}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(MODBUS_DEVICE_CATALOG).map(d => (
+                        <SelectItem key={d.modelKey} value={d.modelKey}>
+                          {d.displayName} ({d.manufacturer})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Address */}
@@ -1243,11 +1235,9 @@ export default function ModbusHelper() {
                   <label className="label">
                     <span className="label-text text-xs font-semibold">{t('modbus_wizard.address')}</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input input-bordered w-full"
+                  <NumericInput
                     value={simAddress}
-                    onChange={(e) => setSimAddress(parseInt(e.target.value) || 1)}
+                    onChange={(v) => setSimAddress(v === '' ? 1 : v)}
                     min={1}
                     max={247}
                   />

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaTrash } from 'react-icons/fa';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
+import AreaSelect from './widgets/AreaSelect';
 import {
   Select,
   SelectContent,
@@ -190,35 +192,11 @@ const ADCForm: React.FC<ADCFormProps> = ({
       </div>
 
       {/* Area */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('common.area')}</span>
-        </label>
-        <Select
-          value={data.area || '_none_'}
-          onValueChange={(value) => handleChange('area', value === '_none_' ? undefined : value)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('common.no_area')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="_none_">{t('common.no_area')}</SelectItem>
-            {allAreas.map((area) => (
-              <SelectItem key={area.id} value={area.id}>
-                {area.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="label">
-          <span className="label-text-alt">
-            {allAreas.length === 0
-              ? t('outputs.area_empty_hint')
-              : t('outputs.area_hint')
-            }
-          </span>
-        </label>
-      </div>
+      <AreaSelect
+        value={data.area}
+        onChange={(areaId) => handleChange('area', areaId)}
+        areas={allAreas}
+      />
 
       {/* Update Interval */}
       <SimpleTimePeriodInput
@@ -275,15 +253,14 @@ const ADCForm: React.FC<ADCFormProps> = ({
                         ))}
                       </SelectContent>
                     </Select>
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="input input-bordered input-sm w-24"
+                    <NumericInput
+                      className="input-sm w-24"
+                      decimal
                       value={filterValue ?? ''}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const newFilters = [...(data.filters || [])];
                         const newFilter: Filter = {};
-                        newFilter[filterType] = parseFloat(e.target.value) || undefined;
+                        newFilter[filterType] = v === '' ? undefined : v;
                         newFilters[index] = newFilter;
                         handleChange('filters', newFilters);
                       }}

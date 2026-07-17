@@ -1,4 +1,5 @@
 import React from 'react';
+import { NumericInput } from '@/components/ui/NumericInput';
 import {
   Select,
   SelectContent,
@@ -88,16 +89,14 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
           <label className="label">
             <span className="label-text font-medium">{t('event_form.tilt_position')} <span className="text-error">*</span></span>
           </label>
-          <input
-            type="number"
-            className={`input input-bordered w-full ${(action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '') ? 'input-error' : ''}`}
+          <NumericInput
+            className={(action.data?.tilt_position === undefined || action.data?.tilt_position === null || action.data?.tilt_position === '') ? 'input-error' : ''}
             min={0}
             max={100}
             placeholder="50"
             value={action.data?.tilt_position ?? ''}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              const data = { ...(action.data || {}), tilt_position: isNaN(val) ? undefined : Math.min(100, Math.max(0, val)) };
+            onChange={(v) => {
+              const data = { ...(action.data || {}), tilt_position: v === '' ? undefined : v };
               onUpdate('data', data);
             }}
           />
@@ -112,16 +111,13 @@ const CoverOverMqttAction: React.FC<CoverOverMqttActionProps> = ({
           <label className="label">
             <span className="label-text font-medium">{t('event_form.always_open_till')}</span>
           </label>
-          <input
-            type="number"
-            className="input input-bordered w-full"
+          <NumericInput
             min={0}
             max={100}
             placeholder="50"
             value={action.data?.always_open_till ?? 50}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              const data = { ...(action.data || {}), always_open_till: isNaN(val) ? 50 : Math.min(100, Math.max(0, val)) };
+            onChange={(v) => {
+              const data = { ...(action.data || {}), always_open_till: v === '' ? 50 : v };
               onUpdate('data', data);
             }}
           />

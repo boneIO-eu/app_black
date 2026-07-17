@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
+import { NumericInput } from '@/components/ui/NumericInput';
 import ActionFields, { validateAction, cleanActionFields } from './ActionFields';
 import AiConfigAssistant from './AiConfigAssistant';
 import BlueprintPicker from './widgets/BlueprintPicker';
 import { getInputAvailability, buildInputOptions } from './helpers/inputFilterUtils';
 import { convertTimeperiodToMilliseconds } from './helpers/configSchemaUtils';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import { TabsBox } from '@/components/ui/tabs-box';
 import type { 
   BinarySensorEntity, 
@@ -357,12 +359,10 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
                     <label className="label">
                       <span className="label-text font-medium">{t('inputs.bounce_time')} (ms)</span>
                     </label>
-                    <input
-                      type="number"
-                      className="input w-full"
+                    <NumericInput
                       placeholder="120"
                       value={convertTimeperiodToMilliseconds(data.bounce_time) || 120}
-                      onChange={(e) => updateField('bounce_time', parseInt(e.target.value) || 120)}
+                      onChange={(v) => updateField('bounce_time', v === '' ? 120 : v)}
                     />
                     <label className="label">
                       <span className="label-text-alt">{t('inputs.bounce_time_hint')}</span>
@@ -396,59 +396,38 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
 
                 <div className="divider">{t('settings.options')}</div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('inputs.show_in_ha')}</legend>
-                    <label className="label cursor-pointer justify-start gap-4">
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.show_in_ha !== false}
-                        onChange={(e) => updateField('show_in_ha', e.target.checked)}
-                      />
-                      <span className="label-text wrap-break-word">{t('inputs.show_in_ha_hint')}</span>
-                    </label>
-                  </fieldset>
-
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('inputs.inverted')}</legend>
-                    <label className="label cursor-pointer justify-start gap-4">
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.inverted === true}
-                        onChange={(e) => updateField('inverted', e.target.checked)}
-                      />
-                      <span className="label-text">{t('inputs.inverted_hint')}</span>
-                    </label>
-                  </fieldset>
-
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('inputs.initial_send')}</legend>
-                    <label className="label cursor-pointer justify-start gap-4">
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.initial_send === true}
-                        onChange={(e) => updateField('initial_send', e.target.checked)}
-                      />
-                      <span className="label-text">{t('inputs.initial_send_hint')}</span>
-                    </label>
-                  </fieldset>
-
-                  <fieldset className="fieldset bg-base-100 border-base-300 rounded-box border p-4">
-                    <legend className="fieldset-legend">{t('inputs.clear_message')}</legend>
-                    <label className="label cursor-pointer justify-start gap-4">
-                      <input
-                        type="checkbox"
-                        className="toggle toggle-primary"
-                        checked={data.clear_message === true}
-                        onChange={(e) => updateField('clear_message', e.target.checked)}
-                      />
-                      <span className="label-text">{t('inputs.clear_message_hint')}</span>
-                    </label>
-                  </fieldset>
-                </div>
+                <SettingsToggleGroup
+                  items={[
+                    {
+                      key: 'show_in_ha',
+                      label: t('inputs.show_in_ha'),
+                      description: t('inputs.show_in_ha_hint'),
+                      checked: data.show_in_ha !== false,
+                      onChange: (checked) => updateField('show_in_ha', checked),
+                    },
+                    {
+                      key: 'inverted',
+                      label: t('inputs.inverted'),
+                      description: t('inputs.inverted_hint'),
+                      checked: data.inverted === true,
+                      onChange: (checked) => updateField('inverted', checked),
+                    },
+                    {
+                      key: 'initial_send',
+                      label: t('inputs.initial_send'),
+                      description: t('inputs.initial_send_hint'),
+                      checked: data.initial_send === true,
+                      onChange: (checked) => updateField('initial_send', checked),
+                    },
+                    {
+                      key: 'clear_message',
+                      label: t('inputs.clear_message'),
+                      description: t('inputs.clear_message_hint'),
+                      checked: data.clear_message === true,
+                      onChange: (checked) => updateField('clear_message', checked),
+                    },
+                  ]}
+                />
               </div>
             ),
           },

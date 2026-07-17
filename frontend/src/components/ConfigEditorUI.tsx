@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import axios from '@/api/axios';
 import * as yaml from 'js-yaml';
 import { FaCheck, FaTimes, FaSave, FaPlus, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { TabsBox } from '@/components/ui/tabs-box';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface ConfigSection {
   title: string;
@@ -404,14 +406,13 @@ export default function ConfigEditorUI() {
         );
       case 'number':
         return (
-          <input
-            type="number"
-            className="input  w-full"
+          <NumericInput
+            className="w-full"
             value={field.value || ''}
-            onChange={(e) => handleFieldChange(field, Number(e.target.value))}
+            onChange={(v) => handleFieldChange(field, v)}
+            decimal
             min={field.validation?.min}
             max={field.validation?.max}
-            autoComplete="off"
           />
         );
       case 'boolean':
@@ -528,28 +529,28 @@ export default function ConfigEditorUI() {
 
   return (
     <div className="container mx-auto">
-      <div className="tabs tabs-boxed mb-6">
-        <a 
-          className={`tab ${activeTab === 'form' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('form')}
-        >
-          Form Editor
-        </a>
-        <a 
-          className={`tab ${activeTab === 'yaml' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('yaml')}
-        >
-          YAML View
-        </a>
-      </div>
-      
-      {activeTab === 'form' ? (
-        renderConfigForm()
-      ) : (
-        <div className="bg-base-300 p-4 rounded-lg">
-          <pre className="whitespace-pre-wrap wrap-break-word">{yamlView}</pre>
-        </div>
-      )}
+      <TabsBox
+        name="config_editor_tabs"
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as 'form' | 'yaml')}
+        bordered={false}
+        tabs={[
+          {
+            id: 'form',
+            label: 'Form Editor',
+            content: renderConfigForm(),
+          },
+          {
+            id: 'yaml',
+            label: 'YAML View',
+            content: (
+              <div className="bg-base-300 p-4 rounded-lg">
+                <pre className="whitespace-pre-wrap wrap-break-word">{yamlView}</pre>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

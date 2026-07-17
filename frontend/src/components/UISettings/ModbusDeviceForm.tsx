@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import axios from '@/api/axios';
 import { FaPlus, FaTrash } from 'react-icons/fa';
+import { NumericInput } from '@/components/ui/NumericInput';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -87,12 +88,11 @@ const FilterSection: React.FC<FilterSectionProps> = ({ title, filters, onChange,
                   ))}
                 </SelectContent>
               </Select>
-              <input
-                type="number"
-                step="0.1"
-                className="input input-bordered input-sm w-24"
+              <NumericInput
+                className="input-sm w-24"
+                decimal
                 value={getFilterValue(filter) ?? ''}
-                onChange={(e) => updateFilter(index, getFilterType(filter), parseFloat(e.target.value) || undefined)}
+                onChange={(v) => updateFilter(index, getFilterType(filter), v === '' ? undefined : v)}
                 placeholder={t('modbus.filters.value_placeholder')}
               />
               <button
@@ -302,11 +302,9 @@ const ModbusDeviceForm: React.FC<ModbusDeviceFormProps> = ({
               <label className="label py-1">
                 <span className="label-text font-medium">{t('modbus.address_required')}</span>
               </label>
-              <input
-                type="number"
-                className="input input-bordered w-full"
+              <NumericInput
                 value={data.address || ''}
-                onChange={(e) => updateField('address', parseInt(e.target.value) || '')}
+                onChange={(v) => updateField('address', v)}
                 placeholder={t('modbus.address_placeholder')}
                 min={1}
                 max={247}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { FaServer, FaPlus, FaSave, FaEdit, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import axios from '@/api/axios';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface CANNode {
   node_id: number;
@@ -130,11 +131,10 @@ export default function CANNetwork() {
                       </td>
                       <td>
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            className="input input-sm input-bordered w-20"
+                          <NumericInput
+                            className="input-sm w-20"
                             value={newNodeId}
-                            onChange={(e) => setNewNodeId(parseInt(e.target.value) || 2)}
+                            onChange={(v) => setNewNodeId(v === '' ? 2 : v)}
                             min={2}
                             max={126}
                           />

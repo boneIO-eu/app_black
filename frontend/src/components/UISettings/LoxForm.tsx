@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface LoxFormProps {
   data: any;
@@ -104,11 +105,9 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange })
         <label className="label">
           <span className="label-text font-medium">{t('lox_config.send_port')}</span>
         </label>
-        <input
-          type="number"
-          className="input input-bordered w-full"
+        <NumericInput
           value={data?.send_port ?? 4444}
-          onChange={(e) => handleChange('send_port', parseInt(e.target.value) || 4444)}
+          onChange={(v) => handleChange('send_port', v === '' ? 4444 : v)}
           min={1}
           max={65535}
           placeholder="4444"
@@ -121,11 +120,9 @@ const LoxForm: React.FC<LoxFormProps> = ({ data, onChange, onValidationChange })
         <label className="label">
           <span className="label-text font-medium">{t('lox_config.listen_port')}</span>
         </label>
-        <input
-          type="number"
-          className="input input-bordered w-full"
+        <NumericInput
           value={data?.listen_port ?? 4445}
-          onChange={(e) => handleChange('listen_port', parseInt(e.target.value) || 4445)}
+          onChange={(v) => handleChange('listen_port', v === '' ? 4445 : v)}
           min={1}
           max={65535}
           placeholder="4445"

@@ -1,5 +1,6 @@
 import { useTranslation } from '@/hooks/useTranslation';
 import { CATEGORIES } from './types';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface DeviceInfoSectionProps {
   modelName: string;
@@ -77,11 +78,10 @@ export default function DeviceInfoSection({
             <span className="label-text">{t('modbus_creator.test_device_address')}</span>
             <span className="label-text-alt">{t('modbus_creator.test_device_hint')}</span>
           </label>
-          <input
-            type="number"
-            className="input input-bordered w-32"
+          <NumericInput
+            className="w-32"
             value={testDeviceAddress}
-            onChange={(e) => setTestDeviceAddress(parseInt(e.target.value) || 1)}
+            onChange={(v) => setTestDeviceAddress(v === '' ? 1 : v)}
             min={1}
             max={247}
           />

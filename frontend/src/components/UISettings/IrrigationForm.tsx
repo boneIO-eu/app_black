@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { copyToClipboard } from '@/utils/clipboard';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
@@ -240,16 +241,14 @@ function IrrigationZoneRow({ zone, index, totalZones, onChange, onRemove, onMove
                 <span className="label-text text-sm font-semibold">{t('irrigation.run_every_n')}</span>
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
+                <NumericInput
+                  className="input-sm w-20 text-center"
+                  value={zone.run_every_n || 1}
+                  onChange={(v) => {
+                    if (v !== '' && v >= 1) updateField('run_every_n', v);
+                  }}
                   min={1}
                   max={30}
-                  className="input input-bordered input-sm w-20 text-center"
-                  value={zone.run_every_n || 1}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 1) updateField('run_every_n', val);
-                  }}
                 />
               </div>
               <p className="text-xs text-base-content/50 mt-1">{t('irrigation.run_every_n_hint')}</p>

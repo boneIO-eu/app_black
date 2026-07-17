@@ -1,5 +1,6 @@
 import { useTranslation } from '@/hooks/useTranslation';
 import { FaPlus, FaTimes } from 'react-icons/fa';
+import { NumericInput } from '@/components/ui/NumericInput';
 
 interface SetBaseSectionProps {
   enableSetAddress: boolean;
@@ -66,11 +67,10 @@ export default function SetBaseSection({
                 <label className="label">
                   <span className="label-text">{t('modbus_creator.address_register')}</span>
                 </label>
-                <input
-                  type="number"
-                  className="input input-bordered input-sm w-32"
+                <NumericInput
+                  className="input-sm w-32"
                   value={setAddressAddress}
-                  onChange={(e) => setSetAddressAddress(parseInt(e.target.value) || 0)}
+                  onChange={(v) => setSetAddressAddress(v === '' ? 0 : v)}
                 />
               </div>
             )}
@@ -92,11 +92,10 @@ export default function SetBaseSection({
                   <label className="label">
                     <span className="label-text">{t('modbus_creator.baudrate_register')}</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input input-bordered input-sm w-32"
+                  <NumericInput
+                    className="input-sm w-32"
                     value={baudrateAddress}
-                    onChange={(e) => setBaudrateAddress(parseInt(e.target.value) || 0)}
+                    onChange={(v) => setBaudrateAddress(v === '' ? 0 : v)}
                   />
                 </div>
                 <div>

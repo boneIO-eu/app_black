@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from '@/api/axios';
+import { NumericInput } from '@/components/ui/NumericInput';
 import { FaPlus, FaTrash, FaSync } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -255,11 +256,9 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             <label className="label">
               <span className="label-text font-medium">{t('remote_devices.esphome_port') || 'Port'}</span>
             </label>
-            <input
-              type="number"
-              className="input input-bordered w-full"
+            <NumericInput
               value={data?.esphome_api?.port || 6053}
-              onChange={(e) => handleEsphomeApiChange('port', parseInt(e.target.value) || 6053)}
+              onChange={(v) => handleEsphomeApiChange('port', v === '' ? 6053 : v)}
               placeholder="6053"
             />
           </div>
@@ -536,11 +535,9 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
             <label className="label">
               <span className="label-text font-medium">{t('remote_devices.wled_port') || 'Port'}</span>
             </label>
-            <input
-              type="number"
-              className="input input-bordered w-full"
+            <NumericInput
               value={data?.wled?.port || 80}
-              onChange={(e) => handleChange('wled', { ...data?.wled, port: parseInt(e.target.value) || 80 })}
+              onChange={(v) => handleChange('wled', { ...data?.wled, port: v === '' ? 80 : v })}
               placeholder="80"
             />
           </div>
