@@ -191,10 +191,14 @@ class BoneIOGateCover:
     # -- MQTT ----------------------------------------------------------------
 
     async def start(self) -> None:
-        """Subscribe to MQTT command topic."""
+        """Subscribe to MQTT command topic and publish current state.
+
+        Initial sensor state is already set by TemplateManager during
+        configuration, so start() just subscribes and publishes.
+        """
         await self._message_bus.subscribe_and_listen(self._cmd_topic, self.handle_command)
         self._publish_state()
-        _LOGGER.info("GateCover %s started, subscribed to %s", self._id, self._cmd_topic)
+        _LOGGER.info("GateCover %s started (state=%s), subscribed to %s", self._id, self._state, self._cmd_topic)
 
     async def stop(self) -> None:
         """Unsubscribe from MQTT and cancel timers."""

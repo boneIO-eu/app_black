@@ -473,7 +473,11 @@ class RemoteDeviceManager:
                 action=action,
             )
 
-        # For WLED devices, use HTTP JSON API
+        # For WLED devices, use fire-and-forget HTTP JSON API.
+        # WLED HTTP requests can stall for seconds when the device is
+        # unreachable (DNS timeout on .local), which blocks the EventBus
+        # worker and freezes ALL input events.  Fire-and-forget schedules
+        # the request as a background task so the caller returns immediately.
         if device.protocol == RemoteDeviceProtocol.WLED:
             _LOGGER.debug("Controlling WLED '%s' segment '%s' on device '%s'", output_id, action, device_id)
             # Parse segment_id - "main" means whole device, otherwise it's segment ID
@@ -482,7 +486,9 @@ class RemoteDeviceManager:
             wled_rgb: tuple[int, int, int] | None = None
             if rgb and len(rgb) >= 3:
                 wled_rgb = (rgb[0], rgb[1], rgb[2])
-            return await cast(Any, device).control_light(
+            from boneio.core.remote.wled import WLEDRemoteDevice
+            wled_device = cast(WLEDRemoteDevice, device)
+            wled_device.control_light_fire_and_forget(
                 segment_id=segment_id,
                 action=action,
                 brightness=brightness,
@@ -494,6 +500,7 @@ class RemoteDeviceManager:
                 effect_speed=effect_speed,
                 effect_intensity=effect_intensity,
             )
+            return True  # Optimistic: task is scheduled
 
         # For MQTT devices, use standard control_output
         return await device.control_output(

@@ -143,10 +143,6 @@ class GateCoverManager:
                     self._input_map[sensor_id] = []
                 self._input_map[sensor_id].append(gate)
 
-        # Read current sensor states to set correct initial gate state.
-        # Without this, gate defaults to CLOSED which may be wrong.
-        self._sync_initial_state(closed_sensor_id, open_sensor_id)
-
         # Publish HA discovery
         self._publish_discovery(gate)
 
@@ -159,23 +155,69 @@ class GateCoverManager:
 
     def _sync_initial_state(
         self,
+        gate: BoneIOGateCover,
         closed_sensor_id: str | None,
         open_sensor_id: str | None,
     ) -> None:
-        """Sync initial gate state by asking InputManager to re-send sensor states.
+        """Read current sensor GPIO state and set gate cover's initial state.
 
-        Delegates to InputManager.send_current_state_for_input() which reads
-        live GPIO and fires an EventBus event. The gate cover's event listener
-        picks it up automatically — no direct GPIO access needed here.
+        Reads the binary sensor's ``is_active`` property directly —
+        no EventBus events are fired, no MQTT messages are published.
+        Gate cover's ``start()`` will publish the correct state later.
 
         Args:
+            gate: The gate cover instance to initialize.
             closed_sensor_id: ID of the closed contact sensor (or None).
             open_sensor_id: ID of the open contact sensor (or None).
         """
+        from boneio.components.input.binary_sensor import GpioInputBinarySensor
+        from boneio.components.template.gate_cover import CYCLE_CLOSE, CYCLE_OPEN
+        from boneio.const import CLOSED, IDLE, OPEN
+
         input_mgr = self._manager.inputs
-        for sensor_id in (closed_sensor_id, open_sensor_id):
-            if sensor_id:
-                input_mgr.send_current_state_for_input(sensor_id)
+
+        if closed_sensor_id:
+            sensor = input_mgr._inputs.get(closed_sensor_id)
+            if sensor and isinstance(sensor, GpioInputBinarySensor):
+                is_closed = sensor.is_active
+                _LOGGER.debug(
+                    "Gate %s: initial closed_sensor %s is_active=%s",
+                    gate.id, closed_sensor_id, is_closed,
+                )
+                if is_closed:
+                    gate._state = CLOSED
+                    gate._current_operation = IDLE
+                    gate._cycle_next = CYCLE_OPEN
+                elif not gate._has_open_sensor:
+                    gate._state = OPEN
+                    gate._current_operation = IDLE
+
+        if open_sensor_id:
+            sensor = input_mgr._inputs.get(open_sensor_id)
+            if sensor and isinstance(sensor, GpioInputBinarySensor):
+                is_open = sensor.is_active
+                _LOGGER.debug(
+                    "Gate %s: initial open_sensor %s is_active=%s",
+                    gate.id, open_sensor_id, is_open,
+                )
+                if is_open:
+                    gate._state = OPEN
+                    gate._current_operation = IDLE
+                    gate._cycle_next = CYCLE_CLOSE
+
+    def sync_initial_state(self, gate: BoneIOGateCover) -> None:
+        """Public entry point for setting gate's initial state from sensor GPIO.
+
+        Called by TemplateManager during start() when GPIO manager is ready.
+
+        Args:
+            gate: Gate cover to sync.
+        """
+        self._sync_initial_state(
+            gate,
+            gate._closed_sensor_id,
+            gate._open_sensor_id,
+        )
 
     # -- Removal -------------------------------------------------------------
 

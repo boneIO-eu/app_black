@@ -4,6 +4,17 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev12 (2026-07-18)
+
+### 🐛 Bug Fixes
+
+- **WLED `.local` DNS resolution** — Force `ThreadedResolver` (system NSS/Avahi) instead of aiohttp's default `AsyncResolver` (c-ares) which cannot resolve mDNS `.local` hostnames. This caused `Name or service not known` errors even though `ping` worked fine from the same host.
+- **WLED blocking all inputs** — WLED HTTP requests (with up to 10s DNS timeout) were blocking the EventBus worker, freezing ALL input events until the request completed. Now uses fire-and-forget pattern (`asyncio.create_task`) so WLED failures don't affect other inputs.
+- **WLED timeout reduced** — HTTP timeout reduced from 10s to 3s total / 2s connect for faster failure detection.
+- **Gate cover opening on restart** — Binary sensor `initial_send` events were routed through EventBus to gate covers, causing HA automations to trigger on every restart. Gate covers now read sensor state silently via `sync_initial_state()` during startup instead of relying on EventBus events. `publish_only` events are blocked from template routing.
+
+---
+
 ## v1.5.0dev9 (2026-07-17)
 
 Major UI overhaul for mobile, new configuration tools (Teach Mode, Binding Matrix, Quick Actions), serial number override for RMA exchanges, and significant performance improvements.

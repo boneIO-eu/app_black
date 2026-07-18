@@ -145,6 +145,9 @@ class TemplateManager:
         for alarm in self._alarms.items:
             await alarm.start()
         for gate in self._gates.items:
+            # Sync sensor state silently before start() publishes state.
+            # Done here (not in configure()) because GPIO manager is now running.
+            self._gates.sync_initial_state(gate)
             await gate.start()
         _LOGGER.info("TemplateManager started all entities")
 
@@ -242,6 +245,7 @@ class TemplateManager:
                 continue
             gate = self._gates.get(eid)
             if gate:
+                self._gates.sync_initial_state(gate)
                 await gate.start()
 
         # Re-register all sensor EventBus listeners (clean slate)

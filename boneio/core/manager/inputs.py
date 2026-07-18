@@ -801,15 +801,17 @@ class InputManager:
         # Send event to MQTT for Home Assistant
         self._publish_input_event_to_mqtt(input_instance, event)
 
-        # Route to template entities (gate covers, alarm panels)
-        # This must happen before the publish_only check so initial state
-        # sync events reach gate covers and alarm panels.
-        self._manager.templates.on_input_event(event.entity_id, event.click_type)
-
-        # If publish_only is set, skip action execution (used for initial state sync)
+        # If publish_only is set, skip action execution AND template routing.
+        # publish_only events come from initial state sync (binary_sensor
+        # initial_send) — routing them to gate covers would cause spurious
+        # state transitions that trigger HA automations on every restart.
+        # Gate covers read sensor state silently during their own start().
         if event.publish_only:
-            _LOGGER.debug("Skipping action execution for %s (publish_only=True)", event.entity_id)
+            _LOGGER.debug("Skipping actions and template routing for %s (publish_only=True)", event.entity_id)
             return
+
+        # Route to template entities (gate covers, alarm panels)
+        self._manager.templates.on_input_event(event.entity_id, event.click_type)
 
         # Cancel pending delayed actions if this event matches delay_cancel_on
         # Check ALL click types' actions for delay_cancel_on (not just current click_type)
