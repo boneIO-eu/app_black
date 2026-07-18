@@ -701,6 +701,12 @@ def init_app(
         _config_cache["mtime"] = _get_config_mtime(yaml_config_file)
         _LOGGER.info("Config cache pre-populated from initial_config")
 
+    # Initialize WLED metadata cache (effects/palettes/segments)
+    from boneio.core.remote.wled_cache import init_cache as init_wled_cache
+
+    config_dir = os.path.dirname(os.path.abspath(yaml_config_file))
+    init_wled_cache(config_dir)
+
     # Add auth middleware if configured
     if auth_config:
         username = auth_config.get("username")

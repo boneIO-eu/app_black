@@ -530,12 +530,24 @@ class WLEDRemoteDevice(RemoteDevice):
                 # Update internal segments list
                 self._segments = segments
                 
+                # Persist effects/palettes/segments to JSON cache
+                # (they are no longer stored in config.yaml)
+                from boneio.core.remote.wled_cache import update_device_metadata
+                update_device_metadata(
+                    self._id,
+                    effects=effects,
+                    palettes=palettes,
+                    segments=segments,
+                )
+                
                 _LOGGER.info(
-                    "Discovered WLED '%s' v%s with %d segments, %d LEDs",
+                    "Discovered WLED '%s' v%s with %d segments, %d LEDs, %d effects, %d palettes",
                     self._device_info["name"],
                     self._device_info["version"],
                     len(segments),
-                    self._device_info["led_count"]
+                    self._device_info["led_count"],
+                    len(effects),
+                    len(palettes),
                 )
                 
                 return self._device_info

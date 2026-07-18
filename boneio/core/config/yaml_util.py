@@ -1246,6 +1246,18 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         with contextlib.suppress(ValueError):
                             entry["address"] = int(addr, 10)
 
+    # Strip WLED device metadata (effects/palettes/segments) from remote_devices.
+    # These are auto-discovered from WLED API and cached in .wled_cache.json,
+    # NOT stored in config.yaml (defense in depth).
+    if section == "remote_devices" and isinstance(data, list):
+        _wled_cache_fields = ("effects", "palettes", "segments")
+        for entry in data:
+            if isinstance(entry, dict):
+                wled = entry.get("wled")
+                if isinstance(wled, dict):
+                    for field in _wled_cache_fields:
+                        wled.pop(field, None)
+
     # Strip default values to keep YAML clean
     cleaned_data = strip_default_values(data, {}, section)
     _LOGGER.info(f"Cleaned data (defaults removed): {cleaned_data}")

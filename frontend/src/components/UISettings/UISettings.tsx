@@ -866,7 +866,9 @@ export default function UISettings() {
         // Save each YAML key separately
         for (const key of yamlKeys) {
           console.log(`📤 Saving composite key ${key}:`, buckets[key]);
-          await axios.put(`/api/config/${key}`, buckets[key]);
+          await axios.put(`/api/config/${key}`, buckets[key], {
+            timeout: 15000, // Large configs can take seconds on ARM
+          });
         }
 
         // Determine reload strategy based on section type
@@ -921,7 +923,9 @@ export default function UISettings() {
       const bodyData = JSON.stringify(minimalConfig);
       console.log('📤 Sending to backend:', bodyData);
 
-      const response = await axios.put(`/api/config/${sectionName}`, minimalConfig);
+      const response = await axios.put(`/api/config/${sectionName}`, minimalConfig, {
+        timeout: 15000, // Large configs (e.g. WLED effects/palettes) can take seconds on ARM
+      });
       const result = response.data;
 
       if (response.status === 200) {

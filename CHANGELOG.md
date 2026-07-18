@@ -4,6 +4,26 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev13 (2026-07-18)
+
+### 🐛 Bug Fixes
+
+- **Config save timeout on large WLED configs** — Users with 7+ WLED devices experienced Axios 5s timeout when saving config. The 219 effects + 72 palettes per device created ~64KB of YAML data. Root causes:
+  - **`run_in_executor`** — `update_config_section()` (synchronous YAML I/O) now runs in a thread pool instead of blocking the async event loop.
+  - **Frontend timeout** — Config save timeout increased from 5s to 15s for large payloads.
+
+### ♻️ Refactoring
+
+- **WLED effects/palettes → JSON cache** — WLED effects, palettes, and segments (device firmware metadata) are now stored in `.wled_cache.json` instead of `config.yaml`. This reduces config size by 99% (64KB → 833 bytes) and eliminates YAML serialization bottleneck on ARM.
+  - **Config migration v4** — Existing configs are automatically migrated: effects/palettes/segments are extracted to `.wled_cache.json` and stripped from YAML.
+  - **Auto-populate** — Cache is automatically populated from WLED `/json` API on device connect.
+  - **New API** — `GET /api/remote-devices/{id}/wled_info` and `GET /api/remote-devices/wled_info` serve cached metadata to frontend.
+  - **Defense in depth** — `update_config_section()` strips WLED metadata from `remote_devices` before saving, even if frontend sends it back.
+  - **Not in backup** — Cache auto-regenerates from WLED API, not included in config backups.
+  - **Schema updated** — `effects`, `palettes`, `segments` removed from `remote_devices.yaml` schema.
+
+---
+
 ## v1.5.0dev12 (2026-07-18)
 
 ### 🐛 Bug Fixes

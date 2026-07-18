@@ -499,7 +499,19 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
 
     try:
         app_state = _get_app_state()
-        result = update_config_section(app_state.yaml_config_file, section, data)
+        # Offload synchronous YAML read/write/dump to a thread pool.
+        # On BeagleBone ARM, large configs (e.g. 7 WLED devices with 200+
+        # effects each = 64KB YAML) can take 3-5 seconds to serialize,
+        # blocking the entire async event loop and causing frontend timeouts.
+        import asyncio
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            update_config_section,
+            app_state.yaml_config_file,
+            section,
+            data,
+        )
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
 

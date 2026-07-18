@@ -483,3 +483,39 @@ async def control_remote_cover(
         raise HTTPException(status_code=500, detail="Failed to send command to remote device")
     
     return {"status": "success"}
+
+
+@router.get("/{device_id}/wled_info")
+async def get_wled_device_info(device_id: str) -> dict[str, Any]:
+    """Get cached WLED metadata (effects, palettes, segments) for a device.
+
+    This data is auto-populated from the WLED API on device connect
+    and stored in ``.wled_cache.json`` instead of config.yaml for performance.
+
+    Args:
+        device_id: WLED device identifier.
+
+    Returns:
+        Dict with 'effects', 'palettes', 'segments' lists.
+    """
+    from boneio.core.remote.wled_cache import get_device_metadata
+
+    metadata = get_device_metadata(device_id)
+    if not metadata:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No cached WLED metadata for device '{device_id}'",
+        )
+    return metadata
+
+
+@router.get("/wled_info")
+async def get_all_wled_info() -> dict[str, dict[str, Any]]:
+    """Get cached WLED metadata for all devices.
+
+    Returns:
+        Dict mapping device_id to {effects, palettes, segments}.
+    """
+    from boneio.core.remote.wled_cache import get_all_metadata
+
+    return get_all_metadata()
