@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
-import OutputSelectDropdown from './OutputSelectDropdown';
+import SearchableEntityPicker from './SearchableEntityPicker';
+import type { EntityItem } from './EntitySelectDropdown';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import {
@@ -53,6 +54,29 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
       const areaName = areaObj?.name || '';
       return { id, name, areaName, boneioInput: inp.boneio_input || '' };
     });
+
+  /** Convert allOutputs to EntityItem[] for SearchableEntityPicker. */
+  const outputItems: EntityItem[] = useMemo(
+    () =>
+      (allOutputs || [])
+        .filter((o: any) => o && (o.id || o.boneio_output))
+        .map((output: any) => {
+          const effectiveId = output.id || output.boneio_output;
+          const outputType = output.output_type;
+          return {
+            id: effectiveId,
+            name: output.name || effectiveId,
+            area: output.area || '',
+            badge: outputType && outputType !== 'none' ? outputType : undefined,
+            badgeClass:
+              outputType === 'light' ? 'badge-warning'
+              : outputType === 'switch' ? 'badge-info'
+              : outputType === 'valve' ? 'badge-accent'
+              : 'badge-ghost',
+          };
+        }),
+    [allOutputs]
+  );
 
   return (
     <div className="space-y-4">
@@ -156,12 +180,13 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
             <label className="label py-1">
               <span className="label-text text-sm font-semibold">{t('gate_cover.open_output')}</span>
             </label>
-            <OutputSelectDropdown
+            <SearchableEntityPicker
               value={data.open_output || ''}
               onChange={(v: string) => updateField('open_output', v)}
-              allOutputs={allOutputs}
+              items={outputItems}
               allAreas={allAreas}
               placeholder={t('gate_cover.select_output')}
+              recentKey="gate-outputs"
             />
           </div>
           {/* Close Output */}
@@ -169,12 +194,13 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
             <label className="label py-1">
               <span className="label-text text-sm font-semibold">{t('gate_cover.close_output')}</span>
             </label>
-            <OutputSelectDropdown
+            <SearchableEntityPicker
               value={data.close_output || ''}
               onChange={(v: string) => updateField('close_output', v)}
-              allOutputs={allOutputs}
+              items={outputItems}
               allAreas={allAreas}
               placeholder={t('gate_cover.select_output')}
+              recentKey="gate-outputs"
             />
           </div>
           {/* Stop Output (optional) */}
@@ -184,12 +210,13 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
                 {t('gate_cover.stop_output')} <span className="font-normal opacity-50">({t('template.optional')})</span>
               </span>
             </label>
-            <OutputSelectDropdown
+            <SearchableEntityPicker
               value={data.stop_output || ''}
               onChange={(v: string) => updateField('stop_output', v || undefined)}
-              allOutputs={allOutputs}
+              items={outputItems}
               allAreas={allAreas}
               placeholder={t('gate_cover.select_output')}
+              recentKey="gate-outputs"
             />
           </div>
         </>
@@ -199,12 +226,13 @@ const GateCoverForm: React.FC<TemplateSubFormProps> = ({
           <label className="label py-1">
             <span className="label-text text-sm font-semibold">{t('gate_cover.pulse_output')}</span>
           </label>
-          <OutputSelectDropdown
+          <SearchableEntityPicker
             value={data.pulse_output || ''}
             onChange={(v: string) => updateField('pulse_output', v)}
-            allOutputs={allOutputs}
+            items={outputItems}
             allAreas={allAreas}
             placeholder={t('gate_cover.select_output')}
+            recentKey="gate-outputs"
           />
         </div>
       )}

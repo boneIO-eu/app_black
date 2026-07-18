@@ -52,6 +52,7 @@ from boneio.core.manager.templates import TemplateManager
 from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
+from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner, MigrationStatus
 
@@ -657,23 +658,19 @@ class Manager:
             """Copy long press meta fields (duration thresholds, repeat), delay, and conditions to parsed action."""
             for key in ("min_duration", "max_duration"):
                 if action_definition.get(key) is not None:
-                    parsed_action[key] = action_definition[key]
+                    parsed_action[key] = parse_time_to_ms(action_definition[key], None)
             if action_definition.get("repeat"):
                 parsed_action["repeat"] = True
                 ri = action_definition.get("repeat_interval", 1000)
-                # TimePeriod object from schema validation -> convert to ms
-                if hasattr(ri, "total_milliseconds"):
-                    parsed_action["repeat_interval"] = ri.total_milliseconds
-                else:
-                    parsed_action["repeat_interval"] = ri
+                # Safely convert TimePeriod, string ("1s"), or number to ms
+                parsed_action["repeat_interval"] = parse_time_to_ms(ri, 1000)
             # Copy delay fields for cancelable timer support
             delay_val = action_definition.get("delay")
             if delay_val is not None:
-                if hasattr(delay_val, "total_in_seconds"):
-                    parsed_action["delay"] = delay_val.total_in_seconds
-                elif isinstance(delay_val, (int, float)):
-                    parsed_action["delay"] = float(delay_val)
-                _LOGGER.debug("Action has delay: %.1fs", parsed_action.get("delay", 0))
+                # Safely convert TimePeriod, string ("5s"), or number to seconds
+                parsed_delay = parse_time_to_seconds(delay_val, 0.0)
+                parsed_action["delay"] = parsed_delay
+                _LOGGER.debug("Action has delay: %.1fs", parsed_delay)
             cancel_on = action_definition.get("delay_cancel_on")
             if cancel_on:
                 parsed_action["delay_cancel_on"] = cancel_on
@@ -818,13 +815,11 @@ class Manager:
                             val = action_definition.get(opt_key)
                             if val is not None:
                                 parsed_action[opt_key] = val
-                        # Convert transition TimePeriod to float seconds
+                        # Convert transition TimePeriod/string to float seconds
                         if "transition" in parsed_action:
-                            t_val = parsed_action["transition"]
-                            if hasattr(t_val, "total_in_seconds"):
-                                parsed_action["transition"] = t_val.total_in_seconds
-                            elif not isinstance(t_val, (int, float)):
-                                parsed_action["transition"] = 0.0
+                            parsed_action["transition"] = parse_time_to_seconds(
+                                parsed_action["transition"], 0.0
+                            )
                         _copy_long_press_meta(parsed_action, action_definition)
                         parsed_actions[click_type].append(parsed_action)
                         continue
@@ -1089,11 +1084,7 @@ class Manager:
             if transition_val and action_definition.get("repeat"):
                 repeat_interval = action_definition.get("repeat_interval")
                 if repeat_interval:
-                    ri_seconds = (
-                        repeat_interval.total_in_seconds
-                        if hasattr(repeat_interval, "total_in_seconds")
-                        else repeat_interval / 1000.0
-                    )
+                    ri_seconds = parse_time_to_seconds(repeat_interval, 1.0)
                     if transition_val > ri_seconds:
                         _LOGGER.debug(
                             "Clamping transition %.3fs to repeat_interval %.3fs",

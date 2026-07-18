@@ -1,7 +1,20 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import AreaSelect from './widgets/AreaSelect';
-import OutputSelectDropdown from './OutputSelectDropdown';
+import SearchableEntityPicker from './SearchableEntityPicker';
+import SearchableMultiEntityPicker from './SearchableMultiEntityPicker';
 import { sanitizeId } from './helpers/idValidation';
+import {
+  buildTemperatureSensors,
+  buildSensorItems,
+  buildOutputItems,
+} from './helpers/thermostatHelpers';
+import type {
+  ThermostatData,
+  ModbusModelInfo,
+  SensorConfigEntry,
+  ModbusDeviceEntry,
+  OutputConfigEntry,
+} from './helpers/thermostatHelpers';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
 import {
@@ -13,12 +26,6 @@ import {
 } from '@/components/ui/select';
 import type { TemplateSubFormProps } from './types/template';
 import axios from '@/api/axios';
-
-interface TemperatureSensor {
-  id: string;
-  label: string;
-  source: string;
-}
 
 /**
  * ThermostatForm — configuration form for the thermostat template platform.
@@ -36,92 +43,57 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
-  const [modbusModels, setModbusModels] = useState<Record<string, {
-    has_temperature: boolean;
-    temperature_sensors?: { name: string; suffix: string }[];
-  }>>({});
+  const [modbusModels, setModbusModels] = useState<Record<string, ModbusModelInfo>>({});
 
-  const updateField = (field: string, value: any) => {
+  /** Typed accessor for thermostat form data. */
+  const formData = data as ThermostatData;
+
+  const updateField = <K extends keyof ThermostatData>(field: K, value: ThermostatData[K]) => {
     onChange({ ...data, [field]: value });
   };
 
   // Fetch Modbus model capabilities once
   useEffect(() => {
     axios.get('/api/modbus/models')
-      .then((res) => setModbusModels(res.data.models || {}))
+      .then((res) => setModbusModels((res.data as { models?: Record<string, ModbusModelInfo> }).models || {}))
       .catch(() => {});
   }, []);
 
-  /**
-   * Build a unified list of temperature sensors from all sources:
-   * - 1-Wire sensors (sensor section)
-   * - I2C sensors (LM75, MCP9808)
-   * - Modbus devices whose model has_temperature capability
-   */
-  const temperatureSensors: TemperatureSensor[] = useMemo(() => {
-    const sensors: TemperatureSensor[] = [];
+  /** Build temperature sensors from all config sources using extracted helper. */
+  const temperatureSensors = useMemo(
+    () => buildTemperatureSensors(
+      allSensors as SensorConfigEntry[],
+      allModbusDevices as ModbusDeviceEntry[],
+      modbusModels,
+    ),
+    [allSensors, allModbusDevices, modbusModels]
+  );
 
-    for (const s of allSensors) {
-      const src = s._source || '';
-      if (src === 'lm75' || src === 'mcp9808') {
-        // I2C temperature sensors (LM75/PCT2075, MCP9808)
-        const id = (s.id || '').replace(/\s/g, '');
-        if (id) {
-          sensors.push({
-            id,
-            label: s.id || `${src.toUpperCase()} @ 0x${(s.address ?? 0).toString(16)}`,
-            source: src.toUpperCase(),
-          });
-        }
-      } else {
-        // 1-Wire / Dallas sensors
-        const id = s.id || s.address || '';
-        if (id) {
-          sensors.push({
-            id,
-            label: s.name || s.id || s.address,
-            source: '1-Wire',
-          });
-        }
-      }
-    }
+  /** Currently selected sensor IDs (handles legacy single sensor_id). */
+  const selectedSensorIds: string[] = useMemo(
+    () => formData.sensor_ids || (formData.sensor_id ? [formData.sensor_id] : []),
+    [formData.sensor_ids, formData.sensor_id]
+  );
 
-    // Modbus devices — use capabilities from /api/modbus/models
-    // devId must match backend coordinator ID generation:
-    //   custom id: str(id).replace(' ','').lower()
-    //   auto id:   `${address}_${model}`.lower().replace(' ', '_')
-    for (const dev of allModbusDevices) {
-      const model = (dev.model || '').toLowerCase();
-      const devId = dev.id
-        ? String(dev.id).replace(/\s/g, '').toLowerCase()
-        : `${dev.address}_${model}`.toLowerCase().replace(/\s/g, '_');
-      const modelInfo = modbusModels[model];
-      if (modelInfo?.has_temperature) {
-        const tempSensors = modelInfo.temperature_sensors || [];
-        if (tempSensors.length > 1) {
-          // Multi-sensor device (e.g. R4DCB08 with 8 temperatures) — list each individually
-          for (const ts of tempSensors) {
-            sensors.push({
-              id: `${devId}_${ts.suffix}`,
-              label: `${dev.name || devId} → ${ts.name}`,
-              source: 'Modbus',
-            });
-          }
-        } else {
-          // Single temperature sensor — use suffix from model or fallback
-          const suffix = tempSensors.length === 1 ? tempSensors[0].suffix : 'temperature';
-          const name = tempSensors.length === 1 ? tempSensors[0].name : t('template.modbus_temp');
-          sensors.push({
-            id: `${devId}_${suffix}`,
-            label: `${dev.name || devId} (${name})`,
-            source: 'Modbus',
-          });
-        }
-      }
-    }
+  /** Sensor items for the multi-select picker (includes orphan/unavailable items). */
+  const sensorItems = useMemo(
+    () => buildSensorItems(temperatureSensors, selectedSensorIds, t('common.unavailable')),
+    [temperatureSensors, selectedSensorIds, t]
+  );
 
-    return sensors;
-  }, [allSensors, allModbusDevices, modbusModels, t]);
+  /** Handle sensor selection changes, keeping both sensor_ids and legacy sensor_id in sync. */
+  const handleSensorChange = useCallback(
+    (newIds: string[]) => {
+      onChange({ ...data, sensor_ids: newIds, sensor_id: newIds[0] || '' });
+    },
+    [data, onChange]
+  );
+
+  /** Output items for the single-select picker. */
+  const outputItems = useMemo(
+    () => buildOutputItems(allOutputs as OutputConfigEntry[]),
+    [allOutputs]
+  );
 
   return (
     <TabsBox
@@ -176,62 +148,19 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 hideHint
               />
 
-              {/* Temperature Sensors — multi-select checkboxes */}
+              {/* Temperature Sensors — multi-select picker */}
               <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('template.sensor_id')} *</span>
-                </label>
-                {(() => {
-                  const selectedIds: string[] = data.sensor_ids || (data.sensor_id ? [data.sensor_id] : []);
-                  const toggleSensor = (sensorId: string) => {
-                    const newIds = selectedIds.includes(sensorId)
-                      ? selectedIds.filter((id: string) => id !== sensorId)
-                      : [...selectedIds, sensorId];
-                    onChange({ ...data, sensor_ids: newIds, sensor_id: newIds[0] || '' });
-                  };
-                  // IDs selected manually that are not in the known sensor list
-                  const knownIds = new Set(temperatureSensors.map((s) => s.id));
-                  const manualIds = selectedIds.filter((id) => !knownIds.has(id));
-
-                  return (
-                    <div className="space-y-2">
-                      {temperatureSensors.length > 0 && (
-                        <div className="space-y-1 p-3 bg-base-200 rounded-lg max-h-48 overflow-y-auto">
-                          {temperatureSensors.map((sensor) => (
-                            <label key={sensor.id} className="flex items-center gap-2 cursor-pointer py-1">
-                              <input
-                                type="checkbox"
-                                className="checkbox checkbox-sm checkbox-primary"
-                                checked={selectedIds.includes(sensor.id)}
-                                onChange={() => toggleSensor(sensor.id)}
-                              />
-                              <span className="badge badge-xs badge-outline">{sensor.source}</span>
-                              <span className="text-sm">{sensor.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                      {temperatureSensors.length === 0 && selectedIds.length === 0 && (
-                        <div className="text-sm text-base-content/50 italic p-3 bg-base-200 rounded-lg">
-                          {t('template.no_sensors_available')}
-                        </div>
-                      )}
-                      {/* Manually added IDs (not in known sensor list) — shown as removable chips */}
-                      {manualIds.map((id) => (
-                        <div key={id} className="flex items-center gap-2 px-3 py-1 bg-base-200 rounded-lg">
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm checkbox-primary"
-                            checked
-                            onChange={() => toggleSensor(id)}
-                          />
-                          <span className="badge badge-xs badge-ghost">manual</span>
-                          <span className="text-sm font-mono">{id}</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                <SearchableMultiEntityPicker
+                  value={selectedSensorIds}
+                  onChange={handleSensorChange}
+                  items={sensorItems}
+                  allAreas={allAreas}
+                  label={`${t('template.sensor_id')} *`}
+                  placeholder={t('template.select_sensors')}
+                  required
+                  errorMessage={t('template.sensor_required')}
+                  preferredArea={data.area}
+                />
                 <label className="label">
                   <span className="label-text-alt text-info">{t('template.sensor_ids_hint')}</span>
                 </label>
@@ -242,12 +171,13 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 <label className="label">
                   <span className="label-text font-medium">{t('template.output_id')} *</span>
                 </label>
-                <OutputSelectDropdown
+                <SearchableEntityPicker
                   value={data.output_id || ''}
                   onChange={(value: string) => updateField('output_id', value)}
-                  allOutputs={allOutputs}
+                  items={outputItems}
                   allAreas={allAreas}
                   placeholder={t('template.select_output')}
+                  recentKey="thermostat-outputs"
                 />
                 <label className="label">
                   <span className="label-text-alt text-info">{t('template.output_id_hint')}</span>
@@ -295,7 +225,7 @@ const ThermostatForm: React.FC<TemplateSubFormProps> = ({
                 </label>
                 <Select
                   value={data.mode || 'heat'}
-                  onValueChange={(value) => updateField('mode', value)}
+                  onValueChange={(value) => updateField('mode', value as ThermostatData['mode'])}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />

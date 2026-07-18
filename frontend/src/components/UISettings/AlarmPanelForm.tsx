@@ -1,8 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { FaPlus, FaTrash, FaWifi } from 'react-icons/fa';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
-import OutputSelectDropdown from './OutputSelectDropdown';
+import SearchableMultiEntityPicker from './SearchableMultiEntityPicker';
+import { buildOutputItems } from './helpers/thermostatHelpers';
+import type { OutputConfigEntry } from './helpers/thermostatHelpers';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import { TabsBox } from '@/components/ui/tabs-box';
@@ -13,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import HelpLabel from './components/HelpLabel';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import type { TemplateSubFormProps, AlarmZone, AlarmOutput, AlarmPin, ZoneInput } from './types/template';
 import { ARM_MODE_OPTIONS, OUTPUT_TYPE_OPTIONS } from './types/template';
 
@@ -134,25 +136,6 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   const getZoneInputIds = (zone: AlarmZone): string[] =>
     getZoneInputs(zone).map((zi) => zi.id);
 
-  const addInputToZone = (zoneIndex: number, inputId: string, source: 'local' | 'remote' = 'local') => {
-    const zone = zones[zoneIndex];
-    if (!getZoneInputIds(zone).includes(inputId)) {
-      const normalized = getZoneInputs(zone);
-      const newInput: ZoneInput = {
-        id: inputId,
-        type: 'normally_closed',
-        ...(source === 'remote' ? { source: 'remote', on_disconnect: 'ignore' } : {}),
-      };
-      updateZone(zoneIndex, 'inputs', [...normalized, newInput]);
-    }
-  };
-
-  const removeInputFromZone = (zoneIndex: number, inputId: string) => {
-    const zone = zones[zoneIndex];
-    const normalized = getZoneInputs(zone);
-    updateZone(zoneIndex, 'inputs', normalized.filter((zi) => zi.id !== inputId));
-  };
-
   const toggleInputType = (zoneIndex: number, inputId: string) => {
     const zone = zones[zoneIndex];
     const normalized = getZoneInputs(zone);
@@ -177,13 +160,6 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
   const alarmOutputs: AlarmOutput[] = data.outputs || [];
   const updateAlarmOutputs = (newOutputs: AlarmOutput[]) => updateField('outputs', newOutputs);
 
-  const addAlarmOutput = () => {
-    updateAlarmOutputs([...alarmOutputs, { id: '', type: 'siren' }]);
-  };
-
-  const removeAlarmOutput = (index: number) => {
-    updateAlarmOutputs(alarmOutputs.filter((_, i) => i !== index));
-  };
 
   const updateAlarmOutput = (index: number, field: string, value: string) => {
     const newOutputs = [...alarmOutputs];
@@ -225,6 +201,30 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
         source: 'remote' as const,
       };
     });
+
+  /** Convert allOutputs to EntityItem[] for SearchableMultiEntityPicker. */
+  const outputItems = useMemo(
+    () => buildOutputItems(allOutputs as OutputConfigEntry[]),
+    [allOutputs]
+  );
+
+  /** Combine local + remote inputs into EntityItem[] for SearchableMultiEntityPicker. */
+  const inputItems = useMemo(() => {
+    const localItems = enrichedInputs.map((inp) => ({
+      id: inp.id,
+      name: inp.name || inp.id,
+      area: inp.area,
+      badge: inp.boneioInput && inp.boneioInput !== inp.id ? inp.boneioInput : undefined,
+      badgeClass: 'badge-ghost' as const,
+    }));
+    const remoteItems = enrichedRemoteInputs.map((inp) => ({
+      id: inp.id,
+      name: inp.name || inp.id,
+      badge: '📡 Remote',
+      badgeClass: 'badge-primary' as const,
+    }));
+    return [...localItems, ...remoteItems];
+  }, [enrichedInputs, enrichedRemoteInputs]);
 
   return (
     <TabsBox
@@ -281,53 +281,56 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
 
               {/* Outputs */}
               <div className="form-control">
-                <label className="label">
-                  <span className="label-text font-medium">{t('template.alarm_outputs')}</span>
-                </label>
-                <div className="space-y-2">
-                  {alarmOutputs.map((out, idx) => (
-                    <div key={idx} className="flex gap-2 items-start p-3 bg-base-200 rounded-lg">
-                      <div className="flex-1 space-y-2">
-                        <OutputSelectDropdown
-                          value={out.id || ''}
-                          onChange={(value: string) => updateAlarmOutput(idx, 'id', value)}
-                          allOutputs={allOutputs}
-                          allAreas={allAreas}
-                          placeholder={t('template.select_output')}
-                        />
-                        <Select
-                          value={out.type || 'siren'}
-                          onValueChange={(value) => updateAlarmOutput(idx, 'type', value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {OUTPUT_TYPE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt} value={opt}>
-                                {t(`template.output_type_${opt}`)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm btn-square text-error"
-                        onClick={() => removeAlarmOutput(idx)}
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm gap-2"
-                    onClick={addAlarmOutput}
-                  >
-                    <FaPlus /> {t('template.add_output')}
-                  </button>
-                </div>
+                <SearchableMultiEntityPicker
+                  value={alarmOutputs.map((o) => o.id)}
+                  onChange={(selectedIds: string[]) => {
+                    // Sync AlarmOutput[] with selected IDs, preserving existing types
+                    const existingMap = new Map(alarmOutputs.map((o) => [o.id, o.type || 'siren']));
+                    const newOutputs: AlarmOutput[] = selectedIds.map((id) => ({
+                      id,
+                      type: existingMap.get(id) || 'siren',
+                    }));
+                    updateAlarmOutputs(newOutputs);
+                  }}
+                  items={outputItems}
+                  allAreas={allAreas}
+                  label={t('template.alarm_outputs')}
+                  placeholder={t('template.select_output')}
+                  preferredArea={data.area}
+                />
+                {/* Per-output type selectors */}
+                {alarmOutputs.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <label className="label py-0">
+                      <span className="label-text-alt font-medium">{t('template.output_types')}</span>
+                    </label>
+                    {alarmOutputs.map((out, idx) => {
+                      const outputInfo = outputItems.find((o) => o.id === out.id);
+                      return (
+                        <div key={out.id} className="flex items-center gap-2 px-3 py-2 bg-base-200 rounded-lg">
+                          <span className="flex-1 text-sm font-medium truncate">
+                            {outputInfo?.name || out.id}
+                          </span>
+                          <Select
+                            value={out.type || 'siren'}
+                            onValueChange={(value) => updateAlarmOutput(idx, 'type', value)}
+                          >
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OUTPUT_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {t(`template.output_type_${opt}`)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* PIN Codes */}
@@ -335,36 +338,51 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 <label className="label">
                   <span className="label-text font-medium">{t('template.alarm_codes')}</span>
                 </label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {pinCodes.map((pin, idx) => {
                     const codeIsHash = isSha256(pin.code || '');
                     const hasOriginalHash = !!originalHashesRef.current[idx] || codeIsHash;
                     const displayValue = codeIsHash ? '' : (pin.code || '');
                     return (
-                      <div key={idx} className="flex gap-2 items-center p-3 bg-base-200 rounded-lg">
-                        <input
-                          type="text"
-                          className="input input-sm flex-1"
-                          value={pin.name || ''}
-                          onChange={(e) => updatePinCode(idx, 'name', e.target.value)}
-                          placeholder={t('template.pin_name_placeholder')}
-                        />
-                        <input
-                          type="password"
-                          className="input input-sm w-28 font-mono"
-                          value={displayValue}
-                          onChange={(e) => updatePinCode(idx, 'code', e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder={hasOriginalHash ? '••••••' : t('template.alarm_code_placeholder')}
-                          inputMode="numeric"
-                          maxLength={8}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm btn-square text-error"
-                          onClick={() => removePinCode(idx)}
-                        >
-                          <FaTrash />
-                        </button>
+                      <div key={idx} className="p-3 bg-base-200 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-base-content/60">
+                            {t('template.pin_code')} #{idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs btn-square text-error"
+                            onClick={() => removePinCode(idx)}
+                          >
+                            <FaTrash />
+                          </button>
+                        </div>
+                        <div className="form-control">
+                          <label className="label py-0">
+                            <span className="label-text text-sm">{t('template.pin_user_name')}</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="input input-sm w-full"
+                            value={pin.name || ''}
+                            onChange={(e) => updatePinCode(idx, 'name', e.target.value)}
+                            placeholder={t('template.pin_name_placeholder')}
+                          />
+                        </div>
+                        <div className="form-control">
+                          <label className="label py-0">
+                            <span className="label-text text-sm">{t('template.pin_code_label')}</span>
+                          </label>
+                          <input
+                            type="password"
+                            className="input input-sm w-full font-mono"
+                            value={displayValue}
+                            onChange={(e) => updatePinCode(idx, 'code', e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder={hasOriginalHash ? '••••••' : t('template.alarm_code_placeholder')}
+                            inputMode="numeric"
+                            maxLength={8}
+                          />
+                        </div>
                       </div>
                     );
                   })}
@@ -422,7 +440,7 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                       </div>
 
                       {/* Arm modes */}
-                      <div className={`form-control p-2 rounded-lg ${(zone.arm_modes?.length === 0 || !zone.arm_modes) ? 'border border-error bg-error/10' : ''}`}>
+                      <div className={`form-control p-3 rounded-lg ${(zone.arm_modes?.length === 0 || !zone.arm_modes) ? 'border border-error bg-error/10' : ''}`}>
                         <label className="label py-1">
                           <span className="label-text text-sm font-medium">
                             {t('template.arm_modes')}
@@ -431,12 +449,12 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                             )}
                           </span>
                         </label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-col gap-2 mt-1">
                           {ARM_MODE_OPTIONS.map((mode) => (
-                            <label key={mode} className="label cursor-pointer gap-2 p-0">
+                            <label key={mode} className="flex items-center cursor-pointer gap-3">
                               <input
                                 type="checkbox"
-                                className="checkbox checkbox-sm"
+                                className="toggle toggle-sm toggle-primary"
                                 checked={(zone.arm_modes || []).includes(mode)}
                                 onChange={() => toggleZoneArmMode(zIdx, mode)}
                               />
@@ -447,162 +465,114 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                       </div>
 
                       {/* Entry delay */}
-                      <label className="label cursor-pointer justify-start gap-3 p-0">
-                        <input
-                          type="checkbox"
-                          className="checkbox checkbox-sm"
-                          checked={zone.entry_delay || false}
-                          onChange={(e) => updateZone(zIdx, 'entry_delay', e.target.checked)}
-                        />
-                        <span className="label-text text-sm">{t('template.entry_delay')}</span>
-                      </label>
+                      <div className="px-3">
+                        <label className="flex items-center cursor-pointer gap-3">
+                          <input
+                            type="checkbox"
+                            className="toggle toggle-sm toggle-primary"
+                            checked={zone.entry_delay || false}
+                            onChange={(e) => updateZone(zIdx, 'entry_delay', e.target.checked)}
+                          />
+                          <span className="label-text text-sm">{t('template.entry_delay')}</span>
+                        </label>
+                        <p className="text-xs text-base-content/50 mt-1 ml-12">
+                          {t('template.entry_delay_hint')}
+                        </p>
+                      </div>
 
                       {/* Inputs */}
                       <div className="form-control">
-                        <label className="label py-1">
-                          <span className="label-text text-sm">{t('template.zone_inputs')}</span>
-                        </label>
-                        <div className="space-y-1 mb-2">
-                          {getZoneInputs(zone).map((zi) => {
-                            const isRemote = zi.source === 'remote';
-                            const localInfo = !isRemote ? enrichedInputs.find((e) => e.id === zi.id) : null;
-                            const remoteInfo = isRemote ? enrichedRemoteInputs.find((e) => e.id === zi.id) : null;
-
-                            let label: string;
-                            if (localInfo) {
-                              label = `${localInfo.name || zi.id}${localInfo.boneioInput ? ` (${localInfo.boneioInput})` : ''}${localInfo.areaName ? ` · ${localInfo.areaName}` : ''}`;
-                            } else if (remoteInfo) {
-                              label = `${remoteInfo.name || zi.id}${remoteInfo.inputId ? ` (${remoteInfo.inputId})` : ''}`;
-                            } else {
-                              label = zi.id;
-                            }
-
-                            return (
-                              <div key={zi.id} className={`flex items-center gap-2 p-2 rounded-lg ${isRemote ? 'bg-primary/10 border border-primary/20' : 'bg-base-300'}`}>
-                                {isRemote && (
-                                  <FaWifi className="text-primary shrink-0 w-3 h-3" title={t('template.remote_input')} />
-                                )}
-                                <span className="flex-1 text-sm font-medium truncate" title={label}>
-                                  {label}
-                                </span>
-                                {/* NC/NO toggle — only for local inputs */}
-                                {!isRemote && (
-                                  <button
-                                    type="button"
-                                    className={`btn btn-xs ${zi.type === 'normally_closed'
-                                      ? 'btn-info'
-                                      : 'btn-warning'
-                                      }`}
-                                    onClick={() => toggleInputType(zIdx, zi.id)}
-                                    title={zi.type === 'normally_closed'
-                                      ? t('template.wiring_nc_hint')
-                                      : t('template.wiring_no_hint')}
-                                  >
-                                    {zi.type === 'normally_closed' ? 'NC' : 'NO'}
-                                  </button>
-                                )}
-                                {/* On disconnect toggle — only for remote inputs */}
-                                {isRemote && (
-                                  <button
-                                    type="button"
-                                    className={`btn btn-xs ${zi.on_disconnect === 'trigger'
-                                      ? 'btn-error'
-                                      : 'btn-ghost border-base-content/20'
-                                      }`}
-                                    onClick={() => toggleOnDisconnect(zIdx, zi.id)}
-                                    title={zi.on_disconnect === 'trigger'
-                                      ? t('template.on_disconnect_trigger_hint')
-                                      : t('template.on_disconnect_ignore_hint')}
-                                  >
-                                    {zi.on_disconnect === 'trigger'
-                                      ? t('template.on_disconnect_trigger')
-                                      : t('template.on_disconnect_ignore')}
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-xs btn-square text-error"
-                                  onClick={() => removeInputFromZone(zIdx, zi.id)}
-                                >
-                                  ×
-                                </button>
-                              </div>
+                        <SearchableMultiEntityPicker
+                          value={getZoneInputIds(zone)}
+                          onChange={(selectedIds: string[]) => {
+                            // Sync zone inputs with selected IDs, preserving existing config
+                            const existingMap = new Map(
+                              getZoneInputs(zone).map((zi) => [zi.id, zi])
                             );
-                          })}
-                        </div>
+                            const newInputs: ZoneInput[] = selectedIds.map((id) => {
+                              const existing = existingMap.get(id);
+                              if (existing) return existing;
+                              // Determine if remote
+                              const isRemote = enrichedRemoteInputs.some((r) => r.id === id);
+                              return {
+                                id,
+                                type: 'normally_closed' as const,
+                                ...(isRemote ? { source: 'remote' as const, on_disconnect: 'ignore' as const } : {}),
+                              };
+                            });
+                            updateZone(zIdx, 'inputs', newInputs);
+                          }}
+                          items={inputItems}
+                          allAreas={allAreas}
+                          label={t('template.zone_inputs')}
+                          placeholder={t('template.add_input')}
+                          preferredArea={data.area}
+                        />
+                        {/* Per-input configuration */}
+                        {getZoneInputs(zone).length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {getZoneInputs(zone).map((zi) => {
+                              const isRemote = zi.source === 'remote';
+                              const info = inputItems.find((item) => item.id === zi.id);
 
-                        {/* Local inputs selector */}
-                        {enrichedInputs.length > 0 && (
-                          <Select
-                            value=""
-                            onValueChange={(value) => {
-                              if (value) addInputToZone(zIdx, value, 'local');
-                            }}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder={t('template.add_input')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {enrichedInputs
-                                .filter((inp) => !getZoneInputIds(zone).includes(inp.id))
-                                .map((inp) => (
-                                  <SelectItem key={inp.id} value={inp.id}>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium">{inp.name || inp.id}</span>
-                                      {inp.boneioInput && (
-                                        <span className="text-xs opacity-60">{inp.boneioInput}</span>
-                                      )}
-                                      {inp.areaName && (
-                                        <span className="text-xs opacity-50">· {inp.areaName}</span>
-                                      )}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-
-                        {/* Remote inputs selector */}
-                        {enrichedRemoteInputs.length > 0 && (
-                          <div className="mt-2">
-                            <Select
-                              value=""
-                              onValueChange={(value) => {
-                                if (value) addInputToZone(zIdx, value, 'remote');
-                              }}
-                            >
-                              <SelectTrigger className="w-full border-primary/30">
-                                <div className="flex items-center gap-2">
-                                  <FaWifi className="text-primary w-3 h-3" />
-                                  <SelectValue placeholder={t('template.add_remote_input')} />
+                              return (
+                                <div
+                                  key={zi.id}
+                                  className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                                    isRemote ? 'bg-primary/10 border border-primary/20' : 'bg-base-200'
+                                  }`}
+                                >
+                                  {isRemote && (
+                                    <FaWifi className="text-primary shrink-0 w-3 h-3" title={t('template.remote_input')} />
+                                  )}
+                                  <span className="flex-1 text-sm font-medium truncate" title={info?.name || zi.id}>
+                                    {info?.name || zi.id}
+                                    {info?.badge && (
+                                      <span className="text-xs opacity-60 ml-1">({info.badge})</span>
+                                    )}
+                                  </span>
+                                  {/* NC/NO toggle — only for local inputs */}
+                                  {!isRemote && (
+                                    <button
+                                      type="button"
+                                      className={`btn btn-xs ${
+                                        zi.type === 'normally_closed' ? 'btn-info' : 'btn-warning'
+                                      }`}
+                                      onClick={() => toggleInputType(zIdx, zi.id)}
+                                      title={
+                                        zi.type === 'normally_closed'
+                                          ? t('template.wiring_nc_hint')
+                                          : t('template.wiring_no_hint')
+                                      }
+                                    >
+                                      {zi.type === 'normally_closed' ? 'NC' : 'NO'}
+                                    </button>
+                                  )}
+                                  {/* On disconnect toggle — only for remote inputs */}
+                                  {isRemote && (
+                                    <button
+                                      type="button"
+                                      className={`btn btn-xs ${
+                                        zi.on_disconnect === 'trigger'
+                                          ? 'btn-error'
+                                          : 'btn-ghost border-base-content/20'
+                                      }`}
+                                      onClick={() => toggleOnDisconnect(zIdx, zi.id)}
+                                      title={
+                                        zi.on_disconnect === 'trigger'
+                                          ? t('template.on_disconnect_trigger_hint')
+                                          : t('template.on_disconnect_ignore_hint')
+                                      }
+                                    >
+                                      {zi.on_disconnect === 'trigger'
+                                        ? t('template.on_disconnect_trigger')
+                                        : t('template.on_disconnect_ignore')}
+                                    </button>
+                                  )}
                                 </div>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {enrichedRemoteInputs
-                                  .filter((inp) => !getZoneInputIds(zone).includes(inp.id))
-                                  .map((inp) => (
-                                    <SelectItem key={inp.id} value={inp.id}>
-                                      <div className="flex items-center gap-2">
-                                        <FaWifi className="text-primary w-3 h-3 shrink-0" />
-                                        <span className="font-medium">{inp.name || inp.id}</span>
-                                        {inp.inputId && (
-                                          <span className="text-xs opacity-60">{inp.inputId}</span>
-                                        )}
-                                        <span className="text-xs opacity-40">
-                                          ({inp.remoteSource === 'esphome_api' ? 'ESPHome' : inp.remoteSource})
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
+                              );
+                            })}
                           </div>
-                        )}
-
-                        {enrichedInputs.length === 0 && enrichedRemoteInputs.length === 0 && (
-                          <p className="text-sm text-base-content/50 italic">
-                            {t('template.no_binary_sensors')}
-                          </p>
                         )}
                       </div>
                     </div>
@@ -648,37 +618,25 @@ const AlarmPanelForm: React.FC<TemplateSubFormProps> = ({
                 allowedUnits={['s', 'min', 'h']}
               />
 
-              {/* Code Arm Required */}
-              <div className="form-control">
-                <label className="label cursor-pointer justify-start gap-4">
-                  <input
-                    type="checkbox"
-                    className="checkbox"
-                    checked={data.code_arm_required || false}
-                    onChange={(e) => updateField('code_arm_required', e.target.checked)}
-                  />
-                  <div>
-                    <span className="label-text font-medium">{t('template.code_arm_required')}</span>
-                    <HelpLabel>{t('template.code_arm_required_hint')}</HelpLabel>
-                  </div>
-                </label>
-              </div>
-
-              {/* Allow Frontend Control */}
-              <div className="form-control">
-                <label className="label cursor-pointer justify-start gap-4">
-                  <input
-                    type="checkbox"
-                    className="checkbox"
-                    checked={data.allow_frontend_control || false}
-                    onChange={(e) => updateField('allow_frontend_control', e.target.checked)}
-                  />
-                  <div>
-                    <span className="label-text font-medium">{t('template.allow_frontend_control')}</span>
-                    <HelpLabel>{t('template.allow_frontend_control_hint')}</HelpLabel>
-                  </div>
-                </label>
-              </div>
+              {/* Code Arm Required & Allow Frontend Control */}
+              <SettingsToggleGroup
+                items={[
+                  {
+                    key: 'code_arm_required',
+                    label: t('template.code_arm_required'),
+                    description: t('template.code_arm_required_hint'),
+                    checked: data.code_arm_required || false,
+                    onChange: (checked) => updateField('code_arm_required', checked),
+                  },
+                  {
+                    key: 'allow_frontend_control',
+                    label: t('template.allow_frontend_control'),
+                    description: t('template.allow_frontend_control_hint'),
+                    checked: data.allow_frontend_control || false,
+                    onChange: (checked) => updateField('allow_frontend_control', checked),
+                  },
+                ]}
+              />
             </div>
           ),
         },

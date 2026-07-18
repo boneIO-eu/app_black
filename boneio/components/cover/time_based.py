@@ -12,6 +12,7 @@ from boneio.components.output import BasicOutput
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.core.events import EventBus
 from boneio.core.utils import TimePeriod
+from boneio.core.utils.timeperiod import ensure_time_period
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_RESTORED_STATE = {"position": 100}
@@ -151,6 +152,6 @@ class TimeBasedCover(BaseCover):
                    Keys: open_time, close_time
         """
         if "open_time" in config:
-            self._open_time = config["open_time"].total_milliseconds
+            self._open_time = ensure_time_period(config["open_time"]).total_milliseconds
         if "close_time" in config:
-            self._close_time = config["close_time"].total_milliseconds
+            self._close_time = ensure_time_period(config["close_time"]).total_milliseconds

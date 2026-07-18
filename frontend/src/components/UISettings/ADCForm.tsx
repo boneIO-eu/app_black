@@ -5,6 +5,7 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
+import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import {
   Select,
   SelectContent,
@@ -179,17 +180,17 @@ const ADCForm: React.FC<ADCFormProps> = ({
       </div>
 
       {/* Show in HA */}
-      <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-4">
-          <input
-            type="checkbox"
-            className="checkbox checkbox-primary"
-            checked={data.show_in_ha !== false}
-            onChange={(e) => handleChange('show_in_ha', e.target.checked)}
-          />
-          <span className="label-text">{t('adc.show_in_ha')}</span>
-        </label>
-      </div>
+      <SettingsToggleGroup
+        items={[
+          {
+            key: 'show_in_ha',
+            label: t('adc.show_in_ha'),
+            description: t('adc.show_in_ha_hint'),
+            checked: data.show_in_ha !== false,
+            onChange: (checked) => handleChange('show_in_ha', checked),
+          },
+        ]}
+      />
 
       {/* Area */}
       <AreaSelect
@@ -244,7 +245,7 @@ const ADCForm: React.FC<ADCFormProps> = ({
                         handleChange('filters', newFilters);
                       }}
                     >
-                      <SelectTrigger className="flex-1 h-8">
+                      <SelectTrigger className="w-36 h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

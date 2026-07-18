@@ -22,6 +22,8 @@ interface SearchableMultiEntityPickerProps {
   required?: boolean;
   /** Error message when validation fails */
   errorMessage?: string;
+  /** Area ID to show first in the list (e.g. the parent entity's area) */
+  preferredArea?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
   label,
   required = false,
   errorMessage,
+  preferredArea,
 }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -98,9 +101,21 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
       }
     }
 
-    const sorted = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
+    // Resolve preferred area name for matching
+    const preferredName = preferredArea ? (getAreaName(preferredArea) || preferredArea) : '';
+
+    // Sort groups: preferred area first, then alphabetical
+    const sorted = [...groups.entries()].sort(([a], [b]) => {
+      if (preferredName) {
+        const aMatch = a === preferredName;
+        const bMatch = b === preferredName;
+        if (aMatch && !bMatch) return -1;
+        if (!aMatch && bMatch) return 1;
+      }
+      return a.localeCompare(b);
+    });
     return { sorted, noArea };
-  }, [searchFiltered, getAreaName]);
+  }, [searchFiltered, getAreaName, preferredArea]);
 
   // Focus search on open, reset search
   useEffect(() => {
@@ -109,6 +124,21 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
       const timer = setTimeout(() => searchRef.current?.focus(), 100);
       return () => clearTimeout(timer);
     }
+  }, [open]);
+
+  // Close picker on Escape without propagating to parent dialogs.
+  // Uses capture phase to intercept before base-ui Dialog sees it.
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape, true);
+    return () => document.removeEventListener('keydown', handleEscape, true);
   }, [open]);
 
   /** Toggle a single item's selection. */
@@ -226,8 +256,13 @@ const SearchableMultiEntityPicker: React.FC<SearchableMultiEntityPickerProps> = 
               {selectedItems.slice(0, 5).map((item) => (
                 <span
                   key={item.id}
-                  className="inline-flex items-center gap-1 bg-primary/15 text-primary text-xs font-medium px-2 py-0.5 rounded-full"
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                    item.disabledLabel
+                      ? 'bg-warning/20 text-warning-content border border-warning/40'
+                      : 'bg-primary/15 text-primary'
+                  }`}
                 >
+                  {item.disabledLabel && <span className="text-warning">⚠</span>}
                   {item.name}
                   <span
                     onClick={(e) => removeChip(item.id, e)}

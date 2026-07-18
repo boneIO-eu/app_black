@@ -15,12 +15,24 @@ import {
 } from '@/components/ui/select';
 
 import type { AreaOption } from './widgets/AreaSelect';
+import type { CoverFormData } from './helpers/coverHelpers';
+import type { OutputConfigEntry } from './helpers/thermostatHelpers';
+
+/** Nested JSON Schema shape for cover section. */
+interface CoverSchemaData {
+  items?: {
+    properties?: {
+      platform?: { enum?: string[] };
+      device_class?: { enum?: string[] };
+    };
+  };
+}
 
 interface CoverFormProps {
-  data: any;
-  onChange: (data: any) => void;
-  schema?: any;
-  allOutputs?: any[];
+  data: CoverFormData;
+  onChange: (data: CoverFormData) => void;
+  schema?: CoverSchemaData;
+  allOutputs?: OutputConfigEntry[];
   allAreas?: AreaOption[];
 }
 
@@ -39,7 +51,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
     'awning', 'blind', 'curtain', 'damper', 'door', 'garage', 'gate', 'shade', 'shutter', 'window'
   ];
 
-  const updateField = (field: string, value: any) => {
+  const updateField = (field: keyof CoverFormData, value: CoverFormData[keyof CoverFormData]) => {
     const newData = { ...data, [field]: value };
     
     // Clean up platform-specific fields when platform changes
@@ -155,7 +167,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   <OutputSelectDropdown
                     value={data.open_relay || ''}
                     onChange={(value: string) => updateField('open_relay', value)}
-                    allOutputs={allOutputs.filter((output: any) => {
+                    allOutputs={allOutputs.filter((output: OutputConfigEntry) => {
                       if (!output || typeof output !== 'object') return false;
                       if (!(output.id || output.boneio_output)) return false;
                       // Accept outputs marked as 'cover' or 'none' (potential cover relays).
@@ -182,7 +194,7 @@ const CoverForm: React.FC<CoverFormProps> = ({
                   <OutputSelectDropdown
                     value={data.close_relay || ''}
                     onChange={(value: string) => updateField('close_relay', value)}
-                    allOutputs={allOutputs.filter((output: any) => {
+                    allOutputs={allOutputs.filter((output: OutputConfigEntry) => {
                       if (!output || typeof output !== 'object') return false;
                       if (!(output.id || output.boneio_output)) return false;
                       const ot = output.output_type?.toLowerCase();

@@ -1,5 +1,6 @@
 import logging
 import math
+import re
 from collections import OrderedDict
 from datetime import timedelta
 from typing import Any
@@ -238,3 +239,69 @@ def parse_time_to_ms(value: Any, default: int | None) -> int | None:
     except (ValueError, TypeError):
         _LOGGER.warning("Invalid time value: %s, using default %s ms", value, default)
         return default
+
+
+_TIME_UNIT_MAP = {
+    "us": "microseconds",
+    "microseconds": "microseconds",
+    "ms": "milliseconds",
+    "milliseconds": "milliseconds",
+    "s": "seconds",
+    "sec": "seconds",
+    "secs": "seconds",
+    "seconds": "seconds",
+    "min": "minutes",
+    "mins": "minutes",
+    "minutes": "minutes",
+    "h": "hours",
+    "hours": "hours",
+    "d": "days",
+    "days": "days",
+}
+
+
+_TIME_PERIOD_RE = re.compile(r"^([-+]?[0-9]*\.?[0-9]+)\s*([a-zA-Z]+)$")
+
+
+def ensure_time_period(value: "TimePeriod | str | int | float") -> "TimePeriod":
+    """Ensure a value is a TimePeriod object.
+
+    Converts strings like '5s', '1000ms', '2min' and raw numeric values
+    (treated as seconds) to TimePeriod. Passes through existing TimePeriod
+    objects unchanged. This is the defensive layer for hot-reload scenarios
+    where YAML values may arrive as raw strings instead of pre-parsed
+    TimePeriod objects.
+
+    Args:
+        value: A TimePeriod, time string with unit, or numeric seconds.
+
+    Returns:
+        A TimePeriod instance.
+
+    Raises:
+        ValueError: If the string format is invalid or the unit is unknown.
+    """
+    if isinstance(value, TimePeriod):
+        return value
+
+    if isinstance(value, (int, float)):
+        return TimePeriod(seconds=float(value))
+
+    if not isinstance(value, str):
+        raise ValueError(f"Cannot convert {type(value).__name__} to TimePeriod: {value!r}")
+
+    value = value.strip()
+    if not value:
+        raise ValueError("Empty string cannot be converted to TimePeriod")
+
+    match = _TIME_PERIOD_RE.match(value)
+    if match is None:
+        raise ValueError(f"Invalid time period format: {value!r}")
+
+    num_str, unit = match.group(1), match.group(2).lower()
+    kwarg = _TIME_UNIT_MAP.get(unit)
+    if kwarg is None:
+        raise ValueError(f"Unknown time unit '{unit}' in: {value!r}")
+
+    return TimePeriod(**{kwarg: float(num_str)})
+

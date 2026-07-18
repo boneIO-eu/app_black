@@ -161,6 +161,21 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
     }
   }, [open]);
 
+  // Close picker on Escape without propagating to parent dialogs.
+  // Uses capture phase to intercept before base-ui Dialog sees it.
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape, true);
+    return () => document.removeEventListener('keydown', handleEscape, true);
+  }, [open]);
+
   /** Handle item selection. */
   const handleSelect = (id: string) => {
     onChange(id);

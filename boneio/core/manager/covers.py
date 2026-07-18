@@ -14,7 +14,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from boneio.const import COVER, DEVICE_CLASS, ID, NAME, RESTORE_STATE, SHOW_HA, cover_actions, filter_cover_extra_data
-from boneio.core.utils import TimePeriod, strip_accents
+from boneio.core.utils import TimePeriod, ensure_time_period, strip_accents
 from boneio.exceptions import CoverConfigurationException
 from boneio.integration import ha_cover_availabilty_message
 from boneio.integration.homeassistant import ha_cover_with_tilt_availabilty_message
@@ -229,6 +229,14 @@ class CoverManager:
         from boneio.components.cover import TimeBasedCover, VenetianCover
 
         platform = config.get("platform", "time_based")
+
+        # Normalize time period fields — during hot-reload YAML values may
+        # arrive as raw strings (e.g. "5s") instead of TimePeriod objects.
+        for time_key in ("open_time", "close_time", "actuator_activation_duration"):
+            if time_key in config and config[time_key] is not None:
+                config[time_key] = ensure_time_period(config[time_key])
+        if tilt_duration is not None and not isinstance(tilt_duration, TimePeriod):
+            tilt_duration = ensure_time_period(tilt_duration)
 
         def state_save(value: dict[str, float]):
             if config[RESTORE_STATE]:

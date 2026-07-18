@@ -8,6 +8,7 @@ import time
 from boneio.components.cover.cover import BaseCover, BaseVenetianCoverABC
 from boneio.const import CLOSE, CLOSING, IDLE, OPEN, OPENING, STOP
 from boneio.core.utils import TimePeriod
+from boneio.core.utils.timeperiod import ensure_time_period
 from boneio.models import PositionDict, SavedPositionDict
 
 _LOGGER = logging.getLogger(__name__)
@@ -362,11 +363,11 @@ class VenetianCover(BaseCover, BaseVenetianCoverABC):
                    Keys: open_time, close_time, tilt_duration, tilt_restore_after_close
         """
         if "open_time" in config:
-            self._open_time = config["open_time"].total_milliseconds
+            self._open_time = ensure_time_period(config["open_time"]).total_milliseconds
         if "close_time" in config:
-            self._close_time = config["close_time"].total_milliseconds
+            self._close_time = ensure_time_period(config["close_time"]).total_milliseconds
         if "tilt_duration" in config and config["tilt_duration"]:
-            self._tilt_duration = config["tilt_duration"].total_milliseconds
+            self._tilt_duration = ensure_time_period(config["tilt_duration"]).total_milliseconds
         if "tilt_restore_after_close" in config:
             self._tilt_restore_after_close = bool(config["tilt_restore_after_close"])
 

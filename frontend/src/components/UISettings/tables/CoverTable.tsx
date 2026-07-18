@@ -6,6 +6,7 @@ import FilterInput from './FilterInput';
 import MobileCard from './MobileCard';
 import SortableHeader, { ResetSortButton } from './SortableHeader';
 import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
+import { formatTimeperiod } from '@/utils/formatters';
 
 interface Area {
   id: string;
@@ -89,7 +90,7 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
                 { label: t('covers.close_relay'), value: item.close_relay?.toUpperCase() || '-' },
                 { label: t('covers.times'), value: (
                   <span className="text-xs">
-                    {item.open_time ? `${item.open_time}ms` : '-'} / {item.close_time ? `${item.close_time}ms` : '-'}
+                    {item.open_time ? formatTimeperiod(item.open_time) : '-'} / {item.close_time ? formatTimeperiod(item.close_time) : '-'}
                   </span>
                 )},
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
@@ -139,10 +140,10 @@ const CoverTable: React.FC<CoverTableProps> = ({ items, allAreas, onEdit, onDele
                 <Td className="uppercase">{item.close_relay || '-'}</Td>
                 <Td>
                   <div className="text-xs capitalize">
-                    <div>{t('covers.open')}: {item.open_time ? `${item.open_time}ms` : '-'}</div>
-                    <div>{t('covers.close')}: {item.close_time ? `${item.close_time}ms` : '-'}</div>
-                    {item.tilt_duration && <div>{t('covers.tilt')}: {item.tilt_duration}ms</div>}
-                    {item.actuator_activation_duration && <div>{t('covers.actuator_duration').replace(' Activation Duration', '').replace(' Aktywacji Siłownika', '')}: {item.actuator_activation_duration}ms</div>}
+                    <div>{t('covers.open')}: {item.open_time ? formatTimeperiod(item.open_time) : '-'}</div>
+                    <div>{t('covers.close')}: {item.close_time ? formatTimeperiod(item.close_time) : '-'}</div>
+                    {item.tilt_duration && <div>{t('covers.tilt')}: {formatTimeperiod(item.tilt_duration)}</div>}
+                    {item.actuator_activation_duration && <div>{t('covers.actuator_duration').replace(' Activation Duration', '').replace(' Aktywacji Siłownika', '')}: {formatTimeperiod(item.actuator_activation_duration)}</div>}
                   </div>
                 </Td>
                 <Td>{areaName}</Td>
