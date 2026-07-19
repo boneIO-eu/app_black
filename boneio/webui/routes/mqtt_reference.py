@@ -349,7 +349,8 @@ async def get_mqtt_reference(
         if not output:
             raise HTTPException(status_code=404, detail=f"Remote output '{entity_id}' not found")
 
-        has_brightness = output.output_type == "light"
+        # RemoteOutputBase sets _brightness=0 for dimmable lights, None for switches
+        has_brightness = getattr(output, "_brightness", None) is not None
 
         return _build_output_reference(
             entity_id=entity_id,
