@@ -1606,6 +1606,9 @@ class Manager:
             self._config_helper.set_areas(config.get("areas", []))
         except Exception as e:
             _LOGGER.error(f"Failed to reload config: {e}")
+            # Safety net: if fast-reload fails, force-clear cache so the next
+            # get_config() re-reads from disk (via full validation as fallback).
+            self._config_helper._config_cache = None
             return {"status": "error", "message": str(e), "reloaded_sections": [], "failed_sections": []}
 
         reloaded_sections = []
