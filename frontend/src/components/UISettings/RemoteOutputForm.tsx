@@ -109,22 +109,22 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
 
   /* ---------- device output lists ---------- */
   const selectedDevice = allRemoteDevices.find(d => d.id === data.device_id);
-  const isWledDevice = (selectedDevice as any)?.protocol === 'wled';
-  const esphomeApi = (selectedDevice as any)?.esphome_api || selectedDevice;
+  const isWledDevice = selectedDevice?.protocol === 'wled';
+  const esphomeApi = selectedDevice?.esphome_api;
 
   // ESPHome / MQTT switches & lights
   const availableSwitches: Array<{ id: string; name?: string }> =
-    isWledDevice ? [] : (esphomeApi?.switches || []);
+    isWledDevice ? [] : (esphomeApi?.switches || selectedDevice?.mqtt?.outputs || []);
   const availableLights: Array<{ id: string; name?: string; supports_brightness?: boolean }> =
     isWledDevice ? [] : (esphomeApi?.lights || []);
 
   // WLED segments + "main" (whole device)
-  const wledConfig = (selectedDevice as any)?.wled;
+  const wledConfig = selectedDevice?.wled;
   const wledSegments: Array<{ id: string; name: string; supports_brightness: boolean }> =
     isWledDevice && wledConfig?.segments
       ? [
           { id: 'main', name: t('remote_outputs.wled_main'), supports_brightness: true },
-          ...wledConfig.segments.map((seg: { id: number; name?: string; len?: number }) => ({
+          ...wledConfig.segments.map((seg) => ({
             id: String(seg.id),
             name: seg.name || `${t('remote_outputs.wled_segment')} ${seg.id}${seg.len ? ` (${seg.len} LEDs)` : ''}`,
             supports_brightness: true,
@@ -144,18 +144,16 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   const selectedLight = isLightEntity
     ? [...availableLights, ...wledSegments].find(l => l.id === data.output_id)
     : null;
-  const supportsBrightness = !!(selectedLight as any)?.supports_brightness;
+  const supportsBrightness = !!selectedLight?.supports_brightness;
   // Lights with brightness cannot be degraded to plain switch
   const outputTypeLocked = (isLightEntity && supportsBrightness) || isWledDevice;
 
   /* ---------- devices with outputs ---------- */
   const devicesWithOutputs = allRemoteDevices.filter((device) => {
-    const proto = (device as any)?.protocol;
     // WLED devices always have at least "main" output
-    if (proto === 'wled') return true;
-    const api = (device as any)?.esphome_api || device;
-    const sw = api?.switches || [];
-    const li = api?.lights || [];
+    if (device.protocol === 'wled') return true;
+    const sw = device.esphome_api?.switches || device.mqtt?.outputs || [];
+    const li = device.esphome_api?.lights || [];
     return sw.length > 0 || li.length > 0;
   });
 
@@ -226,7 +224,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                         const deviceId = v === '_none_' ? '' : v;
                         const device = allRemoteDevices.find(d => d.id === deviceId);
                         // Auto-set remote_source from device protocol
-                        const protocol = (device as any)?.protocol || 'esphome_api';
+                        const protocol = device?.protocol || 'esphome_api';
                         onChange({ ...data, device_id: deviceId, output_id: '', remote_source: protocol });
                       }}
                     >
@@ -236,11 +234,14 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                       <SelectContent>
                         <SelectItem value="_none_">{t('remote_devices.select_device')}</SelectItem>
                         {devicesWithOutputs.map((device) => {
-                          const protocolLabel =
-                            (device as any).protocol === 'esphome_api' ? 'ESPHome API' :
-                            (device as any).protocol === 'wled' ? 'WLED' :
-                            (device as any).protocol === 'mqtt' ? 'MQTT' :
-                            (device as any).protocol || '';
+                          const protocolLabels: Record<string, string> = {
+                            esphome_api: 'ESPHome API',
+                            wled: 'WLED',
+                            mqtt: 'MQTT',
+                          };
+                          const protocolLabel = device.protocol
+                            ? (protocolLabels[device.protocol] || device.protocol)
+                            : '';
                           return (
                             <SelectItem key={device.id} value={device.id}>
                               {device.name || device.id}{protocolLabel ? ` (${protocolLabel})` : ''}

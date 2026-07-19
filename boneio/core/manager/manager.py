@@ -55,7 +55,7 @@ from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.components.output.remote import RemoteOutputBase
 from boneio.hardware.i2c.bus import SMBus2I2C
-from boneio.migrations import MigrationRunner, MigrationStatus
+from boneio.migrations import MigrationRunner
 
 if TYPE_CHECKING:
     pass
