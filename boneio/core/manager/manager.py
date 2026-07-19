@@ -854,13 +854,13 @@ class Manager:
         OutputManager, so they are resolved via ``entity_type='output'``.
 
         Args:
-            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light')
+            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light', 'remote_output')
             entity_id: Entity ID
 
         Returns:
             Entity object or None if not found
         """
-        if entity_type in ("output", "light"):
+        if entity_type in ("output", "light", "remote_output"):
             return self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
         if entity_type == "cover":
             return self.covers.get_cover(entity_id)

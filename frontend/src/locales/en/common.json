@@ -1409,6 +1409,7 @@
     "condition_entity_binary_sensor": "Binary Sensor",
     "condition_entity_cover": "Cover",
     "condition_entity_output": "Output",
+    "condition_entity_remote_output": "Remote Output",
     "condition_entity_light": "Light",
     "condition_state_is_on": "Is ON",
     "condition_state_is_off": "Is OFF",

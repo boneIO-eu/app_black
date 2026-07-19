@@ -43,12 +43,13 @@ interface ActionConditionsProps {
 }
 
 const CONDITION_TYPES = ['time', 'date', 'state'] as const;
-const ENTITY_TYPES = ['binary_sensor', 'cover', 'output'] as const;
+const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'remote_output'] as const;
 
 const STATE_OPTIONS: Record<string, string[]> = {
   binary_sensor: ['is_on', 'is_off'],
   cover: ['is_open', 'is_closed'],
-  output: ['is_on', 'is_off']
+  output: ['is_on', 'is_off'],
+  remote_output: ['is_on', 'is_off'],
 };
 
 /**
@@ -197,24 +198,27 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
           .filter(item => !!item.id);
       case 'output':
         return allOutputs
-          .filter(o => {
-            // Local output: has boneio_output or id
-            if (o.boneio_output || o.id) return true;
-            // Remote output: has remote_source
-            if (o.remote_source && (o.device_id || o.id)) return true;
-            return false;
-          })
+          .filter(o => !o.remote_source && (o.boneio_output || o.id))
           .map(o => {
-            const isRemote = !!o.remote_source;
-            const effectiveId = isRemote
-              ? (o.id || `${o.device_id}_${o.output_id}`)
-              : (o.id || o.boneio_output || '');
+            const effectiveId = o.id || o.boneio_output || '';
             return {
               id: effectiveId,
               name: o.name || effectiveId,
               area: o.area,
-              badge: isRemote ? `📡 ${o.device_id || o.remote_source}` : undefined,
-              badgeClass: isRemote ? 'badge-info' : undefined,
+            };
+          })
+          .filter(item => !!item.id);
+      case 'remote_output':
+        return allOutputs
+          .filter(o => !!o.remote_source && (o.device_id || o.id))
+          .map(o => {
+            const effectiveId = o.id || `${o.device_id}_${o.output_id}`;
+            return {
+              id: effectiveId,
+              name: o.name || effectiveId,
+              area: o.area,
+              badge: `📡 ${o.device_id || o.remote_source}`,
+              badgeClass: 'badge-info',
             };
           })
           .filter(item => !!item.id);

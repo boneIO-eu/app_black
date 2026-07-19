@@ -1410,6 +1410,7 @@
     "condition_entity_binary_sensor": "Czujnik binarny",
     "condition_entity_cover": "Roleta",
     "condition_entity_output": "Wyjście",
+    "condition_entity_remote_output": "Zdalne wyjście",
     "condition_entity_light": "Oświetlenie",
     "condition_state_is_on": "Włączony",
     "condition_state_is_off": "Wyłączony",
