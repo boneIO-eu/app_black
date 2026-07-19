@@ -181,12 +181,21 @@ def _recompute_config_checksum() -> None:
 
 
 def invalidate_config_cache():
-    """Invalidate in-memory config cache and disk validation cache, recompute checksum.
+    """Invalidate route-level config cache and disk validation cache, recompute checksum.
 
-    Clears both in-memory and disk caches, then schedules a debounced
-    background rebuild of the disk cache. The rebuild runs 30 seconds after
-    the last config change so that rapid edits don't trigger multiple slow
-    Cerberus validations (~20s each on BeagleBone).
+    Clears the route-level mtime cache and the disk .pkl cache, then schedules
+    a debounced background rebuild. The rebuild runs 30 seconds after the last
+    config change so that rapid edits don't trigger multiple slow Cerberus
+    validations (~20s each on BeagleBone).
+
+    IMPORTANT: We intentionally do NOT clear ConfigHelper._config_cache here.
+    Setting it to None would cause any concurrent get_config() call (from
+    sensor polling, GET /api/config, etc.) to fall through to
+    load_config_from_file() → full Cerberus validation (19s on BB), blocking
+    MainThread and delaying the actual section reload.  The fast reload path
+    (ConfigHelper.reload_config) updates _config_cache atomically in ~5s.
+    Stale data for a few seconds is acceptable — it will be overwritten by
+    reload_config() before the section reload callbacks run.
 
     Hot reload uses a fast path (load_yaml_file + merge_board_config) that
     does NOT depend on the disk cache. The disk cache is only an optimization
@@ -194,13 +203,6 @@ def invalidate_config_cache():
     """
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
-    # Also invalidate ConfigHelper's internal cache so GET /api/config
-    # re-reads from disk instead of returning stale data.
-    try:
-        app_state = _get_app_state()
-        app_state.manager.config_helper._config_cache = None
-    except Exception:
-        pass
     try:
         config_file = _get_app_state().yaml_config_file
         clear_config_cache(config_file)
