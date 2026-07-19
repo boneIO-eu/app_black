@@ -354,6 +354,53 @@ class GpioManager:
                 "Armed boot press suppression on %d GPIO detector(s)", seeded
             )
 
+        # Install GPIO readback callbacks on detectors for missed-RELEASE detection.
+        # During long press, detectors periodically call this to verify the physical
+        # pin state hasn't changed without an edge event.
+        self._install_gpio_readback()
+
+    def _install_gpio_readback(self) -> None:
+        """Install GPIO readback callbacks on MultiClickDetectors.
+
+        Creates a closure for each detector that reads the physical GPIO line state
+        via gpiod get_values(). The detector calls this every ~3s during long press
+        to catch missed RISING_EDGE events (EMI, kernel bugs, etc.).
+        """
+        from boneio.components.input.detectors import MultiClickDetector
+
+        installed = 0
+        for chip, request in self._requests.items():
+            for (c, line), detector in self._detectors.items():
+                if c != chip:
+                    continue
+                if not isinstance(detector, MultiClickDetector):
+                    continue
+
+                # Create a closure capturing this specific chip/line/request
+                def make_readback(req: gpiod.LineRequest, ln: int) -> Callable[[], bool | None]:
+                    """Create readback function for a specific GPIO line.
+
+                    Args:
+                        req: gpiod LineRequest for this chip.
+                        ln: Line offset within the chip.
+
+                    Returns:
+                        Function returning True if pin is HIGH (released), False if LOW.
+                    """
+                    def readback() -> bool | None:
+                        values = req.get_values([ln])
+                        return bool(values[0])
+                    return readback
+
+                detector._gpio_readback_fn = make_readback(request, line)
+                installed += 1
+
+        if installed:
+            _LOGGER.info(
+                "Installed GPIO readback on %d MultiClickDetector(s) for missed-RELEASE detection",
+                installed,
+            )
+
     def _handle_gpiod_events(self, chip: int, request: gpiod.LineRequest) -> None:
         """Handle GPIO events from libgpiod.
 

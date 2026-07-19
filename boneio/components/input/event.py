@@ -80,24 +80,32 @@ class GpioEventButton(GpioBaseClass):
         # Get enable_triple_click setting (default: False)
         enable_triple_click = kwargs.get("enable_triple_click", False)
 
-        # Safety timeout for long press (default: 120s)
+        # Safety timeout for long press (default: 30s, hard max: 30s)
         max_long_press_seconds = (
             _to_milliseconds(
                 kwargs.get("max_long_press_duration"),
-                120 * 1000,  # 120s default
+                30 * 1000,  # 30s default
             )
             / 1000.0
         )
-        # Guard: if resolved to < 0.8s (misconfigured or zero), use default 120s
+        # Clamp to hard maximum of 30s — no one holds a button longer
+        if max_long_press_seconds > 30.0:
+            _LOGGER.info(
+                "max_long_press_duration for %s clamped from %.1fs to 30s (hard max)",
+                kwargs.get("name", "unknown"),
+                max_long_press_seconds,
+            )
+            max_long_press_seconds = 30.0
+        # Guard: if resolved to < 0.8s (misconfigured or zero), use default 30s
         if max_long_press_seconds < 0.8:
             raw = kwargs.get("max_long_press_duration")
             if raw is not None:
                 _LOGGER.warning(
-                    "max_long_press_duration for %s resolved to %.1fs (too small), using default 120s",
+                    "max_long_press_duration for %s resolved to %.1fs (too small), using default 30s",
                     kwargs.get("name", "unknown"),
                     max_long_press_seconds,
                 )
-            max_long_press_seconds = 120.0
+            max_long_press_seconds = 30.0
         _LOGGER.debug(
             "max_long_press_seconds for %s = %.1fs",
             kwargs.get("name", "unknown"),

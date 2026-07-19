@@ -1279,13 +1279,14 @@ event:
           - str
           - positive_time_period
         required: False
-        default: '120s'
+        default: '30s'
         meta:
           label: Max Long Press Duration
           description: |
-            Safety timeout for long press in seconds.
+            Safety timeout for long press (hard max: 30s).
             If a long press exceeds this duration, it is automatically stopped.
             Prevents infinite long press events when RELEASE edge is missed (e.g., due to EMI or hardware issues).
+            Values above 30s are clamped to 30s.
       mqtt_sequences:
         required: False
         type: dict

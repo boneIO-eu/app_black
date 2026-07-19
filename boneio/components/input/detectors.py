@@ -65,6 +65,9 @@ class MultiClickDetector:
     Based on multiclick_detector.py from tests.
     """
 
+    # How often (in seconds) to verify physical GPIO state during long press
+    _GPIO_READBACK_INTERVAL_S = 3.0
+
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
@@ -78,7 +81,7 @@ class MultiClickDetector:
         enable_triple_click: bool = False,
         name: str = "unknown",
         pin: str = "unknown",
-        max_long_press_seconds: float = 120.0,
+        max_long_press_seconds: float = 30.0,
     ):
         """Initialize multiclick detector.
         
@@ -94,7 +97,7 @@ class MultiClickDetector:
             enable_triple_click: Enable triple click detection (default: False)
             name: Name of the input
             pin: Pin name for logging
-            max_long_press_seconds: Safety timeout for long press in seconds (default: 120s)
+            max_long_press_seconds: Safety timeout for long press in seconds (default: 30s)
         """
         self._loop = loop
         self._callback = callback
@@ -107,9 +110,19 @@ class MultiClickDetector:
         self._enable_triple_click = enable_triple_click
         self._name = name
         self._pin = pin
-        self._max_long_press_seconds = max_long_press_seconds
+        self._max_long_press_seconds = min(max_long_press_seconds, 30.0)
         self._state = ClickState()
         self._boot_press_suppressed = False  # Set by GpioManager._seed_initial_states
+        # Optional GPIO readback function: returns True if pin is HIGH (released)
+        # Set by GpioManager after startup to enable physical state verification
+        self._gpio_readback_fn: Callable[[], bool | None] | None = None
+        # Track last readback time to avoid reading GPIO too often
+        self._last_readback_time: float = 0.0
+        
+        _LOGGER.debug(
+            "MultiClickDetector init: %s (%s) max_long_press=%.1fs",
+            name, pin, self._max_long_press_seconds,
+        )
         
         # Pre-compute which click types should be delayed in exclusive mode
         # based on enabled sequences
@@ -363,15 +376,20 @@ class MultiClickDetector:
     def _detect_long_press(self) -> None:
         """Detect and report a long press and start periodic updates."""
         if not self._state.last_press_loop_ts:
+            _LOGGER.debug(
+                "_detect_long_press called for %s but no last_press_loop_ts — ignoring",
+                self._name,
+            )
             return
         
         # Reset executed actions for new long press
         self._state.executed_long_actions = set()
         self._state.last_repeat_times = {}
+        self._last_readback_time = self._loop.time()  # Reset readback timer
         
         duration = self._loop.time() - self._state.last_press_loop_ts
         
-        _LOGGER.info("Detected LONG press on %s (%s)", self._name, self._pin)
+        _LOGGER.info("Detected LONG press on %s (%s), duration=%.3fs", self._name, self._pin, duration)
         
         self._state.click_count = 0  # Reset click counter
         self._state.long_press_timer = None
@@ -385,14 +403,29 @@ class MultiClickDetector:
             0.2,  # 200ms
             self._send_periodic_long_event
         )
+        _LOGGER.debug(
+            "Started periodic long timer for %s (interval=200ms, max=%.0fs)",
+            self._name, self._max_long_press_seconds,
+        )
     
     def _send_periodic_long_event(self) -> None:
-        """Send periodic 'long' event with updated duration."""
+        """Send periodic 'long' event with updated duration.
+        
+        Every _GPIO_READBACK_INTERVAL_S seconds, also reads the physical
+        GPIO state to detect missed RELEASE edge events.
+        """
         if not self._state.last_press_loop_ts or self._state.last_release_ts:
             # Button released or invalid state
+            _LOGGER.debug(
+                "Periodic long skipped for %s: press_ts=%s, release_ts=%s",
+                self._name,
+                self._state.last_press_loop_ts is not None,
+                self._state.last_release_ts,
+            )
             return
         
-        duration = self._loop.time() - self._state.last_press_loop_ts
+        now = self._loop.time()
+        duration = now - self._state.last_press_loop_ts
         
         # Safety timeout: stop periodic events if duration exceeds max
         if duration > self._max_long_press_seconds:
@@ -406,6 +439,35 @@ class MultiClickDetector:
             )
             self._force_stop_long_press()
             return
+        
+        # GPIO readback check: every _GPIO_READBACK_INTERVAL_S, verify physical
+        # pin state to catch missed RELEASE edge events (EMI, kernel bugs, etc.)
+        if (
+            self._gpio_readback_fn is not None
+            and (now - self._last_readback_time) >= self._GPIO_READBACK_INTERVAL_S
+        ):
+            self._last_readback_time = now
+            try:
+                pin_is_high = self._gpio_readback_fn()
+                if pin_is_high is not None and pin_is_high:
+                    # Pin is HIGH = button released (pull-up), but we never got RISING_EDGE
+                    _LOGGER.warning(
+                        "GPIO readback: %s (%s) pin is HIGH (released) but no RELEASE event received! "
+                        "duration=%.1fs. Forcing stop — likely missed RISING_EDGE.",
+                        self._name,
+                        self._pin,
+                        duration,
+                    )
+                    self._force_stop_long_press()
+                    return
+                _LOGGER.debug(
+                    "GPIO readback: %s (%s) pin is LOW (still pressed), duration=%.1fs",
+                    self._name, self._pin, duration,
+                )
+            except Exception as exc:
+                _LOGGER.debug(
+                    "GPIO readback failed for %s: %s", self._name, exc,
+                )
         
         _LOGGER.debug(
             "Periodic long event on %s (%s), duration=%.3fs",

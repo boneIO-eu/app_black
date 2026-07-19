@@ -713,14 +713,14 @@ const EventForm: React.FC<EventFormProps> = ({
             <div className="form-control">
               <SimpleTimePeriodInput
                 label={t('event_form.max_long_press_duration')}
-                value={data.max_long_press_duration || '120s'}
+                value={data.max_long_press_duration || '30s'}
                 onChange={(value) => updateField('max_long_press_duration', value)}
-                maximum={600000}
+                maximum={30000}
                 minimum={1000}
                 allowedUnits={['s']}
               />
               <label className="label">
-                <span className="label-text-alt">{t('event_form.max_long_press_duration_hint')} ({t('common.default')}: 120s)</span>
+                <span className="label-text-alt">{t('event_form.max_long_press_duration_hint')} ({t('common.default')}: 30s)</span>
               </label>
             </div>
           </div>
@@ -748,7 +748,7 @@ const EventForm: React.FC<EventFormProps> = ({
                 updateField('double_click_duration', '220ms');
                 updateField('long_press_duration', '400ms');
                 updateField('sequence_window_duration', '500ms');
-                updateField('max_long_press_duration', '120s');
+                updateField('max_long_press_duration', '30s');
               }}
             >
               {t('event_form.restore_defaults')}
