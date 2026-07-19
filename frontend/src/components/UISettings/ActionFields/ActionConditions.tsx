@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { OutputEntity, CoverEntity, BinarySensorEntity, AreaEntity } from '@/types/config';
-import EntitySelectDropdown from '../EntitySelectDropdown';
+import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import { validateCondition } from './helpers';
 
@@ -358,12 +358,14 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
                     <span className="label-text text-sm">{t('event_form.condition_entity_id')}</span>
                   </label>
                   {getEntityItems(condition.entity).length > 0 ? (
-                    <EntitySelectDropdown
+                  <SearchableEntityPicker
                       value={condition.entity_id || ''}
                       onChange={(value) => updateSingleCondition(index, 'entity_id', value)}
                       items={getEntityItems(condition.entity)}
                       allAreas={allAreas}
                       placeholder={t('event_form.condition_entity_id')}
+                      compact
+                      recentKey={`condition-${condition.entity}`}
                     />
                   ) : (
                     <input
