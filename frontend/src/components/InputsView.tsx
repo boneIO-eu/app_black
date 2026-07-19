@@ -8,6 +8,8 @@ import clsx from 'clsx';
 import { useTranslation } from '../hooks/useTranslation';
 import { copyToClipboard } from '@/utils/clipboard';
 import { FaSortAmountDown, FaSortAlphaDown, FaClock, FaCopy, FaCog, FaWifi, FaBolt, FaGraduationCap } from 'react-icons/fa';
+import { HiSignal } from 'react-icons/hi2';
+import MqttReferenceSheet from '@/components/MqttReferenceSheet';
 import {
   Dialog,
   DialogContent,
@@ -210,6 +212,25 @@ export default function InputsView() {
     navigate(`/settings/${section}?edit=${encodeURIComponent(inputId)}`);
     setLongPressDialog({ open: false, inputEvent: null });
   }, [longPressDialog.inputEvent, navigate]);
+
+  // MQTT Reference dialog state
+  const [mqttRef, setMqttRef] = useState<{
+    open: boolean;
+    entityType: string;
+    entityId: string;
+    entityName: string;
+  }>({ open: false, entityType: '', entityId: '', entityName: '' });
+
+  const handleOpenMqttRef = useCallback(() => {
+    if (!longPressDialog.inputEvent) return;
+    setMqttRef({
+      open: true,
+      entityType: 'input',
+      entityId: longPressDialog.inputEvent.entity_id,
+      entityName: longPressDialog.inputEvent.state.name,
+    });
+    setLongPressDialog({ open: false, inputEvent: null });
+  }, [longPressDialog.inputEvent]);
 
 
   // Initialize prevInputsRef on first render (to avoid showing toast on page load)
@@ -490,6 +511,14 @@ export default function InputsView() {
               <FaBolt className="w-5 h-5" />
               {t('quick_action.title')}
             </button>
+            {/* MQTT Reference button */}
+            <button
+              className="btn btn-outline btn-block gap-2 h-12 text-base"
+              onClick={handleOpenMqttRef}
+            >
+              <HiSignal className="w-5 h-5" />
+              {t('mqtt_reference.button')}
+            </button>
             {/* Go to settings button */}
             <button
               className="btn btn-ghost btn-block gap-2 h-12"
@@ -501,6 +530,15 @@ export default function InputsView() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* MQTT Reference Sheet */}
+      <MqttReferenceSheet
+        open={mqttRef.open}
+        onOpenChange={(open) => setMqttRef(prev => ({ ...prev, open }))}
+        entityType={mqttRef.entityType}
+        entityId={mqttRef.entityId}
+        entityName={mqttRef.entityName}
+      />
 
       {/* Quick Action Sheet */}
       <QuickActionSheet

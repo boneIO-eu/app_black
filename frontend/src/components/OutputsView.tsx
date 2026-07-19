@@ -10,13 +10,14 @@ import { EntityGrid, ENTITY_GRID_CLASS } from './EntityGrid';
 import CoverItem from './CoverItem';
 import { useTranslation } from '../hooks/useTranslation';
 import { FaExclamationTriangle, FaSortAmountDown, FaSortAlphaDown, FaClock, FaCog, FaWifi } from 'react-icons/fa';
+import { HiSignal } from 'react-icons/hi2';
+import MqttReferenceSheet from '@/components/MqttReferenceSheet';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 
 import type { OutputCategory, SortMode } from '@/types/outputs';
@@ -234,12 +235,30 @@ export default function OutputsView({error}: {error: string | null}) {
 
   const handleGoToSettings = useCallback(() => {
     if (!longPressDialog.output) return;
-    // Use id for filtering instead of name to avoid duplicates
     const outputId = longPressDialog.output.id;
     const section = longPressDialog.type;
     navigate(`/settings/${section}?edit=${encodeURIComponent(outputId)}`);
     setLongPressDialog({ open: false, output: null, type: 'output' });
   }, [longPressDialog.output, longPressDialog.type, navigate]);
+
+  // MQTT Reference dialog state
+  const [mqttRef, setMqttRef] = useState<{
+    open: boolean;
+    entityType: string;
+    entityId: string;
+    entityName: string;
+  }>({ open: false, entityType: '', entityId: '', entityName: '' });
+
+  const handleOpenMqttRef = useCallback(() => {
+    if (!longPressDialog.output) return;
+    setMqttRef({
+      open: true,
+      entityType: longPressDialog.type,
+      entityId: longPressDialog.output.id,
+      entityName: longPressDialog.output.name,
+    });
+    setLongPressDialog({ open: false, output: null, type: 'output' });
+  }, [longPressDialog.output, longPressDialog.type]);
 
   // Track recently changed outputs for highlight effect
   useEffect(() => {
@@ -542,35 +561,48 @@ export default function OutputsView({error}: {error: string | null}) {
         </div>
       )}
 
-      {/* Long press dialog - go to settings */}
+      {/* Long press dialog - choose action */}
       <Dialog open={longPressDialog.open} onOpenChange={(open) => setLongPressDialog({ open, output: open ? longPressDialog.output : null, type: longPressDialog.type })}>
-        <DialogContent className="sm:max-w-md bg-base-200">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FaCog className="w-5 h-5" />
-              {t('outputs.go_to_settings')}
+        <DialogContent
+          className="bg-base-100 p-0 gap-0 sm:max-w-sm"
+        >
+          <DialogHeader className="px-5 pt-4 pb-0 sm:pt-5">
+            <DialogTitle className="text-center">
+              {longPressDialog.output?.name}
             </DialogTitle>
+            <p className="text-xs text-base-content/50 text-center">
+              {longPressDialog.output?.id}
+            </p>
           </DialogHeader>
-          <div className="py-4">
-            <p>{t('outputs.go_to_settings_confirm')}</p>
-            <p className="font-semibold mt-2">{longPressDialog.output?.name}</p>
-          </div>
-          <DialogFooter className="gap-2">
-            <button 
-              className="btn btn-ghost" 
-              onClick={() => setLongPressDialog({ open: false, output: null, type: 'output' })}
+          <div className="px-5 py-4 space-y-2">
+            {/* MQTT Reference button */}
+            <button
+              className="btn btn-primary btn-block gap-2 h-14 text-base"
+              onClick={handleOpenMqttRef}
             >
-              {t('common.cancel')}
+              <HiSignal className="w-5 h-5" />
+              {t('mqtt_reference.button')}
             </button>
-            <button 
-              className="btn btn-primary" 
+            {/* Go to settings button */}
+            <button
+              className="btn btn-ghost btn-block gap-2 h-12"
               onClick={handleGoToSettings}
             >
+              <FaCog className="w-4 h-4" />
               {t('outputs.go_to_settings')}
             </button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* MQTT Reference Sheet */}
+      <MqttReferenceSheet
+        open={mqttRef.open}
+        onOpenChange={(open) => setMqttRef(prev => ({ ...prev, open }))}
+        entityType={mqttRef.entityType}
+        entityId={mqttRef.entityId}
+        entityName={mqttRef.entityName}
+      />
     </div>
   );
 }

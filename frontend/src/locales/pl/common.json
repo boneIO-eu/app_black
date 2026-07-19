@@ -2362,5 +2362,17 @@
     "add_action": "Dodaj akcję",
     "no_area": "Brak strefy",
     "areas_selected": "{{count}} stref"
+  },
+  "mqtt_reference": {
+    "title": "Komendy MQTT",
+    "button": "Komendy MQTT",
+    "publish_section": "Publikuj (komendy)",
+    "subscribe_section": "Subskrybuj (stan)",
+    "copy_topic": "Kopiuj topic",
+    "copy_payload": "Kopiuj payload",
+    "read_only": "To wejście jest tylko do odczytu — brak komend, tylko subskrypcja stanu.",
+    "mqtt_not_configured": "MQTT nie jest skonfigurowane dla tego urządzenia.",
+    "entity_not_found": "Nie znaleziono encji.",
+    "fetch_error": "Nie udało się pobrać danych MQTT."
   }
 }

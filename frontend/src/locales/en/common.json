@@ -2363,5 +2363,17 @@
     "add_action": "Add action",
     "no_area": "No area",
     "areas_selected": "{{count}} areas"
+  },
+  "mqtt_reference": {
+    "title": "MQTT Reference",
+    "button": "MQTT Reference",
+    "publish_section": "Publish (commands)",
+    "subscribe_section": "Subscribe (state)",
+    "copy_topic": "Copy topic",
+    "copy_payload": "Copy payload",
+    "read_only": "This entity is read-only — no commands available, only state subscription.",
+    "mqtt_not_configured": "MQTT is not configured for this device.",
+    "entity_not_found": "Entity not found.",
+    "fetch_error": "Failed to load MQTT reference."
   }
 }
