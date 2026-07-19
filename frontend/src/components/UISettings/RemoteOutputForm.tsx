@@ -109,28 +109,50 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
 
   /* ---------- device output lists ---------- */
   const selectedDevice = allRemoteDevices.find(d => d.id === data.device_id);
+  const isWledDevice = (selectedDevice as any)?.protocol === 'wled';
   const esphomeApi = (selectedDevice as any)?.esphome_api || selectedDevice;
+
+  // ESPHome / MQTT switches & lights
   const availableSwitches: Array<{ id: string; name?: string }> =
-    esphomeApi?.switches || [];
+    isWledDevice ? [] : (esphomeApi?.switches || []);
   const availableLights: Array<{ id: string; name?: string; supports_brightness?: boolean }> =
-    esphomeApi?.lights || [];
+    isWledDevice ? [] : (esphomeApi?.lights || []);
+
+  // WLED segments + "main" (whole device)
+  const wledConfig = (selectedDevice as any)?.wled;
+  const wledSegments: Array<{ id: string; name: string; supports_brightness: boolean }> =
+    isWledDevice && wledConfig?.segments
+      ? [
+          { id: 'main', name: t('remote_outputs.wled_main'), supports_brightness: true },
+          ...wledConfig.segments.map((seg: { id: number; name?: string; len?: number }) => ({
+            id: String(seg.id),
+            name: seg.name || `${t('remote_outputs.wled_segment')} ${seg.id}${seg.len ? ` (${seg.len} LEDs)` : ''}`,
+            supports_brightness: true,
+          })),
+        ]
+      : [];
+
   const allAvailableOutputs = [
     ...availableSwitches.map(s => ({ ...s, _type: 'switch' as const })),
     ...availableLights.map(l => ({ ...l, _type: 'light' as const })),
+    ...wledSegments.map(w => ({ ...w, _type: 'light' as const })),
   ];
 
   /* ---------- selected output capabilities ---------- */
   const selectedOutput = allAvailableOutputs.find(o => o.id === data.output_id);
   const isLightEntity = selectedOutput?._type === 'light';
   const selectedLight = isLightEntity
-    ? availableLights.find(l => l.id === data.output_id)
+    ? [...availableLights, ...wledSegments].find(l => l.id === data.output_id)
     : null;
   const supportsBrightness = !!(selectedLight as any)?.supports_brightness;
   // Lights with brightness cannot be degraded to plain switch
-  const outputTypeLocked = isLightEntity && supportsBrightness;
+  const outputTypeLocked = (isLightEntity && supportsBrightness) || isWledDevice;
 
   /* ---------- devices with outputs ---------- */
   const devicesWithOutputs = allRemoteDevices.filter((device) => {
+    const proto = (device as any)?.protocol;
+    // WLED devices always have at least "main" output
+    if (proto === 'wled') return true;
     const api = (device as any)?.esphome_api || device;
     const sw = api?.switches || [];
     const li = api?.lights || [];
@@ -279,6 +301,18 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                             {availableLights.map((li) => (
                               <SelectItem key={`li_${li.id}`} value={li.id}>
                                 💡 {li.name ? `${li.name} (${li.id})` : li.id}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {wledSegments.length > 0 && (
+                          <>
+                            <SelectItem value="_header_wled" disabled>
+                              🌈 {t('remote_outputs.wled_segments_header')}
+                            </SelectItem>
+                            {wledSegments.map((seg) => (
+                              <SelectItem key={`wled_${seg.id}`} value={seg.id}>
+                                {seg.id === 'main' ? '🎨' : '🌈'} {seg.name}
                               </SelectItem>
                             ))}
                           </>

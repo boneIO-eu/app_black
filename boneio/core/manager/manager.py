@@ -53,6 +53,7 @@ from boneio.core.manager.update import UpdateManager
 from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
+from boneio.components.output.remote import RemoteOutputBase
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner, MigrationStatus
 
@@ -1357,8 +1358,6 @@ class Manager:
         :class:`OutputManager` so they are available for irrigation,
         output groups, and frontend display.
         """
-        from boneio.components.output.remote import RemoteOutputBase
-
         config = self._config_helper.get_config()
         remote_outputs_config: list[dict] = config.get("remote_outputs", [])
 
@@ -1397,7 +1396,6 @@ class Manager:
 
             # Adjustable duration
             adjustable_duration_enabled = bool(out_cfg.get("adjustable_duration", False))
-            from boneio.core.utils.timeperiod import parse_time_to_seconds
 
             dur_default = parse_time_to_seconds(out_cfg.get("duration_default"), 60.0)
             dur_min = max(1.0, parse_time_to_seconds(out_cfg.get("duration_min"), 1.0))
