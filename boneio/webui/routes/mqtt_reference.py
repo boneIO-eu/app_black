@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from boneio.components.output.basic import BasicOutput
 from boneio.const import COVER, OUTPUT
 from boneio.core.manager import Manager
 
@@ -283,7 +284,12 @@ async def get_mqtt_reference(
                 detail=f"Output '{entity_id}' belongs to a cover and is controlled via cover MQTT commands",
             )
 
-        has_brightness = output.output_type == "light" and hasattr(output, "set_brightness")
+        # Check if set_brightness is actually overridden (BasicOutput has a stub)
+        _has_real_brightness = (
+            output.output_type == "light"
+            and type(output).set_brightness is not BasicOutput.set_brightness
+        )
+        has_brightness = _has_real_brightness
         has_duration = getattr(output, "adjustable_duration_enabled", False)
         duration_unit = getattr(output, "duration_unit", "s")
 
