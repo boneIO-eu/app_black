@@ -302,22 +302,28 @@ def normalize_board_name(name: str) -> str:
     return name
 
 
-def normalize_version(version: str) -> str:
+def normalize_version(version: str | float | int) -> str:
     """Normalize version to major.minor format.
+
+    Handles both string and numeric versions (YAML may parse
+    ``version: 0.7`` as float 0.7 instead of string "0.7").
 
     Examples:
         0.7.1 -> 0.7
         0.8.2 -> 0.8
         0.9   -> 0.9
     """
-    if not version:
-        return version
+    if not version and version != 0:
+        return str(version) if version is not None else ""
+
+    # YAML may parse e.g. 0.7 as float — convert to string first
+    version_str = str(version)
 
     # Split by dot and take only the first two parts (major.minor)
-    parts = version.split(".")
+    parts = version_str.split(".")
     if len(parts) >= 2:
         return f"{parts[0]}.{parts[1]}"
-    return version
+    return version_str
 
 
 def merge_board_config(config: dict) -> dict:
