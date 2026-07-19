@@ -31,19 +31,34 @@ const OutputGroupForm: React.FC<OutputGroupFormProps> = ({
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced'>('basic');
 
-  // Get available outputs from allOutputs with their effective IDs
-  // The backend keys outputs by custom `id` if set, otherwise by `boneio_output`.
-  // Groups must reference the effective ID so the backend can look them up in _outputs.
+  // Get available outputs from allOutputs with their effective IDs.
+  // Local outputs have `boneio_output`; remote outputs have `remote_source` + `device_id`.
+  // Both are keyed in backend's _outputs by their effective ID.
   const availableOutputs = useMemo(() => allOutputs
-    .filter(output => output.boneio_output && output.output_type !== 'cover')
+    .filter(output => {
+      // Exclude covers — they can't be group members
+      if (output.output_type === 'cover') return false;
+      // Local output: must have boneio_output
+      if (output.boneio_output) return true;
+      // Remote output: has remote_source + device_id (or at least an id)
+      if (output.remote_source && output.device_id) return true;
+      // Remote output with explicit id
+      if (output.id && output.remote_source) return true;
+      return false;
+    })
     .map(output => {
-      const effectiveId = output.id || output.boneio_output;
+      const isRemote = !!output.remote_source;
+      const effectiveId = isRemote
+        ? (output.id || `${output.device_id}_${output.output_id}`)
+        : (output.id || output.boneio_output);
       return {
         id: effectiveId,
         name: output.name || effectiveId,
         area: output.area || '',
-        badge: output.boneio_output !== effectiveId ? output.boneio_output : undefined,
-        badgeClass: 'badge-ghost',
+        badge: isRemote
+          ? `📡 ${output.device_id || output.remote_source}`
+          : (output.boneio_output !== effectiveId ? output.boneio_output : undefined),
+        badgeClass: isRemote ? 'badge-info' : 'badge-ghost',
       };
     })
     .sort((a, b) => a.id.localeCompare(b.id)), [allOutputs]);

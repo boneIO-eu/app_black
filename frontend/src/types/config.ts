@@ -311,6 +311,16 @@ export interface OutputEntity {
   momentary_turn_on?: number | string;
   /** Momentary output duration */
   momentary_turn_off?: number | string;
+  /** Board-level output identifier (local outputs only) */
+  boneio_output?: string;
+  /** Output type: switch, light, cover, valve */
+  output_type?: string;
+  /** Remote source protocol: esphome_api, can, mqtt, wled (remote outputs only) */
+  remote_source?: string;
+  /** Remote device ID (remote outputs only) */
+  device_id?: string;
+  /** Remote output/entity ID on the remote device (remote outputs only) */
+  output_id?: string;
 }
 
 // ============================================

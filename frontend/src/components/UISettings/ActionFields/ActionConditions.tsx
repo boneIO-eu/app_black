@@ -159,8 +159,9 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   };
 
   /**
-   * Get available entity items for EntitySelectDropdown based on entity type.
+   * Get available entity items for SearchableEntityPicker based on entity type.
    * Returns items with id, name, area, and a badge indicating the entity type.
+   * For 'output', includes both local and remote outputs (with 📡 badge).
    */
   const getEntityItems = (entityType: string): EntityItem[] => {
     switch (entityType) {
@@ -196,12 +197,27 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
           .filter(item => !!item.id);
       case 'output':
         return allOutputs
-          .filter(o => !!(o.id))
-          .map(o => ({
-            id: o.id!,
-            name: o.name || o.id || '',
-            area: o.area,
-          }));
+          .filter(o => {
+            // Local output: has boneio_output or id
+            if (o.boneio_output || o.id) return true;
+            // Remote output: has remote_source
+            if (o.remote_source && (o.device_id || o.id)) return true;
+            return false;
+          })
+          .map(o => {
+            const isRemote = !!o.remote_source;
+            const effectiveId = isRemote
+              ? (o.id || `${o.device_id}_${o.output_id}`)
+              : (o.id || o.boneio_output || '');
+            return {
+              id: effectiveId,
+              name: o.name || effectiveId,
+              area: o.area,
+              badge: isRemote ? `📡 ${o.device_id || o.remote_source}` : undefined,
+              badgeClass: isRemote ? 'badge-info' : undefined,
+            };
+          })
+          .filter(item => !!item.id);
       default:
         return [];
     }
