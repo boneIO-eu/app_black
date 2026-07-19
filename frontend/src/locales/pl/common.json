@@ -2373,6 +2373,27 @@
     "read_only": "To wejście jest tylko do odczytu — brak komend, tylko subskrypcja stanu.",
     "mqtt_not_configured": "MQTT nie jest skonfigurowane dla tego urządzenia.",
     "entity_not_found": "Nie znaleziono encji.",
-    "fetch_error": "Nie udało się pobrać danych MQTT."
+    "fetch_error": "Nie udało się pobrać danych MQTT.",
+    "belongs_to_cover": "To wyjście należy do rolety. Użyj komend MQTT dla rolety.",
+    "desc": {
+      "turn_on_the_output": "Włącz wyjście",
+      "turn_off_the_output": "Wyłącz wyjście",
+      "toggle_the_output_state": "Przełącz stan wyjścia",
+      "set_brightness_0_off_255_max": "Ustaw jasność (0=wył, 255=max)",
+      "set_auto_off_duration_seconds": "Ustaw czas auto-wyłączenia (sekundy)",
+      "set_auto_off_duration_minutes": "Ustaw czas auto-wyłączenia (minuty)",
+      "state_change_notifications_retained": "Powiadomienia o zmianie stanu (retained)",
+      "current_duration_value_retained": "Aktualna wartość czasu trwania (retained)",
+      "open_the_cover": "Otwórz roletę",
+      "close_the_cover": "Zamknij roletę",
+      "stop_the_cover_movement": "Zatrzymaj ruch rolety",
+      "toggle_the_cover_state": "Przełącz stan rolety",
+      "set_cover_position_0_closed_100_open": "Ustaw pozycję rolety (0=zamknięta, 100=otwarta)",
+      "set_tilt_position_0_closed_100_open": "Ustaw pozycję lameli (0=zamknięte, 100=otwarte)",
+      "cover_state_changes_retained": "Zmiany stanu rolety (retained)",
+      "cover_position_updates_retained": "Aktualizacje pozycji rolety (retained)",
+      "tilt_position_updates_retained": "Aktualizacje pozycji lameli (retained)",
+      "input_state_changes_retained": "Zmiany stanu wejścia (retained)"
+    }
   }
 }

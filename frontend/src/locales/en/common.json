@@ -2374,6 +2374,27 @@
     "read_only": "This entity is read-only — no commands available, only state subscription.",
     "mqtt_not_configured": "MQTT is not configured for this device.",
     "entity_not_found": "Entity not found.",
-    "fetch_error": "Failed to load MQTT reference."
+    "fetch_error": "Failed to load MQTT reference.",
+    "belongs_to_cover": "This output belongs to a cover. Use MQTT commands for the cover instead.",
+    "desc": {
+      "turn_on_the_output": "Turn on the output",
+      "turn_off_the_output": "Turn off the output",
+      "toggle_the_output_state": "Toggle the output state",
+      "set_brightness_0_off_255_max": "Set brightness (0=off, 255=max)",
+      "set_auto_off_duration_seconds": "Set auto-off duration (seconds)",
+      "set_auto_off_duration_minutes": "Set auto-off duration (minutes)",
+      "state_change_notifications_retained": "State change notifications (retained)",
+      "current_duration_value_retained": "Current duration value (retained)",
+      "open_the_cover": "Open the cover",
+      "close_the_cover": "Close the cover",
+      "stop_the_cover_movement": "Stop the cover movement",
+      "toggle_the_cover_state": "Toggle the cover state",
+      "set_cover_position_0_closed_100_open": "Set cover position (0=closed, 100=open)",
+      "set_tilt_position_0_closed_100_open": "Set tilt position (0=closed, 100=open)",
+      "cover_state_changes_retained": "Cover state changes (retained)",
+      "cover_position_updates_retained": "Cover position updates (retained)",
+      "tilt_position_updates_retained": "Tilt position updates (retained)",
+      "input_state_changes_retained": "Input state changes (retained)"
+    }
   }
 }

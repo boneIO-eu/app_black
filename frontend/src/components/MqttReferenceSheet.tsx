@@ -73,6 +73,22 @@ const MqttReferenceSheet: React.FC<MqttReferenceSheetProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<CopiedKey>(null);
 
+  /**
+   * Translate backend description strings using i18n keys.
+   * Falls back to the raw English description if no translation exists.
+   */
+  const translateDescription = useCallback((description?: string): string | undefined => {
+    if (!description) return undefined;
+    // Map known backend descriptions to i18n keys
+    const key = `mqtt_reference.desc.${description
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '')}`;
+    const translated = t(key);
+    // If i18n returns the key itself, fallback to original
+    return translated === key ? description : translated;
+  }, [t]);
+
   // Fetch MQTT reference when dialog opens
   useEffect(() => {
     if (!open || !entityType || !entityId) return;
@@ -90,7 +106,10 @@ const MqttReferenceSheet: React.FC<MqttReferenceSheetProps> = ({
       .catch((err) => {
         if (!cancelled) {
           const status = err?.response?.status;
-          if (status === 400) {
+          const detail: string = err?.response?.data?.detail ?? '';
+          if (status === 400 && detail.includes('cover')) {
+            setError(t('mqtt_reference.belongs_to_cover'));
+          } else if (status === 400) {
             setError(t('mqtt_reference.mqtt_not_configured'));
           } else if (status === 404) {
             setError(t('mqtt_reference.entity_not_found'));
@@ -220,7 +239,7 @@ const MqttReferenceSheet: React.FC<MqttReferenceSheetProps> = ({
                         action.topic,
                         action.payload,
                         `pub_${action.action}_${i}`,
-                        action.description,
+                        translateDescription(action.description),
                       ),
                     )}
                   </div>
@@ -230,7 +249,7 @@ const MqttReferenceSheet: React.FC<MqttReferenceSheetProps> = ({
               {/* Subscribe section */}
               {data.subscribe.length > 0 && (
                 <div>
-                  <h3 className="flex items-center gap-2 text-sm font-semibold mb-2 text-secondary">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold mb-2 text-info">
                     <FaArrowDown className="w-3 h-3" />
                     {t('mqtt_reference.subscribe_section')}
                   </h3>
@@ -240,7 +259,7 @@ const MqttReferenceSheet: React.FC<MqttReferenceSheetProps> = ({
                         sub.topic,
                         sub.payload_format,
                         `sub_${i}`,
-                        sub.description,
+                        translateDescription(sub.description),
                       ),
                     )}
                   </div>

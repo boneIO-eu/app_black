@@ -8,6 +8,7 @@ import { CoverState } from "@/hooks/useWebSocket";
 import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from "@/lib/utils";
 import RangeSlider from './RangeSlider';
+import { suppressNextPointerRelease } from '@/utils/longPress';
 
 
 interface CoverItemProps {
@@ -33,6 +34,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
     isLongPress.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPress.current = true;
+      suppressNextPointerRelease();
       onLongPress(cover);
     }, 500);
   };

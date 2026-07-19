@@ -276,6 +276,13 @@ async def get_mqtt_reference(
         if not output:
             raise HTTPException(status_code=404, detail=f"Output '{entity_id}' not found")
 
+        # Outputs that belong to covers are controlled via cover topics
+        if output.output_type in (COVER, "none"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Output '{entity_id}' belongs to a cover and is controlled via cover MQTT commands",
+            )
+
         has_brightness = output.output_type == "light" and hasattr(output, "set_brightness")
         has_duration = getattr(output, "adjustable_duration_enabled", False)
         duration_unit = getattr(output, "duration_unit", "s")
