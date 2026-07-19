@@ -79,6 +79,7 @@ class RemoteOutputBase:
         duration_min: float = 1.0,
         duration_max: float = 3600.0,
         duration_unit: str = "s",
+        supports_brightness: bool = False,
     ) -> None:
         self._id = id
         self._name = name
@@ -117,6 +118,7 @@ class RemoteOutputBase:
         self._state: str = OFF
         self._last_timestamp: float = 0.0
         self._available: bool = False
+        self._supports_brightness: bool = supports_brightness
         self._brightness: int | None = None  # 0-255, None if not a dimmable light
         self._loop: asyncio.AbstractEventLoop | None = None
 
@@ -233,9 +235,9 @@ class RemoteOutputBase:
             )
             return
 
-        # If output_type is 'light', initialize brightness to 0 so the
+        # If output supports brightness, initialize brightness to 0 so the
         # slider renders immediately (will update on first state event).
-        if self._output_type == "light":
+        if self._supports_brightness:
             self._brightness = 0
             _LOGGER.debug(
                 "Initialized brightness=0 for remote light '%s' (no state yet)",

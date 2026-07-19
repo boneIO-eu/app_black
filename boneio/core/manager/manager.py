@@ -54,6 +54,7 @@ from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.components.output.remote import RemoteOutputBase
+from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner
 
@@ -1410,6 +1411,22 @@ class Manager:
                 )
                 continue
 
+            # Determine brightness support from device entity data
+            sup_brightness = False
+            if output_type == "light":
+                device = self.remote_devices.get_device(device_id)
+                if device is not None:
+                    # WLED: all outputs support brightness
+                    if isinstance(device, WLEDRemoteDevice):
+                        sup_brightness = True
+                    else:
+                        # ESPHome: check _lights list for supports_brightness flag
+                        lights_list: list[dict] = getattr(device, "_lights", [])
+                        for light in lights_list:
+                            if light.get("id") == output_id:
+                                sup_brightness = bool(light.get("supports_brightness", False))
+                                break
+
             remote_output = RemoteOutputBase(
                 id=entity_id,
                 name=name,
@@ -1433,6 +1450,7 @@ class Manager:
                 duration_min=dur_min,
                 duration_max=dur_max,
                 duration_unit=dur_unit,
+                supports_brightness=sup_brightness,
             )
 
             # Register in shared interlock manager
