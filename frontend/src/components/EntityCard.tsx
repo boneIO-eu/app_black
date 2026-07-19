@@ -8,6 +8,7 @@ import { formatTimestamp } from '../utils/formatters';
 
 import { ImSwitch } from "react-icons/im";
 import { useTranslation } from '@/hooks/useTranslation';
+import { suppressNextPointerRelease } from '@/utils/longPress';
 import RangeSlider from './RangeSlider';
 
 // Color palette for interlock groups - each group gets a consistent color
@@ -140,6 +141,7 @@ const EntityCard: React.FC<OutputItemProps> = ({
     isLongPressRef.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPressRef.current = true;
+      suppressNextPointerRelease();
       onLongPress(output);
     }, 500);
   };

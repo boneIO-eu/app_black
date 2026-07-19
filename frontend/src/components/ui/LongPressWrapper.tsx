@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { suppressNextPointerRelease } from '@/utils/longPress';
 
 interface LongPressWrapperProps {
     children: React.ReactNode;
@@ -15,27 +16,6 @@ interface LongPressWrapperProps {
  * Includes buttons, links, form controls, and Radix UI combobox/listbox portals.
  */
 const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [data-radix-select-viewport], [data-select="trigger"], [data-popover]';
-
-/**
- * Intercept the next mouseup / pointerup / click at the window level
- * (capture phase, once) so it never reaches the dialog backdrop.
- *
- * Without this, @base-ui Dialog dismisses immediately because the
- * pointer-up event lands on the newly-rendered backdrop.
- */
-function suppressNextPointerRelease() {
-    const stop = (e: Event) => { e.stopPropagation(); e.stopImmediatePropagation(); };
-    const opts: AddEventListenerOptions = { capture: true, once: true };
-    window.addEventListener('pointerup', stop, opts);
-    window.addEventListener('mouseup', stop, opts);
-    window.addEventListener('click', stop, opts);
-    // Safety: remove listeners after 500ms in case they never fire
-    setTimeout(() => {
-        window.removeEventListener('pointerup', stop, opts as EventListenerOptions);
-        window.removeEventListener('mouseup', stop, opts as EventListenerOptions);
-        window.removeEventListener('click', stop, opts as EventListenerOptions);
-    }, 500);
-}
 
 /**
  * Wraps children with long-press detection for both mouse and touch.
