@@ -498,6 +498,10 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
 
     try:
+        import time as _time
+
+        t_route_start = _time.perf_counter()
+
         app_state = _get_app_state()
         # Offload synchronous YAML read/write/dump to a thread pool.
         # On BeagleBone ARM, large configs (e.g. 7 WLED devices with 200+
@@ -512,6 +516,12 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             section,
             data,
         )
+        t_after_executor = _time.perf_counter()
+        _LOGGER.info(
+            "[ROUTE] run_in_executor took %.3fs for section='%s'",
+            t_after_executor - t_route_start, section,
+        )
+
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
 
@@ -530,6 +540,10 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             except Exception as e:
                 _LOGGER.warning("Failed to hot-apply entity labels: %s", e)
 
+        _LOGGER.info(
+            "[ROUTE] total PUT /config/%s took %.3fs",
+            section, _time.perf_counter() - t_route_start,
+        )
         return result
 
     except Exception as e:

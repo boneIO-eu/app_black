@@ -1227,11 +1227,17 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
     Returns:
         dict: Status response with success/error message
     """
+    import time
     from pathlib import Path
 
+    t_start = time.perf_counter()
     config_dir = Path(config_file).parent
 
-    _LOGGER.info(f"Updating section '{section}' with data: {data}")
+    data_size = len(str(data)) if data else 0
+    _LOGGER.info(
+        "[SAVE] START section='%s' data_size=%d bytes",
+        section, data_size,
+    )
 
     # Special handling for mcp23017 - convert hex strings to integers
     # This ensures YAML writes them as integers which are then read back as hex
@@ -1259,8 +1265,12 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         wled.pop(field, None)
 
     # Strip default values to keep YAML clean
+    t_strip = time.perf_counter()
     cleaned_data = strip_default_values(data, {}, section)
-    _LOGGER.info(f"Cleaned data (defaults removed): {cleaned_data}")
+    _LOGGER.info(
+        "[SAVE] strip_default_values took %.3fs",
+        time.perf_counter() - t_strip,
+    )
 
     # Custom YAML loader that preserves !include tags
     class IncludeLoader(SafeLoader):
@@ -1277,8 +1287,13 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
     try:
         # Read current config.yaml with custom loader
+        t_load = time.perf_counter()
         with open(config_file, encoding="utf-8") as f:
             config_content = load(f, Loader=IncludeLoader)
+        _LOGGER.info(
+            "[SAVE] yaml.load(config.yaml) took %.3fs",
+            time.perf_counter() - t_load,
+        )
 
         if config_content is None:
             config_content = {}
@@ -1296,13 +1311,21 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                 _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
 
                 # Save cleaned data to the included file
+                t_dump = time.perf_counter()
                 content = dump(
                     cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
                 )
+                _LOGGER.info(
+                    "[SAVE] yaml.dump(!include data) took %.3fs (%d bytes)",
+                    time.perf_counter() - t_dump, len(content),
+                )
+                t_write = time.perf_counter()
                 with open(include_file_path, "w", encoding="utf-8") as f:
                     f.write(content)
-
-                _LOGGER.info(f"Successfully updated included file: {include_file_path}")
+                _LOGGER.info(
+                    "[SAVE] file write (!include) took %.3fs",
+                    time.perf_counter() - t_write,
+                )
 
             else:
                 # It's a regular section - replace in config.yaml
@@ -1311,14 +1334,20 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
                 # Save updated config.yaml (need to handle !include when saving)
                 # Read original file as text to preserve !include syntax
+                t_reread = time.perf_counter()
                 with open(config_file, encoding="utf-8") as f:
                     original_lines = f.readlines()
+                _LOGGER.info(
+                    "[SAVE] re-read config as text took %.3fs (%d lines)",
+                    time.perf_counter() - t_reread, len(original_lines),
+                )
 
                 # Find and replace the section in the original text
                 updated_lines = []
                 in_section = False
                 section_indent = 0
 
+                t_dump = time.perf_counter()
                 for line in original_lines:
                     stripped = line.strip()
                     # Check if this line starts the target section
@@ -1352,12 +1381,21 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
                         # Skip lines that are part of the old section
                     else:
                         updated_lines.append(line)
+                _LOGGER.info(
+                    "[SAVE] yaml.dump(section) + line replace took %.3fs",
+                    time.perf_counter() - t_dump,
+                )
 
                 # Write updated config
+                t_write = time.perf_counter()
                 with open(config_file, "w", encoding="utf-8") as f:
                     f.writelines(updated_lines)
+                _LOGGER.info(
+                    "[SAVE] file write (config.yaml) took %.3fs",
+                    time.perf_counter() - t_write,
+                )
 
-                _LOGGER.info(f"Successfully updated section '{section}' in config.yaml")
+                _LOGGER.info("[SAVE] section '%s' inline update done", section)
         else:
             # Section doesn't exist - add it to config.yaml
             _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
@@ -1375,6 +1413,16 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
 
             _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
 
+        t_total = time.perf_counter() - t_start
+        _LOGGER.info(
+            "[SAVE] DONE section='%s' total=%.3fs",
+            section, t_total,
+        )
+        if t_total > 1.0:
+            _LOGGER.warning(
+                "[SAVE] SLOW save detected: section='%s' took %.3fs",
+                section, t_total,
+            )
         return {"status": "success", "message": f"Section '{section}' saved successfully"}
 
     except Exception as e:
