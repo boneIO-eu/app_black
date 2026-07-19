@@ -19,8 +19,19 @@ export default defineConfig(({ mode }) => {
           // Monaco editor workers can be ~7MB after updates
           maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-          // Exclude manifest (served dynamically) and large workers (cached at runtime)
-          globIgnores: ['**/manifest.webmanifest', '**/*.worker-*.js'],
+          // Exclude manifest (dynamic), Monaco chunk (~4MB), Monaco CSS,
+          // workers, and ConfigEditor from precache.
+          // These are loaded on-demand via runtime caching when user visits
+          // the YAML editor. Precaching them forces ~6MB download on first
+          // page load even if user never opens the editor.
+          globIgnores: [
+            '**/manifest.webmanifest',
+            '**/monaco-*.js',       // Monaco editor core (~4MB)
+            '**/monaco-*.css',      // Monaco editor styles
+            '**/ConfigEditor-*.js', // ConfigEditor component
+            '**/*.worker-*.js',     // Monaco language workers (~8MB total)
+            '**/codicon-*.ttf',     // Monaco icon font
+          ],
           // Don't precache API calls
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api/, /^\/schema/, /^\/nodered/],
@@ -39,13 +50,14 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkFirst',
             },
             {
-              // Monaco workers — cache on first load, serve from cache thereafter
-              urlPattern: /\.worker-.*\.js$/,
+              // Monaco editor assets — cache on first use, serve from cache thereafter.
+              // Matches: monaco-*.js, monaco-*.css, *.worker-*.js, ConfigEditor-*.js, codicon-*.ttf
+              urlPattern: /\/(monaco-|ConfigEditor-|codicon-|.*\.worker-).*\.(js|css|ttf)$/,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'monaco-workers',
+                cacheName: 'monaco-assets',
                 expiration: {
-                  maxEntries: 5,
+                  maxEntries: 10,
                   maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
                 },
               },
