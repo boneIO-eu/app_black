@@ -396,6 +396,27 @@ async def get_parsed_config():
                     enriched_groups.append(group)
             config_data["output_group"] = enriched_groups
 
+        # Normalize legacy flat action keys (actions_single, actions_double, etc.)
+        # into nested 'actions' dict for event section entries.
+        # Old quick-action code wrote flat keys; schema expects actions.single, etc.
+        _EVENT_ACTION_TYPES = (
+            "single", "double", "triple", "long",
+            "double_then_long", "single_then_long", "double_then_single",
+        )
+        for section_key in ("event", "remote_inputs"):
+            if section_key in config_data and isinstance(config_data[section_key], list):
+                for entry in config_data[section_key]:
+                    if not isinstance(entry, dict):
+                        continue
+                    for act_type in _EVENT_ACTION_TYPES:
+                        flat_key = f"actions_{act_type}"
+                        if flat_key in entry:
+                            if "actions" not in entry or not isinstance(entry.get("actions"), dict):
+                                entry["actions"] = {}
+                            # Merge (don't overwrite) in case actions.single already exists
+                            existing = entry["actions"].get(act_type, [])
+                            entry["actions"][act_type] = existing + entry.pop(flat_key)
+
         elapsed = time.time() - start
 
         _config_cache["data"] = config_data
@@ -1655,6 +1676,19 @@ async def add_quick_action(payload: dict = Body(...)):
 
         entries = config[section]
         entry = entries[input_index]
+
+        # Normalize legacy flat action keys (actions_single → actions.single)
+        if section in ("event", "remote_inputs"):
+            for act_type in (
+                "single", "double", "triple", "long",
+                "double_then_long", "single_then_long", "double_then_single",
+            ):
+                flat_key = f"actions_{act_type}"
+                if flat_key in entry:
+                    if "actions" not in entry or not isinstance(entry.get("actions"), dict):
+                        entry["actions"] = {}
+                    existing = entry["actions"].get(act_type, [])
+                    entry["actions"][act_type] = existing + entry.pop(flat_key)
 
         # Resolve the target action list based on section type and click_type
         if section == "event":
