@@ -37,6 +37,9 @@ export const LongPressWrapper: React.FC<LongPressWrapperProps> = ({
     const isLongPress = useRef(false);
 
     const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
+        // Only react to left mouse button (button 0); ignore right-click (2) and middle (1).
+        if ('button' in e && e.button !== 0) return;
+
         // Ignore clicks on interactive elements (buttons, links, form controls, dropdowns)
         if ((e.target as Element).closest(INTERACTIVE_SELECTOR)) return;
 

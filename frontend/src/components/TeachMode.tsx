@@ -24,6 +24,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 /** Click types for event-type inputs. */
 const EVENT_CLICK_TYPES = ['single', 'double', 'triple', 'long'] as const;
+/** Sequence click types (multi-gesture combos). */
+const SEQUENCE_CLICK_TYPES = ['double_then_long', 'single_then_long', 'double_then_single'] as const;
 /** Click types for binary_sensor inputs. */
 const BINARY_SENSOR_CLICK_TYPES = ['pressed', 'released'] as const;
 /** Output action options. */
@@ -126,6 +128,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   // --- NEW: Auto-ignore binary sensors ---
   const [autoIgnoreSensors, setAutoIgnoreSensors] = useState(true);
 
+  // --- Capture sequences toggle ---
+  const [captureSequences, setCaptureSequences] = useState(false);
+
   // --- NEW: Ignored entity IDs ---
   const [ignoredIds, setIgnoredIds] = useState<Set<string>>(() => {
     try {
@@ -212,8 +217,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   // Events are always collected into recentEvents so the user sees them when opening the dialog.
   // Auto-selection of detected input only happens when the dialog is open.
   useEffect(() => {
-    const eventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple',
-      'double_then_long', 'single_then_long', 'double_then_single'];
+    const baseEventTypes = ['single', 'double', 'long', 'pressed', 'released', 'triple'];
+    const sequenceTypes = ['double_then_long', 'single_then_long', 'double_then_single'];
+    const eventTypes = captureSequences ? [...baseEventTypes, ...sequenceTypes] : baseEventTypes;
 
     validInputs.forEach((inputEvent: InputEvent) => {
       const prevData = prevInputsRef.current.get(inputEvent.entity_id);
@@ -273,7 +279,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
         timestamp: currentTimestamp
       });
     });
-  }, [validInputs, open, ignoredIds, autoIgnoreSensors, areaFilter, addIgnored]);
+  }, [validInputs, open, ignoredIds, autoIgnoreSensors, areaFilter, addIgnored, captureSequences]);
 
   /** Handle manual input selection from picker. */
   const handleManualSelect = useCallback((entityId: string) => {
@@ -442,7 +448,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
   const isCoverCategory = targetCategory === 'cover' || targetCategory === 'remote_cover';
   const actionOptions = isCoverCategory ? COVER_ACTIONS : OUTPUT_ACTIONS;
-  const clickTypes = detectedInput?.state.type === 'input' ? EVENT_CLICK_TYPES : BINARY_SENSOR_CLICK_TYPES;
+  const clickTypes = detectedInput?.state.type === 'input'
+    ? (captureSequences ? [...EVENT_CLICK_TYPES, ...SEQUENCE_CLICK_TYPES] : EVENT_CLICK_TYPES)
+    : BINARY_SENSOR_CLICK_TYPES;
 
   const selectedItem = useMemo(
     () => currentItems.find((item) => item.id === targetId),
@@ -687,6 +695,20 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                       <p className="text-xs text-base-content/40">{t('teach_mode.auto_ignore_hint')}</p>
                     </div>
                   </label>
+
+                  {/* Capture sequences toggle */}
+                  <label className="flex items-center gap-3 cursor-pointer bg-base-200/30 border border-base-200 rounded-xl p-3">
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm checkbox-secondary"
+                      checked={captureSequences}
+                      onChange={(e) => setCaptureSequences(e.target.checked)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-base-content/80">{t('teach_mode.capture_sequences')}</p>
+                      <p className="text-xs text-base-content/40">{t('teach_mode.capture_sequences_hint')}</p>
+                    </div>
+                  </label>
                 </div>
               ) : (
                 <div className="p-6">
@@ -763,6 +785,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                       items={filteredInputItems}
                       placeholder={t('teach_mode.manual_placeholder')}
                       recentKey="teach-inputs"
+                      nested
                     />
                   </div>
                 )}
@@ -792,6 +815,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                       placeholder={t('teach_mode.add_to_ignored')}
                       recentKey="teach-ignore"
                       compact
+                      nested
                     />
 
                     {/* List of ignored items */}
@@ -868,29 +892,39 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
               </div>
             </div>
           ) : detectedInput ? (
-            /* Collapsed state with detected input summary */
-            <div className="p-4 flex items-center gap-3 bg-primary/5 border-b border-primary/10">
-              <div className="p-2 bg-success/15 rounded-lg text-success shrink-0">
-                <FaCheck className="w-4 h-4" />
+            /* Collapsed state with detected input summary + click type selector */
+            <div className="p-4 space-y-3 bg-primary/5 border-b border-primary/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-success/15 rounded-lg text-success shrink-0">
+                  <FaCheck className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-sm truncate text-base-content">{detectedInput.state.name}</p>
+                  <p className="text-xxs font-mono text-base-content/40 truncate">{detectedInput.entity_id}</p>
+                </div>
+                <button
+                  className="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content/80 shrink-0"
+                  onClick={() => { setDetectedInput(null); setSaveStatus('idle'); setLeftCollapsed(false); }}
+                >
+                  <FaUndo className="w-3 h-3" />
+                </button>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm truncate text-base-content">{detectedInput.state.name}</p>
-                <p className="text-xxs font-mono text-base-content/40 truncate">{detectedInput.entity_id}</p>
+              {/* Click type selector — always visible so user can change it */}
+              <div className="flex flex-wrap gap-1 justify-center">
+                {clickTypes.map((ct) => (
+                  <button
+                    key={ct}
+                    type="button"
+                    onClick={() => setClickType(ct)}
+                    className={clsx(
+                      'btn btn-xs transition-all duration-200 font-medium px-2',
+                      clickType === ct ? 'btn-primary shadow-sm shadow-primary/20 scale-[1.03]' : 'btn-ghost border border-base-300',
+                    )}
+                  >
+                    {t(`quick_action.click_types.${ct}`)}
+                  </button>
+                ))}
               </div>
-              <div className={clsx(
-                'badge badge-sm font-bold text-xxs uppercase shrink-0',
-                detectedInput.state.state === 'single' && 'bg-success/20 text-success border-0',
-                detectedInput.state.state === 'double' && 'bg-warning/20 text-warning-content border-0',
-                detectedInput.state.state === 'long' && 'bg-info/20 text-info-content border-0',
-              )}>
-                {clickType}
-              </div>
-              <button
-                className="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content/80 shrink-0"
-                onClick={() => { setDetectedInput(null); setSaveStatus('idle'); setLeftCollapsed(false); }}
-              >
-                <FaUndo className="w-3 h-3" />
-              </button>
             </div>
           ) : (
             <div className="p-5 text-sm text-base-content/40 text-center flex items-center justify-center gap-2">
@@ -969,6 +1003,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                   placeholder={t('teach_mode.select_target')}
                   recentKey={targetCategory}
                   preferredArea={detectedInput?.state.area || undefined}
+                  nested
                 />
               </div>
 

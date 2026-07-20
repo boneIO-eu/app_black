@@ -34,6 +34,9 @@ def detect_disk_sensors() -> list[dict]:
     - eMMC is typically /dev/mmcblk1 mounted on /
     - SD card is typically /dev/mmcblk0 mounted on /media/sd or similar
 
+    When a device has multiple partitions (e.g. mmcblk0p1 boot + mmcblk0p3 rootfs),
+    we pick the best partition: prefer the one mounted on '/', then the largest.
+
     Returns:
         List of dicts with keys: id, name, mount_point, icon, device
     """
@@ -45,6 +48,11 @@ def detect_disk_sensors() -> list[dict]:
     except Exception as e:
         _LOGGER.error("Failed to detect disk partitions: %s", e)
         return [{"id": "disk_usage", "name": "System Disk Usage", "mount_point": "/", "icon": "mdi:harddisk", "device": ""}]
+
+    # Group partitions by device prefix (mmcblk0, mmcblk1, etc.)
+    # Each group may have multiple partitions (boot, root, data).
+    mmcblk_groups: dict[str, list[psutil._common.sdiskpart]] = {}
+    other_root: psutil._common.sdiskpart | None = None
 
     for part in partitions:
         mount = part.mountpoint
@@ -60,32 +68,62 @@ def detect_disk_sensors() -> list[dict]:
 
         # Classify disk type by device name
         if "mmcblk0" in device:
-            # SD card (first MMC device on BeagleBone)
-            sensors.append({
-                "id": "sd_card_usage",
-                "name": "SD Card Usage",
-                "mount_point": mount,
-                "icon": "mdi:micro-sd",
-                "device": device,
-            })
+            mmcblk_groups.setdefault("mmcblk0", []).append(part)
         elif "mmcblk1" in device:
-            # eMMC (second MMC device on BeagleBone)
-            sensors.append({
-                "id": "emmc_usage",
-                "name": "eMMC Usage",
-                "mount_point": mount,
-                "icon": "mdi:harddisk",
-                "device": device,
-            })
+            mmcblk_groups.setdefault("mmcblk1", []).append(part)
         elif mount == "/":
-            # Root partition on non-BeagleBone (dev machine, VM, etc.)
-            sensors.append({
-                "id": "disk_usage",
-                "name": "System Disk Usage",
-                "mount_point": mount,
-                "icon": "mdi:harddisk",
-                "device": device,
-            })
+            other_root = part
+
+    def _pick_best_partition(parts: list[psutil._common.sdiskpart]) -> psutil._common.sdiskpart:
+        """Pick the best partition: prefer '/' mount, then largest by total size."""
+        # Prefer root mount
+        for p in parts:
+            if p.mountpoint == "/":
+                return p
+        # Otherwise pick largest
+        best = parts[0]
+        best_size = 0
+        for p in parts:
+            try:
+                size = psutil.disk_usage(p.mountpoint).total
+                if size > best_size:
+                    best_size = size
+                    best = p
+            except Exception:
+                continue
+        return best
+
+    # SD card (mmcblk0)
+    if "mmcblk0" in mmcblk_groups:
+        best = _pick_best_partition(mmcblk_groups["mmcblk0"])
+        sensors.append({
+            "id": "sd_card_usage",
+            "name": "SD Card Usage",
+            "mount_point": best.mountpoint,
+            "icon": "mdi:micro-sd",
+            "device": best.device,
+        })
+
+    # eMMC (mmcblk1)
+    if "mmcblk1" in mmcblk_groups:
+        best = _pick_best_partition(mmcblk_groups["mmcblk1"])
+        sensors.append({
+            "id": "emmc_usage",
+            "name": "eMMC Usage",
+            "mount_point": best.mountpoint,
+            "icon": "mdi:harddisk",
+            "device": best.device,
+        })
+
+    # Root partition on non-BeagleBone (dev machine, VM, etc.)
+    if other_root is not None:
+        sensors.append({
+            "id": "disk_usage",
+            "name": "System Disk Usage",
+            "mount_point": other_root.mountpoint,
+            "icon": "mdi:harddisk",
+            "device": other_root.device,
+        })
 
     # Fallback: if no sensors detected, monitor root
     if not sensors:

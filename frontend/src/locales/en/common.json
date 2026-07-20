@@ -2332,7 +2332,9 @@
     "unignore": "Unignore",
     "clear_ignored": "Clear all ignored",
     "recent_events": "Diagnostics: recent network events",
-    "recent_events_empty": "No events detected yet"
+    "recent_events_empty": "No events detected yet",
+    "capture_sequences": "Capture sequences",
+    "capture_sequences_hint": "Detect gesture sequences (double+long, single+long, double+single)"
   },
   "binding_matrix": {
     "title": "Binding Matrix",

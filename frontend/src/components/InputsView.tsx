@@ -264,8 +264,9 @@ export default function InputsView() {
       const isRecent = (now - currentTimestamp) < 5;
       const hasChanged = prevData && prevData.timestamp !== currentTimestamp && isRecent;
 
-      // Show toast for event types (not ON/OFF binary states)
-      if (hasChanged && toastEventTypes.includes(currentState)) {
+      // Show toast for event types (not ON/OFF binary states).
+      // Suppress toasts when teach mode is open — it has its own event display.
+      if (hasChanged && !teachMode && toastEventTypes.includes(currentState)) {
         // Throttle long press updates to reduce CPU usage
         if (currentState === 'long') {
           const lastUpdate = lastLongPressUpdateRef.current.get(inputEvent.entity_id) || 0;
@@ -323,7 +324,7 @@ export default function InputsView() {
         timestamp: currentTimestamp
       });
     });
-  }, [validInputs, addOrUpdateToast, removeToastByEntity, t]);
+  }, [validInputs, addOrUpdateToast, removeToastByEntity, teachMode, t]);
 
   // Sort inputs based on selected mode
   const sortedInputs = useMemo(() => {

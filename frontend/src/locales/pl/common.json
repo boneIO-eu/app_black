@@ -2331,7 +2331,9 @@
     "unignore": "Odblokuj",
     "clear_ignored": "Wyczyść listę ignorowanych",
     "recent_events": "Diagnostyka: ostatnie zdarzenia z sieci",
-    "recent_events_empty": "Nie wykryto jeszcze żadnych zdarzeń"
+    "recent_events_empty": "Nie wykryto jeszcze żadnych zdarzeń",
+    "capture_sequences": "Przechwytuj sekwencje",
+    "capture_sequences_hint": "Wykrywaj sekwencje gestów (podwójne+długie, pojedyncze+długie, podwójne+pojedyncze)"
   },
   "binding_matrix": {
     "title": "Macierz Powiązań",
