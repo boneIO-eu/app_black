@@ -48,8 +48,9 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
   const [filter, setFilter] = useState('');
   const { sortConfig, toggleSort, resetSort, sortItems, isSorted } = useTableSort('binary_sensor_event');
 
-  // Detect if this is a merged view (local_inputs or remote_inputs) by checking for _type metadata
-  const isMergedView = items.some((item: any) => item._type);
+  // Detect if this is a merged view (local_inputs or remote_inputs).
+  // local_inputs use _type metadata (injected during merge), remote_inputs use 'mode' from YAML schema.
+  const isMergedView = items.some((item: any) => item._type || item.mode);
   const isRemoteView = items.some((item: any) => item._device_name);
 
   // Filter items by name or boneio_input
@@ -138,6 +139,15 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
               onDelete={() => onDelete(originalIndex)}
               onClick={itemHasActions ? () => toggleRow(originalIndex) : undefined}
               fields={[
+                ...(isMergedView ? [{
+                  label: t('common.type'),
+                  value: (() => {
+                    const itemType = (item as any)._type || (item as any).mode;
+                    if (itemType === 'binary_sensor') return <span className="badge badge-warning badge-xs">{t('sections.binary_sensor')}</span>;
+                    if (itemType === 'event') return <span className="badge badge-primary badge-xs">{t('sections.event')}</span>;
+                    return '–';
+                  })(),
+                }] : []),
                 { label: t('inputs.has_actions'), value: itemHasActions
                   ? <span className="badge badge-success badge-xs">{t('common.yes')}</span>
                   : <span className="badge badge-ghost badge-xs">{t('common.no')}</span>
@@ -198,11 +208,12 @@ const BinarySensorEventTable: React.FC<BinarySensorEventTableProps> = ({
                     </Td>
                     {isMergedView && (
                       <Td>
-                        {(item as any)._type === 'binary_sensor' ? (
-                          <span className="badge badge-warning badge-sm">{t('sections.binary_sensor')}</span>
-                        ) : (item as any)._type === 'event' ? (
-                          <span className="badge badge-primary badge-sm">{t('sections.event')}</span>
-                        ) : null}
+                        {(() => {
+                          const itemType = (item as any)._type || (item as any).mode;
+                          if (itemType === 'binary_sensor') return <span className="badge badge-warning badge-sm">{t('sections.binary_sensor')}</span>;
+                          if (itemType === 'event') return <span className="badge badge-primary badge-sm">{t('sections.event')}</span>;
+                          return null;
+                        })()}
                       </Td>
                     )}
                     {isRemoteView && (
