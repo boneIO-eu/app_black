@@ -1720,17 +1720,13 @@ async def add_quick_action(payload: dict = Body(...)):
 
         invalidate_config_cache()
 
-        # Hot-reload the section so the new action takes effect immediately
+        # Hot-reload the section so the new action takes effect immediately.
+        # NOTE: Do NOT broadcast ConfigReloadEvent here — it causes InputsView
+        # to clear all input states during reload, showing "No inputs configured"
+        # for ~2.5s. The reload itself re-broadcasts individual input states.
         manager: Manager = app_state.manager
         try:
-            from boneio.models.events import ConfigReloadEvent
-
-            reload_sections = [section]
-            reload_event = ConfigReloadEvent(sections=reload_sections)
-            if _websocket_manager:
-                await _websocket_manager.broadcast(reload_event.model_dump())
-
-            reload_result = await manager.reload_config(reload_sections=reload_sections)
+            reload_result = await manager.reload_config(reload_sections=[section])
             if reload_result.get("status") == "error":
                 _LOGGER.warning(
                     "Quick action saved but reload failed: %s",
