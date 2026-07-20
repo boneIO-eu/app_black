@@ -1620,10 +1620,11 @@ async def add_quick_action(payload: dict = Body(...)):
         app_state = _get_app_state()
         config = load_config_from_file(app_state.yaml_config_file)
 
-        # Determine which section the input belongs to (event or binary_sensor)
+        # Determine which section the input belongs to
+        # Search in event, binary_sensor, and remote_inputs
         section = None
         input_index = None
-        for sec_name in ("event", "binary_sensor"):
+        for sec_name in ("event", "binary_sensor", "remote_inputs"):
             entries = config.get(sec_name, [])
             if isinstance(entries, list):
                 for idx, entry in enumerate(entries):
@@ -1642,19 +1643,35 @@ async def add_quick_action(payload: dict = Body(...)):
                 break
 
         if section is None or input_index is None:
+            _LOGGER.warning(
+                "Quick action: input '%s' not found. Available sections: %s",
+                entity_id,
+                {s: len(config.get(s, [])) for s in ("event", "binary_sensor", "remote_inputs")},
+            )
             raise HTTPException(
                 status_code=404,
-                detail=f"Input '{entity_id}' not found in event or binary_sensor sections",
+                detail=f"Input '{entity_id}' not found in event, binary_sensor, or remote_inputs sections",
             )
 
         entries = config[section]
         entry = entries[input_index]
 
-        # Map click_type to YAML key
-        # For event type: actions are under "actions" -> click_type -> list
-        # For binary_sensor: actions are under "actions_on_press" / "actions_on_release"
+        # Map click_type to YAML key based on section type
         if section == "event":
             actions_key = f"actions_{click_type}"
+            if actions_key not in entry:
+                entry[actions_key] = []
+            entry[actions_key].append(new_action)
+        elif section == "remote_inputs":
+            # remote_inputs can be event-mode or binary_sensor-mode
+            mode = entry.get("mode", "event")
+            if mode == "binary_sensor":
+                if click_type in ("pressed", "single"):
+                    actions_key = "actions_on_press"
+                else:
+                    actions_key = "actions_on_release"
+            else:
+                actions_key = f"actions_{click_type}"
             if actions_key not in entry:
                 entry[actions_key] = []
             entry[actions_key].append(new_action)
@@ -1686,8 +1703,8 @@ async def add_quick_action(payload: dict = Body(...)):
         invalidate_config_cache()
 
         _LOGGER.info(
-            "Quick action added: %s -> %s -> %s %s (%s)",
-            entity_id, click_type, action_type, output_id or cover_id, action,
+            "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
+            entity_id, click_type, action_type, output_id or cover_id, action, section,
         )
 
         return {
