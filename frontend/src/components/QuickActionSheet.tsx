@@ -239,13 +239,20 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
       setTimeout(() => {
         onOpenChange(false);
       }, 1200);
-    } catch (err: any) {
-      setSaveStatus('error');
-      const detail = err.response?.data?.detail;
-      setErrorMessage(
-        typeof detail === 'string' ? detail
-          : detail?.message || t('quick_action.save_error')
-      );
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { status?: number; data?: { detail?: string | { message?: string } } } };
+      if (axiosErr.response?.status === 409) {
+        // Duplicate action — show warning, not error
+        setSaveStatus('error');
+        setErrorMessage(t('quick_action.duplicate_action'));
+      } else {
+        setSaveStatus('error');
+        const detail = axiosErr.response?.data?.detail;
+        setErrorMessage(
+          typeof detail === 'string' ? detail
+            : (detail as { message?: string })?.message || t('quick_action.save_error')
+        );
+      }
     }
   }, [inputEvent, targetId, selectedItem, clickType, actionValue, onOpenChange, t]);
 

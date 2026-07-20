@@ -2275,6 +2275,7 @@
     "save": "Dodaj Akcję",
     "saved": "Akcja dodana pomyślnie!",
     "save_error": "Nie udało się dodać akcji",
+    "duplicate_action": "Ta akcja już istnieje dla tego wejścia i typu kliknięcia",
     "click_types": {
       "single": "Pojedyncze",
       "double": "Podwójne",

@@ -2276,6 +2276,7 @@
     "save": "Add Action",
     "saved": "Action added successfully!",
     "save_error": "Failed to add action",
+    "duplicate_action": "This action already exists for this input and click type",
     "click_types": {
       "single": "Single",
       "double": "Double",

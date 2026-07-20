@@ -1656,41 +1656,52 @@ async def add_quick_action(payload: dict = Body(...)):
         entries = config[section]
         entry = entries[input_index]
 
-        # Map click_type to YAML key based on section type
+        # Resolve the target action list based on section type and click_type
         if section == "event":
             # Event actions use nested structure: actions.single, actions.double, etc.
             if "actions" not in entry or not isinstance(entry.get("actions"), dict):
                 entry["actions"] = {}
             if click_type not in entry["actions"]:
                 entry["actions"][click_type] = []
-            entry["actions"][click_type].append(new_action)
+            target_list = entry["actions"][click_type]
         elif section == "remote_inputs":
-            # remote_inputs can be event-mode or binary_sensor-mode
             mode = entry.get("mode", "event")
             if mode == "binary_sensor":
-                if click_type in ("pressed", "single"):
-                    actions_key = "actions_on_press"
-                else:
-                    actions_key = "actions_on_release"
+                actions_key = "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
                 if actions_key not in entry:
                     entry[actions_key] = []
-                entry[actions_key].append(new_action)
+                target_list = entry[actions_key]
             else:
-                # Event-mode remote inputs also use nested actions structure
                 if "actions" not in entry or not isinstance(entry.get("actions"), dict):
                     entry["actions"] = {}
                 if click_type not in entry["actions"]:
                     entry["actions"][click_type] = []
-                entry["actions"][click_type].append(new_action)
+                target_list = entry["actions"][click_type]
         else:
             # binary_sensor uses pressed/released
-            if click_type in ("pressed", "single"):
-                actions_key = "actions_on_press"
-            else:
-                actions_key = "actions_on_release"
+            actions_key = "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
             if actions_key not in entry:
                 entry[actions_key] = []
-            entry[actions_key].append(new_action)
+            target_list = entry[actions_key]
+
+        # Check for duplicate action (same output/cover target + same action value)
+        for existing in target_list:
+            if (
+                existing.get("action") == new_action.get("action")
+                and existing.get("boneio_output") == new_action.get("boneio_output")
+                and existing.get("boneio_cover") == new_action.get("boneio_cover")
+                and existing.get("action_output") == new_action.get("action_output")
+                and existing.get("action_cover") == new_action.get("action_cover")
+                and existing.get("remote_device") == new_action.get("remote_device")
+                and existing.get("output_id") == new_action.get("output_id")
+                and existing.get("cover_id") == new_action.get("cover_id")
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This action already exists for {entity_id} ({click_type})",
+                )
+
+        target_list.append(new_action)
 
         entries[input_index] = entry
 
