@@ -1720,18 +1720,25 @@ async def add_quick_action(payload: dict = Body(...)):
                 entry[actions_key] = []
             target_list = entry[actions_key]
 
-        # Check for duplicate action (same output/cover target + same action value)
+        # Check for duplicate: same output/cover target already assigned to this click type.
+        # Quick actions are meant for simple 1:1 bindings — reject if the same
+        # output/cover is already present regardless of action value or conditions.
         for existing in target_list:
-            if (
-                existing.get("action") == new_action.get("action")
-                and existing.get("boneio_output") == new_action.get("boneio_output")
-                and existing.get("boneio_cover") == new_action.get("boneio_cover")
-                and existing.get("action_output") == new_action.get("action_output")
-                and existing.get("action_cover") == new_action.get("action_cover")
-                and existing.get("remote_device") == new_action.get("remote_device")
-                and existing.get("output_id") == new_action.get("output_id")
-                and existing.get("cover_id") == new_action.get("cover_id")
-            ):
+            same_output = (
+                existing.get("boneio_output") and existing.get("boneio_output") == new_action.get("boneio_output")
+            )
+            same_cover = (
+                existing.get("boneio_cover") and existing.get("boneio_cover") == new_action.get("boneio_cover")
+            )
+            same_remote_output = (
+                existing.get("remote_device") == new_action.get("remote_device")
+                and existing.get("output_id") and existing.get("output_id") == new_action.get("output_id")
+            )
+            same_remote_cover = (
+                existing.get("remote_device") == new_action.get("remote_device")
+                and existing.get("cover_id") and existing.get("cover_id") == new_action.get("cover_id")
+            )
+            if same_output or same_cover or same_remote_output or same_remote_cover:
                 raise HTTPException(
                     status_code=409,
                     detail=f"This action already exists for {entity_id} ({click_type})",
