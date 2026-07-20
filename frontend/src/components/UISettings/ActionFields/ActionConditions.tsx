@@ -409,6 +409,11 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
                       compact
                       recentKey={`condition-${condition.entity}`}
                     />
+                  ) : (condition.entity === 'remote_input' || condition.entity === 'remote_output') ? (
+                    <div className="alert alert-info py-2 px-3 text-xs">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      <span>{t(`event_form.condition_entity_${condition.entity}_empty`)}</span>
+                    </div>
                   ) : (
                     <input
                       type="text"

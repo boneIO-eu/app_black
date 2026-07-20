@@ -1412,6 +1412,8 @@
     "condition_entity_output": "Wyjście",
     "condition_entity_remote_output": "Zdalne wyjście",
     "condition_entity_remote_input": "Zdalny czujnik binarny",
+    "condition_entity_remote_input_empty": "Brak skonfigurowanych zdalnych wejść. Dodaj je najpierw w sekcji 'Wejścia zdalne'.",
+    "condition_entity_remote_output_empty": "Brak skonfigurowanych zdalnych wyjść. Dodaj je najpierw w sekcji 'Wyjścia zdalne'.",
     "condition_entity_light": "Oświetlenie",
     "condition_state_is_on": "Włączony",
     "condition_state_is_off": "Wyłączony",
