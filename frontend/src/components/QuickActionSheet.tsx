@@ -328,6 +328,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
               placeholder={targetMode === 'cover' ? t('quick_action.select_cover') : t('quick_action.select_output')}
               recentKey={targetMode === 'cover' ? 'covers' : 'outputs'}
               preferredArea={inputEvent?.state.area || undefined}
+              nested
             />
           </div>
 

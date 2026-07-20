@@ -25,6 +25,8 @@ interface SearchableEntityPickerProps {
   recentKey?: string;
   /** Area ID to prioritize (items from this area appear first). */
   preferredArea?: string;
+  /** When true, renders without dark backdrop (for use inside another dialog). */
+  nested?: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
   compact = false,
   recentKey = 'default',
   preferredArea,
+  nested = false,
 }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -276,11 +279,15 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
       {/* Entity picker dialog — HA-style: wider, click-outside-to-close */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/40 animate-in fade-in-0 duration-150"
+          className={`fixed inset-0 flex items-start sm:items-center justify-center animate-in fade-in-0 duration-150 ${
+            nested ? 'z-[60] bg-black/10' : 'z-50 bg-black/40'
+          }`}
           onClick={handleBackdropClick}
         >
           <div
-            className="bg-base-100 w-full max-w-lg sm:max-w-xl mx-2 sm:mx-auto mt-[10vh] sm:mt-0 rounded-xl border border-base-300 shadow-2xl flex flex-col max-h-[75vh] sm:max-h-[65vh] animate-in zoom-in-95 fade-in-0 duration-150"
+            className={`bg-base-100 w-full max-w-lg sm:max-w-xl mx-2 sm:mx-auto rounded-xl border border-base-300 shadow-2xl flex flex-col animate-in zoom-in-95 fade-in-0 duration-150 ${
+              nested ? 'mt-[5vh] sm:mt-0 max-h-[70vh] sm:max-h-[60vh]' : 'mt-[10vh] sm:mt-0 max-h-[75vh] sm:max-h-[65vh]'
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header with title and close */}
