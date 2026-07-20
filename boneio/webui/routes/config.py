@@ -1639,7 +1639,9 @@ async def add_quick_action(payload: dict = Body(...)):
 
     try:
         app_state = _get_app_state()
-        config = load_config_from_file(app_state.yaml_config_file)
+        # Use raw YAML load (fast) — no need for Cerberus validation to append an action.
+        # load_config_from_file can take 19s on cache miss due to full validation.
+        config = load_yaml_file(app_state.yaml_config_file)
 
         # Determine which section the input belongs to
         # Search in event, binary_sensor, and remote_inputs
@@ -1754,20 +1756,26 @@ async def add_quick_action(payload: dict = Body(...)):
 
         invalidate_config_cache()
 
-        # Hot-reload the section so the new action takes effect immediately.
+        # Hot-reload the section in background so the new action takes effect.
+        # Fire-and-forget: don't block the HTTP response (~4s reload on ARM).
         # NOTE: Do NOT broadcast ConfigReloadEvent here — it causes InputsView
-        # to clear all input states during reload, showing "No inputs configured"
-        # for ~2.5s. The reload itself re-broadcasts individual input states.
-        manager: Manager = app_state.manager
-        try:
-            reload_result = await manager.reload_config(reload_sections=[section])
-            if reload_result.get("status") == "error":
-                _LOGGER.warning(
-                    "Quick action saved but reload failed: %s",
-                    reload_result.get("message", "unknown"),
-                )
-        except Exception as reload_err:
-            _LOGGER.warning("Quick action saved but reload failed: %s", reload_err)
+        # to clear all input states during reload.
+        import asyncio
+
+        async def _background_reload() -> None:
+            """Reload config section in background after quick-action save."""
+            try:
+                manager: Manager = app_state.manager
+                reload_result = await manager.reload_config(reload_sections=[section])
+                if reload_result.get("status") == "error":
+                    _LOGGER.warning(
+                        "Quick action reload failed: %s",
+                        reload_result.get("message", "unknown"),
+                    )
+            except Exception as reload_err:
+                _LOGGER.warning("Quick action reload failed: %s", reload_err)
+
+        asyncio.create_task(_background_reload())
 
         _LOGGER.info(
             "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
