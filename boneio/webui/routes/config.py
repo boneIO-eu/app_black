@@ -1756,26 +1756,29 @@ async def add_quick_action(payload: dict = Body(...)):
 
         invalidate_config_cache()
 
-        # Hot-reload the section in background so the new action takes effect.
-        # Fire-and-forget: don't block the HTTP response (~4s reload on ARM).
-        # NOTE: Do NOT broadcast ConfigReloadEvent here — it causes InputsView
-        # to clear all input states during reload.
-        import asyncio
-
-        async def _background_reload() -> None:
-            """Reload config section in background after quick-action save."""
-            try:
-                manager: Manager = app_state.manager
-                reload_result = await manager.reload_config(reload_sections=[section])
-                if reload_result.get("status") == "error":
-                    _LOGGER.warning(
-                        "Quick action reload failed: %s",
-                        reload_result.get("message", "unknown"),
-                    )
-            except Exception as reload_err:
-                _LOGGER.warning("Quick action reload failed: %s", reload_err)
-
-        asyncio.create_task(_background_reload())
+        # Hot-update ONLY the affected input's actions (lightweight).
+        # Full reload_config → reload_inputs → broadcast_all_input_states causes
+        # ALL inputs (including binary sensors) to re-emit state, triggering
+        # spurious "released" toasts on the frontend. Instead, directly update
+        # the action list on the specific input object.
+        try:
+            manager: Manager = app_state.manager
+            input_device = manager.inputs._inputs.get(entity_id.lower())
+            if input_device:
+                # Re-read the raw actions from the freshly saved YAML entry
+                raw_actions = entry.get("actions", {})
+                parsed = manager.parse_actions(
+                    getattr(input_device, "pin", entity_id), raw_actions
+                )
+                input_device.set_actions(actions=parsed)
+                _LOGGER.info("Hot-updated actions for input %s", entity_id)
+            else:
+                _LOGGER.debug(
+                    "Input %s not in memory — actions will apply after restart",
+                    entity_id,
+                )
+        except Exception as hot_err:
+            _LOGGER.warning("Quick action saved but hot-update failed: %s", hot_err)
 
         _LOGGER.info(
             "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
