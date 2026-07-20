@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { AreaEntity } from '@/types/config';
 import type { EntityItem } from './EntitySelectDropdown';
@@ -277,32 +278,33 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
       </button>
 
       {/* Entity picker dialog — HA-style: wider, click-outside-to-close */}
-      {open && (
-        <div
-          className={`fixed inset-0 flex items-start sm:items-center justify-center animate-in fade-in-0 duration-150 ${
-            nested ? 'z-[60] bg-black/10' : 'z-50 bg-black/40'
-          }`}
-          onClick={handleBackdropClick}
-        >
+      {open && (() => {
+        const pickerContent = (
           <div
-            className={`bg-base-100 w-full max-w-lg sm:max-w-xl mx-2 sm:mx-auto rounded-xl border border-base-300 shadow-2xl flex flex-col animate-in zoom-in-95 fade-in-0 duration-150 ${
-              nested ? 'mt-[5vh] sm:mt-0 max-h-[70vh] sm:max-h-[60vh]' : 'mt-[10vh] sm:mt-0 max-h-[75vh] sm:max-h-[65vh]'
+            className={`fixed inset-0 flex items-start sm:items-center justify-center animate-in fade-in-0 duration-150 ${
+              nested ? 'z-[100] bg-black/20' : 'z-50 bg-black/40'
             }`}
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleBackdropClick}
           >
-            {/* Header with title and close */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h2 className="text-base font-semibold">{resolvedPlaceholder}</h2>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-base-200 transition-colors"
-              >
-                <svg className="h-5 w-5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            <div
+              className={`bg-base-100 w-full max-w-lg sm:max-w-xl mx-2 sm:mx-auto rounded-xl border border-base-300 shadow-2xl flex flex-col animate-in zoom-in-95 fade-in-0 duration-150 ${
+                nested ? 'mt-[5vh] sm:mt-0 max-h-[70vh] sm:max-h-[60vh]' : 'mt-[10vh] sm:mt-0 max-h-[75vh] sm:max-h-[65vh]'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header with title and close */}
+              <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <h2 className="text-base font-semibold">{resolvedPlaceholder}</h2>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-base-200 transition-colors"
+                >
+                  <svg className="h-5 w-5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
             {/* Search input */}
             <div className="px-4 pb-3">
@@ -406,9 +408,11 @@ const SearchableEntityPicker: React.FC<SearchableEntityPickerProps> = ({
                 : t('entity_picker.total_items', { count: filteredItems.length })
               }
             </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+        return nested ? createPortal(pickerContent, document.body) : pickerContent;
+      })()}
     </>
   );
 };
