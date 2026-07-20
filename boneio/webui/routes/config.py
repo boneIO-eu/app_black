@@ -1658,10 +1658,12 @@ async def add_quick_action(payload: dict = Body(...)):
 
         # Map click_type to YAML key based on section type
         if section == "event":
-            actions_key = f"actions_{click_type}"
-            if actions_key not in entry:
-                entry[actions_key] = []
-            entry[actions_key].append(new_action)
+            # Event actions use nested structure: actions.single, actions.double, etc.
+            if "actions" not in entry or not isinstance(entry.get("actions"), dict):
+                entry["actions"] = {}
+            if click_type not in entry["actions"]:
+                entry["actions"][click_type] = []
+            entry["actions"][click_type].append(new_action)
         elif section == "remote_inputs":
             # remote_inputs can be event-mode or binary_sensor-mode
             mode = entry.get("mode", "event")
@@ -1670,11 +1672,16 @@ async def add_quick_action(payload: dict = Body(...)):
                     actions_key = "actions_on_press"
                 else:
                     actions_key = "actions_on_release"
+                if actions_key not in entry:
+                    entry[actions_key] = []
+                entry[actions_key].append(new_action)
             else:
-                actions_key = f"actions_{click_type}"
-            if actions_key not in entry:
-                entry[actions_key] = []
-            entry[actions_key].append(new_action)
+                # Event-mode remote inputs also use nested actions structure
+                if "actions" not in entry or not isinstance(entry.get("actions"), dict):
+                    entry["actions"] = {}
+                if click_type not in entry["actions"]:
+                    entry["actions"][click_type] = []
+                entry["actions"][click_type].append(new_action)
         else:
             # binary_sensor uses pressed/released
             if click_type in ("pressed", "single"):
