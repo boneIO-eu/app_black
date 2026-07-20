@@ -1702,6 +1702,25 @@ async def add_quick_action(payload: dict = Body(...)):
 
         invalidate_config_cache()
 
+        # Hot-reload the section so the new action takes effect immediately
+        manager: Manager = app_state.manager
+        try:
+            from boneio.models.events import ConfigReloadEvent
+
+            reload_sections = [section]
+            reload_event = ConfigReloadEvent(sections=reload_sections)
+            if _websocket_manager:
+                await _websocket_manager.broadcast(reload_event.model_dump())
+
+            reload_result = await manager.reload_config(reload_sections=reload_sections)
+            if reload_result.get("status") == "error":
+                _LOGGER.warning(
+                    "Quick action saved but reload failed: %s",
+                    reload_result.get("message", "unknown"),
+                )
+        except Exception as reload_err:
+            _LOGGER.warning("Quick action saved but reload failed: %s", reload_err)
+
         _LOGGER.info(
             "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
             entity_id, click_type, action_type, output_id or cover_id, action, section,
