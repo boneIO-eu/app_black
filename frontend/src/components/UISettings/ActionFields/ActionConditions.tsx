@@ -34,6 +34,8 @@ interface ActionConditionsProps {
   allCovers?: CoverEntity[];
   /** Available binary sensors for state condition entity selection */
   allBinarySensors?: BinarySensorEntity[];
+  /** Available remote inputs (binary sensors from ESPHome/CAN) for state conditions */
+  allRemoteInputs?: Array<Record<string, unknown>>;
   /** Available areas for displaying area names in entity selectors */
   allAreas?: AreaEntity[];
   /** Whether to show validation errors */
@@ -43,13 +45,14 @@ interface ActionConditionsProps {
 }
 
 const CONDITION_TYPES = ['time', 'date', 'state'] as const;
-const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'remote_output'] as const;
+const ENTITY_TYPES = ['binary_sensor', 'cover', 'output', 'remote_output', 'remote_input'] as const;
 
 const STATE_OPTIONS: Record<string, string[]> = {
   binary_sensor: ['is_on', 'is_off'],
   cover: ['is_open', 'is_closed'],
   output: ['is_on', 'is_off'],
   remote_output: ['is_on', 'is_off'],
+  remote_input: ['is_on', 'is_off'],
 };
 
 /**
@@ -67,6 +70,7 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
   allOutputs = [],
   allCovers = [],
   allBinarySensors = [],
+  allRemoteInputs = [],
   allAreas = [],
   showValidation = false,
   excludeEntityId,
@@ -218,6 +222,24 @@ const ActionConditions: React.FC<ActionConditionsProps> = ({
               name: o.name || effectiveId,
               area: o.area,
               badge: `📡 ${o.device_id || o.remote_source}`,
+              badgeClass: 'badge-info',
+            };
+          })
+          .filter(item => !!item.id);
+      case 'remote_input':
+        return (allRemoteInputs || [])
+          .filter((ri: Record<string, unknown>) => {
+            const riId = (ri.id as string) || `${ri.device_id}_${ri.input_id}`;
+            return !!riId;
+          })
+          .map((ri: Record<string, unknown>) => {
+            const riId = (ri.id as string) || `${ri.device_id}_${ri.input_id}`;
+            const deviceName = (ri._device_name as string) || (ri.device_id as string) || '';
+            return {
+              id: riId,
+              name: (ri.name as string) || riId,
+              area: ri.area as string | undefined,
+              badge: deviceName ? `📡 ${deviceName}` : undefined,
               badgeClass: 'badge-info',
             };
           })

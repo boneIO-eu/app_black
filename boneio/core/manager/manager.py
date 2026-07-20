@@ -856,7 +856,7 @@ class Manager:
         OutputManager, so they are resolved via ``entity_type='output'``.
 
         Args:
-            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light', 'remote_output')
+            entity_type: Entity type ('binary_sensor', 'cover', 'output', 'light', 'remote_output', 'remote_input')
             entity_id: Entity ID
 
         Returns:
@@ -866,7 +866,7 @@ class Manager:
             return self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
         if entity_type == "cover":
             return self.covers.get_cover(entity_id)
-        if entity_type == "binary_sensor":
+        if entity_type in ("binary_sensor", "remote_input"):
             return self.inputs.get_input(entity_id)
         _LOGGER.warning("Unknown entity type for condition: %s", entity_type)
         return None

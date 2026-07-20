@@ -53,6 +53,8 @@ interface EventFormProps {
   allAreas?: AreaEntity[];
   /** All remote devices for remote action dropdowns */
   allRemoteDevices?: RemoteDeviceEntity[];
+  /** Remote inputs for condition entity picker */
+  allRemoteInputs?: Array<Record<string, unknown>>;
   /** Callback when validation state changes */
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
@@ -78,6 +80,7 @@ const EventForm: React.FC<EventFormProps> = ({
   allCovers = [],
   allAreas = [],
   allRemoteDevices = [],
+  allRemoteInputs = [],
   editingIndex,
   onValidationChange,
   attemptedSubmit = false,
@@ -221,6 +224,7 @@ const EventForm: React.FC<EventFormProps> = ({
         savedCovers={savedCovers}
         clickType={type}
         allBinarySensors={allBinarySensors}
+        allRemoteInputs={allRemoteInputs}
         preferredArea={data.area}
       />
     );

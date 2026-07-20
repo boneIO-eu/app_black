@@ -41,6 +41,8 @@ interface BinarySensorFormProps {
   allCovers?: CoverEntity[];
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
+  /** Remote inputs for condition entity picker */
+  allRemoteInputs?: Array<Record<string, unknown>>;
   onValidationChange?: (hasErrors: boolean) => void;
   /** Whether user attempted to submit (shows validation errors) */
   attemptedSubmit?: boolean;
@@ -63,6 +65,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   allCovers = [],
   allAreas = [],
   allRemoteDevices = [],
+  allRemoteInputs = [],
   editingIndex,
   onValidationChange,
   attemptedSubmit = false,
@@ -223,6 +226,7 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
         savedCovers={savedCovers}
         clickType={type}
         allBinarySensors={allBinarySensors}
+        allRemoteInputs={allRemoteInputs}
         excludeEntityId={data.boneio_input}
         preferredArea={data.area}
       />

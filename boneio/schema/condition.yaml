@@ -50,11 +50,12 @@ schema:
   entity:
     type: string
     required: false
-    allowed: ['binary_sensor', 'cover', 'output', 'light']
+    allowed: ['binary_sensor', 'cover', 'output', 'light', 'remote_input']
     meta:
       label: Entity type (for state condition)
       description: |
         Type of boneIO entity to check state of.
+        Includes remote inputs (binary sensors from ESPHome/CAN devices).
   entity_id:
     type: string
     required: false
@@ -70,6 +71,6 @@ schema:
       label: Expected state (for state condition)
       description: |
         Expected state of the entity.
-        - binary_sensor: is_on, is_off
+        - binary_sensor/remote_input: is_on, is_off
         - cover: is_open, is_closed
         - output/light: is_on, is_off

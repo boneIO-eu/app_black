@@ -77,6 +77,7 @@ function inputFormProps(props: FormRendererProps) {
     allCovers: props.allCovers,
     allAreas: props.allAreas,
     allRemoteDevices: props.allRemoteDevices,
+    allRemoteInputs: props.allRemoteInputs || [],
     editingIndex: props.editingIndex,
     onValidationChange: props.onValidationChange,
     attemptedSubmit: props.attemptedSubmit,
@@ -138,6 +139,7 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
           allCovers={props.allCovers}
           allAreas={props.allAreas}
           allRemoteDevices={props.allRemoteDevices}
+          allRemoteInputs={props.allRemoteInputs || []}
           allBinarySensors={props.allBinarySensors}
           onValidationChange={props.onValidationChange}
           attemptedSubmit={props.attemptedSubmit}

@@ -1092,6 +1092,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const allCovers = useMemo(() => formData.cover || [], [formData.cover]);
   const allOutputGroups = useMemo(() => formData.output_group || [], [formData.output_group]);
   const allRemoteDevices = useMemo(() => formData.remote_devices || [], [formData.remote_devices]);
+  const allRemoteInputs = useMemo(() => formData.remote_inputs || [], [formData.remote_inputs]);
   const allBinarySensors = useMemo(() => {
     return (formData.local_inputs || []).filter((i: any) => i._inputType === 'binary_sensor');
   }, [formData.local_inputs]);
@@ -1322,6 +1323,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
         allCovers={allCovers}
         allAreas={allAreasData}
         allRemoteDevices={allRemoteDevices}
+        allRemoteInputs={allRemoteInputs}
         savedOutputs={allOutputs}
         savedOutputGroups={allOutputGroups}
         savedCovers={allCovers}

@@ -93,6 +93,8 @@ interface ActionFieldsProps {
   savedCovers?: CoverEntity[];
   clickType?: 'single' | 'double' | 'triple' | 'long' | 'double_then_long' | 'single_then_long' | 'double_then_single' | 'pressed' | 'released';
   allBinarySensors?: BinarySensorEntity[];
+  /** Remote inputs (binary sensors from ESPHome/CAN devices) for condition entity selection */
+  allRemoteInputs?: Array<Record<string, unknown>>;
   /** Entity ID to exclude from condition binary_sensor list (prevents self-reference) */
   excludeEntityId?: string;
   /** Area ID of the input being configured — used to prioritize same-area entities in pickers. */
@@ -122,6 +124,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
   savedCovers,
   clickType,
   allBinarySensors = [],
+  allRemoteInputs = [],
   excludeEntityId,
   preferredArea,
 }) => {
@@ -473,6 +476,7 @@ const ActionFields: React.FC<ActionFieldsProps> = ({
         allOutputs={allOutputs}
         allCovers={allCovers}
         allBinarySensors={allBinarySensors}
+        allRemoteInputs={allRemoteInputs}
         allAreas={allAreas}
         showValidation={showValidation}
         excludeEntityId={excludeEntityId}
