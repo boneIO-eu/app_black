@@ -370,14 +370,14 @@ function AppContent() {
         {/* TODO: Re-enable when JSON Schema validation problems are resolved */}
         <Route path="/settings" element={
           <ProtectedRoute>
-            <Layout>
+            <Layout configEditor>
               <UISettings />
             </Layout>
           </ProtectedRoute>
         } />
         <Route path="/settings/:section" element={
           <ProtectedRoute>
-            <Layout>
+            <Layout configEditor>
               <UISettings />
             </Layout>
           </ProtectedRoute>

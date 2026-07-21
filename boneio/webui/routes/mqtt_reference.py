@@ -234,9 +234,11 @@ def _build_input_reference(
         "subscribe": [
             {
                 "topic": f"{topic_prefix}/input/{entity_id}",
-                "payload_format": '{"state": "PRESSED"} | {"state": "RELEASED"}'
-                if input_type == "event"
-                else '{"state": "ON"} | {"state": "OFF"}',
+                "payload_format": (
+                    '{"state": "SINGLE"} | {"state": "DOUBLE"} | {"state": "LONG"} | {"state": "TRIPLE"}'
+                    if input_type == "event"
+                    else '{"state": "PRESSED"} | {"state": "RELEASED"}'
+                ),
                 "description": "Input state changes (retained)",
             },
         ],

@@ -136,8 +136,10 @@ const EntityCard: React.FC<OutputItemProps> = ({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressRef = useRef(false);
 
-  const handlePressStart = () => {
+  const handlePressStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!onLongPress) return;
+    // Only react to left mouse button (button 0); ignore right-click (2) and middle (1).
+    if ('button' in e && e.button !== 0) return;
     isLongPressRef.current = false;
     longPressTimer.current = setTimeout(() => {
       isLongPressRef.current = true;

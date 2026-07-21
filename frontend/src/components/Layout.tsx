@@ -20,7 +20,7 @@ export default function Layout({ children, configEditor = false }: LayoutProps) 
         <Navigation />
         <StartupBanner />
         <MigrationBanner />
-        <main className="flex-1 overflow-y-auto bg-base-100">
+        <main className={clsx("flex-1 bg-base-100", configEditor ? "overflow-hidden" : "overflow-y-auto")}>
           {children}
         </main>
       </div>

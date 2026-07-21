@@ -10,8 +10,9 @@
  *   6. Momentary turn on/off, adjustable duration (Advanced)
  *   7. Shared interlock groups with local outputs (Advanced)
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from '@/api/axios';
 import AreaSelect from './widgets/AreaSelect';
 import SettingsToggleGroup from './widgets/SettingsToggleGroup';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
@@ -107,6 +108,31 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
     onValidationChange?.(validationErrors.length > 0);
   }, [validationErrors.length, onValidationChange]);
 
+  /* ---------- WLED cache fetch ---------- */
+  interface WledCacheSegment {
+    id: number | string;
+    name?: string;
+    len?: number;
+  }
+  interface WledCacheData {
+    segments?: WledCacheSegment[];
+    effects?: { id: number; name: string }[];
+    palettes?: { id: number; name: string }[];
+  }
+  const [wledCache, setWledCache] = useState<Record<string, WledCacheData>>({});
+
+  useEffect(() => {
+    // Fetch WLED cache for all WLED devices once
+    const wledDevices = allRemoteDevices.filter(d => d.protocol === 'wled');
+    if (wledDevices.length === 0) return;
+
+    let cancelled = false;
+    axios.get<Record<string, WledCacheData>>('/api/remote_devices/wled_info')
+      .then(res => { if (!cancelled) setWledCache(res.data); })
+      .catch(() => { /* WLED cache not available — segments stay empty */ });
+    return () => { cancelled = true; };
+  }, [allRemoteDevices]);
+
   /* ---------- device output lists ---------- */
   const selectedDevice = allRemoteDevices.find(d => d.id === data.device_id);
   const isWledDevice = selectedDevice?.protocol === 'wled';
@@ -119,12 +145,15 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
     isWledDevice ? [] : (esphomeApi?.lights || []);
 
   // WLED segments + "main" (whole device)
+  // Segments come from config YAML (wled.segments) OR from the fetched WLED cache.
   const wledConfig = selectedDevice?.wled;
+  const cachedSegments = data.device_id ? wledCache[data.device_id]?.segments : undefined;
+  const mergedSegments = wledConfig?.segments ?? cachedSegments ?? [];
   const wledSegments: Array<{ id: string; name: string; supports_brightness: boolean }> =
-    isWledDevice && wledConfig?.segments
+    isWledDevice
       ? [
           { id: 'main', name: t('remote_outputs.wled_main'), supports_brightness: true },
-          ...wledConfig.segments.map((seg) => ({
+          ...mergedSegments.map((seg) => ({
             id: String(seg.id),
             name: seg.name || `${t('remote_outputs.wled_segment')} ${seg.id}${seg.len ? ` (${seg.len} LEDs)` : ''}`,
             supports_brightness: true,
