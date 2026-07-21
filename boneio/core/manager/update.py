@@ -420,6 +420,39 @@ class UpdateManager(AsyncUpdater):
             )
             if on_progress:
                 on_progress(progress, step, log_msg)
+            # Yield to event loop so MQTT messages are actually flushed
+            await asyncio.sleep(0.1)
+
+        async def _run_subprocess(
+            cmd: list[str], timeout: float = 300
+        ) -> tuple[int, str, str]:
+            """Run a subprocess asynchronously without blocking the event loop.
+
+            Args:
+                cmd: Command and arguments to run.
+                timeout: Maximum time in seconds before killing the process.
+
+            Returns:
+                Tuple of (return_code, stdout, stderr).
+            """
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    proc.communicate(), timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.communicate()
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            return (
+                proc.returncode or 0,
+                stdout_bytes.decode() if stdout_bytes else "",
+                stderr_bytes.decode() if stderr_bytes else "",
+            )
 
         try:
             await _report(5, "Finding virtual environment...")
@@ -450,12 +483,12 @@ class UpdateManager(AsyncUpdater):
             await _report(15, "Preparing update...", f"Current version: {current_version}")
             await _report(30, "Upgrading pip...")
 
-            # Upgrade pip first
-            pip_upgrade = subprocess.run(
-                [pip_path, "install", "--upgrade", "pip"], capture_output=True, text=True, timeout=120
+            # Upgrade pip first (async — does not block event loop)
+            returncode, _, _ = await _run_subprocess(
+                [pip_path, "install", "--upgrade", "pip"], timeout=120
             )
 
-            if pip_upgrade.returncode == 0:
+            if returncode == 0:
                 await _report(40, "Pip upgraded", "pip upgraded successfully")
             else:
                 await _report(40, "Pip upgrade skipped", "pip upgrade failed, continuing...")
@@ -489,7 +522,8 @@ class UpdateManager(AsyncUpdater):
             # Retry logic: PyPI may not have the version available immediately
             max_retries = 3
             retry_delay = 30  # seconds
-            result = None
+            returncode = 1
+            stderr_output = ""
 
             for attempt in range(1, max_retries + 1):
                 await _report(
@@ -498,12 +532,13 @@ class UpdateManager(AsyncUpdater):
                     f"Running: {' '.join(pip_cmd)}",
                 )
 
-                result = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=300)
+                # Async subprocess — event loop stays responsive for MQTT
+                returncode, _, stderr_output = await _run_subprocess(pip_cmd, timeout=300)
 
-                if result.returncode == 0:
+                if returncode == 0:
                     break
 
-                _LOGGER.warning("pip install attempt %d/%d failed: %s", attempt, max_retries, result.stderr.strip())
+                _LOGGER.warning("pip install attempt %d/%d failed: %s", attempt, max_retries, stderr_output.strip())
 
                 if attempt < max_retries:
                     await _report(
@@ -513,8 +548,8 @@ class UpdateManager(AsyncUpdater):
                     )
                     await asyncio.sleep(retry_delay)
 
-            if not result or result.returncode != 0:
-                error_msg = result.stderr.strip() if result else "Unknown error"
+            if returncode != 0:
+                error_msg = stderr_output.strip() or "Unknown error"
                 _LOGGER.error("pip install failed after %d attempts: %s", max_retries, error_msg)
                 await _report(0, "Update failed", error_msg)
                 return
@@ -522,14 +557,13 @@ class UpdateManager(AsyncUpdater):
             await _report(80, "BoneIO updated", "Package installed successfully")
             await _report(85, "Verifying installation...")
 
-            # Verify installed version
-            version_result = subprocess.run([pip_path, "show", "boneio"], capture_output=True, text=True)
+            # Verify installed version (async)
+            _, show_stdout, _ = await _run_subprocess([pip_path, "show", "boneio"], timeout=30)
             new_version = current_version
-            if version_result.returncode == 0:
-                for line in version_result.stdout.split("\n"):
-                    if line.startswith("Version:"):
-                        new_version = line.split(":")[1].strip()
-                        break
+            for line in show_stdout.split("\n"):
+                if line.startswith("Version:"):
+                    new_version = line.split(":")[1].strip()
+                    break
 
             _LOGGER.info("Update successful: %s -> %s. Restarting in 2 seconds...", current_version, new_version)
 

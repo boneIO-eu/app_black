@@ -4,6 +4,14 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev19 (2026-07-21)
+
+### 🐛 Bug Fixes
+
+- **Update progress not sent to HA** — `perform_update()` used blocking `subprocess.run()` for pip install, which froze the asyncio event loop for 30-120 seconds. MQTT progress messages (`in_progress`, `update_percentage`) were queued but never flushed. Replaced all 3 subprocess calls with `asyncio.create_subprocess_exec()` and added `asyncio.sleep(0.1)` after each progress report to ensure MQTT messages are sent in real-time. HA now shows a live progress bar during firmware updates.
+
+---
+
 ## v1.5.0dev18 (2026-07-21)
 
 ### ✨ New Features
