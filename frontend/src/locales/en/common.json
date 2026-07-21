@@ -1485,6 +1485,8 @@
     "app_repository": "Repository containing this app",
     "documentation": "Documentation of application",
     "system_image": "System image for your device",
+    "ha_dashboard": "boneIO Dashboard",
+    "ha_dashboard_description": "Multi-device dashboard for boneIO Black controllers. Access all your boneIO devices from a single panel in Home Assistant sidebar.",
     "suggestions_title": "Have suggestions or ideas?",
     "suggestions_text": "If you have feature requests or suggestions, write to us on Discord or create an issue on GitHub. Your feedback helps us improve boneIO!"
   },

@@ -14,8 +14,23 @@ interface Area {
   name: string;
 }
 
+/** Configuration-time template item used in the settings table. */
+interface TemplateConfigItem {
+  id?: string;
+  name?: string;
+  platform: string;
+  area?: string;
+  /** Thermostat-specific fields */
+  sensor_id?: string;
+  output_id?: string;
+  target_temperature?: number;
+  /** Alarm-specific fields */
+  zones?: unknown[];
+  outputs?: unknown[];
+}
+
 interface TemplateTableProps {
-  items: any[];
+  items: TemplateConfigItem[];
   allAreas: Area[];
   onEdit: (index: number) => void;
   onDelete: (index: number) => void;
@@ -68,9 +83,9 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
 
   const sortedItems = useMemo(() => {
     return sortItems(filteredItems, {
-      name: (item: any) => (item.name || item.id || '').toLowerCase(),
-      platform: (item: any) => (item.platform || '').toLowerCase(),
-      area: (item: any) => {
+      name: (item: TemplateConfigItem) => (item.name || item.id || '').toLowerCase(),
+      platform: (item: TemplateConfigItem) => (item.platform || '').toLowerCase(),
+      area: (item: TemplateConfigItem) => {
         const area = allAreas.find(a => a.id === item.area);
         return (area?.name || item.area || '').toLowerCase();
       },
@@ -81,7 +96,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
     return t(`template.platform_${platform}`) || platform;
   };
 
-  const getDetails = (item: any): string => {
+  const getDetails = (item: TemplateConfigItem): string => {
     if (item.platform === 'thermostat') {
       const parts: string[] = [];
       if (item.sensor_id) parts.push(`${t('template.sensor_id')}: ${item.sensor_id}`);
@@ -131,10 +146,10 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
               onDelete={() => onDelete(originalIndex)}
               onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
               onDashboard={item.platform === 'irrigation' && item.id
-                ? () => handleCopyDashboard(item.id)
+                ? () => handleCopyDashboard(item.id!)
                 : undefined}
               fields={[
-                { label: t('template.platform'), value: <span className="badge badge-primary badge-xs">{getPlatformLabel(item.platform)}</span> },
+                { label: t('template.platform'), value: <span className="badge badge-primary badge-xs whitespace-nowrap">{getPlatformLabel(item.platform)}</span> },
                 { label: t('array_table_widget.details'), value: getDetails(item) || '-' },
                 ...(areaName ? [{ label: t('outputs.area'), value: areaName }] : []),
               ]}
@@ -171,7 +186,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
                     </div>
                   </Td>
                   <Td>
-                    <span className="badge badge-primary badge-sm">
+                    <span className="badge badge-primary badge-sm whitespace-nowrap">
                       {getPlatformLabel(item.platform)}
                     </span>
                   </Td>
@@ -187,7 +202,7 @@ const TemplateTable: React.FC<TemplateTableProps> = ({ items, allAreas, onEdit, 
                       onDelete={() => onDelete(originalIndex)}
                       onDuplicate={onDuplicate ? () => onDuplicate(originalIndex) : undefined}
                       onDashboard={item.platform === 'irrigation' && item.id
-                        ? () => handleCopyDashboard(item.id)
+                        ? () => handleCopyDashboard(item.id!)
                         : undefined}
                       dashboardTitle={copiedId === item.id
                         ? t('irrigation.dashboard_copied')

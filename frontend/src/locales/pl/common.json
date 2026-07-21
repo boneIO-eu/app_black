@@ -1486,6 +1486,8 @@
     "app_repository": "Repozytorium zawierające tę aplikację",
     "documentation": "Dokumentacja aplikacji",
     "system_image": "Obraz systemu dla Twojego urządzenia",
+    "ha_dashboard": "boneIO Dashboard",
+    "ha_dashboard_description": "Multi-device dashboard dla kontrolerów boneIO Black. Panel w Home Assistant do zarządzania wszystkimi urządzeniami boneIO.",
     "suggestions_title": "Masz sugestie lub pomysły?",
     "suggestions_text": "Jeśli masz propozycje nowych funkcji lub sugestie, napisz do nas na Discordzie albo zgłoś issue na GitHubie. Twoja opinia pomaga nam ulepszać boneIO!"
   },

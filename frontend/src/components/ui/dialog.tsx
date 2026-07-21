@@ -65,9 +65,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  maxWidthClass = "sm:max-w-lg",
   ...props
 }: React.ComponentProps<typeof BaseDialog.Popup> & {
   showCloseButton?: boolean
+  /** Override the default desktop max-width. Pass a Tailwind max-w class, e.g. "sm:max-w-xl". */
+  maxWidthClass?: string
 }) {
   const touchStartY = React.useRef<number | null>(null);
   const closeRef = React.useRef<HTMLButtonElement>(null);
@@ -85,7 +88,8 @@ function DialogContent({
           // Mobile: bottom sheet
           "bottom-0 inset-x-0 rounded-t-2xl border-b-0 px-6 pb-6 pt-3 max-h-[92vh]",
           // Desktop: centered modal
-          "sm:bottom-auto sm:inset-x-auto sm:top-1/2 sm:left-1/2 sm:max-w-lg sm:rounded-lg sm:border-b sm:p-6 sm:max-h-[85vh]",
+          "sm:bottom-auto sm:inset-x-auto sm:top-1/2 sm:left-1/2 sm:rounded-lg sm:border-b sm:p-6 sm:max-h-[85vh]",
+          maxWidthClass,
           className
         )}
         {...props}

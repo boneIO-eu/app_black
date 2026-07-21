@@ -4,6 +4,21 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev18 (2026-07-21)
+
+### ✨ New Features
+
+- **Help dialog** — Help page is now rendered as a dialog (bottom sheet on mobile, modal on desktop) instead of a separate route. Trigger added to both desktop and mobile navigation menus.
+- **boneIO Dashboard link** — Added link to the boneIO Dashboard Home Assistant add-on in help section with translations (PL/EN).
+- **Dialog maxWidthClass prop** — `DialogContent` now accepts a `maxWidthClass` prop to override the default desktop max-width without CSS specificity issues.
+
+### ♻️ Refactoring
+
+- **FormInputToggle card variant** — Extended `FormInputToggle` with a `card` variant (title + description in a rounded card). Replaced duplicated toggle markup in `TeachMode` with the reusable component.
+- **TemplateTable strict typing** — Removed `any` usage, enforced `TemplateConfigItem` interface. Fixed badge truncation with `whitespace-nowrap`.
+
+---
+
 ## v1.5.0dev13 (2026-07-18)
 
 ### 🐛 Bug Fixes

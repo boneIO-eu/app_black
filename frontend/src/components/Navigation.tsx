@@ -11,6 +11,7 @@ import { useNodeRedAvailability } from '../hooks/useNodeRedAvailability';
 import { useTranslation } from '../hooks/useTranslation';
 import { useAppInit } from '../contexts/AppInitContext';
 import Logo from "./Logo"
+import { HelpDialog } from './HelpView';
 
 export default function Navigation() {
   const { isAuthenticated, logout } = useAuth();
@@ -121,7 +122,7 @@ export default function Navigation() {
 interface MenuItem {
   path: string;
   default?: boolean;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   experimental?: boolean;
   right?: boolean;
@@ -148,7 +149,6 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/system', icon: FaServer, label: t('navigation.system_update'), right: true },
     // Node-RED - only show if available via nginx proxy
     ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),
-    { path: '/help', icon: FaQuestionCircle, label: t('navigation.help'), right: true },
   ];
 
   const isActive = (item: MenuItem) => 
@@ -197,6 +197,16 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
         </ul>
         <ul className="menu menu-horizontal flex flex-wrap gap-0">
           {rightItems.map(renderItem)}
+          <li>
+            <HelpDialog
+              trigger={
+                <a className="px-3 py-1.5 text-sm">
+                  <FaQuestionCircle className="h-4 w-4" />
+                  <span>{t('navigation.help')}</span>
+                </a>
+              }
+            />
+          </li>
         </ul>
       </div>
     );
@@ -227,6 +237,23 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
           </a>
         </li>
       ))}
+      {/* Help dialog trigger */}
+      <li>
+        <HelpDialog
+          trigger={
+            <a
+              onClick={() => {
+                const drawerCheckbox = document.getElementById('my-drawer') as HTMLInputElement;
+                if (drawerCheckbox) drawerCheckbox.checked = false;
+              }}
+              className="flex items-center gap-4 px-4 py-4 rounded-lg text-lg font-medium transition-all active:scale-[0.98] cursor-pointer hover:bg-base-200 text-base-content"
+            >
+              <FaQuestionCircle className="h-6 w-6 shrink-0" />
+              <span className="flex-1">{t('navigation.help')}</span>
+            </a>
+          }
+        />
+      </li>
     </ul>
   );
 }
