@@ -23,6 +23,7 @@ import logging
 import logging.handlers
 import os
 import pwd
+import re
 import subprocess
 import sys
 import tempfile
@@ -59,7 +60,12 @@ ALLOWED_ACTIONS = {
     "systemctl_reload",
     "append_line_if_missing",
     "ufw_allow",
+    "apt_install",
+    "pip_install_wheel",
 }
+
+# Debian package names accepted by the apt_install action
+_PKG_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-]*$")
 
 
 # ---------------------------------------------------------------------------
@@ -333,6 +339,163 @@ def handle_ufw_allow(action: dict[str, Any], assets_base: str) -> None:
     subprocess.run(cmd, check=True, timeout=15)
 
 
+def handle_apt_install(action: dict[str, Any], assets_base: str) -> None:
+    """Install Debian packages that are not present yet.
+
+    Args:
+        action: Action dict with a ``packages`` list.
+        assets_base: Unused.
+
+    Raises:
+        ValueError: If a package name looks suspicious.
+        subprocess.CalledProcessError: If apt-get fails.
+    """
+    packages = action.get("packages") or []
+    for pkg in packages:
+        if not isinstance(pkg, str) or not _PKG_NAME_RE.match(pkg):
+            raise ValueError(f"Invalid package name: {pkg!r}")
+
+    missing = []
+    for pkg in packages:
+        result = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Status}", pkg],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0 or "install ok installed" not in result.stdout:
+            missing.append(pkg)
+
+    if not missing:
+        _LOGGER.info("SKIP (already installed): %s", " ".join(packages))
+        return
+
+    _LOGGER.info("apt-get install %s", " ".join(missing))
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    subprocess.run(
+        ["apt-get", "install", "-y", "--no-install-recommends", *missing],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env=env,
+    )
+
+
+def _run_as_user(user: str, cmd: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    """Run *cmd* as an unprivileged user with a clean environment.
+
+    Args:
+        user: Target username (must not be root).
+        cmd: Command and arguments.
+        timeout: Timeout in seconds.
+
+    Returns:
+        The completed process.
+
+    Raises:
+        ValueError: If the user does not exist or is root.
+    """
+    try:
+        pw = pwd.getpwnam(user)
+    except KeyError as exc:
+        raise ValueError(f"Unknown user: {user!r}") from exc
+    if pw.pw_uid == 0:
+        raise ValueError("run_as must not be root")
+
+    env = {
+        "HOME": pw.pw_dir,
+        "USER": user,
+        "LOGNAME": user,
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+    }
+    return subprocess.run(
+        cmd,
+        user=pw.pw_uid,
+        group=pw.pw_gid,
+        env=env,
+        cwd=pw.pw_dir,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+
+
+def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
+    """Install a bundled wheel into a virtualenv as an unprivileged user.
+
+    Args:
+        action: Action dict with wheel, python, run_as and optional
+            expected_sha256, skip_if and verify expressions.
+        assets_base: Absolute path to the assets directory.
+
+    Raises:
+        ValueError: On path escape, checksum mismatch or failed verification.
+        FileNotFoundError: If the wheel or interpreter is missing.
+    """
+    assets_root = Path(assets_base).resolve()
+    wheel_path = (assets_root / action["wheel"]).resolve()
+    if not wheel_path.is_relative_to(assets_root):
+        raise ValueError(f"Wheel path escapes assets directory: {action['wheel']}")
+    if not wheel_path.is_file():
+        raise FileNotFoundError(f"Wheel not found: {wheel_path}")
+
+    expected_sha256 = action.get("expected_sha256")
+    if expected_sha256:
+        actual = _sha256_of_bytes(wheel_path.read_bytes())
+        if actual != expected_sha256:
+            raise ValueError(
+                f"SHA-256 mismatch for {action['wheel']}: "
+                f"expected={expected_sha256} actual={actual}"
+            )
+
+    python = action["python"]
+    if not os.path.isabs(python) or not os.access(python, os.X_OK):
+        raise FileNotFoundError(f"Target interpreter not usable: {python}")
+
+    run_as = action["run_as"]
+
+    skip_if = action.get("skip_if")
+    if skip_if:
+        probe = _run_as_user(
+            run_as,
+            [python, "-c", f"import sys; sys.exit(0 if ({skip_if}) else 1)"],
+            timeout=30,
+        )
+        if probe.returncode == 0:
+            _LOGGER.info("SKIP (skip_if satisfied): %s", action["wheel"])
+            return
+
+    _LOGGER.info("pip install %s as %s", wheel_path.name, run_as)
+    result = _run_as_user(
+        run_as,
+        [
+            python, "-m", "pip", "install",
+            "--no-cache-dir", "--no-deps", "--no-index",
+            "--force-reinstall", str(wheel_path),
+        ],
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise ValueError(
+            f"pip install failed (rc={result.returncode}): "
+            f"{(result.stderr or result.stdout).strip()}"
+        )
+
+    verify = action.get("verify")
+    if verify:
+        check = _run_as_user(
+            run_as,
+            [python, "-c", f"import sys; sys.exit(0 if ({verify}) else 1)"],
+            timeout=30,
+        )
+        if check.returncode != 0:
+            raise ValueError(f"Post-install verification failed: {verify}")
+
+    _LOGGER.info("INSTALLED: %s into %s", wheel_path.name, python)
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -347,6 +510,8 @@ ACTION_HANDLERS = {
     "systemctl_reload": handle_systemctl_reload,
     "append_line_if_missing": handle_append_line_if_missing,
     "ufw_allow": handle_ufw_allow,
+    "apt_install": handle_apt_install,
+    "pip_install_wheel": handle_pip_install_wheel,
 }
 
 
@@ -430,6 +595,12 @@ def main() -> int:
         try:
             dispatch_action(action, assets_base)
         except Exception as exc:
+            if action.get("optional"):
+                _LOGGER.warning(
+                    "[%d/%d] Optional action %s failed, continuing: %s",
+                    i, len(actions), action_type, exc,
+                )
+                continue
             _LOGGER.error("[%d/%d] Action %s failed: %s", i, len(actions), action_type, exc)
             return 1
 

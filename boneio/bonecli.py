@@ -217,6 +217,9 @@ def run(
     _t0 = _time.monotonic()
     setup_logging(debug_level=debug)
     _LOGGER.info("BoneIO %s starting.", __version__)
+    from boneio.core.config.yaml_compat import log_yaml_backend
+
+    log_yaml_backend()
     _LOGGER.debug("[STARTUP TIMING] after setup_logging: %.2fs", _time.monotonic() - _t0)
 
     # --- Initialize OLED before anything else (independent of config) ---

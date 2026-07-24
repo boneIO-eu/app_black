@@ -12,7 +12,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from boneio.core.config import ConfigHelper
-from boneio.core.config.yaml_util import load_config_from_file, update_yaml_field
+from boneio.core.config.yaml_util import (
+    load_config_from_file,
+    update_yaml_field,
+    wait_for_pending_yaml_saves,
+)
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
@@ -107,14 +111,25 @@ async def get_logs(
 
 @router.post("/restart")
 async def restart_service(background_tasks: BackgroundTasks):
-    """
-    Restart the BoneIO service.
-    
+    """Restart the BoneIO service.
+
+    Waits for any pending background YAML saves (from quick-actions)
+    to complete before restarting, so no config changes are lost.
+
     Returns:
         Status response indicating if restart was initiated.
     """
     if not is_running_as_service():
         return {"status": "not available"}
+
+    # Flush pending background YAML saves before restarting.
+    # Run in executor to avoid blocking the async event loop.
+    loop = asyncio.get_running_loop()
+    saves_flushed = await loop.run_in_executor(
+        None, wait_for_pending_yaml_saves, 30.0
+    )
+    if not saves_flushed:
+        _LOGGER.warning("Restarting with pending YAML saves — some changes may be lost")
 
     async def shutdown_and_restart():
         if _app_state and _app_state.web_server:

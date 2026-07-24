@@ -345,7 +345,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
         }
       }
 
-      await axios.post('/api/config/quick-action', payload);
+      await axios.post('/api/config/quick-action', payload, { timeout: 15_000 });
       setSaveStatus('success');
 
       // Auto-close after success

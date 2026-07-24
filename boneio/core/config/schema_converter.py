@@ -6,10 +6,18 @@ import os
 from typing import IO, Any, Union
 
 import yaml
-from yaml import SafeLoader, load
+from yaml import load
+
+# Prefer the libyaml-backed loader when available (~10x faster). Imported
+# directly instead of via boneio.core.config.yaml_compat because this module
+# must stay importable without the full boneIO dependency graph (CI).
+try:
+    from yaml import CSafeLoader as _BaseLoader
+except ImportError:  # pragma: no cover - PyYAML built without libyaml
+    from yaml import SafeLoader as _BaseLoader  # type: ignore[assignment]
 
 
-class BoneIOLoader(SafeLoader):
+class BoneIOLoader(_BaseLoader):  # type: ignore[misc]
     """Custom YAML loader with !include constructor."""
     
     def __init__(self, stream: Union[str, IO]):

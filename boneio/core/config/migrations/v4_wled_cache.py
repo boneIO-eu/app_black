@@ -39,9 +39,11 @@ def _persist_wled_cache_strip(config_file: str) -> None:
     # First, find and extract WLED data from the in-memory parse
     # to save into .wled_cache.json before removing from YAML
     try:
-        from yaml import SafeLoader, load
+        from yaml import load
 
-        class IncludeLoader(SafeLoader):
+        from boneio.core.config.yaml_compat import FastSafeLoader
+
+        class IncludeLoader(FastSafeLoader):
             """YAML loader that preserves !include tags."""
 
         def _include_constructor(
@@ -70,7 +72,7 @@ def _persist_wled_cache_strip(config_file: str) -> None:
             include_path = config_dir / rd_section.filename
             if include_path.exists():
                 with open(include_path, encoding="utf-8") as f:
-                    rd_list = load(f, Loader=SafeLoader)  # noqa: S506
+                    rd_list = load(f, Loader=FastSafeLoader)  # noqa: S506
                 _strip_wled_fields_from_file(include_path, rd_list, config_dir)
             return
 

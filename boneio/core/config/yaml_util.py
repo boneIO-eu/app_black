@@ -3,14 +3,18 @@ import fnmatch
 import logging
 import os
 import re
+import threading
+import time
 from collections import OrderedDict
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from cerberus import TypeDefinition, Validator
-from yaml import MarkedYAMLError, SafeDumper, SafeLoader, YAMLError, dump, load
+from yaml import MarkedYAMLError, YAMLError, dump, load
 
 from boneio.const import OUTPUT
+from boneio.core.config.yaml_compat import FastSafeDumper, FastSafeLoader
 from boneio.core.utils import TimePeriod
 from boneio.exceptions import ConfigurationException
 
@@ -19,6 +23,57 @@ _LOGGER = logging.getLogger(__name__)
 
 SECRET_YAML = "secrets.yaml"
 _SECRET_VALUES = {}
+
+# ── YAML write serialization & background save tracking ──────────────────
+_yaml_write_lock = threading.Lock()
+_yaml_pending_saves = 0
+_yaml_pending_lock = threading.Lock()
+
+
+def yaml_saves_pending() -> bool:
+    """Return True if background YAML saves are still in progress."""
+    return _yaml_pending_saves > 0
+
+
+def get_pending_yaml_saves_count() -> int:
+    """Return count of pending background YAML saves."""
+    return _yaml_pending_saves
+
+
+def wait_for_pending_yaml_saves(timeout: float = 30.0) -> bool:
+    """Block until all pending YAML saves complete (or timeout).
+
+    Args:
+        timeout: Maximum seconds to wait.
+
+    Returns:
+        True if all saves completed, False if timed out.
+    """
+    deadline = time.monotonic() + timeout
+    while yaml_saves_pending():
+        if time.monotonic() > deadline:
+            _LOGGER.warning(
+                "Timed out waiting for %d pending YAML save(s)",
+                _yaml_pending_saves,
+            )
+            return False
+        time.sleep(0.1)
+    return True
+
+
+def increment_pending_yaml_saves() -> None:
+    """Increment pending YAML save counter."""
+    global _yaml_pending_saves
+    with _yaml_pending_lock:
+        _yaml_pending_saves += 1
+
+
+def decrement_pending_yaml_saves() -> None:
+    """Decrement pending YAML save counter."""
+    global _yaml_pending_saves
+    with _yaml_pending_lock:
+        _yaml_pending_saves = max(0, _yaml_pending_saves - 1)
+
 
 # Cache for schema to avoid loading it multiple times (saves ~2-3s per config load)
 _SCHEMA_CACHE = None
@@ -52,13 +107,82 @@ def _inject_modbus_models(schema: dict) -> None:
         _LOGGER.warning("Could not inject modbus models into schema")
 
 
+def _schema_fingerprint() -> tuple:
+    """Build a cheap fingerprint of all schema inputs.
+
+    Combines name/mtime/size of every YAML file in the schema directory with
+    the list of modbus device models, so the pickled schema cache is
+    invalidated whenever any of them changes.
+    """
+    schema_dir = os.path.dirname(os.path.abspath(schema_file))
+    files = []
+    try:
+        for name in sorted(os.listdir(schema_dir)):
+            if not name.endswith((".yaml", ".yml")):
+                continue
+            st = os.stat(os.path.join(schema_dir, name))
+            files.append((name, st.st_mtime_ns, st.st_size))
+    except OSError as e:
+        _LOGGER.debug("Could not fingerprint schema directory: %s", e)
+        return ()
+    return (tuple(files), tuple(_get_modbus_device_models()))
+
+
+def _get_schema_pickle_path() -> str:
+    """Return path of the pickled schema cache in the user cache directory."""
+    cache_root = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(cache_root, "boneio", "schema.pkl")
+
+
+def _load_schema() -> dict:
+    """Load the Cerberus schema, using a pickled cache when it is up to date.
+
+    Parsing the ~70 kB schema YAML takes several seconds on a BeagleBone
+    Black; unpickling the already parsed structure takes milliseconds.
+    """
+    import pickle
+
+    fingerprint = _schema_fingerprint()
+    cache_path = _get_schema_pickle_path()
+
+    if fingerprint:
+        try:
+            with open(cache_path, "rb") as f:
+                cached = pickle.load(f)
+            if isinstance(cached, dict) and cached.get("fingerprint") == fingerprint:
+                _LOGGER.debug("Loaded schema from pickle cache %s", cache_path)
+                return cached["data"]
+            _LOGGER.debug("Schema pickle cache is stale, reparsing YAML")
+        except (FileNotFoundError, OSError, EOFError, pickle.UnpicklingError, AttributeError) as e:
+            _LOGGER.debug("Schema pickle cache not available: %s", e)
+
+    schema = load_yaml_file(schema_file)
+    _inject_modbus_models(schema)
+
+    if fingerprint:
+        try:
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            tmp_path = f"{cache_path}.tmp"
+            with open(tmp_path, "wb") as f:
+                pickle.dump(
+                    {"fingerprint": fingerprint, "data": schema},
+                    f,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+            os.replace(tmp_path, cache_path)
+            _LOGGER.debug("Saved schema pickle cache to %s", cache_path)
+        except (OSError, pickle.PicklingError) as e:
+            _LOGGER.debug("Could not save schema pickle cache: %s", e)
+
+    return schema
+
+
 def _get_schema():
     """Get schema from cache or load it if not cached."""
     global _SCHEMA_CACHE
     if _SCHEMA_CACHE is None:
-        _LOGGER.debug("Loading schema from file (first time)")
-        _SCHEMA_CACHE = load_yaml_file(schema_file)
-        _inject_modbus_models(_SCHEMA_CACHE)
+        _LOGGER.debug("Loading schema (first time)")
+        _SCHEMA_CACHE = _load_schema()
     return _SCHEMA_CACHE
 
 
@@ -71,19 +195,23 @@ def _get_board_config(board_file: str):
     return _BOARD_CONFIG_CACHE[board_file]
 
 
-def clear_config_cache(config_file: str | None = None):
-    """Clear all cached YAML configs.
+def clear_config_cache(config_file: str | None = None, clear_static: bool = False):
+    """Clear cached YAML configs.
 
-    Clears in-memory schema/board caches and optionally removes the
-    validated config disk cache (.cache.pkl) for the given config file.
+    Removes the validated config disk cache (.cache.pkl) for the given config
+    file. The schema and board config caches hold read-only package files that
+    never change while boneIO runs, so they are kept unless *clear_static* is
+    set — reparsing them costs several seconds on a BeagleBone Black.
 
     Args:
         config_file: Path to config file whose disk cache should be removed.
-                     If None, only in-memory caches are cleared.
+                     If None, no disk cache is removed.
+        clear_static: Also drop the in-memory schema and board config caches.
     """
     global _SCHEMA_CACHE, _BOARD_CONFIG_CACHE
-    _SCHEMA_CACHE = None
-    _BOARD_CONFIG_CACHE.clear()
+    if clear_static:
+        _SCHEMA_CACHE = None
+        _BOARD_CONFIG_CACHE.clear()
     if config_file:
         cache_path = config_file + ".cache.pkl"
         try:
@@ -96,7 +224,7 @@ def clear_config_cache(config_file: str | None = None):
     _LOGGER.info("Config cache cleared")
 
 
-class TimePeriodDumper(SafeDumper):
+class TimePeriodDumper(FastSafeDumper):
     """Custom dumper that cleanly serializes TimePeriod objects as strings."""
 
     pass
@@ -109,7 +237,7 @@ def represent_time_period(dumper, data):
 TimePeriodDumper.add_representer(TimePeriod, represent_time_period)
 
 
-class BoneIOLoader(SafeLoader):
+class BoneIOLoader(FastSafeLoader):
     """Loader which support for include in yaml files."""
 
     def __init__(self, stream):
@@ -135,7 +263,7 @@ class BoneIOLoader(SafeLoader):
         return val
 
     def represent_stringify(self, value):
-        # Type: ignore[attr-defined] - represent_scalar is inherited from SafeLoader
+        # Type: ignore[attr-defined] - represent_scalar is inherited from the loader base
         return self.represent_scalar(  # type: ignore[attr-defined]
             tag="tag:yaml.org,2002:str", value=str(value)
         )
@@ -187,6 +315,29 @@ BoneIOLoader.add_constructor("!include_dir_merge_list", BoneIOLoader.construct_i
 BoneIOLoader.add_constructor("!include_dir_named", BoneIOLoader.construct_include_dir_named)
 BoneIOLoader.add_constructor("!include_dir_merge_named", BoneIOLoader.construct_include_dir_merge_named)
 BoneIOLoader.add_constructor("!include_files", BoneIOLoader.construct_include_files)
+
+
+def _construct_unknown_tag(loader, tag_suffix, node):
+    """Fallback constructor for unknown YAML tags.
+
+    Treats unknown tags (e.g. ``!abc123`` used as a password value) as plain
+    strings instead of raising ``could not determine a constructor``.
+    Logs a warning so the user is aware they should quote the value.
+    """
+    value = loader.construct_scalar(node)
+    full_value = f"!{tag_suffix}" if not value else f"!{tag_suffix} {value}"
+    _LOGGER.warning(
+        "Unknown YAML tag '!%s' at %s — treating as plain string '%s'. "
+        "Consider quoting the value in your config (e.g. '!%s').",
+        tag_suffix,
+        node.start_mark,
+        full_value,
+        tag_suffix,
+    )
+    return full_value
+
+
+BoneIOLoader.add_multi_constructor("!", _construct_unknown_tag)
 
 
 def filter_yaml_files(files):
@@ -1223,207 +1374,205 @@ def update_config_section(config_file: str, section: str, data: dict | list) -> 
     Returns:
         dict: Status response with success/error message
     """
-    import time
-    from pathlib import Path
+    with _yaml_write_lock:
+        t_start = time.perf_counter()
+        config_dir = Path(config_file).parent
 
-    t_start = time.perf_counter()
-    config_dir = Path(config_file).parent
-
-    data_size = len(str(data)) if data else 0
-    _LOGGER.info(
-        "[SAVE] START section='%s' data_size=%d bytes",
-        section, data_size,
-    )
-
-    # Special handling for mcp23017 - convert hex strings to integers
-    # This ensures YAML writes them as integers which are then read back as hex
-    if section == "mcp23017" and isinstance(data, list):
-        for entry in data:
-            if isinstance(entry, dict) and "address" in entry:
-                addr = entry["address"]
-                if isinstance(addr, str):
-                    if addr.startswith("0x") or addr.startswith("0X"):
-                        entry["address"] = int(addr, 16)
-                    else:
-                        with contextlib.suppress(ValueError):
-                            entry["address"] = int(addr, 10)
-
-    # Strip WLED device metadata (effects/palettes/segments) from remote_devices.
-    # These are auto-discovered from WLED API and cached in .wled_cache.json,
-    # NOT stored in config.yaml (defense in depth).
-    if section == "remote_devices" and isinstance(data, list):
-        _wled_cache_fields = ("effects", "palettes", "segments")
-        for entry in data:
-            if isinstance(entry, dict):
-                wled = entry.get("wled")
-                if isinstance(wled, dict):
-                    for field in _wled_cache_fields:
-                        wled.pop(field, None)
-
-    # Strip default values to keep YAML clean
-    t_strip = time.perf_counter()
-    cleaned_data = strip_default_values(data, {}, section)
-    _LOGGER.info(
-        "[SAVE] strip_default_values took %.3fs",
-        time.perf_counter() - t_strip,
-    )
-
-    # Custom YAML loader that preserves !include tags
-    class IncludeLoader(SafeLoader):
-        pass
-
-    def include_constructor(loader, node):
-        """Constructor for !include tag that preserves the tag info."""
-        filename = loader.construct_scalar(node)
-        # Return a special object that preserves the include info
-        include_obj = type("Include", (), {"filename": filename, "tag": "!include"})()
-        return include_obj
-
-    IncludeLoader.add_constructor("!include", include_constructor)
-
-    try:
-        # Read current config.yaml with custom loader
-        t_load = time.perf_counter()
-        with open(config_file, encoding="utf-8") as f:
-            config_content = load(f, Loader=IncludeLoader)
+        data_size = len(str(data)) if data else 0
         _LOGGER.info(
-            "[SAVE] yaml.load(config.yaml) took %.3fs",
-            time.perf_counter() - t_load,
+            "[SAVE] START section='%s' data_size=%d bytes",
+            section, data_size,
         )
 
-        if config_content is None:
-            config_content = {}
+        # Special handling for mcp23017 - convert hex strings to integers
+        # This ensures YAML writes them as integers which are then read back as hex
+        if section == "mcp23017" and isinstance(data, list):
+            for entry in data:
+                if isinstance(entry, dict) and "address" in entry:
+                    addr = entry["address"]
+                    if isinstance(addr, str):
+                        if addr.startswith("0x") or addr.startswith("0X"):
+                            entry["address"] = int(addr, 16)
+                        else:
+                            with contextlib.suppress(ValueError):
+                                entry["address"] = int(addr, 10)
 
-        # Check if section exists in config
-        if section in config_content:
-            section_value = config_content[section]
+        # Strip WLED device metadata (effects/palettes/segments) from remote_devices.
+        # These are auto-discovered from WLED API and cached in .wled_cache.json,
+        # NOT stored in config.yaml (defense in depth).
+        if section == "remote_devices" and isinstance(data, list):
+            _wled_cache_fields = ("effects", "palettes", "segments")
+            for entry in data:
+                if isinstance(entry, dict):
+                    wled = entry.get("wled")
+                    if isinstance(wled, dict):
+                        for field in _wled_cache_fields:
+                            wled.pop(field, None)
 
-            # Check if it's an !include directive
-            if hasattr(section_value, "tag") and section_value.tag == "!include":
-                # It's an !include - update the included file
-                include_filename = section_value.filename
-                include_file_path = os.path.join(config_dir, include_filename)
+        # Strip default values to keep YAML clean
+        t_strip = time.perf_counter()
+        cleaned_data = strip_default_values(data, {}, section)
+        _LOGGER.info(
+            "[SAVE] strip_default_values took %.3fs",
+            time.perf_counter() - t_strip,
+        )
 
-                _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
+        # Custom YAML loader that preserves !include tags
+        class IncludeLoader(FastSafeLoader):
+            pass
 
-                # Save cleaned data to the included file
-                t_dump = time.perf_counter()
-                content = dump(
-                    cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
-                )
-                _LOGGER.info(
-                    "[SAVE] yaml.dump(!include data) took %.3fs (%d bytes)",
-                    time.perf_counter() - t_dump, len(content),
-                )
-                t_write = time.perf_counter()
-                with open(include_file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                _LOGGER.info(
-                    "[SAVE] file write (!include) took %.3fs",
-                    time.perf_counter() - t_write,
-                )
+        def include_constructor(loader, node):
+            """Constructor for !include tag that preserves the tag info."""
+            filename = loader.construct_scalar(node)
+            # Return a special object that preserves the include info
+            include_obj = type("Include", (), {"filename": filename, "tag": "!include"})()
+            return include_obj
 
-            else:
-                # It's a regular section - replace in config.yaml
-                _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
-                config_content[section] = cleaned_data
+        IncludeLoader.add_constructor("!include", include_constructor)
 
-                # Save updated config.yaml (need to handle !include when saving)
-                # Read original file as text to preserve !include syntax
-                t_reread = time.perf_counter()
-                with open(config_file, encoding="utf-8") as f:
-                    original_lines = f.readlines()
-                _LOGGER.info(
-                    "[SAVE] re-read config as text took %.3fs (%d lines)",
-                    time.perf_counter() - t_reread, len(original_lines),
-                )
-
-                # Find and replace the section in the original text
-                updated_lines = []
-                in_section = False
-                section_indent = 0
-
-                t_dump = time.perf_counter()
-                for line in original_lines:
-                    stripped = line.strip()
-                    # Check if this line starts the target section
-                    if stripped == f"{section}:" or stripped.startswith(f"{section}: "):
-                        # Found the section start
-                        in_section = True
-                        section_indent = len(line) - len(line.lstrip())
-                        # Add the complete new section (header + data)
-                        section_yaml = dump(
-                            {section: cleaned_data},
-                            Dumper=TimePeriodDumper,
-                            default_flow_style=False,
-                            allow_unicode=True,
-                            sort_keys=False,
-                        )
-                        # Add proper indentation if section was indented
-                        if section_indent > 0:
-                            indented_lines = []
-                            for yaml_line in section_yaml.split("\n"):
-                                if yaml_line.strip():
-                                    indented_lines.append(" " * section_indent + yaml_line)
-                            section_yaml = "\n".join(indented_lines)
-                        updated_lines.append(section_yaml + "\n")
-                    elif in_section:
-                        # Check if we're still in the same section
-                        line_indent = len(line) - len(line.lstrip())
-                        if stripped and line_indent <= section_indent and not stripped.startswith("-"):
-                            # We've moved to a new section (non-empty line at same or lower indent, not a list item)
-                            in_section = False
-                            updated_lines.append(line)
-                        # Skip lines that are part of the old section
-                    else:
-                        updated_lines.append(line)
-                _LOGGER.info(
-                    "[SAVE] yaml.dump(section) + line replace took %.3fs",
-                    time.perf_counter() - t_dump,
-                )
-
-                # Write updated config
-                t_write = time.perf_counter()
-                with open(config_file, "w", encoding="utf-8") as f:
-                    f.writelines(updated_lines)
-                _LOGGER.info(
-                    "[SAVE] file write (config.yaml) took %.3fs",
-                    time.perf_counter() - t_write,
-                )
-
-                _LOGGER.info("[SAVE] section '%s' inline update done", section)
-        else:
-            # Section doesn't exist - add it to config.yaml
-            _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
-
-            # Append new section to the end of the file
-            section_yaml = dump(
-                {section: cleaned_data},
-                Dumper=TimePeriodDumper,
-                default_flow_style=False,
-                allow_unicode=True,
-                sort_keys=False,
+        try:
+            # Read current config.yaml with custom loader
+            t_load = time.perf_counter()
+            with open(config_file, encoding="utf-8") as f:
+                config_content = load(f, Loader=IncludeLoader)
+            _LOGGER.info(
+                "[SAVE] yaml.load(config.yaml) took %.3fs",
+                time.perf_counter() - t_load,
             )
-            with open(config_file, "a", encoding="utf-8") as f:
-                f.write("\n" + section_yaml)
 
-            _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
+            if config_content is None:
+                config_content = {}
 
-        t_total = time.perf_counter() - t_start
-        _LOGGER.info(
-            "[SAVE] DONE section='%s' total=%.3fs",
-            section, t_total,
-        )
-        if t_total > 1.0:
-            _LOGGER.warning(
-                "[SAVE] SLOW save detected: section='%s' took %.3fs",
+            # Check if section exists in config
+            if section in config_content:
+                section_value = config_content[section]
+
+                # Check if it's an !include directive
+                if hasattr(section_value, "tag") and section_value.tag == "!include":
+                    # It's an !include - update the included file
+                    include_filename = section_value.filename
+                    include_file_path = os.path.join(config_dir, include_filename)
+
+                    _LOGGER.info(f"Section '{section}' uses !include '{include_filename}', updating {include_file_path}")
+
+                    # Save cleaned data to the included file
+                    t_dump = time.perf_counter()
+                    content = dump(
+                        cleaned_data, Dumper=TimePeriodDumper, default_flow_style=False, allow_unicode=True, sort_keys=False
+                    )
+                    _LOGGER.info(
+                        "[SAVE] yaml.dump(!include data) took %.3fs (%d bytes)",
+                        time.perf_counter() - t_dump, len(content),
+                    )
+                    t_write = time.perf_counter()
+                    with open(include_file_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    _LOGGER.info(
+                        "[SAVE] file write (!include) took %.3fs",
+                        time.perf_counter() - t_write,
+                    )
+
+                else:
+                    # It's a regular section - replace in config.yaml
+                    _LOGGER.info(f"Section '{section}' is inline, updating in config.yaml")
+                    config_content[section] = cleaned_data
+
+                    # Save updated config.yaml (need to handle !include when saving)
+                    # Read original file as text to preserve !include syntax
+                    t_reread = time.perf_counter()
+                    with open(config_file, encoding="utf-8") as f:
+                        original_lines = f.readlines()
+                    _LOGGER.info(
+                        "[SAVE] re-read config as text took %.3fs (%d lines)",
+                        time.perf_counter() - t_reread, len(original_lines),
+                    )
+
+                    # Find and replace the section in the original text
+                    updated_lines = []
+                    in_section = False
+                    section_indent = 0
+
+                    t_dump = time.perf_counter()
+                    for line in original_lines:
+                        stripped = line.strip()
+                        # Check if this line starts the target section
+                        if stripped == f"{section}:" or stripped.startswith(f"{section}: "):
+                            # Found the section start
+                            in_section = True
+                            section_indent = len(line) - len(line.lstrip())
+                            # Add the complete new section (header + data)
+                            section_yaml = dump(
+                                {section: cleaned_data},
+                                Dumper=TimePeriodDumper,
+                                default_flow_style=False,
+                                allow_unicode=True,
+                                sort_keys=False,
+                            )
+                            # Add proper indentation if section was indented
+                            if section_indent > 0:
+                                indented_lines = []
+                                for yaml_line in section_yaml.split("\n"):
+                                    if yaml_line.strip():
+                                        indented_lines.append(" " * section_indent + yaml_line)
+                                section_yaml = "\n".join(indented_lines)
+                            updated_lines.append(section_yaml + "\n")
+                        elif in_section:
+                            # Check if we're still in the same section
+                            line_indent = len(line) - len(line.lstrip())
+                            if stripped and line_indent <= section_indent and not stripped.startswith("-"):
+                                # We've moved to a new section (non-empty line at same or lower indent, not a list item)
+                                in_section = False
+                                updated_lines.append(line)
+                            # Skip lines that are part of the old section
+                        else:
+                            updated_lines.append(line)
+                    _LOGGER.info(
+                        "[SAVE] yaml.dump(section) + line replace took %.3fs",
+                        time.perf_counter() - t_dump,
+                    )
+
+                    # Write updated config
+                    t_write = time.perf_counter()
+                    with open(config_file, "w", encoding="utf-8") as f:
+                        f.writelines(updated_lines)
+                    _LOGGER.info(
+                        "[SAVE] file write (config.yaml) took %.3fs",
+                        time.perf_counter() - t_write,
+                    )
+
+                    _LOGGER.info("[SAVE] section '%s' inline update done", section)
+            else:
+                # Section doesn't exist - add it to config.yaml
+                _LOGGER.info(f"Section '{section}' doesn't exist, adding to config.yaml")
+
+                # Append new section to the end of the file
+                section_yaml = dump(
+                    {section: cleaned_data},
+                    Dumper=TimePeriodDumper,
+                    default_flow_style=False,
+                    allow_unicode=True,
+                    sort_keys=False,
+                )
+                with open(config_file, "a", encoding="utf-8") as f:
+                    f.write("\n" + section_yaml)
+
+                _LOGGER.info(f"Successfully added new section '{section}' to config.yaml")
+
+            t_total = time.perf_counter() - t_start
+            _LOGGER.info(
+                "[SAVE] DONE section='%s' total=%.3fs",
                 section, t_total,
             )
-        return {"status": "success", "message": f"Section '{section}' saved successfully"}
+            if t_total > 1.0:
+                _LOGGER.warning(
+                    "[SAVE] SLOW save detected: section='%s' took %.3fs",
+                    section, t_total,
+                )
+            return {"status": "success", "message": f"Section '{section}' saved successfully"}
 
-    except Exception as e:
-        _LOGGER.error(f"Error saving section '{section}': {str(e)}")
-        return {"status": "error", "message": f"Error saving section: {str(e)}"}
+        except Exception as e:
+            _LOGGER.error(f"Error saving section '{section}': {str(e)}")
+            return {"status": "error", "message": f"Error saving section: {str(e)}"}
 
 
 def update_yaml_field(config_file: str, section: str, field: str, value: str) -> dict:

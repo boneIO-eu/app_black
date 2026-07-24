@@ -196,10 +196,11 @@ class TimePeriodMinutes(TimePeriod):
 def parse_time_to_seconds(value: Any, default: float) -> float:
     """Parse a time value to seconds.
 
-    Supports TimePeriod objects and raw numeric values.
+    Supports TimePeriod objects, raw numeric values, and string time
+    expressions like ``"5s"``, ``"50ms"``, ``"2min"``.
 
     Args:
-        value: TimePeriod, int, float, or None.
+        value: TimePeriod, int, float, string with unit, or None.
         default: Default value in seconds.
 
     Returns:
@@ -212,17 +213,25 @@ def parse_time_to_seconds(value: Any, default: float) -> float:
     try:
         return float(value)
     except (ValueError, TypeError):
-        _LOGGER.warning("Invalid time value: %s, using default %.0fs", value, default)
-        return default
+        pass
+    # Try parsing string with unit (e.g. "50ms", "5s", "2min")
+    if isinstance(value, str):
+        try:
+            return ensure_time_period(value).total_in_seconds
+        except ValueError:
+            pass
+    _LOGGER.warning("Invalid time value: %s, using default %.0fs", value, default)
+    return default
 
 
 def parse_time_to_ms(value: Any, default: int | None) -> int | None:
     """Parse a time value to milliseconds.
 
-    Supports TimePeriod objects and raw numeric values.
+    Supports TimePeriod objects, raw numeric values, and string time
+    expressions like ``"50ms"``, ``"5s"``, ``"800ms"``.
 
     Args:
-        value: TimePeriod, int, float, or None.
+        value: TimePeriod, int, float, string with unit, or None.
         default: Default value in milliseconds (None = no default).
 
     Returns:
@@ -237,8 +246,16 @@ def parse_time_to_ms(value: Any, default: int | None) -> int | None:
     try:
         return int(float(value))
     except (ValueError, TypeError):
-        _LOGGER.warning("Invalid time value: %s, using default %s ms", value, default)
-        return default
+        pass
+    # Try parsing string with unit (e.g. "50ms", "800ms", "5s")
+    if isinstance(value, str):
+        try:
+            tp = ensure_time_period(value)
+            return int(tp.total_milliseconds)
+        except ValueError:
+            pass
+    _LOGGER.warning("Invalid time value: %s, using default %s ms", value, default)
+    return default
 
 
 _TIME_UNIT_MAP = {

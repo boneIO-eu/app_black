@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 
 from fastapi import Body, HTTPException
 
 from boneio.core.config.yaml_util import (
+    decrement_pending_yaml_saves,
     get_board_config_path,
+    get_pending_yaml_saves_count,
+    increment_pending_yaml_saves,
     load_config_from_file,
     load_yaml_file,
     normalize_board_name,
     normalize_version,
     update_config_section,
+    yaml_saves_pending,
 )
 from boneio.core.manager import Manager
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
@@ -24,6 +29,19 @@ from boneio.webui.routes.config_core import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@router.get("/config/save-status")
+async def get_save_status():
+    """Check if background YAML saves are in progress.
+
+    Returns:
+        Dictionary with saving status and pending count.
+    """
+    return {
+        "saving": yaml_saves_pending(),
+        "pending_count": get_pending_yaml_saves_count(),
+    }
 
 
 @router.post("/config/validate_device_type_change")
@@ -314,17 +332,20 @@ async def add_quick_action(payload: dict = Body(...)):
                 detail={"message": "Invalid action configuration", "errors": errors},
             )
 
-        result = update_config_section(app_state.yaml_config_file, section, entries)
-        if result["status"] == "error":
-            raise HTTPException(status_code=500, detail=result["message"])
-
+        # 1. Update in-memory cache immediately (instant)
         invalidate_config_cache(section=section, section_data=entries)
 
+        # 2. Hot-update input device actions in-memory
         try:
             manager: Manager = app_state.manager
             input_device = manager.inputs._inputs.get(entity_id.lower())
             if input_device:
                 raw_actions = entry.get("actions", {})
+                if not raw_actions and section == "binary_sensor":
+                    raw_actions = {
+                        "pressed": entry.get("actions_on_press", []),
+                        "released": entry.get("actions_on_release", []),
+                    }
                 parsed = manager.parse_actions(
                     getattr(input_device, "pin", entity_id), raw_actions
                 )
@@ -337,6 +358,39 @@ async def add_quick_action(payload: dict = Body(...)):
                 )
         except Exception as hot_err:
             _LOGGER.warning("Quick action saved but hot-update failed: %s", hot_err)
+
+        # 3. Fire YAML save in background (don't block response)
+        config_file = app_state.yaml_config_file
+
+        increment_pending_yaml_saves()
+
+        def _background_yaml_save() -> None:
+            """Persist quick-action to YAML on disk in a background thread."""
+            try:
+                result = update_config_section(config_file, section, entries)
+                if result["status"] == "error":
+                    _LOGGER.error(
+                        "Background YAML save failed for quick action: %s",
+                        result["message"],
+                    )
+                else:
+                    _LOGGER.info(
+                        "Background YAML save completed for quick action: %s -> %s",
+                        entity_id, click_type,
+                    )
+            except Exception as bg_err:
+                _LOGGER.error(
+                    "Background YAML save error for quick action: %s",
+                    bg_err, exc_info=True,
+                )
+            finally:
+                decrement_pending_yaml_saves()
+
+        threading.Thread(
+            target=_background_yaml_save,
+            name=f"yaml-save-quick-action-{entity_id}",
+            daemon=True,
+        ).start()
 
         _LOGGER.info(
             "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
@@ -355,3 +409,4 @@ async def add_quick_action(payload: dict = Body(...)):
     except Exception as e:
         _LOGGER.error("Error adding quick action: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error adding quick action: {e}") from e
+

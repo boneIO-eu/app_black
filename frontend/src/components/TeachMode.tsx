@@ -493,7 +493,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
         }
       }
 
-      await axios.post('/api/config/quick-action', payload);
+      await axios.post('/api/config/quick-action', payload, { timeout: 15_000 });
       setSaveStatus('success');
       setLinkCount((c) => c + 1);
 

@@ -7,6 +7,7 @@ import hashlib
 import logging
 import os
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,7 @@ from boneio.core.config.yaml_util import (
     load_yaml_file,
     merge_board_config,
     update_config_section,
+    wait_for_pending_yaml_saves,
 )
 from boneio.core.manager import Manager
 from boneio.webui.action_validation import validate_section_actions as _validate_section_actions
@@ -396,12 +398,17 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             )
 
     try:
-        import time as _time
-
-        t_route_start = _time.perf_counter()
+        t_route_start = time.perf_counter()
         app_state = _get_app_state()
 
+        # Wait for any pending background quick-action saves to complete
+        # before doing a full section save (prevents overwriting changes).
+        # Run in executor to avoid blocking the async event loop.
         loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None, wait_for_pending_yaml_saves, 15.0
+        )
+
         result = await loop.run_in_executor(
             None,
             update_config_section,
@@ -409,7 +416,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
             section,
             data,
         )
-        t_after_executor = _time.perf_counter()
+        t_after_executor = time.perf_counter()
         _LOGGER.info(
             "[ROUTE] run_in_executor took %.3fs for section='%s'",
             t_after_executor - t_route_start, section,
@@ -434,7 +441,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
 
         _LOGGER.info(
             "[ROUTE] total PUT /config/%s took %.3fs",
-            section, _time.perf_counter() - t_route_start,
+            section, time.perf_counter() - t_route_start,
         )
         return result
 

@@ -244,6 +244,84 @@ class UfwAllow(MigrationAction):
 
 
 # ---------------------------------------------------------------------------
+# Package installation
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AptInstall(MigrationAction):
+    """Install Debian packages with apt (idempotent).
+
+    Packages that are already installed are skipped, so nothing happens on
+    a second run. Package names are validated by the helper against a strict
+    pattern to keep the privileged helper safe.
+
+    Args:
+        packages: List of package names to install.
+        optional: When True a failure (e.g. no network) is logged as a
+            warning and the migration continues instead of aborting.
+    """
+
+    packages: list[str]
+    optional: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {
+            "action": "apt_install",
+            "packages": list(self.packages),
+            "optional": self.optional,
+        }
+
+
+@dataclass
+class PipInstallWheel(MigrationAction):
+    """Install a wheel bundled in the migration assets into a virtualenv.
+
+    pip runs as *run_as* (never as root) so the virtualenv keeps its original
+    ownership. The wheel content is verified against ``expected_sha256``
+    before installation.
+
+    Args:
+        wheel: Path of the wheel relative to ``boneio/migrations/assets/``.
+        python: Absolute path of the target interpreter (the venv python).
+        run_as: Unprivileged user that owns the virtualenv.
+        expected_sha256: SHA-256 of the wheel, injected from MANIFEST.sha256.
+        skip_if: Python expression evaluated with the target interpreter;
+            when it evaluates truthy the installation is skipped.
+        verify: Python expression evaluated with the target interpreter after
+            the installation; must be truthy or the action fails.
+        optional: When True a failure is logged as a warning and the
+            migration continues.
+    """
+
+    wheel: str
+    python: str
+    run_as: str
+    expected_sha256: str | None = None
+    skip_if: str | None = None
+    verify: str | None = None
+    optional: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        d: dict[str, Any] = {
+            "action": "pip_install_wheel",
+            "wheel": self.wheel,
+            "python": self.python,
+            "run_as": self.run_as,
+            "optional": self.optional,
+        }
+        if self.expected_sha256:
+            d["expected_sha256"] = self.expected_sha256
+        if self.skip_if:
+            d["skip_if"] = self.skip_if
+        if self.verify:
+            d["verify"] = self.verify
+        return d
+
+
+# ---------------------------------------------------------------------------
 # Helper utilities (used by runner, not sent to boneio-migrate)
 # ---------------------------------------------------------------------------
 

@@ -29,9 +29,9 @@ from boneio.core.config.yaml_util import (
 @pytest.fixture(autouse=True)
 def fresh_schema_cache():
     """Clear schema cache before each test to ensure dynamic injection runs."""
-    clear_config_cache()
+    clear_config_cache(clear_static=True)
     yield
-    clear_config_cache()
+    clear_config_cache(clear_static=True)
 
 
 # ---------------------------------------------------------------------------
