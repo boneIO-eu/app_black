@@ -484,3 +484,50 @@ class TestPublishStateWithMigrations:
         asyncio.run(um._publish_state_to_mqtt(update_info))
 
         um._manager.send_message.assert_not_called()
+
+
+class TestPublishUpdateProgressStatusText:
+    """Tests for _publish_update_progress including status_text."""
+
+    def test_progress_with_status_text(self):
+        """status_text is prepended to release_summary when updating."""
+        um = _make_update_manager(pending=[])
+        um._last_check_result = {"release_notes": "Changelog details", "release_url": ""}
+
+        asyncio.run(
+            um._publish_update_progress(
+                current_version="1.5.0dev20",
+                target_version="1.5.0dev20",
+                progress=95,
+                status_text="Restarting BoneIO service...",
+            )
+        )
+
+        call_kwargs = um._manager.send_message.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert payload["in_progress"] is True
+        assert payload["update_percentage"] == 95.0
+        assert payload["installed_version"] == "1.5.0dev20"
+        assert payload["latest_version"] == "1.5.0dev20"
+        assert "⏳ Restarting BoneIO service..." in payload["release_summary"]
+
+    def test_progress_zero_idle(self):
+        """progress 0 sets in_progress=False and update_percentage=None."""
+        um = _make_update_manager(pending=[])
+        um._last_check_result = {"release_notes": "Changelog", "release_url": ""}
+
+        asyncio.run(
+            um._publish_update_progress(
+                current_version="1.5.0dev20",
+                target_version=None,
+                progress=0,
+            )
+        )
+
+        call_kwargs = um._manager.send_message.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert payload["in_progress"] is False
+        assert payload["update_percentage"] is None
+        assert payload["installed_version"] == "1.5.0dev20"
+        assert payload["latest_version"] == "1.5.0dev20"
+

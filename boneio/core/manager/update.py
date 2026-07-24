@@ -417,6 +417,7 @@ class UpdateManager(AsyncUpdater):
                 current_version=current_version,
                 target_version=target_version,
                 progress=progress,
+                status_text=step,
             )
             if on_progress:
                 on_progress(progress, step, log_msg)
@@ -559,24 +560,28 @@ class UpdateManager(AsyncUpdater):
 
             # Verify installed version (async)
             _, show_stdout, _ = await _run_subprocess([pip_path, "show", "boneio"], timeout=30)
+            old_version = current_version
             new_version = current_version
             for line in show_stdout.split("\n"):
                 if line.startswith("Version:"):
                     new_version = line.split(":")[1].strip()
                     break
 
-            _LOGGER.info("Update successful: %s -> %s. Restarting in 2 seconds...", current_version, new_version)
+            _LOGGER.info("Update successful: %s -> %s. Restarting service...", old_version, new_version)
 
-            await _report(90, "Installation verified", f"Updated from {current_version} to {new_version}")
-            await _report(95, "Finalizing...")
+            # Update current_version for reporting so state reflects the new version as installed
+            current_version = new_version
 
-            # Keep in_progress=true as retained so HA shows "Updating"
-            # even during the restart window. The new process will clear
+            await _report(90, "Installation verified", f"Updated from {old_version} to {new_version}")
+
+            # Keep in_progress=true as retained so HA shows "Updating" / "Restarting"
+            # during the restart window. The new process will clear
             # this via _check_post_update_flag() on startup.
             await self._publish_update_progress(
-                current_version=current_version,
+                current_version=new_version,
                 target_version=new_version,
                 progress=95,
+                status_text=f"Restarting service (updated to v{new_version})...",
             )
 
             # Write a flag file so the new process knows to immediately
@@ -587,11 +592,11 @@ class UpdateManager(AsyncUpdater):
                 _LOGGER.warning("Could not write update flag file at %s", UPDATE_FLAG_PATH)
 
             if on_progress:
-                on_progress(100, "Update complete!", "Restarting service in 2 seconds...")
+                on_progress(100, "Update complete!", f"Restarting service (v{new_version})...")
 
             # Wait long enough for MQTT to drain the retained in_progress
             # message before killing the process.
-            await asyncio.sleep(5)
+            await asyncio.sleep(3)
 
             _LOGGER.info("Restarting BoneIO service after update...")
             os._exit(0)
@@ -623,6 +628,7 @@ class UpdateManager(AsyncUpdater):
         current_version: str,
         target_version: str | None,
         progress: int,
+        status_text: str | None = None,
     ) -> None:
         """Publish update progress state to MQTT for HA.
 
@@ -635,31 +641,41 @@ class UpdateManager(AsyncUpdater):
             current_version: Currently installed version
             target_version: Version being installed (None if not updating)
             progress: Update progress percentage (0 = not updating, 1-100 = in progress)
+            status_text: Optional progress status message (e.g., "Restarting service...")
         """
         # HA update entity progress:
         # - in_progress: boolean (true = updating, false = idle)
         # - update_percentage: float 0-100 (shows progress bar in HA UI)
         is_updating = progress > 0
 
+        # Build release_summary
+        release_notes = self._last_check_result.get("release_notes", "") if self._last_check_result else ""
+        if status_text and is_updating:
+            summary = f"⏳ {status_text}\n\n{release_notes}" if release_notes else f"⏳ {status_text}"
+        else:
+            summary = release_notes
+
         state_payload = {
             "installed_version": current_version,
             "latest_version": target_version or current_version,
             "title": "boneIO Black Firmware",
             "release_url": self._last_check_result.get("release_url", "") if self._last_check_result else "",
-            "release_summary": self._last_check_result.get("release_notes", "") if self._last_check_result else "",
+            "release_summary": summary[:255],  # HA limit
             "entity_picture": "http://boneio.eu/logo_fb_circle.png",
             "in_progress": is_updating,
             "update_percentage": float(progress) if is_updating else None,
         }
 
+        payload_json = json.dumps(state_payload)
         topic_prefix = self._manager._config_helper.topic_prefix
         self._manager.send_message(
             topic=f"{topic_prefix}/update/state",
-            payload=json.dumps(state_payload),
+            payload=payload_json,
             retain=True,
         )
 
-        _LOGGER.debug("Published update progress: %d%%", progress)
+        self._last_published_state = payload_json
+        _LOGGER.debug("Published update progress: %d%% (%s)", progress, status_text or "")
 
     async def _publish_bootstrap_required_state(self) -> None:
         """Publish a special update state indicating migration bootstrap is required.
