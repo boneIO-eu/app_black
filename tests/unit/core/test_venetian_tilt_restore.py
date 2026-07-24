@@ -127,17 +127,16 @@ class TestTiltRestoreClose:
 class TestTiltRestoreOpen:
     """Test tilt clearing during open()."""
 
-    async def test_open_clears_saved_tilt(self):
-        """Opening the cover clears any saved tilt."""
+    async def test_open_saves_tilt_for_restore(self):
+        """Opening the cover saves tilt for restore (same as closing)."""
         cover = _make_venetian(tilt_restore=True, tilt=45.0)
-        cover._tilt_before_close = 45.0
 
         cover.run_cover = AsyncMock()
         cover._message_bus = MagicMock()
 
         await cover.open()
 
-        assert cover._tilt_before_close is None
+        assert cover._tilt_before_close == 45.0
 
 
 class TestTiltRestoreSetPosition:
@@ -154,17 +153,16 @@ class TestTiltRestoreSetPosition:
 
         assert cover._tilt_before_close == 45.0
 
-    async def test_set_position_higher_clears_tilt(self):
-        """When setting a higher position (opening), saved tilt is cleared."""
+    async def test_set_position_higher_saves_tilt(self):
+        """When setting a higher position (opening), tilt is saved for restore."""
         cover = _make_venetian(tilt_restore=True, position=30.0, tilt=45.0)
-        cover._tilt_before_close = 45.0
 
         cover.run_cover = AsyncMock()
         cover._message_bus = MagicMock()
 
         await cover.set_cover_position(80)
 
-        assert cover._tilt_before_close is None
+        assert cover._tilt_before_close == 45.0
 
     async def test_set_position_lower_disabled_no_save(self):
         """When disabled, set_cover_position does not save tilt."""
