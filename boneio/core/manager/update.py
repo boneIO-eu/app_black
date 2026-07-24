@@ -157,6 +157,9 @@ class UpdateManager(AsyncUpdater):
 
                 try:
                     parsed = version.parse(ver_str)
+                    # Normalize to PEP 440 canonical form (e.g. "1.5.0dev20" → "1.5.0.dev20")
+                    # so pip install commands use the exact format PyPI expects.
+                    ver_str = str(parsed)
                 except Exception:
                     continue
 
@@ -651,7 +654,11 @@ class UpdateManager(AsyncUpdater):
         # Build release_summary
         release_notes = self._last_check_result.get("release_notes", "") if self._last_check_result else ""
         if status_text and is_updating:
+            # In-progress: show status with hourglass
             summary = f"⏳ {status_text}\n\n{release_notes}" if release_notes else f"⏳ {status_text}"
+        elif status_text and not is_updating:
+            # Failure / completion: show status with error icon
+            summary = f"❌ {status_text}\n\n{release_notes}" if release_notes else f"❌ {status_text}"
         else:
             summary = release_notes
 

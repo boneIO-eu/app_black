@@ -531,3 +531,25 @@ class TestPublishUpdateProgressStatusText:
         assert payload["installed_version"] == "1.5.0dev20"
         assert payload["latest_version"] == "1.5.0dev20"
 
+    def test_progress_zero_with_status_text_shows_failure(self):
+        """Failure (progress=0 with status_text) shows ❌ in release_summary."""
+        um = _make_update_manager(pending=[])
+        um._last_check_result = {"release_notes": "Changelog details", "release_url": ""}
+
+        asyncio.run(
+            um._publish_update_progress(
+                current_version="1.5.0dev20",
+                target_version="1.5.0dev21",
+                progress=0,
+                status_text="Update failed",
+            )
+        )
+
+        call_kwargs = um._manager.send_message.call_args
+        payload = json.loads(call_kwargs.kwargs.get("payload") or call_kwargs[1].get("payload"))
+        assert payload["in_progress"] is False
+        assert payload["update_percentage"] is None
+        assert "❌ Update failed" in payload["release_summary"]
+        assert "Changelog details" in payload["release_summary"]
+
+

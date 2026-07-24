@@ -4,7 +4,7 @@ description: Procedura Release dla app_black
 
 ## Procedura Release dla app_black
 
-Gdy użytkownik powie "wydaj vX.Y.Z" lub "wydaj vX.Y.ZdevN", wykonaj:
+Gdy użytkownik powie "wydaj vX.Y.Z" lub "wydaj vX.Y.Z.devN", wykonaj:
 
 ### 0. Sprawdź RELEASE_NOTES.md (tylko dla stabilnych release'ów)
 
@@ -29,7 +29,7 @@ Dla **dev release'ów** ten krok jest pomijany — dev release'y nie potrzebują
 Plik: `boneio/version.py`
 
 ```python
-__version__ = "X.Y.Z"  # lub "X.Y.ZdevN"
+__version__ = "X.Y.Z"  # lub "X.Y.Z.devN" (PEP 440: kropka przed dev!)
 ```
 
 ### 2. Commit + tag + push
@@ -61,7 +61,7 @@ Automatyczny changelog jest generowany z commit messages. Reguły:
   - inne → 📦 Other Changes
 - Commity `release v*/bump version` są automatycznie pomijane
 
-#### Dla dev release'ów (np. v1.3.0dev20):
+#### Dla dev release'ów (np. v1.3.0.dev20):
 - Porównuje z **bezpośrednio poprzednim tagiem** (dowolny typ)
 - Prosta lista zmian bez kategoryzacji
 
@@ -74,7 +74,7 @@ Automatyczny changelog jest generowany z commit messages. Reguły:
 
 - Używaj opisowych prefixów: `feat:`, `fix:`, `refactor:`, `docs:` dla lepszego auto-grupowania
 - Breaking changes: prefix `BREAKING:` w commit message
-- Wersje dev/prerelease: `vX.Y.ZdevN` — automatycznie oznaczane jako prerelease na GitHub
+- Wersje dev/prerelease: `vX.Y.Z.devN` (PEP 440) — automatycznie oznaczane jako prerelease na GitHub
 
 ### WAŻNE:
 

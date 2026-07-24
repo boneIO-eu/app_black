@@ -9,6 +9,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+def _has_fastapi() -> bool:
+    """Check if fastapi is importable."""
+    try:
+        import fastapi  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 class TestConfigHelperUpdateConfigSection:
     """ConfigHelper.update_config_section patches _config_cache in-place."""
 
@@ -61,6 +71,10 @@ def _ensure_gpiod_line_mock():
             sys.modules.pop(key, None)
 
 
+@pytest.mark.skipif(
+    not _has_fastapi(),
+    reason="fastapi not installed in test environment",
+)
 class TestInvalidateConfigCacheInPlace:
     """invalidate_config_cache with section+section_data patches ConfigHelper."""
 

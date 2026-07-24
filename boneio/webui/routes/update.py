@@ -223,6 +223,9 @@ async def check_update():
             
             try:
                 parsed = version.parse(ver_str)
+                # Normalize to PEP 440 canonical form (e.g. "1.5.0dev20" → "1.5.0.dev20")
+                ver_str = str(parsed)
+                ver_info["version"] = ver_str
             except Exception:
                 continue
             
