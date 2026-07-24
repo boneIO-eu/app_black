@@ -448,6 +448,26 @@ class ConfigHelper:
 
         return merged
 
+    def update_config_section(self, section: str, data: object) -> None:
+        """Update a single section in the in-memory config cache.
+
+        Fast path: modifies the cached dict directly without reloading
+        YAML from disk.  If the cache is not populated yet, this is a
+        no-op — the next ``get_config()`` call will load from file.
+
+        Args:
+            section: Top-level config key (e.g. ``"event"``, ``"output"``).
+            data: New value for that section (typically a ``list[dict]``).
+        """
+        if self._config_cache is None:
+            _LOGGER.debug(
+                "Config cache not populated, skipping in-place update for '%s'",
+                section,
+            )
+            return
+        self._config_cache[section] = data
+        _LOGGER.debug("Updated config section '%s' in-place", section)
+
     def get_section(self, section_name: str, force_reload: bool = False) -> Any:
         """Get a specific configuration section.
         

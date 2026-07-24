@@ -200,10 +200,10 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
           <li>
             <HelpDialog
               trigger={
-                <a className="px-3 py-1.5 text-sm">
+                <button className="px-3 py-1.5 text-sm">
                   <FaQuestionCircle className="h-4 w-4" />
                   <span>{t('navigation.help')}</span>
-                </a>
+                </button>
               }
             />
           </li>
@@ -241,16 +241,16 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
       <li>
         <HelpDialog
           trigger={
-            <a
+            <button
               onClick={() => {
                 const drawerCheckbox = document.getElementById('my-drawer') as HTMLInputElement;
                 if (drawerCheckbox) drawerCheckbox.checked = false;
               }}
-              className="flex items-center gap-4 px-4 py-4 rounded-lg text-lg font-medium transition-all active:scale-[0.98] cursor-pointer hover:bg-base-200 text-base-content"
+              className="flex items-center gap-4 px-4 py-4 rounded-lg text-lg font-medium transition-all active:scale-[0.98] cursor-pointer hover:bg-base-200 text-base-content w-full text-left"
             >
               <FaQuestionCircle className="h-6 w-6 shrink-0" />
               <span className="flex-1">{t('navigation.help')}</span>
-            </a>
+            </button>
           }
         />
       </li>

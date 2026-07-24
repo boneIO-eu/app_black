@@ -4,18 +4,27 @@ import { getBasePath } from '../api/basePath';
 
 /**
  * Component that displays Node-RED editor in an iframe.
- * Only shown when Node-RED is available via nginx reverse proxy.
+ * Only shown when Node-RED is available.
  */
 export default function NodeRedView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const basePath = getBasePath();
+
+  const getIframeUrl = () => {
+    if (basePath.startsWith('http')) {
+      // Dev mode: use relative path so Vite proxy handles it
+      return '/nodered/';
+    }
+    // Production/Ingress mode: use basePath
+    return `${basePath}/nodered/`;
+  };
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
 
   const openInNewTab = () => {
-    window.open(`${basePath}/nodered/`, '_blank');
+    window.open(getIframeUrl(), '_blank');
   };
 
   return (
@@ -44,7 +53,7 @@ export default function NodeRedView() {
         </div>
       </div>
       <iframe
-        src={`${basePath}/nodered/`}
+        src={getIframeUrl()}
         className="flex-1 w-full border-0"
         style={{ minHeight: isFullscreen ? 'calc(100vh - 48px)' : 'calc(100vh - 150px)' }}
         title="Node-RED Editor"

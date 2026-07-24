@@ -318,7 +318,7 @@ async def add_quick_action(payload: dict = Body(...)):
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
 
-        invalidate_config_cache()
+        invalidate_config_cache(section=section, section_data=entries)
 
         try:
             manager: Manager = app_state.manager

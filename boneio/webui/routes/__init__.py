@@ -9,6 +9,7 @@ from boneio.webui.routes.dashboard import router as dashboard_router
 from boneio.webui.routes.irrigation import router as irrigation_router
 from boneio.webui.routes.migrations import router as migrations_router
 from boneio.webui.routes.modbus import router as modbus_router
+from boneio.webui.routes.nodered import router as nodered_router
 from boneio.webui.routes.mqtt_reference import router as mqtt_reference_router
 from boneio.webui.routes.outputs import router as outputs_router
 from boneio.webui.routes.remote_devices import router as remote_devices_router
@@ -31,6 +32,7 @@ __all__ = [
     "irrigation_router",
     "migrations_router",
     "modbus_router",
+    "nodered_router",
     "mqtt_reference_router",
     "outputs_router",
     "remote_devices_router",

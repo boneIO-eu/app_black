@@ -899,13 +899,6 @@ def _try_load_cached_config(config_file: str) -> dict | None:
             _LOGGER.debug("Config cache has invalid structure, ignoring")
             return None
 
-        # Verify app version matches (schema may change between versions)
-        from boneio.version import __version__
-
-        if cached.get("app_version") != __version__:
-            _LOGGER.debug("Config cache version mismatch (%s vs %s), ignoring", cached.get("app_version"), __version__)
-            return None
-
         # Verify config files hash (main + all !include YAML files)
         current_config_hash = _compute_config_dir_hash(config_file)
         if cached["config_hash"] != current_config_hash:
@@ -934,12 +927,9 @@ def _save_config_cache(config_file: str, validated_config: dict) -> None:
     """
     import pickle
 
-    from boneio.version import __version__
-
     cache_path = _get_config_cache_path(config_file)
     try:
         cache_data = {
-            "app_version": __version__,
             "config_hash": _compute_config_dir_hash(config_file),
             "schema_hash": _compute_file_hash(schema_file),
             "data": validated_config,

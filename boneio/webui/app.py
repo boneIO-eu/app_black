@@ -55,6 +55,7 @@ from boneio.webui.routes import (
     irrigation_router,
     migrations_router,
     modbus_router,
+    nodered_router,
     mqtt_reference_router,
     outputs_router,
     remote_devices_router,
@@ -152,6 +153,7 @@ app.include_router(update_router)
 app.include_router(modbus_router)
 app.include_router(sensors_router)
 app.include_router(caddy_router)
+app.include_router(nodered_router)
 app.include_router(can_router)
 app.include_router(remote_devices_router)
 app.include_router(templates_router)

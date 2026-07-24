@@ -116,16 +116,45 @@ def _recompute_config_checksum() -> None:
         _checksum_cache["file_count"] = 0
 
 
-def invalidate_config_cache():
+def invalidate_config_cache(
+    section: str | None = None,
+    section_data: object = None,
+) -> None:
     """Invalidate route-level config cache and disk validation cache, recompute checksum.
 
     Clears the route-level mtime cache and the disk .pkl cache, then schedules
     a debounced background rebuild. The rebuild runs 30 seconds after the last
     config change so that rapid edits don't trigger multiple slow Cerberus
     validations (~20s each on BeagleBone).
+
+    When *section* and *section_data* are provided, the corresponding key
+    inside ``ConfigHelper._config_cache`` is patched **in-place** so that the
+    next ``GET /api/config`` returns up-to-date data without reloading the
+    full YAML from disk (which takes ~20-30 s on BeagleBone Black).
     """
     _config_cache["data"] = None
     _config_cache["mtime"] = 0
+
+    # Patch ConfigHelper in-place when caller provides section data
+    if section is not None and section_data is not None:
+        try:
+            app_state = _get_app_state()
+            if (
+                app_state
+                and hasattr(app_state, "manager")
+                and app_state.manager
+                and hasattr(app_state.manager, "config_helper")
+                and app_state.manager.config_helper
+            ):
+                app_state.manager.config_helper.update_config_section(
+                    section, section_data,
+                )
+        except Exception as err:
+            _LOGGER.debug(
+                "Could not update config_helper section '%s' in-place: %s",
+                section, err,
+            )
+
     try:
         config_file = _get_app_state().yaml_config_file
         clear_config_cache(config_file)
@@ -389,7 +418,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
         if result["status"] == "error":
             raise HTTPException(status_code=500, detail=result["message"])
 
-        invalidate_config_cache()
+        invalidate_config_cache(section=section, section_data=data)
 
         if section in RESTART_REQUIRED_SECTIONS:
             manager: Manager = app_state.manager

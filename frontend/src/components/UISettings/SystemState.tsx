@@ -22,10 +22,12 @@ import {
   SslSection,
   FactoryResetSection,
   BackupSection,
+  NodeRedManagement,
 } from './SystemStateComponents';
 import { WebSocketContext } from '../../App';
 import { OutputEvent } from '../../hooks/useWebSocket';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useNodeRedAvailability } from '@/hooks/useNodeRedAvailability';
 import axios from '@/api/axios';
 
 interface UpdateStatus {
@@ -72,6 +74,7 @@ interface AvailableVersion {
 
 const SystemState: React.FC = () => {
   const { outputs } = useContext(WebSocketContext);
+  const { isNodeRedAvailable } = useNodeRedAvailability();
   const { t } = useTranslation();
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -685,6 +688,9 @@ const SystemState: React.FC = () => {
           <BackupSection />
         </div>
       </div>
+
+      {/* Node-RED Management Card */}
+      {isNodeRedAvailable && <NodeRedManagement />}
 
       {/* Device Management Card */}
       <div className="card bg-base-200 shadow-xl">

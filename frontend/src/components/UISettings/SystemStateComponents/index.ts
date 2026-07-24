@@ -5,3 +5,5 @@ export { default as TimezoneSection } from './TimezoneSection';
 export { default as SslSection } from './SslSection';
 export { default as FactoryResetSection } from './FactoryResetSection';
 export { default as BackupSection } from './BackupSection';
+export { default as NodeRedManagement } from './NodeRedManagement';
+

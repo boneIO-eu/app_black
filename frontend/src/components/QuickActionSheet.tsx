@@ -1,4 +1,4 @@
-import React, { useState, useContext, useMemo, useCallback } from 'react';
+import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,65 @@ import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
 import type { EntityItem } from '@/components/UISettings/EntitySelectDropdown';
 import SearchableEntityPicker from '@/components/UISettings/SearchableEntityPicker';
 import axios from '@/api/axios';
-import { FaPlug, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaPlug, FaCheck, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
 
 type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
+
+/** Shape of an action entry inside the config YAML. */
+interface ConfigAction {
+  action?: string;
+  boneio_output?: string;
+  boneio_cover?: string;
+  remote_device?: string;
+  output_id?: string;
+  cover_id?: string;
+  boneio_id?: string;
+  action_output?: string;
+  action_cover?: string;
+}
+
+/** Extracts existing action target ids for a given click type from a config input entry. */
+function extractExistingTargets(
+  entry: Record<string, unknown>,
+  clickType: string,
+  inputType: 'event' | 'binary_sensor' | 'remote_inputs',
+): Set<string> {
+  const ids = new Set<string>();
+  let actionsList: ConfigAction[] = [];
+
+  if (inputType === 'binary_sensor') {
+    // binary_sensor uses actions_on_press / actions_on_release
+    const key = (clickType === 'pressed' || clickType === 'single')
+      ? 'actions_on_press'
+      : 'actions_on_release';
+    const raw = entry[key];
+    if (Array.isArray(raw)) actionsList = raw as ConfigAction[];
+  } else {
+    // event / remote_inputs use actions.{click_type}
+    const actions = entry['actions'] as Record<string, unknown> | undefined;
+    if (actions && Array.isArray(actions[clickType])) {
+      actionsList = actions[clickType] as ConfigAction[];
+    }
+    // Also check flat keys like actions_single
+    const flatKey = `actions_${clickType}`;
+    if (Array.isArray(entry[flatKey])) {
+      actionsList = [...actionsList, ...(entry[flatKey] as ConfigAction[])];
+    }
+  }
+
+  for (const act of actionsList) {
+    if (act.boneio_output) ids.add(act.boneio_output.toLowerCase());
+    if (act.boneio_cover) ids.add(act.boneio_cover.toLowerCase());
+    // Remote: combine device + output/cover id
+    if (act.remote_device && act.output_id) {
+      ids.add(`${act.remote_device}/${act.output_id}`.toLowerCase());
+    }
+    if (act.remote_device && act.cover_id) {
+      ids.add(`${act.remote_device}/${act.cover_id}`.toLowerCase());
+    }
+  }
+  return ids;
+}
 
 /**
  * Extended EntityItem that tracks whether this is a local or remote entity
@@ -82,8 +138,13 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Reset form when input changes
-  React.useEffect(() => {
+  // Existing actions for this input (loaded from config on open)
+  const [inputConfigEntry, setInputConfigEntry] = useState<Record<string, unknown> | null>(null);
+  const [inputSectionType, setInputSectionType] = useState<'event' | 'binary_sensor' | 'remote_inputs'>('event');
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
+  // Reset form and fetch existing actions when dialog opens
+  useEffect(() => {
     if (open && inputEvent) {
       const isEvent = inputEvent.state.type === 'input';
       setClickType(isEvent ? 'single' : 'pressed');
@@ -92,6 +153,40 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
       setActionValue('TOGGLE');
       setSaveStatus('idle');
       setErrorMessage('');
+      setInputConfigEntry(null);
+
+      // Fetch config to get existing actions for this input
+      const abortController = new AbortController();
+      fetchAbortRef.current = abortController;
+
+      axios.get('/api/config', { signal: abortController.signal })
+        .then(({ data }) => {
+          if (abortController.signal.aborted) return;
+          const config = data?.config;
+          if (!config) return;
+
+          const entityId = inputEvent.entity_id;
+          // Search through event, binary_sensor, remote_inputs sections
+          for (const secName of ['event', 'binary_sensor', 'remote_inputs'] as const) {
+            const entries = config[secName];
+            if (!Array.isArray(entries)) continue;
+            for (const entry of entries) {
+              if (typeof entry !== 'object' || entry === null) continue;
+              const eid = String(entry.id || entry.pin || '').toLowerCase();
+              const boneioIn = String(entry.boneio_input || '').toLowerCase();
+              if (eid === entityId.toLowerCase() || boneioIn === entityId.toLowerCase()) {
+                setInputConfigEntry(entry as Record<string, unknown>);
+                setInputSectionType(secName);
+                return;
+              }
+            }
+          }
+        })
+        .catch(() => {
+          // Non-critical — duplicate detection just won't work
+        });
+
+      return () => { abortController.abort(); };
     }
   }, [open, inputEvent]);
 
@@ -193,6 +288,24 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
     () => currentItems.find((item) => item.id === targetId),
     [currentItems, targetId]
   );
+
+  /**
+   * Check if the selected output/cover is already used in an action for the
+   * current click type.  Returns a translated warning string or null.
+   */
+  const duplicateWarning = useMemo<string | null>(() => {
+    if (!targetId || !inputConfigEntry) return null;
+
+    const existingIds = extractExistingTargets(
+      inputConfigEntry,
+      clickType,
+      inputSectionType,
+    );
+    if (existingIds.has(targetId.toLowerCase())) {
+      return t('quick_action.already_assigned');
+    }
+    return null;
+  }, [targetId, clickType, inputConfigEntry, inputSectionType, t]);
 
   /** Handle save. */
   const handleSave = useCallback(async () => {
@@ -337,6 +450,12 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
               preferredArea={inputEvent?.state.area || undefined}
               nested
             />
+            {duplicateWarning && (
+              <div className="alert alert-warning text-sm py-2 mt-2">
+                <FaInfoCircle className="w-4 h-4 shrink-0" />
+                <span>{duplicateWarning}</span>
+              </div>
+            )}
           </div>
 
           {/* Action selector */}
