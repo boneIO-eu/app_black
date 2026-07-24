@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
+  FaRedo,
   FaDownload,
   FaUndo,
   FaCheck,
@@ -146,7 +147,7 @@ const SystemState: React.FC = () => {
 
   // Handle application restart
   const handleRestart = async () => {
-    if (!confirm(t('device_management.restart_required'))) {
+    if (!confirm(t('device_management.restart_app_confirm'))) {
       return;
     }
 
@@ -813,6 +814,44 @@ const SystemState: React.FC = () => {
                   <div className="text-sm">
                     <p>{t('device_management.turn_off_warning_1')}</p>
                     <p>{t('device_management.turn_off_warning_2')}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Restart Application Section */}
+            <div className="card bg-base-200">
+              <div className="card-body">
+                <h3 className="card-title">
+                  <FaRedo />
+                  {t('device_management.restart_app')}
+                </h3>
+                <p className="text-sm opacity-70 mb-4">
+                  {t('device_management.restart_app_description')}
+                </p>
+                <div className="card-actions">
+                  <button
+                    className="btn btn-warning"
+                    onClick={handleRestart}
+                    disabled={isRestarting}
+                  >
+                    {isRestarting ? (
+                      <>
+                        <FaSpinner className="animate-spin" />
+                        {t('settings.restarting')}
+                      </>
+                    ) : (
+                      <>
+                        <FaRedo />
+                        {t('device_management.restart_app')}
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="alert alert-warning mt-4">
+                  <FaExclamationTriangle />
+                  <div className="text-sm">
+                    <p>{t('device_management.restart_app_warning')}</p>
                   </div>
                 </div>
               </div>

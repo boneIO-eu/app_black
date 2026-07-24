@@ -626,7 +626,11 @@
     "memory_usage": "Użycie Pamięci",
     "cpu_usage": "Użycie CPU",
     "uptime": "Czas Pracy",
-    "since_boot": "Od uruchomienia"
+    "since_boot": "Od uruchomienia",
+    "restart_app": "Restartuj aplikację",
+    "restart_app_description": "Uruchom ponownie aplikację boneIO. Wszystkie połączenia zostaną na chwilę przerwane.",
+    "restart_app_confirm": "Czy na pewno chcesz zrestartować aplikację? Wszystkie połączenia zostaną na chwilę przerwane.",
+    "restart_app_warning": "Połączenia MQTT i Home Assistant zostaną tymczasowo utracone podczas restartu."
   },
   "system_update": {
     "title": "Aktualizacja Systemu",

@@ -662,7 +662,11 @@
     "memory_usage": "Memory Usage",
     "cpu_usage": "CPU Usage",
     "uptime": "Uptime",
-    "since_boot": "Since boot"
+    "since_boot": "Since boot",
+    "restart_app": "Restart Application",
+    "restart_app_description": "Restart the boneIO application. All connections will be briefly interrupted.",
+    "restart_app_confirm": "Are you sure you want to restart the application? All connections will be briefly interrupted.",
+    "restart_app_warning": "MQTT and Home Assistant connections will be temporarily lost during restart."
   },
   "system_update": {
     "title": "System Update",
