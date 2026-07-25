@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import shutil
+import socket
 import ssl
 import subprocess
 from contextlib import suppress
@@ -451,7 +452,6 @@ class CloudRegistration:
         sni = server_name  # capture for closure
 
         def _probe() -> str | None:
-            import socket
 
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
