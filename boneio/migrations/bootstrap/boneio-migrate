@@ -589,13 +589,18 @@ def main() -> int:
 
     _LOGGER.info("Applying migration version=%s (%d actions)", version, len(actions))
 
+    succeeded_count = 0
+    optional_failed_count = 0
+
     for i, action in enumerate(actions, start=1):
         action_type = action.get("action", "?")
         _LOGGER.info("[%d/%d] %s", i, len(actions), action_type)
         try:
             dispatch_action(action, assets_base)
+            succeeded_count += 1
         except Exception as exc:
             if action.get("optional"):
+                optional_failed_count += 1
                 _LOGGER.warning(
                     "[%d/%d] Optional action %s failed, continuing: %s",
                     i, len(actions), action_type, exc,
@@ -603,6 +608,16 @@ def main() -> int:
                 continue
             _LOGGER.error("[%d/%d] Action %s failed: %s", i, len(actions), action_type, exc)
             return 1
+
+    # If every action was optional and every one failed, the migration
+    # achieved nothing — do NOT mark it as applied so it will be retried.
+    if actions and succeeded_count == 0:
+        _LOGGER.error(
+            "Migration %s: all %d action(s) failed (optional_failed=%d). "
+            "NOT marking as applied — will retry on next startup.",
+            version, len(actions), optional_failed_count,
+        )
+        return 2
 
     write_applied_flag(version)
     _LOGGER.info("Migration %s completed successfully.", version)
