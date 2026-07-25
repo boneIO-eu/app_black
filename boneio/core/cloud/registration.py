@@ -7,18 +7,19 @@ for PWA support with custom subdomains.
 
 import asyncio
 import base64
+from datetime import datetime, timezone
 import hashlib
 import hmac
+from importlib.resources import files
 import logging
 import os
+import re
 import shutil
 import subprocess
 from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import aiohttp
+import aiohttp
 
 from boneio.core.cloud.secrets import MASTER_SECRET as DEFAULT_MASTER_SECRET
 from boneio.core.system.monitor import get_network_info
@@ -152,10 +153,8 @@ class CloudRegistration:
         """
         return {"Authorization": f"Bearer {self._compute_token()}"}
 
-    async def _get_session(self) -> "aiohttp.ClientSession":
+    async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
-        import aiohttp
-
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
         return self._session
@@ -205,8 +204,6 @@ class CloudRegistration:
         Returns:
             True if registration was successful
         """
-        import aiohttp
-
         try:
             session = await self._get_session()
 
@@ -250,8 +247,6 @@ class CloudRegistration:
         Returns:
             True if certificate was fetched successfully
         """
-        import aiohttp
-
         try:
             session = await self._get_session()
 
@@ -327,8 +322,7 @@ class CloudRegistration:
             # Output format: "notAfter=Jun  3 12:00:00 2026 GMT"
             line = result.stdout.strip()
             date_str = line.split("=", 1)[1]
-
-            from datetime import datetime, timezone
+            date_str = re.sub(r"\s+", " ", date_str.strip())
 
             expiry = datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z").replace(
                 tzinfo=timezone.utc
@@ -373,8 +367,6 @@ class CloudRegistration:
         """
         dest = CADDY_CONFIG_DIR / "init-certs-cloud.sh"
         try:
-            from importlib.resources import files
-
             src = files("boneio.core.cloud.data").joinpath("init-certs-cloud.sh")
             src_bytes = src.read_bytes()
 
@@ -445,8 +437,6 @@ class CloudRegistration:
                 _LOGGER.info("Backed up docker-compose.yaml to %s", backup)
 
             # Replace with bundled cloud template
-            from importlib.resources import files
-
             cloud_src = files("boneio.core.cloud.data").joinpath("docker-compose-cloud.yaml")
             cloud_content = cloud_src.read_text(encoding="utf-8")
             compose_file.write_text(cloud_content)
@@ -484,8 +474,6 @@ class CloudRegistration:
             if not self._check_compose_writable():
                 return False
 
-            from importlib.resources import files
-
             src = files("boneio.core.cloud.data").joinpath("docker-compose.yaml")
             original_content = src.read_text(encoding="utf-8")
 
@@ -515,9 +503,10 @@ class CloudRegistration:
 
     async def _recreate_caddy(self) -> bool:
         """
-        Recreate Caddy container to apply new docker-compose config.
+        Recreate and restart Caddy container to apply new certs or docker-compose config.
 
-        Uses 'docker compose up -d caddy' to pick up volume and entrypoint changes.
+        Uses 'docker compose up -d caddy' and 'docker compose restart caddy' to ensure
+        Caddy reloads updated SSL certificates from disk.
 
         Returns:
             True if recreate was successful
@@ -534,8 +523,19 @@ class CloudRegistration:
                 ),
             )
 
+            # Also restart caddy to ensure mounted TLS certs are reloaded from disk
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    ["docker", "compose", "restart", "caddy"],
+                    cwd=compose_dir,
+                    capture_output=True,
+                    timeout=60,
+                ),
+            )
+
             if result.returncode == 0:
-                _LOGGER.info("Caddy container recreated successfully")
+                _LOGGER.info("Caddy container recreated and restarted successfully")
                 return True
             else:
                 _LOGGER.error(
