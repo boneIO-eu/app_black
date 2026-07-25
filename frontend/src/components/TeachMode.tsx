@@ -322,7 +322,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
       try {
         const resp = await axios.get('/api/config');
         const config = resp.data;
-        const entityId = detectedInput.entity_id;
+        const entityId = detectedInput.entity_id.toLowerCase();
         const parsed: ActionBinding[] = [];
 
         for (const secName of ['event', 'binary_sensor']) {
@@ -331,22 +331,25 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
           for (const entry of entries) {
             if (!entry || typeof entry !== 'object') continue;
-            const eid = String(entry.id || entry.pin || '');
+            const eid = String(entry.id || entry.pin || '').toLowerCase();
             if (eid !== entityId) continue;
 
-            for (const key of Object.keys(entry)) {
-              if (!key.startsWith('actions_') && key !== 'actions_on_press' && key !== 'actions_on_release') continue;
+            // Actions are nested under entry.actions dict:
+            // event:  actions.single, actions.double, actions.long, etc.
+            // binary_sensor: actions.pressed, actions.released
+            const actionsDict = entry.actions;
+            if (!actionsDict || typeof actionsDict !== 'object') continue;
 
-              const ct = key.replace('actions_', '').replace('on_', '');
-              const actions = entry[key];
-              if (!Array.isArray(actions)) continue;
+            for (const [clickKey, actionsList] of Object.entries(actionsDict)) {
+              if (!Array.isArray(actionsList)) continue;
 
-              for (const act of actions) {
+              for (const act of actionsList) {
                 if (!act || typeof act !== 'object') continue;
-                const at = act.action || act.action_type || '?';
-                const target = act.boneio_output || act.boneio_cover || act.output_id || act.cover_id || act.topic || '?';
-                const action = act.action_output || act.action_cover || act.action_mqtt_msg || '?';
-                parsed.push({ clickType: ct, actionType: at, target, action });
+                const typedAct = act as Record<string, unknown>;
+                const at = String(typedAct.action || typedAct.action_type || '?');
+                const target = String(typedAct.boneio_output || typedAct.boneio_cover || typedAct.output_id || typedAct.cover_id || typedAct.topic || '?');
+                const action = String(typedAct.action_output || typedAct.action_cover || typedAct.action_mqtt_msg || '?');
+                parsed.push({ clickType: clickKey, actionType: at, target, action });
               }
             }
           }
