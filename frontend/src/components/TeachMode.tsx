@@ -1067,8 +1067,11 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                 )}
                 onClick={() => setRightTab('link')}
               >
-                <FaBolt className="w-3.5 h-3.5" />
-                {t('teach_mode.tab_link')}
+                {editing ? (
+                  <><FaPencilAlt className="w-3.5 h-3.5" />{t('teach_mode.tab_edit')}</>
+                ) : (
+                  <><FaBolt className="w-3.5 h-3.5" />{t('teach_mode.tab_link')}</>
+                )}
               </button>
               <button
                 className={clsx(

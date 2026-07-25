@@ -2320,6 +2320,7 @@
     "cat_cover": "Cover",
     "cat_remote_cover": "Remote Cover",
     "tab_link": "New Link",
+    "tab_edit": "Edit Binding",
     "tab_bindings": "Current Bindings",
     "select_target": "Select target...",
     "test_action": "Test",
