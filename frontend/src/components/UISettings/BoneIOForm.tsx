@@ -184,11 +184,11 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           >
             <option value="">{t('boneio_config.select_device_type')}</option>
             <option value="32x10a">32x10A (32 outputs, 10A each)</option>
+            <option value="cover">Cover</option>
+            <option value="cover mix">Cover Mix</option>
             <option value="32x5a">32x5A (32 outputs, 5A each) - DISCONTINUED</option>
             <option value="24x16a">24x16A (24 outputs, 16A each) - DISCONTINUED</option>
             <option value="48x4a">48x4A (48 outputs, 4A each) - DISCONTINUED</option>
-            <option value="cover">Cover</option>
-            <option value="cover mix">Cover Mix</option>
           </select>
           {isLoading && (
             <span className="absolute right-10 top-1/2 -translate-y-1/2 loading loading-spinner loading-sm"></span>
