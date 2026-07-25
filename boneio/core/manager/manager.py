@@ -864,7 +864,7 @@ class Manager:
         """
         if entity_type in ("output", "light", "remote_output"):
             return self.outputs.get_output(entity_id) or self.outputs.get_output_group(entity_id)
-        if entity_type == "cover":
+        if entity_type in ("cover", "remote_cover"):
             return self.covers.get_cover(entity_id)
         if entity_type in ("binary_sensor", "remote_input"):
             return self.inputs.get_input(entity_id)

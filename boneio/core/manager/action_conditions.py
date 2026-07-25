@@ -168,6 +168,17 @@ _STATE_EVALUATORS: dict[tuple[str, str], Callable[[Any], bool]] = {
     ("cover", "is_closed"): _check_is_closed,
     ("cover", "is_on"): _check_is_open,    # alias: is_on ≡ is_open for covers
     ("cover", "is_off"): _check_is_closed,  # alias: is_off ≡ is_closed for covers
+    # remote_input → is_active (like binary_sensor)
+    ("remote_input", "is_on"): _check_is_active,
+    ("remote_input", "is_off"): _check_is_not_active,
+    # remote_output → is_active (like output)
+    ("remote_output", "is_on"): _check_is_active,
+    ("remote_output", "is_off"): _check_is_not_active,
+    # remote_cover → is_open (like cover)
+    ("remote_cover", "is_on"): _check_is_open,
+    ("remote_cover", "is_off"): _check_is_closed,
+    ("remote_cover", "is_open"): _check_is_open,
+    ("remote_cover", "is_closed"): _check_is_closed,
 }
 
 
