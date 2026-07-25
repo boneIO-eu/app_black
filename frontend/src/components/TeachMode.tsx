@@ -321,7 +321,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
       setBindingsLoading(true);
       try {
         const resp = await axios.get('/api/config');
-        const config = resp.data;
+        const config = resp.data.config || resp.data;
         const entityId = detectedInput.entity_id.toLowerCase();
         const parsed: ActionBinding[] = [];
 
@@ -331,8 +331,11 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
           for (const entry of entries) {
             if (!entry || typeof entry !== 'object') continue;
-            const eid = String(entry.id || entry.pin || '').toLowerCase();
-            if (eid !== entityId) continue;
+            // entity_id can come from: id, boneio_input, or pin
+            const candidates = [
+              entry.id, entry.boneio_input, entry.pin,
+            ].filter(Boolean).map((v: unknown) => String(v).toLowerCase());
+            if (!candidates.includes(entityId)) continue;
 
             // Actions are nested under entry.actions dict:
             // event:  actions.single, actions.double, actions.long, etc.
@@ -1108,11 +1111,11 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                     <div className="space-y-2">
                       {bindings.map((b, i) => (
                         <div key={i} className="flex items-center gap-3 bg-base-100 border border-base-200 shadow-sm rounded-xl px-4 py-3 text-sm hover:border-base-300 transition-colors">
-                          <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{b.clickType}</span>
+                          <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{t(`quick_action.click_types.${b.clickType}`)}</span>
                           <span className="text-base-content/30 font-medium">→</span>
-                          <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{b.actionType}</span>
+                          <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{t(`quick_action.${b.actionType}`)}</span>
                           <span className="font-bold text-base-content/80 truncate flex-1 font-mono text-xs">{b.target}</span>
-                          <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{b.action}</span>
+                          <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{t(`quick_action.actions.${b.action}`)}</span>
                         </div>
                       ))}
                     </div>
@@ -1147,8 +1150,8 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                     <span className="opacity-50 font-medium">→</span>
                     <span className="font-semibold text-base-content/85">{entry.targetName}</span>
                     <div className="flex items-center gap-1 ml-auto shrink-0 font-bold text-xxs uppercase">
-                      <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{entry.clickType}</span>
-                      <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{entry.action}</span>
+                      <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{t(`quick_action.click_types.${entry.clickType}`)}</span>
+                      <span className="bg-base-200 text-base-content/60 px-1.5 py-0.5 rounded">{t(`quick_action.actions.${entry.action}`)}</span>
                     </div>
                   </div>
                 ))}
