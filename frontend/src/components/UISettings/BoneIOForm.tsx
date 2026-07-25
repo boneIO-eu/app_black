@@ -63,7 +63,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
         setPendingDeviceType(newDeviceType);
         // Pre-select categories that have example files
         const categories = [...new Set(result.available_example_files.map(f => f.category))];
-        const relevantCategories = categories.filter(c => 
+        const relevantCategories = categories.filter(c =>
           ['output', 'event', 'binary_sensor', 'cover'].includes(c)
         );
         setSelectedCategories(relevantCategories);
@@ -165,6 +165,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
           <option value="0.6">0.6</option>
           <option value="0.7">0.7</option>
           <option value="0.8">0.8</option>
+          <option value="1.0">1.0</option>
         </select>
         <HelpLabel>{t('boneio_config.hardware_version_help')}</HelpLabel>
       </div>
@@ -258,7 +259,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
               <FaExclamationTriangle className="text-warning" />
               {t('boneio_config.device_type_change_warning_title')}
             </h3>
-            
+
             <div className="py-4 space-y-4">
               <p className="text-sm">
                 {t('boneio_config.device_type_change_warning_desc')}
@@ -298,7 +299,7 @@ const BoneIOForm: React.FC<BoneIOFormProps> = ({ data, onChange }) => {
 
               {/* Example config option */}
               <div className="divider">{t('boneio_config.load_example_config')}</div>
-              
+
               <p className="text-sm">
                 {t('boneio_config.select_files_to_replace')}
               </p>
