@@ -103,8 +103,9 @@ export const useNodeRedManagement = () => {
         setError(data.message);
         return false;
       }
-    } catch (err) {
-      setError('Failed to restore Node-RED backup');
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail || 'Failed to restore Node-RED backup');
       console.error(err);
       return false;
     } finally {

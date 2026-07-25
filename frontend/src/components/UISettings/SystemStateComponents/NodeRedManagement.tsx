@@ -211,8 +211,8 @@ export default function NodeRedManagement() {
                 onClick={() => setShowBackupsList(!showBackupsList)}
               >
                 {showBackupsList 
-                  ? `${t('device_management.hide_backups') || 'Hide backups'} (${backups.length})` 
-                  : `${t('device_management.show_backups') || 'Show backups'} (${backups.length})`}
+                  ? t('device_management.hide_backups', { count: backups.length })
+                  : t('device_management.show_backups', { count: backups.length })}
               </button>
             )}
           </div>

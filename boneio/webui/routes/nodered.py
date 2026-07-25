@@ -230,16 +230,17 @@ async def list_backups() -> BackupListResponse:
             version = "unknown"
             timestamp = "unknown"
             
-            match = re.match(r"nodered_backup_v(.*)_(.*)\.tar\.gz", filename)
+            # Use non-greedy match for version, then explicit date_time pattern
+            match = re.match(r"nodered_backup_v(.+?)_(\d{8}_\d{6})\.tar\.gz", filename)
             if match:
                 version = match.group(1)
                 timestamp_str = match.group(2)
-                if len(timestamp_str) == 15 and timestamp_str[8] == "_":
-                    date_part = timestamp_str[:8]
-                    time_part = timestamp_str[9:]
-                    timestamp = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]} {time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                else:
-                    timestamp = timestamp_str
+                # timestamp_str is always "YYYYMMDD_HHMMSS" (15 chars)
+                date_part = timestamp_str[:8]
+                time_part = timestamp_str[9:]
+                timestamp = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]} {time_part[:2]}:{time_part[2:4]}:{time_part[4:6]}"
+            else:
+                timestamp = timestamp_str
 
             backups.append(
                 BackupInfo(
@@ -335,58 +336,70 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Backup file not found")
 
     try:
-        # Step 1: Stop Node-RED container
-        _LOGGER.info("Stopping Node-RED for restore...")
-        subprocess.run(
-            ["docker", "compose", "stop", "node-red"],
-            cwd=NODERED_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            timeout=30,
-        )
+        import asyncio
 
-        # Step 2: Clear current files in data directory except node_modules
-        _LOGGER.info("Cleaning up current Node-RED files...")
-        if os.path.exists(DATA_DIR):
-            for item in os.listdir(DATA_DIR):
-                if item == "node_modules":
-                    continue
-                item_path = os.path.join(DATA_DIR, item)
-                if os.path.isdir(item_path):
-                    shutil.rmtree(item_path)
-                else:
-                    os.remove(item_path)
-        else:
-            os.makedirs(DATA_DIR, exist_ok=True)
+        loop = asyncio.get_event_loop()
 
-        # Step 3: Extract backup
-        _LOGGER.info("Extracting backup files...")
-        with tarfile.open(backup_file, mode="r:gz") as tar:
-            members = tar.getmembers()
-            for member in members:
-                # Security checks
-                if ".." in member.name or member.name.startswith("/"):
-                    continue
-                if member.name == "_nodered_backup_meta.json":
-                    continue
-                tar.extract(member, path=DATA_DIR)
+        def _docker_compose_cmd(cmd: list[str], timeout: int = 30) -> None:
+            """Run a docker compose command synchronously (meant for executor)."""
+            result = subprocess.run(
+                cmd,
+                cwd=NODERED_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+            )
+            if result.returncode != 0:
+                stderr_text = result.stderr.decode(errors="replace").strip()
+                _LOGGER.error(
+                    "docker compose command failed (rc=%d): %s\nstderr: %s",
+                    result.returncode, " ".join(cmd), stderr_text,
+                )
+                raise RuntimeError(f"docker compose failed: {stderr_text or 'unknown error'}")
 
-        # Step 4: Start Node-RED container
-        _LOGGER.info("Starting Node-RED container back up...")
-        subprocess.run(
-            ["docker", "compose", "start", "node-red"],
-            cwd=NODERED_DIR,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            timeout=30,
-        )
+        def _do_restore() -> None:
+            """Perform the blocking restore steps in a thread."""
+            # Step 1: Stop Node-RED container
+            _LOGGER.info("Stopping Node-RED for restore...")
+            _docker_compose_cmd(["docker", "compose", "stop", "node-red"])
 
-        _LOGGER.info("Node-RED restore complete.")
+            # Step 2: Clear current files in data directory except node_modules
+            _LOGGER.info("Cleaning up current Node-RED files...")
+            if os.path.exists(DATA_DIR):
+                for item in os.listdir(DATA_DIR):
+                    if item == "node_modules":
+                        continue
+                    item_path = os.path.join(DATA_DIR, item)
+                    if os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                    else:
+                        os.remove(item_path)
+            else:
+                os.makedirs(DATA_DIR, exist_ok=True)
+
+            # Step 3: Extract backup with safe filter
+            _LOGGER.info("Extracting backup files from %s ...", backup_file.name)
+            with tarfile.open(backup_file, mode="r:gz") as tar:
+                # Filter out metadata and unsafe members
+                safe_members = [
+                    m for m in tar.getmembers()
+                    if m.name != "_nodered_backup_meta.json"
+                    and ".." not in m.name
+                    and not m.name.startswith("/")
+                ]
+                tar.extractall(path=DATA_DIR, members=safe_members, filter="data")
+
+            # Step 4: Start Node-RED container
+            _LOGGER.info("Starting Node-RED container back up...")
+            _docker_compose_cmd(["docker", "compose", "start", "node-red"])
+
+            _LOGGER.info("Node-RED restore complete.")
+
+        await loop.run_in_executor(None, _do_restore)
+
         return {"status": "success", "message": "Backup restored successfully"}
     except Exception as e:
-        _LOGGER.error("Failed to restore Node-RED backup: %s", e)
+        _LOGGER.error("Failed to restore Node-RED backup: %s", e, exc_info=True)
         # Try to restart container just in case it got stuck stopped
         try:
             subprocess.run(["docker", "compose", "start", "node-red"], cwd=NODERED_DIR, timeout=10, check=False)
