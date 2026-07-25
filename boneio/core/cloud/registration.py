@@ -45,6 +45,9 @@ CADDY_ACTIVE_CONFIG = CADDY_CONFIG_DIR / "Caddyfile"
 # Registration interval (1 hour)
 REGISTRATION_INTERVAL = 3600
 
+# Caddy Docker HTTPS port (host side of the 8443:443 mapping)
+CADDY_HTTPS_PORT = 8443
+
 
 class CloudRegistration:
     """
@@ -359,15 +362,15 @@ class CloudRegistration:
             _LOGGER.warning("Error checking cert expiry, forcing refresh: %s", e)
             return True
 
-    async def _caddy_cert_matches_disk(self, port: int = 443) -> bool:
+    async def _caddy_cert_matches_disk(self, port: int = CADDY_HTTPS_PORT) -> bool:
         """Check if the certificate served by Caddy matches the one on disk.
 
-        Connects to localhost:<port> via TLS and compares the serial number
-        of the served certificate with the disk certificate.  If they differ
-        Caddy needs a restart.
+        Connects to 127.0.0.1:<port> via TLS (using the registered domain
+        as SNI) and compares the serial number of the served certificate
+        with the disk certificate.  If they differ Caddy needs a restart.
 
         Args:
-            port: HTTPS port Caddy listens on (default 443).
+            port: HTTPS port Caddy listens on (default 8443).
 
         Returns:
             True if the certificates match (or if the check cannot be
@@ -376,14 +379,19 @@ class CloudRegistration:
         if not self._cert_exists():
             return True  # nothing to compare
 
+        if not self._domain:
+            return True  # domain not yet known, skip
+
         try:
             # Read serial from disk cert
             disk_serial = await self._get_cert_serial_from_file(CERT_FILE)
             if disk_serial is None:
                 return True  # can't read disk cert, assume OK
 
-            # Read serial from Caddy's live TLS cert
-            live_serial = await self._get_caddy_live_serial(port)
+            # Read serial from Caddy's live TLS cert using the real domain as SNI
+            live_serial = await self._get_caddy_live_serial(
+                port=port, server_name=self._domain
+            )
             if live_serial is None:
                 # Caddy unreachable — restart will be attempted anyway
                 _LOGGER.debug("Cannot connect to Caddy TLS on port %d", port)
@@ -428,15 +436,20 @@ class CloudRegistration:
         except Exception:
             return None
 
-    async def _get_caddy_live_serial(self, port: int = 443) -> str | None:
+    async def _get_caddy_live_serial(
+        self, port: int = CADDY_HTTPS_PORT, server_name: str = "localhost"
+    ) -> str | None:
         """Connect to Caddy via TLS and return the served certificate's serial.
 
         Args:
             port: HTTPS port to connect to.
+            server_name: SNI server hostname (must match the Caddy vhost).
 
         Returns:
             Hex serial string, or None if unreachable.
         """
+        sni = server_name  # capture for closure
+
         def _probe() -> str | None:
             import socket
 
@@ -446,7 +459,7 @@ class CloudRegistration:
 
             sock = socket.create_connection(("127.0.0.1", port), timeout=5)
             try:
-                tls_sock = ctx.wrap_socket(sock, server_hostname="localhost")
+                tls_sock = ctx.wrap_socket(sock, server_hostname=sni)
                 try:
                     der_cert = tls_sock.getpeercert(binary_form=True)
                     if not der_cert:

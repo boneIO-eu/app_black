@@ -42,6 +42,7 @@ class TestCaddyCertMatchesDisk:
     @pytest.mark.asyncio
     async def test_returns_true_when_no_cert_on_disk(self, cloud_reg, tmp_path):
         """If cert files don't exist, nothing to compare — return True."""
+        cloud_reg._domain = "test.boneio.app"
         missing = tmp_path / "missing.pem"
         with (
             patch("boneio.core.cloud.registration.CERT_FILE", missing),
@@ -51,8 +52,25 @@ class TestCaddyCertMatchesDisk:
             assert result is True
 
     @pytest.mark.asyncio
+    async def test_returns_true_when_domain_unknown(self, cloud_reg, tmp_path):
+        """If domain is not yet known, skip the check — return True."""
+        cloud_reg._domain = None
+        cert = tmp_path / "fullchain.pem"
+        key = tmp_path / "privkey.pem"
+        cert.write_text("cert")
+        key.write_text("key")
+
+        with (
+            patch("boneio.core.cloud.registration.CERT_FILE", cert),
+            patch("boneio.core.cloud.registration.KEY_FILE", key),
+        ):
+            result = await cloud_reg._caddy_cert_matches_disk()
+            assert result is True
+
+    @pytest.mark.asyncio
     async def test_returns_true_when_disk_serial_unreadable(self, cloud_reg, tmp_path):
         """If openssl can't read the disk cert, assume OK (don't trigger restart)."""
+        cloud_reg._domain = "test.boneio.app"
         cert = tmp_path / "fullchain.pem"
         key = tmp_path / "privkey.pem"
         cert.write_text("bad")
@@ -69,6 +87,7 @@ class TestCaddyCertMatchesDisk:
     @pytest.mark.asyncio
     async def test_returns_false_when_caddy_unreachable(self, cloud_reg, tmp_path):
         """If Caddy TLS is unreachable, return False (trigger restart)."""
+        cloud_reg._domain = "test.boneio.app"
         cert = tmp_path / "fullchain.pem"
         key = tmp_path / "privkey.pem"
         cert.write_text("cert")
@@ -88,6 +107,7 @@ class TestCaddyCertMatchesDisk:
     @pytest.mark.asyncio
     async def test_returns_true_when_serials_match(self, cloud_reg, tmp_path):
         """Same serial on disk and live — certs match."""
+        cloud_reg._domain = "test.boneio.app"
         cert = tmp_path / "fullchain.pem"
         key = tmp_path / "privkey.pem"
         cert.write_text("cert")
@@ -109,6 +129,7 @@ class TestCaddyCertMatchesDisk:
     @pytest.mark.asyncio
     async def test_returns_false_when_serials_differ(self, cloud_reg, tmp_path):
         """Different serial on disk vs live — mismatch, restart needed."""
+        cloud_reg._domain = "test.boneio.app"
         cert = tmp_path / "fullchain.pem"
         key = tmp_path / "privkey.pem"
         cert.write_text("cert")
