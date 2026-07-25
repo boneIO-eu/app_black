@@ -555,8 +555,35 @@ def _persist_entry_change(
     ).start()
 
 
+def _load_config_from_cache_or_disk(app_state) -> dict:
+    """Load config preferring the in-memory ConfigHelper cache over disk.
+
+    The in-memory cache is patched immediately by ``invalidate_config_cache``
+    after each quick-action change, so it always has the latest data even while
+    a background YAML save is still in progress.
+
+    Args:
+        app_state: Web UI application state.
+
+    Returns:
+        Parsed config dict.
+    """
+    try:
+        manager: Manager = app_state.manager
+        config = manager.config_helper.get_config()
+        if config:
+            return config
+    except Exception:
+        pass
+    return load_yaml_file(app_state.yaml_config_file)
+
+
 def _load_entry_for_edit(entity_id: str) -> tuple:
     """Load config and locate a normalized input entry for modification.
+
+    Reads from the in-memory ConfigHelper cache (which is updated
+    immediately after each quick-action change) rather than from disk,
+    avoiding race conditions with background YAML saves.
 
     Args:
         entity_id: Input entity id.
@@ -564,10 +591,13 @@ def _load_entry_for_edit(entity_id: str) -> tuple:
     Returns:
         Tuple of (app_state, section, entries, input_index, entry).
     """
+    import copy
+
     app_state = _get_app_state()
-    config = load_yaml_file(app_state.yaml_config_file)
+    config = _load_config_from_cache_or_disk(app_state)
     section, input_index = _find_input_entry(config, entity_id)
-    entries = config[section]
+    # Deep-copy the entries list so we don't mutate the in-memory cache
+    entries = copy.deepcopy(config[section])
     entry = entries[input_index]
     _migrate_flat_action_keys(entry, section)
     return app_state, section, entries, input_index, entry
@@ -592,7 +622,7 @@ async def get_input_actions(entity_id: str):
 
     try:
         app_state = _get_app_state()
-        config = load_yaml_file(app_state.yaml_config_file)
+        config = _load_config_from_cache_or_disk(app_state)
         section, input_index = _find_input_entry(config, entity_id)
         entry = dict(config[section][input_index])
         _migrate_flat_action_keys(entry, section)
