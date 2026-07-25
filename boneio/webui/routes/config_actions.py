@@ -149,11 +149,59 @@ async def validate_device_type_change(request: dict = Body(...)):
     }
 
 
-@router.post("/config/quick-action")
-async def add_quick_action(payload: dict = Body(...)):
-    """Add a single action to an input's click type without full section save."""
-    entity_id = payload.get("entity_id", "").strip()
-    click_type = payload.get("click_type", "").strip()
+INPUT_SECTIONS = ("event", "binary_sensor", "remote_inputs")
+
+VALID_CLICK_TYPES = {
+    "single", "double", "triple", "long",
+    "pressed", "released",
+    "double_then_long", "single_then_long", "double_then_single",
+}
+
+EVENT_CLICK_TYPES = (
+    "single", "double", "triple", "long",
+    "double_then_long", "single_then_long", "double_then_single",
+)
+
+VALID_ACTION_TYPES = {
+    "output", "cover", "remote_output", "remote_cover",
+    "mqtt", "output_over_mqtt", "cover_over_mqtt",
+}
+
+
+def _validate_click_type(click_type: str) -> str:
+    """Validate a click type against the supported set.
+
+    Args:
+        click_type: Click type from the request payload.
+
+    Returns:
+        The validated click type.
+
+    Raises:
+        HTTPException: If the click type is empty or unsupported.
+    """
+    if not click_type:
+        raise HTTPException(status_code=422, detail="click_type is required")
+    if click_type not in VALID_CLICK_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid click_type: '{click_type}'. Must be one of {sorted(VALID_CLICK_TYPES)}",
+        )
+    return click_type
+
+
+def _build_action(payload: dict) -> dict:
+    """Build a single YAML action dict from a quick-action payload.
+
+    Args:
+        payload: Request payload with action_type and its target fields.
+
+    Returns:
+        The action dict ready to be stored in the config.
+
+    Raises:
+        HTTPException: If the action type or its required fields are invalid.
+    """
     action_type = payload.get("action_type", "output").strip()
     output_id = payload.get("output_id", "").strip()
     cover_id = payload.get("cover_id", "").strip()
@@ -163,30 +211,10 @@ async def add_quick_action(payload: dict = Body(...)):
     topic = payload.get("topic", "").strip()
     mqtt_msg = payload.get("action_mqtt_msg", "").strip()
 
-    if not entity_id:
-        raise HTTPException(status_code=422, detail="entity_id is required")
-    if not click_type:
-        raise HTTPException(status_code=422, detail="click_type is required")
-
-    valid_click_types = {
-        "single", "double", "triple", "long",
-        "pressed", "released",
-        "double_then_long", "single_then_long", "double_then_single",
-    }
-    if click_type not in valid_click_types:
+    if action_type not in VALID_ACTION_TYPES:
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid click_type: '{click_type}'. Must be one of {sorted(valid_click_types)}",
-        )
-
-    valid_action_types = {
-        "output", "cover", "remote_output", "remote_cover",
-        "mqtt", "output_over_mqtt", "cover_over_mqtt",
-    }
-    if action_type not in valid_action_types:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid action_type: '{action_type}'. Must be one of {sorted(valid_action_types)}",
+            detail=f"Invalid action_type: '{action_type}'. Must be one of {sorted(VALID_ACTION_TYPES)}",
         )
 
     new_action: dict = {"action": action_type}
@@ -226,175 +254,406 @@ async def add_quick_action(payload: dict = Body(...)):
             raise HTTPException(status_code=422, detail="boneio_id and cover_id are required for cover_over_mqtt")
         new_action.update({"boneio_id": boneio_id, "boneio_cover": cover_id, "action_cover": action})
 
+    return new_action
+
+
+def _find_input_entry(config: dict, entity_id: str) -> tuple[str, int]:
+    """Locate an input entry by entity id across all input sections.
+
+    Args:
+        config: Full parsed configuration.
+        entity_id: Input entity id, ``boneio_input`` name or pin.
+
+    Returns:
+        Tuple of (section name, index in that section).
+
+    Raises:
+        HTTPException: 404 when the input cannot be found.
+    """
+    for sec_name in INPUT_SECTIONS:
+        entries = config.get(sec_name, [])
+        if not isinstance(entries, list):
+            continue
+        for idx, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+            eid = entry.get("id", entry.get("pin", ""))
+            boneio_in = entry.get("boneio_input", "")
+            if (
+                str(eid) == entity_id
+                or str(eid).lower() == entity_id.lower()
+                or str(boneio_in).lower() == entity_id.lower()
+            ):
+                return sec_name, idx
+
+    _LOGGER.warning(
+        "Quick action: input '%s' not found. Available sections: %s",
+        entity_id,
+        {s: len(config.get(s, [])) for s in INPUT_SECTIONS},
+    )
+    raise HTTPException(
+        status_code=404,
+        detail=f"Input '{entity_id}' not found in event, binary_sensor, or remote_inputs sections",
+    )
+
+
+def _migrate_flat_action_keys(entry: dict, section: str) -> None:
+    """Merge legacy ``actions_<click>`` keys into the nested ``actions`` dict.
+
+    Args:
+        entry: Input entry to normalize in place.
+        section: Config section the entry belongs to.
+    """
+    if section not in ("event", "remote_inputs"):
+        return
+    for act_type in EVENT_CLICK_TYPES:
+        flat_key = f"actions_{act_type}"
+        if flat_key in entry:
+            if not isinstance(entry.get("actions"), dict):
+                entry["actions"] = {}
+            existing = entry["actions"].get(act_type, [])
+            entry["actions"][act_type] = existing + entry.pop(flat_key)
+
+
+def _uses_binary_actions(entry: dict, section: str) -> bool:
+    """Return True when the entry stores actions in on_press/on_release lists.
+
+    Args:
+        entry: Input entry.
+        section: Config section the entry belongs to.
+
+    Returns:
+        True for binary_sensor style storage, False for the nested actions dict.
+    """
+    if section == "binary_sensor":
+        return True
+    if section == "remote_inputs":
+        return entry.get("mode", "event") == "binary_sensor"
+    return False
+
+
+def _binary_actions_key(click_type: str) -> str:
+    """Map a click type to the binary_sensor action list key.
+
+    Args:
+        click_type: Click type such as ``pressed`` or ``released``.
+
+    Returns:
+        Either ``actions_on_press`` or ``actions_on_release``.
+    """
+    return "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
+
+
+def _get_target_list(entry: dict, section: str, click_type: str, *, create: bool = True) -> list:
+    """Return the action list for a click type, optionally creating it.
+
+    Args:
+        entry: Input entry (already normalized).
+        section: Config section the entry belongs to.
+        click_type: Click type whose action list is requested.
+        create: When True, missing lists are created in the entry.
+
+    Returns:
+        The list of actions for this click type (empty list when missing and
+        *create* is False).
+    """
+    if _uses_binary_actions(entry, section):
+        key = _binary_actions_key(click_type)
+        if key not in entry:
+            if not create:
+                return []
+            entry[key] = []
+        return entry[key]
+
+    if not isinstance(entry.get("actions"), dict):
+        if not create:
+            return []
+        entry["actions"] = {}
+    actions = entry["actions"]
+    if click_type not in actions:
+        if not create:
+            return []
+        actions[click_type] = []
+    return actions[click_type]
+
+
+def _describe_action(act: dict) -> dict:
+    """Summarize a raw action dict for the Web UI.
+
+    Args:
+        act: Raw action dict from the config.
+
+    Returns:
+        Dict with action_type, target, action and the raw action payload.
+    """
+    return {
+        "action_type": act.get("action", "?"),
+        "target": (
+            act.get("boneio_output")
+            or act.get("boneio_cover")
+            or act.get("output_id")
+            or act.get("cover_id")
+            or act.get("switch_id")
+            or act.get("light_id")
+            or act.get("topic")
+            or "?"
+        ),
+        "action": (
+            act.get("action_output")
+            or act.get("action_cover")
+            or act.get("action_switch")
+            or act.get("action_light")
+            or act.get("action_mqtt_msg")
+            or "?"
+        ),
+        "remote_device": act.get("remote_device") or act.get("boneio_id") or None,
+        "raw": act,
+    }
+
+
+def _assert_no_duplicate(
+    target_list: list,
+    new_action: dict,
+    entity_id: str,
+    click_type: str,
+    *,
+    skip_index: int | None = None,
+) -> None:
+    """Reject an action that already targets the same output/cover.
+
+    Args:
+        target_list: Existing actions for this click type.
+        new_action: Action about to be stored.
+        entity_id: Input entity id (used in the error message).
+        click_type: Click type (used in the error message).
+        skip_index: Index to ignore, used when updating an action in place.
+
+    Raises:
+        HTTPException: 409 when an equivalent action already exists.
+    """
+    for idx, existing in enumerate(target_list):
+        if skip_index is not None and idx == skip_index:
+            continue
+        same_output = (
+            existing.get("boneio_output") and existing.get("boneio_output") == new_action.get("boneio_output")
+        )
+        same_cover = (
+            existing.get("boneio_cover") and existing.get("boneio_cover") == new_action.get("boneio_cover")
+        )
+        same_remote_output = (
+            existing.get("remote_device") == new_action.get("remote_device")
+            and existing.get("output_id") and existing.get("output_id") == new_action.get("output_id")
+        )
+        same_remote_cover = (
+            existing.get("remote_device") == new_action.get("remote_device")
+            and existing.get("cover_id") and existing.get("cover_id") == new_action.get("cover_id")
+        )
+        if same_output or same_cover or same_remote_output or same_remote_cover:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This action already exists for {entity_id} ({click_type})",
+            )
+
+
+def _hot_update_input(app_state, section: str, entry: dict, entity_id: str) -> None:
+    """Apply changed actions to the running input device, if present.
+
+    Args:
+        app_state: Web UI application state holding the manager.
+        section: Config section the entry belongs to.
+        entry: Updated input entry.
+        entity_id: Input entity id.
+    """
+    try:
+        manager: Manager = app_state.manager
+        input_device = manager.inputs._inputs.get(entity_id.lower())
+        if not input_device:
+            _LOGGER.debug(
+                "Input %s not in memory — actions will apply after restart", entity_id
+            )
+            return
+        raw_actions = entry.get("actions", {})
+        if not raw_actions and _uses_binary_actions(entry, section):
+            raw_actions = {
+                "pressed": entry.get("actions_on_press", []),
+                "released": entry.get("actions_on_release", []),
+            }
+        parsed = manager.parse_actions(
+            getattr(input_device, "pin", entity_id), raw_actions
+        )
+        input_device.set_actions(actions=parsed)
+        _LOGGER.info("Hot-updated actions for input %s", entity_id)
+    except Exception as hot_err:
+        _LOGGER.warning("Quick action saved but hot-update failed: %s", hot_err)
+
+
+def _persist_entry_change(
+    app_state,
+    section: str,
+    entries: list,
+    entry: dict,
+    entity_id: str,
+    click_type: str,
+) -> None:
+    """Validate, cache, hot-update and asynchronously persist a changed entry.
+
+    Args:
+        app_state: Web UI application state.
+        section: Config section that was modified.
+        entries: Full list of entries for that section.
+        entry: The modified entry.
+        entity_id: Input entity id (for logging).
+        click_type: Click type that was modified (for logging).
+
+    Raises:
+        HTTPException: 422 when the resulting section fails validation.
+    """
+    errors = _validate_section_actions(section, entries)
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Invalid action configuration", "errors": errors},
+        )
+
+    # 1. Update in-memory cache immediately (instant)
+    invalidate_config_cache(section=section, section_data=entries)
+
+    # 2. Hot-update input device actions in-memory
+    _hot_update_input(app_state, section, entry, entity_id)
+
+    # 3. Fire YAML save in background (don't block response)
+    config_file = app_state.yaml_config_file
+
+    increment_pending_yaml_saves()
+
+    def _background_yaml_save() -> None:
+        """Persist quick-action to YAML on disk in a background thread."""
+        try:
+            result = update_config_section(config_file, section, entries)
+            if result["status"] == "error":
+                _LOGGER.error(
+                    "Background YAML save failed for quick action: %s",
+                    result["message"],
+                )
+            else:
+                _LOGGER.info(
+                    "Background YAML save completed for quick action: %s -> %s",
+                    entity_id, click_type,
+                )
+        except Exception as bg_err:
+            _LOGGER.error(
+                "Background YAML save error for quick action: %s",
+                bg_err, exc_info=True,
+            )
+        finally:
+            decrement_pending_yaml_saves()
+
+    threading.Thread(
+        target=_background_yaml_save,
+        name=f"yaml-save-quick-action-{entity_id}",
+        daemon=True,
+    ).start()
+
+
+def _load_entry_for_edit(entity_id: str) -> tuple:
+    """Load config and locate a normalized input entry for modification.
+
+    Args:
+        entity_id: Input entity id.
+
+    Returns:
+        Tuple of (app_state, section, entries, input_index, entry).
+    """
+    app_state = _get_app_state()
+    config = load_yaml_file(app_state.yaml_config_file)
+    section, input_index = _find_input_entry(config, entity_id)
+    entries = config[section]
+    entry = entries[input_index]
+    _migrate_flat_action_keys(entry, section)
+    return app_state, section, entries, input_index, entry
+
+
+@router.get("/config/input-actions")
+async def get_input_actions(entity_id: str):
+    """List all configured actions of a single input, with stable indexes.
+
+    The indexes returned here address actions inside their click type list and
+    are what ``PUT``/``DELETE`` ``/config/quick-action`` expect.
+
+    Args:
+        entity_id: Input entity id, ``boneio_input`` name or pin.
+
+    Returns:
+        Dict with section, mode and the list of described actions.
+    """
+    entity_id = (entity_id or "").strip()
+    if not entity_id:
+        raise HTTPException(status_code=422, detail="entity_id is required")
+
     try:
         app_state = _get_app_state()
         config = load_yaml_file(app_state.yaml_config_file)
+        section, input_index = _find_input_entry(config, entity_id)
+        entry = dict(config[section][input_index])
+        _migrate_flat_action_keys(entry, section)
 
-        section = None
-        input_index = None
-        for sec_name in ("event", "binary_sensor", "remote_inputs"):
-            entries = config.get(sec_name, [])
-            if isinstance(entries, list):
-                for idx, entry in enumerate(entries):
-                    if isinstance(entry, dict):
-                        eid = entry.get("id", entry.get("pin", ""))
-                        boneio_in = entry.get("boneio_input", "")
-                        if (
-                            str(eid) == entity_id
-                            or str(eid).lower() == entity_id.lower()
-                            or str(boneio_in).lower() == entity_id.lower()
-                        ):
-                            section = sec_name
-                            input_index = idx
-                            break
-            if section:
-                break
+        binary_mode = _uses_binary_actions(entry, section)
+        actions: list[dict] = []
 
-        if section is None or input_index is None:
-            _LOGGER.warning(
-                "Quick action: input '%s' not found. Available sections: %s",
-                entity_id,
-                {s: len(config.get(s, [])) for s in ("event", "binary_sensor", "remote_inputs")},
-            )
-            raise HTTPException(
-                status_code=404,
-                detail=f"Input '{entity_id}' not found in event, binary_sensor, or remote_inputs sections",
-            )
-
-        entries = config[section]
-        entry = entries[input_index]
-
-        if section in ("event", "remote_inputs"):
-            for act_type in (
-                "single", "double", "triple", "long",
-                "double_then_long", "single_then_long", "double_then_single",
-            ):
-                flat_key = f"actions_{act_type}"
-                if flat_key in entry:
-                    if "actions" not in entry or not isinstance(entry.get("actions"), dict):
-                        entry["actions"] = {}
-                    existing = entry["actions"].get(act_type, [])
-                    entry["actions"][act_type] = existing + entry.pop(flat_key)
-
-        if section == "event":
-            if "actions" not in entry or not isinstance(entry.get("actions"), dict):
-                entry["actions"] = {}
-            if click_type not in entry["actions"]:
-                entry["actions"][click_type] = []
-            target_list = entry["actions"][click_type]
-        elif section == "remote_inputs":
-            mode = entry.get("mode", "event")
-            if mode == "binary_sensor":
-                actions_key = "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
-                if actions_key not in entry:
-                    entry[actions_key] = []
-                target_list = entry[actions_key]
-            else:
-                if "actions" not in entry or not isinstance(entry.get("actions"), dict):
-                    entry["actions"] = {}
-                if click_type not in entry["actions"]:
-                    entry["actions"][click_type] = []
-                target_list = entry["actions"][click_type]
+        if binary_mode:
+            for click_type, key in (("pressed", "actions_on_press"), ("released", "actions_on_release")):
+                for idx, act in enumerate(entry.get(key) or []):
+                    if isinstance(act, dict):
+                        actions.append({"click_type": click_type, "index": idx, **_describe_action(act)})
         else:
-            actions_key = "actions_on_press" if click_type in ("pressed", "single") else "actions_on_release"
-            if actions_key not in entry:
-                entry[actions_key] = []
-            target_list = entry[actions_key]
+            raw_actions = entry.get("actions")
+            if isinstance(raw_actions, dict):
+                for click_type, act_list in raw_actions.items():
+                    if not isinstance(act_list, list):
+                        continue
+                    for idx, act in enumerate(act_list):
+                        if isinstance(act, dict):
+                            actions.append({"click_type": click_type, "index": idx, **_describe_action(act)})
 
-        for existing in target_list:
-            same_output = (
-                existing.get("boneio_output") and existing.get("boneio_output") == new_action.get("boneio_output")
-            )
-            same_cover = (
-                existing.get("boneio_cover") and existing.get("boneio_cover") == new_action.get("boneio_cover")
-            )
-            same_remote_output = (
-                existing.get("remote_device") == new_action.get("remote_device")
-                and existing.get("output_id") and existing.get("output_id") == new_action.get("output_id")
-            )
-            same_remote_cover = (
-                existing.get("remote_device") == new_action.get("remote_device")
-                and existing.get("cover_id") and existing.get("cover_id") == new_action.get("cover_id")
-            )
-            if same_output or same_cover or same_remote_output or same_remote_cover:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"This action already exists for {entity_id} ({click_type})",
-                )
+        return {
+            "status": "ok",
+            "entity_id": entity_id,
+            "section": section,
+            "mode": "binary_sensor" if binary_mode else "event",
+            "actions": actions,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error listing input actions: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error listing input actions: {e}") from e
+
+
+@router.post("/config/quick-action")
+async def add_quick_action(payload: dict = Body(...)):
+    """Add a single action to an input's click type without full section save."""
+    entity_id = payload.get("entity_id", "").strip()
+    if not entity_id:
+        raise HTTPException(status_code=422, detail="entity_id is required")
+    click_type = _validate_click_type(payload.get("click_type", "").strip())
+    new_action = _build_action(payload)
+
+    try:
+        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+
+        target_list = _get_target_list(entry, section, click_type)
+        _assert_no_duplicate(target_list, new_action, entity_id, click_type)
 
         target_list.append(new_action)
         entries[input_index] = entry
 
-        errors = _validate_section_actions(section, entries)
-        if errors:
-            raise HTTPException(
-                status_code=422,
-                detail={"message": "Invalid action configuration", "errors": errors},
-            )
-
-        # 1. Update in-memory cache immediately (instant)
-        invalidate_config_cache(section=section, section_data=entries)
-
-        # 2. Hot-update input device actions in-memory
-        try:
-            manager: Manager = app_state.manager
-            input_device = manager.inputs._inputs.get(entity_id.lower())
-            if input_device:
-                raw_actions = entry.get("actions", {})
-                if not raw_actions and section == "binary_sensor":
-                    raw_actions = {
-                        "pressed": entry.get("actions_on_press", []),
-                        "released": entry.get("actions_on_release", []),
-                    }
-                parsed = manager.parse_actions(
-                    getattr(input_device, "pin", entity_id), raw_actions
-                )
-                input_device.set_actions(actions=parsed)
-                _LOGGER.info("Hot-updated actions for input %s", entity_id)
-            else:
-                _LOGGER.debug(
-                    "Input %s not in memory — actions will apply after restart",
-                    entity_id,
-                )
-        except Exception as hot_err:
-            _LOGGER.warning("Quick action saved but hot-update failed: %s", hot_err)
-
-        # 3. Fire YAML save in background (don't block response)
-        config_file = app_state.yaml_config_file
-
-        increment_pending_yaml_saves()
-
-        def _background_yaml_save() -> None:
-            """Persist quick-action to YAML on disk in a background thread."""
-            try:
-                result = update_config_section(config_file, section, entries)
-                if result["status"] == "error":
-                    _LOGGER.error(
-                        "Background YAML save failed for quick action: %s",
-                        result["message"],
-                    )
-                else:
-                    _LOGGER.info(
-                        "Background YAML save completed for quick action: %s -> %s",
-                        entity_id, click_type,
-                    )
-            except Exception as bg_err:
-                _LOGGER.error(
-                    "Background YAML save error for quick action: %s",
-                    bg_err, exc_info=True,
-                )
-            finally:
-                decrement_pending_yaml_saves()
-
-        threading.Thread(
-            target=_background_yaml_save,
-            name=f"yaml-save-quick-action-{entity_id}",
-            daemon=True,
-        ).start()
+        _persist_entry_change(app_state, section, entries, entry, entity_id, click_type)
 
         _LOGGER.info(
-            "Quick action added: %s -> %s -> %s %s (%s) [section=%s]",
-            entity_id, click_type, action_type, output_id or cover_id, action, section,
+            "Quick action added: %s -> %s -> %s %s [section=%s]",
+            entity_id, click_type, new_action.get("action"),
+            _describe_action(new_action)["target"], section,
         )
 
         return {
@@ -402,6 +661,7 @@ async def add_quick_action(payload: dict = Body(...)):
             "message": f"Action added to {entity_id} ({click_type})",
             "section": section,
             "click_type": click_type,
+            "index": len(target_list) - 1,
         }
 
     except HTTPException:
@@ -409,4 +669,139 @@ async def add_quick_action(payload: dict = Body(...)):
     except Exception as e:
         _LOGGER.error("Error adding quick action: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error adding quick action: {e}") from e
+
+
+@router.put("/config/quick-action")
+async def update_quick_action(payload: dict = Body(...)):
+    """Replace an existing action of an input, optionally moving its click type.
+
+    Args:
+        payload: Must contain ``entity_id``, ``click_type``, ``index`` and the
+            action fields. An optional ``new_click_type`` moves the action to a
+            different click type.
+
+    Returns:
+        Status dict with the resulting click type and index.
+    """
+    entity_id = payload.get("entity_id", "").strip()
+    if not entity_id:
+        raise HTTPException(status_code=422, detail="entity_id is required")
+    click_type = _validate_click_type(payload.get("click_type", "").strip())
+    new_click_type = _validate_click_type(
+        (payload.get("new_click_type") or click_type).strip()
+    )
+    index = payload.get("index")
+    if not isinstance(index, int) or index < 0:
+        raise HTTPException(status_code=422, detail="index must be a non-negative integer")
+
+    new_action = _build_action(payload)
+
+    try:
+        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+
+        source_list = _get_target_list(entry, section, click_type, create=False)
+        if index >= len(source_list):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No action at index {index} for {entity_id} ({click_type})",
+            )
+
+        if new_click_type == click_type:
+            _assert_no_duplicate(
+                source_list, new_action, entity_id, click_type, skip_index=index
+            )
+            source_list[index] = new_action
+        else:
+            target_list = _get_target_list(entry, section, new_click_type)
+            _assert_no_duplicate(target_list, new_action, entity_id, new_click_type)
+            source_list.pop(index)
+            target_list.append(new_action)
+
+        entries[input_index] = entry
+
+        _persist_entry_change(app_state, section, entries, entry, entity_id, new_click_type)
+
+        _LOGGER.info(
+            "Quick action updated: %s (%s[%d]) -> %s %s [section=%s]",
+            entity_id, click_type, index, new_click_type,
+            _describe_action(new_action)["target"], section,
+        )
+
+        return {
+            "status": "ok",
+            "message": f"Action updated for {entity_id} ({new_click_type})",
+            "section": section,
+            "click_type": new_click_type,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error updating quick action: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating quick action: {e}") from e
+
+
+@router.delete("/config/quick-action")
+async def delete_quick_action(payload: dict = Body(...)):
+    """Remove a single action from an input's click type.
+
+    Args:
+        payload: Must contain ``entity_id``, ``click_type`` and ``index``.
+
+    Returns:
+        Status dict describing the removed action.
+    """
+    entity_id = payload.get("entity_id", "").strip()
+    if not entity_id:
+        raise HTTPException(status_code=422, detail="entity_id is required")
+    click_type = _validate_click_type(payload.get("click_type", "").strip())
+    index = payload.get("index")
+    if not isinstance(index, int) or index < 0:
+        raise HTTPException(status_code=422, detail="index must be a non-negative integer")
+
+    try:
+        app_state, section, entries, input_index, entry = _load_entry_for_edit(entity_id)
+
+        target_list = _get_target_list(entry, section, click_type, create=False)
+        if index >= len(target_list):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No action at index {index} for {entity_id} ({click_type})",
+            )
+
+        removed = target_list.pop(index)
+
+        # Drop empty containers so the YAML stays clean
+        if not target_list:
+            if _uses_binary_actions(entry, section):
+                entry.pop(_binary_actions_key(click_type), None)
+            else:
+                actions = entry.get("actions")
+                if isinstance(actions, dict):
+                    actions.pop(click_type, None)
+                    if not actions:
+                        entry.pop("actions", None)
+
+        entries[input_index] = entry
+
+        _persist_entry_change(app_state, section, entries, entry, entity_id, click_type)
+
+        _LOGGER.info(
+            "Quick action removed: %s (%s[%d]) -> %s [section=%s]",
+            entity_id, click_type, index, _describe_action(removed)["target"], section,
+        )
+
+        return {
+            "status": "ok",
+            "message": f"Action removed from {entity_id} ({click_type})",
+            "section": section,
+            "click_type": click_type,
+            "removed": _describe_action(removed),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _LOGGER.error("Error deleting quick action: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error deleting quick action: {e}") from e
 

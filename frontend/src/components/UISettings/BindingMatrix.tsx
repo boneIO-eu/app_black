@@ -210,7 +210,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
   const localInputs = formData.local_inputs || [];
   for (let i = 0; i < localInputs.length; i++) {
     const input = localInputs[i];
-    const id = input.id || input.pin || `local_${i}`;
+    const id = input.id || input.boneio_input || input.pin || `local_${i}`;
     const bindings: Binding[] = [];
     for (const ct of clickTypes) {
       const actions = input.actions?.[ct] || [];
@@ -223,7 +223,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
     }
     rows.push({
       id,
-      name: input.name || input.id || input.pin || id,
+      name: input.name || input.id || input.boneio_input || input.pin || id,
       area: input.area || undefined,
       type: 'local',
       bindings,
@@ -593,11 +593,14 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
     // Defer listener registration so the opening event doesn't close the menu
     const raf = requestAnimationFrame(() => {
       const close = () => setCtxMenu(null);
-      window.addEventListener('click', close, { capture: true });
+      // Use bubbling (not capture) so that e.stopPropagation() on the
+      // menu container can prevent this handler from firing when
+      // clicking menu items.
+      window.addEventListener('click', close);
       window.addEventListener('contextmenu', close, { capture: true });
       window.addEventListener('scroll', close, true);
       cleanup = () => {
-        window.removeEventListener('click', close, { capture: true });
+        window.removeEventListener('click', close);
         window.removeEventListener('contextmenu', close, { capture: true });
         window.removeEventListener('scroll', close, true);
       };
@@ -1032,7 +1035,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
         return compositeId === input.id;
       }
       // Local inputs
-      const itemId = item.id || item.pin || `local_${i}`;
+      const itemId = item.id || item.boneio_input || item.pin || `local_${i}`;
       return itemId === input.id;
     });
     if (idx < 0) return;
