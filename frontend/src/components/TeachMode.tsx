@@ -18,7 +18,7 @@ import {
   FaGraduationCap, FaTimes, FaCheck, FaExclamationTriangle,
   FaHandPointer, FaBolt, FaUndo, FaChevronDown, FaChevronUp,
   FaLink, FaList, FaHistory, FaMousePointer, FaBan, FaFilter,
-  FaNetworkWired, FaPlay, FaPencilAlt, FaTrash, FaSave,
+  FaNetworkWired, FaPlay, FaPencilAlt, FaTrash, FaSave, FaClock,
 } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormInputToggle } from '@/components/UISettings/widgets/FormInputToggle';
@@ -1270,6 +1270,15 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                             <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{t(`quick_action.${b.actionType}`, { defaultValue: b.actionType })}</span>
                             <span className="font-bold text-base-content/80 truncate flex-1 font-mono text-xs">{b.target}</span>
                             <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{t(`quick_action.actions.${b.action}`, { defaultValue: b.action })}</span>
+                            {Boolean(b.raw.condition || b.raw.conditions) && (
+                              <span
+                                className="badge badge-sm font-semibold text-xxs bg-warning/10 text-warning border-0 px-2 py-1 gap-1"
+                                title={t('teach_mode.has_conditions')}
+                              >
+                                <FaClock className="w-2.5 h-2.5" />
+                                {t('teach_mode.has_conditions_short')}
+                              </span>
+                            )}
 
                             {confirmDelete ? (
                               <div className="flex items-center gap-1 shrink-0">

@@ -2359,7 +2359,9 @@
     "recent_events": "Diagnostyka: ostatnie zdarzenia z sieci",
     "recent_events_empty": "Nie wykryto jeszcze żadnych zdarzeń",
     "capture_sequences": "Przechwytuj sekwencje",
-    "capture_sequences_hint": "Wykrywaj sekwencje gestów (podwójne+długie, pojedyncze+długie, podwójne+pojedyncze)"
+    "capture_sequences_hint": "Wykrywaj sekwencje gestów (podwójne+długie, pojedyncze+długie, podwójne+pojedyncze)",
+    "has_conditions": "Ta akcja ma warunki, które muszą być spełnione przed wykonaniem",
+    "has_conditions_short": "War."
   },
   "binding_matrix": {
     "title": "Macierz Powiązań",

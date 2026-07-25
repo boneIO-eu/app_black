@@ -736,6 +736,17 @@ async def update_quick_action(payload: dict = Body(...)):
                 detail=f"No action at index {index} for {entity_id} ({click_type})",
             )
 
+        # Preserve auxiliary keys from the original action that are not
+        # managed by _build_action (conditions, brightness_step, repeat, etc.)
+        _PRESERVED_KEYS = {
+            "condition", "conditions", "brightness_step",
+            "repeat", "repeat_delay",
+        }
+        original_action: dict = source_list[index]
+        for key in _PRESERVED_KEYS:
+            if key in original_action and key not in new_action:
+                new_action[key] = original_action[key]
+
         if new_click_type == click_type:
             _assert_no_duplicate(
                 source_list, new_action, entity_id, click_type, skip_index=index

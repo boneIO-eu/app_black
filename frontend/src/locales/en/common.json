@@ -2360,7 +2360,9 @@
     "recent_events": "Diagnostics: recent network events",
     "recent_events_empty": "No events detected yet",
     "capture_sequences": "Capture sequences",
-    "capture_sequences_hint": "Detect gesture sequences (double+long, single+long, double+single)"
+    "capture_sequences_hint": "Detect gesture sequences (double+long, single+long, double+single)",
+    "has_conditions": "This action has conditions that must be met before it executes",
+    "has_conditions_short": "Cond."
   },
   "binding_matrix": {
     "title": "Binding Matrix",
