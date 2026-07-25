@@ -2275,12 +2275,17 @@
     "target_type": "Typ sterowania",
     "output": "Wyjście",
     "cover": "Roleta",
+    "remote_output": "Zdalne Wyjście",
+    "remote_cover": "Zdalna Roleta",
+    "mqtt": "MQTT",
+    "output_over_mqtt": "Wyjście przez MQTT",
+    "cover_over_mqtt": "Roleta przez MQTT",
     "select_output": "Wybierz wyjście...",
     "select_cover": "Wybierz roletę...",
     "action": "Akcja",
     "save": "Dodaj Akcję",
-    "saved": "Akcja dodana pomyślnie!",
-    "save_error": "Nie udało się dodać akcji",
+    "saved": "Zapisano pomyślnie!",
+    "save_error": "Nie udało się zapisać akcji",
     "duplicate_action": "Ta akcja już istnieje dla tego wejścia i typu kliknięcia",
     "already_assigned": "To wyjście jest już przypisane do tego typu kliknięcia",
     "click_types": {
@@ -2300,7 +2305,14 @@
       "OFF": "Wyłącz",
       "OPEN": "Otwórz",
       "CLOSE": "Zamknij",
-      "STOP": "Stop"
+      "STOP": "Stop",
+      "BRIGHTNESS_UP": "Jasność +",
+      "BRIGHTNESS_DOWN": "Jasność −",
+      "BRIGHTNESS_UP_CYCLE": "Jasność + (cyklicznie)",
+      "BRIGHTNESS_DOWN_CYCLE": "Jasność − (cyklicznie)",
+      "SET_BRIGHTNESS": "Ustaw jasność",
+      "CYCLE_COLOR": "Zmień kolor",
+      "CYCLE_PRESET": "Zmień preset"
     }
   },
   "teach_mode": {

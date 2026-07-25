@@ -2276,12 +2276,17 @@
     "target_type": "Control type",
     "output": "Output",
     "cover": "Cover",
+    "remote_output": "Remote Output",
+    "remote_cover": "Remote Cover",
+    "mqtt": "MQTT",
+    "output_over_mqtt": "Output over MQTT",
+    "cover_over_mqtt": "Cover over MQTT",
     "select_output": "Select output...",
     "select_cover": "Select cover...",
     "action": "Action",
     "save": "Add Action",
-    "saved": "Action added successfully!",
-    "save_error": "Failed to add action",
+    "saved": "Saved successfully!",
+    "save_error": "Failed to save action",
     "duplicate_action": "This action already exists for this input and click type",
     "already_assigned": "This output is already assigned to this click type",
     "click_types": {
@@ -2301,7 +2306,14 @@
       "OFF": "Turn Off",
       "OPEN": "Open",
       "CLOSE": "Close",
-      "STOP": "Stop"
+      "STOP": "Stop",
+      "BRIGHTNESS_UP": "Brightness Up",
+      "BRIGHTNESS_DOWN": "Brightness Down",
+      "BRIGHTNESS_UP_CYCLE": "Brightness Up (cycle)",
+      "BRIGHTNESS_DOWN_CYCLE": "Brightness Down (cycle)",
+      "SET_BRIGHTNESS": "Set Brightness",
+      "CYCLE_COLOR": "Cycle Color",
+      "CYCLE_PRESET": "Cycle Preset"
     }
   },
   "teach_mode": {

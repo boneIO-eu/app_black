@@ -1265,11 +1265,11 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                               isEditing ? 'border-primary/50 ring-1 ring-primary/20' : 'border-base-200 hover:border-base-300',
                             )}
                           >
-                            <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{t(`quick_action.click_types.${b.clickType}`)}</span>
+                            <span className="badge badge-sm font-bold text-xxs bg-primary/10 text-primary border-0 px-2 py-1 uppercase">{t(`quick_action.click_types.${b.clickType}`, { defaultValue: b.clickType })}</span>
                             <span className="text-base-content/30 font-medium">→</span>
-                            <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{t(`quick_action.${b.actionType}`)}</span>
+                            <span className="badge badge-sm font-semibold text-xxs bg-base-200 text-base-content/65 border-0 px-2 py-1 uppercase">{t(`quick_action.${b.actionType}`, { defaultValue: b.actionType })}</span>
                             <span className="font-bold text-base-content/80 truncate flex-1 font-mono text-xs">{b.target}</span>
-                            <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{t(`quick_action.actions.${b.action}`)}</span>
+                            <span className="badge badge-sm font-bold text-xxs badge-outline border-base-300 text-base-content/70 px-2 py-1 uppercase">{t(`quick_action.actions.${b.action}`, { defaultValue: b.action })}</span>
 
                             {confirmDelete ? (
                               <div className="flex items-center gap-1 shrink-0">
