@@ -1,4 +1,5 @@
 import React, { useState, useContext, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WebSocketContext } from '@/App';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { InputEvent, OutputEvent, CoverEvent } from '@/hooks/useWebSocket';
@@ -18,7 +19,7 @@ import {
   FaGraduationCap, FaTimes, FaCheck, FaExclamationTriangle,
   FaHandPointer, FaBolt, FaUndo, FaChevronDown, FaChevronUp,
   FaLink, FaList, FaHistory, FaMousePointer, FaBan, FaFilter,
-  FaNetworkWired, FaPlay, FaPencilAlt, FaTrash, FaSave, FaClock,
+  FaNetworkWired, FaPlay, FaPencilAlt, FaTrash, FaSave, FaClock, FaExternalLinkAlt,
 } from 'react-icons/fa';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormInputToggle } from '@/components/UISettings/widgets/FormInputToggle';
@@ -120,6 +121,7 @@ interface TeachModeProps {
  */
 const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { inputs, outputs, covers } = useContext(WebSocketContext);
 
   // Detected input from physical button press
@@ -503,6 +505,14 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     setSaveStatus('idle');
     setErrorMessage('');
   }, []);
+
+  /** Navigate to the full config editor for the current input. */
+  const handleGoToSettings = useCallback(() => {
+    if (!detectedInput) return;
+    const section = detectedInput.state.remote ? 'remote_inputs' : 'local_inputs';
+    onClose();
+    navigate(`/settings/${section}?edit=${encodeURIComponent(detectedInput.entity_id)}`);
+  }, [detectedInput, navigate, onClose]);
 
   /** Load an existing binding into the link form for editing. */
   const handleStartEdit = useCallback((b: ActionBinding) => {
@@ -1249,8 +1259,16 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">
-                      {t('teach_mode.bindings_for', { name: detectedInput.state.name })}
+                    <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <span className="flex-1">{t('teach_mode.bindings_for', { name: detectedInput.state.name })}</span>
+                      <button
+                        className="btn btn-ghost btn-xs gap-1 text-primary normal-case font-semibold"
+                        onClick={handleGoToSettings}
+                        title={t('teach_mode.edit_in_settings')}
+                      >
+                        <FaExternalLinkAlt className="w-2.5 h-2.5" />
+                        {t('teach_mode.edit_in_settings')}
+                      </button>
                     </p>
                     <div className="space-y-2">
                       {bindings.map((b) => {

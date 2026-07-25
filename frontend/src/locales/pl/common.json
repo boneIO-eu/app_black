@@ -2361,7 +2361,8 @@
     "capture_sequences": "Przechwytuj sekwencje",
     "capture_sequences_hint": "Wykrywaj sekwencje gestów (podwójne+długie, pojedyncze+długie, podwójne+pojedyncze)",
     "has_conditions": "Ta akcja ma warunki, które muszą być spełnione przed wykonaniem",
-    "has_conditions_short": "War."
+    "has_conditions_short": "War.",
+    "edit_in_settings": "Edytuj w ustawieniach"
   },
   "binding_matrix": {
     "title": "Macierz Powiązań",

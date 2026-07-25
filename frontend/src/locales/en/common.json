@@ -2362,7 +2362,8 @@
     "capture_sequences": "Capture sequences",
     "capture_sequences_hint": "Detect gesture sequences (double+long, single+long, double+single)",
     "has_conditions": "This action has conditions that must be met before it executes",
-    "has_conditions_short": "Cond."
+    "has_conditions_short": "Cond.",
+    "edit_in_settings": "Edit in Settings"
   },
   "binding_matrix": {
     "title": "Binding Matrix",
