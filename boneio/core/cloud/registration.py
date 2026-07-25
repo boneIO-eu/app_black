@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import shutil
+import ssl
 import subprocess
 from contextlib import suppress
 from pathlib import Path
@@ -186,6 +187,17 @@ class CloudRegistration:
                     elif cert_refreshed and self.is_cloud_config_active():
                         _LOGGER.info("Certificate refreshed, restarting Caddy...")
                         await self._recreate_caddy()
+                    elif (
+                        self._cert_exists()
+                        and self.is_cloud_config_active()
+                        and not await self._caddy_cert_matches_disk()
+                    ):
+                        # Disk cert is OK but Caddy is serving a stale
+                        # certificate (previous restart may have failed).
+                        _LOGGER.warning(
+                            "Caddy is serving a different certificate than on disk, restarting Caddy..."
+                        )
+                        await self._recreate_caddy()
                 else:
                     _LOGGER.warning("DNS registration failed, will retry")
 
@@ -346,6 +358,119 @@ class CloudRegistration:
         except Exception as e:
             _LOGGER.warning("Error checking cert expiry, forcing refresh: %s", e)
             return True
+
+    async def _caddy_cert_matches_disk(self, port: int = 443) -> bool:
+        """Check if the certificate served by Caddy matches the one on disk.
+
+        Connects to localhost:<port> via TLS and compares the serial number
+        of the served certificate with the disk certificate.  If they differ
+        Caddy needs a restart.
+
+        Args:
+            port: HTTPS port Caddy listens on (default 443).
+
+        Returns:
+            True if the certificates match (or if the check cannot be
+            performed), False if they differ.
+        """
+        if not self._cert_exists():
+            return True  # nothing to compare
+
+        try:
+            # Read serial from disk cert
+            disk_serial = await self._get_cert_serial_from_file(CERT_FILE)
+            if disk_serial is None:
+                return True  # can't read disk cert, assume OK
+
+            # Read serial from Caddy's live TLS cert
+            live_serial = await self._get_caddy_live_serial(port)
+            if live_serial is None:
+                # Caddy unreachable — restart will be attempted anyway
+                _LOGGER.debug("Cannot connect to Caddy TLS on port %d", port)
+                return False
+
+            match = disk_serial == live_serial
+            if not match:
+                _LOGGER.info(
+                    "Certificate serial mismatch: disk=%s caddy=%s",
+                    disk_serial,
+                    live_serial,
+                )
+            return match
+
+        except Exception as e:
+            _LOGGER.debug("Error comparing Caddy cert with disk: %s", e)
+            return True  # don't trigger restart on unexpected errors
+
+    async def _get_cert_serial_from_file(self, cert_path: Path) -> str | None:
+        """Extract hex serial number from a PEM certificate file via openssl.
+
+        Args:
+            cert_path: Path to the PEM certificate.
+
+        Returns:
+            Hex serial string, or None on error.
+        """
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    ["openssl", "x509", "-serial", "-noout", "-in", str(cert_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ),
+            )
+            if result.returncode != 0:
+                return None
+            # Output: "serial=AABBCCDD..."
+            return result.stdout.strip().split("=", 1)[1].upper()
+        except Exception:
+            return None
+
+    async def _get_caddy_live_serial(self, port: int = 443) -> str | None:
+        """Connect to Caddy via TLS and return the served certificate's serial.
+
+        Args:
+            port: HTTPS port to connect to.
+
+        Returns:
+            Hex serial string, or None if unreachable.
+        """
+        def _probe() -> str | None:
+            import socket
+
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+
+            sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+            try:
+                tls_sock = ctx.wrap_socket(sock, server_hostname="localhost")
+                try:
+                    der_cert = tls_sock.getpeercert(binary_form=True)
+                    if not der_cert:
+                        return None
+                    # Parse serial from DER using openssl
+                    proc = subprocess.run(
+                        ["openssl", "x509", "-serial", "-noout", "-inform", "DER"],
+                        input=der_cert,
+                        capture_output=True,
+                        timeout=5,
+                    )
+                    if proc.returncode != 0:
+                        return None
+                    return proc.stdout.decode().strip().split("=", 1)[1].upper()
+                finally:
+                    tls_sock.close()
+            except Exception:
+                sock.close()
+                return None
+
+        try:
+            return await asyncio.get_event_loop().run_in_executor(None, _probe)
+        except Exception:
+            return None
 
     def update_ip(self, new_ip: str) -> None:
         """
