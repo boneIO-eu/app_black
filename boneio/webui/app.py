@@ -726,11 +726,22 @@ def init_app(
             set_auth_config(auth_config)
             app.add_middleware(AuthMiddleware)
 
-    # Add CORS middleware — restrict to same-origin by default
+    # Add CORS middleware — restrict to same-origin by default,
+    # allow localhost dev servers when BONEIO_DEV is set.
+    cors_origins: list[str] = []
+    if os.environ.get("BONEIO_DEV"):
+        cors_origins = [
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+        ]
+        _LOGGER.info("CORS: dev mode — allowing origins: %s", cors_origins)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[],
-        allow_credentials=False,
+        allow_origins=cors_origins,
+        allow_credentials=bool(cors_origins),
         allow_methods=["*"],
         allow_headers=["*"],
     )
