@@ -747,12 +747,12 @@ def init_app(
     )
 
     # Security headers middleware
+    # NOTE: No X-Frame-Options — boneIO must be embeddable in HA ingress iframe
     @app.middleware("http")
     async def security_headers_middleware(request, call_next):
         """Add security headers to all responses."""
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "same-origin"
         return response
 
