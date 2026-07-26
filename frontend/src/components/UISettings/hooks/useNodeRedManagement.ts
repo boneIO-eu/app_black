@@ -72,7 +72,7 @@ export const useNodeRedManagement = () => {
     setIsCreatingBackup(true);
     setError(null);
     try {
-      const { data } = await axios.post<{ status: string; message: string }>('/api/nodered/backup/create');
+      const { data } = await axios.post<{ status: string; message: string }>('/api/nodered/backup/create', null, { timeout: 30000 });
       if (data.status === 'success') {
         await fetchBackups();
         return true;
@@ -94,7 +94,9 @@ export const useNodeRedManagement = () => {
     setError(null);
     try {
       const { data } = await axios.post<{ status: string; message: string }>(
-        `/api/nodered/backup/restore?backup_path=${encodeURIComponent(backupPath)}`
+        `/api/nodered/backup/restore?backup_path=${encodeURIComponent(backupPath)}`,
+        null,
+        { timeout: 120_000 },
       );
       if (data.status === 'success') {
         await fetchStatus();
