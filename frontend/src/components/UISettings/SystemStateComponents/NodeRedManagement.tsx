@@ -190,7 +190,7 @@ export default function NodeRedManagement() {
         <div className="border border-base-content/10 rounded-lg p-4 bg-base-100/50 relative">
           {/* Restoring overlay */}
           {isRestoringBackup && (
-            <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-lg z-10 flex flex-col items-center justify-center gap-3">
+            <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-lg z-10 flex flex-col items-center justify-center gap-1 pt-8">
               <FaSpinner className="animate-spin text-warning h-8 w-8" />
               <p className="text-sm font-semibold text-warning">{t('nodered_management.restoring_backup')}</p>
               <p className="text-xs opacity-60">{t('nodered_management.restoring_hint')}</p>
