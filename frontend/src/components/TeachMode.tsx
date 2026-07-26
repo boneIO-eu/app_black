@@ -740,7 +740,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        className="px-0 pb-0 gap-0 max-h-[92vh] sm:max-h-[90vh] sm:max-w-5xl sm:pt-0 flex flex-col overflow-y-auto sm:overflow-hidden"
+        className="p-0 gap-0 max-h-[92vh] sm:max-h-[90vh] sm:max-w-5xl flex flex-col overflow-y-auto sm:overflow-hidden"
       >
         {/* Header bar */}
         <DialogHeader className="bg-base-200/80 backdrop-blur-md text-base-content px-6 py-4 flex flex-row items-center justify-between shadow-sm shrink-0 border-b border-base-300">
