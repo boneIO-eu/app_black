@@ -622,8 +622,8 @@ const SystemState: React.FC = () => {
                   onClick={() => setShowVersions(!showVersions)}
                 >
                   {showVersions
-                    ? (t('software_update.hide_versions') || 'Hide versions ({count})').replace('{count}', String(availableVersions.length))
-                    : (t('software_update.show_versions') || 'Show versions ({count})').replace('{count}', String(availableVersions.length))}
+                    ? t('software_update.hide_versions', { count: availableVersions.length })
+                    : t('software_update.show_versions', { count: availableVersions.length })}
                 </button>
               </div>
               <p className="text-sm opacity-70 mt-2">{t('software_update.version_info') || 'Select a version to install. You can rollback to any previous version.'}</p>
@@ -802,7 +802,7 @@ const SystemState: React.FC = () => {
                   >
                     <FaCheck />
                     <div className="text-sm">
-                      <p>{t('device_management.turned_off_outputs').replace('{count}', String(turnOffResult.count))}</p>
+                      <p>{t('device_management.turned_off_outputs', { count: turnOffResult.count })}</p>
                       {turnOffResult.errors.length > 0 && (
                         <p>{t('device_management.errors')}: {turnOffResult.errors.join(', ')}</p>
                       )}

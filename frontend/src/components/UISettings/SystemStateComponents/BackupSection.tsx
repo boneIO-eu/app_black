@@ -397,8 +397,8 @@ export default function BackupSection() {
                 }}
               >
                 {showAvailableBackups
-                  ? (t('device_management.hide_backups') || 'Hide backups ({count})').replace('{count}', String(availableBackups.length))
-                  : (t('device_management.show_backups') || 'Show backups ({count})').replace('{count}', String(availableBackups.length))}
+                  ? t('device_management.hide_backups', { count: availableBackups.length })
+                  : t('device_management.show_backups', { count: availableBackups.length })}
               </button>
             )}
           </div>

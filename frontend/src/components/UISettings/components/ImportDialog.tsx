@@ -52,7 +52,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({
             </div>
           ) : (
             <>
-              <p>{t('import_export.import_confirm').replace('{count}', String(importData?.length || 0))}</p>
+              <p>{t('import_export.import_confirm', { count: importData?.length || 0 })}</p>
 
               <div className="form-control">
                 <label className="label cursor-pointer justify-start gap-3">
