@@ -2467,6 +2467,8 @@
     "date": "Date",
     "size": "Size",
     "actions": "Actions",
-    "auto_backup_before_update": "Automatic backup before update"
+    "auto_backup_before_update": "Automatic backup before update",
+    "restoring_backup": "Restoring backup...",
+    "restoring_hint": "Node-RED is being stopped, files restored, and started again. This may take up to 2 minutes."
   }
 }

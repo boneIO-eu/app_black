@@ -18,6 +18,7 @@ export default function NodeRedManagement() {
     updateInfo,
     updateProgress,
     isLoadingStatus,
+    isLoadingBackups,
     isCheckingUpdate,
     isCreatingBackup,
     isRestoringBackup,
@@ -186,7 +187,15 @@ export default function NodeRedManagement() {
         </div>
 
         {/* ── BACKUP SECTION ── */}
-        <div className="border border-base-content/10 rounded-lg p-4 bg-base-100/50">
+        <div className="border border-base-content/10 rounded-lg p-4 bg-base-100/50 relative">
+          {/* Restoring overlay */}
+          {isRestoringBackup && (
+            <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-lg z-10 flex flex-col items-center justify-center gap-3">
+              <FaSpinner className="animate-spin text-warning h-8 w-8" />
+              <p className="text-sm font-semibold text-warning">{t('nodered_management.restoring_backup')}</p>
+              <p className="text-xs opacity-60">{t('nodered_management.restoring_hint')}</p>
+            </div>
+          )}
           <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
             <FaFileArchive className="text-primary" />
             <span>{t('nodered_management.backup_title')}</span>
@@ -214,6 +223,12 @@ export default function NodeRedManagement() {
                   ? t('device_management.hide_backups', { count: backups.length })
                   : t('device_management.show_backups', { count: backups.length })}
               </button>
+            )}
+            {isLoadingBackups && (
+              <span className="flex items-center gap-2 text-sm opacity-60">
+                <FaSpinner className="animate-spin h-3 w-3" />
+                {t('common.loading')}
+              </span>
             )}
           </div>
 

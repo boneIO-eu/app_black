@@ -2466,6 +2466,8 @@
     "date": "Data",
     "size": "Rozmiar",
     "actions": "Akcje",
-    "auto_backup_before_update": "Automatyczna kopia zapasowa przed aktualizacją"
+    "auto_backup_before_update": "Automatyczna kopia zapasowa przed aktualizacją",
+    "restoring_backup": "Przywracanie kopii zapasowej...",
+    "restoring_hint": "Node-RED jest zatrzymywany, pliki przywracane i ponownie uruchamiane. Może to potrwać do 2 minut."
   }
 }
