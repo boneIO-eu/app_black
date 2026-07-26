@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 
 from fastapi import APIRouter, Body, HTTPException
@@ -28,7 +29,7 @@ async def auth_required():
     try:
         return {"required": is_auth_required()}
     except Exception as e:
-        _LOGGER.error(f"Error checking auth requirement: {e}")
+        _LOGGER.error("Error checking auth requirement: %s", e)
         # Default to requiring auth if there's an error
         return {"required": True}
 
@@ -51,11 +52,20 @@ async def login(username: str = Body(...), password: str = Body(...)):
     auth_config = get_auth_config()
     
     if not auth_config:
+        # Auth not configured — allow access without credentials
         token = create_token({"sub": "default"})
         return {"token": token}
 
-    if username == auth_config.get("username") and password == auth_config.get("password"):
+    expected_username = auth_config.get("username", "")
+    expected_password = auth_config.get("password", "")
+
+    username_ok = hmac.compare_digest(username, expected_username)
+    password_ok = hmac.compare_digest(password, expected_password)
+
+    if username_ok and password_ok:
         token = create_token({"sub": username})
         return {"token": token}
-    
+
+    _LOGGER.warning("Failed login attempt for user: %s", username)
     raise HTTPException(status_code=401, detail="Invalid credentials")
+

@@ -161,7 +161,8 @@ app.include_router(tools_router)
 app.include_router(migrations_router)
 app.include_router(mqtt_reference_router)
 
-app.include_router(dev_fake_device_router)
+if os.environ.get("BONEIO_DEV"):
+    app.include_router(dev_fake_device_router)
 
 
 # Override get_manager dependency in routers using FastAPI dependency_overrides
@@ -192,8 +193,9 @@ app.dependency_overrides[templates_module.get_manager] = get_manager
 app.dependency_overrides[tools_module.get_manager] = get_manager
 app.dependency_overrides[mqtt_reference_module.get_manager] = get_manager
 
-from boneio.webui.routes import dev_fake_device as dev_fake_device_module
-app.dependency_overrides[dev_fake_device_module.get_manager] = get_manager
+if os.environ.get("BONEIO_DEV"):
+    from boneio.webui.routes import dev_fake_device as dev_fake_device_module
+    app.dependency_overrides[dev_fake_device_module.get_manager] = get_manager
 
 system_module.set_config_helper_getter(get_config_helper)
 
@@ -723,14 +725,24 @@ def init_app(
             set_auth_config(auth_config)
             app.add_middleware(AuthMiddleware)
 
-    # Add CORS middleware
+    # Add CORS middleware — restrict to same-origin by default
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=[],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Security headers middleware
+    @app.middleware("http")
+    async def security_headers_middleware(request, call_next):
+        """Add security headers to all responses."""
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "same-origin"
+        return response
 
     # Add GZip compression
     app.add_middleware(GZipMiddleware, minimum_size=500)
