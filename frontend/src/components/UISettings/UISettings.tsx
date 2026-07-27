@@ -17,6 +17,8 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
+import { useOverlayCheck } from './hooks/useOverlayCheck';
+import OverlayChangeDialog from './components/OverlayChangeDialog';
 
 /** Lazy-loaded binding matrix component (tool section, not schema-driven). */
 const BindingMatrix = lazy(() => import('./BindingMatrix'));
@@ -79,6 +81,17 @@ export default function UISettings() {
   const [schemaLoaded, setSchemaLoaded] = useState(false);
   const [loxFormValid, setLoxFormValid] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Overlay mismatch detection for board version changes
+  const {
+    overlayDialog,
+    isChangingOverlay,
+    overlayChangeResult,
+    overlayChangeError,
+    checkOverlayAfterVersionChange,
+    applyOverlayChange,
+    dismissDialog,
+  } = useOverlayCheck();
 
   // Get active section from URL parameter or default to first section
   const activeSection = section || 'mqtt';
@@ -969,6 +982,15 @@ export default function UISettings() {
           setRestartRequired(true);
         }
 
+        // Check overlay mismatch after saving boneio section with version change
+        if (sectionName === 'boneio') {
+          const newVersion = String(dataToUse?.version || '');
+          const oldVersion = String(originalData.boneio?.version || '');
+          if (newVersion && newVersion !== oldVersion) {
+            checkOverlayAfterVersionChange(newVersion);
+          }
+        }
+
         // Trigger reload for sections that support hot-reload
         const reloadableSections = [
           'output_group',
@@ -1254,6 +1276,29 @@ export default function UISettings() {
           </div>
         </div>
       )}
+
+      {/* Overlay change dialog */}
+      <OverlayChangeDialog
+        open={overlayDialog.open}
+        currentOverlay={overlayDialog.currentOverlay}
+        expectedOverlay={overlayDialog.expectedOverlay}
+        newVersion={overlayDialog.newVersion}
+        isChanging={isChangingOverlay}
+        changeResult={overlayChangeResult}
+        changeError={overlayChangeError}
+        onApply={async () => {
+          await applyOverlayChange();
+          // Trigger restart after successful overlay change
+          if (overlayChangeResult !== 'error') {
+            try {
+              await axios.post('/api/restart');
+            } catch {
+              // Expected — server is restarting
+            }
+          }
+        }}
+        onDismiss={dismissDialog}
+      />
 
       {/* Unsaved changes toast - show when there are unsaved changes and no restart required */}
       {Object.values(unsavedChanges).some(Boolean) && !restartRequired && (

@@ -2480,5 +2480,18 @@
     "copy_sha256": "Kopiuj SHA256",
     "sha256_copied": "SHA256 skopiowane!",
     "upload_restore_warning": "Kopia zapasowa bieżącego stanu zostanie automatycznie utworzona przed przywróceniem. Node-RED będzie tymczasowo niedostępny."
+  },
+  "overlay": {
+    "title": "Wymagana zmiana Device Tree Overlay",
+    "warning": "⚠️ To potencjalnie niebezpieczna operacja! Nieprawidłowy overlay może spowodować niedziałanie pinów GPIO.",
+    "description": "Zmieniłeś wersję sprzętową na {{version}}. Overlay Device Tree w /boot/uEnv.txt musi zostać zaktualizowany.",
+    "current": "Obecny",
+    "expected": "Wymagany",
+    "restart_notice": "Po zmianie wymagany jest restart systemu, aby nowy overlay zadziałał.",
+    "apply": "Zmień overlay i zrestartuj",
+    "dismiss": "Pomiń (zmiana ręczna)",
+    "changing": "Zmieniam...",
+    "success": "Overlay zmieniony! System zostanie zrestartowany...",
+    "change_failed": "Nie udało się zmienić overlay. Zaktualizuj /boot/uEnv.txt ręcznie."
   }
 }

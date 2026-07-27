@@ -956,3 +956,233 @@ async def fix_timezone_sudoers(body: TimezoneSudoersFixRequest):
 
     return await create_timedatectl_sudoers_file(body.password)
 
+
+# ── Device Tree Overlay management ──────────────────────────────────
+
+# Mapping: board version → overlay filename (without path)
+_VERSION_TO_OVERLAY: dict[str, str] = {
+    "0.2": "BONEIO-BLACK-PINS-v0.2-v0.3.dtbo",
+    "0.3": "BONEIO-BLACK-PINS-v0.2-v0.3.dtbo",
+    "0.4": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "0.5": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "0.6": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "0.7": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "0.8": "BONEIO-BLACK-PINS-v0.4-v0.8.dtbo",
+    "1.0": "BONEIO-BLACK-PINS-v1.0.dtbo",
+}
+
+# All valid overlay basenames (for security — reject unknown filenames)
+_VALID_OVERLAYS = set(_VERSION_TO_OVERLAY.values()) | {"BONEIO-BLACK-PINS.dtbo"}
+
+_UENV_PATHS = ["/boot/firmware/uEnv.txt", "/boot/uEnv.txt"]
+
+
+def _find_uenv() -> str | None:
+    """Find the active uEnv.txt file.
+
+    Returns:
+        Path to the first existing uEnv.txt, or None.
+    """
+    for path in _UENV_PATHS:
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _read_current_overlay(uenv_path: str) -> str | None:
+    """Read the current overlay name from uEnv.txt.
+
+    Parses lines matching ``uboot_overlay_addr[0-9]=...BONEIO-BLACK-PINS...``
+    and returns the overlay basename.
+
+    Args:
+        uenv_path: Absolute path to uEnv.txt.
+
+    Returns:
+        Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``) or None.
+    """
+    import re
+
+    pattern = re.compile(r"^uboot_overlay_addr\d+=.*/(BONEIO-BLACK-PINS[^\s]*)$")
+    try:
+        with open(uenv_path, encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("#"):
+                    continue
+                match = pattern.match(line)
+                if match:
+                    return match.group(1)
+    except OSError as exc:
+        _LOGGER.warning("Cannot read %s: %s", uenv_path, exc)
+    return None
+
+
+def _overlay_for_version(version: str) -> str | None:
+    """Get the expected overlay for a board version.
+
+    Args:
+        version: Board version string (e.g. ``"0.4"``).
+
+    Returns:
+        Overlay basename or None if version is unknown.
+    """
+    return _VERSION_TO_OVERLAY.get(version)
+
+
+class OverlayChangeRequest(BaseModel):
+    """Request body for overlay change."""
+
+    overlay: str
+    """Overlay basename to set (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``)."""
+
+
+@router.get("/system/overlay")
+async def get_overlay_status():
+    """Get the current device tree overlay and expected overlay for the configured version.
+
+    Returns:
+        Dict with current overlay, expected overlay, uEnv path, and match status.
+    """
+    uenv = _find_uenv()
+    if not uenv:
+        return {
+            "current_overlay": None,
+            "expected_overlay": None,
+            "uenv_path": None,
+            "match": True,
+            "error": "uEnv.txt not found",
+        }
+
+    current = _read_current_overlay(uenv)
+
+    # Read configured board version from running config
+    expected: str | None = None
+    try:
+        config_helper = get_config_helper()
+        config = config_helper.get_config()
+        boneio_section = config.get("boneio", {})
+        hw_version = str(boneio_section.get("version", ""))
+        expected = _overlay_for_version(hw_version)
+    except Exception as exc:
+        _LOGGER.debug("Cannot determine expected overlay: %s", exc)
+
+    return {
+        "current_overlay": current,
+        "expected_overlay": expected,
+        "uenv_path": uenv,
+        "match": current == expected if (current and expected) else True,
+    }
+
+
+@router.post("/system/overlay")
+async def change_overlay(body: OverlayChangeRequest):
+    """Change the device tree overlay in /boot/uEnv.txt.
+
+    This is a potentially dangerous operation — the wrong overlay
+    can make GPIO pins non-functional. A system restart is required
+    for the change to take effect.
+
+    Args:
+        body: Request with the overlay basename to set.
+
+    Returns:
+        Status response with previous and new overlay values.
+    """
+    overlay = body.overlay.strip()
+
+    # Security: only allow known overlay filenames
+    if overlay not in _VALID_OVERLAYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
+        )
+
+    uenv = _find_uenv()
+    if not uenv:
+        raise HTTPException(status_code=404, detail="uEnv.txt not found")
+
+    previous = _read_current_overlay(uenv)
+
+    if previous == overlay:
+        return {
+            "status": "unchanged",
+            "overlay": overlay,
+            "message": "Overlay already set to requested value",
+        }
+
+    # Use sed to replace the overlay in uEnv.txt
+    # Pattern: replace any BONEIO-BLACK-PINS*.dtbo on uboot_overlay_addr lines
+    import re
+    import shutil
+    import tempfile
+
+    try:
+        pattern = re.compile(
+            r"^(uboot_overlay_addr\d+=.*/)(BONEIO-BLACK-PINS[^\s]*)$"
+        )
+        replaced = False
+
+        # Atomic write via temp file
+        with open(uenv, encoding="utf-8", errors="replace") as fin:
+            fd, tmp_path = tempfile.mkstemp(
+                dir=os.path.dirname(uenv), prefix=".uEnv_"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fout:
+                    for line in fin:
+                        stripped = line.rstrip("\n\r")
+                        if not stripped.startswith("#"):
+                            match = pattern.match(stripped)
+                            if match:
+                                fout.write(f"{match.group(1)}{overlay}\n")
+                                replaced = True
+                                continue
+                        fout.write(line)
+
+                if not replaced:
+                    os.unlink(tmp_path)
+                    raise HTTPException(
+                        status_code=500,
+                        detail="No uboot_overlay_addr line with BONEIO-BLACK-PINS found in uEnv.txt",
+                    )
+
+                # Preserve original permissions
+                st = os.stat(uenv)
+                os.chmod(tmp_path, st.st_mode)
+                shutil.move(tmp_path, uenv)
+
+            except Exception:
+                # Clean up temp file on error
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                raise
+
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(
+            status_code=403,
+            detail="Permission denied — cannot write to uEnv.txt. "
+            "Ensure boneIO runs as root or has write access to /boot/.",
+        )
+    except Exception as exc:
+        _LOGGER.error("Failed to update overlay in %s: %s", uenv, exc)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update overlay: {exc}"
+        ) from exc
+
+    _LOGGER.warning(
+        "Device tree overlay changed: '%s' → '%s' in %s (restart required)",
+        previous,
+        overlay,
+        uenv,
+    )
+
+    return {
+        "status": "changed",
+        "previous_overlay": previous,
+        "overlay": overlay,
+        "restart_required": True,
+        "message": "Overlay changed. System restart required for changes to take effect.",
+    }

@@ -1,4 +1,3 @@
-
 from typing import Literal
 
 BONEIO = "boneio"
@@ -38,7 +37,7 @@ MASK = "mask"
 MAC = "mac"
 NONE = "none"
 MODBUS = "modbus"
-MODBUS_SENSOR  = "modbus_sensor"
+MODBUS_SENSOR = "modbus_sensor"
 MODBUS_DEVICE = "modbus_device"
 CAN = "can"
 UART = "uart"
@@ -151,11 +150,16 @@ STOP = "stop"
 # TYPING
 # Basic click types + sequence aliases
 ClickTypes = Literal[
-    "single", "double", "triple", "long", "pressed", "released",
+    "single",
+    "double",
+    "triple",
+    "long",
+    "pressed",
+    "released",
     # Sequence aliases
-    "double_then_long",   # double click followed by long press
-    "single_then_long",   # single click followed by long press
-    "double_then_single", # double click followed by single click
+    "double_then_long",  # double click followed by long press
+    "single_then_long",  # single click followed by long press
+    "double_then_single",  # double click followed by single click
 ]
 
 # Sequence definitions for MultiClickDetector
@@ -184,8 +188,8 @@ cover_actions = {
     "TOGGLE_CLOSE": "toggle_close",
     "SMART_TOGGLE": "smart_toggle",
     "TILT": "set_tilt",
-    'TILT_OPEN': 'tilt_open',
-    'TILT_CLOSE': 'tilt_close',
+    "TILT_OPEN": "tilt_open",
+    "TILT_CLOSE": "tilt_close",
 }
 
 # Map of cover action method name -> accepted extra_data keys.
@@ -214,6 +218,7 @@ def filter_cover_extra_data(action_name: str, extra_data: dict) -> dict:
     if allowed is None:
         return {}
     return {k: v for k, v in extra_data.items() if k in allowed}
+
 
 INA219 = "ina219"
 VIRTUAL_ENERGY_SENSOR = "virtual_energy_sensor"
@@ -250,6 +255,9 @@ PINS = {
     "P9_16": {"chip": 0, "line": 19},
     "P9_15": {"chip": 0, "line": 16},
     "P9_14": {"chip": 0, "line": 18},
+    "P9_13": {"chip": 3, "line": 31},
+    "P9_12": {"chip": 0, "line": 28},
+    "P9_11": {"chip": 3, "line": 30},
     "P8_7": {"chip": 1, "line": 2},
     "P8_8": {"chip": 1, "line": 3},
     "P8_9": {"chip": 1, "line": 5},
