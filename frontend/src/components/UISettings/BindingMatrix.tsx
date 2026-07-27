@@ -34,6 +34,8 @@ interface InputRow {
   name: string;
   area?: string;
   type: 'local' | 'remote';
+  /** Distinguishes event (single/double/triple/long) from binary_sensor (pressed/released). */
+  inputKind: 'event' | 'binary_sensor';
   remoteDevice?: string;
   bindings: Binding[];
 }
@@ -226,6 +228,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
       name: input.name || input.id || input.boneio_input || input.pin || id,
       area: input.area || undefined,
       type: 'local',
+      inputKind: input._type === 'binary_sensor' ? 'binary_sensor' : 'event',
       bindings,
     });
   }
@@ -252,6 +255,7 @@ function extractInputs(formData: Record<string, any>): InputRow[] {
       name: input.name || input.id || inputId,
       area: input.area || undefined,
       type: 'remote',
+      inputKind: input._type === 'binary_sensor' ? 'binary_sensor' : 'event',
       remoteDevice: device,
       bindings,
     });
@@ -843,7 +847,16 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
           <div className="px-3 py-1.5 text-xxs font-semibold text-base-content/40 uppercase tracking-wider">
             {t('binding_matrix.add_action')}
           </div>
-          {CLICK_TYPE_LEGEND.map(item => (
+          {CLICK_TYPE_LEGEND
+            .filter(item => {
+              // Show only relevant click types for the input kind
+              if (ctxMenu.row.inputKind === 'binary_sensor') {
+                return item.key === 'pressed' || item.key === 'released';
+              }
+              // Event inputs: show single/double/triple/long (not pressed/released)
+              return item.key !== 'pressed' && item.key !== 'released';
+            })
+            .map(item => (
             <button
               key={item.key}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2"
