@@ -1036,6 +1036,8 @@ class OverlayChangeRequest(BaseModel):
 
     overlay: str
     """Overlay basename to set (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``)."""
+    password: str
+    """Sudo password for writing to /boot/uEnv.txt."""
 
 
 @router.get("/system/overlay")
@@ -1078,14 +1080,17 @@ async def get_overlay_status():
 
 @router.post("/system/overlay")
 async def change_overlay(body: OverlayChangeRequest):
-    """Change the device tree overlay in /boot/uEnv.txt.
+    """Change the device tree overlay in /boot/uEnv.txt via sudo.
 
     This is a potentially dangerous operation — the wrong overlay
     can make GPIO pins non-functional. A system restart is required
     for the change to take effect.
 
+    Uses ``sudo -S sed -i`` to replace the overlay filename in uEnv.txt
+    because boneIO runs as user ``boneio`` without write access to ``/boot/``.
+
     Args:
-        body: Request with the overlay basename to set.
+        body: Request with the overlay basename and sudo password.
 
     Returns:
         Status response with previous and new overlay values.
@@ -1094,14 +1099,14 @@ async def change_overlay(body: OverlayChangeRequest):
 
     # Security: only allow known overlay filenames
     if overlay not in _VALID_OVERLAYS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
-        )
+        return {
+            "status": "error",
+            "message": f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
+        }
 
     uenv = _find_uenv()
     if not uenv:
-        raise HTTPException(status_code=404, detail="uEnv.txt not found")
+        return {"status": "error", "message": "uEnv.txt not found"}
 
     previous = _read_current_overlay(uenv)
 
@@ -1112,61 +1117,54 @@ async def change_overlay(body: OverlayChangeRequest):
             "message": "Overlay already set to requested value",
         }
 
-    # Pattern: replace any BONEIO-BLACK-PINS*.dtbo on uboot_overlay_addr lines
+    # Use sudo sed to replace the overlay in-place
+    # sed pattern: on lines starting with uboot_overlay_addr that contain BONEIO-BLACK-PINS,
+    # replace the overlay filename (everything after the last /)
+    sed_pattern = (
+        r"s|\(uboot_overlay_addr[0-9]*=.*/\)BONEIO-BLACK-PINS[^ ]*|"
+        rf"\1{overlay}|"
+    )
+
+    cmd = ["sudo", "-S", "sed", "-i", sed_pattern, uenv]
+    _LOGGER.info("Overlay change: running sed on %s (%s → %s)", uenv, previous, overlay)
+
     try:
-        pattern = re.compile(
-            r"^(uboot_overlay_addr\d+=.*/)(BONEIO-BLACK-PINS[^\s]*)$"
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        replaced = False
-
-        # Atomic write via temp file
-        with open(uenv, encoding="utf-8", errors="replace") as fin:
-            fd, tmp_path = tempfile.mkstemp(
-                dir=os.path.dirname(uenv), prefix=".uEnv_"
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as fout:
-                    for line in fin:
-                        stripped = line.rstrip("\n\r")
-                        if not stripped.startswith("#"):
-                            match = pattern.match(stripped)
-                            if match:
-                                fout.write(f"{match.group(1)}{overlay}\n")
-                                replaced = True
-                                continue
-                        fout.write(line)
-
-                if not replaced:
-                    os.unlink(tmp_path)
-                    raise HTTPException(
-                        status_code=500,
-                        detail="No uboot_overlay_addr line with BONEIO-BLACK-PINS found in uEnv.txt",
-                    )
-
-                # Preserve original permissions
-                st = os.stat(uenv)
-                os.chmod(tmp_path, st.st_mode)
-                shutil.move(tmp_path, uenv)
-
-            except Exception:
-                # Clean up temp file on error
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
-                raise
-
-    except HTTPException:
-        raise
-    except PermissionError:
-        raise HTTPException(
-            status_code=403,
-            detail="Permission denied — cannot write to uEnv.txt. "
-            "Ensure boneIO runs as root or has write access to /boot/.",
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(input=(body.password + "\n").encode()),
+            timeout=10,
         )
+
+        stderr_str = stderr.decode().strip()
+
+        if proc.returncode != 0:
+            if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
+                return {"status": "error", "message": "Incorrect sudo password"}
+            _LOGGER.error("sudo sed failed: %s", stderr_str)
+            return {"status": "error", "message": f"sudo sed failed: {stderr_str}"}
+
+    except TimeoutError:
+        _LOGGER.error("sudo sed timed out for overlay change on %s", uenv)
+        return {"status": "error", "message": "sudo command timed out"}
     except Exception as exc:
-        _LOGGER.error("Failed to update overlay in %s: %s", uenv, exc)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to update overlay: {exc}"
-        ) from exc
+        _LOGGER.error("Failed to change overlay in %s: %s", uenv, exc)
+        return {"status": "error", "message": str(exc)}
+
+    # Verify the change was applied
+    new_overlay = _read_current_overlay(uenv)
+    if new_overlay != overlay:
+        _LOGGER.error(
+            "Overlay verification failed: expected '%s', got '%s'", overlay, new_overlay
+        )
+        return {
+            "status": "error",
+            "message": f"Overlay change not verified. Expected '{overlay}', found '{new_overlay}'.",
+        }
 
     _LOGGER.warning(
         "Device tree overlay changed: '%s' → '%s' in %s (restart required)",
@@ -1182,3 +1180,4 @@ async def change_overlay(body: OverlayChangeRequest):
         "restart_required": True,
         "message": "Overlay changed. System restart required for changes to take effect.",
     }
+

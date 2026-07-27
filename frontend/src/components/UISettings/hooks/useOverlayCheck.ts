@@ -33,12 +33,20 @@ interface OverlayDialogState {
   newVersion: string;
 }
 
+interface OverlayChangeResponse {
+  status: 'changed' | 'unchanged' | 'error';
+  message: string;
+  overlay?: string;
+  previous_overlay?: string;
+  restart_required?: boolean;
+}
+
 /**
  * Provides overlay mismatch detection and change functionality.
  *
  * After saving the 'boneio' section with a new version, call `checkOverlayAfterVersionChange()`
  * to detect if the device tree overlay needs updating. If a mismatch is found, opens a
- * confirmation dialog.
+ * confirmation dialog that asks for sudo password.
  */
 export function useOverlayCheck() {
   const { t } = useTranslation();
@@ -84,18 +92,22 @@ export function useOverlayCheck() {
   }, []);
 
   /**
-   * Apply the overlay change and request a system restart.
+   * Apply the overlay change via sudo.
+   *
+   * @param password - Sudo password for writing to /boot/uEnv.txt
+   * @returns true if change was successful
    */
-  const applyOverlayChange = useCallback(async () => {
-    if (!dialogState.expectedOverlay) return;
+  const applyOverlayChange = useCallback(async (password: string): Promise<boolean> => {
+    if (!dialogState.expectedOverlay) return false;
 
     setIsChanging(true);
     setChangeResult(null);
     setChangeError(null);
 
     try {
-      const { data } = await axios.post('/api/system/overlay', {
+      const { data } = await axios.post<OverlayChangeResponse>('/api/system/overlay', {
         overlay: dialogState.expectedOverlay,
+        password,
       });
 
       if (data.status === 'changed' || data.status === 'unchanged') {
@@ -105,14 +117,17 @@ export function useOverlayCheck() {
           setDialogState(prev => ({ ...prev, open: false }));
           setChangeResult(null);
         }, 2000);
+        return true;
       } else {
         setChangeResult('error');
-        setChangeError(t('overlay.change_failed'));
+        setChangeError(data.message || t('overlay.change_failed'));
+        return false;
       }
     } catch (err: unknown) {
       setChangeResult('error');
       const errorMsg = err instanceof Error ? err.message : String(err);
       setChangeError(errorMsg);
+      return false;
     } finally {
       setIsChanging(false);
     }

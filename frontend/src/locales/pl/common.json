@@ -2487,6 +2487,8 @@
     "description": "Zmieniłeś wersję sprzętową na {{version}}. Overlay Device Tree w /boot/uEnv.txt musi zostać zaktualizowany.",
     "current": "Obecny",
     "expected": "Wymagany",
+    "password_label": "Hasło sudo",
+    "password_placeholder": "Wprowadź hasło sudo...",
     "restart_notice": "Po zmianie wymagany jest restart systemu, aby nowy overlay zadziałał.",
     "apply": "Zmień overlay i zrestartuj",
     "dismiss": "Pomiń (zmiana ręczna)",

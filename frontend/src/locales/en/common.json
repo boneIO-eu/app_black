@@ -2488,6 +2488,8 @@
     "description": "You changed the hardware version to {{version}}. The device tree overlay in /boot/uEnv.txt needs to be updated to match.",
     "current": "Current",
     "expected": "Required",
+    "password_label": "Sudo password",
+    "password_placeholder": "Enter sudo password...",
     "restart_notice": "A system restart is required after the change for the new overlay to take effect.",
     "apply": "Change overlay & restart",
     "dismiss": "Skip (manual change)",

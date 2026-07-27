@@ -1286,10 +1286,10 @@ export default function UISettings() {
         isChanging={isChangingOverlay}
         changeResult={overlayChangeResult}
         changeError={overlayChangeError}
-        onApply={async () => {
-          await applyOverlayChange();
+        onApply={async (password: string) => {
+          const success = await applyOverlayChange(password);
           // Trigger restart after successful overlay change
-          if (overlayChangeResult !== 'error') {
+          if (success) {
             try {
               await axios.post('/api/restart');
             } catch {
