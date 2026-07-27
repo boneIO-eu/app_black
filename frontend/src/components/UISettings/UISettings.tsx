@@ -248,6 +248,28 @@ export default function UISettings() {
         configData[virtualName] = merged;
       }
 
+      // Enrich remote_devices with WLED discovery cache (effects, palettes, segments)
+      // This data lives in .wled_cache.json, not in config.yaml
+      if (Array.isArray(configData.remote_devices)) {
+        try {
+          const { data: wledCache } = await axios.get<Record<string, Record<string, unknown[]>>>('/api/remote-devices/wled_info');
+          if (wledCache && typeof wledCache === 'object') {
+            for (const device of configData.remote_devices) {
+              if (device?.protocol === 'wled' && device?.id && wledCache[device.id]) {
+                const cached = wledCache[device.id];
+                if (!device.wled) device.wled = {};
+                if (cached.effects) device.wled.effects = cached.effects;
+                if (cached.palettes) device.wled.palettes = cached.palettes;
+                if (cached.segments) device.wled.segments = cached.segments;
+              }
+            }
+          }
+        } catch {
+          // WLED cache not available — non-critical, effects just won't show
+          console.debug('WLED cache not available, effect selectors will be hidden');
+        }
+      }
+
       // remote_inputs is now a top-level config section (no aggregation needed)
 
       // Set form data immediately WITHOUT schema conversion (UI shows instantly)
