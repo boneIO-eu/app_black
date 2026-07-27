@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
+import shutil
 import subprocess
+import tempfile
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -1001,8 +1004,6 @@ def _read_current_overlay(uenv_path: str) -> str | None:
     Returns:
         Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``) or None.
     """
-    import re
-
     pattern = re.compile(r"^uboot_overlay_addr\d+=.*/(BONEIO-BLACK-PINS[^\s]*)$")
     try:
         with open(uenv_path, encoding="utf-8", errors="replace") as f:
@@ -1111,12 +1112,7 @@ async def change_overlay(body: OverlayChangeRequest):
             "message": "Overlay already set to requested value",
         }
 
-    # Use sed to replace the overlay in uEnv.txt
     # Pattern: replace any BONEIO-BLACK-PINS*.dtbo on uboot_overlay_addr lines
-    import re
-    import shutil
-    import tempfile
-
     try:
         pattern = re.compile(
             r"^(uboot_overlay_addr\d+=.*/)(BONEIO-BLACK-PINS[^\s]*)$"
