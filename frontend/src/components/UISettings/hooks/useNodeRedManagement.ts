@@ -143,15 +143,30 @@ export const useNodeRedManagement = () => {
         `/api/nodered/backup/download?backup_path=${encodeURIComponent(backupPath)}`,
         { responseType: 'blob' }
       );
-      const blob = response.data;
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+
+      // Helper to trigger a browser download
+      const triggerDownload = (blob: Blob, name: string) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      };
+
+      // 1. Download the archive
+      triggerDownload(response.data, filename);
+
+      // 2. Download the SHA256 sidecar (if available)
+      const sha256 = response.headers['x-sha256'] as string | undefined;
+      if (sha256) {
+        const sidecarContent = `${sha256}  ${filename}\n`;
+        const sidecarBlob = new Blob([sidecarContent], { type: 'text/plain' });
+        // Small delay so browser doesn't merge/skip the second download
+        setTimeout(() => triggerDownload(sidecarBlob, `${filename}.sha256`), 300);
+      }
     } catch (err) {
       console.error('Failed to download Node-RED backup:', err);
     }
