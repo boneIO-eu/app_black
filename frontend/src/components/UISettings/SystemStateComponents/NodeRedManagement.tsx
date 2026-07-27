@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
   FaExclamationTriangle,
   FaSpinner,
@@ -6,9 +6,26 @@ import {
   FaFileArchive,
   FaUndo,
   FaTrash,
+  FaUpload,
+  FaCopy,
+  FaCheck,
+  FaShieldAlt,
+  FaTimes,
 } from 'react-icons/fa';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useNodeRedManagement, NodeRedBackup } from '../hooks/useNodeRedManagement';
+
+/**
+ * Compute SHA256 hash of a File using the Web Crypto API.
+ *
+ * Returns the hex-encoded digest string.
+ */
+async function computeFileSha256(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export default function NodeRedManagement() {
   const { t } = useTranslation();
@@ -22,6 +39,7 @@ export default function NodeRedManagement() {
     isCheckingUpdate,
     isCreatingBackup,
     isRestoringBackup,
+    isUploadingRestore,
     isUpdating,
     error,
     setError,
@@ -29,11 +47,23 @@ export default function NodeRedManagement() {
     restoreBackup,
     deleteBackup,
     downloadBackup,
+    uploadRestore,
     checkUpdates,
     performUpdate,
   } = useNodeRedManagement();
 
   const [showBackupsList, setShowBackupsList] = useState(false);
+
+  // Upload restore dialog state
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadSha256Input, setUploadSha256Input] = useState('');
+  const [computedSha256, setComputedSha256] = useState<string | null>(null);
+  const [isComputingHash, setIsComputingHash] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // SHA256 copy feedback
+  const [copiedSha256, setCopiedSha256] = useState<string | null>(null);
 
   const handleCreateBackup = async () => {
     const success = await createBackup();
@@ -66,11 +96,82 @@ export default function NodeRedManagement() {
     }
   };
 
+  const handleCopySha256 = useCallback(async (sha256: string) => {
+    try {
+      await navigator.clipboard.writeText(sha256);
+      setCopiedSha256(sha256);
+      setTimeout(() => setCopiedSha256(null), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = sha256;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedSha256(sha256);
+      setTimeout(() => setCopiedSha256(null), 2000);
+    }
+  }, []);
+
+  /** Handle file selection for upload restore. */
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadFile(file);
+    setComputedSha256(null);
+
+    // Compute SHA256 of the selected file
+    setIsComputingHash(true);
+    try {
+      const hash = await computeFileSha256(file);
+      setComputedSha256(hash);
+    } catch (err) {
+      console.error('Failed to compute SHA256:', err);
+    } finally {
+      setIsComputingHash(false);
+    }
+  }, []);
+
+  /** Submit upload restore. */
+  const handleUploadRestore = useCallback(async () => {
+    if (!uploadFile) return;
+
+    // If user provided SHA256 for verification, pass it to server
+    const sha256ToVerify = uploadSha256Input.trim() || undefined;
+
+    const success = await uploadRestore(uploadFile, sha256ToVerify);
+    if (success) {
+      setShowUploadDialog(false);
+      setUploadFile(null);
+      setUploadSha256Input('');
+      setComputedSha256(null);
+      alert(t('nodered_management.backup_restored'));
+    }
+  }, [uploadFile, uploadSha256Input, uploadRestore, t]);
+
+  const closeUploadDialog = useCallback(() => {
+    setShowUploadDialog(false);
+    setUploadFile(null);
+    setUploadSha256Input('');
+    setComputedSha256(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / 1048576).toFixed(1)} MB`;
   };
+
+  // SHA256 verification status
+  const sha256VerifyStatus = (() => {
+    if (!uploadSha256Input.trim() || !computedSha256) return null;
+    const input = uploadSha256Input.trim().toLowerCase();
+    const computed = computedSha256.toLowerCase();
+    return input === computed ? 'match' : 'mismatch';
+  })();
 
   if (isLoadingStatus && !status) {
     return (
@@ -189,7 +290,7 @@ export default function NodeRedManagement() {
         {/* ── BACKUP SECTION ── */}
         <div className="border border-base-content/10 rounded-lg p-4 bg-base-100/50 relative">
           {/* Restoring overlay */}
-          {isRestoringBackup && (
+          {(isRestoringBackup || isUploadingRestore) && (
             <div className="absolute inset-0 bg-base-100/80 backdrop-blur-sm rounded-lg z-10 flex flex-col items-center justify-center gap-1 pt-8">
               <FaSpinner className="animate-spin text-warning h-8 w-8" />
               <p className="text-sm font-semibold text-warning">{t('nodered_management.restoring_backup')}</p>
@@ -204,14 +305,23 @@ export default function NodeRedManagement() {
             {t('nodered_management.backup_description')}
           </p>
 
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             <button
               className="btn btn-primary btn-sm gap-2"
               onClick={handleCreateBackup}
-              disabled={isCreatingBackup || isRestoringBackup || isUpdating}
+              disabled={isCreatingBackup || isRestoringBackup || isUploadingRestore || isUpdating}
             >
               {isCreatingBackup ? <FaSpinner className="animate-spin" /> : <FaFileArchive />}
               {t('nodered_management.create_backup')}
+            </button>
+
+            <button
+              className="btn btn-warning btn-sm gap-2"
+              onClick={() => setShowUploadDialog(true)}
+              disabled={isRestoringBackup || isUploadingRestore || isUpdating}
+            >
+              <FaUpload />
+              {t('nodered_management.upload_restore')}
             </button>
 
             {backups.length > 0 && (
@@ -258,6 +368,7 @@ export default function NodeRedManagement() {
                     <th>{t('nodered_management.version')}</th>
                     <th>{t('nodered_management.date')}</th>
                     <th>{t('nodered_management.size')}</th>
+                    <th>SHA256</th>
                     <th className="text-right">{t('nodered_management.actions')}</th>
                   </tr>
                 </thead>
@@ -267,12 +378,28 @@ export default function NodeRedManagement() {
                       <td className="font-mono text-xs">{backup.version}</td>
                       <td className="text-xs">{backup.timestamp}</td>
                       <td className="text-xs">{formatSize(backup.size)}</td>
+                      <td className="text-xs">
+                        {backup.sha256 ? (
+                          <button
+                            className="btn btn-ghost btn-xs gap-1 font-mono"
+                            onClick={() => handleCopySha256(backup.sha256!)}
+                            title={t('nodered_management.copy_sha256')}
+                          >
+                            <span className="max-w-[80px] truncate">{backup.sha256.slice(0, 12)}…</span>
+                            {copiedSha256 === backup.sha256
+                              ? <FaCheck className="text-success w-3 h-3" />
+                              : <FaCopy className="w-3 h-3 opacity-60" />}
+                          </button>
+                        ) : (
+                          <span className="opacity-40">—</span>
+                        )}
+                      </td>
                       <td className="text-right">
                         <div className="flex gap-1 justify-end">
                           <button
                             className="btn btn-warning btn-xs gap-1"
                             onClick={() => handleRestoreBackup(backup)}
-                            disabled={isRestoringBackup || isUpdating}
+                            disabled={isRestoringBackup || isUploadingRestore || isUpdating}
                             title={t('nodered_management.restore_backup')}
                           >
                             <FaUndo />
@@ -305,6 +432,143 @@ export default function NodeRedManagement() {
             <p className="text-sm opacity-60 mt-2 italic">{t('nodered_management.no_backups')}</p>
           )}
         </div>
+
+        {/* ── UPLOAD RESTORE DIALOG ── */}
+        {showUploadDialog && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/50 z-40" onClick={closeUploadDialog} />
+            {/* Dialog */}
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="bg-base-100 rounded-xl shadow-2xl border border-base-300 w-full max-w-lg">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-base-300">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <FaUpload className="text-warning" />
+                    {t('nodered_management.upload_restore_title')}
+                  </h3>
+                  <button className="btn btn-ghost btn-sm btn-circle" onClick={closeUploadDialog}>
+                    <FaTimes />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 space-y-4">
+                  {/* File select */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text font-medium">{t('nodered_management.select_backup_file')}</span>
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".tar.gz,.tgz"
+                      className="file-input file-input-bordered file-input-sm w-full"
+                      onChange={handleFileSelect}
+                    />
+                    {uploadFile && (
+                      <label className="label">
+                        <span className="label-text-alt">
+                          {uploadFile.name} — {formatSize(uploadFile.size)}
+                        </span>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Computed SHA256 */}
+                  {(isComputingHash || computedSha256) && (
+                    <div className="bg-base-200/60 rounded-lg p-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold mb-1">
+                        <FaShieldAlt className="text-info" />
+                        SHA256
+                      </div>
+                      {isComputingHash ? (
+                        <div className="flex items-center gap-2 text-xs opacity-60">
+                          <FaSpinner className="animate-spin" />
+                          {t('nodered_management.sha256_computing')}
+                        </div>
+                      ) : computedSha256 ? (
+                        <div className="flex items-center gap-1">
+                          <code className="text-xs font-mono break-all flex-1 select-all">
+                            {computedSha256}
+                          </code>
+                          <button
+                            className="btn btn-ghost btn-xs shrink-0"
+                            onClick={() => handleCopySha256(computedSha256)}
+                            title={t('nodered_management.copy_sha256')}
+                          >
+                            {copiedSha256 === computedSha256
+                              ? <FaCheck className="text-success" />
+                              : <FaCopy className="opacity-60" />}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {/* SHA256 verification input */}
+                  <div className="form-control">
+                    <label className="label">
+                      <span className="label-text text-sm">{t('nodered_management.sha256_optional')}</span>
+                    </label>
+                    <input
+                      type="text"
+                      className={`input input-bordered input-sm font-mono text-xs w-full ${
+                        sha256VerifyStatus === 'match' ? 'input-success' :
+                        sha256VerifyStatus === 'mismatch' ? 'input-error' : ''
+                      }`}
+                      placeholder={t('nodered_management.sha256_placeholder')}
+                      value={uploadSha256Input}
+                      onChange={e => setUploadSha256Input(e.target.value)}
+                    />
+                    {sha256VerifyStatus === 'match' && (
+                      <label className="label">
+                        <span className="label-text-alt text-success flex items-center gap-1">
+                          <FaCheck className="w-3 h-3" />
+                          {t('nodered_management.sha256_match')}
+                        </span>
+                      </label>
+                    )}
+                    {sha256VerifyStatus === 'mismatch' && (
+                      <label className="label">
+                        <span className="label-text-alt text-error flex items-center gap-1">
+                          <FaExclamationTriangle className="w-3 h-3" />
+                          {t('nodered_management.sha256_mismatch')}
+                        </span>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Warning */}
+                  <div className="alert alert-warning text-xs">
+                    <FaExclamationTriangle className="shrink-0" />
+                    <span>{t('nodered_management.upload_restore_warning')}</span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 p-4 border-t border-base-300">
+                  <button className="btn btn-ghost btn-sm" onClick={closeUploadDialog}>
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    className="btn btn-warning btn-sm gap-2"
+                    disabled={
+                      !uploadFile
+                      || isUploadingRestore
+                      || sha256VerifyStatus === 'mismatch'
+                      || isComputingHash
+                    }
+                    onClick={handleUploadRestore}
+                  >
+                    {isUploadingRestore ? <FaSpinner className="animate-spin" /> : <FaUndo />}
+                    {t('nodered_management.restore_backup')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

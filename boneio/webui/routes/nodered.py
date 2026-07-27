@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
@@ -16,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -92,6 +93,7 @@ class BackupInfo(BaseModel):
     timestamp: str
     size: int
     version: str
+    sha256: str | None = None
 
 
 class BackupListResponse(BaseModel):
@@ -242,6 +244,8 @@ async def list_backups() -> BackupListResponse:
             else:
                 timestamp = timestamp_str
 
+            sha256 = _read_sha256_sidecar(backup_file)
+
             backups.append(
                 BackupInfo(
                     path=str(backup_file),
@@ -249,6 +253,7 @@ async def list_backups() -> BackupListResponse:
                     timestamp=timestamp,
                     size=backup_file.stat().st_size,
                     version=version,
+                    sha256=sha256,
                 )
             )
         except Exception as e:
@@ -258,16 +263,75 @@ async def list_backups() -> BackupListResponse:
     return BackupListResponse(backups=backups)
 
 
+def _compute_file_sha256(file_path: str | Path) -> str:
+    """
+    Compute SHA256 hash of a file.
+
+    Args:
+        file_path: Path to the file.
+
+    Returns:
+        Hex-encoded SHA256 hash string.
+    """
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def _write_sha256_sidecar(archive_path: Path) -> str:
+    """
+    Compute SHA256 of an archive and write a .sha256 sidecar file.
+
+    The sidecar uses the standard format: ``<hash>  <filename>``
+    compatible with ``sha256sum -c``.
+
+    Args:
+        archive_path: Path to the tar.gz archive.
+
+    Returns:
+        The computed SHA256 hex string.
+    """
+    file_hash = _compute_file_sha256(archive_path)
+    sidecar_path = archive_path.with_suffix(archive_path.suffix + ".sha256")
+    sidecar_path.write_text(f"{file_hash}  {archive_path.name}\n", encoding="utf-8")
+    _LOGGER.info("Wrote SHA256 sidecar: %s", sidecar_path.name)
+    return file_hash
+
+
+def _read_sha256_sidecar(archive_path: Path) -> str | None:
+    """
+    Read SHA256 hash from a sidecar file if it exists.
+
+    Args:
+        archive_path: Path to the tar.gz archive.
+
+    Returns:
+        The SHA256 hex string, or None if the sidecar doesn't exist.
+    """
+    sidecar_path = archive_path.with_suffix(archive_path.suffix + ".sha256")
+    if not sidecar_path.exists():
+        return None
+    try:
+        content = sidecar_path.read_text(encoding="utf-8").strip()
+        # Format: "<hash>  <filename>" or just "<hash>"
+        return content.split()[0] if content else None
+    except Exception as e:
+        _LOGGER.warning("Failed to read SHA256 sidecar %s: %s", sidecar_path, e)
+        return None
+
+
 @router.post("/backup/create")
 async def create_backup() -> dict[str, str | int]:
-    """Create a new backup of Node-RED data directory."""
+    """Create a new backup of Node-RED data directory with SHA256 checksum."""
     if not os.path.exists(DATA_DIR):
         raise HTTPException(status_code=400, detail="Node-RED data directory does not exist")
 
     try:
         os.makedirs(BACKUP_DIR, exist_ok=True)
         
-        # Enforce max backup limit
+        # Enforce max backup limit (remove oldest including sidecar)
         backup_path_obj = Path(BACKUP_DIR)
         existing_backups = sorted(backup_path_obj.glob("nodered_backup_*.tar.gz"), reverse=True)
         if len(existing_backups) >= MAX_BACKUPS:
@@ -275,6 +339,10 @@ async def create_backup() -> dict[str, str | int]:
             for old_backup in to_remove:
                 try:
                     old_backup.unlink()
+                    # Also remove sidecar
+                    sidecar = old_backup.with_suffix(old_backup.suffix + ".sha256")
+                    if sidecar.exists():
+                        sidecar.unlink()
                     _LOGGER.info("Removed old Node-RED backup: %s", old_backup.name)
                 except Exception as e:
                     _LOGGER.warning("Failed to remove old backup %s: %s", old_backup, e)
@@ -282,9 +350,9 @@ async def create_backup() -> dict[str, str | int]:
         version = _get_current_image_version()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_filename = f"nodered_backup_v{version}_{timestamp}.tar.gz"
-        backup_file_path = os.path.join(BACKUP_DIR, backup_filename)
+        backup_file_path = Path(BACKUP_DIR) / backup_filename
 
-        with tarfile.open(backup_file_path, mode="w:gz") as tar:
+        with tarfile.open(str(backup_file_path), mode="w:gz") as tar:
             data_path_obj = Path(DATA_DIR)
             for file_path in data_path_obj.rglob("*"):
                 # Exclude node_modules directory
@@ -305,11 +373,15 @@ async def create_backup() -> dict[str, str | int]:
             tarinfo.mtime = int(datetime.now().timestamp())
             tar.addfile(tarinfo, io.BytesIO(meta_bytes))
 
-        _LOGGER.info("Created Node-RED backup: %s", backup_filename)
+        # Compute and write SHA256 sidecar
+        file_hash = _write_sha256_sidecar(backup_file_path)
+
+        _LOGGER.info("Created Node-RED backup: %s (sha256: %s)", backup_filename, file_hash)
         return {
             "status": "success",
             "message": "Backup created successfully",
             "filename": backup_filename,
+            "sha256": file_hash,
         }
     except Exception as e:
         _LOGGER.error("Failed to create Node-RED backup: %s", e)
@@ -410,7 +482,7 @@ async def restore_backup(backup_path: str) -> dict[str, str]:
 
 @router.get("/backup/download")
 async def download_backup(backup_path: str) -> StreamingResponse:
-    """Download a backup file."""
+    """Download a backup file with SHA256 header."""
     backup_file = Path(backup_path)
     backup_dir_obj = Path(BACKUP_DIR)
     
@@ -425,20 +497,30 @@ async def download_backup(backup_path: str) -> StreamingResponse:
     if not backup_file.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
 
+    sha256 = _read_sha256_sidecar(backup_file)
+
     def iterfile():
         with open(backup_file, mode="rb") as f:
             yield from f
 
+    headers: dict[str, str] = {
+        "Content-Disposition": f"attachment; filename={backup_file.name}",
+    }
+    if sha256:
+        headers["X-SHA256"] = sha256
+        # Expose custom header to browser JS
+        headers["Access-Control-Expose-Headers"] = "X-SHA256"
+
     return StreamingResponse(
         iterfile(),
         media_type="application/gzip",
-        headers={"Content-Disposition": f"attachment; filename={backup_file.name}"},
+        headers=headers,
     )
 
 
 @router.delete("/backup/delete")
 async def delete_backup(backup_path: str) -> dict[str, str]:
-    """Delete a backup file."""
+    """Delete a backup file and its SHA256 sidecar."""
     backup_file = Path(backup_path)
     backup_dir_obj = Path(BACKUP_DIR)
     
@@ -455,11 +537,172 @@ async def delete_backup(backup_path: str) -> dict[str, str]:
 
     try:
         backup_file.unlink()
+        # Also remove sidecar
+        sidecar = backup_file.with_suffix(backup_file.suffix + ".sha256")
+        if sidecar.exists():
+            sidecar.unlink()
         _LOGGER.info("Deleted Node-RED backup: %s", backup_file.name)
         return {"status": "success", "message": "Backup deleted successfully"}
     except Exception as e:
         _LOGGER.error("Failed to delete Node-RED backup: %s", e)
         raise HTTPException(status_code=500, detail=f"Failed to delete backup: {e}") from e
+
+
+@router.post("/backup/upload_restore")
+async def upload_restore(
+    file: UploadFile = File(...),
+    sha256: str = Form(""),
+) -> dict[str, str]:
+    """
+    Restore Node-RED from an uploaded backup archive.
+
+    Accepts a tar.gz upload with optional SHA256 verification.
+    Creates a safety backup of the current state before restoring.
+
+    Args:
+        file: The tar.gz backup archive to restore from.
+        sha256: Optional SHA256 hex digest to verify the upload integrity.
+
+    Returns:
+        Status dict with result message.
+    """
+    if not file.filename or not file.filename.endswith((".tar.gz", ".tgz")):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload a .tar.gz or .tgz file.",
+        )
+
+    contents = await file.read()
+
+    # SHA256 verification (if provided)
+    if sha256:
+        computed = hashlib.sha256(contents).hexdigest()
+        if computed.lower() != sha256.lower().strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"SHA256 mismatch. Expected: {sha256.lower().strip()}, Got: {computed}",
+            )
+        _LOGGER.info("SHA256 verification passed for uploaded backup")
+
+    # Validate the archive
+    try:
+        buffer = io.BytesIO(contents)
+        with tarfile.open(fileobj=buffer, mode="r:gz") as tar:
+            members = tar.getmembers()
+            for member in members:
+                if ".." in member.name or member.name.startswith("/"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Unsafe path in archive: {member.name}",
+                    )
+    except tarfile.TarError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid tar.gz archive: {e}",
+        ) from e
+
+    loop = asyncio.get_event_loop()
+
+    def _docker_compose_cmd(cmd: list[str], timeout: int = 30) -> None:
+        """Run a docker compose command synchronously."""
+        result = subprocess.run(
+            cmd,
+            cwd=NODERED_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+        if result.returncode != 0:
+            stderr_text = result.stderr.decode(errors="replace").strip()
+            _LOGGER.error(
+                "docker compose command failed (rc=%d): %s\nstderr: %s",
+                result.returncode, " ".join(cmd), stderr_text,
+            )
+            raise RuntimeError(f"docker compose failed: {stderr_text or 'unknown error'}")
+
+    def _do_upload_restore() -> None:
+        """Perform the blocking restore steps from uploaded file."""
+        # Step 1: Create safety backup of current state
+        if os.path.exists(DATA_DIR):
+            _LOGGER.info("Creating safety backup before upload restore...")
+            os.makedirs(BACKUP_DIR, exist_ok=True)
+            version = _get_current_image_version()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safety_filename = f"nodered_backup_v{version}_{timestamp}.tar.gz"
+            safety_path = Path(BACKUP_DIR) / safety_filename
+
+            with tarfile.open(str(safety_path), mode="w:gz") as tar:
+                data_path_obj = Path(DATA_DIR)
+                for file_path in data_path_obj.rglob("*"):
+                    if "node_modules" in file_path.parts:
+                        continue
+                    if file_path.is_file():
+                        arcname = file_path.relative_to(data_path_obj)
+                        tar.add(str(file_path), arcname=str(arcname))
+
+                meta = {
+                    "version": version,
+                    "created_at": datetime.now().isoformat(),
+                }
+                meta_bytes = json.dumps(meta, indent=2).encode("utf-8")
+                tarinfo = tarfile.TarInfo(name="_nodered_backup_meta.json")
+                tarinfo.size = len(meta_bytes)
+                tarinfo.mtime = int(datetime.now().timestamp())
+                tar.addfile(tarinfo, io.BytesIO(meta_bytes))
+
+            _write_sha256_sidecar(safety_path)
+            _LOGGER.info("Safety backup created: %s", safety_filename)
+
+        # Step 2: Stop Node-RED container
+        _LOGGER.info("Stopping Node-RED for upload restore...")
+        _docker_compose_cmd(["docker", "compose", "stop", "node-red"])
+
+        # Step 3: Clear current files (keep node_modules)
+        _LOGGER.info("Cleaning up current Node-RED files...")
+        if os.path.exists(DATA_DIR):
+            for item in os.listdir(DATA_DIR):
+                if item == "node_modules":
+                    continue
+                item_path = os.path.join(DATA_DIR, item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
+        else:
+            os.makedirs(DATA_DIR, exist_ok=True)
+
+        # Step 4: Extract uploaded backup
+        _LOGGER.info("Extracting uploaded backup...")
+        upload_buffer = io.BytesIO(contents)
+        with tarfile.open(fileobj=upload_buffer, mode="r:gz") as tar:
+            safe_members = [
+                m for m in tar.getmembers()
+                if m.name != "_nodered_backup_meta.json"
+                and ".." not in m.name
+                and not m.name.startswith("/")
+            ]
+            tar.extractall(path=DATA_DIR, members=safe_members, filter="data")
+
+        # Step 5: Start Node-RED container
+        _LOGGER.info("Starting Node-RED container back up...")
+        _docker_compose_cmd(["docker", "compose", "start", "node-red"])
+
+        _LOGGER.info("Node-RED upload restore complete.")
+
+    try:
+        await loop.run_in_executor(None, _do_upload_restore)
+        return {"status": "success", "message": "Backup restored successfully from uploaded file"}
+    except Exception as e:
+        _LOGGER.error("Failed to restore Node-RED from upload: %s", e, exc_info=True)
+        # Try to restart container
+        try:
+            subprocess.run(
+                ["docker", "compose", "start", "node-red"],
+                cwd=NODERED_DIR, timeout=10, check=False,
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to restore: {e}") from e
 
 
 def _fetch_docker_hub_tags() -> list[dict[str, str]]:

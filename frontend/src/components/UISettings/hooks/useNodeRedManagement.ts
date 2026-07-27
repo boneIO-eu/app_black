@@ -7,6 +7,7 @@ export interface NodeRedBackup {
   timestamp: string;
   size: number;
   version: string;
+  sha256: string | null;
 }
 
 export interface NodeRedStatus {
@@ -41,6 +42,7 @@ export const useNodeRedManagement = () => {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [isUploadingRestore, setIsUploadingRestore] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,6 +157,42 @@ export const useNodeRedManagement = () => {
     }
   }, []);
 
+  /** Upload and restore a backup from a local file with optional SHA256 verification. */
+  const uploadRestore = useCallback(async (file: File, sha256?: string) => {
+    setIsUploadingRestore(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (sha256) {
+        formData.append('sha256', sha256);
+      }
+      const { data } = await axios.post<{ status: string; message: string; detail?: string }>(
+        '/api/nodered/backup/upload_restore',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 180_000,
+        },
+      );
+      if (data.status === 'success') {
+        await fetchStatus();
+        await fetchBackups();
+        return true;
+      } else {
+        setError(data.message || data.detail || 'Upload restore failed');
+        return false;
+      }
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail || 'Failed to restore from uploaded backup');
+      console.error(err);
+      return false;
+    } finally {
+      setIsUploadingRestore(false);
+    }
+  }, [fetchStatus, fetchBackups]);
+
   const checkUpdates = useCallback(async () => {
     setIsCheckingUpdate(true);
     setError(null);
@@ -238,6 +276,7 @@ export const useNodeRedManagement = () => {
     isCheckingUpdate,
     isCreatingBackup,
     isRestoringBackup,
+    isUploadingRestore,
     isUpdating,
     error,
     setError,
@@ -247,6 +286,7 @@ export const useNodeRedManagement = () => {
     restoreBackup,
     deleteBackup,
     downloadBackup,
+    uploadRestore,
     checkUpdates,
     performUpdate,
   };

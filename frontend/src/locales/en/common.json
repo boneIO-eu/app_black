@@ -2469,6 +2469,17 @@
     "actions": "Actions",
     "auto_backup_before_update": "Automatic backup before update",
     "restoring_backup": "Restoring backup...",
-    "restoring_hint": "Node-RED is being stopped, files restored, and started again. This may take up to 2 minutes."
+    "restoring_hint": "Node-RED is being stopped, files restored, and started again. This may take up to 2 minutes.",
+    "upload_restore": "Restore from file",
+    "upload_restore_title": "Restore Node-RED from backup file",
+    "select_backup_file": "Select backup archive (.tar.gz)",
+    "sha256_optional": "SHA256 verification (optional)",
+    "sha256_placeholder": "Paste checksum to verify before restore",
+    "sha256_match": "Checksum matches ✓",
+    "sha256_mismatch": "Checksum does not match!",
+    "sha256_computing": "Computing SHA256...",
+    "copy_sha256": "Copy SHA256",
+    "sha256_copied": "SHA256 copied!",
+    "upload_restore_warning": "A safety backup of the current state will be created automatically before restoring. Node-RED will be temporarily unavailable."
   }
 }

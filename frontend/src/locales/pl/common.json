@@ -2468,6 +2468,17 @@
     "actions": "Akcje",
     "auto_backup_before_update": "Automatyczna kopia zapasowa przed aktualizacją",
     "restoring_backup": "Przywracanie kopii zapasowej...",
-    "restoring_hint": "Node-RED jest zatrzymywany, pliki przywracane i ponownie uruchamiane. Może to potrwać do 2 minut."
+    "restoring_hint": "Node-RED jest zatrzymywany, pliki przywracane i ponownie uruchamiane. Może to potrwać do 2 minut.",
+    "upload_restore": "Przywróć z pliku",
+    "upload_restore_title": "Przywróć Node-RED z pliku kopii zapasowej",
+    "select_backup_file": "Wybierz archiwum kopii zapasowej (.tar.gz)",
+    "sha256_optional": "Weryfikacja SHA256 (opcjonalnie)",
+    "sha256_placeholder": "Wklej sumę kontrolną do weryfikacji przed przywróceniem",
+    "sha256_match": "Suma kontrolna zgodna ✓",
+    "sha256_mismatch": "Suma kontrolna niezgodna!",
+    "sha256_computing": "Obliczanie SHA256...",
+    "copy_sha256": "Kopiuj SHA256",
+    "sha256_copied": "SHA256 skopiowane!",
+    "upload_restore_warning": "Kopia zapasowa bieżącego stanu zostanie automatycznie utworzona przed przywróceniem. Node-RED będzie tymczasowo niedostępny."
   }
 }
