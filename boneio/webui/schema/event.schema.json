@@ -673,7 +673,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -764,7 +767,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -1140,7 +1146,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -1231,7 +1240,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -1607,7 +1619,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -1698,7 +1713,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -2074,7 +2092,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -2165,7 +2186,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -2541,7 +2565,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -2632,7 +2659,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -3008,7 +3038,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -3099,7 +3132,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -3475,7 +3511,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -3566,7 +3605,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -3665,7 +3707,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "default": "120s",
+            "default": "30s",
             "description": "Max Long Press Duration",
             "title": "Max long press duration"
           },

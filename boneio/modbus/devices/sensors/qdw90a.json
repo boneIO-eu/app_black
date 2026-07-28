@@ -1,0 +1,46 @@
+{
+  "model": "Liquid Pressure Sensor - QDW90A",
+  "manufacturer": "Generic",
+  "description": "Generic Modbus liquid pressure sensor",
+  "category": "sensors",
+  "default_address": 1,
+  "default_update_interval": "60s",
+  "set_base": {
+    "set_address_address": 0,
+    "set_baudrate": {
+      "address": 1,
+      "possible_baudrates": {
+        "1200": 0,
+        "2400": 1,
+        "4800": 2,
+        "9600": 3,
+        "19200": 4,
+        "38400": 5,
+        "57600": 6,
+        "115200": 7
+      }
+    }
+  },
+  "registers_base": [
+    {
+      "base": 4,
+      "length": 1,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Measurement Value",
+          "address": 4,
+          "unit_of_measurement": "Bar",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "device_class": "pressure",
+          "filters": [
+            {
+              "multiply": 0.01
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

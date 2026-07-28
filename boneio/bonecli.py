@@ -132,7 +132,7 @@ def get_arguments() -> argparse.Namespace:
     set_modbus_parser.add_argument(
         "--device",
         type=str,
-        choices=["cwt", "r4dcb08", "liquid-sensor", "sht20", "sht30", "custom"],
+        choices=["cwt", "r4dcb08", "liquid-sensor", "qdw90a", "sht20", "sht30", "custom"],
         help="Choose device to set modbus address/baudrate. For custom you must provide --custom-value and --custom-register-address",
         required=True,
     )

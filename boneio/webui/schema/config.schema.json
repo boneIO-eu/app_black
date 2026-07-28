@@ -473,150 +473,6 @@
                 "default": 80,
                 "description": "Port",
                 "title": "Port"
-              },
-              "segments": {
-                "type": [
-                  "array",
-                  "string"
-                ],
-                "items": {
-                  "type": [
-                    "object",
-                    "string"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Segment ID",
-                      "title": "Id"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "Segment Name",
-                      "title": "Name"
-                    },
-                    "start": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Start LED",
-                      "title": "Start"
-                    },
-                    "stop": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Stop LED",
-                      "title": "Stop"
-                    },
-                    "len": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "LED Count",
-                      "title": "Len"
-                    },
-                    "supports_rgb": {
-                      "oneOf": [
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "enum": [
-                            "yes",
-                            "no",
-                            "true",
-                            "false",
-                            "on",
-                            "off"
-                          ],
-                          "x-yaml-boolean": true
-                        }
-                      ],
-                      "default": true,
-                      "description": "Supports RGB Color",
-                      "title": "Supports rgb"
-                    }
-                  },
-                  "required": [
-                    "id"
-                  ]
-                },
-                "description": "Available Segments",
-                "title": "Segments"
-              },
-              "effects": {
-                "type": [
-                  "array",
-                  "string"
-                ],
-                "items": {
-                  "type": [
-                    "object",
-                    "string"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Effect ID",
-                      "title": "Id"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "Effect Name",
-                      "title": "Name"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "name"
-                  ]
-                },
-                "description": "Available Effects",
-                "title": "Effects"
-              },
-              "palettes": {
-                "type": [
-                  "array",
-                  "string"
-                ],
-                "items": {
-                  "type": [
-                    "object",
-                    "string"
-                  ],
-                  "properties": {
-                    "id": {
-                      "type": [
-                        "integer",
-                        "string"
-                      ],
-                      "description": "Palette ID",
-                      "title": "Id"
-                    },
-                    "name": {
-                      "type": "string",
-                      "description": "Palette Name",
-                      "title": "Name"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "name"
-                  ]
-                },
-                "description": "Available Palettes",
-                "title": "Palettes"
               }
             },
             "required": [
@@ -1804,6 +1660,8 @@
               "Orno-Or-We-517",
               "PT100",
               "Pt100",
+              "QDW90A",
+              "Qdw90A",
               "R4DCB08",
               "R4Dcb08",
               "SDM120",
@@ -1841,6 +1699,7 @@
               "n4dsc08",
               "orno-or-we-517",
               "pt100",
+              "qdw90a",
               "r4dcb08",
               "sdm120",
               "sdm630",
@@ -2452,13 +2311,19 @@
               "gpio",
               "mcp",
               "pca",
-              "pcf"
+              "pcf",
+              "buzzer"
             ],
             "examples": [
               "gpio"
             ],
-            "description": "Output kind (mcp, gpio, etc)",
+            "description": "Output kind (mcp, gpio, buzzer, etc)",
             "title": "Kind"
+          },
+          "sysfs_path": {
+            "type": "string",
+            "description": "Sysfs path for buzzer/led",
+            "title": "Sysfs path"
           },
           "mcp_id": {
             "type": "string",
@@ -3390,7 +3255,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -3481,7 +3349,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -3857,7 +3728,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -3948,7 +3822,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -4669,7 +4546,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -4760,7 +4640,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -5136,7 +5019,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -5227,7 +5113,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -5603,7 +5492,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -5694,7 +5586,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -6070,7 +5965,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -6161,7 +6059,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -6537,7 +6438,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -6628,7 +6532,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -7004,7 +6911,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -7095,7 +7005,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -7471,7 +7384,10 @@
                             "binary_sensor",
                             "cover",
                             "output",
-                            "light"
+                            "light",
+                            "remote_input",
+                            "remote_output",
+                            "remote_cover"
                           ],
                           "examples": [
                             "binary_sensor"
@@ -7562,7 +7478,10 @@
                                   "binary_sensor",
                                   "cover",
                                   "output",
-                                  "light"
+                                  "light",
+                                  "remote_input",
+                                  "remote_output",
+                                  "remote_cover"
                                 ],
                                 "examples": [
                                   "binary_sensor"
@@ -7661,7 +7580,7 @@
               "string"
             ],
             "x-timeperiod": true,
-            "default": "120s",
+            "default": "30s",
             "description": "Max Long Press Duration",
             "title": "Max long press duration"
           },
@@ -9264,13 +9183,15 @@
             "0.6",
             "0.7",
             "0.8",
+            "1.0",
             0.2,
             0.3,
             0.4,
             0.5,
             0.6,
             0.7,
-            0.8
+            0.8,
+            1.0
           ],
           "examples": [
             "0.2"
@@ -9361,6 +9282,14 @@
           ],
           "description": "Child device naming style",
           "title": "Ha child devices naming"
+        },
+        "serial_override": {
+          "type": [
+            "null",
+            "string"
+          ],
+          "description": "Serial number override",
+          "title": "Serial override"
         }
       },
       "required": [

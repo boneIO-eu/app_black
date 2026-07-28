@@ -39,13 +39,19 @@
               "gpio",
               "mcp",
               "pca",
-              "pcf"
+              "pcf",
+              "buzzer"
             ],
             "examples": [
               "gpio"
             ],
-            "description": "Output kind (mcp, gpio, etc)",
+            "description": "Output kind (mcp, gpio, buzzer, etc)",
             "title": "Kind"
+          },
+          "sysfs_path": {
+            "type": "string",
+            "description": "Sysfs path for buzzer/led",
+            "title": "Sysfs path"
           },
           "mcp_id": {
             "type": "string",
