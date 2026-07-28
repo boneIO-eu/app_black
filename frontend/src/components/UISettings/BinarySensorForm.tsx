@@ -52,6 +52,8 @@ interface BinarySensorFormProps {
   savedOutputGroups?: any[];
   /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
+  /** Optional initial tab — when opened from binding matrix with a specific click type. */
+  initialTab?: string;
 }
 
 const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
@@ -71,10 +73,14 @@ const BinarySensorForm: React.FC<BinarySensorFormProps> = ({
   attemptedSubmit = false,
   savedOutputs,
   savedOutputGroups,
-  savedCovers
+  savedCovers,
+  initialTab,
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>('basic');
+  const validBsTabs = new Set(['basic', 'pressed', 'released']);
+  const [activeTab, setActiveTab] = useState<'basic' | 'pressed' | 'released'>(
+    (initialTab && validBsTabs.has(initialTab) ? initialTab : 'basic') as 'basic' | 'pressed' | 'released'
+  );
   const [showBlueprint, setShowBlueprint] = useState(false);
 
   /** Apply a blueprint patch — merges device_class and actions into current data */

@@ -66,7 +66,7 @@ interface EventFormProps {
   /** Saved (committed) covers for comparison */
   savedCovers?: CoverEntity[];
   /** Initial tab to open (e.g. 'single' when clicking from binding matrix cell) */
-  initialTab?: 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced';
+  initialTab?: string;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ 
@@ -90,7 +90,10 @@ const EventForm: React.FC<EventFormProps> = ({
   initialTab,
 }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'>(initialTab || 'basic');
+  const validEventTabs = new Set(['basic', 'single', 'double', 'triple', 'long', 'sequences', 'advanced']);
+  const [activeTab, setActiveTab] = useState<'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'>(
+    (initialTab && validEventTabs.has(initialTab) ? initialTab : 'basic') as 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'
+  );
 
   // Extract enums from schema for dropdowns
   const allBoneioInputs = schema?.items?.properties?.boneio_input?.enum || [];

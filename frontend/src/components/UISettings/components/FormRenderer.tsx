@@ -84,7 +84,7 @@ function inputFormProps(props: FormRendererProps) {
     savedOutputs: props.savedOutputs,
     savedOutputGroups: props.savedOutputGroups,
     savedCovers: props.savedCovers,
-    initialTab: props.initialTab as 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced' | undefined,
+    initialTab: props.initialTab,
   };
 }
 

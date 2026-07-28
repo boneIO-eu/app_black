@@ -124,13 +124,13 @@ const ACTION_LEGEND_KEYS: { labelKey: string; shortKey: string }[] = [
 ];
 
 /** Map binding clickType → EventForm tab name. */
-const CLICK_TYPE_TO_TAB: Record<string, 'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'> = {
+const CLICK_TYPE_TO_TAB: Record<string, string> = {
   single: 'single',
   double: 'double',
   triple: 'triple',
   long: 'long',
-  pressed: 'basic',
-  released: 'basic',
+  pressed: 'pressed',
+  released: 'released',
   double_then_long: 'sequences',
   single_then_long: 'sequences',
   double_then_single: 'sequences',
@@ -1021,7 +1021,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editingSection, setEditingSection] = useState<string>('');
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [editingInitialTab, setEditingInitialTab] = useState<'basic' | 'single' | 'double' | 'triple' | 'long' | 'sequences' | 'advanced'>('basic');
+  const [editingInitialTab, setEditingInitialTab] = useState<string>('basic');
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const originalItemRef = useRef<string | null>(null);
