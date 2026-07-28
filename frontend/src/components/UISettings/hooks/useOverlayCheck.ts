@@ -23,6 +23,7 @@ interface OverlayStatus {
   expected_overlay: string | null;
   uenv_path: string | null;
   match: boolean;
+  overlay_available?: boolean;
   error?: string;
 }
 
@@ -31,6 +32,7 @@ interface OverlayDialogState {
   currentOverlay: string | null;
   expectedOverlay: string | null;
   newVersion: string;
+  overlayAvailable: boolean;
 }
 
 interface OverlayChangeResponse {
@@ -55,6 +57,7 @@ export function useOverlayCheck() {
     currentOverlay: null,
     expectedOverlay: null,
     newVersion: '',
+    overlayAvailable: true,
   });
   const [isChanging, setIsChanging] = useState(false);
   const [changeResult, setChangeResult] = useState<'success' | 'error' | null>(null);
@@ -84,6 +87,7 @@ export function useOverlayCheck() {
         currentOverlay: data.current_overlay,
         expectedOverlay,
         newVersion,
+        overlayAvailable: data.overlay_available !== false,
       });
     } catch {
       // Non-critical — overlay check is best-effort

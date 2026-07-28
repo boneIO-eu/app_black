@@ -1283,6 +1283,7 @@ export default function UISettings() {
         currentOverlay={overlayDialog.currentOverlay}
         expectedOverlay={overlayDialog.expectedOverlay}
         newVersion={overlayDialog.newVersion}
+        overlayAvailable={overlayDialog.overlayAvailable}
         isChanging={isChangingOverlay}
         changeResult={overlayChangeResult}
         changeError={overlayChangeError}

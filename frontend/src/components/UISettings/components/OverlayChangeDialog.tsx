@@ -13,6 +13,7 @@ interface OverlayChangeDialogProps {
   currentOverlay: string | null;
   expectedOverlay: string | null;
   newVersion: string;
+  overlayAvailable: boolean;
   isChanging: boolean;
   changeResult: 'success' | 'error' | null;
   changeError: string | null;
@@ -25,13 +26,16 @@ interface OverlayChangeDialogProps {
  *
  * Shows a warning that changing the overlay is potentially dangerous,
  * displays current vs expected overlay, asks for sudo password,
- * and requests user confirmation.
+ * and requests user confirmation. When the required overlay file is
+ * not installed on the system, the Apply button is disabled and a
+ * prominent error message explains the situation.
  */
 const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
   open,
   currentOverlay,
   expectedOverlay,
   newVersion,
+  overlayAvailable,
   isChanging,
   changeResult,
   changeError,
@@ -49,7 +53,7 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && password.trim() && !isChanging && changeResult !== 'success') {
+    if (e.key === 'Enter' && password.trim() && !isChanging && changeResult !== 'success' && overlayAvailable) {
       handleApply();
     }
   };
@@ -86,36 +90,55 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
             </div>
             <div>
               <span style={{ opacity: 0.6 }}>{t('overlay.expected')}:</span>{' '}
-              <strong style={{ color: 'var(--color-success, #22c55e)' }}>
+              <strong style={{ color: overlayAvailable ? 'var(--color-success, #22c55e)' : 'var(--color-error, #ef4444)' }}>
                 {expectedOverlay || '—'}
               </strong>
             </div>
           </div>
 
-          {/* Sudo password input */}
-          <div>
-            <label
-              htmlFor="overlay-sudo-password"
-              style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.25rem', opacity: 0.8 }}
-            >
-              {t('overlay.password_label')}
-            </label>
-            <input
-              id="overlay-sudo-password"
-              type="password"
-              className="input input-bordered w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('overlay.password_placeholder')}
-              disabled={isChanging || changeResult === 'success'}
-              autoFocus
-            />
-          </div>
+          {/* Warning when overlay file is not installed on this system */}
+          {!overlayAvailable && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid var(--color-error, #ef4444)',
+              borderRadius: 8,
+              padding: '0.75rem 1rem',
+              color: 'var(--color-error, #ef4444)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+            }}>
+              🚫 {t('overlay.not_available', { overlay: expectedOverlay || '' })}
+            </div>
+          )}
 
-          <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>
-            {t('overlay.restart_notice')}
-          </p>
+          {/* Sudo password input — hidden when overlay is not available */}
+          {overlayAvailable && (
+            <div>
+              <label
+                htmlFor="overlay-sudo-password"
+                style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.25rem', opacity: 0.8 }}
+              >
+                {t('overlay.password_label')}
+              </label>
+              <input
+                id="overlay-sudo-password"
+                type="password"
+                className="input input-bordered w-full"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={t('overlay.password_placeholder')}
+                disabled={isChanging || changeResult === 'success'}
+                autoFocus
+              />
+            </div>
+          )}
+
+          {overlayAvailable && (
+            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>
+              {t('overlay.restart_notice')}
+            </p>
+          )}
 
           {changeResult === 'success' && (
             <p style={{ color: 'var(--color-success, #22c55e)', fontWeight: 600 }}>
@@ -138,18 +161,20 @@ const OverlayChangeDialog: React.FC<OverlayChangeDialogProps> = ({
           >
             {t('overlay.dismiss')}
           </button>
-          <button
-            className="btn btn-warning"
-            onClick={handleApply}
-            disabled={isChanging || changeResult === 'success' || !password.trim()}
-            style={{
-              background: 'var(--color-warning, #f59e0b)',
-              color: '#000',
-              fontWeight: 600,
-            }}
-          >
-            {isChanging ? t('overlay.changing') : t('overlay.apply')}
-          </button>
+          {overlayAvailable && (
+            <button
+              className="btn btn-warning"
+              onClick={handleApply}
+              disabled={isChanging || changeResult === 'success' || !password.trim()}
+              style={{
+                background: 'var(--color-warning, #f59e0b)',
+                color: '#000',
+                fontWeight: 600,
+              }}
+            >
+              {isChanging ? t('overlay.changing') : t('overlay.apply')}
+            </button>
+          )}
         </div>
       </div>
     </div>

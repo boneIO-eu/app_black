@@ -1140,6 +1140,7 @@ async def get_overlay_status():
         "uenv_path": uenv,
         "match": current == expected if (current and expected) else True,
         "has_backup": has_backup,
+        "overlay_available": _overlay_file_exists(expected) if expected else True,
     }
 
 

@@ -2495,6 +2495,7 @@
     "dismiss": "Skip (manual change)",
     "changing": "Changing...",
     "success": "Overlay changed! System will restart...",
-    "change_failed": "Failed to change overlay. Please update /boot/uEnv.txt manually."
+    "change_failed": "Failed to change overlay. Please update /boot/uEnv.txt manually.",
+    "not_available": "The required overlay file ({{overlay}}) is not installed on this system. Update the system image or install the overlay package before changing the version."
   }
 }
