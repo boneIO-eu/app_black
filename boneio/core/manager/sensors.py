@@ -91,7 +91,8 @@ class SensorManager:
         self._temp_sensors: list[PCT2075 | MCP9808 | DallasSensor] = []
         self._ina219_sensors = []
         self._adc_sensors = []
-        self._dallas_sensors = []
+        self._dallas_sensors: list[DallasSensor] = []
+        self._ds2482_buses: dict[str, OneWireBus] = {}
         self._system_sensors = []
         self._virtual_energy_sensors = []
         self._virtual_energy_sensor_configs = sensors.get(VIRTUAL_ENERGY_SENSOR, [])
@@ -279,20 +280,19 @@ class SensorManager:
             ds2482: List of DS2482 bridge configurations
             sensors: List of sensor configurations
         """
-        if not sensors:
-            return
-
-        _ds2482_buses: dict[str, OneWireBus] = {}
-
-        # Configure DS2482 I2C-to-1Wire bridges if defined
+        # Configure DS2482 I2C-to-1Wire bridges (always, even without sensors,
+        # so scan_onewire_buses() can discover devices on the bus)
         if ds2482:
             for _single_ds in ds2482:
                 _LOGGER.debug("Preparing DS2482 bus at address %s", _single_ds[ADDRESS])
                 try:
                     ow_bus = self._configure_ds2482(address=_single_ds[ADDRESS])
-                    _ds2482_buses[_single_ds[ID]] = ow_bus
+                    self._ds2482_buses[_single_ds[ID]] = ow_bus
                 except Exception as err:
                     _LOGGER.error("Failed to configure DS2482 at %s: %s", _single_ds[ADDRESS], err)
+
+        if not sensors:
+            return
 
         # Create sensor instances based on platform
         for sensor_config in sensors:
@@ -308,9 +308,9 @@ class SensorManager:
             if platform == "ds2482":
                 # DS2482 platform - need bus_id
                 bus_id = sensor_config.get("bus_id")
-                if not bus_id or bus_id not in _ds2482_buses:
+                if not bus_id or bus_id not in self._ds2482_buses:
                     _LOGGER.error(
-                        "DS2482 sensor %s requires valid bus_id. Available: %s", address, list(_ds2482_buses.keys())
+                        "DS2482 sensor %s requires valid bus_id. Available: %s", address, list(self._ds2482_buses.keys())
                     )
                     continue
 
@@ -334,6 +334,58 @@ class SensorManager:
         """
         ds2482 = DS2482Bridge(i2c=self._manager._i2cbusio, address=address)
         return OneWireBus(ds2482=ds2482)
+
+    def scan_onewire_buses(self) -> list[dict]:
+        """Scan all configured DS2482 buses for connected 1-Wire devices.
+
+        Performs a ROM search on each bus and returns a list of discovered
+        devices with their addresses, family codes, and configuration status.
+
+        Returns:
+            List of dicts with keys: bus_id, address, family, family_name,
+            configured (whether sensor is already in config).
+        """
+        # Family code -> human-readable name
+        family_names: dict[str, str] = {
+            "28": "DS18B20",
+            "10": "DS18S20",
+            "22": "DS1822",
+            "3B": "DS1825",
+            "42": "DS28EA00",
+        }
+
+        # Collect addresses already configured
+        configured_addresses: set[str] = set()
+        for sensor in self._dallas_sensors:
+            if hasattr(sensor, "_address") and sensor._address:
+                configured_addresses.add(sensor._address.upper())
+
+        results: list[dict] = []
+
+        for bus_id, ow_bus in self._ds2482_buses.items():
+            _LOGGER.info("Scanning 1-Wire bus '%s' for devices...", bus_id)
+            try:
+                devices = ow_bus.scan()
+                _LOGGER.info("Bus '%s': found %d device(s)", bus_id, len(devices))
+                for dev in devices:
+                    hex_id = dev.hex_id.upper()
+                    family_code = hex_id[:2]
+                    results.append({
+                        "bus_id": bus_id,
+                        "address": hex_id,
+                        "family": family_code,
+                        "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
+                        "configured": hex_id in configured_addresses,
+                    })
+            except Exception as err:
+                _LOGGER.error("Failed to scan bus '%s': %s", bus_id, err)
+                results.append({
+                    "bus_id": bus_id,
+                    "address": None,
+                    "error": str(err),
+                })
+
+        return results
 
     def _find_onewire_devices(
         self,
