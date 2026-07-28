@@ -1170,6 +1170,14 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
         return SUDO_RATE_LIMITED_RESPONSE
     overlay = body.overlay.strip()
 
+    # Defense-in-depth: reject sed metacharacters even if whitelist is misconfigured
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", overlay):
+        _LOGGER.warning("Overlay name rejected (unsafe characters): %r", overlay)
+        return {
+            "status": "error",
+            "message": "Invalid overlay name — only alphanumerics, dots, hyphens and underscores allowed.",
+        }
+
     # Security: only allow known overlay filenames
     if overlay not in _VALID_OVERLAYS:
         return {
