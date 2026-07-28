@@ -372,10 +372,15 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     fetchBindings();
   }, [detectedInput, linkCount, bindingsVersion]);
 
-  // Build categorized entity items
+  // Build categorized entity items (exclude 'none' and 'cover' outputs —
+  // none has no HA entity, cover must be controlled via cover entities only)
   const localOutputItems: TeachEntityItem[] = useMemo(() => {
     return outputs
-      .filter((o: OutputEvent) => !o.state.remote)
+      .filter((o: OutputEvent) => {
+        if (o.state.remote) return false;
+        const ot = o.state.type?.toLowerCase();
+        return ot !== 'none' && ot !== 'cover';
+      })
       .map((o: OutputEvent): TeachEntityItem => ({
         id: o.state.id || o.entity_id,
         name: o.state.name || o.state.id || o.entity_id,

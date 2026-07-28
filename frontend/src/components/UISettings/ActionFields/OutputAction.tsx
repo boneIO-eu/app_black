@@ -9,6 +9,7 @@ import {
 import SearchableEntityPicker from '../SearchableEntityPicker';
 import type { EntityItem } from '../EntitySelectDropdown';
 import type { OutputActionProps } from './types';
+import type { OutputEntity } from '@/types/config';
 import { formatActionLabel } from './helpers';
 
 /** Output actions supported by local light/switch outputs. */
@@ -73,12 +74,16 @@ const OutputAction: React.FC<OutputActionProps> = ({
   /** Convert outputs + groups into EntityItem[] for the dropdown. */
   const outputItems: EntityItem[] = useMemo(() => {
     const outputs = allOutputs
-      .filter((output: any) =>
-        output &&
-        typeof output === 'object' &&
-        output.output_type?.toLowerCase() !== 'cover' &&
-        (output.id || output.boneio_output)
-      )
+      .filter((output: OutputEntity) => {
+        const ot = output.output_type?.toLowerCase();
+        return (
+          output &&
+          typeof output === 'object' &&
+          ot !== 'cover' &&
+          ot !== 'none' &&
+          (output.id || output.boneio_output)
+        );
+      })
       .map((output: any): EntityItem => {
         const id = output.id || output.boneio_output;
         const saved = isOutputSaved(id, false);

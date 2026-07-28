@@ -201,9 +201,14 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   const outputItems: QuickEntityItem[] = useMemo(() => {
     const items: QuickEntityItem[] = [];
 
-    // Local outputs
+    // Local outputs (exclude 'none' and 'cover' — none has no HA entity,
+    // cover must be controlled via cover entities only)
     outputs
-      .filter((o: OutputEvent) => !o.state.remote)
+      .filter((o: OutputEvent) => {
+        if (o.state.remote) return false;
+        const ot = o.state.type?.toLowerCase();
+        return ot !== 'none' && ot !== 'cover';
+      })
       .forEach((o: OutputEvent) => {
         items.push({
           id: o.state.id || o.entity_id,
