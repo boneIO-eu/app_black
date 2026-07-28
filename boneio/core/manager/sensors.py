@@ -339,15 +339,14 @@ class SensorManager:
         return OneWireBus(ds2482=ds2482)
 
     def scan_onewire_buses(self) -> list[dict]:
-        """Scan all configured DS2482 buses for connected 1-Wire devices.
-
-        Performs a ROM search on each bus and returns a list of discovered
-        devices with their addresses, family codes, and configuration status.
+        """Scan 1-Wire buses (kernel w1 subsystem or DS2482 bridges) for connected devices.
 
         Returns:
             List of dicts with keys: bus_id, address, family, family_name,
             configured (whether sensor is already in config).
         """
+        from pathlib import Path
+
         # Family code -> human-readable name
         family_names: dict[str, str] = {
             "28": "DS18B20",
@@ -357,28 +356,58 @@ class SensorManager:
             "42": "DS28EA00",
         }
 
-        # Collect addresses already configured
-        configured_addresses: set[str] = set()
+        # Collect normalized addresses already configured
+        configured_normalized: set[str] = set()
         for sensor in self._dallas_sensors:
             if hasattr(sensor, "_address") and sensor._address:
-                configured_addresses.add(sensor._address.upper())
+                addr = str(sensor._address).upper().replace("-", "")
+                configured_normalized.add(addr)
 
         results: list[dict] = []
 
+        # 1. Try kernel 1-Wire subsystem (/sys/bus/w1/devices)
+        w1_sys_dir = Path("/sys/bus/w1/devices")
+        if w1_sys_dir.is_dir():
+            _LOGGER.info("Scanning 1-Wire devices via kernel subsystem (/sys/bus/w1/devices)...")
+            try:
+                for item in w1_sys_dir.iterdir():
+                    if item.name.startswith("w1_bus_master"):
+                        continue
+                    # item.name is e.g. "28-0000098c7df0"
+                    raw_id = item.name.upper()
+                    clean_addr = raw_id.replace("-", "")
+                    family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
+                    is_configured = clean_addr in configured_normalized
+
+                    results.append({
+                        "bus_id": "kernel",
+                        "address": item.name,
+                        "family": family_code,
+                        "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
+                        "configured": is_configured,
+                    })
+                if results:
+                    _LOGGER.info("Kernel 1-Wire scan: found %d device(s)", len(results))
+                    return results
+            except Exception as err:
+                _LOGGER.error("Failed scanning /sys/bus/w1/devices: %s", err)
+
+        # 2. Fall back to userspace DS2482 buses if kernel 1-Wire returned no devices
         for bus_id, ow_bus in self._ds2482_buses.items():
-            _LOGGER.info("Scanning 1-Wire bus '%s' for devices...", bus_id)
+            _LOGGER.info("Scanning userspace DS2482 bus '%s' for devices...", bus_id)
             try:
                 devices = ow_bus.scan()
                 _LOGGER.info("Bus '%s': found %d device(s)", bus_id, len(devices))
                 for dev in devices:
                     hex_id = dev.hex_id.upper()
-                    family_code = hex_id[:2]
+                    clean_addr = hex_id.replace("-", "")
+                    family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
                     results.append({
                         "bus_id": bus_id,
                         "address": hex_id,
                         "family": family_code,
                         "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
-                        "configured": hex_id in configured_addresses,
+                        "configured": clean_addr in configured_normalized,
                     })
             except Exception as err:
                 _LOGGER.error("Failed to scan bus '%s': %s", bus_id, err)

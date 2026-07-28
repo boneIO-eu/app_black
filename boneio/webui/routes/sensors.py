@@ -181,30 +181,27 @@ async def get_screen_available_sensors(manager: Manager = Depends(get_manager)):
 
 @router.get("/onewire/scan")
 async def scan_onewire_buses(manager: Manager = Depends(get_manager)):
-    """Scan all DS2482 1-Wire buses for connected devices.
-
-    Performs a ROM search on each configured DS2482 bridge and returns
-    a list of discovered devices with address, family code, type name,
-    and whether the device is already configured in the YAML config.
+    """Scan 1-Wire buses (kernel w1 subsystem or DS2482 bridges) for connected devices.
 
     Returns:
         Dictionary with bus info and discovered device list.
     """
+    from pathlib import Path
+
     if not hasattr(manager, "sensors") or not manager.sensors:
         return {"buses": [], "devices": [], "error": "Sensor manager not initialized"}
-
-    buses_info = [
-        {"id": bus_id}
-        for bus_id in manager.sensors._ds2482_buses
-    ]
-
-    if not buses_info:
-        return {"buses": [], "devices": [], "message": "No DS2482 buses configured"}
 
     try:
         devices = manager.sensors.scan_onewire_buses()
     except Exception as e:
         _LOGGER.error("1-Wire scan failed: %s", e, exc_info=True)
-        return {"buses": buses_info, "devices": [], "error": str(e)}
+        return {"buses": [], "devices": [], "error": str(e)}
+
+    buses_info = [
+        {"id": bus_id}
+        for bus_id in manager.sensors._ds2482_buses
+    ]
+    if Path("/sys/bus/w1/devices").is_dir():
+        buses_info.append({"id": "w1-kernel"})
 
     return {"buses": buses_info, "devices": devices}
