@@ -323,15 +323,18 @@ class SensorManager:
                 self._dallas_sensors.append(sensor)
                 self._temp_sensors.append(sensor)
 
-    def _configure_ds2482(self, address: int = DS2482_ADDRESS) -> OneWireBus:
+    def _configure_ds2482(self, address: int | str = DS2482_ADDRESS) -> OneWireBus:
         """Configure DS2482 I2C-to-1Wire bridge.
 
         Args:
-            address: I2C address of DS2482
+            address: I2C address of DS2482 (int or hex string like '0x18')
 
         Returns:
             OneWireBus instance
         """
+        # Config YAML stores address as string '0x18'; smbus2 needs int
+        if isinstance(address, str):
+            address = int(address, 16)
         ds2482 = DS2482Bridge(i2c=self._manager._i2cbusio, address=address)
         return OneWireBus(ds2482=ds2482)
 
