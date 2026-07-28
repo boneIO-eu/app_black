@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useConfig } from '../../contexts/ConfigContext';
+import axios from 'axios';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
@@ -108,20 +109,89 @@ const SensorForm: React.FC<SensorFormProps> = ({
     handleChange('id', sanitizeId(value));
   };
 
-  // Get unused sensors (not already configured)
-  const getUnusedSensors = () => {
+  // Local scan state
+  const [isScanning, setIsScanning] = useState(false);
+  const [localSensors, setLocalSensors] = useState<AvailableSensor[]>(availableSensors);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+
+  // Sync parent sensors into local state
+  useEffect(() => {
+    if (availableSensors.length > 0) {
+      setLocalSensors(prev => {
+        const merged = [...prev];
+        for (const s of availableSensors) {
+          if (!merged.find(m => m.address === s.address)) {
+            merged.push(s);
+          }
+        }
+        return merged;
+      });
+    }
+  }, [availableSensors]);
+
+  const handleScan = async () => {
+    setIsScanning(true);
+    setScanMessage(null);
+    try {
+      const res = await axios.get('/api/onewire/scan');
+      const devices = (res.data.devices || []) as { address: string; family_name: string; error?: string }[];
+      const found = devices
+        .filter((d: { address: string; error?: string }) => d.address && !d.error)
+        .map((d: { address: string; family_name: string }) => ({ address: d.address, type: d.family_name || 'DS18B20' }));
+
+      if (found.length > 0) {
+        setLocalSensors(prev => {
+          const merged = [...prev];
+          for (const s of found) {
+            if (!merged.find(m => m.address === s.address)) {
+              merged.push(s);
+            }
+          }
+          return merged;
+        });
+        setScanMessage(t('sensors.scan_found', { count: String(found.length) }));
+      } else {
+        setScanMessage(t('sensors.scan_no_devices'));
+      }
+    } catch {
+      setScanMessage(t('sensors.scan_error'));
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Use local sensors for the dropdown
+  const allSensors = localSensors;
+  const getUnusedSensorsLocal = () => {
     const usedAddresses = existingSensors
       .filter((_, index) => index !== editingIndex)
       .map(s => s.address);
-    return availableSensors.filter(s => !usedAddresses.includes(s.address));
+    return allSensors.filter(s => !usedAddresses.includes(s.address));
   };
-
-  const unusedSensors = getUnusedSensors();
+  const unusedSensorsLocal = getUnusedSensorsLocal();
 
   return (
     <div className="space-y-4">
+      {/* Scan 1-Wire Button */}
+      {ds2482Supported && (
+        <div className="form-control">
+          <button
+            type="button"
+            className={`btn btn-outline btn-sm gap-2 ${isScanning ? 'loading' : ''}`}
+            onClick={handleScan}
+            disabled={isScanning}
+          >
+            {!isScanning && <FaSearch />}
+            {isScanning ? t('sensors.scanning') : t('sensors.scan_onewire')}
+          </button>
+          {scanMessage && (
+            <span className="text-xs mt-1 text-base-content/70">{scanMessage}</span>
+          )}
+        </div>
+      )}
+
       {/* Available Sensors Dropdown */}
-      {availableSensors.length > 0 && (
+      {allSensors.length > 0 && (
         <div className="form-control">
           <label className="label">
             <span className="label-text font-medium">{t('sensors.detected_sensors')}</span>
@@ -134,13 +204,13 @@ const SensorForm: React.FC<SensorFormProps> = ({
               <SelectValue placeholder={t('sensors.select_sensor')} />
             </SelectTrigger>
             <SelectContent>
-              {unusedSensors.map((sensor) => (
+              {unusedSensorsLocal.map((sensor) => (
                 <SelectItem key={sensor.address} value={sensor.address}>
                   {sensor.address} ({sensor.type})
                 </SelectItem>
               ))}
               {/* Show current value if it's not in the list */}
-              {data.address && !availableSensors.find(s => s.address === data.address) && (
+              {data.address && !allSensors.find(s => s.address === data.address) && (
                 <SelectItem value={data.address}>{data.address} (manual)</SelectItem>
               )}
             </SelectContent>
@@ -154,7 +224,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
       )}
 
       {/* Manual Address Input (if no sensors detected) */}
-      {availableSensors.length === 0 && (
+      {allSensors.length === 0 && (
         <div className="form-control">
           <label className="label">
             <span className="label-text font-medium">{t('sensors.address')} *</span>
