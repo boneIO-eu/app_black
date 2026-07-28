@@ -141,19 +141,23 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
 
   useEffect(() => {
     if (sectionType === 'sensor') {
-      // Fetch from both kernel 1-Wire and DS2482 scan
-      const gpioPromise = axios.get('/api/dallas/available')
-        .then(res => (res.data.sensors || []) as { address: string; type: string }[])
-        .catch(() => [] as { address: string; type: string }[]);
+      // Board 1.0 uses DS2482 only (no kernel 1-Wire GPIO)
+      const gpioPromise = ds2482Supported
+        ? Promise.resolve([] as { address: string; type: string }[])
+        : axios.get('/api/dallas/available')
+            .then(res => (res.data.sensors || []) as { address: string; type: string }[])
+            .catch(() => [] as { address: string; type: string }[]);
 
-      const ds2482Promise = axios.get('/api/onewire/scan')
-        .then(res => {
-          const devices = (res.data.devices || []) as { address: string; family_name: string; error?: string }[];
-          return devices
-            .filter(d => d.address && !d.error)
-            .map(d => ({ address: d.address, type: d.family_name || 'DS2482' }));
-        })
-        .catch(() => [] as { address: string; type: string }[]);
+      const ds2482Promise = ds2482Supported
+        ? axios.get('/api/onewire/scan')
+            .then(res => {
+              const devices = (res.data.devices || []) as { address: string; family_name: string; error?: string }[];
+              return devices
+                .filter(d => d.address && !d.error)
+                .map(d => ({ address: d.address, type: d.family_name || 'DS2482' }));
+            })
+            .catch(() => [] as { address: string; type: string }[])
+        : Promise.resolve([] as { address: string; type: string }[]);
 
       Promise.all([gpioPromise, ds2482Promise]).then(([gpio, ds2482]) => {
         // Merge, deduplicate by address
@@ -168,7 +172,7 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
         setAvailableDallasSensors(merged);
       });
     }
-  }, [sectionType]);
+  }, [sectionType, ds2482Supported]);
 
   // ─── Auto-Open from URL ─────────────────────────────────────────
 
