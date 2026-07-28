@@ -125,7 +125,10 @@ export function useOverlayCheck() {
       }
     } catch (err: unknown) {
       setChangeResult('error');
-      const errorMsg = err instanceof Error ? err.message : String(err);
+      // Extract error message from HTTP error response (4xx/5xx)
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      const serverMessage = axiosErr.response?.data?.message;
+      const errorMsg = serverMessage || (err instanceof Error ? err.message : String(err));
       setChangeError(errorMsg);
       return false;
     } finally {

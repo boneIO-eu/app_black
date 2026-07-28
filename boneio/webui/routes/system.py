@@ -11,6 +11,7 @@ import subprocess
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from boneio.webui.sudo_rate_limiter import (
@@ -1167,36 +1168,51 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
     """
     client_ip = request.client.host if request.client else "unknown"
     if not sudo_rate_limiter.check(client_ip):
-        return SUDO_RATE_LIMITED_RESPONSE
+        return JSONResponse(
+            status_code=429,
+            content=SUDO_RATE_LIMITED_RESPONSE,
+        )
     overlay = body.overlay.strip()
 
     # Defense-in-depth: reject sed metacharacters even if whitelist is misconfigured
     if not re.fullmatch(r"[A-Za-z0-9._-]+", overlay):
         _LOGGER.warning("Overlay name rejected (unsafe characters): %r", overlay)
-        return {
-            "status": "error",
-            "message": "Invalid overlay name — only alphanumerics, dots, hyphens and underscores allowed.",
-        }
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "error",
+                "message": "Invalid overlay name — only alphanumerics, dots, hyphens and underscores allowed.",
+            },
+        )
 
     # Security: only allow known overlay filenames
     if overlay not in _VALID_OVERLAYS:
-        return {
-            "status": "error",
-            "message": f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
-        }
+        return JSONResponse(
+            status_code=422,
+            content={
+                "status": "error",
+                "message": f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
+            },
+        )
 
     # Fix #2: verify the .dtbo file actually exists on disk
     if not _overlay_file_exists(overlay):
         _LOGGER.error("Overlay file '%s' not found on disk", overlay)
-        return {
-            "status": "error",
-            "message": f"Overlay file '{overlay}' not found on disk. "
-            "Install the overlay first (make install).",
-        }
+        return JSONResponse(
+            status_code=404,
+            content={
+                "status": "error",
+                "message": f"Overlay file '{overlay}' not found on disk. "
+                "Install the overlay first (make install).",
+            },
+        )
 
     uenv = _find_uenv()
     if not uenv:
-        return {"status": "error", "message": "uEnv.txt not found"}
+        return JSONResponse(
+            status_code=404,
+            content={"status": "error", "message": "uEnv.txt not found"},
+        )
 
     previous = _read_current_overlay(uenv)
 
@@ -1256,16 +1272,28 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
         if proc.returncode != 0:
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
                 sudo_rate_limiter.record_failure(client_ip)
-                return SUDO_AUTH_FAILED_RESPONSE
+                return JSONResponse(
+                    status_code=403,
+                    content=SUDO_AUTH_FAILED_RESPONSE,
+                )
             _LOGGER.error("sudo sed failed: %s", stderr_str)
-            return {"status": "error", "message": f"sudo sed failed: {stderr_str}"}
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": f"sudo sed failed: {stderr_str}"},
+            )
 
     except TimeoutError:
         _LOGGER.error("sudo sed timed out for overlay change on %s", uenv)
-        return {"status": "error", "message": "sudo command timed out"}
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": "sudo command timed out"},
+        )
     except Exception as exc:
         _LOGGER.error("Failed to change overlay in %s: %s", uenv, exc)
-        return {"status": "error", "message": str(exc)}
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(exc)},
+        )
 
     # Fix #1: flush filesystem buffers before returning restart_required
     # Critical on vfat (/boot/firmware) — reboot before flush = corrupted/empty uEnv.txt
@@ -1279,10 +1307,13 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
         _LOGGER.error(
             "Overlay verification failed: expected '%s', got '%s'", overlay, new_overlay
         )
-        return {
-            "status": "error",
-            "message": f"Overlay change not verified. Expected '{overlay}', found '{new_overlay}'.",
-        }
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Overlay change not verified. Expected '{overlay}', found '{new_overlay}'.",
+            },
+        )
 
     _LOGGER.warning(
         "Device tree overlay changed: '%s' → '%s' in %s (restart required)",
