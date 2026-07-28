@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import glob
 import logging
 import os
 import re
-import shutil
 import subprocess
-import tempfile
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -995,7 +994,7 @@ def _find_uenv() -> str | None:
 def _read_current_overlay(uenv_path: str) -> str | None:
     """Read the current overlay name from uEnv.txt.
 
-    Parses lines matching ``uboot_overlay_addr[0-9]=...BONEIO-BLACK-PINS...``
+    Parses uncommented lines matching ``uboot_overlay_addr[0-9]=...BONEIO-BLACK-PINS...``
     and returns the overlay basename.
 
     Args:
@@ -1004,7 +1003,10 @@ def _read_current_overlay(uenv_path: str) -> str | None:
     Returns:
         Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``) or None.
     """
-    pattern = re.compile(r"^uboot_overlay_addr\d+=.*/(BONEIO-BLACK-PINS[^\s]*)$")
+    # Fix #5: tolerate trailing whitespace and inline comments after overlay name
+    pattern = re.compile(
+        r"^uboot_overlay_addr\d+=.*/(BONEIO-BLACK-PINS\S+\.dtbo)\s*(?:#.*)?$"
+    )
     try:
         with open(uenv_path, encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -1031,6 +1033,36 @@ def _overlay_for_version(version: str) -> str | None:
     return _VERSION_TO_OVERLAY.get(version)
 
 
+# Paths where overlay .dtbo files may be installed
+_OVERLAY_SEARCH_DIRS = [
+    "/lib/firmware",
+    "/boot/firmware/overlays",
+]
+
+
+def _overlay_file_exists(overlay_name: str) -> bool:
+    """Check if the overlay .dtbo file exists on disk.
+
+    Searches common overlay directories and any ``/boot/dtbs/*/overlays/`` paths.
+
+    Args:
+        overlay_name: Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``).
+
+    Returns:
+        True if the file is found in at least one location.
+    """
+    for search_dir in _OVERLAY_SEARCH_DIRS:
+        if os.path.isfile(os.path.join(search_dir, overlay_name)):
+            return True
+
+    # Check /boot/dtbs/<kernel>/overlays/ for any installed kernel
+    for path in glob.glob(f"/boot/dtbs/*/overlays/{overlay_name}"):
+        if os.path.isfile(path):
+            return True
+
+    return False
+
+
 class OverlayChangeRequest(BaseModel):
     """Request body for overlay change."""
 
@@ -1045,7 +1077,8 @@ async def get_overlay_status():
     """Get the current device tree overlay and expected overlay for the configured version.
 
     Returns:
-        Dict with current overlay, expected overlay, uEnv path, and match status.
+        Dict with current overlay, expected overlay, uEnv path, match status,
+        and backup availability.
     """
     uenv = _find_uenv()
     if not uenv:
@@ -1054,6 +1087,7 @@ async def get_overlay_status():
             "expected_overlay": None,
             "uenv_path": None,
             "match": True,
+            "has_backup": False,
             "error": "uEnv.txt not found",
         }
 
@@ -1070,11 +1104,16 @@ async def get_overlay_status():
     except Exception as exc:
         _LOGGER.debug("Cannot determine expected overlay: %s", exc)
 
+    # Check if backup exists
+    backup_path = uenv + ".boneio.bak"
+    has_backup = os.path.isfile(backup_path)
+
     return {
         "current_overlay": current,
         "expected_overlay": expected,
         "uenv_path": uenv,
         "match": current == expected if (current and expected) else True,
+        "has_backup": has_backup,
     }
 
 
@@ -1086,8 +1125,13 @@ async def change_overlay(body: OverlayChangeRequest):
     can make GPIO pins non-functional. A system restart is required
     for the change to take effect.
 
-    Uses ``sudo -S sed -i`` to replace the overlay filename in uEnv.txt
-    because boneIO runs as user ``boneio`` without write access to ``/boot/``.
+    Safety measures:
+    - Validates overlay is in whitelist
+    - Verifies .dtbo file exists on disk before modifying uEnv.txt
+    - Creates backup of uEnv.txt before modification
+    - Uses ``sudo -S sed -i`` (skips commented lines)
+    - Calls ``os.sync()`` after modification to flush to disk
+    - Verifies the change was applied
 
     Args:
         body: Request with the overlay basename and sudo password.
@@ -1104,6 +1148,15 @@ async def change_overlay(body: OverlayChangeRequest):
             "message": f"Invalid overlay '{overlay}'. Allowed: {sorted(_VALID_OVERLAYS)}",
         }
 
+    # Fix #2: verify the .dtbo file actually exists on disk
+    if not _overlay_file_exists(overlay):
+        _LOGGER.error("Overlay file '%s' not found on disk", overlay)
+        return {
+            "status": "error",
+            "message": f"Overlay file '{overlay}' not found on disk. "
+            "Install the overlay first (make install).",
+        }
+
     uenv = _find_uenv()
     if not uenv:
         return {"status": "error", "message": "uEnv.txt not found"}
@@ -1117,11 +1170,32 @@ async def change_overlay(body: OverlayChangeRequest):
             "message": "Overlay already set to requested value",
         }
 
-    # Use sudo sed to replace the overlay in-place
-    # sed pattern: on lines starting with uboot_overlay_addr that contain BONEIO-BLACK-PINS,
-    # replace the overlay filename (everything after the last /)
+    # Fix #3: backup uEnv.txt before modification (cp -n = no-clobber)
+    backup_path = uenv + ".boneio.bak"
+    backup_cmd = ["sudo", "-S", "cp", "-n", uenv, backup_path]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *backup_cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await asyncio.wait_for(
+            proc.communicate(input=(body.password + "\n").encode()),
+            timeout=10,
+        )
+        if proc.returncode == 0:
+            _LOGGER.info("Backup created: %s", backup_path)
+        else:
+            _LOGGER.warning("Backup creation returned %d (may already exist)", proc.returncode)
+    except Exception as exc:
+        _LOGGER.warning("Could not create backup: %s (continuing anyway)", exc)
+
+    # Fix #4: sed skips commented lines using address /^[[:space:]]*#/!
+    # Only modifies uncommented uboot_overlay_addr lines containing BONEIO-BLACK-PINS
     sed_pattern = (
-        r"s|\(uboot_overlay_addr[0-9]*=.*/\)BONEIO-BLACK-PINS[^ ]*|"
+        r"/^[[:space:]]*#/!s|"
+        r"\(uboot_overlay_addr[0-9]*=.*/\)BONEIO-BLACK-PINS[^ ]*|"
         rf"\1{overlay}|"
     )
 
@@ -1154,6 +1228,12 @@ async def change_overlay(body: OverlayChangeRequest):
     except Exception as exc:
         _LOGGER.error("Failed to change overlay in %s: %s", uenv, exc)
         return {"status": "error", "message": str(exc)}
+
+    # Fix #1: flush filesystem buffers before returning restart_required
+    # Critical on vfat (/boot/firmware) — reboot before flush = corrupted/empty uEnv.txt
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, os.sync)
+    _LOGGER.info("Filesystem sync completed after overlay change")
 
     # Verify the change was applied
     new_overlay = _read_current_overlay(uenv)
