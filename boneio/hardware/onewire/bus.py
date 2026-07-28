@@ -216,17 +216,12 @@ class OneWireBus:
         Returns:
             Tuple of (rom_address, last_discrepancy)
         """
-        if not self._ow.reset():
+        if self._ow.reset():
+            # True = no device present on bus
             return None, 0
         
-        self._writebit(True)  # Search ROM command (0xF0)
-        self._writebit(False)
-        self._writebit(False)
-        self._writebit(False)
-        self._writebit(True)
-        self._writebit(True)
-        self._writebit(True)
-        self._writebit(True)
+        # Send Search ROM command (0xF0) as a whole byte via DS2482
+        self._ow.ds2482.write_byte(0xF0)
         
         if not rom:
             rom = bytearray(8)
