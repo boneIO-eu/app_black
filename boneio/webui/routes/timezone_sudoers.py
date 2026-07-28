@@ -147,7 +147,7 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
             stderr_str = stderr.decode().strip()
             os.unlink(tmp_path)
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                return {"status": "error", "message": "Incorrect sudo password"}
+                return {"status": "error", "message": "Authentication failed.", "_auth_failed": True}
             return {"status": "error", "message": f"Sudoers validation failed: {stderr_str}"}
 
         # Copy the validated file to /etc/sudoers.d/ and set correct permissions
@@ -167,7 +167,7 @@ async def create_timedatectl_sudoers_file(password: str) -> dict:
             stderr_str = stderr.decode().strip()
             os.unlink(tmp_path)
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                return {"status": "error", "message": "Incorrect sudo password"}
+                return {"status": "error", "message": "Authentication failed.", "_auth_failed": True}
             return {"status": "error", "message": f"Failed to install sudoers file: {stderr_str}"}
 
         # Set correct permissions (must be 0440)

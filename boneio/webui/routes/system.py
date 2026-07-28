@@ -10,8 +10,14 @@ import re
 import subprocess
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from boneio.webui.sudo_rate_limiter import (
+    SUDO_AUTH_FAILED_RESPONSE,
+    SUDO_RATE_LIMITED_RESPONSE,
+    sudo_rate_limiter,
+)
 
 from boneio.core.config import ConfigHelper
 from boneio.core.config.yaml_util import (
@@ -373,15 +379,20 @@ async def test_compose_permissions():
 
 
 @router.post("/cloud/fix-permissions")
-async def fix_compose_permissions(body: SudoFixRequest):
+async def fix_compose_permissions(body: SudoFixRequest, request: Request):
     """Fix docker-compose.yaml ownership using sudo chown.
 
     Accepts the user's sudo password, runs 'sudo chown' on docker-compose.yaml,
     and returns success/error. The password is never logged or stored.
+    Rate-limited to prevent brute-force attacks.
 
     Returns:
         Status response with success or error message.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not sudo_rate_limiter.check(client_ip):
+        return SUDO_RATE_LIMITED_RESPONSE
+
     info = _get_compose_info()
     compose_path = info["compose_path"]
     current_user = info["current_user"]
@@ -434,7 +445,8 @@ async def fix_compose_permissions(body: SudoFixRequest):
             }
         else:
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                return {"status": "error", "message": "Incorrect sudo password"}
+                sudo_rate_limiter.record_failure(client_ip)
+                return SUDO_AUTH_FAILED_RESPONSE
             return {"status": "error", "message": f"sudo failed: {stderr_str}"}
 
     except TimeoutError:
@@ -943,20 +955,33 @@ async def check_timezone_sudoers():
 
 
 @router.post("/timezone/sudoers/fix")
-async def fix_timezone_sudoers(body: TimezoneSudoersFixRequest):
+async def fix_timezone_sudoers(body: TimezoneSudoersFixRequest, request: Request):
     """Create /etc/sudoers.d/boneio-timedatectl with NOPASSWD rules.
 
     Accepts the user's sudo password, validates the sudoers content,
     and installs it. The password is never logged or stored.
+    Rate-limited to prevent brute-force attacks.
 
     Returns:
         Status response with success or error message.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not sudo_rate_limiter.check(client_ip):
+        return SUDO_RATE_LIMITED_RESPONSE
+
     from boneio.webui.routes.timezone_sudoers import (
         create_timedatectl_sudoers_file,
     )
 
-    return await create_timedatectl_sudoers_file(body.password)
+    result = await create_timedatectl_sudoers_file(body.password)
+
+    # Record failure if sudo auth failed (generic message already returned)
+    if result.get("status") == "error" and result.get("_auth_failed"):
+        sudo_rate_limiter.record_failure(client_ip)
+        del result["_auth_failed"]
+        result["message"] = SUDO_AUTH_FAILED_RESPONSE["message"]
+
+    return result
 
 
 # ── Device Tree Overlay management ──────────────────────────────────
@@ -1118,7 +1143,7 @@ async def get_overlay_status():
 
 
 @router.post("/system/overlay")
-async def change_overlay(body: OverlayChangeRequest):
+async def change_overlay(body: OverlayChangeRequest, request: Request):
     """Change the device tree overlay in /boot/uEnv.txt via sudo.
 
     This is a potentially dangerous operation — the wrong overlay
@@ -1126,6 +1151,7 @@ async def change_overlay(body: OverlayChangeRequest):
     for the change to take effect.
 
     Safety measures:
+    - Rate-limited to prevent sudo password brute-force
     - Validates overlay is in whitelist
     - Verifies .dtbo file exists on disk before modifying uEnv.txt
     - Creates backup of uEnv.txt before modification
@@ -1139,6 +1165,9 @@ async def change_overlay(body: OverlayChangeRequest):
     Returns:
         Status response with previous and new overlay values.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not sudo_rate_limiter.check(client_ip):
+        return SUDO_RATE_LIMITED_RESPONSE
     overlay = body.overlay.strip()
 
     # Security: only allow known overlay filenames
@@ -1218,7 +1247,8 @@ async def change_overlay(body: OverlayChangeRequest):
 
         if proc.returncode != 0:
             if "incorrect password" in stderr_str.lower() or "sorry" in stderr_str.lower():
-                return {"status": "error", "message": "Incorrect sudo password"}
+                sudo_rate_limiter.record_failure(client_ip)
+                return SUDO_AUTH_FAILED_RESPONSE
             _LOGGER.error("sudo sed failed: %s", stderr_str)
             return {"status": "error", "message": f"sudo sed failed: {stderr_str}"}
 
