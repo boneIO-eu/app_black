@@ -205,14 +205,15 @@
     "select_sensor": "Wybierz czujnik...",
     "scan_onewire": "Skanuj magistralę 1-Wire",
     "scanning": "Skanowanie...",
-    "scan_found": "Znaleziono {{count}} urządzeń",
+    "scan_found_one": "Wykryto 1 urządzenie",
+    "scan_found_few": "Wykryto {{count}} urządzenia",
+    "scan_found": "Wykryto {{count}} urządzeń",
     "scan_no_devices": "Nie znaleziono urządzeń na magistrali",
     "scan_error": "Skanowanie nie powiodło się — sprawdź połączenie",
     "id_hint": "Pozostaw puste, aby użyć adresu jako ID",
     "address_required": "Adres czujnika jest wymagany",
     "address_duplicate": "Ten czujnik jest już skonfigurowany",
     "bus_id": "ID Magistrali",
-    "bus_id_hint": "ID magistrali DS2482 z sekcji ds2482",
     "view_title": "Sensory",
     "no_sensors": "Brak skonfigurowanych sensorów systemowych",
     "filters": "Filtry",
@@ -706,7 +707,6 @@
     "modbus": "Modbus",
     "can": "Magistrala CAN",
     "mcp23017": "MCP23017 (Zaawansowane)",
-    "ds2482": "Ekspandery 1-Wire",
     "board_sensors": "Czujniki sterownika",
     "oled": "Wyświetlacz OLED"
   },
@@ -717,19 +717,6 @@
     "right_description": "Prawy ekspander GPIO (OUT_17-OUT_32 dla 32x10, OUT_13-OUT_24 dla 24x16)",
     "address": "Adres I2C",
     "address_hint": "Wybierz adres I2C dla tego ekspandera"
-  },
-  "ds2482": {
-    "info_title": "Ekspandery 1-Wire (DS2482/DS2484)",
-    "info_description": "Konfiguracja mostków I2C-do-1-Wire DS2482/DS2484. Każdy mostek zapewnia magistralę 1-Wire dla czujników temperatury Dallas.",
-    "id": "ID magistrali",
-    "address": "Adres I2C",
-    "address_hint": "Adres I2C układu DS2482 (np. 0x18, 0x19, 0x1A, 0x1B)",
-    "builtin_info": "To jest wbudowany ekspander 1-Wire na Twojej płytce. Nie można go edytować ani usunąć.",
-    "errors": {
-      "id_required": "ID magistrali jest wymagane",
-      "address_required": "Adres I2C jest wymagany",
-      "duplicate_id": "To ID magistrali jest już używane"
-    }
   },
   "oled": {
     "enabled": "Wyświetlacz OLED włączony",

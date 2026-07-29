@@ -94,7 +94,7 @@ class Manager:
         pca9685: List of PCA9685 configurations
         mcp23017: List of MCP23017 configurations
         pcf8575: List of PCF8575 configurations
-        ds2482: List of DS2482 configurations
+        adc: List of ADC configurations
         dallas: Dallas 1-Wire configuration
         oled: OLED display configuration
         adc: List of ADC configurations
@@ -120,7 +120,6 @@ class Manager:
         pca9685: list[dict] | None = None,
         mcp23017: list[dict] | None = None,
         pcf8575: list[dict] | None = None,
-        ds2482: list[dict] | None = None,
         dallas: dict[str, Any] | None = None,
         oled: dict[str, Any] | None = None,
         adc: list[dict] | None = None,
@@ -147,7 +146,6 @@ class Manager:
         pca9685 = pca9685 or []
         mcp23017 = mcp23017 or []
         pcf8575 = pcf8575 or []
-        ds2482 = ds2482 or []
         oled = oled or {}
         cover = cover or []
         template = template or []
@@ -211,7 +209,6 @@ class Manager:
             manager=self,
             sensors=sensors,
             dallas=dallas,
-            ds2482=ds2482,
             adc=adc,
         )
 

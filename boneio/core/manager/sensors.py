@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 from boneio.const import (
     ADDRESS,
     DALLAS,
-    DS2482,
     FILTERS,
     ID,
     INA219,
@@ -29,18 +28,10 @@ from boneio.const import (
     SHOW_HA,
     UPDATE_INTERVAL,
     VIRTUAL_ENERGY_SENSOR,
-    DallasBusTypes,
 )
 from boneio.core.utils import TimePeriod
 from boneio.exceptions import I2CError
-from boneio.hardware.onewire import (
-    DS2482 as DS2482Bridge,
-)
-from boneio.hardware.onewire import (
-    DS2482_ADDRESS,
-    DallasSensor,
-    OneWireBus,
-)
+from boneio.hardware.onewire import DallasSensor
 from boneio.integration.homeassistant import (
     ha_adc_sensor_availabilty_message,
     ha_sensor_ina_availabilty_message,
@@ -74,7 +65,6 @@ class SensorManager:
         manager: Parent Manager instance
         sensors: Dictionary of sensor configurations by type
         dallas: Dallas 1-Wire configuration
-        ds2482: List of DS2482 I2C-to-1Wire bridge configurations
         adc: List of ADC sensor configurations
     """
 
@@ -83,7 +73,6 @@ class SensorManager:
         manager: Manager,
         sensors: dict[str, list],
         dallas: dict[str, Any] | None,
-        ds2482: list[dict] | None,
         adc: list[dict] | None,
     ):
         """Initialize sensor manager."""
@@ -92,7 +81,6 @@ class SensorManager:
         self._ina219_sensors = []
         self._adc_sensors = []
         self._dallas_sensors: list[DallasSensor] = []
-        self._ds2482_buses: dict[str, OneWireBus] = {}
         self._system_sensors = []
         self._virtual_energy_sensors = []
         self._virtual_energy_sensor_configs = sensors.get(VIRTUAL_ENERGY_SENSOR, [])
@@ -100,7 +88,7 @@ class SensorManager:
         # Configure all sensor types
         self._configure_temp_sensors(sensors=sensors)
         self._configure_ina219_sensors(sensors=sensors)
-        self._configure_dallas_sensors(dallas=dallas, ds2482=ds2482, sensors=sensors.get(ONEWIRE))
+        self._configure_dallas_sensors(dallas=dallas, sensors=sensors.get(ONEWIRE))
         self._configure_adc(adc_list=adc)
         self._configure_system_sensors()
         # Note: virtual_energy_sensors are configured after outputs are ready
@@ -270,49 +258,29 @@ class SensorManager:
     def _configure_dallas_sensors(
         self,
         dallas: dict | None,
-        ds2482: list | None,
         sensors: list | None,
     ) -> None:
-        """Configure Dallas 1-Wire sensors via GPIO or DS2482 bridge.
+        """Configure Dallas 1-Wire sensors.
+
+        Hardware communication is handled by kernel modules (ds2482, w1-therm).
+        This method only creates sensor wrapper objects.
 
         Args:
             dallas: Dallas GPIO configuration (deprecated, kept for backward compat)
-            ds2482: List of DS2482 bridge configurations
             sensors: List of sensor configurations
         """
-        # Configure DS2482 I2C-to-1Wire bridges (always, even without sensors,
-        # so scan_onewire_buses() can discover devices on the bus)
-        if ds2482:
-            for _single_ds in ds2482:
-                _LOGGER.debug("Preparing DS2482 bus at address %s", _single_ds[ADDRESS])
-                try:
-                    ow_bus = self._configure_ds2482(address=_single_ds[ADDRESS])
-                    self._ds2482_buses[_single_ds[ID]] = ow_bus
-                except Exception as err:
-                    _LOGGER.error("Failed to configure DS2482 at %s: %s", _single_ds[ADDRESS], err)
-
         if not sensors:
             return
 
-        # Create sensor instances based on platform
+        # Create sensor instances
         for sensor_config in sensors:
-            platform = sensor_config.get("platform", "gpio_onewire")
             address = sensor_config.get("address")
 
             if not address:
                 _LOGGER.warning("Sensor config missing address, skipping")
                 continue
 
-            _LOGGER.debug("Configuring %s sensor at address %s", platform, address)
-
-            if platform == "ds2482":
-                # DS2482 platform - need bus_id
-                bus_id = sensor_config.get("bus_id")
-                if not bus_id or bus_id not in self._ds2482_buses:
-                    _LOGGER.error(
-                        "DS2482 sensor %s requires valid bus_id. Available: %s", address, list(self._ds2482_buses.keys())
-                    )
-                    continue
+            _LOGGER.debug("Configuring 1-Wire sensor at address %s", address)
 
             # Create sensor instance
             sensor = self._create_dallas_sensor(
@@ -323,23 +291,8 @@ class SensorManager:
                 self._dallas_sensors.append(sensor)
                 self._temp_sensors.append(sensor)
 
-    def _configure_ds2482(self, address: int | str = DS2482_ADDRESS) -> OneWireBus:
-        """Configure DS2482 I2C-to-1Wire bridge.
-
-        Args:
-            address: I2C address of DS2482 (int or hex string like '0x18')
-
-        Returns:
-            OneWireBus instance
-        """
-        # Config YAML stores address as string '0x18'; smbus2 needs int
-        if isinstance(address, str):
-            address = int(address, 16)
-        ds2482 = DS2482Bridge(i2c=self._manager._i2cbusio, address=address)
-        return OneWireBus(ds2482=ds2482)
-
     def scan_onewire_buses(self) -> list[dict]:
-        """Scan 1-Wire buses (kernel w1 subsystem or DS2482 bridges) for connected devices.
+        """Scan 1-Wire devices via kernel w1 subsystem.
 
         Returns:
             List of dicts with keys: bus_id, address, family, family_name,
@@ -365,86 +318,40 @@ class SensorManager:
 
         results: list[dict] = []
 
-        # 1. Try kernel 1-Wire subsystem (/sys/bus/w1/devices)
+        # Scan kernel 1-Wire subsystem (/sys/bus/w1/devices)
         w1_sys_dir = Path("/sys/bus/w1/devices")
-        if w1_sys_dir.is_dir():
-            _LOGGER.info("Scanning 1-Wire devices via kernel subsystem (/sys/bus/w1/devices)...")
-            try:
-                for item in w1_sys_dir.iterdir():
-                    if item.name.startswith("w1_bus_master"):
-                        continue
-                    # item.name is e.g. "28-0000098c7df0"
-                    raw_id = item.name.upper()
-                    clean_addr = raw_id.replace("-", "")
-                    family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
-                    is_configured = clean_addr in configured_normalized
+        if not w1_sys_dir.is_dir():
+            _LOGGER.warning(
+                "No kernel 1-Wire subsystem found at /sys/bus/w1/devices. "
+                "Ensure ds2482 and w1-therm kernel modules are loaded."
+            )
+            return results
 
-                    results.append({
-                        "bus_id": "kernel",
-                        "address": item.name,
-                        "family": family_code,
-                        "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
-                        "configured": is_configured,
-                    })
-                if results:
-                    _LOGGER.info("Kernel 1-Wire scan: found %d device(s)", len(results))
-                    return results
-            except Exception as err:
-                _LOGGER.error("Failed scanning /sys/bus/w1/devices: %s", err)
+        _LOGGER.info("Scanning 1-Wire devices via kernel subsystem (/sys/bus/w1/devices)...")
+        try:
+            for item in w1_sys_dir.iterdir():
+                if item.name.startswith("w1_bus_master"):
+                    continue
+                # item.name is e.g. "28-0000098c7df0"
+                raw_id = item.name.upper()
+                clean_addr = raw_id.replace("-", "")
+                family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
+                is_configured = clean_addr in configured_normalized
 
-        # 2. Fall back to userspace DS2482 buses if kernel 1-Wire returned no devices
-        for bus_id, ow_bus in self._ds2482_buses.items():
-            _LOGGER.info("Scanning userspace DS2482 bus '%s' for devices...", bus_id)
-            try:
-                devices = ow_bus.scan()
-                _LOGGER.info("Bus '%s': found %d device(s)", bus_id, len(devices))
-                for dev in devices:
-                    hex_id = dev.hex_id.upper()
-                    clean_addr = hex_id.replace("-", "")
-                    family_code = clean_addr[:2] if len(clean_addr) >= 2 else "28"
-                    results.append({
-                        "bus_id": bus_id,
-                        "address": hex_id,
-                        "family": family_code,
-                        "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
-                        "configured": clean_addr in configured_normalized,
-                    })
-            except Exception as err:
-                _LOGGER.error("Failed to scan bus '%s': %s", bus_id, err)
                 results.append({
-                    "bus_id": bus_id,
-                    "address": None,
-                    "error": str(err),
+                    "bus_id": "kernel",
+                    "address": item.name,
+                    "family": family_code,
+                    "family_name": family_names.get(family_code, f"Unknown (0x{family_code})"),
+                    "configured": is_configured,
                 })
+            if results:
+                _LOGGER.info("Kernel 1-Wire scan: found %d device(s)", len(results))
+        except Exception as err:
+            _LOGGER.error("Failed scanning /sys/bus/w1/devices: %s", err)
 
         return results
 
-    def _find_onewire_devices(
-        self,
-        ow_bus: OneWireBus,
-        bus_id: str,
-        bus_type: str,
-    ) -> dict[str, str]:
-        """Scan for 1-Wire devices on bus.
-
-        Args:
-            ow_bus: OneWire bus instance
-            bus_id: Bus identifier
-            bus_type: Type of bus (DS2482 or DALLAS)
-
-        Returns:
-            Dictionary mapping device addresses to bus IDs
-        """
-        out = {}
-        try:
-            devices = ow_bus.scan()
-            for device in devices:
-                _addr = device.hw_id
-                _LOGGER.debug("Found device on bus %s with address %s", bus_id, _addr)
-                out[_addr] = bus_id
-        except RuntimeError as err:
-            _LOGGER.error("Problem with scanning %s bus: %s", bus_type, err)
-        return out
 
     def _find_dallas_gpio_devices(self, bus_id: str) -> dict[str, str]:
         """Scan for Dallas sensors using Linux kernel w1 subsystem.
@@ -656,7 +563,6 @@ class SensorManager:
         # Get config from ConfigHelper (already reloaded by Manager)
         config = self._manager._config_helper.get_config()
         new_sensors_config = config.get(SENSOR_SECTION, [])
-        ds2482_config = config.get(DS2482, [])
 
         # Get current sensor addresses
         current_addresses = {s._address for s in self._dallas_sensors}

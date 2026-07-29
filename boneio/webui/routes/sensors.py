@@ -181,7 +181,7 @@ async def get_screen_available_sensors(manager: Manager = Depends(get_manager)):
 
 @router.get("/onewire/scan")
 async def scan_onewire_buses(manager: Manager = Depends(get_manager)):
-    """Scan 1-Wire buses (kernel w1 subsystem or DS2482 bridges) for connected devices.
+    """Scan 1-Wire devices via kernel w1 subsystem.
 
     Returns:
         Dictionary with bus info and discovered device list.
@@ -197,10 +197,7 @@ async def scan_onewire_buses(manager: Manager = Depends(get_manager)):
         _LOGGER.error("1-Wire scan failed: %s", e, exc_info=True)
         return {"buses": [], "devices": [], "error": str(e)}
 
-    buses_info = [
-        {"id": bus_id}
-        for bus_id in manager.sensors._ds2482_buses
-    ]
+    buses_info = []
     if Path("/sys/bus/w1/devices").is_dir():
         buses_info.append({"id": "w1-kernel"})
 

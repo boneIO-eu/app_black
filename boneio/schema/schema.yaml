@@ -2129,28 +2129,12 @@ irrigation:
               meta:
                 label: Run zone every Nth scheduled cycle. 1 = every time.
 
-ds2482:
-  type: list
-  required: False
-  meta:
-    label: "https://boneio.eu/docs/black/configuration/ds2482 \n DS2482 section of boneIO Black. It enables DS2482 1 wire extenders, which you can use in sensor: config."
-  schema:
-    type: dict
-    required: False
-    schema:
-      id: !include id.yaml
-      address:
-        type: string
-        required: True
-        default: 0x18
-        meta:
-          label: GPIO of I2C SDA
 
 sensor:
   type: list
   required: False
   meta:
-    label: Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.
+    label: Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.
   schema:
     type: dict
     schema:
@@ -2169,23 +2153,11 @@ sensor:
         required: False
         meta:
           label: Area/room where the sensor is located. Used for HA device grouping.
-      platform:
-        type: string
-        required: False
-        default: gpio_onewire
-        allowed: ['gpio_onewire', 'ds2482']
-        meta:
-          label: Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.
       address:
         type: string
         required: True
         meta:
           label: Address of Dallas device (e.g. 28-0000098c7df0)
-      bus_id:
-        type: string
-        required: False
-        meta:
-          label: DS2482 bus ID (only for ds2482 platform). References ds2482 section id.
       show_in_ha:
         type: boolean
         required: False

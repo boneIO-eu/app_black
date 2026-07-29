@@ -130,7 +130,6 @@ BINARY_SENSOR = "binary_sensor"
 LM75 = "lm75"
 MCP_TEMP_9808 = "mcp9808"
 INPUT_SENSOR = "inputsensor"
-DS2482 = "ds2482"
 DALLAS = "dallas"
 ONEWIRE = "onewire"
 
@@ -176,7 +175,6 @@ OledDataTypes = Literal[UPTIME, NETWORK, CPU, DISK, MEMORY, SWAP, OUTPUT]
 InputTypes = Literal[INPUT, INPUT_SENSOR]
 ExpanderTypes = Literal[MCP23017, PCA9685, PCF8575]
 DEVICE_CLASS = "device_class"
-DallasBusTypes = Literal[DS2482, DALLAS]
 FILTERS = "filters"
 
 cover_actions = {

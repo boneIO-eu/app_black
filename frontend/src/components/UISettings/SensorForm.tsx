@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationCircle, FaExclamationTriangle, FaPlus, FaSearch, FaTrash } from 'react-icons/fa';
 import { NumericInput } from '@/components/ui/NumericInput';
 import { useTranslation } from '../../hooks/useTranslation';
-import { useConfig } from '../../contexts/ConfigContext';
 import axios from 'axios';
 import { sanitizeId } from './helpers/idValidation';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
@@ -71,9 +70,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
   onValidationChange
 }) => {
   const { t } = useTranslation();
-  const { ds2482Supported } = useConfig();
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const defaultPlatform = ds2482Supported ? 'ds2482' : 'gpio_onewire';
 
   // Validate form
   useEffect(() => {
@@ -112,6 +109,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
   // Local scan state
   const [isScanning, setIsScanning] = useState(false);
   const [localSensors, setLocalSensors] = useState<AvailableSensor[]>(availableSensors);
+  const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'warning' | 'error'>('idle');
   const [scanMessage, setScanMessage] = useState<string | null>(null);
 
   // Sync parent sensors into local state
@@ -132,6 +130,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
   const handleScan = async () => {
     setIsScanning(true);
     setScanMessage(null);
+    setScanStatus('idle');
     try {
       const res = await axios.get('/api/onewire/scan');
       const devices = (res.data.devices || []) as { address: string; family_name: string; error?: string }[];
@@ -149,11 +148,20 @@ const SensorForm: React.FC<SensorFormProps> = ({
           }
           return merged;
         });
-        setScanMessage(t('sensors.scan_found', { count: String(found.length) }));
+        setScanStatus('success');
+        if (found.length === 1) {
+          setScanMessage(t('sensors.scan_found_one', { count: '1', defaultValue: 'Wykryto 1 urządzenie' }));
+        } else if (found.length >= 2 && found.length <= 4) {
+          setScanMessage(t('sensors.scan_found_few', { count: String(found.length), defaultValue: `Wykryto ${found.length} urządzenia` }));
+        } else {
+          setScanMessage(t('sensors.scan_found', { count: String(found.length) }));
+        }
       } else {
+        setScanStatus('warning');
         setScanMessage(t('sensors.scan_no_devices'));
       }
     } catch {
+      setScanStatus('error');
       setScanMessage(t('sensors.scan_error'));
     } finally {
       setIsScanning(false);
@@ -172,23 +180,33 @@ const SensorForm: React.FC<SensorFormProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Scan 1-Wire Button */}
-      {ds2482Supported && (
-        <div className="form-control">
-          <button
-            type="button"
-            className={`btn btn-outline btn-sm gap-2 ${isScanning ? 'loading' : ''}`}
-            onClick={handleScan}
-            disabled={isScanning}
-          >
-            {!isScanning && <FaSearch />}
-            {isScanning ? t('sensors.scanning') : t('sensors.scan_onewire')}
-          </button>
-          {scanMessage && (
-            <span className="text-xs mt-1 text-base-content/70">{scanMessage}</span>
-          )}
-        </div>
-      )}
+      {/* Scan 1-Wire Button & Status */}
+      <div className="flex flex-wrap items-center gap-3 my-1">
+        <button
+          type="button"
+          className={`btn btn-outline btn-sm gap-2 shrink-0 ${isScanning ? 'loading' : ''}`}
+          onClick={handleScan}
+          disabled={isScanning}
+        >
+          {!isScanning && <FaSearch />}
+          {isScanning ? t('sensors.scanning') : t('sensors.scan_onewire')}
+        </button>
+
+        {scanMessage && (
+          <div className={`text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 font-medium transition-all ${
+            scanStatus === 'success'
+              ? 'bg-success/10 text-success border border-success/20'
+              : scanStatus === 'warning'
+              ? 'bg-warning/10 text-warning-content border border-warning/20'
+              : 'bg-error/10 text-error border border-error/20'
+          }`}>
+            {scanStatus === 'success' && <FaCheckCircle className="shrink-0 text-sm" />}
+            {scanStatus === 'warning' && <FaExclamationTriangle className="shrink-0 text-sm" />}
+            {scanStatus === 'error' && <FaExclamationCircle className="shrink-0 text-sm" />}
+            <span>{scanMessage}</span>
+          </div>
+        )}
+      </div>
 
       {/* Available Sensors Dropdown */}
       {allSensors.length > 0 && (
@@ -282,56 +300,7 @@ const SensorForm: React.FC<SensorFormProps> = ({
         areas={allAreas}
       />
 
-      {/* Platform */}
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text font-medium">{t('sensors.platform')}</span>
-        </label>
-        <Select
-          value={data.platform || defaultPlatform}
-          onValueChange={(value) => {
-            if (value === 'ds2482') {
-              handleChange('platform', value);
-              if (!data.bus_id) handleChange('bus_id', 'ds2482_bus');
-            } else {
-              handleChange('platform', value);
-            }
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select platform..." />
-          </SelectTrigger>
-          <SelectContent>
-            {ds2482Supported ? (
-              <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem>
-            ) : (
-              <>
-                <SelectItem value="gpio_onewire">GPIO 1-Wire (DS18B20)</SelectItem>
-                <SelectItem value="ds2482">DS2482 I2C Bridge</SelectItem>
-              </>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
 
-      {/* Bus ID (only for ds2482) */}
-      {(data.platform === 'ds2482' || (!data.platform && defaultPlatform === 'ds2482')) && (
-        <div className="form-control">
-          <label className="label">
-            <span className="label-text font-medium">{t('sensors.bus_id')}</span>
-          </label>
-          <input
-            type="text"
-            className="input input-bordered w-full font-mono"
-            value={data.bus_id || ''}
-            onChange={(e) => handleChange('bus_id', e.target.value)}
-            placeholder="ds2482_bus"
-          />
-          <label className="label">
-            <span className="label-text-alt">{t('sensors.bus_id_hint')}</span>
-          </label>
-        </div>
-      )}
 
       {/* Show in HA */}
       <SettingsToggleGroup

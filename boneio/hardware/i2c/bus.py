@@ -234,7 +234,7 @@ class SMBus2I2C:
 
     # ========== Direct SMBus methods for low-level device access ==========
     # These methods provide direct access to SMBus operations for devices
-    # like DS2482 that need byte-level control.
+    # that need byte-level control.
 
     def write_byte(self, address: int, value: int) -> None:
         """Write a single byte to I2C device (no register).

@@ -87,7 +87,7 @@ async def test_action(
 # boneIO Black on-board I2C devices (from schema.yaml)
 # For these addresses we show ONLY the boneIO device, no alternatives.
 BONEIO_I2C_DEVICES: dict[int, str] = {
-    0x18: "MCP9808 temp sensor (boneIO on-board) / DS2482 1-wire bridge",
+    0x18: "MCP9808 temp sensor (boneIO on-board) / DS2484 1-Wire bridge (kernel)",
     0x20: "MCP23017 GPIO expander (boneIO on-board)",
     0x21: "MCP23017 GPIO expander (boneIO on-board)",
     0x22: "MCP23017 GPIO expander",

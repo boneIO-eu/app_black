@@ -225,6 +225,24 @@ export default function UISettings() {
           }
         }
       });
+
+      // Backfill missing fields with schema defaults.
+      // When stripHiddenAndDefaults removes default-valued fields before saving,
+      // the YAML no longer contains them. On reload the backend returns data
+      // without those fields, so the form would show them as empty/0.
+      // Re-injecting defaults here keeps the UI consistent.
+      Object.keys(schema.properties).forEach(key => {
+        if (!(key in converted) || converted[key] === null || converted[key] === undefined) {
+          const propSchema = schema.properties[key] as any;
+          if (propSchema?.default !== undefined) {
+            if (propSchema?.['x-timeperiod'] === true) {
+              converted[key] = convertTimeperiodToMilliseconds(propSchema.default);
+            } else {
+              converted[key] = propSchema.default;
+            }
+          }
+        }
+      });
     }
 
     return converted;

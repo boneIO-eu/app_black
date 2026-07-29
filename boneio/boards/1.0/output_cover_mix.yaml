@@ -167,6 +167,3 @@ output_mapping:
   buzzer:
     kind: buzzer
     output_type: switch
-ds2482:
-- id: ds2482_bus
-  address: '0x18'

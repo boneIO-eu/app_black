@@ -17,7 +17,6 @@ import RemoteDeviceForm from '../RemoteDeviceForm';
 import TemplateForm from '../TemplateForm';
 import ADCForm from '../ADCForm';
 import BoardSensorsForm from '../BoardSensorsForm';
-import DS2482Form from '../DS2482Form';
 import RemoteInputForm from '../RemoteInputForm';
 import RemoteOutputForm from '../RemoteOutputForm';
 import InputTypeSwitcher from './InputTypeSwitcher';
@@ -310,20 +309,6 @@ const FormRenderer: React.FC<FormRendererProps> = (props) => {
         />
       );
 
-    case 'ds2482':
-      return (
-        <DS2482Form
-          data={editingItem}
-          onChange={props.onChange}
-          onSave={props.onSave}
-          onCancel={props.onCancel}
-          isNew={editingIndex === null}
-          schema={schema}
-          existingItems={value}
-          editingIndex={editingIndex}
-          onValidationChange={props.onValidationChange}
-        />
-      );
 
     default:
       return (

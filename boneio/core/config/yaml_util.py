@@ -501,9 +501,14 @@ def merge_board_config(config: dict) -> dict:
     if "mcp23017" not in config and "mcp23017" in board_config:
         config["mcp23017"] = board_config["mcp23017"]
 
-    # Copy DS2482 configuration if not already defined
-    if "ds2482" not in config and "ds2482" in board_config:
-        config["ds2482"] = board_config["ds2482"]
+    # Remove deprecated ds2482 section (kernel modules handle 1-Wire now)
+    if "ds2482" in config:
+        _LOGGER.warning(
+            "Deprecated 'ds2482' section found in config — "
+            "1-Wire is now handled by kernel modules (ds2482/w1-therm). "
+            "Removing from config."
+        )
+        del config["ds2482"]
 
 
     # Process outputs
