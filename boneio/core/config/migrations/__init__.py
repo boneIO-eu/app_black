@@ -98,6 +98,56 @@ def get_config_version(doc: dict) -> int:
     return 0
 
 
+def _has_legacy_fields(doc: dict) -> bool:
+    """Check if the config contains deprecated fields that need migration.
+
+    Used to distinguish between a truly old config (needs migrations)
+    and a fresh config that simply lacks config_version.
+
+    Args:
+        doc: Raw config dict.
+
+    Returns:
+        True if deprecated fields are found, False otherwise.
+    """
+    # v1: nginx_proxy_port or modbus_sensors
+    web = doc.get("web")
+    if isinstance(web, dict) and "nginx_proxy_port" in web:
+        return True
+    if "modbus_sensors" in doc:
+        return True
+
+    # v2: float transition values in events/binary_sensors
+    for section_key in ("event", "binary_sensor"):
+        items = doc.get(section_key)
+        if isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                actions = item.get("actions")
+                if isinstance(actions, dict):
+                    for action_list in actions.values():
+                        if isinstance(action_list, list):
+                            for action in action_list:
+                                if isinstance(action, dict):
+                                    val = action.get("transition")
+                                    if isinstance(val, (int, float)):
+                                        return True
+
+    # v4: inline WLED effects/palettes in remote_devices
+    remote_devices = doc.get("remote_devices")
+    if isinstance(remote_devices, list):
+        for dev in remote_devices:
+            if isinstance(dev, dict) and dev.get("protocol") == "wled":
+                wled = dev.get("wled")
+                if isinstance(wled, dict) and (
+                    "effects" in wled or "palettes" in wled
+                ):
+                    return True
+
+    return False
+
+
 def run_migrations(
     doc: dict,
     from_version: int | None = None,
@@ -119,6 +169,25 @@ def run_migrations(
 
     if from_version >= CURRENT_SCHEMA_VERSION:
         return doc, from_version
+
+    # Fresh config without config_version: check if it actually needs migration.
+    # If no deprecated fields exist, this is a new install — skip all migrations
+    # and stamp with CURRENT_SCHEMA_VERSION directly.
+    if from_version == 0 and not _has_legacy_fields(doc):
+        _LOGGER.debug(
+            "Fresh config detected (no legacy fields), "
+            "setting config_version to %d",
+            CURRENT_SCHEMA_VERSION,
+        )
+        if "boneio" not in doc or not isinstance(doc.get("boneio"), dict):
+            doc["boneio"] = {}
+        doc["boneio"]["config_version"] = CURRENT_SCHEMA_VERSION
+        if config_file:
+            try:
+                _persist_config_version(config_file, CURRENT_SCHEMA_VERSION)
+            except Exception as e:
+                _LOGGER.error("Failed to persist config_version: %s", e)
+        return doc, CURRENT_SCHEMA_VERSION
 
     applied: list[str] = []
 
