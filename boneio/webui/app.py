@@ -485,6 +485,23 @@ async def send_initial_states(
                 except Exception as e:
                     _LOGGER.error(f"Error preparing INA219 sensor state: {type(e).__name__} - {e}")
 
+        # Send INA226 sensor states (v1.0 boards)
+        for single_ina_device in boneio_manager.sensors.get_ina226_sensors():
+            for ina_sensor in single_ina_device.sensors.values():
+                try:
+                    sensor_state = SensorState(
+                        id=ina_sensor.id,
+                        name=ina_sensor.name,
+                        state=ina_sensor.state,
+                        unit=ina_sensor.unit_of_measurement,
+                        timestamp=ina_sensor.last_timestamp,
+                    )
+                    update = SensorEvent(entity_id=ina_sensor.id, state=sensor_state)
+                    if not await send_state_update(update):
+                        return False
+                except Exception as e:
+                    _LOGGER.error(f"Error preparing INA226 sensor state: {type(e).__name__} - {e}")
+
         # Send temperature sensor states
         for sensor in boneio_manager.sensors.get_all_temp_sensors():
             try:

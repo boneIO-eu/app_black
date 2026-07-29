@@ -219,6 +219,7 @@ def filter_cover_extra_data(action_name: str, extra_data: dict) -> dict:
 
 
 INA219 = "ina219"
+INA226 = "ina226"
 VIRTUAL_ENERGY_SENSOR = "virtual_energy_sensor"
 
 # IRRIGATION CONSTS

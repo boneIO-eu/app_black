@@ -153,8 +153,8 @@ class DisplayManager:
                     else None
                 ),
                 ina219=(
-                    self._manager.sensors.get_ina219_sensors()[0]
-                    if self._manager.sensors.get_ina219_sensors()
+                    (self._manager.sensors.get_ina219_sensors() or self._manager.sensors.get_ina226_sensors())[0]
+                    if (self._manager.sensors.get_ina219_sensors() or self._manager.sensors.get_ina226_sensors())
                     else None
                 ),
                 extra_sensors=extra_sensors,

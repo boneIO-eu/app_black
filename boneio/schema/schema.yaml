@@ -597,6 +597,45 @@ ina219:
             device_class: voltage
       update_interval: !include update_interval.yaml
 
+ina226:
+  type: list
+  required: False
+  meta:
+    label: "INA226 Power monitor (boneIO Black v1.0). Measures board current, voltage and power. Replaces INA219 on v1.0 boards."
+  schema:
+    type: dict
+    required: False
+    schema:
+      id: !include id.yaml
+      address:
+        type:
+          - string
+          - integer
+        required: True
+        default: 0x40
+        meta:
+          label: Address of I2C
+      sensors:
+        type: list
+        required: True
+        schema:
+          type: dict
+          required: False
+          schema:
+            id: !include id.yaml
+            device_class:
+              type: string
+              allowed: ['current', 'power', 'voltage']
+            filters: !include filters.yaml
+        default:
+          - id: Board Current
+            device_class: current
+          - id: Board Power
+            device_class: power
+          - id: Board Voltage
+            device_class: voltage
+      update_interval: !include update_interval.yaml
+
 virtual_energy_sensor:
   type: list
   required: False

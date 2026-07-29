@@ -19,6 +19,7 @@ from boneio.const import (
     FILTERS,
     ID,
     INA219,
+    INA226,
     LM75,
     MCP_TEMP_9808,
     ON,
@@ -79,6 +80,7 @@ class SensorManager:
         self._manager = manager
         self._temp_sensors: list[PCT2075 | MCP9808 | DallasSensor] = []
         self._ina219_sensors = []
+        self._ina226_sensors = []
         self._adc_sensors = []
         self._dallas_sensors: list[DallasSensor] = []
         self._system_sensors = []
@@ -88,15 +90,17 @@ class SensorManager:
         # Configure all sensor types
         self._configure_temp_sensors(sensors=sensors)
         self._configure_ina219_sensors(sensors=sensors)
+        self._configure_ina226_sensors(sensors=sensors)
         self._configure_dallas_sensors(dallas=dallas, sensors=sensors.get(ONEWIRE))
         self._configure_adc(adc_list=adc)
         self._configure_system_sensors()
         # Note: virtual_energy_sensors are configured after outputs are ready
 
         _LOGGER.info(
-            "SensorManager initialized with %d temp sensors, %d INA219, %d ADC, %d Dallas, %d system",
+            "SensorManager initialized with %d temp sensors, %d INA219, %d INA226, %d ADC, %d Dallas, %d system",
             len(self._temp_sensors),
             len(self._ina219_sensors),
+            len(self._ina226_sensors),
             len(self._adc_sensors),
             len(self._dallas_sensors),
             len(self._system_sensors),
@@ -247,6 +251,76 @@ class SensorManager:
                     "address": address,
                     "error": str(err),
                     "message": f"INA219 sensor at address 0x{address:02X}: {err}",
+                }
+            )
+            return None
+
+    # -------------------------------------------------------------------------
+    # INA226 Power Sensors (boneIO v1.0)
+    # -------------------------------------------------------------------------
+
+    def _configure_ina226_sensors(self, sensors: dict) -> None:
+        """Configure INA226 power monitoring sensors.
+
+        Args:
+            sensors: Dictionary of sensor configurations
+        """
+        if not sensors.get(INA226):
+            return
+
+        for sensor_config in sensors[INA226]:
+            ina226 = self._create_ina226_sensor(config=sensor_config)
+            if ina226:
+                self._ina226_sensors.append(ina226)
+
+    def _create_ina226_sensor(self, config: dict):
+        """Create INA226 sensor instance.
+
+        Args:
+            config: Sensor configuration dictionary
+
+        Returns:
+            INA226 sensor instance or None on error
+        """
+        from boneio.hardware.i2c import INA226
+
+        address = config[ADDRESS]
+        id = config.get(ID, str(address)).replace(" ", "")
+
+        try:
+            ina226 = INA226(
+                id=id,
+                address=address,
+                sensors=config.get("sensors", []),
+                r_shunt=config.get("r_shunt", 0.05),
+                max_current=config.get("max_current", 1.5),
+                manager=self._manager,
+                message_bus=self._manager._message_bus,
+                topic_prefix=self._manager._topic_prefix,
+                update_interval=config.get(UPDATE_INTERVAL, TimePeriod(seconds=60)),
+            )
+            # Send HA autodiscovery for each sub-sensor
+            for sensor in ina226.sensors.values():
+                payload = ha_sensor_ina_availabilty_message(
+                    id=sensor.id,
+                    name=sensor.name,
+                    config_helper=self._manager._config_helper,
+                    unit_of_measurement=sensor.unit_of_measurement,
+                    device_class=sensor.device_class,
+                )
+                self._manager.publish_ha_discovery(id=sensor.id, ha_type=SENSOR, payload=payload)
+            return ina226
+        except I2CError as err:
+            _LOGGER.error("Can't configure INA226 sensor: %s", err)
+            self._manager._hardware_errors.append(
+                {
+                    "type": "sensor",
+                    "sensor_type": "ina226",
+                    "id": id,
+                    "name": id,
+                    "address": address,
+                    "error": str(err),
+                    "message": f"INA226 sensor at address 0x{address:02X}: {err}",
                 }
             )
             return None
@@ -808,6 +882,14 @@ class SensorManager:
         """
         return self._ina219_sensors
 
+    def get_ina226_sensors(self) -> list:
+        """Get all INA226 sensors.
+
+        Returns:
+            List of INA226 sensors
+        """
+        return self._ina226_sensors
+
     def get_adc_sensors(self) -> list:
         """Get all ADC sensors.
 
@@ -1351,6 +1433,18 @@ class SensorManager:
 
         # INA219 power sensors
         for ina in self._ina219_sensors:
+            for sub in ina.sensors.values():
+                payload = ha_sensor_ina_availabilty_message(
+                    id=sub.id,
+                    name=sub.name,
+                    config_helper=self._manager._config_helper,
+                    unit_of_measurement=sub.unit_of_measurement,
+                    device_class=sub.device_class,
+                )
+                self._manager.publish_ha_discovery(id=sub.id, ha_type=SENSOR, payload=payload)
+
+        # INA226 power sensors
+        for ina in self._ina226_sensors:
             for sub in ina.sensors.values():
                 payload = ha_sensor_ina_availabilty_message(
                     id=sub.id,

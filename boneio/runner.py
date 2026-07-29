@@ -22,6 +22,7 @@ from boneio.const import (
     HA_DISCOVERY,
     HOST,
     INA219,
+    INA226,
     IRRIGATION,
     LM75,
     MCP23017,
@@ -242,6 +243,7 @@ async def async_run(
         sensors={
             LM75: config.get(LM75, []),
             INA219: config.get(INA219, []),
+            INA226: config.get(INA226, []),
             MCP_TEMP_9808: config.get(MCP_TEMP_9808, []),
             ONEWIRE: config.get(SENSOR, []),
             VIRTUAL_ENERGY_SENSOR: config.get(VIRTUAL_ENERGY_SENSOR, []),

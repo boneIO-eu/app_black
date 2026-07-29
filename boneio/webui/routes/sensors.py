@@ -113,6 +113,16 @@ async def get_loaded_sensors(manager: Manager = Depends(get_manager)):
                 "state": sensor.state,
                 "unit": sensor.unit_of_measurement,
             })
+
+    # INA226 sensors (v1.0 boards — same format as INA219 for frontend)
+    for ina_device in manager.sensors.get_ina226_sensors():
+        for sensor in ina_device.sensors.values():
+            result["ina219"].append({
+                "id": sensor.id,
+                "name": sensor.name,
+                "state": sensor.state,
+                "unit": sensor.unit_of_measurement,
+            })
     
     # ADC sensors
     for sensor in manager.sensors.get_adc_sensors():
