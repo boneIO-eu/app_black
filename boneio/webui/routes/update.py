@@ -635,13 +635,14 @@ DEVICE_TYPES = ["24x16", "32x10", "48x4", "cover", "cover_mix"]
 # Hardware version to sensor mapping
 # Different hardware versions have different temperature sensors, power monitoring, and UART for modbus
 HARDWARE_SENSORS = {
-    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "modbus_uart": "uart1"},
-    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "modbus_uart": "uart1"},
-    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
-    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
-    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
-    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
-    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "modbus_uart": "uart4"},
+    "0.2": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
+    "0.3": {"temp_sensor": "mcp9808", "temp_address": 0x18, "has_ina219": False, "power_sensor": None, "modbus_uart": "uart1"},
+    "0.4": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.5": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.6": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.7": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "0.8": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": True, "power_sensor": "ina219", "modbus_uart": "uart4"},
+    "1.0": {"temp_sensor": "lm75", "temp_address": 0x48, "has_ina219": False, "power_sensor": "ina226", "modbus_uart": "uart4"},
 }
 
 # Available hardware versions
@@ -851,10 +852,31 @@ def _adjust_config_for_hardware_version(config_content: str, version: str, devic
             config_content
         )
     
-    # Remove ina219 section if not supported
-    if not hw_config["has_ina219"]:
+    # Adjust power sensor section (ina219 / ina226)
+    power_sensor = hw_config.get("power_sensor")
+    if power_sensor == "ina226":
+        # Replace ina219 with ina226 or insert ina226 if needed
+        if "ina219:" in config_content:
+            config_content = re.sub(
+                r'ina219:\s*\n(\s*-\s*address:.*\n)?',
+                'ina226:\n  - address: 0x40\n',
+                config_content
+            )
+        elif "ina226:" not in config_content:
+            config_content += '\nina226:\n  - address: 0x40\n'
+    elif power_sensor == "ina219":
+        if "ina226:" in config_content:
+            config_content = re.sub(
+                r'ina226:\s*\n(\s*-\s*address:.*\n)?',
+                'ina219:\n  - address: 0x40\n',
+                config_content
+            )
+        elif "ina219:" not in config_content:
+            config_content += '\nina219:\n  - address: 0x40\n'
+    else:
+        # Remove power sensor section if not supported
         config_content = re.sub(
-            r'ina219:\s*\n\s*-\s*address:.*\n',
+            r'(ina219|ina226):\s*\n(\s*-\s*address:.*\n)?',
             '',
             config_content
         )

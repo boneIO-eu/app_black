@@ -33,7 +33,7 @@ function classifySensor(sensor: SensorState): string {
   const idLower = sensor.id.toLowerCase();
 
   if (idLower.startsWith('adc') || idLower.includes('_adc')) return 'adc';
-  if (idLower.includes('ina219') || idLower.includes('ina_219')) return 'board';
+  if (idLower.includes('ina219') || idLower.includes('ina_219') || idLower.includes('ina226') || idLower.includes('ina_226')) return 'board';
   if (SYSTEM_IDS.has(idLower)) return 'system';
   if (
     sensor.unit === '°C' ||

@@ -219,7 +219,7 @@ class HostData:
             },
         }
         
-        # Add INA219 power monitoring if available
+        # Add INA power monitoring if available (INA219 or INA226)
         if ina219 is not None:
 
             def get_ina_values():
@@ -228,10 +228,12 @@ class HostData:
                     for sensor in ina219.sensors.values()
                 }
 
-            host_stats[INA219] = {
+            ina_entry = {
                 "f": get_ina_values,
                 "update_interval": TimePeriod(seconds=60),
             }
+            host_stats[INA219] = ina_entry
+            host_stats["ina"] = ina_entry
         
         # Add extra sensors (modbus, dallas, etc.)
         if extra_sensors:
@@ -354,6 +356,10 @@ class HostData:
             return self.web_url
         if type in self._data:
             return self._data[type].state
+        if type == "ina" and INA219 in self._data:
+            return self._data[INA219].state
+        if type == INA219 and "ina" in self._data:
+            return self._data["ina"].state
         
         _LOGGER.debug("HostData.get returning None for type='%s'", type)
         return None

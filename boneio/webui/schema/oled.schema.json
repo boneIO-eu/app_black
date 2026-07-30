@@ -39,7 +39,7 @@
           "default": [
             "uptime",
             "network",
-            "ina219",
+            "ina",
             "cpu",
             "disk",
             "memory",
@@ -50,6 +50,7 @@
             "enum": [
               "uptime",
               "network",
+              "ina",
               "ina219",
               "cpu",
               "disk",

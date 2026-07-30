@@ -23,7 +23,7 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
   const [showFactoryReset, setShowFactoryReset] = useState(false);
   const [deviceTypes, setDeviceTypes] = useState<string[]>([]);
   const [hardwareVersions, setHardwareVersions] = useState<string[]>([]);
-  const [hardwareSensors, setHardwareSensors] = useState<Record<string, { temp_sensor: string; has_ina219: boolean }>>({});
+  const [hardwareSensors, setHardwareSensors] = useState<Record<string, { temp_sensor: string; has_ina219: boolean; power_sensor?: string | null }>>({});
   const [selectedDeviceType, setSelectedDeviceType] = useState<string | null>(null);
   const [selectedHardwareVersion, setSelectedHardwareVersion] = useState<string>('0.8');
   const [isResettingFactory, setIsResettingFactory] = useState(false);
@@ -163,7 +163,13 @@ export default function FactoryResetSection({ onRestartRequired }: FactoryResetS
                 <option key={version} value={version}>
                   v{version}
                   {hardwareSensors[version] && (
-                    ` (${hardwareSensors[version].temp_sensor}${hardwareSensors[version].has_ina219 ? ' + INA219' : ''})`
+                    ` (${hardwareSensors[version].temp_sensor}${
+                      hardwareSensors[version].power_sensor
+                        ? ` + ${hardwareSensors[version].power_sensor!.toUpperCase()}`
+                        : hardwareSensors[version].has_ina219
+                        ? ' + INA219'
+                        : ''
+                    })`
                   )}
                 </option>
               ))}

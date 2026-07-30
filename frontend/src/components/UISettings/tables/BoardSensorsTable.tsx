@@ -16,12 +16,14 @@ import { Table, Td, Tr, Th, Thead, Tbody } from '@/components/ui/table';
 const TYPE_LABELS: Record<string, string> = {
   lm75: 'LM75',
   ina219: 'INA219',
+  ina226: 'INA226',
   mcp9808: 'MCP9808',
 };
 
 const TYPE_BADGES: Record<string, string> = {
   lm75: 'badge-warning',
   ina219: 'badge-info',
+  ina226: 'badge-info',
   mcp9808: 'badge-success',
 };
 

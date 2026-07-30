@@ -369,7 +369,7 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
     """Update content of a configuration section."""
     RESTART_REQUIRED_SECTIONS = {
         "boneio", "mqtt", "lox_udp", "web", "modbus",
-        "mcp23017", "lm75", "ina219", "mcp9808", "can",
+        "mcp23017", "lm75", "ina219", "ina226", "mcp9808", "can",
     }
 
     if section in ("event", "binary_sensor") and isinstance(data, list):

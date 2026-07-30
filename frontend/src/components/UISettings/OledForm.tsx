@@ -14,7 +14,7 @@ interface OledFormProps {
 const AVAILABLE_SCREENS = [
   { id: 'uptime', icon: '⏱️' },
   { id: 'network', icon: '🌐' },
-  { id: 'ina219', icon: '⚡' },
+  { id: 'ina', icon: '⚡' },
   { id: 'cpu', icon: '💻' },
   { id: 'disk', icon: '💾' },
   { id: 'memory', icon: '🧠' },
@@ -196,7 +196,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   const timeoutSeconds = parseTimeoutValue(screensaverTimeout);
 
   const getScreenInfo = (screenId: string) => {
-    return AVAILABLE_SCREENS.find(s => s.id === screenId);
+    const id = screenId === 'ina219' ? 'ina' : screenId;
+    return AVAILABLE_SCREENS.find(s => s.id === id);
   };
 
   const hasModbus = !!availableSensors?.modbus?.length;
@@ -256,7 +257,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                       />
                       <span className="text-lg shrink-0">{info?.icon || '📺'}</span>
                       <span className="font-medium flex-1">
-                        {t(`oled.screen_${screenId}`)}
+                        {t(`oled.screen_${screenId === 'ina219' ? 'ina' : screenId}`)}
                       </span>
                       <span className="text-xs text-base-content/50 font-mono">{index + 1}</span>
                       <button

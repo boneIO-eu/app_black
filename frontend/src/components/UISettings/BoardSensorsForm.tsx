@@ -33,6 +33,12 @@ const ADDRESS_OPTIONS: Record<string, { value: number; label: string }[]> = {
     { value: 0x44, label: '0x44' },
     { value: 0x45, label: '0x45' },
   ],
+  ina226: [
+    { value: 0x40, label: '0x40 (default)' },
+    { value: 0x41, label: '0x41' },
+    { value: 0x44, label: '0x44' },
+    { value: 0x45, label: '0x45' },
+  ],
   mcp9808: [
     { value: 0x18, label: '0x18 (default)' },
     { value: 0x19, label: '0x19' },
@@ -50,16 +56,19 @@ const ALL_SENSOR_ADDRESSES = new Set(
   Object.values(ADDRESS_OPTIONS).flatMap(opts => opts.map(o => o.value))
 );
 
-/** Default sensor sub-entries for INA219 */
+/** Default sensor sub-entries for INA219/INA226 */
 const DEFAULT_INA219_SENSORS = [
   { id: 'Board Current', device_class: 'current' },
   { id: 'Board Power', device_class: 'power' },
   { id: 'Board Voltage', device_class: 'voltage' },
 ];
 
+const DEFAULT_INA226_SENSORS = [...DEFAULT_INA219_SENSORS];
+
 const SENSOR_TYPES = [
   { value: 'lm75', label: 'LM75 / PCT2075' },
   { value: 'ina219', label: 'INA219' },
+  { value: 'ina226', label: 'INA226' },
   { value: 'mcp9808', label: 'MCP9808' },
 ];
 
@@ -100,8 +109,8 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
         const defaultAddr = ADDRESS_OPTIONS[value]?.[0]?.value || 0;
         updated.address = defaultAddr;
         // Reset type-specific fields
-        if (value === 'ina219') {
-          updated.sensors = DEFAULT_INA219_SENSORS;
+        if (value === 'ina219' || value === 'ina226') {
+          updated.sensors = value === 'ina226' ? DEFAULT_INA226_SENSORS : DEFAULT_INA219_SENSORS;
           delete updated.filters;
           delete updated.unit_of_measurement;
         } else {
@@ -145,11 +154,13 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
   const dataId = data?.id;
   const dataAddress = data?.address;
 
+  const isPowerSensor = sensorType === 'ina219' || sensorType === 'ina226';
+
   // Validate
   useEffect(() => {
     const newErrors: Record<string, string> = {};
 
-    if (sensorType !== 'ina219' && (!dataId || String(dataId).trim() === '')) {
+    if (!isPowerSensor && (!dataId || String(dataId).trim() === '')) {
       newErrors.id = t('board_sensors.id_required');
     }
 
@@ -168,7 +179,7 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
 
     setErrors(newErrors);
     onValidationChangeRef.current?.(Object.keys(newErrors).length > 0);
-  }, [dataId, dataAddress, sensorType, editingIndex, existingItems, t]);
+  }, [dataId, dataAddress, sensorType, isPowerSensor, editingIndex, existingItems, t]);
 
   const addresses = ADDRESS_OPTIONS[sensorType] || [];
 
@@ -211,9 +222,9 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
         label={t('board_sensors.id')}
         value={data?.id ?? ''}
         onChange={(val) => updateField('id', val || undefined)}
-        placeholder={sensorType === 'lm75' ? 'Board temperature' : sensorType === 'ina219' ? '' : 'Temperature'}
+        placeholder={sensorType === 'lm75' ? 'Board temperature' : isPowerSensor ? '' : 'Temperature'}
         error={errors.id}
-        help={sensorType === 'ina219' ? t('board_sensors.id_hint_ina') : t('board_sensors.id_hint')}
+        help={isPowerSensor ? t('board_sensors.id_hint_ina') : t('board_sensors.id_hint')}
       />
 
       {/* I2C Address with Scan button */}
@@ -300,12 +311,12 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
         allowedUnits={['s', 'min']}
       />
 
-      {/* INA219-specific: Sensors sub-list */}
-      {sensorType === 'ina219' && (
+      {/* INA219/INA226-specific: Sensors sub-list */}
+      {isPowerSensor && (
         <FormInputList
           label={t('board_sensors.ina_sensors')}
           help={t('board_sensors.ina_sensors_hint')}
-          items={data?.sensors || DEFAULT_INA219_SENSORS}
+          items={data?.sensors || (sensorType === 'ina226' ? DEFAULT_INA226_SENSORS : DEFAULT_INA219_SENSORS)}
           onChange={(newSensors) => updateField('sensors', newSensors)}
           renderItem={(sensor: any, _idx, updateItem) => (
             <div className="flex items-center gap-2 bg-base-100 rounded p-2">

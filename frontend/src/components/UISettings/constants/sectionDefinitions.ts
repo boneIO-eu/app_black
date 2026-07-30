@@ -80,7 +80,7 @@ export const ARRAY_SECTIONS = [
  * The key is the virtual section name, the value is an array of actual YAML keys.
  */
 export const COMPOSITE_SECTIONS: Record<string, string[]> = {
-  board_sensors: ['lm75', 'ina219', 'mcp9808'],
+  board_sensors: ['lm75', 'ina219', 'ina226', 'mcp9808'],
   local_inputs: ['binary_sensor', 'event'],
 };
 
