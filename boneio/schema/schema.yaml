@@ -761,6 +761,11 @@ mcp23017:
         default: 0s
         meta:
           label: How long to sleep for MCP to initialize.
+      inverted:
+        type: boolean
+        required: False
+        meta:
+          label: Active-LOW relay board (inverted logic)
 
 pcf8575:
   type: list

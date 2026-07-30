@@ -35,6 +35,12 @@
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"
+          },
+          "inverted": {
+            "type": "boolean",
+            "default": false,
+            "description": "Active-LOW relay board (inverted logic: LOW=ON, HIGH=OFF)",
+            "title": "Inverted logic"
           }
         },
         "required": [

@@ -170,3 +170,63 @@ class TestMCP23017Validation:
         """configure_pin_as_output should work without error."""
         mcp.configure_pin_as_output(0, value=True)
         assert mcp.get_pin_value(0) is True
+
+
+class TestMCP23017Inverted:
+    """Test MCP23017 inverted (active-LOW) logic and auto-detection."""
+
+    def test_init_inverted_true_sets_olat_high_on_cold_boot(self):
+        """When inverted=True on cold boot (IODIR=0xFF), OLAT registers should be set to 0xFF."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()  # IODIR=0xFF, OLAT=0x00
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=True)  # type: ignore[arg-type]
+
+        assert mcp.inverted is True
+        # Hardware OLAT registers should be 0xFF (all physical HIGH -> all relays OFF)
+        assert mock_i2c.get_register(0x20, OLATA) == 0xFF
+        assert mock_i2c.get_register(0x20, OLATB) == 0xFF
+
+    def test_inverted_set_pin_value_lowers_physical_bit(self):
+        """Setting logical ON (True) when inverted=True should write 0 (LOW) to physical OLAT bit."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=True)  # type: ignore[arg-type]
+
+        # Logical ON -> physical LOW -> OLATA bit 0 cleared (0xFF -> 0xFE)
+        mcp.set_pin_value(0, True)
+        assert mock_i2c.get_register(0x20, OLATA) == 0xFE
+        assert mcp.get_pin_value(0) is True
+
+        # Logical OFF -> physical HIGH -> OLATA bit 0 set (0xFE -> 0xFF)
+        mcp.set_pin_value(0, False)
+        assert mock_i2c.get_register(0x20, OLATA) == 0xFF
+        assert mcp.get_pin_value(0) is False
+
+    def test_auto_detect_inverted_when_gpio_is_0xff(self):
+        """Cold boot with GPIOA=0xFF, GPIOB=0xFF should auto-detect inverted=True."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[0x12] = 0xFF  # GPIOA = 0xFF (pull-ups present)
+        registers[0x13] = 0xFF  # GPIOB = 0xFF
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False)  # type: ignore[arg-type]
+
+        assert mcp.inverted is True
+
+    def test_auto_detect_not_inverted_when_gpio_is_0x00(self):
+        """Cold boot with GPIOA=0x00, GPIOB=0x00 should auto-detect inverted=False."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[0x12] = 0x00  # GPIOA = 0x00 (no pull-ups)
+        registers[0x13] = 0x00  # GPIOB = 0x00
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False)  # type: ignore[arg-type]
+
+        assert mcp.inverted is False
+

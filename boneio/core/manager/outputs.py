@@ -185,9 +185,11 @@ class OutputManager:
             id = expander[ID] or expander[ADDRESS]
             address = expander[ADDRESS]
             try:
-                expander_dict[id] = _EXPANDER_CLASS[exp_type](
-                    i2c=self._manager._i2cbusio, address=address, reset=False
-                )
+                kwargs = {"i2c": self._manager._i2cbusio, "address": address, "reset": False}
+                if exp_type == MCP:
+                    kwargs["inverted"] = expander.get("inverted", None)
+                    kwargs["state_manager"] = getattr(self._manager, "_state_manager", None)
+                expander_dict[id] = _EXPANDER_CLASS[exp_type](**kwargs)
                 sleep_time = expander.get(INIT_SLEEP, TimePeriod(seconds=0))
                 if sleep_time.total_seconds > 0:
                     _LOGGER.debug(

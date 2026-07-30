@@ -49,13 +49,22 @@ class MCP23017:
         pin0.switch_to_output(value=True)
     """
 
-    def __init__(self, i2c: SMBus2I2C, address: int = 0x20, reset: bool = False):
+    def __init__(
+        self,
+        i2c: SMBus2I2C,
+        address: int = 0x20,
+        reset: bool = False,
+        inverted: bool | None = None,
+        state_manager: Any = None,
+    ):
         """Initialize MCP23017.
         
         Args:
             i2c: I2C bus instance (SMBus2I2C)
             address: I2C address of the device (default 0x20)
             reset: Reset flag (unused, for API compatibility with Adafruit library)
+            inverted: Active-LOW relay board flag (True=active-LOW, False=active-HIGH, None=auto-detect)
+            state_manager: Optional StateManager instance to persist/read auto-detected logic
         
         Raises:
             ValueError: If address is not in valid range (0x20-0x27)
@@ -67,6 +76,7 @@ class MCP23017:
         
         self._i2c = i2c
         self._address = address
+        self._state_manager = state_manager
         
         # Lock for thread-safe pin operations
         # This prevents race conditions when multiple outputs are switched simultaneously
@@ -89,13 +99,55 @@ class MCP23017:
             # Write to both registers for robustness in case of dirty startup
             self._write_register_unlocked(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
             self._write_register_unlocked(0x0B, 0x20)  # Mirror register
+
+            # Read IODIR to check if this is cold boot (all inputs = 0xFF)
+            iodir_a = self._read_register_unlocked(IODIRA)
+            iodir_b = self._read_register_unlocked(IODIRB)
+            is_cold_boot = (iodir_a == 0xFF and iodir_b == 0xFF)
+
+            # Determine inverted state:
+            # 1. Config override
+            # 2. State manager persisted value
+            # 3. Auto-detection on cold boot (GPIO read)
+            # 4. Fallback (False)
+            state_key = f"mcp_0x{address:02x}_inverted"
+            if inverted is not None:
+                self._inverted = bool(inverted)
+                _LOGGER.info("MCP23017@0x%02X inverted set from config: %s", address, self._inverted)
+            elif state_manager and state_manager.get("hardware", state_key) is not None:
+                self._inverted = bool(state_manager.get("hardware", state_key))
+                _LOGGER.info("MCP23017@0x%02X inverted loaded from state: %s", address, self._inverted)
+            elif is_cold_boot:
+                gpio_a = self._read_register_unlocked(GPIOA)
+                gpio_b = self._read_register_unlocked(GPIOB)
+                self._inverted = (gpio_a == 0xFF and gpio_b == 0xFF)
+                _LOGGER.info(
+                    "MCP23017@0x%02X auto-detected relay board logic: %s (GPIOA=0x%02X, GPIOB=0x%02X)",
+                    address,
+                    "active-LOW (inverted)" if self._inverted else "active-HIGH",
+                    gpio_a,
+                    gpio_b,
+                )
+                if state_manager:
+                    state_manager.save_attribute("hardware", state_key, self._inverted)
+            else:
+                self._inverted = False
+                _LOGGER.info("MCP23017@0x%02X inverted fallback: False", address)
             
             # Read current output latch states from hardware to preserve relay states
-            # This prevents momentary OFF state during application restart
-            self._port_a_state = self._read_register_unlocked(OLATA)
-            self._port_b_state = self._read_register_unlocked(OLATB)
+            if is_cold_boot and self._inverted:
+                # Cold boot with active-LOW relays: set all pins to HIGH (0xFF) before setting IODIR=0x00
+                # so relays stay OFF during initial output configuration
+                self._port_a_state = 0xFF
+                self._port_b_state = 0xFF
+                self._write_register_unlocked(OLATA, 0xFF)
+                self._write_register_unlocked(OLATB, 0xFF)
+            else:
+                self._port_a_state = self._read_register_unlocked(OLATA)
+                self._port_b_state = self._read_register_unlocked(OLATB)
+
             _LOGGER.debug(
-                f"MCP23017@0x{address:02X} preserved states: "
+                f"MCP23017@0x{address:02X} preserved states (inverted={self._inverted}): "
                 f"A=0b{self._port_a_state:08b}, B=0b{self._port_b_state:08b}"
             )
             
@@ -104,7 +156,7 @@ class MCP23017:
             self._write_register_unlocked(IODIRA, 0x00)
             self._write_register_unlocked(IODIRB, 0x00)
             
-            _LOGGER.info(f"Initialized MCP23017 at address 0x{address:02X}")
+            _LOGGER.info(f"Initialized MCP23017 at address 0x{address:02X} (inverted={self._inverted})")
         finally:
             self._i2c.unlock()
 
@@ -191,6 +243,11 @@ class MCP23017:
                 iodir &= ~(1 << pin_bit)  # Clear bit = output
                 self._write_register_unlocked(IODIRB, iodir)
 
+    @property
+    def inverted(self) -> bool:
+        """Check whether expander operates in inverted (active-LOW) mode."""
+        return self._inverted
+
     def _write_pin(self, pin_number: int, value: bool) -> None:
         """Write value to a pin using ATOMIC hardware Read-Modify-Write.
         
@@ -199,7 +256,7 @@ class MCP23017:
         
         Args:
             pin_number: Pin number (0-15)
-            value: Output state (True=HIGH, False=LOW)
+            value: Output state (True=ON/HIGH logical, False=OFF/LOW logical)
         """
         with self._lock:
             # Rate limiting: ensure minimum delay between I2C operations
@@ -223,8 +280,11 @@ class MCP23017:
                     # Read current state from hardware
                     current_state = self._read_register_unlocked(reg)
                     
+                    # Account for active-LOW inverted logic
+                    effective_value = not value if self._inverted else value
+
                     # Calculate new state
-                    if value:
+                    if effective_value:
                         new_state = current_state | (1 << bit)
                     else:
                         new_state = current_state & ~(1 << bit)
@@ -232,7 +292,7 @@ class MCP23017:
                     # Only write if state changed
                     if new_state != current_state:
                         _LOGGER.debug(
-                            f"MCP23017@0x{self._address:02X} pin {pin_number} -> {value}: "
+                            f"MCP23017@0x{self._address:02X} pin {pin_number} -> {value} (phys={effective_value}): "
                             f"{'OLATA' if pin_number < 8 else 'OLATB'} "
                             f"0b{current_state:08b} -> 0b{new_state:08b}"
                         )
@@ -277,23 +337,24 @@ class MCP23017:
         self._write_pin(pin_number, value)
 
     def get_pin_value(self, pin_number: int) -> bool:
-        """Get current pin value.
+        """Get current logical pin value.
         
         Args:
             pin_number: Pin number (0-15)
             
         Returns:
-            Current pin state
+            Current logical pin state (accounting for active-LOW inverted logic)
         """
         if not 0 <= pin_number <= 15:
             raise ValueError(f"Pin number must be 0-15, got {pin_number}")
         
         with self._lock:
             if pin_number < 8:
-                return bool(self._port_a_state & (1 << pin_number))
+                raw_state = bool(self._port_a_state & (1 << pin_number))
             else:
                 pin_bit = pin_number - 8
-                return bool(self._port_b_state & (1 << pin_bit))
+                raw_state = bool(self._port_b_state & (1 << pin_bit))
+            return not raw_state if self._inverted else raw_state
 
     def verify_port_state(self) -> tuple[int, int]:
         """Read actual port states from hardware and compare with cached state.
