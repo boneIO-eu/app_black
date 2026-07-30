@@ -4,6 +4,17 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev37 (2026-07-30)
+
+### 🐛 Bug Fixes
+
+- **Cross-type I2C address conflict detection** — Board sensors form now detects address conflicts across all sensor types (INA219, INA226, LM75, MCP9808), not just within the same type. Previously, INA219@0x40 and INA226@0x40 wouldn't show a conflict. Address labels now show which sensor type occupies the address.
+- **Migration v5 legacy detection** — `_has_legacy_fields()` now detects `ina219` in `oled.screens` as a legacy field, ensuring migration v5 runs even on configs with no other deprecated fields.
+- **OledForm fallback default** — Fixed hardcoded `ina219` fallback in OledForm to use `ina` (matching the schema default).
+- **BoardSensorsForm `any` types** — Replaced all `any` types with proper interfaces (`BoardSensorType`, `InaSensorEntry`, `BoardSensorData`) per project typing rules.
+
+---
+
 ## v1.5.0dev36 (2026-07-30)
 
 ### ✨ New Features

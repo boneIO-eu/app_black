@@ -146,6 +146,13 @@ def _has_legacy_fields(doc: dict) -> bool:
                 ):
                     return True
 
+    # v5: deprecated 'ina219' screen name in oled.screens
+    oled = doc.get("oled")
+    if isinstance(oled, dict):
+        screens = oled.get("screens")
+        if isinstance(screens, list) and "ina219" in screens:
+            return True
+
     return False
 
 

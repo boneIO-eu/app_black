@@ -257,6 +257,7 @@
     "address": "Adres I2C",
     "address_required": "Adres I2C jest wymagany",
     "address_duplicate": "Ten adres jest już używany przez inny czujnik tego samego typu",
+    "address_conflict": "Ten adres jest już zajęty przez czujnik {{type}} na tym samym busie I2C",
     "select_address": "Wybierz adres I2C...",
     "update_interval": "Interwał aktualizacji",
     "update_interval_hint": "Jak często odczytywać czujnik (np. 10s, 60s, 5min)",

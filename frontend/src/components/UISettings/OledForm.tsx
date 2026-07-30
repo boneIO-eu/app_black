@@ -63,7 +63,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
   }, [data, onChange]);
 
   // Current screens list
-  const screens: string[] = data?.screens || ['uptime', 'network', 'ina219', 'cpu', 'disk', 'memory', 'swap', 'outputs'];
+  const screens: string[] = data?.screens || ['uptime', 'network', 'ina', 'cpu', 'disk', 'memory', 'swap', 'outputs'];
 
   // Available screens not yet added
   const unusedScreens = AVAILABLE_SCREENS.filter(s => !screens.includes(s.id));

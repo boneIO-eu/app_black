@@ -57,7 +57,7 @@ const ALL_SENSOR_ADDRESSES = new Set(
 );
 
 /** Default sensor sub-entries for INA219/INA226 */
-const DEFAULT_INA219_SENSORS = [
+const DEFAULT_INA219_SENSORS: InaSensorEntry[] = [
   { id: 'Board Current', device_class: 'current' },
   { id: 'Board Power', device_class: 'power' },
   { id: 'Board Voltage', device_class: 'voltage' },
@@ -72,10 +72,30 @@ const SENSOR_TYPES = [
   { value: 'mcp9808', label: 'MCP9808' },
 ];
 
+/** Sensor type identifier */
+type BoardSensorType = 'lm75' | 'ina219' | 'ina226' | 'mcp9808';
+
+/** INA sub-sensor entry (current, power, voltage) */
+interface InaSensorEntry {
+  id: string;
+  device_class: 'current' | 'power' | 'voltage';
+}
+
+/** Board sensor data shared across form and table */
+interface BoardSensorData {
+  _type: BoardSensorType;
+  id?: string;
+  address: number;
+  update_interval?: string;
+  sensors?: InaSensorEntry[];
+  filters?: Record<string, unknown>[];
+  unit_of_measurement?: string;
+}
+
 interface BoardSensorsFormProps {
-  data: any;
-  onChange: (data: any) => void;
-  existingItems: any[];
+  data: BoardSensorData;
+  onChange: (data: BoardSensorData) => void;
+  existingItems: BoardSensorData[];
   editingIndex: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
 }
@@ -101,12 +121,12 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
   const sensorType = data?._type || 'lm75';
 
   const updateField = useCallback(
-    (field: string, value: any) => {
-      const updated = { ...data, [field]: value };
+    (field: string, value: unknown) => {
+      const updated = { ...data, [field]: value } as BoardSensorData;
 
       // When type changes, reset to defaults for new type
       if (field === '_type') {
-        const defaultAddr = ADDRESS_OPTIONS[value]?.[0]?.value || 0;
+        const defaultAddr = ADDRESS_OPTIONS[value as string]?.[0]?.value || 0;
         updated.address = defaultAddr;
         // Reset type-specific fields
         if (value === 'ina219' || value === 'ina226') {
@@ -133,7 +153,7 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
     try {
       const { data: scanResult } = await axios.get('/api/i2c/scan?bus=2', { timeout: 15000 });
       const foundAddresses = new Set<number>(
-        (scanResult.devices || []).map((dev: any) => dev.address)
+        (scanResult.devices || []).map((dev: { address: number }) => dev.address)
       );
       setDetectedAddresses(foundAddresses);
 
@@ -168,13 +188,15 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
       newErrors.address = t('board_sensors.address_required');
     }
 
-    // Check for duplicate address within same type
-    const isDuplicate = existingItems.some((item, idx) => {
+    // Check for duplicate address across ALL sensor types (same I2C bus)
+    const conflicting = existingItems.find((item, idx) => {
       if (editingIndex !== null && idx === editingIndex) return false;
-      return item._type === sensorType && item.address === dataAddress;
+      return item.address === dataAddress;
     });
-    if (isDuplicate) {
-      newErrors.address = t('board_sensors.address_duplicate');
+    if (conflicting) {
+      newErrors.address = conflicting._type === sensorType
+        ? t('board_sensors.address_duplicate')
+        : t('board_sensors.address_conflict', { type: conflicting._type.toUpperCase() });
     }
 
     setErrors(newErrors);
@@ -189,18 +211,22 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
    */
   const getAddressLabel = (opt: { value: number; label: string }) => {
     const isDetected = detectedAddresses?.has(opt.value);
-    const isUsed = existingItems.some((item, idx) => {
+    const usedBy = existingItems.find((item, idx) => {
       if (editingIndex !== null && idx === editingIndex) return false;
-      return item._type === sensorType && item.address === opt.value;
+      return item.address === opt.value;
     });
+    const isUsed = !!usedBy;
+    const usedLabel = usedBy && usedBy._type !== sensorType
+      ? `⚠ ${t('board_sensors.in_use')} (${usedBy._type.toUpperCase()})`
+      : `⚠ ${t('board_sensors.in_use')}`;
     if (isDetected && isUsed) {
-      return `${opt.label}  ✓ ${t('board_sensors.detected')}  ⚠ ${t('board_sensors.in_use')}`;
+      return `${opt.label}  ✓ ${t('board_sensors.detected')}  ${usedLabel}`;
     }
     if (isDetected) {
       return `${opt.label}  ✓ ${t('board_sensors.detected')}`;
     }
     if (isUsed) {
-      return `${opt.label}  ⚠ ${t('board_sensors.in_use')}`;
+      return `${opt.label}  ${usedLabel}`;
     }
     return opt.label;
   };
@@ -253,7 +279,7 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
                 const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
                 const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
                   if (editingIndex !== null && idx === editingIndex) return false;
-                  return item._type === sensorType && item.address === a.value;
+                  return item.address === a.value;
                 }));
                 if (freeAddrs.length > 0) return 'text-success';
                 if (typeAddrs.length > 0) return 'text-warning';
@@ -263,11 +289,11 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
                   const typeAddrs = addresses.filter(a => detectedAddresses.has(a.value));
                   const freeAddrs = typeAddrs.filter(a => !existingItems.some((item, idx) => {
                     if (editingIndex !== null && idx === editingIndex) return false;
-                    return item._type === sensorType && item.address === a.value;
+                    return item.address === a.value;
                   }));
                   const usedAddrs = typeAddrs.filter(a => existingItems.some((item, idx) => {
                     if (editingIndex !== null && idx === editingIndex) return false;
-                    return item._type === sensorType && item.address === a.value;
+                    return item.address === a.value;
                   }));
 
                   if (typeAddrs.length > 0) {
@@ -318,7 +344,7 @@ const BoardSensorsForm: React.FC<BoardSensorsFormProps> = ({
           help={t('board_sensors.ina_sensors_hint')}
           items={data?.sensors || (sensorType === 'ina226' ? DEFAULT_INA226_SENSORS : DEFAULT_INA219_SENSORS)}
           onChange={(newSensors) => updateField('sensors', newSensors)}
-          renderItem={(sensor: any, _idx, updateItem) => (
+          renderItem={(sensor, _idx, updateItem) => (
             <div className="flex items-center gap-2 bg-base-100 rounded p-2">
               <input
                 type="text"
