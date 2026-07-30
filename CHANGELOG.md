@@ -4,6 +4,14 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev40 (2026-07-30)
+
+### 🐛 Bug Fixes
+
+- **Dallas sensor initialization with family prefix** — Fixed `W1ThermSensor` initialization passing the full address (e.g. `28-0b24402d6f2c`) as `sensor_id`, when the library expects only the serial number without family prefix (`0b24402d6f2c`). This caused "Could not find sensor" errors on ds2482-based boards. Now correctly splits address into family code + serial and passes explicit `sensor_type`.
+
+---
+
 ## v1.5.0dev39 (2026-07-30)
 
 ### ✨ New Features

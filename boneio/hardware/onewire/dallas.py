@@ -89,10 +89,32 @@ class DallasSensor(TempSensor):
 
         # Initialize Dallas sensor manually
         try:
-            self._pct = W1ThermSensor(sensor_id=address)
+            # W1ThermSensor expects only the serial number (without family prefix).
+            # Config address is e.g. "28-0b24402d6f2c" — strip "28-" prefix.
+            raw_id = address
+            if "-" in raw_id:
+                parts = raw_id.split("-", 1)
+                family_code = parts[0]
+                serial = parts[1]
+            else:
+                family_code = "28"
+                serial = raw_id
+
+            # Map family code to W1ThermSensor sensor type
+            from w1thermsensor import Sensor as W1SensorType
+            family_map: dict[str, W1SensorType] = {
+                "10": W1SensorType.DS18S20,
+                "22": W1SensorType.DS1822,
+                "28": W1SensorType.DS18B20,
+                "3b": W1SensorType.DS1825,
+                "42": W1SensorType.DS28EA00,
+            }
+            sensor_type = family_map.get(family_code.lower(), W1SensorType.DS18B20)
+
+            self._pct = W1ThermSensor(sensor_type=sensor_type, sensor_id=serial)
             # Perform a first read to check if sensor is available
             self._pct.get_temperature()
-            _LOGGER.info("Dallas sensor %s initialized successfully", address)
+            _LOGGER.info("Dallas sensor %s initialized successfully (serial=%s, type=%s)", address, serial, sensor_type)
         except (ValueError, W1ThermSensorError) as err:
             raise OneWireError(f"Error initializing sensor {address}: {err}") from err
 
