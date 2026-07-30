@@ -4,6 +4,23 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev35 (2026-07-30)
+
+### ✨ New Features
+
+- **MCP23017 inverted (active-LOW) relay board support** — Full driver-level support for new v1.0 relay boards with active-LOW control logic. The MCP23017 driver now handles inverted pin mapping (logical HIGH → physical LOW), cold-start safety (OLAT=0xFF before IODIR=0x00), auto-detection via GPIO pull-up state, and state persistence via StateManager.
+- **WebUI inverted toggle** — Per-MCP toggle in the MCP23017 configuration form to enable/disable inverted logic. Added EN/PL translations.
+- **Flasher relay board detection** — The eMMC flasher now auto-detects active-LOW relay boards during system installation and pre-seeds `boneiostate.json` with inversion flags, preventing relay clicks on first boot.
+
+### 🐛 Bug Fixes
+
+- **Missing inverted config in 3 board files** — Added `inverted: true` to `output_cover.yaml`, `output_cover_mix.yaml`, and `output_48_4.yaml` (v1.0 boards). Previously only `output_32_10.yaml` and `output_24_16.yaml` were updated.
+- **Dead state keys in flasher** — Removed `mcp_35_inverted` / `mcp_36_inverted` keys that didn't match driver's `mcp_0x{addr}_inverted` format. Added `mcp_0x25_inverted` for 48x4 boards with 3 MCPs.
+- **config.schema.json not regenerated** — The main composite JSON schema was missing the `inverted` field. Regenerated via schema converter.
+- **Typing violation** — Replaced `Any` with `StateManager | None` in MCP23017 driver (project rule: never use `any`).
+
+---
+
 ## v1.5.0dev19 (2026-07-21)
 
 ### 🐛 Bug Fixes
