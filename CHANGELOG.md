@@ -4,7 +4,7 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
-## v1.5.0dev37 (2026-07-30)
+## v1.5.0dev38 (2026-07-30)
 
 ### 🐛 Bug Fixes
 
