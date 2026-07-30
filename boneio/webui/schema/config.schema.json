@@ -2005,6 +2005,109 @@
       "description": "https://boneio.eu/docs/black/configuration/ina219 \n INA219 Sensor list. All boneIO Black has one INA219 on board, which measures current, voltage and power of boneIO board.",
       "title": "Ina219"
     },
+    "ina226": {
+      "type": [
+        "array",
+        "string"
+      ],
+      "items": {
+        "type": [
+          "object",
+          "string"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of I2C to use in pin config",
+            "title": "Id"
+          },
+          "address": {
+            "type": [
+              "integer",
+              "string"
+            ],
+            "default": 64,
+            "description": "Address of I2C",
+            "title": "Address"
+          },
+          "sensors": {
+            "type": [
+              "array",
+              "string"
+            ],
+            "default": [
+              {
+                "id": "Board Current",
+                "device_class": "current"
+              },
+              {
+                "id": "Board Power",
+                "device_class": "power"
+              },
+              {
+                "id": "Board Voltage",
+                "device_class": "voltage"
+              }
+            ],
+            "items": {
+              "type": [
+                "object",
+                "string"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Id of I2C to use in pin config",
+                  "title": "Id"
+                },
+                "device_class": {
+                  "type": "string",
+                  "enum": [
+                    "current",
+                    "power",
+                    "voltage"
+                  ],
+                  "examples": [
+                    "current"
+                  ]
+                },
+                "filters": {
+                  "type": [
+                    "array",
+                    "string"
+                  ],
+                  "default": [
+                    {
+                      "round": 2
+                    }
+                  ],
+                  "items": {
+                    "type": [
+                      "object",
+                      "string"
+                    ]
+                  },
+                  "description": "List of filters to apply. Allowed filters visible in allowed section.",
+                  "title": "Filters"
+                }
+              }
+            }
+          },
+          "update_interval": {
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-timeperiod": true,
+            "default": "60s",
+            "description": "Update interval. How often to fetch data from sensor. Default to 60s.",
+            "title": "Update interval"
+          }
+        }
+      },
+      "description": "INA226 Power monitor (boneIO Black v1.0). Measures board current, voltage and power. Replaces INA219 on v1.0 boards.",
+      "title": "Ina226"
+    },
     "virtual_energy_sensor": {
       "type": [
         "array",
@@ -2181,6 +2284,27 @@
             "default": "0s",
             "description": "How long to sleep for MCP to initialize.",
             "title": "Init sleep"
+          },
+          "inverted": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "description": "Active-LOW relay board (inverted logic)",
+            "title": "Inverted"
           }
         },
         "required": [
@@ -9004,33 +9128,6 @@
       "description": "Irrigation controllers \u2014 manage watering zones with schedules, per-zone intervals, and master valve support.",
       "title": "Irrigation"
     },
-    "ds2482": {
-      "type": [
-        "array",
-        "string"
-      ],
-      "items": {
-        "type": [
-          "object",
-          "string"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Id of I2C to use in pin config",
-            "title": "Id"
-          },
-          "address": {
-            "type": "string",
-            "default": 24,
-            "description": "GPIO of I2C SDA",
-            "title": "Address"
-          }
-        }
-      },
-      "description": "https://boneio.eu/docs/black/configuration/ds2482 \n DS2482 section of boneIO Black. It enables DS2482 1 wire extenders, which you can use in sensor: config.",
-      "title": "Ds2482"
-    },
     "sensor": {
       "type": [
         "array",
@@ -9057,28 +9154,10 @@
             "description": "Area/room where the sensor is located. Used for HA device grouping.",
             "title": "Area"
           },
-          "platform": {
-            "type": "string",
-            "default": "gpio_onewire",
-            "enum": [
-              "gpio_onewire",
-              "ds2482"
-            ],
-            "examples": [
-              "gpio_onewire"
-            ],
-            "description": "Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.",
-            "title": "Platform"
-          },
           "address": {
             "type": "string",
             "description": "Address of Dallas device (e.g. 28-0000098c7df0)",
             "title": "Address"
-          },
-          "bus_id": {
-            "type": "string",
-            "description": "DS2482 bus ID (only for ds2482 platform). References ds2482 section id.",
-            "title": "Bus id"
           },
           "show_in_ha": {
             "oneOf": [
@@ -9147,7 +9226,7 @@
           "address"
         ]
       },
-      "description": "Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.",
+      "description": "Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.",
       "title": "Sensor"
     },
     "boneio": {

@@ -1,10 +1,13 @@
 mcp23017:
 - id: mcp_left
   address: 35
+  inverted: true
 - id: mcp_middle
   address: 36
+  inverted: true
 - id: mcp_right
   address: 37
+  inverted: true
 output_mapping:
   out_01:
     kind: mcp

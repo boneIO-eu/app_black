@@ -28,28 +28,10 @@
             "description": "Area/room where the sensor is located. Used for HA device grouping.",
             "title": "Area"
           },
-          "platform": {
-            "type": "string",
-            "default": "gpio_onewire",
-            "enum": [
-              "gpio_onewire",
-              "ds2482"
-            ],
-            "examples": [
-              "gpio_onewire"
-            ],
-            "description": "Platform - gpio_onewire for kernel 1-Wire, ds2482 for I2C bridge.",
-            "title": "Platform"
-          },
           "address": {
             "type": "string",
             "description": "Address of Dallas device (e.g. 28-0000098c7df0)",
             "title": "Address"
-          },
-          "bus_id": {
-            "type": "string",
-            "description": "DS2482 bus ID (only for ds2482 platform). References ds2482 section id.",
-            "title": "Bus id"
           },
           "show_in_ha": {
             "oneOf": [
@@ -118,7 +100,7 @@
           "address"
         ]
       },
-      "description": "Sensor list. Currently only Dallas DS18B20 and DS2482 support. Check DS18B20 or DS2482 section for more info.",
+      "description": "Sensor list for Dallas 1-Wire temperature sensors (DS18B20, etc.). Detected via kernel w1 subsystem.",
       "title": "Sensor"
     }
   }

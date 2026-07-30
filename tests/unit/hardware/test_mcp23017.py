@@ -28,11 +28,13 @@ class TestMCP23017Initialization:
         assert mock_i2c.get_register(0x20, IODIRB) == 0x00
     
     def test_init_preserves_relay_states(self):
-        """MCP23017 should preserve existing relay states on init (no momentary OFF)."""
+        """MCP23017 should preserve existing relay states on hot restart (no momentary OFF)."""
         mock_i2c = MockSMBus2I2C(bus_number=2)
         
-        # Set up device with some relays already ON (simulating hardware state before restart)
+        # Simulate hot restart: IODIR already set to OUTPUT (0x00) by previous session
         registers = MockMCP23017Registers.default()
+        registers[IODIRA] = 0x00  # Already outputs (hot restart)
+        registers[IODIRB] = 0x00
         registers[OLATA] = 0b00001111  # Pins 0-3 ON
         registers[OLATB] = 0b11110000  # Pins 12-15 ON
         mock_i2c.add_device(0x20, registers)
@@ -230,3 +232,24 @@ class TestMCP23017Inverted:
 
         assert mcp.inverted is False
 
+    def test_inverted_hot_restart_preserves_states(self):
+        """Hot restart with inverted=True config should preserve relay states and invert correctly."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[IODIRA] = 0x00  # Already outputs (hot restart)
+        registers[IODIRB] = 0x00
+        # Pin 0 relay ON = physical LOW (0xFE), pin 1 relay OFF = physical HIGH
+        registers[OLATA] = 0xFE  # bit 0 cleared (relay ON), bits 1-7 set (OFF)
+        registers[OLATB] = 0xFF  # all HIGH (all OFF)
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=True)  # type: ignore[arg-type]
+
+        # Hardware should not change OLAT values
+        assert mock_i2c.get_register(0x20, OLATA) == 0xFE
+        assert mock_i2c.get_register(0x20, OLATB) == 0xFF
+
+        # Logical values should be inverted: physical LOW (0) → logical ON (True)
+        assert mcp.get_pin_value(0) is True   # physical LOW → logical ON
+        assert mcp.get_pin_value(1) is False  # physical HIGH → logical OFF
+        assert mcp.get_pin_value(8) is False  # physical HIGH → logical OFF

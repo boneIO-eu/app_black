@@ -37,10 +37,25 @@
             "title": "Init sleep"
           },
           "inverted": {
-            "type": "boolean",
-            "default": false,
-            "description": "Active-LOW relay board (inverted logic: LOW=ON, HIGH=OFF)",
-            "title": "Inverted logic"
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "yes",
+                  "no",
+                  "true",
+                  "false",
+                  "on",
+                  "off"
+                ],
+                "x-yaml-boolean": true
+              }
+            ],
+            "description": "Active-LOW relay board (inverted logic)",
+            "title": "Inverted"
           }
         },
         "required": [

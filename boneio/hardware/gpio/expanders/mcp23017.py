@@ -12,6 +12,7 @@ import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from boneio.core.state.manager import StateManager
     from boneio.hardware.i2c.bus import SMBus2I2C
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class MCP23017:
         address: int = 0x20,
         reset: bool = False,
         inverted: bool | None = None,
-        state_manager: Any = None,
+        state_manager: StateManager | None = None,
     ):
         """Initialize MCP23017.
         
