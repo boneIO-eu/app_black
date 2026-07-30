@@ -752,7 +752,9 @@
     "left_description": "Left GPIO expander (OUT_01-OUT_16 for 32x10, OUT_01-OUT_12 for 24x16)",
     "right_description": "Right GPIO expander (OUT_17-OUT_32 for 32x10, OUT_13-OUT_24 for 24x16)",
     "address": "I2C Address",
-    "address_hint": "Select I2C address for this expander"
+    "address_hint": "Select I2C address for this expander",
+    "inverted": "Inverted logic (active-LOW)",
+    "inverted_hint": "Enable for relay boards with active-LOW control (new v1.0 boards). Relays turn ON with LOW signal."
   },
   "oled": {
     "enabled": "OLED Display Enabled",

@@ -5,6 +5,7 @@ interface Mcp23017Data {
   id: string;
   address: string | number;
   init_sleep?: string | number;
+  inverted?: boolean;
 }
 
 interface Mcp23017FormProps {
@@ -35,9 +36,9 @@ const toHexAddress = (address: string | number): string => {
 };
 
 /**
- * Form for editing MCP23017 I2C expander addresses.
+ * Form for editing MCP23017 I2C expander configuration.
  * 
- * Only allows editing addresses for mcp_left and mcp_right,
+ * Allows editing addresses and inverted logic for mcp_left and mcp_right,
  * as these are the only IDs supported by the output configuration.
  */
 const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
@@ -88,17 +89,22 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
     return { id, address: id === 'mcp_left' ? '0x20' : '0x21' };
   };
   
-  // Update address for specific ID - always save both entries
-  const updateAddress = (id: string, address: string) => {
-    const leftAddr = id === 'mcp_left' ? address : toHexAddress(getEntry('mcp_left').address);
-    const rightAddr = id === 'mcp_right' ? address : toHexAddress(getEntry('mcp_right').address);
+  /**
+   * Update a single field for a specific MCP entry.
+   * Preserves all existing fields (address, init_sleep, inverted).
+   */
+  const updateEntry = (id: string, field: keyof Mcp23017Data, value: string | number | boolean) => {
+    const left = getEntry('mcp_left');
+    const right = getEntry('mcp_right');
     
-    // Always output both mcp_left and mcp_right
-    const newData: Mcp23017Data[] = [
-      { id: 'mcp_left', address: leftAddr },
-      { id: 'mcp_right', address: rightAddr }
-    ];
-    onChange(newData);
+    const update = (entry: Mcp23017Data): Mcp23017Data => {
+      if (entry.id === id) {
+        return { ...entry, [field]: value };
+      }
+      return entry;
+    };
+
+    onChange([update(left), update(right)]);
   };
   
   // Common I2C addresses for MCP23017
@@ -116,6 +122,57 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
   const leftEntry = getEntry('mcp_left');
   const rightEntry = getEntry('mcp_right');
   
+  /** Render a single MCP card with address + inverted toggle. */
+  const renderMcpCard = (entry: Mcp23017Data, variant: 'primary' | 'secondary') => (
+    <div className="card bg-base-200 shadow-sm">
+      <div className="card-body">
+        <h3 className="card-title text-lg">
+          <span className={`badge badge-${variant}`}>{entry.id}</span>
+        </h3>
+        <p className="text-sm text-base-content/70">
+          {t(entry.id === 'mcp_left' ? 'mcp.left_description' : 'mcp.right_description')}
+        </p>
+        
+        {/* Address select */}
+        <div className="form-control mt-4">
+          <label className="label">
+            <span className="label-text font-medium">{t('mcp.address')}</span>
+          </label>
+          <select
+            className="select select-bordered w-full"
+            value={String(entry.address)}
+            onChange={(e) => updateEntry(entry.id, 'address', e.target.value)}
+          >
+            {commonAddresses.map(addr => (
+              <option key={addr.value} value={addr.value}>
+                {addr.label}
+              </option>
+            ))}
+          </select>
+          <label className="label">
+            <span className="label-text-alt">{t('mcp.address_hint')}</span>
+          </label>
+        </div>
+
+        {/* Inverted toggle */}
+        <div className="form-control mt-2">
+          <label className="label cursor-pointer justify-start gap-3">
+            <input
+              type="checkbox"
+              className="toggle toggle-warning toggle-sm"
+              checked={entry.inverted === true}
+              onChange={(e) => updateEntry(entry.id, 'inverted', e.target.checked)}
+            />
+            <div>
+              <span className="label-text font-medium">{t('mcp.inverted')}</span>
+              <p className="label-text-alt mt-0.5">{t('mcp.inverted_hint')}</p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+  
   return (
     <div className="space-y-6">
       <div className="alert alert-info">
@@ -129,65 +186,8 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* MCP Left */}
-        <div className="card bg-base-200 shadow-sm">
-          <div className="card-body">
-            <h3 className="card-title text-lg">
-              <span className="badge badge-primary">mcp_left</span>
-            </h3>
-            <p className="text-sm text-base-content/70">{t('mcp.left_description')}</p>
-            
-            <div className="form-control mt-4">
-              <label className="label">
-                <span className="label-text font-medium">{t('mcp.address')}</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={String(leftEntry.address)}
-                onChange={(e) => updateAddress('mcp_left', e.target.value)}
-              >
-                {commonAddresses.map(addr => (
-                  <option key={addr.value} value={addr.value}>
-                    {addr.label}
-                  </option>
-                ))}
-              </select>
-              <label className="label">
-                <span className="label-text-alt">{t('mcp.address_hint')}</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        
-        {/* MCP Right */}
-        <div className="card bg-base-200 shadow-sm">
-          <div className="card-body">
-            <h3 className="card-title text-lg">
-              <span className="badge badge-secondary">mcp_right</span>
-            </h3>
-            <p className="text-sm text-base-content/70">{t('mcp.right_description')}</p>
-            
-            <div className="form-control mt-4">
-              <label className="label">
-                <span className="label-text font-medium">{t('mcp.address')}</span>
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={String(rightEntry.address)}
-                onChange={(e) => updateAddress('mcp_right', e.target.value)}
-              >
-                {commonAddresses.map(addr => (
-                  <option key={addr.value} value={addr.value}>
-                    {addr.label}
-                  </option>
-                ))}
-              </select>
-              <label className="label">
-                <span className="label-text-alt">{t('mcp.address_hint')}</span>
-              </label>
-            </div>
-          </div>
-        </div>
+        {renderMcpCard(leftEntry, 'primary')}
+        {renderMcpCard(rightEntry, 'secondary')}
       </div>
     </div>
   );

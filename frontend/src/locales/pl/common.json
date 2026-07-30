@@ -716,7 +716,9 @@
     "left_description": "Lewy ekspander GPIO (OUT_01-OUT_16 dla 32x10, OUT_01-OUT_12 dla 24x16)",
     "right_description": "Prawy ekspander GPIO (OUT_17-OUT_32 dla 32x10, OUT_13-OUT_24 dla 24x16)",
     "address": "Adres I2C",
-    "address_hint": "Wybierz adres I2C dla tego ekspandera"
+    "address_hint": "Wybierz adres I2C dla tego ekspandera",
+    "inverted": "Odwrócona logika (active-LOW)",
+    "inverted_hint": "Włącz dla płytek przekaźnikowych ze sterowaniem stanem niskim (nowe płytki v1.0). Przekaźniki załączają się sygnałem LOW."
   },
   "oled": {
     "enabled": "Wyświetlacz OLED włączony",
