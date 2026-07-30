@@ -4,6 +4,17 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev36 (2026-07-30)
+
+### ✨ New Features
+
+- **Unified OLED Power Screen (`ina`) & INA226 support** — Consolidated OLED power screen identifier from `ina219` to generic `ina` so it dynamically displays whichever power monitor chip (INA219 or INA226) is present on the board.
+- **Config Migration v5** — Automatically migrates `ina219` to `ina` in `oled.screens` configuration on startup.
+- **WebUI INA226 board sensor support** — Added INA226 power monitor option to board sensors form and table in the WebUI.
+- **Factory Reset Hardware v1.0 Adjustment** — Updated factory reset logic to automatically configure `ina226` for hardware version 1.0 boards.
+
+---
+
 ## v1.5.0dev35 (2026-07-30)
 
 ### ✨ New Features
