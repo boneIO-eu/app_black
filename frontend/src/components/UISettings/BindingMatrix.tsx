@@ -347,61 +347,61 @@ function StatsBanner({ inputs, outputs, t }: {
   const totalBindings = inputs.reduce((sum, i) => sum + i.bindings.length, 0);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+    <div className="gap-3 grid grid-cols-1 md:grid-cols-4 mb-4">
       {/* Local */}
-      <div className="bg-base-200/50 rounded-xl p-3 border border-base-300 space-y-1">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50">{t('binding_matrix.local')}</h4>
+      <div className="space-y-1 bg-base-200/50 p-3 border border-base-300 rounded-xl">
+        <h4 className="font-bold text-xs text-base-content/50 uppercase tracking-wider">{t('binding_matrix.local')}</h4>
         <p className="text-xs text-base-content/70">
           📥 {t('binding_matrix.inputs')}: {localInputs.length}
-          <span className="text-success ml-1">({boundLocalInputs.length} ✓)</span>
-          <span className="text-warning ml-1">({localInputs.length - boundLocalInputs.length} ○)</span>
+          <span className="ml-1 text-success">({boundLocalInputs.length} ✓)</span>
+          <span className="ml-1 text-warning">({localInputs.length - boundLocalInputs.length} ○)</span>
         </p>
         <p className="text-xs text-base-content/70">
           💡 {t('binding_matrix.outputs')}: {localOutputs.length}
-          <span className="text-success ml-1">({boundLocalOutputs.length} ✓)</span>
-          <span className="text-warning ml-1">({localOutputs.length - boundLocalOutputs.length} ○)</span>
+          <span className="ml-1 text-success">({boundLocalOutputs.length} ✓)</span>
+          <span className="ml-1 text-warning">({localOutputs.length - boundLocalOutputs.length} ○)</span>
         </p>
         <p className="text-xs text-base-content/70">
           🚪 {t('binding_matrix.covers')}: {localCovers.length}
-          <span className="text-success ml-1">({boundLocalCovers.length} ✓)</span>
-          <span className="text-warning ml-1">({localCovers.length - boundLocalCovers.length} ○)</span>
+          <span className="ml-1 text-success">({boundLocalCovers.length} ✓)</span>
+          <span className="ml-1 text-warning">({localCovers.length - boundLocalCovers.length} ○)</span>
         </p>
       </div>
 
       {/* Remote */}
       {(remoteInputs.length > 0 || remoteOutputs.length > 0) && (
-        <div className="bg-info/5 rounded-xl p-3 border border-info/20 space-y-1">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-info/70">{t('binding_matrix.remote')}</h4>
+        <div className="space-y-1 bg-info/5 p-3 border border-info/20 rounded-xl">
+          <h4 className="font-bold text-info/70 text-xs uppercase tracking-wider">{t('binding_matrix.remote')}</h4>
           <p className="text-xs text-base-content/70">
             📥 {t('binding_matrix.inputs')}: {remoteInputs.length}
-            <span className="text-success ml-1">({boundRemoteInputs.length} ✓)</span>
-            <span className="text-warning ml-1">({remoteInputs.length - boundRemoteInputs.length} ○)</span>
+            <span className="ml-1 text-success">({boundRemoteInputs.length} ✓)</span>
+            <span className="ml-1 text-warning">({remoteInputs.length - boundRemoteInputs.length} ○)</span>
           </p>
           <p className="text-xs text-base-content/70">
             📡 {t('binding_matrix.outputs')}: {remoteOutputs.length}
-            <span className="text-success ml-1">({boundRemoteOutputs.length} ✓)</span>
-            <span className="text-warning ml-1">({remoteOutputs.length - boundRemoteOutputs.length} ○)</span>
+            <span className="ml-1 text-success">({boundRemoteOutputs.length} ✓)</span>
+            <span className="ml-1 text-warning">({remoteOutputs.length - boundRemoteOutputs.length} ○)</span>
           </p>
         </div>
       )}
 
       {/* Total */}
-      <div className="bg-primary/5 rounded-xl p-3 border border-primary/20 flex flex-col justify-center">
-        <p className="text-2xl font-extrabold text-primary">{totalBindings}</p>
-        <p className="text-xs font-medium text-primary/70">{t('binding_matrix.total_bindings')}</p>
+      <div className="flex flex-col justify-center bg-primary/5 p-3 border border-primary/20 rounded-xl">
+        <p className="font-extrabold text-primary text-2xl">{totalBindings}</p>
+        <p className="font-medium text-primary/70 text-xs">{t('binding_matrix.total_bindings')}</p>
       </div>
 
       {/* Legend */}
-      <div className="bg-base-200/50 rounded-xl p-3 border border-base-300">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50 mb-1.5">{t('binding_matrix.legend')}</h4>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+      <div className="bg-base-200/50 p-3 border border-base-300 rounded-xl">
+        <h4 className="mb-1.5 font-bold text-xs text-base-content/50 uppercase tracking-wider">{t('binding_matrix.legend')}</h4>
+        <div className="gap-x-3 gap-y-0.5 grid grid-cols-2">
           {CLICK_TYPE_LEGEND.map(item => (
             <span key={item.key} className="text-xxs text-base-content/60">
               <span className="font-mono font-bold text-base-content/80">{item.icon}</span> {t(item.labelKey)}
             </span>
           ))}
         </div>
-        <div className="border-t border-base-300 mt-1.5 pt-1.5 grid grid-cols-3 gap-x-2 gap-y-0.5">
+        <div className="gap-x-2 gap-y-0.5 grid grid-cols-3 mt-1.5 pt-1.5 border-base-300 border-t">
           {ACTION_LEGEND_KEYS.map(item => (
             <span key={item.shortKey} className="text-xxs text-base-content/60">
               <span className="font-mono font-bold text-base-content/80">{t(item.shortKey)}</span> {t(item.labelKey)}
@@ -437,12 +437,12 @@ function UnconfiguredSection({ inputs, outputs, t }: {
   if (!hasLocalFree && !hasRemoteFree) return null;
 
   return (
-    <div className="mt-4 space-y-3">
+    <div className="space-y-3 mt-4">
       {/* Local unconfigured */}
       {hasLocalFree && (
-        <div className="border border-warning/20 rounded-xl bg-warning/5 overflow-hidden">
+        <div className="bg-warning/5 border border-warning/20 rounded-xl overflow-hidden">
           <button
-            className="w-full p-3 flex items-center justify-between text-sm font-semibold text-warning hover:bg-warning/10 transition-colors"
+            className="flex justify-between items-center hover:bg-warning/10 p-3 w-full font-semibold text-warning text-sm transition-colors"
             onClick={() => setShowLocal(!showLocal)}
           >
             <span className="flex items-center gap-2">
@@ -452,7 +452,7 @@ function UnconfiguredSection({ inputs, outputs, t }: {
             {showLocal ? <FaChevronUp className="w-3 h-3" /> : <FaChevronDown className="w-3 h-3" />}
           </button>
           {showLocal && (
-            <div className="p-3 pt-0 space-y-2">
+            <div className="space-y-2 p-3 pt-0">
               {freeLocalInputs.length > 0 && (
                 <FreeItemList
                   title={`📥 ${t('binding_matrix.free_inputs')} (${freeLocalInputs.length})`}
@@ -478,9 +478,9 @@ function UnconfiguredSection({ inputs, outputs, t }: {
 
       {/* Remote unconfigured */}
       {hasRemoteFree && (
-        <div className="border border-info/20 rounded-xl bg-info/5 overflow-hidden">
+        <div className="bg-info/5 border border-info/20 rounded-xl overflow-hidden">
           <button
-            className="w-full p-3 flex items-center justify-between text-sm font-semibold text-info hover:bg-info/10 transition-colors"
+            className="flex justify-between items-center hover:bg-info/10 p-3 w-full font-semibold text-info text-sm transition-colors"
             onClick={() => setShowRemote(!showRemote)}
           >
             <span className="flex items-center gap-2">
@@ -490,7 +490,7 @@ function UnconfiguredSection({ inputs, outputs, t }: {
             {showRemote ? <FaChevronUp className="w-3 h-3" /> : <FaChevronDown className="w-3 h-3" />}
           </button>
           {showRemote && (
-            <div className="p-3 pt-0 space-y-2">
+            <div className="space-y-2 p-3 pt-0">
               {freeRemoteInputs.length > 0 && (
                 <FreeItemList
                   title={`📥 ${t('binding_matrix.free_remote_inputs')} (${freeRemoteInputs.length})`}
@@ -518,12 +518,12 @@ function FreeItemList({ title, items }: {
 }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-base-content/60 mb-1">{title}</p>
+      <p className="mb-1 font-semibold text-xs text-base-content/60">{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {items.map(item => (
           <span
             key={item.id}
-            className="badge badge-sm badge-ghost text-xxs font-mono gap-1"
+            className="gap-1 font-mono text-xxs badge badge-sm badge-ghost"
             title={item.id}
           >
             {item.name}
@@ -692,7 +692,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
 
   if (filteredInputs.length === 0 || filteredOutputs.length === 0) {
     return (
-      <div className="text-center py-12 text-base-content/40">
+      <div className="py-12 text-base-content/40 text-center">
         <p className="text-sm">{t('binding_matrix.no_data')}</p>
       </div>
     );
@@ -701,7 +701,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
   return (
     <div
       ref={scrollRef}
-      className="overflow-x-auto rounded-xl border border-base-300 cursor-grab active:cursor-grabbing select-none"
+      className="border border-base-300 rounded-xl overflow-x-auto cursor-grab active:cursor-grabbing select-none"
       onMouseDown={(e) => {
         isMouseDown.current = true;
         isDragging.current = false;
@@ -732,12 +732,12 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
       <table className="table table-xs w-auto">
         <thead>
           <tr>
-            <th className="sticky left-0 z-20 bg-base-200 border-r border-base-300 min-w-[120px]" />
+            <th className="left-0 z-20 sticky bg-base-200 border-base-300 border-r min-w-30" />
             {filteredOutputs.map(col => (
               <th
                 key={col.id}
                 className={clsx(
-                  'text-center text-xxs font-bold px-2 py-2 min-w-[80px] border-r border-base-300 bg-base-200 cursor-pointer group/col whitespace-nowrap',
+                  'group/col bg-base-200 px-2 py-2 border-base-300 border-r min-w-20 font-bold text-xxs text-center whitespace-nowrap cursor-pointer',
                   hoverCol === col.id && 'bg-primary/10',
                 )}
                 onMouseEnter={() => setHoverCol(col.id)}
@@ -745,18 +745,18 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
                 onClick={() => onEditOutput(col)}
                 title={t('binding_matrix.click_to_edit')}
               >
-                <div className="flex items-center justify-center gap-1">
+                <div className="flex justify-center items-center gap-1">
                   <OutputTypeIcon outputType={col.outputType} className="w-3 h-3 shrink-0" />
                   <span className="whitespace-nowrap">{col.name}</span>
-                  <FaPen className="w-2 h-2 opacity-0 group-hover/col:opacity-40 transition-opacity shrink-0" />
+                  <FaPen className="opacity-0 group-hover/col:opacity-40 w-2 h-2 transition-opacity shrink-0" />
                 </div>
                 {col.area ? (
-                  <div className="text-xxs font-normal text-base-content/40 truncate">{col.area}</div>
+                  <div className="font-normal text-xxs text-base-content/40 truncate">{col.area}</div>
                 ) : (
-                  <div className="text-xxs font-normal text-base-content/20">—</div>
+                  <div className="font-normal text-xxs text-base-content/20">—</div>
                 )}
                 {col.remoteDevice && (
-                  <div className="text-xxs font-normal text-info/50 truncate">{col.remoteDevice}</div>
+                  <div className="font-normal text-info/50 text-xxs truncate">{col.remoteDevice}</div>
                 )}
               </th>
             ))}
@@ -777,19 +777,19 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
               >
                 <td
                   className={clsx(
-                    'sticky left-0 z-10 bg-base-100 border-r border-base-300 font-medium text-xs cursor-pointer group/row',
+                    'group/row left-0 z-10 sticky bg-base-100 border-base-300 border-r font-medium text-xs cursor-pointer',
                     hoverRow === row.id && 'bg-base-200/60',
                     row.bindings.length === 0 && 'text-base-content/30',
                   )}
                   onClick={() => onEditInput(row)}
                   title={t('binding_matrix.click_to_edit')}
                 >
-                  <div className="font-bold truncate max-w-[120px] flex items-center gap-1" title={row.id}>
+                  <div className="flex items-center gap-1 max-w-30 font-bold truncate" title={row.id}>
                     {row.name}
-                    <FaPen className="w-2.5 h-2.5 opacity-0 group-hover/row:opacity-40 transition-opacity shrink-0" />
+                    <FaPen className="opacity-0 group-hover/row:opacity-40 w-2.5 h-2.5 transition-opacity shrink-0" />
                   </div>
                   {row.area && <div className="text-xxs text-base-content/40">{row.area}</div>}
-                  {row.remoteDevice && <div className="text-xxs text-info/50">{row.remoteDevice}</div>}
+                  {row.remoteDevice && <div className="text-info/50 text-xxs">{row.remoteDevice}</div>}
                 </td>
                 {filteredOutputs.map(col => {
                   const cellBindings = targetMap?.get(col.id) || [];
@@ -798,7 +798,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
                     <td
                       key={col.id}
                       className={clsx(
-                        'text-center text-xs border-r border-base-300 px-1 py-1',
+                        'px-1 py-1 border-base-300 border-r text-xs text-center',
                         cellBindings.length > 0
                           ? 'bg-success/15 text-success font-medium'
                           : 'text-base-content/30',
@@ -819,7 +819,7 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
                           {cellBindings.map((b, i) => (
                             <button
                               key={i}
-                              className="whitespace-nowrap cursor-pointer hover:bg-success/30 rounded px-0.5 transition-colors text-left"
+                              className="hover:bg-success/30 px-0.5 rounded text-left whitespace-nowrap transition-colors cursor-pointer"
                               onClick={() => onEditInput(row, b.clickType)}
                               title={`${bindingTooltip(b, t)}\n${t('binding_matrix.click_to_edit')}`}
                             >
@@ -840,11 +840,11 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
       {/* Context menu for empty cells */}
       {ctxMenu && (
         <div
-          className="fixed z-50 bg-base-100 border border-base-300 rounded-lg shadow-xl py-1 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
+          className="z-50 fixed bg-base-100 shadow-xl py-1 border border-base-300 rounded-lg min-w-45 animate-in duration-100 fade-in zoom-in-95"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 py-1.5 text-xxs font-semibold text-base-content/40 uppercase tracking-wider">
+          <div className="px-3 py-1.5 font-semibold text-xxs text-base-content/40 uppercase tracking-wider">
             {t('binding_matrix.add_action')}
           </div>
           {CLICK_TYPE_LEGEND
@@ -857,18 +857,18 @@ function DesktopMatrix({ inputs, outputs, areaFilter, hideEmpty, t, onEditInput,
               return item.key !== 'pressed' && item.key !== 'released';
             })
             .map(item => (
-            <button
-              key={item.key}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-primary/10 transition-colors flex items-center gap-2"
-              onClick={() => {
-                onEditInput(ctxMenu.row, item.key);
-                setCtxMenu(null);
-              }}
-            >
-              <span className="font-mono text-base-content/70">{item.icon}</span>
-              {t(`binding_matrix.legend_${item.key}`)}
-            </button>
-          ))}
+              <button
+                key={item.key}
+                className="flex items-center gap-2 hover:bg-primary/10 px-3 py-1.5 w-full text-sm text-left transition-colors"
+                onClick={() => {
+                  onEditInput(ctxMenu.row, item.key);
+                  setCtxMenu(null);
+                }}
+              >
+                <span className="font-mono text-base-content/70">{item.icon}</span>
+                {t(`binding_matrix.legend_${item.key}`)}
+              </button>
+            ))}
         </div>
       )}
     </div>
@@ -906,7 +906,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
 
   if (filteredInputs.length === 0) {
     return (
-      <div className="text-center py-12 text-base-content/40">
+      <div className="py-12 text-base-content/40 text-center">
         <p className="text-sm">{t('binding_matrix.no_data')}</p>
       </div>
     );
@@ -930,12 +930,12 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
           <div
             key={input.id}
             className={clsx(
-              'rounded-xl border overflow-hidden transition-colors',
+              'border rounded-xl overflow-hidden transition-colors',
               hasBind ? 'border-success/20 bg-success/5' : 'border-base-300 bg-base-200/30',
             )}
           >
             <button
-              className="w-full p-3 flex items-center justify-between text-sm hover:bg-base-200/30 transition-colors"
+              className="flex justify-between items-center hover:bg-base-200/30 p-3 w-full text-sm transition-colors"
               onClick={() => hasBind && toggleExpand(input.id)}
               disabled={!hasBind}
             >
@@ -947,7 +947,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
                 )}
                 <div className="min-w-0 text-left">
                   <span className={clsx(
-                    'font-semibold truncate block',
+                    'block font-semibold truncate',
                     !hasBind && 'text-base-content/30',
                   )}>
                     {input.name}
@@ -959,25 +959,25 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
               </div>
               <div className="flex items-center gap-2">
                 {hasBind && (
-                  <span className="badge badge-sm badge-success font-bold">{input.bindings.length}</span>
+                  <span className="font-bold badge badge-sm badge-success">{input.bindings.length}</span>
                 )}
                 {input.type === 'remote' && (
-                  <span className="badge badge-xs badge-info font-mono">{input.remoteDevice}</span>
+                  <span className="font-mono badge badge-xs badge-info">{input.remoteDevice}</span>
                 )}
                 {hasBind && (isExpanded ? <FaChevronUp className="w-3 h-3 text-base-content/30" /> : <FaChevronDown className="w-3 h-3 text-base-content/30" />)}
               </div>
             </button>
 
             {isExpanded && hasBind && (
-              <div className="border-t border-base-300 p-3 space-y-2 bg-base-100/50">
+              <div className="space-y-2 bg-base-100/50 p-3 border-base-300 border-t">
                 {[...groupedByTarget.entries()].map(([targetId, bindings]) => (
                   <div key={targetId} className="flex items-start gap-2 text-xs">
-                    <span className="font-mono font-bold text-base-content/70 shrink-0 mt-0.5">→</span>
+                    <span className="mt-0.5 font-mono font-bold text-base-content/70 shrink-0">→</span>
                     <div>
                       <span className="font-semibold">{targetId}</span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {bindings.map((b, i) => (
-                          <span key={i} className="badge badge-xs badge-success font-mono gap-0.5">
+                          <span key={i} className="gap-0.5 font-mono badge badge-xs badge-success">
                             {bindingLabel(b, t)}
                           </span>
                         ))}
@@ -987,7 +987,7 @@ function MobileAccordion({ inputs, areaFilter, hideEmpty, t, onEditInput }: {
                 ))}
                 {/* Edit button */}
                 <button
-                  className="btn btn-xs btn-primary btn-outline gap-1 mt-1"
+                  className="gap-1 mt-1 btn-outline btn btn-xs btn-primary"
                   onClick={(e) => { e.stopPropagation(); onEditInput(input); }}
                 >
                   <FaPen className="w-2.5 h-2.5" />
@@ -1201,7 +1201,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
     <div className="p-4 md:p-6 max-w-full">
       {/* Header */}
       <div className="mb-4">
-        <h2 className="text-xl font-extrabold tracking-tight">{t('binding_matrix.title')}</h2>
+        <h2 className="font-extrabold text-xl tracking-tight">{t('binding_matrix.title')}</h2>
         <p className="text-sm text-base-content/50">{t('binding_matrix.subtitle')}</p>
       </div>
 
@@ -1209,14 +1209,14 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
       <StatsBanner inputs={inputs} outputs={outputs} t={t} />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex items-center gap-2">
           <FaFilter className="w-3 h-3 text-base-content/40" />
           <button
-            className="btn btn-sm btn-outline gap-1 min-w-[160px] justify-between"
+            className="justify-between gap-1 btn-outline min-w-40 btn btn-sm"
             onClick={() => setAreaDropdownOpen(prev => !prev)}
           >
-            <span className="truncate text-xs">
+            <span className="text-xs truncate">
               {areaFilter.size === 0
                 ? t('binding_matrix.all_areas')
                 : areaFilter.size === 1
@@ -1228,23 +1228,23 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
           {areaDropdownOpen && (
             <>
               {/* Backdrop */}
-              <div className="fixed inset-0 z-40" onClick={() => setAreaDropdownOpen(false)} />
+              <div className="z-40 fixed inset-0" onClick={() => setAreaDropdownOpen(false)} />
               {/* Dropdown */}
-              <div className="absolute top-full left-0 mt-1 z-50 bg-base-100 border border-base-300 rounded-lg shadow-xl py-1 min-w-[200px] max-h-[300px] overflow-y-auto">
+              <div className="top-full left-0 z-50 absolute bg-base-100 shadow-xl mt-1 py-1 border border-base-300 rounded-lg min-w-50 max-h-75 overflow-y-auto">
                 {/* Select all / Clear */}
-                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-base-200/60 cursor-pointer transition-colors">
+                <label className="flex items-center gap-2 hover:bg-base-200/60 px-3 py-1.5 transition-colors cursor-pointer">
                   <input
                     type="checkbox"
                     className="checkbox checkbox-xs checkbox-primary"
                     checked={areaFilter.size === 0}
                     onChange={() => setAreaFilter(new Set())}
                   />
-                  <span className="text-xs font-semibold">{t('binding_matrix.all_areas')}</span>
+                  <span className="font-semibold text-xs">{t('binding_matrix.all_areas')}</span>
                 </label>
-                <div className="border-t border-base-300 my-0.5" />
+                <div className="my-0.5 border-base-300 border-t" />
                 {/* No area option */}
                 {hasNoArea && (
-                  <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-base-200/60 cursor-pointer transition-colors">
+                  <label className="flex items-center gap-2 hover:bg-base-200/60 px-3 py-1.5 transition-colors cursor-pointer">
                     <input
                       type="checkbox"
                       className="checkbox checkbox-xs checkbox-primary"
@@ -1256,12 +1256,12 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
                         setAreaFilter(next);
                       }}
                     />
-                    <span className="text-xs italic text-base-content/50">{t('binding_matrix.no_area')}</span>
+                    <span className="text-xs text-base-content/50 italic">{t('binding_matrix.no_area')}</span>
                   </label>
                 )}
                 {/* Area options */}
                 {allAreas.map(area => (
-                  <label key={area} className="flex items-center gap-2 px-3 py-1.5 hover:bg-base-200/60 cursor-pointer transition-colors">
+                  <label key={area} className="flex items-center gap-2 hover:bg-base-200/60 px-3 py-1.5 transition-colors cursor-pointer">
                     <input
                       type="checkbox"
                       className="checkbox checkbox-xs checkbox-primary"
@@ -1287,7 +1287,7 @@ const BindingMatrix: React.FC<BindingMatrixProps> = ({ formData, sections, onSav
             checked={hideEmpty}
             onChange={e => setHideEmpty(e.target.checked)}
           />
-          <span className="text-xs font-medium text-base-content/60 flex items-center gap-1">
+          <span className="flex items-center gap-1 font-medium text-xs text-base-content/60">
             {hideEmpty ? <FaEyeSlash className="w-3 h-3" /> : <FaEye className="w-3 h-3" />}
             {t('binding_matrix.hide_empty')}
           </span>
