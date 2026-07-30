@@ -127,8 +127,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
   const addExtraSensor = () => {
     // Default to first available modbus coordinator if available
-    const defaultType = availableSensors?.modbus?.length ? 'modbus' : 
-                        availableSensors?.dallas?.length ? 'dallas' : 'modbus';
+    const defaultType = availableSensors?.modbus?.length ? 'modbus' :
+      availableSensors?.dallas?.length ? 'dallas' : 'modbus';
     const newSensor: any = { sensor_type: defaultType, sensor_id: '' };
     if (defaultType === 'modbus' && availableSensors?.modbus?.length) {
       newSensor.modbus_id = availableSensors.modbus[0].id;
@@ -207,7 +207,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
     <div className="space-y-6">
       {/* Enable/Disable Toggle */}
       <div className="form-control">
-        <label className="label cursor-pointer justify-start gap-3">
+        <label className="justify-start gap-3 cursor-pointer label">
           <input
             type="checkbox"
             className="toggle toggle-primary"
@@ -215,8 +215,8 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
             onChange={(e) => handleChange('enabled', e.target.checked)}
           />
           <div>
-            <span className="label-text font-medium text-base">{t('oled.enabled')}</span>
-            <p className="text-xs text-base-content/60 mt-0.5">{t('oled.enabled_hint')}</p>
+            <span className="font-medium text-base label-text">{t('oled.enabled')}</span>
+            <p className="mt-0.5 text-xs text-base-content/60">{t('oled.enabled_hint')}</p>
           </div>
         </label>
       </div>
@@ -224,13 +224,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
       {data?.enabled !== false && (
         <>
           {/* Screens Section */}
-          <div className="card bg-base-200/50 shadow-sm">
-            <div className="card-body p-4">
-              <h3 className="card-title text-base gap-2">
+          <div className="bg-base-200/50 shadow-sm card">
+            <div className="p-4 card-body">
+              <h3 className="gap-2 text-base card-title">
                 <Monitor size={18} />
                 {t('oled.screens_title')}
               </h3>
-              <p className="text-xs text-base-content/60 mb-3">
+              <p className="mb-3 text-xs text-base-content/60">
                 {t('oled.screens_hint')}
               </p>
 
@@ -245,24 +245,23 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                       onDragStart={() => handleDragStart(index)}
                       onDragOver={(e) => handleDragOver(e, index)}
                       onDragEnd={handleDragEnd}
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
-                        draggedIndex === index
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${draggedIndex === index
                           ? 'border-primary bg-primary/10 opacity-70'
                           : 'border-base-300 bg-base-100 hover:border-base-content/20'
-                      }`}
+                        }`}
                     >
                       <GripVertical
                         size={16}
-                        className="cursor-grab active:cursor-grabbing text-base-content/40 shrink-0"
+                        className="text-base-content/40 cursor-grab active:cursor-grabbing shrink-0"
                       />
                       <span className="text-lg shrink-0">{info?.icon || '📺'}</span>
-                      <span className="font-medium flex-1">
+                      <span className="flex-1 font-medium">
                         {t(`oled.screen_${screenId === 'ina219' ? 'ina' : screenId}`)}
                       </span>
-                      <span className="text-xs text-base-content/50 font-mono">{index + 1}</span>
+                      <span className="font-mono text-xs text-base-content/50">{index + 1}</span>
                       <button
                         type="button"
-                        className="btn btn-ghost btn-xs btn-square text-error/70 hover:text-error"
+                        className="text-error/70 hover:text-error btn btn-ghost btn-xs btn-square"
                         onClick={() => removeScreen(index)}
                         title={t('common.remove')}
                       >
@@ -276,13 +275,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
               {/* Add screen buttons */}
               {unusedScreens.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs text-base-content/60 mb-2">{t('oled.add_screen')}</p>
+                  <p className="mb-2 text-xs text-base-content/60">{t('oled.add_screen')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {unusedScreens.map((screen) => (
                       <button
                         key={screen.id}
                         type="button"
-                        className="btn btn-outline btn-sm gap-1"
+                        className="gap-1 btn-outline btn btn-sm"
                         onClick={() => addScreen(screen.id)}
                       >
                         <span>{screen.icon}</span>
@@ -297,13 +296,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
           {/* Extra Screen Sensors */}
           {screens.includes('extra_sensors') && (
-            <div className="card bg-base-200/50 shadow-sm">
-              <div className="card-body p-4">
-                <h3 className="card-title text-base gap-2">
+            <div className="bg-base-200/50 shadow-sm card">
+              <div className="p-4 card-body">
+                <h3 className="gap-2 text-base card-title">
                   <Thermometer size={18} />
                   {t('oled.extra_sensors_title')}
                 </h3>
-                <p className="text-xs text-base-content/60 mb-3">
+                <p className="mb-3 text-xs text-base-content/60">
                   {t('oled.extra_sensors_hint')}
                 </p>
 
@@ -316,15 +315,15 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                   {extraSensors.map((sensor, index) => (
                     <div
                       key={index}
-                      className="flex flex-wrap items-end gap-2 p-3 rounded-lg border border-base-300 bg-base-100"
+                      className="flex flex-wrap items-end gap-2 bg-base-100 p-3 border border-base-300 rounded-lg"
                     >
                       {/* Sensor Type */}
-                      <div className="form-control flex-1 min-w-[120px]">
-                        <label className="label py-0.5">
-                          <span className="label-text text-xs">{t('oled.sensor_type')}</span>
+                      <div className="flex-1 min-w-30 form-control">
+                        <label className="py-0.5 label">
+                          <span className="text-xs label-text">{t('oled.sensor_type')}</span>
                         </label>
                         <select
-                          className="select select-bordered select-sm w-full"
+                          className="w-full select-bordered select-sm select"
                           value={sensor.sensor_type || 'modbus'}
                           onChange={(e) => updateExtraSensor(index, 'sensor_type', e.target.value)}
                         >
@@ -341,13 +340,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
 
                       {/* Modbus Coordinator select (only for modbus type) */}
                       {sensor.sensor_type === 'modbus' && (
-                        <div className="form-control flex-1 min-w-[120px]">
-                          <label className="label py-0.5">
-                            <span className="label-text text-xs">{t('oled.modbus_id')}</span>
+                        <div className="flex-1 min-w-30 form-control">
+                          <label className="py-0.5 label">
+                            <span className="text-xs label-text">{t('oled.modbus_id')}</span>
                           </label>
                           {availableSensors?.modbus?.length ? (
                             <select
-                              className="select select-bordered select-sm w-full"
+                              className="w-full select-bordered select-sm select"
                               value={sensor.modbus_id || ''}
                               onChange={(e) => updateExtraSensor(index, 'modbus_id', e.target.value)}
                             >
@@ -363,7 +362,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                           ) : (
                             <input
                               type="text"
-                              className="input input-bordered input-sm w-full"
+                              className="w-full input input-bordered input-sm"
                               placeholder={t('oled.modbus_id_placeholder')}
                               value={sensor.modbus_id || ''}
                               onChange={(e) => updateExtraSensor(index, 'modbus_id', e.target.value)}
@@ -373,9 +372,9 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                       )}
 
                       {/* Sensor ID — select for modbus, select for dallas */}
-                      <div className="form-control flex-1 min-w-[120px]">
-                        <label className="label py-0.5">
-                          <span className="label-text text-xs">
+                      <div className="flex-1 min-w-30 form-control">
+                        <label className="py-0.5 label">
+                          <span className="text-xs label-text">
                             {t('oled.sensor_id')} <span className="text-error">*</span>
                           </span>
                         </label>
@@ -423,7 +422,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                       {/* Remove button */}
                       <button
                         type="button"
-                        className="btn btn-ghost btn-sm btn-square text-error shrink-0"
+                        className="text-error btn btn-ghost btn-sm btn-square shrink-0"
                         onClick={() => removeExtraSensor(index)}
                         title={t('common.remove')}
                       >
@@ -437,7 +436,7 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                 {extraSensors.length < 3 && (
                   <button
                     type="button"
-                    className="btn btn-outline btn-sm gap-1 mt-2"
+                    className="gap-1 mt-2 btn-outline btn btn-sm"
                     onClick={addExtraSensor}
                     disabled={loadingSensors}
                   >
@@ -446,23 +445,23 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                   </button>
                 )}
                 {extraSensors.length >= 3 && (
-                  <p className="text-xs text-warning mt-2">{t('oled.max_sensors_reached')}</p>
+                  <p className="mt-2 text-warning text-xs">{t('oled.max_sensors_reached')}</p>
                 )}
               </div>
             </div>
           )}
 
           {/* Screensaver Timeout */}
-          <div className="card bg-base-200/50 shadow-sm">
-            <div className="card-body p-4">
-              <h3 className="card-title text-base gap-2">
+          <div className="bg-base-200/50 shadow-sm card">
+            <div className="p-4 card-body">
+              <h3 className="gap-2 text-base card-title">
                 <Moon size={18} />
                 {t('oled.screensaver_title')}
               </h3>
 
               <div className="form-control">
                 <label className="label">
-                  <span className="label-text font-medium">{t('oled.screensaver_timeout')}</span>
+                  <span className="font-medium label-text">{t('oled.screensaver_timeout')}</span>
                   <span className="label-text-alt badge badge-ghost">
                     {timeoutSeconds === 0
                       ? t('oled.screensaver_disabled')
@@ -482,13 +481,13 @@ const OledForm: React.FC<OledFormProps> = ({ data, onChange }) => {
                     handleChange('screensaver_timeout', val === 0 ? '0' : `${val}s`);
                   }}
                 />
-                <div className="flex justify-between text-xs text-base-content/50 mt-1 px-1">
+                <div className="flex justify-between mt-1 px-1 text-xs text-base-content/50">
                   <span>{t('oled.screensaver_off')}</span>
                   <span>1 min</span>
                   <span>5 min</span>
                   <span>10 min</span>
                 </div>
-                <p className="text-xs text-base-content/60 mt-2">
+                <p className="mt-2 text-xs text-base-content/60">
                   {t('oled.screensaver_timeout_hint')}
                 </p>
               </div>

@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from 'axios';
 
 interface Mcp23017Data {
   id: string;
   address: string | number;
   init_sleep?: string | number;
   inverted?: boolean;
+}
+
+interface McpRuntimeStatus {
+  inverted: boolean;
+  address: string;
 }
 
 interface Mcp23017FormProps {
@@ -40,9 +46,26 @@ const toHexAddress = (address: string | number): string => {
  * 
  * Allows editing addresses and inverted logic for mcp_left and mcp_right,
  * as these are the only IDs supported by the output configuration.
+ * Fetches runtime status from the backend to show auto-detected inverted state.
  */
 const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
   const { t } = useTranslation();
+  const [runtimeStatus, setRuntimeStatus] = useState<Record<string, McpRuntimeStatus>>({});
+  
+  // Fetch runtime MCP status on mount
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const { data: resp } = await axios.get('/api/mcp/status');
+        if (resp?.expanders) {
+          setRuntimeStatus(resp.expanders);
+        }
+      } catch {
+        // Not critical — form works without runtime status
+      }
+    };
+    fetchStatus();
+  }, []);
   
   // Normalize entries - convert addresses to hex format
   const normalizeEntries = (entries: Mcp23017Data[]): Mcp23017Data[] => {
@@ -123,55 +146,81 @@ const Mcp23017Form: React.FC<Mcp23017FormProps> = ({ data, onChange }) => {
   const rightEntry = getEntry('mcp_right');
   
   /** Render a single MCP card with address + inverted toggle. */
-  const renderMcpCard = (entry: Mcp23017Data, variant: 'primary' | 'secondary') => (
-    <div className="card bg-base-200 shadow-sm">
-      <div className="card-body">
-        <h3 className="card-title text-lg">
-          <span className={`badge badge-${variant}`}>{entry.id}</span>
-        </h3>
-        <p className="text-sm text-base-content/70">
-          {t(entry.id === 'mcp_left' ? 'mcp.left_description' : 'mcp.right_description')}
-        </p>
-        
-        {/* Address select */}
-        <div className="form-control mt-4">
-          <label className="label">
-            <span className="label-text font-medium">{t('mcp.address')}</span>
-          </label>
-          <select
-            className="select select-bordered w-full"
-            value={String(entry.address)}
-            onChange={(e) => updateEntry(entry.id, 'address', e.target.value)}
-          >
-            {commonAddresses.map(addr => (
-              <option key={addr.value} value={addr.value}>
-                {addr.label}
-              </option>
-            ))}
-          </select>
-          <label className="label">
-            <span className="label-text-alt">{t('mcp.address_hint')}</span>
-          </label>
-        </div>
+  const renderMcpCard = (entry: Mcp23017Data, variant: 'primary' | 'secondary') => {
+    const runtime = runtimeStatus[entry.id];
+    const configHasInverted = entry.inverted !== undefined;
+    const runtimeInverted = runtime?.inverted ?? false;
+    // Show detected badge when runtime detected inverted but config doesn't have it set
+    const showDetectedBadge = runtime && !configHasInverted;
+    
+    return (
+      <div className="card bg-base-200 shadow-sm">
+        <div className="card-body">
+          <h3 className="card-title text-lg">
+            <span className={`badge badge-${variant}`}>{entry.id}</span>
+            {runtime && runtimeInverted && (
+              <span className="badge badge-warning badge-sm gap-1">
+                ⚡ {t('mcp.active_low')}
+              </span>
+            )}
+          </h3>
+          <p className="text-sm text-base-content/70">
+            {t(entry.id === 'mcp_left' ? 'mcp.left_description' : 'mcp.right_description')}
+          </p>
+          
+          {/* Address select */}
+          <div className="form-control mt-4">
+            <label className="label">
+              <span className="label-text font-medium">{t('mcp.address')}</span>
+            </label>
+            <select
+              className="select select-bordered w-full"
+              value={String(entry.address)}
+              onChange={(e) => updateEntry(entry.id, 'address', e.target.value)}
+            >
+              {commonAddresses.map(addr => (
+                <option key={addr.value} value={addr.value}>
+                  {addr.label}
+                </option>
+              ))}
+            </select>
+            <label className="label">
+              <span className="label-text-alt">{t('mcp.address_hint')}</span>
+            </label>
+          </div>
 
-        {/* Inverted toggle */}
-        <div className="form-control mt-2">
-          <label className="label cursor-pointer justify-start gap-3">
-            <input
-              type="checkbox"
-              className="toggle toggle-warning toggle-sm"
-              checked={entry.inverted === true}
-              onChange={(e) => updateEntry(entry.id, 'inverted', e.target.checked)}
-            />
-            <div>
-              <span className="label-text font-medium">{t('mcp.inverted')}</span>
-              <p className="label-text-alt mt-0.5">{t('mcp.inverted_hint')}</p>
-            </div>
-          </label>
+          {/* Inverted toggle */}
+          <div className="form-control mt-2">
+            <label className="label cursor-pointer justify-start gap-3">
+              <input
+                type="checkbox"
+                className="toggle toggle-warning toggle-sm"
+                checked={entry.inverted === true}
+                onChange={(e) => updateEntry(entry.id, 'inverted', e.target.checked)}
+              />
+              <div>
+                <span className="label-text font-medium">{t('mcp.inverted')}</span>
+                <p className="label-text-alt mt-0.5">{t('mcp.inverted_hint')}</p>
+              </div>
+            </label>
+            {showDetectedBadge && (
+              <div className={`alert ${runtimeInverted ? 'alert-warning' : 'alert-success'} py-2 mt-1`}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span className="text-sm">
+                  {runtimeInverted
+                    ? t('mcp.detected_inverted')
+                    : t('mcp.detected_normal')
+                  }
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
   
   return (
     <div className="space-y-6">

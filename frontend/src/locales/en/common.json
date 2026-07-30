@@ -755,7 +755,10 @@
     "address": "I2C Address",
     "address_hint": "Select I2C address for this expander",
     "inverted": "Inverted logic (active-LOW)",
-    "inverted_hint": "Enable for relay boards with active-LOW control (new v1.0 boards). Relays turn ON with LOW signal."
+    "inverted_hint": "Enable for relay boards with active-LOW control (new v1.0 boards). Relays turn ON with LOW signal.",
+    "active_low": "Active-LOW",
+    "detected_inverted": "Auto-detected: this expander uses active-LOW (inverted) relay board. Consider enabling the toggle above to persist this in config.",
+    "detected_normal": "Auto-detected: this expander uses standard active-HIGH relay board."
   },
   "oled": {
     "enabled": "OLED Display Enabled",

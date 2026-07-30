@@ -719,7 +719,10 @@
     "address": "Adres I2C",
     "address_hint": "Wybierz adres I2C dla tego ekspandera",
     "inverted": "Odwrócona logika (active-LOW)",
-    "inverted_hint": "Włącz dla płytek przekaźnikowych ze sterowaniem stanem niskim (nowe płytki v1.0). Przekaźniki załączają się sygnałem LOW."
+    "inverted_hint": "Włącz dla płytek przekaźnikowych ze sterowaniem stanem niskim (nowe płytki v1.0). Przekaźniki załączają się sygnałem LOW.",
+    "active_low": "Active-LOW",
+    "detected_inverted": "Wykryto automatycznie: ten expander używa płytki przekaźnikowej active-LOW (odwrócone). Rozważ włączenie przełącznika powyżej, aby zapisać to w konfiguracji.",
+    "detected_normal": "Wykryto automatycznie: ten expander używa standardowej płytki przekaźnikowej active-HIGH."
   },
   "oled": {
     "enabled": "Wyświetlacz OLED włączony",

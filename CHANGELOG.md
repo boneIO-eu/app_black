@@ -4,6 +4,28 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0dev39 (2026-07-30)
+
+### ✨ New Features
+
+- **MCP23017 runtime inverted detection in WebUI** — Added `/api/mcp/status` endpoint returning auto-detected inverted state for each MCP23017 expander. The MCP23017 form now fetches runtime status and displays:
+  - **⚡ Active-LOW badge** in the card header when driver detected inverted relay board
+  - **Auto-detection alert** below the toggle when config doesn't have explicit `inverted` but driver detected it at runtime, with suggestion to persist in config
+- **MCP23017 `address` property** — Added public `address` property to MCP23017 driver for API access.
+
+### 🐛 Bug Fixes
+
+- **Cross-type I2C address conflict detection** — Board sensors form now detects address conflicts across all sensor types (INA219, INA226, LM75, MCP9808), not just within the same type.
+- **Migration v5 legacy detection** — `_has_legacy_fields()` now detects `ina219` in `oled.screens` as a legacy field.
+- **OledForm fallback default** — Fixed hardcoded `ina219` fallback to `ina`.
+- **BoardSensorsForm `any` types** — Replaced all `any` with proper interfaces.
+
+### ♻️ Refactoring
+
+- **OledForm CSS class ordering** — Reordered Tailwind CSS classes for consistency.
+
+---
+
 ## v1.5.0dev38 (2026-07-30)
 
 ### 🐛 Bug Fixes

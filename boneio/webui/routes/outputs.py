@@ -385,3 +385,25 @@ async def generate_outputs_dashboard(
             and (not area or (getattr(o, "area", None) or "other") == area)
         ),
     }
+
+
+@router.get("/mcp/status")
+async def mcp_status(manager: Manager = Depends(get_manager)):
+    """Get runtime status of MCP23017 expanders.
+
+    Returns the auto-detected or configured inverted state for each MCP,
+    along with the I2C address. This allows the WebUI to display the
+    detected state even when it's not explicitly set in the YAML config.
+
+    Returns:
+        Dictionary mapping MCP IDs to their runtime status.
+    """
+    mcp_dict = getattr(manager.outputs, "_mcp", {})
+    result: dict[str, dict[str, bool | str]] = {}
+    for mcp_id, expander in mcp_dict.items():
+        result[mcp_id] = {
+            "inverted": expander.inverted,
+            "address": f"0x{expander.address:02x}",
+        }
+    return {"expanders": result}
+

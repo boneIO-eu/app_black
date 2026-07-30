@@ -249,6 +249,11 @@ class MCP23017:
         """Check whether expander operates in inverted (active-LOW) mode."""
         return self._inverted
 
+    @property
+    def address(self) -> int:
+        """Get the I2C address of this expander."""
+        return self._address
+
     def _write_pin(self, pin_number: int, value: bool) -> None:
         """Write value to a pin using ATOMIC hardware Read-Modify-Write.
         
