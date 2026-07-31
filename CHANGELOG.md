@@ -4,6 +4,51 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.0 (2026-07-31)
+
+### 🎯 Highlights
+
+- **WebUI performance overhaul** — startup from ~5 API requests down to 1, eliminated page reloads
+- **Teach Mode** — batch input→output linking with area filters and diagnostics
+- **Binding Matrix** — visual grid of all input-output bindings
+- **Quick Action Sheet** — fast input→output linking from bottom sheet
+- **Security hardening** — path traversal protection, CORS, auth improvements
+- **40+ dev releases** tested in the field
+- **Board v1.0 readiness** — software support for the upcoming hardware revision
+
+### ✨ New Features
+
+- Teach Mode — batch input→output linking with visual entity picker, area filters, test button
+- Binding Matrix — visual grid of all bindings, click-to-edit, inline dialog, drag-to-scroll
+- Quick Action Sheet — bottom-sheet for fast input→output linking with remote outputs/covers
+- WebUI Performance — single `GET /api/init`, config cache with prefetch, deferred SW registration
+- WLED remote output support — effects, palettes, segments from device cache
+- Remote binary sensor in action conditions
+- Kernel-only 1-Wire operation, bus scan API, DS2482 1-Wire Expanders section
+- MQTT Reference dialog, QDW90A pressure sensor, SearchableEntityPicker
+- NumericInput component, serial number override, OLED dynamic selects
+- Node-RED backup with SHA256 checksums, Log Viewer grouping, fast config reload
+- Overlay mismatch detection, Restart Application button
+- Board v1.0 support: DS2484, INA226, active-LOW MCP23017, unified OLED power screen
+
+### 🔒 Security
+
+- Stage 1 hardening — path traversal, CORS, auth, security headers
+- Defense-in-depth against sed injection, rate limiting sudo attempts
+
+### 🐛 Bug Fixes
+
+- Fix WebSocket race condition, irrigation interlock, Modbus text sensor crash
+- Fix WLED DNS, venetian tilt restore, GPIO readback, config reload crash
+- Fix Dallas family prefix, update progress in HA, migration skipping
+- Various i18n fixes
+
+### 📦 Dependencies
+
+- aiohttp 3.14.1, hypercorn 0.18.0, psutil 7.2.2
+
+---
+
 ## v1.5.0dev40 (2026-07-30)
 
 ### 🐛 Bug Fixes
