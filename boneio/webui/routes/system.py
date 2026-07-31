@@ -208,8 +208,35 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
     except Exception:
         auth_required = True
 
+    # Config metadata — lightweight flags to avoid a separate GET /api/config
+    # on startup. All derived from config_helper which holds parsed config in memory.
+    has_boneio = False
+    board_version: str | None = None
+    has_irrigation = False
+    try:
+        config = config_helper.get_config()
+        has_boneio = "boneio" in config
+        boneio_section = config.get("boneio", {})
+        if isinstance(boneio_section, dict) and boneio_section.get("version"):
+            board_version = str(boneio_section["version"])
+
+        # Check irrigation: direct section or template entries with platform=irrigation
+        irrigation_direct = config.get("irrigation", [])
+        templates = config.get("template", [])
+        irrigation_from_templates = [
+            t for t in templates
+            if isinstance(t, dict) and t.get("platform") == "irrigation"
+        ]
+        has_irrigation = (
+            (isinstance(irrigation_direct, list) and len(irrigation_direct) > 0)
+            or len(irrigation_from_templates) > 0
+        )
+    except Exception:
+        pass
+
     return {
         "version": __version__,
+        "name": config_helper.name,
         "serial_no": config_helper.real_serial,
         "serial_override": config_helper.serial_override,
         "auth_required": auth_required,
@@ -217,6 +244,9 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
         "pwa_default": f"bIO {serial_suffix}",
         "pwa_max_length": 12,
         "cloud": cloud_data,
+        "has_boneio": has_boneio,
+        "board_version": board_version,
+        "has_irrigation": has_irrigation,
     }
 
 @router.get("/name")

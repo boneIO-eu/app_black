@@ -1,10 +1,8 @@
-import { useApiAvailability } from "../hooks/useApiAvailability";
-import { useCountdown } from "../hooks/useCountdown";
+import { useAppInit } from "@/contexts/AppInitContext";
 
 const NotAvailable = () => {
-    const { isChecking, nextCheckTime, checkNow } = useApiAvailability();
-    const secondsLeft = useCountdown(nextCheckTime);
-    
+    const { isLoading, refetch } = useAppInit();
+
     return (<div className="fixed inset-0 flex items-center justify-center z-50">
         <div className="p-8 text-center">
           <div className="loading loading-dots loading-lg mb-4"></div>
@@ -12,15 +10,16 @@ const NotAvailable = () => {
             API unavailable
           </h2>
           <p className="text-base-content/70 mb-4">
-            {isChecking ? 'Checking if service is back online...' : 
-              `Next check in ${secondsLeft} seconds`}
+            {isLoading
+              ? 'Checking if service is back online...'
+              : 'Service appears to be offline.'}
           </p>
           <button 
-            onClick={checkNow} 
-            disabled={isChecking}
+            onClick={refetch} 
+            disabled={isLoading}
             className="btn btn-primary"
           >
-            {isChecking ? 'Checking...' : 'Check Now'}
+            {isLoading ? 'Checking...' : 'Check Now'}
           </button>
         </div>
       </div>)

@@ -9,6 +9,7 @@
  */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import axios from '@/api/axios';
+import { prefetchConfig } from '@/api/configCache';
 
 interface CloudStatus {
   enabled: boolean;
@@ -20,6 +21,7 @@ interface CloudStatus {
 
 interface AppInitData {
   version: string;
+  name: string;
   serial_no: string;
   serial_override?: string | null;
   auth_required: boolean;
@@ -27,6 +29,9 @@ interface AppInitData {
   pwa_default: string;
   pwa_max_length: number;
   cloud: CloudStatus;
+  has_boneio: boolean;
+  board_version: string | null;
+  has_irrigation: boolean;
 }
 
 interface AppInitContextType {
@@ -70,9 +75,15 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
         const { data: initData } = await axios.get('/api/init');
-        setData(initData);
+        setData(prev => {
+          // Avoid re-render if data hasn't changed (periodic re-fetch)
+          if (prev && JSON.stringify(prev) === JSON.stringify(initData)) return prev;
+          return initData;
+        });
         setIsApiAvailable(true);
         setIsLoading(false);
+        // Warm /api/config cache in background so UISettings loads instantly
+        prefetchConfig();
         return;
       } catch {
         if (attempt < MAX_RETRIES) {

@@ -1,18 +1,18 @@
 /**
  * ConfigContext - provides configuration state across the application.
  *
- * This context checks if the 'boneio' section exists in the configuration
- * and exposes this information to components that need it (e.g., Navigation).
+ * Previously fetched /api/config on startup (0.5-1.3s on BBB) just to extract
+ * a few boolean flags. Now reads config metadata from /api/init (via AppInitContext)
+ * which is already fetched on startup.
+ *
+ * The full /api/config is only fetched on-demand (e.g. by UISettings editor).
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import axios from '@/api/axios';
-import { useAuth } from '@/hooks/useAuth';
+import { createContext, useContext, useMemo, ReactNode } from 'react';
+import { useAppInit } from './AppInitContext';
 
 /** Board versions that support CAN bus (0.5+) */
 const CAN_SUPPORTED_VERSIONS = ['0.5', '0.6', '0.7', '0.8', '1.0'];
-
-
 
 /** Max inputs per board version */
 const MAX_INPUTS: Record<string, number> = {
@@ -39,7 +39,7 @@ interface ConfigContextType {
   canSupported: boolean;
   /** Maximum number of inputs for this board version */
   maxInputs: number;
-  /** Refresh the config state */
+  /** Refresh the config state (re-fetches /api/init) */
   refreshConfig: () => Promise<void>;
 }
 
@@ -49,72 +49,31 @@ interface ConfigProviderProps {
   children: ReactNode;
 }
 
+/**
+ * ConfigProvider that derives config state from AppInitContext.
+ *
+ * No longer makes a separate /api/config call on startup.
+ * Config metadata (has_boneio, board_version, has_irrigation) comes
+ * from /api/init which is already fetched by AppInitProvider.
+ */
 export function ConfigProvider({ children }: ConfigProviderProps) {
-  const [hasBoneioSection, setHasBoneioSection] = useState(false);
-  const [hasIrrigationSection, setHasIrrigationSection] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [boardVersion, setBoardVersion] = useState<string | null>(null);
-  const [canSupported, setCanSupported] = useState(true);
-  const [maxInputs, setMaxInputs] = useState(49);
-  const { isAuthenticated, isAuthRequired } = useAuth();
+  const { data: initData, isLoading, refetch } = useAppInit();
 
-  const refreshConfig = useCallback(async () => {
-    // Don't fetch config if auth is required but user is not authenticated
-    if (isAuthRequired && !isAuthenticated) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const { data } = await axios.get('/api/config');
-      // Check if 'boneio' section exists in config
-      const hasBoneio = data?.config?.boneio !== undefined;
-      setHasBoneioSection(hasBoneio);
-
-      // Extract board version and compute capabilities
-      const version = data?.config?.boneio?.version
-        ? String(data.config.boneio.version)
-        : null;
-      setBoardVersion(version);
-      setCanSupported(version ? CAN_SUPPORTED_VERSIONS.includes(version) : true);
-      setMaxInputs(version && MAX_INPUTS[version] ? MAX_INPUTS[version] : 49);
-
-      // Check for irrigation controllers:
-      // 1. Direct `irrigation:` section in YAML
-      // 2. Template entries with `platform: irrigation`
-      const irrigationDirect = data?.config?.irrigation;
-      const templates: any[] = data?.config?.template || [];
-      const irrigationFromTemplates = templates.filter(
-        (t: any) => t?.platform === 'irrigation'
-      );
-      const hasIrrigation =
-        (Array.isArray(irrigationDirect) && irrigationDirect.length > 0) ||
-        irrigationFromTemplates.length > 0;
-      setHasIrrigationSection(hasIrrigation);
-    } catch (error) {
-      console.error('Failed to load config:', error);
-      setHasBoneioSection(false);
-      setHasIrrigationSection(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAuthenticated, isAuthRequired]);
-
-  useEffect(() => {
-    refreshConfig();
-  }, [refreshConfig]);
-
-  return (
-    <ConfigContext.Provider value={{
-      hasBoneioSection,
-      hasIrrigationSection,
+  const value = useMemo<ConfigContextType>(() => {
+    const boardVersion = initData?.board_version ?? null;
+    return {
+      hasBoneioSection: initData?.has_boneio ?? false,
+      hasIrrigationSection: initData?.has_irrigation ?? false,
       isLoading,
       boardVersion,
-      canSupported,
-      maxInputs,
-      refreshConfig,
-    }}>
+      canSupported: boardVersion ? CAN_SUPPORTED_VERSIONS.includes(boardVersion) : true,
+      maxInputs: boardVersion && MAX_INPUTS[boardVersion] ? MAX_INPUTS[boardVersion] : 49,
+      refreshConfig: refetch,
+    };
+  }, [initData, isLoading, refetch]);
+
+  return (
+    <ConfigContext.Provider value={value}>
       {children}
     </ConfigContext.Provider>
   );

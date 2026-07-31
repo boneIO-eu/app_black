@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './useAuth';
-import { useApiAvailability } from './useApiAvailability';
+import { useAppInit } from '@/contexts/AppInitContext';
 import { getBasePath } from '../api/basePath';
 
 // State models matching Python Pydantic models
@@ -353,7 +353,7 @@ export function useWebSocket() {
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { isAuthRequired, isAuthenticated } = useAuth();
-  const { isApiAvailable } = useApiAvailability();
+  const { isApiAvailable } = useAppInit();
 
   // Track if this is the first mount
   const isFirstMount = useRef(true);

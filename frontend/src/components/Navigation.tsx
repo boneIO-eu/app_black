@@ -5,7 +5,6 @@ import LanguageSelector from './LanguageSelector';
 import { useEffect } from 'react';
 import clsx from 'clsx';
 import { useAuth } from '../hooks/useAuth';
-import { useDeviceName } from '../hooks/useDeviceName';
 import { useConfig } from '../contexts/ConfigContext';
 import { useNodeRedAvailability } from '../hooks/useNodeRedAvailability';
 import { useTranslation } from '../hooks/useTranslation';
@@ -16,7 +15,7 @@ import { HelpDialog } from './HelpView';
 export default function Navigation() {
   const { isAuthenticated, logout } = useAuth();
   const { data: initData } = useAppInit();
-  const { deviceName } = useDeviceName();
+  const deviceName = initData?.name || '';
 
   // Derive from init data (single API call, no duplicates)
   const version = initData?.version || '';
@@ -260,7 +259,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
 
 export const DrawerSide = () => {
   const { data: initData } = useAppInit();
-  const { deviceName } = useDeviceName();
+  const deviceName = initData?.name || '';
 
   const version = initData?.version || '';
   const serialNo = initData?.serial_no || '';

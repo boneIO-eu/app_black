@@ -25,9 +25,24 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle errors
+// Add a response interceptor to handle errors and invalidate config cache
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Auto-invalidate config cache on any mutating request to config endpoints.
+    // This covers UISettings, ConfigEditorUI, TeachMode, QuickActionSheet, etc.
+    const method = response.config.method?.toLowerCase();
+    const url = response.config.url || '';
+    if (
+      (method === 'put' || method === 'post' || method === 'delete') &&
+      (url.includes('/api/config') || url.includes('/api/pwa_name'))
+    ) {
+      // Lazy import to avoid circular dependency (configCache imports axios)
+      import('./configCache').then(({ invalidateConfigCache }) => {
+        invalidateConfigCache();
+      });
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
       // Clear token and redirect to login

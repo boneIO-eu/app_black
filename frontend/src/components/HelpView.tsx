@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import axios from '@/api/axios';
+import { useState, useCallback } from 'react';
+import { useAppInit } from '@/contexts/AppInitContext';
 import { useTranslation } from '../hooks/useTranslation';
 import {
   FaDiscord,
@@ -81,20 +81,20 @@ function HelpContent({ version }: { version: string }) {
   ];
 
   return (
-    <div className="space-y-5 overflow-y-auto max-h-[70vh] sm:max-h-[65vh] pr-1">
+    <div className="space-y-5 pr-1 max-h-[70vh] sm:max-h-[65vh] overflow-y-auto">
       {/* Version badge */}
       {version && (
         <div className="flex justify-center">
-          <span className="badge badge-outline badge-sm gap-1 text-base-content/50">
+          <span className="gap-1 badge-outline text-base-content/50 badge badge-sm">
             {t('help.version')}: {version}
           </span>
         </div>
       )}
 
       {/* Encouraging banner */}
-      <div className="rounded-xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 p-4">
+      <div className="bg-linear-to-br from-primary/10 to-secondary/10 p-4 border border-primary/20 rounded-xl">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+          <div className="flex justify-center items-center bg-primary/20 rounded-lg w-8 h-8 shrink-0">
             <FaLightbulb className="w-4 h-4 text-primary" />
           </div>
           <p className="text-sm text-base-content/70 leading-relaxed">
@@ -104,27 +104,27 @@ function HelpContent({ version }: { version: string }) {
       </div>
 
       {/* Resource cards */}
-      <div className="grid gap-2">
+      <div className="gap-2 grid">
         {links.map((link) => (
           <a
             key={link.url}
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 p-3 rounded-xl border border-base-300 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/30 transition-all duration-200"
+            className="group flex items-center gap-3 bg-base-200/30 hover:bg-base-200/60 p-3 border border-base-300 hover:border-primary/30 rounded-xl transition-all duration-200"
           >
-            <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${link.color} flex items-center justify-center transition-transform duration-200 group-hover:scale-110`}>
+            <div className={`shrink-0 w-10 h-10 rounded-xl ${link.color} flex items-center justify-center transition-transform duration-200 group-hover:scale-110`}>
               {link.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-base-content/90 truncate">
+              <p className="font-semibold text-sm text-base-content/90 truncate">
                 {link.label}
               </p>
               <p className="text-xs text-base-content/50">
                 {link.description}
               </p>
             </div>
-            <svg className="w-4 h-4 text-base-content/30 group-hover:text-primary/60 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 group-hover:text-primary/60 text-base-content/30 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
           </a>
@@ -132,16 +132,16 @@ function HelpContent({ version }: { version: string }) {
       </div>
 
       {/* Suggestions banner */}
-      <div className="rounded-xl bg-success/10 border border-success/20 p-4">
+      <div className="bg-success/10 p-4 border border-success/20 rounded-xl">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-success/20 flex items-center justify-center">
+          <div className="flex justify-center items-center bg-success/20 rounded-lg w-8 h-8 shrink-0">
             <svg className="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <p className="text-sm font-semibold text-success">{t('help.suggestions_title')}</p>
-            <p className="text-xs text-base-content/50 mt-0.5 leading-relaxed">
+            <p className="font-semibold text-success text-sm">{t('help.suggestions_title')}</p>
+            <p className="mt-0.5 text-xs text-base-content/50 leading-relaxed">
               {t('help.suggestions_text')}
             </p>
           </div>
@@ -159,19 +159,8 @@ function HelpContent({ version }: { version: string }) {
  * Used from Navigation bar as a trigger button.
  */
 export function HelpDialog({ trigger }: { trigger: React.ReactNode }) {
-  const [version, setVersion] = useState('');
-
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await axios.get('/api/version');
-        setVersion(response.data.version);
-      } catch (error) {
-        console.error('Error fetching version:', error);
-      }
-    };
-    fetchVersion();
-  }, []);
+  const { data: initData } = useAppInit();
+  const version = initData?.version || '';
 
   const { t } = useTranslation();
 
@@ -195,20 +184,9 @@ export function HelpDialog({ trigger }: { trigger: React.ReactNode }) {
  */
 export default function HelpView() {
   const { t } = useTranslation();
-  const [version, setVersion] = useState('');
+  const { data: initData } = useAppInit();
+  const version = initData?.version || '';
   const [dialogOpen, setDialogOpen] = useState(true);
-
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await axios.get('/api/version');
-        setVersion(response.data.version);
-      } catch (error) {
-        console.error('Error fetching version:', error);
-      }
-    };
-    fetchVersion();
-  }, []);
 
   const handleOpenChange = useCallback((open: boolean) => {
     setDialogOpen(open);

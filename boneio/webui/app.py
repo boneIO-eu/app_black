@@ -842,7 +842,7 @@ if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
         return JSONResponse(
             content=manifest,
             media_type="application/manifest+json",
-            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+            headers={"Cache-Control": "public, max-age=300"},
         )
 
     @app.get("/sw.js")

@@ -90,12 +90,24 @@ export const WebSocketContext = createContext<{
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, isAuthRequired } = useAuth();
-  const { isApiAvailable } = useAppInit();
+  const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
+  const { isApiAvailable, isLoading: initLoading } = useAppInit();
 
-  if (!isApiAvailable || isLoading) {
+  // API confirmed unavailable after retries — show error screen
+  if (!isApiAvailable && !initLoading) {
     return <NotAvailable />
-  } 
+  }
+
+  // Still loading init data or auth — show spinner inside layout shell
+  if (initLoading || authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full min-h-[60vh]">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+        </div>
+      </Layout>
+    );
+  }
   
   if (!isAuthenticated && isAuthRequired) {
     return <LoginView />

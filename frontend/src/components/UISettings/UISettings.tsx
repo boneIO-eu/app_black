@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import axios from '@/api/axios';
+import { fetchConfig } from '@/api/configCache';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import * as yaml from 'js-yaml';
 import {
@@ -260,9 +261,9 @@ export default function UISettings() {
         })
         .catch(() => { });
 
-      // Load parsed config from backend FIRST (fast, small)
-      const { data: configContent } = await axios.get('/api/config');
-      const configData = configContent?.config || {};
+      // Load parsed config from backend — uses prefetched cache if available
+      const configContent = await fetchConfig() as Record<string, any>;
+      const configData: Record<string, any> = configContent?.config || {};
 
       // Merge composite sections (e.g. lm75 + ina219 + mcp9808 → board_sensors,
       // binary_sensor + event → local_inputs)

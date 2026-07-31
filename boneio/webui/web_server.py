@@ -190,7 +190,7 @@ class WebServer:
         self._hypercorn_config.graceful_timeout = (
             2.0  # Wait max 2s for connections to close
         )
-        self._hypercorn_config.keep_alive_timeout = 2  # Keep-alive timeout
+        self._hypercorn_config.keep_alive_timeout = 5  # Keep-alive timeout
         self._hypercorn_config.websocket_ping_interval = (
             20  # Ping interval (default is None)
         )

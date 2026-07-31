@@ -162,6 +162,31 @@ function SidebarContent({
   const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
   const toolsSections = reloadSections.filter(s => s.group === 'tools');
 
+  // Show skeleton while config sections are still loading
+  const isLoading = sections.length === 0;
+
+  if (isLoading) {
+    return (
+      <>
+        {/* Skeleton for reload sections */}
+        <div className="mb-4 space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-12 w-full rounded-lg" />
+          ))}
+        </div>
+        {/* Skeleton for restart sections */}
+        <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
+          <div className="skeleton h-4 w-40 mb-2" />
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton h-12 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       {/* Local sections - hot reload supported */}

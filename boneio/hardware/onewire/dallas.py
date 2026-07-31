@@ -102,6 +102,7 @@ class DallasSensor(TempSensor):
 
             # Map family code to W1ThermSensor sensor type
             from w1thermsensor import Sensor as W1SensorType
+
             family_map: dict[str, W1SensorType] = {
                 "10": W1SensorType.DS18S20,
                 "22": W1SensorType.DS1822,
@@ -114,7 +115,12 @@ class DallasSensor(TempSensor):
             self._pct = W1ThermSensor(sensor_type=sensor_type, sensor_id=serial)
             # Perform a first read to check if sensor is available
             self._pct.get_temperature()
-            _LOGGER.info("Dallas sensor %s initialized successfully (serial=%s, type=%s)", address, serial, sensor_type)
+            _LOGGER.info(
+                "Dallas sensor %s initialized successfully (serial=%s, type=%s)",
+                address,
+                serial,
+                sensor_type,
+            )
         except (ValueError, W1ThermSensorError) as err:
             raise OneWireError(f"Error initializing sensor {address}: {err}") from err
 
@@ -159,14 +165,22 @@ class DallasSensor(TempSensor):
         """
         try:
             if not self._pct:
-                _LOGGER.warning("Dallas sensor %s not initialized, skipping update", self.id)
+                _LOGGER.warning(
+                    "Dallas sensor %s not initialized, skipping update", self.id
+                )
                 return
             # Run blocking get_temperature in executor to avoid blocking the event loop
             _temp = await self._loop.run_in_executor(None, self._pct.get_temperature)
-            _LOGGER.debug("Fetched temperature %s°C for sensor %s. Applying filters.", _temp, self.id)
+            _LOGGER.debug(
+                "Fetched temperature %s°C for sensor %s. Applying filters.",
+                _temp,
+                self.id,
+            )
 
             if _temp is None:
-                _LOGGER.warning("Temperature reading returned None for sensor %s", self.id)
+                _LOGGER.warning(
+                    "Temperature reading returned None for sensor %s", self.id
+                )
                 return
 
             # Apply filters
@@ -189,7 +203,9 @@ class DallasSensor(TempSensor):
                 W1ThermSensorError,
             )
 
-            if isinstance(err, (SensorNotReadyError, NoSensorFoundError, W1ThermSensorError)):
+            if isinstance(
+                err, (SensorNotReadyError, NoSensorFoundError, W1ThermSensorError)
+            ):
                 _LOGGER.error("Failed to read sensor %s: %s", self.id, err)
             else:
                 _LOGGER.error("Unexpected error reading sensor %s: %s", self.id, err)
