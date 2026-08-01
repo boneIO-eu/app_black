@@ -175,6 +175,9 @@ def ha_availabilty_message(
     unique_id = f"{unique_id_prefix}_{device_type}{id}"
     default_entity_id = f"{entity_type}.{config_helper.serial_number}_{id}"
     
+    # Filter out None values — HA rejects fields like device_class: None
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
     return {
         "availability": [{"topic": f"{topic}/{STATE}"}],
         "optimistic": False,
@@ -184,7 +187,7 @@ def ha_availabilty_message(
         "unique_id": unique_id,
         "default_entity_id": default_entity_id,
         # "object_id": f"{topic}{device_type}{id}",
-        **kwargs,
+        **filtered_kwargs,
     }
 
 

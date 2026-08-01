@@ -4,6 +4,14 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.1 (2026-08-01)
+
+### 🐛 Bug Fixes
+
+- **Fix HA MQTT discovery for event entities**: Home Assistant rejected MQTT discovery messages for `event` entities because `device_class: None` was sent in the payload. HA requires either a valid `EventDeviceClass` value or the field to be omitted entirely. Fixed by filtering out `None` values from discovery message kwargs.
+
+---
+
 ## v1.5.0 (2026-07-31)
 
 ### 🎯 Highlights
