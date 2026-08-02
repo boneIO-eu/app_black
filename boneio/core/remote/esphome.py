@@ -182,6 +182,10 @@ class ESPHomeRemoteDevice(RemoteDevice):
         # Keyed by entity_id → callable(new_state: bool, brightness: int | None)
         self._output_callbacks: dict[str, Any] = {}
 
+        # Callbacks for cover state changes.
+        # Keyed by cover_id → callable(state_dict: dict)
+        self._cover_callbacks: dict[str, Any] = {}
+
         # Load configured entities
         if switches:
             self._switches = switches
@@ -287,6 +291,29 @@ class ESPHomeRemoteDevice(RemoteDevice):
             entity_id: Switch or light object_id.
         """
         self._output_callbacks.pop(entity_id, None)
+
+    def register_cover_callback(self, cover_id: str, callback: Any) -> None:
+        """Register a callback for cover state changes.
+
+        Args:
+            cover_id: Cover object_id on this device.
+            callback: Callable(state_dict: dict) invoked on cover state change.
+                      state_dict contains position, tilt, current_operation.
+        """
+        self._cover_callbacks[cover_id] = callback
+        _LOGGER.debug(
+            "Registered cover callback for '%s' on device '%s'",
+            cover_id,
+            self._name,
+        )
+
+    def unregister_cover_callback(self, cover_id: str) -> None:
+        """Remove a cover state callback.
+
+        Args:
+            cover_id: Cover object_id.
+        """
+        self._cover_callbacks.pop(cover_id, None)
 
     def has_light(self, entity_id: str) -> bool:
         """Check if entity_id is a light on this device.
@@ -531,6 +558,17 @@ class ESPHomeRemoteDevice(RemoteDevice):
                             current_op,
                             last_op,
                         )
+                        # Notify registered cover callback
+                        cb = self._cover_callbacks.get(cover_id)
+                        if cb is not None:
+                            try:
+                                cb(self._cover_states[cover_id])
+                            except Exception as cb_err:
+                                _LOGGER.error(
+                                    "Error in cover callback for '%s': %s",
+                                    cover_id,
+                                    cb_err,
+                                )
                         break
 
             elif isinstance(state, BinarySensorState):

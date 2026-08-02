@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from '@/api/axios';
 import { NumericInput } from '@/components/ui/NumericInput';
-import { FaPlus, FaTrash, FaSync } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSync, FaDatabase } from 'react-icons/fa';
 import { sanitizeId } from './helpers/idValidation';
 import { useTranslation } from '@/hooks/useTranslation';
 import HelpLabel from './components/HelpLabel';
@@ -47,9 +47,24 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
   const { t } = useTranslation();
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [isRefreshingCache, setIsRefreshingCache] = useState(false);
+  const [cacheRefreshResult, setCacheRefreshResult] = useState<string | null>(null);
   
-  const handleChange = (field: string, value: any) => {
-    onChange({ ...data, [field]: value });
+  const handleChange = (field: string, value: unknown) => {
+    const newData = { ...data, [field]: value };
+
+    // Auto-set device_type when protocol changes
+    if (field === 'protocol') {
+      if (value === 'wled') {
+        newData.device_type = 'wled';
+      } else if (value === 'esphome_api') {
+        newData.device_type = 'esphome';
+      } else if (!newData.device_type) {
+        newData.device_type = 'boneio_black';
+      }
+    }
+
+    onChange(newData);
   };
 
   const handleMqttChange = (field: string, value: any) => {
@@ -618,6 +633,53 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Refresh Effects/Palettes Cache Button — only for saved devices (has id) */}
+          {data?.id && (
+            <div className="form-control">
+              <button
+                type="button"
+                className={`btn btn-secondary btn-sm ${isRefreshingCache ? 'loading' : ''}`}
+                onClick={async () => {
+                  setIsRefreshingCache(true);
+                  setCacheRefreshResult(null);
+                  try {
+                    const { data: result } = await axios.post(
+                      `/api/remote-devices/${data.id}/refresh_wled_cache`
+                    );
+                    const effectCount = result.effects?.length || 0;
+                    const paletteCount = result.palettes?.length || 0;
+                    setCacheRefreshResult(
+                      t('remote_devices.wled_cache_refreshed', {
+                        effects: effectCount,
+                        palettes: paletteCount,
+                      }) || `Cache refreshed: ${effectCount} effects, ${paletteCount} palettes`
+                    );
+                  } catch (error: unknown) {
+                    const errMsg = (error as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
+                      || (error as { message?: string })?.message
+                      || 'Refresh failed';
+                    setCacheRefreshResult(`❌ ${errMsg}`);
+                  } finally {
+                    setIsRefreshingCache(false);
+                  }
+                }}
+                disabled={isRefreshingCache}
+              >
+                <FaDatabase className={`mr-2 ${isRefreshingCache ? 'animate-spin' : ''}`} />
+                {isRefreshingCache
+                  ? (t('remote_devices.refreshing_cache') || 'Refreshing...')
+                  : (t('remote_devices.refresh_effects_cache') || 'Refresh effects & palettes cache')}
+              </button>
+              {cacheRefreshResult && (
+                <label className="label">
+                  <span className={`label-text-alt ${cacheRefreshResult.startsWith('❌') ? 'text-error' : 'text-success'}`}>
+                    {cacheRefreshResult}
+                  </span>
+                </label>
+              )}
             </div>
           )}
         </div>

@@ -238,9 +238,34 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
     node => !configuredIds.has(`can_${node.node_id}`)
   );
 
+  // Build set of configured hosts/IPs for WLED and ESPHome duplicate detection
+  const configuredHosts = new Set<string>();
+  for (const item of items) {
+    // WLED hosts
+    const wledHost = item.wled?.host;
+    if (wledHost) configuredHosts.add(wledHost.toLowerCase());
+    // ESPHome hosts
+    const esphomeHost = item.esphome_api?.host;
+    if (esphomeHost) configuredHosts.add(esphomeHost.toLowerCase());
+  }
+
+  // Filter out already-configured WLED devices (match by host or IP)
+  const availableWledDevices = scannedWledDevices.filter(device => {
+    const hostLower = (device.host || '').toLowerCase();
+    const ipLower = (device.ip || '').toLowerCase();
+    return !configuredHosts.has(hostLower) && !configuredHosts.has(ipLower);
+  });
+
+  // Filter out already-configured ESPHome devices (match by host or IP)
+  const availableEsphomeDevices = scannedEsphomeDevices.filter(device => {
+    const hostLower = (device.host || '').toLowerCase();
+    const ipLower = (device.ip || '').toLowerCase();
+    return !configuredHosts.has(hostLower) && !configuredHosts.has(ipLower);
+  });
+
   // Check if we have any discovered devices (BoneIO, ESPHome, WLED, or CAN)
-  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || scannedEsphomeDevices.length > 0 || scannedWledDevices.length > 0 || availableCanNodes.length > 0;
-  const totalDiscovered = availableAutodiscovered.length + scannedEsphomeDevices.length + scannedWledDevices.length + availableCanNodes.length;
+  const hasDiscoveredDevices = availableAutodiscovered.length > 0 || availableEsphomeDevices.length > 0 || availableWledDevices.length > 0 || availableCanNodes.length > 0;
+  const totalDiscovered = availableAutodiscovered.length + availableEsphomeDevices.length + availableWledDevices.length + availableCanNodes.length;
 
   // Sort configured devices
   const indexedItems = useMemo(() =>
@@ -348,7 +373,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                   </div>
                 </div>
               ))}
-              {scannedEsphomeDevices.map((device, idx) => (
+              {availableEsphomeDevices.map((device, idx) => (
                 <div key={`esphome-${idx}`} className="card card-compact bg-base-100 shadow-sm">
                   <div className="card-body p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -382,7 +407,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                   </div>
                 </div>
               ))}
-              {scannedWledDevices.map((device, idx) => (
+              {availableWledDevices.map((device, idx) => (
                 <div key={`wled-${idx}`} className="card card-compact bg-base-100 shadow-sm">
                   <div className="card-body p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -507,7 +532,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     </Tr>
                   ))}
                   {/* ESPHome scanned devices */}
-                  {scannedEsphomeDevices.map((device, idx) => (
+                  {availableEsphomeDevices.map((device, idx) => (
                     <Tr key={`esphome-${idx}`} className="hover:bg-base-300">
                       <Td className="font-mono text-xs">
                         <div className="flex flex-col">
@@ -549,7 +574,7 @@ const RemoteDeviceTable: React.FC<RemoteDeviceTableProps> = ({ items, onEdit, on
                     </Tr>
                   ))}
                   {/* WLED scanned devices */}
-                  {scannedWledDevices.map((device, idx) => (
+                  {availableWledDevices.map((device, idx) => (
                     <Tr key={`wled-${idx}`} className="hover:bg-base-300">
                       <Td className="font-mono text-xs">
                         <div className="flex flex-col">

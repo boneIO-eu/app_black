@@ -54,6 +54,7 @@ from boneio.core.messaging import MessageBus
 from boneio.core.state import StateManager
 from boneio.core.utils.timeperiod import parse_time_to_ms, parse_time_to_seconds
 from boneio.components.output.remote import RemoteOutputBase
+from boneio.components.cover.remote import RemoteCoverOutput
 from boneio.core.remote.wled import WLEDRemoteDevice
 from boneio.hardware.i2c.bus import SMBus2I2C
 from boneio.migrations import MigrationRunner
@@ -1401,99 +1402,165 @@ class Manager:
             dur_unit = str(out_cfg.get("duration_unit", "s"))
 
             # Check for duplicates
-            if self.outputs.get_output(entity_id) is not None:
+            if output_type == "cover":
+                if self.covers.get_cover(entity_id) is not None:
+                    _LOGGER.warning(
+                        "Remote cover '%s' conflicts with existing cover, skipping",
+                        entity_id,
+                    )
+                    continue
+            elif self.outputs.get_output(entity_id) is not None:
                 _LOGGER.warning(
                     "Remote output '%s' conflicts with existing output, skipping",
                     entity_id,
                 )
                 continue
 
-            # Determine brightness support from device entity data
-            sup_brightness = False
-            if output_type == "light":
+            if output_type == "cover":
+                # ── Cover path ──────────────────────────────────────────
+                # Determine cover kind from device entity data
+                cover_kind = "cover"
                 device = self.remote_devices.get_device(device_id)
                 if device is not None:
-                    # WLED: all outputs support brightness
-                    if isinstance(device, WLEDRemoteDevice):
-                        sup_brightness = True
-                    else:
-                        # ESPHome: check _lights list for supports_brightness flag
-                        lights_list: list[dict] = getattr(device, "_lights", [])
-                        for light in lights_list:
-                            if light.get("id") == output_id:
-                                sup_brightness = bool(light.get("supports_brightness", False))
-                                break
+                    covers_list: list[dict] = getattr(device, "_covers_list", [])
+                    for cv in covers_list:
+                        if cv.get("id") == output_id:
+                            cover_kind = cv.get("kind", "cover") or "cover"
+                            break
 
-            remote_output = RemoteOutputBase(
-                id=entity_id,
-                name=name,
-                device_id=device_id,
-                output_id=output_id,
-                remote_source=remote_source,
-                event_bus=self._event_bus,
-                message_bus=self._message_bus,
-                topic_prefix=self._topic_prefix,
-                output_type=output_type,
-                show_in_ha=show_in_ha,
-                area=area,
-                on_disconnect=on_disconnect,
-                interlock_manager=self.outputs._interlock_manager,
-                interlock_groups=interlock_groups,
-                enforce_interlock=enforce_interlock,
-                momentary_turn_on=momentary_turn_on,
-                momentary_turn_off=momentary_turn_off,
-                adjustable_duration=adjustable_duration_enabled,
-                duration_default=dur_default,
-                duration_min=dur_min,
-                duration_max=dur_max,
-                duration_unit=dur_unit,
-                supports_brightness=sup_brightness,
-            )
-
-            # Register in shared interlock manager
-            if interlock_groups:
-                self.outputs._interlock_manager.register(remote_output, interlock_groups)
-
-            # Set the device manager reference if the device is already loaded.
-            # ESPHome devices may not be in _devices yet (loaded in background),
-            # so _device_manager may remain None — resolved lazily in
-            # RemoteOutputBase.control_output() or when the device connects.
-            device = self.remote_devices.get_device(device_id)
-            if device is not None:
-                remote_output._device_manager = device
-                remote_output._register_state_callback()
-            else:
-                # Store reference to remote_devices so the output can
-                # resolve its device manager lazily when needed.
-                remote_output._remote_devices_ref = self.remote_devices
-                _LOGGER.debug(
-                    "Remote output '%s': device '%s' not yet available, will resolve lazily",
-                    entity_id,
-                    device_id,
+                remote_cover = RemoteCoverOutput(
+                    id=entity_id,
+                    name=name,
+                    device_id=device_id,
+                    cover_id=output_id,
+                    remote_source=remote_source,
+                    event_bus=self._event_bus,
+                    message_bus=self._message_bus,
+                    topic_prefix=self._topic_prefix,
+                    kind=cover_kind,
+                    show_in_ha=show_in_ha,
+                    area=area,
                 )
 
-            # Register in OutputManager so it's available everywhere
-            self.outputs._outputs[entity_id] = remote_output  # type: ignore[assignment]
-            _LOGGER.info(
-                "Registered remote output: id='%s' device='%s' output='%s' type='%s' interlock=%s",
-                entity_id,
-                device_id,
-                output_id,
-                output_type,
-                interlock_groups or "none",
-            )
+                # Set the device manager reference if the device is already loaded.
+                device = self.remote_devices.get_device(device_id)
+                if device is not None:
+                    remote_cover._device_manager = device
+                    remote_cover._register_state_callback()
+                else:
+                    remote_cover._remote_devices_ref = self.remote_devices
+                    _LOGGER.debug(
+                        "Remote cover '%s': device '%s' not yet available, will resolve lazily",
+                        entity_id,
+                        device_id,
+                    )
 
+                # Register in CoverManager so conditions and UI work
+                self.covers._covers[entity_id] = remote_cover  # type: ignore[assignment]
+                _LOGGER.info(
+                    "Registered remote cover: id='%s' device='%s' cover='%s' kind='%s'",
+                    entity_id,
+                    device_id,
+                    output_id,
+                    cover_kind,
+                )
+
+            else:
+                # ── Output path (switch / light / valve) ────────────────
+                # Determine brightness support from device entity data
+                sup_brightness = False
+                if output_type == "light":
+                    device = self.remote_devices.get_device(device_id)
+                    if device is not None:
+                        # WLED: all outputs support brightness
+                        if isinstance(device, WLEDRemoteDevice):
+                            sup_brightness = True
+                        else:
+                            # ESPHome: check _lights list for supports_brightness flag
+                            lights_list: list[dict] = getattr(device, "_lights", [])
+                            for light in lights_list:
+                                if light.get("id") == output_id:
+                                    sup_brightness = bool(light.get("supports_brightness", False))
+                                    break
+
+                remote_output = RemoteOutputBase(
+                    id=entity_id,
+                    name=name,
+                    device_id=device_id,
+                    output_id=output_id,
+                    remote_source=remote_source,
+                    event_bus=self._event_bus,
+                    message_bus=self._message_bus,
+                    topic_prefix=self._topic_prefix,
+                    output_type=output_type,
+                    show_in_ha=show_in_ha,
+                    area=area,
+                    on_disconnect=on_disconnect,
+                    interlock_manager=self.outputs._interlock_manager,
+                    interlock_groups=interlock_groups,
+                    enforce_interlock=enforce_interlock,
+                    momentary_turn_on=momentary_turn_on,
+                    momentary_turn_off=momentary_turn_off,
+                    adjustable_duration=adjustable_duration_enabled,
+                    duration_default=dur_default,
+                    duration_min=dur_min,
+                    duration_max=dur_max,
+                    duration_unit=dur_unit,
+                    supports_brightness=sup_brightness,
+                )
+
+                # Register in shared interlock manager
+                if interlock_groups:
+                    self.outputs._interlock_manager.register(remote_output, interlock_groups)
+
+                # Set the device manager reference if the device is already loaded.
+                # ESPHome devices may not be in _devices yet (loaded in background),
+                # so _device_manager may remain None — resolved lazily in
+                # RemoteOutputBase.control_output() or when the device connects.
+                device = self.remote_devices.get_device(device_id)
+                if device is not None:
+                    remote_output._device_manager = device
+                    remote_output._register_state_callback()
+                else:
+                    # Store reference to remote_devices so the output can
+                    # resolve its device manager lazily when needed.
+                    remote_output._remote_devices_ref = self.remote_devices
+                    _LOGGER.debug(
+                        "Remote output '%s': device '%s' not yet available, will resolve lazily",
+                        entity_id,
+                        device_id,
+                    )
+
+                # Register in OutputManager so it's available everywhere
+                self.outputs._outputs[entity_id] = remote_output  # type: ignore[assignment]
+                _LOGGER.info(
+                    "Registered remote output: id='%s' device='%s' output='%s' type='%s' interlock=%s",
+                    entity_id,
+                    device_id,
+                    output_id,
+                    output_type,
+                    interlock_groups or "none",
+                )
+
+        remote_output_count = sum(1 for o in self.outputs._outputs.values() if getattr(o, "is_remote", False))
+        remote_cover_count = sum(1 for c in self.covers._covers.values() if getattr(c, "is_remote", False))
         _LOGGER.info(
-            "Remote outputs registered: %d total",
-            sum(1 for o in self.outputs._outputs.values() if getattr(o, "is_remote", False)),
+            "Remote entities registered: %d outputs, %d covers",
+            remote_output_count,
+            remote_cover_count,
         )
 
     def unregister_remote_outputs(self) -> None:
-        """Remove all remote outputs from OutputManager."""
+        """Remove all remote outputs and covers from their managers."""
         remote_ids = [oid for oid, o in self.outputs._outputs.items() if getattr(o, "is_remote", False)]
         for oid in remote_ids:
             del self.outputs._outputs[oid]
             _LOGGER.debug("Unregistered remote output: %s", oid)
+
+        remote_cover_ids = [cid for cid, c in self.covers._covers.items() if getattr(c, "is_remote", False)]
+        for cid in remote_cover_ids:
+            del self.covers._covers[cid]
+            _LOGGER.debug("Unregistered remote cover: %s", cid)
 
     async def _reload_remote_outputs(self) -> None:
         """Reload only the remote_outputs section.

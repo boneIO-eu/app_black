@@ -4,7 +4,7 @@
  * Lets the user:
  *   1. Pick a remote device (only devices with switches or lights)
  *   2. Pick an output (switch/light) from that device
- *   3. Set output_type (switch, light, valve)
+ *   3. Set output_type (switch, light, valve, cover)
  *   4. Set on_disconnect policy (ignore, turn_off)
  *   5. Optionally set name, id, area, show_in_ha
  *   6. Momentary turn on/off, adjustable duration (Advanced)
@@ -31,16 +31,74 @@ import type {
 } from '@/types/config';
 
 /* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+/** Output type variants supported by remote outputs. */
+type RemoteOutputType = 'switch' | 'light' | 'valve' | 'cover';
+
+/** Data shape for a single remote_outputs[] entry. */
+interface RemoteOutputFormData {
+  /** Custom entity ID (optional — auto-generated if absent). */
+  id?: string;
+  /** Display name. */
+  name?: string;
+  /** Remote device identifier. */
+  device_id?: string;
+  /** Entity on the remote device (switch/light/cover object_id). */
+  output_id?: string;
+  /** Output category. */
+  output_type?: RemoteOutputType;
+  /** Protocol of the remote source (esphome_api, wled, mqtt). */
+  remote_source?: string;
+  /** What to do when the remote device disconnects. */
+  on_disconnect?: 'ignore' | 'turn_off';
+  /** Area assignment. */
+  area?: string;
+  /** Whether to expose in Home Assistant. */
+  show_in_ha?: boolean;
+  /** Momentary turn-on duration (e.g. "500ms"). */
+  momentary_turn_on?: string;
+  /** Momentary turn-off duration. */
+  momentary_turn_off?: string;
+  /** Enable adjustable duration slider in HA. */
+  adjustable_duration?: boolean;
+  /** Default duration for adjustable duration. */
+  duration_default?: string;
+  /** Minimum duration. */
+  duration_min?: string;
+  /** Maximum duration. */
+  duration_max?: string;
+  /** Duration unit for HA display. */
+  duration_unit?: 's' | 'min';
+  /** Interlock group name or array. */
+  interlock_group?: string | string[];
+  /** Whether to enforce interlock strictly. */
+  enforce_interlock?: boolean;
+}
+
+/** Minimal JSON-schema shape passed from the backend (output_type enum). */
+interface RemoteOutputFormSchema {
+  items?: {
+    properties?: {
+      output_type?: {
+        enum?: string[];
+      };
+    };
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Props                                                              */
 /* ------------------------------------------------------------------ */
 interface RemoteOutputFormProps {
-  data: any;
-  onChange: (data: any) => void;
+  data: RemoteOutputFormData;
+  onChange: (data: RemoteOutputFormData) => void;
   isNew: boolean;
-  schema?: any;
+  schema?: RemoteOutputFormSchema;
   allAreas?: AreaEntity[];
   allRemoteDevices?: RemoteDeviceEntity[];
-  existingItems?: any[];
+  existingItems?: RemoteOutputFormData[];
   editingIndex?: number | null;
   onValidationChange?: (hasErrors: boolean) => void;
   attemptedSubmit?: boolean;
@@ -66,7 +124,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   const [newInterlockGroup, setNewInterlockGroup] = useState('');
 
   /* ---------- field helpers ---------- */
-  const updateField = (field: string, value: any) => {
+  const updateField = <K extends keyof RemoteOutputFormData>(field: K, value: RemoteOutputFormData[K]) => {
     const newData = { ...data, [field]: value };
 
     // When enabling adjustable_duration, clear static momentary (mutual exclusion)
@@ -144,6 +202,10 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   const availableLights: Array<{ id: string; name?: string; supports_brightness?: boolean }> =
     isWledDevice ? [] : (esphomeApi?.lights || []);
 
+  // ESPHome covers
+  const availableCovers: Array<{ id: string; name?: string }> =
+    isWledDevice ? [] : (esphomeApi?.covers || []);
+
   // WLED segments + "main" (whole device)
   // Segments come from config YAML (wled.segments) OR from the fetched WLED cache.
   const wledConfig = selectedDevice?.wled;
@@ -164,8 +226,11 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
   const allAvailableOutputs = [
     ...availableSwitches.map(s => ({ ...s, _type: 'switch' as const })),
     ...availableLights.map(l => ({ ...l, _type: 'light' as const })),
+    ...availableCovers.map(c => ({ ...c, _type: 'cover' as const })),
     ...wledSegments.map(w => ({ ...w, _type: 'light' as const })),
   ];
+
+  const isCoverType = data.output_type === 'cover';
 
   /* ---------- selected output capabilities ---------- */
   const selectedOutput = allAvailableOutputs.find(o => o.id === data.output_id);
@@ -183,7 +248,8 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
     if (device.protocol === 'wled') return true;
     const sw = device.esphome_api?.switches || device.mqtt?.outputs || [];
     const li = device.esphome_api?.lights || [];
-    return sw.length > 0 || li.length > 0;
+    const cv = device.esphome_api?.covers || [];
+    return sw.length > 0 || li.length > 0 || cv.length > 0;
   });
 
   return (
@@ -297,7 +363,11 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                         const outputId = v === '_none_' ? '' : v;
                         // Auto-detect output type from source
                         const found = allAvailableOutputs.find(o => o.id === outputId);
-                        const autoType = found?._type === 'light' ? 'light' : data.output_type || 'switch';
+                        const autoType = found?._type === 'cover'
+                          ? 'cover'
+                          : found?._type === 'light'
+                            ? 'light'
+                            : data.output_type || 'switch';
                         onChange({ ...data, output_id: outputId, output_type: autoType });
                       }}
                       disabled={!data.device_id}
@@ -363,15 +433,16 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                     </label>
                     <Select
                       value={data.output_type || 'switch'}
-                      onValueChange={(v) => updateField('output_type', v)}
+                      onValueChange={(v) => updateField('output_type', v as RemoteOutputType)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="switch" disabled={outputTypeLocked}>{t('outputs.categories.switches')}</SelectItem>
-                        <SelectItem value="light">{t('outputs.categories.lights')}</SelectItem>
-                        <SelectItem value="valve" disabled={outputTypeLocked}>{t('outputs.categories.valves')}</SelectItem>
+                        <SelectItem value="switch" disabled={outputTypeLocked || isCoverType}>{t('outputs.categories.switches')}</SelectItem>
+                        <SelectItem value="light" disabled={isCoverType}>{t('outputs.categories.lights')}</SelectItem>
+                        <SelectItem value="valve" disabled={outputTypeLocked || isCoverType}>{t('outputs.categories.valves')}</SelectItem>
+                        <SelectItem value="cover">{t('covers.title')}</SelectItem>
                       </SelectContent>
                     </Select>
                     <label className="label">
@@ -390,7 +461,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                     </label>
                     <Select
                       value={data.on_disconnect || 'ignore'}
-                      onValueChange={(v) => updateField('on_disconnect', v)}
+                      onValueChange={(v) => updateField('on_disconnect', v as RemoteOutputFormData['on_disconnect'])}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -430,7 +501,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
               </div>
             ),
           },
-          {
+          ...(!isCoverType ? [{
             id: 'advanced',
             label: t('settings.advanced_settings'),
             content: (
@@ -541,7 +612,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                         <select
                           className="select select-bordered w-full min-h-12"
                           value={data.duration_unit || 's'}
-                          onChange={(e) => updateField('duration_unit', e.target.value)}
+                          onChange={(e) => updateField('duration_unit', e.target.value as RemoteOutputFormData['duration_unit'])}
                         >
                           <option value="s">{t('outputs.duration_unit_seconds')}</option>
                           <option value="min">{t('outputs.duration_unit_minutes')}</option>
@@ -686,7 +757,7 @@ const RemoteOutputForm: React.FC<RemoteOutputFormProps> = ({
                 })()}
               </div>
             ),
-          },
+          }] : []),
         ]}
       />
     </div>

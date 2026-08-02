@@ -8,21 +8,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
-  MODBUS_DEVICE_CATALOG, 
-  MODBUS_CATEGORIES, 
-  ModbusDeviceInfo 
+import {
+  MODBUS_DEVICE_CATALOG,
+  MODBUS_CATEGORIES,
+  ModbusDeviceInfo
 } from '../../generated/modbusDeviceCatalog';
 import SimpleTimePeriodInput from './widgets/SimpleTimePeriodInput';
 import AreaSelect from './widgets/AreaSelect';
-import { 
-  FaBolt, 
-  FaWind, 
-  FaSun, 
-  FaThermometerHalf, 
-  FaCogs, 
-  FaChevronRight, 
-  FaChevronLeft, 
+import {
+  FaBolt,
+  FaWind,
+  FaSun,
+  FaThermometerHalf,
+  FaCogs,
+  FaChevronRight,
+  FaChevronLeft,
   FaExclamationTriangle,
   FaCheck,
   FaSearch
@@ -98,8 +98,8 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
     }
 
     // Add other room suggestions
-    const commonRooms = allAreas.length > 0 
-      ? allAreas.map(a => a.name) 
+    const commonRooms = allAreas.length > 0
+      ? allAreas.map(a => a.name)
       : ['Salon', 'Kuchnia', 'Sypialnia', 'Łazienka', 'Garaż', 'Korytarz'];
 
     commonRooms.forEach(room => {
@@ -120,7 +120,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   };
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<ModbusDeviceInfo | null>(null);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -195,15 +195,15 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
   const searchResults = searchQuery.trim() === ''
     ? []
     : allDevices.filter(device => {
-        const q = searchQuery.toLowerCase();
-        return (
-          device.displayName.toLowerCase().includes(q) ||
-          device.modelKey.toLowerCase().includes(q) ||
-          device.manufacturer.toLowerCase().includes(q) ||
-          device.description.toLowerCase().includes(q) ||
-          getDeviceDescription(device).toLowerCase().includes(q)
-        );
-      });
+      const q = searchQuery.toLowerCase();
+      return (
+        device.displayName.toLowerCase().includes(q) ||
+        device.modelKey.toLowerCase().includes(q) ||
+        device.manufacturer.toLowerCase().includes(q) ||
+        device.description.toLowerCase().includes(q) ||
+        getDeviceDescription(device).toLowerCase().includes(q)
+      );
+    });
 
   // Find conflicts and suggestions when address or model changes
   useEffect(() => {
@@ -314,23 +314,23 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col bg-base-100 text-base-content rounded-lg border border-base-300 shadow-2xl p-3.5 sm:p-6 overflow-hidden">
+      <DialogContent className="flex flex-col bg-base-100 shadow-2xl p-3.5 sm:p-6 border border-base-300 rounded-lg sm:max-w-xl max-h-[85vh] overflow-hidden text-base-content">
         <DialogHeader className="mb-4">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 font-bold text-xl">
             {t('modbus_wizard.title') || 'Add Modbus Device'}
           </DialogTitle>
         </DialogHeader>
 
         {/* Steps visual indicator */}
-        <div className="w-full mb-3">
-          <ul className="steps w-full text-xs">
-            <li className={`step ${step >= 1 ? 'step-primary' : ''} whitespace-normal break-words`}>
+        <div className="mb-3 w-full">
+          <ul className="w-full text-xs steps">
+            <li className={`step ${step >= 1 ? 'step-primary' : ''} whitespace-normal wrap-break-word`}>
               {t('modbus_wizard.step1_label') || 'Category'}
             </li>
-            <li className={`step ${step >= 2 ? 'step-primary' : ''} whitespace-normal break-words`}>
+            <li className={`step ${step >= 2 ? 'step-primary' : ''} whitespace-normal wrap-break-word`}>
               {t('modbus_wizard.step2_label') || 'Device Model'}
             </li>
-            <li className={`step ${step >= 3 ? 'step-primary' : ''} whitespace-normal break-words`}>
+            <li className={`step ${step >= 3 ? 'step-primary' : ''} whitespace-normal wrap-break-word`}>
               {t('modbus_wizard.step3_label') || 'Settings'}
             </li>
           </ul>
@@ -338,34 +338,34 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
         {/* Step 1: Category Selection & Search */}
         {step === 1 && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-4">
+          <div className="flex flex-col flex-1 space-y-4 min-h-0">
             {/* Search Input */}
-            <div className="form-control w-full relative shrink-0">
+            <div className="relative w-full form-control shrink-0">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('modbus_wizard.search_placeholder') || 'Search device by name, model or brand...'}
-                className="input input-bordered w-full pl-10"
+                className="pl-10 w-full input input-bordered"
               />
-              <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base-content/40" />
+              <FaSearch className="top-1/2 left-3.5 absolute text-base-content/40 -translate-y-1/2" />
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-3.5 pl-0.5">
+            <div className="flex-1 pr-3.5 pl-0.5 overflow-y-auto">
               {searchQuery.trim() === '' ? (
                 <>
-                  <h4 className="text-sm font-semibold mb-2">
+                  <h4 className="mb-2 font-semibold text-sm">
                     {t('modbus_wizard.step1_title') || 'Or select device category:'}
                   </h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="gap-4 grid grid-cols-2">
                     {MODBUS_CATEGORIES.map((category) => (
                       <button
                         key={category}
                         type="button"
                         onClick={() => handleCategorySelect(category)}
-                        className="flex flex-col items-center justify-center p-5 border border-base-300 hover:border-primary bg-base-200/50 hover:bg-primary/5 rounded-xl cursor-pointer transition-all duration-200 group text-center"
+                        className="group flex flex-col justify-center items-center bg-base-200/50 hover:bg-primary/5 p-5 border border-base-300 hover:border-primary rounded-xl text-center transition-all duration-200 cursor-pointer"
                       >
-                        <div className="mb-3 transform group-hover:scale-110 transition-transform duration-200">
+                        <div className="mb-3 group-hover:scale-110 transition-transform duration-200 transform">
                           {getCategoryIcon(category)}
                         </div>
                         <span className="font-medium text-sm">
@@ -377,38 +377,38 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                 </>
               ) : (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-primary">
+                  <h4 className="font-semibold text-primary text-sm">
                     {t('modbus_wizard.search_results') || 'Search Results'} ({searchResults.length})
                   </h4>
-                  <div className="max-h-[250px] overflow-y-auto divide-y divide-base-300 border border-base-300 rounded-lg bg-base-100 shadow-xs">
+                  <div className="bg-base-100 shadow-xs border border-base-300 rounded-lg divide-y divide-base-300 max-h-62.5 overflow-y-auto">
                     {searchResults.map((device) => (
                       <button
                         key={device.modelKey}
                         type="button"
                         onClick={() => handleModelSelect(device)}
-                        className="w-full flex items-center justify-between p-3.5 hover:bg-base-200/50 text-left transition-all cursor-pointer first:rounded-t-lg last:rounded-b-lg border-none"
+                        className="flex justify-between items-center hover:bg-base-200/50 p-3.5 border-none first:rounded-t-lg last:rounded-b-lg w-full text-left transition-all cursor-pointer"
                       >
                         <div>
-                          <div className="font-bold text-sm text-primary flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
                             {device.displayName}
                             {device.manufacturer && (
-                              <span className="text-xs font-normal text-base-content/60">
+                              <span className="font-normal text-xs text-base-content/60">
                                 by {device.manufacturer}
                               </span>
                             )}
-                            <span className="badge badge-sm badge-ghost ml-1 text-[10px] capitalize">
+                            <span className="ml-1 text-[10px] capitalize badge badge-sm badge-ghost">
                               {getCategoryLabel(device.category)}
                             </span>
                           </div>
-                          <div className="text-xs text-base-content/70 mt-1 max-w-full truncate">
+                          <div className="mt-1 max-w-full text-xs text-base-content/70 truncate">
                             {getDeviceDescription(device)}
                           </div>
                         </div>
-                        <FaChevronRight className="text-base-content/30 text-xs" />
+                        <FaChevronRight className="text-xs text-base-content/30" />
                       </button>
                     ))}
                     {searchResults.length === 0 && (
-                      <div className="text-center py-6 text-base-content/60 text-sm">
+                      <div className="py-6 text-sm text-base-content/60 text-center">
                         {t('modbus_wizard.no_results') || 'No devices found matching your search.'}
                       </div>
                     )}
@@ -421,54 +421,54 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
         {/* Step 2: Model Selection */}
         {step === 2 && (
-          <div className="flex-1 flex flex-col min-h-0 space-y-4">
+          <div className="flex flex-col flex-1 space-y-4 min-h-0">
             <div className="flex justify-between items-center mb-1 shrink-0">
-              <h4 className="text-sm font-semibold">
+              <h4 className="font-semibold text-sm">
                 {t('modbus_wizard.step2_title') || 'Select device model:'}
               </h4>
-              <span className="badge badge-secondary badge-outline text-xs">
+              <span className="badge-outline text-xs badge badge-secondary">
                 {getCategoryLabel(selectedCategory || '')}
               </span>
             </div>
-            
-            <div className="flex-1 overflow-y-auto pr-3.5 pl-0.5">
-              <div className="divide-y divide-base-300 border border-base-300 rounded-lg bg-base-100 shadow-xs">
+
+            <div className="flex-1 pr-3.5 pl-0.5 overflow-y-auto">
+              <div className="bg-base-100 shadow-xs border border-base-300 rounded-lg divide-y divide-base-300">
                 {filteredDevices.map((device) => (
                   <button
                     key={device.modelKey}
                     type="button"
                     onClick={() => handleModelSelect(device)}
-                    className="w-full flex items-center justify-between p-3.5 hover:bg-base-200/50 text-left transition-all cursor-pointer first:rounded-t-lg last:rounded-b-lg border-none"
+                    className="flex justify-between items-center hover:bg-base-200/50 p-3.5 border-none first:rounded-t-lg last:rounded-b-lg w-full text-left transition-all cursor-pointer"
                   >
                     <div>
-                      <div className="font-bold text-sm text-primary flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-primary text-sm">
                         {device.displayName}
                         {device.manufacturer && (
-                          <span className="text-xs font-normal text-base-content/60">
+                          <span className="font-normal text-xs text-base-content/60">
                             by {device.manufacturer}
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-base-content/70 mt-1 max-w-full truncate">
+                      <div className="mt-1 max-w-full text-xs text-base-content/70 truncate">
                         {getDeviceDescription(device)}
                       </div>
                     </div>
-                    <FaChevronRight className="text-base-content/30 text-xs" />
+                    <FaChevronRight className="text-xs text-base-content/30" />
                   </button>
                 ))}
                 {filteredDevices.length === 0 && (
-                  <div className="text-center py-6 text-base-content/60 text-sm">
+                  <div className="py-6 text-sm text-base-content/60 text-center">
                     {t('modbus_wizard.no_devices') || 'No devices found in this category.'}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-start pt-2 mt-2 border-t border-base-300 shrink-0">
+            <div className="flex justify-start mt-2 pt-2 border-base-300 border-t shrink-0">
               <button
                 type="button"
                 onClick={handleBack}
-                className="btn btn-ghost btn-sm gap-1"
+                className="gap-1 btn btn-ghost btn-sm"
               >
                 <FaChevronLeft className="text-xs" />
                 {t('modbus_wizard.back') || 'Back'}
@@ -479,25 +479,25 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
         {/* Step 3: Parameters Configuration */}
         {step === 3 && selectedModel && (
-          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 space-y-4">
-            <div className="flex-1 overflow-y-auto pr-3.5 pl-0.5 py-1 space-y-4 min-h-0">
-              <div className="bg-primary/5 p-2.5 rounded-lg border border-primary/20 mb-1 shrink-0">
-                <div className="text-xs font-semibold text-primary uppercase">
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 space-y-4 min-h-0">
+            <div className="flex-1 space-y-4 py-1 pr-3.5 pl-0.5 min-h-0 overflow-y-auto">
+              <div className="bg-primary/5 mb-1 p-2.5 border border-primary/20 rounded-lg shrink-0">
+                <div className="font-semibold text-primary text-xs uppercase">
                   {t('modbus_wizard.selected_device') || 'Selected Device'}
                 </div>
                 <div className="font-bold text-base text-base-content">
                   {selectedModel.displayName}
                 </div>
-                <div className="text-xs text-base-content/75 mt-0.5">
+                <div className="mt-0.5 text-xs text-base-content/75">
                   {selectedModel.manufacturer && `Manufacturer: ${selectedModel.manufacturer}`}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="gap-4 grid grid-cols-1 sm:grid-cols-2">
                 {/* Display Name */}
-                <div className="form-control w-full sm:col-span-2">
-                  <label className="label py-1">
-                    <span className="label-text font-semibold">
+                <div className="sm:col-span-2 w-full form-control">
+                  <label className="py-1 label">
+                    <span className="font-semibold label-text">
                       {t('modbus_wizard.name') || 'Display Name'}
                     </span>
                   </label>
@@ -507,10 +507,10 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Living Room Recuperator"
-                    className="input input-bordered w-full"
+                    className="w-full input input-bordered"
                   />
                   {/* Scrollable Quick suggestions chips */}
-                  <div className="flex flex-wrap gap-1.5 mt-2 overflow-x-auto pb-1 max-w-full no-scrollbar">
+                  <div className="flex flex-wrap gap-1.5 mt-2 pb-1 max-w-full overflow-x-auto no-scrollbar">
                     {getNameSuggestions().map((s) => (
                       <button
                         key={s}
@@ -520,7 +520,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                           const genId = `${address}_${s.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
                           setCustomId(genId);
                         }}
-                        className="btn btn-xs btn-neutral btn-outline font-normal border-base-300 hover:border-neutral"
+                        className="border-base-300 hover:border-neutral btn-outline font-normal btn btn-xs btn-neutral"
                       >
                         {s}
                       </button>
@@ -529,9 +529,9 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                 </div>
 
                 {/* Modbus Address */}
-                <div className="form-control w-full">
-                  <label className="label py-1 flex justify-between items-center">
-                    <span className="label-text font-semibold">
+                <div className="w-full form-control">
+                  <label className="flex justify-between items-center py-1 label">
+                    <span className="font-semibold label-text">
                       {t('modbus_wizard.address') || 'Modbus Address'}
                     </span>
                     <span className="label-text-alt text-xs text-base-content/60">
@@ -545,10 +545,10 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     min={1}
                     max={247}
                   />
-                  
+
                   {/* Conflict warning */}
                   {addressConflict && (
-                    <div className="text-error text-xs flex items-center gap-1.5 mt-1.5 font-medium animate-pulse">
+                    <div className="flex items-center gap-1.5 mt-1.5 font-medium text-error text-xs animate-pulse">
                       <FaExclamationTriangle className="shrink-0" />
                       <span>
                         {t('modbus_wizard.address_in_use', {
@@ -561,12 +561,12 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
 
                   {/* Suggestions */}
                   {!addressConflict && suggestedAddress !== address && (
-                    <div className="text-base-content/60 text-xs mt-1.5 flex items-center gap-1">
+                    <div className="flex items-center gap-1 mt-1.5 text-xs text-base-content/60">
                       <span>{t('modbus_wizard.suggested_address_prefix') || 'Suggested free:'}</span>
                       <button
                         type="button"
                         onClick={() => setAddress(suggestedAddress)}
-                        className="link link-primary font-bold text-xs"
+                        className="font-bold text-xs link link-primary"
                       >
                         {suggestedAddress}
                       </button>
@@ -575,9 +575,9 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                 </div>
 
                 {/* ID */}
-                <div className="form-control w-full">
-                  <label className="label py-1">
-                    <span className="label-text font-semibold">
+                <div className="w-full form-control">
+                  <label className="py-1 label">
+                    <span className="font-semibold label-text">
                       {t('modbus_wizard.id') || 'Device ID'}
                     </span>
                   </label>
@@ -587,15 +587,15 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                     value={customId}
                     onChange={(e) => setCustomId(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_'))}
                     placeholder="e.g. recuperator_wanas"
-                    className="input input-bordered w-full"
+                    className="w-full input input-bordered"
                   />
-                  <span className="text-[11px] text-base-content/50 mt-1 pl-1">
+                  <span className="mt-1 pl-1 text-[11px] text-base-content/50">
                     {t('modbus_wizard.id_help') || 'Unique alphanumeric ID'}
                   </span>
                 </div>
 
                 {/* Update Interval using SimpleTimePeriodInput */}
-                <div className="form-control w-full sm:col-span-2">
+                <div className="sm:col-span-2 w-full form-control">
                   <SimpleTimePeriodInput
                     value={updateInterval}
                     onChange={setUpdateInterval}
@@ -619,16 +619,16 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between items-center pt-3 border-t border-base-300 bg-base-100 shrink-0">
+            <div className="flex justify-between items-center bg-base-100 pt-3 border-base-300 border-t shrink-0">
               <button
                 type="button"
                 onClick={handleBack}
-                className="btn btn-ghost btn-sm gap-1"
+                className="gap-1 btn btn-ghost btn-sm"
               >
                 <FaChevronLeft className="text-xs" />
                 {t('modbus_wizard.back') || 'Back'}
               </button>
-              
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -640,7 +640,7 @@ export const AddModbusDeviceWizard: React.FC<AddModbusDeviceWizardProps> = ({
                 <button
                   type="submit"
                   disabled={!!addressConflict}
-                  className="btn btn-primary btn-sm gap-1.5"
+                  className="gap-1.5 btn btn-primary btn-sm"
                 >
                   <FaCheck className="text-xs" />
                   {t('modbus_wizard.add_device') || 'Add Device'}

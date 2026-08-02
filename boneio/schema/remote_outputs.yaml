@@ -59,7 +59,7 @@ schema:
       type: string
       required: False
       default: "switch"
-      allowed: ['switch', 'light', 'valve']
+      allowed: ['switch', 'light', 'valve', 'cover']
       meta:
         label: Output Type
         description: |
@@ -67,6 +67,7 @@ schema:
           - switch: Generic switch
           - light: Light entity
           - valve: Valve entity (for irrigation)
+          - cover: Cover entity (gate, blind, shutter)
     show_in_ha:
       type: boolean
       required: False

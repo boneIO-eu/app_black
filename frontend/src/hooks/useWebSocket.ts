@@ -61,6 +61,10 @@ export interface CoverState {
   timestamp: number | null;
   tilt: number;  // Tilt position (0-100)
   kind: string;
+  /** True when this cover belongs to a remote device (ESPHome/MQTT). */
+  remote?: boolean;
+  /** Area/zone assigned to this cover. */
+  area?: string;
 }
 
 export interface CoverEvent {

@@ -519,3 +519,91 @@ async def get_all_wled_info() -> dict[str, dict[str, Any]]:
     from boneio.core.remote.wled_cache import get_all_metadata
 
     return get_all_metadata()
+
+
+@router.post("/{device_id}/refresh_wled_cache")
+async def refresh_wled_cache(
+    device_id: str,
+    manager: Manager = Depends(get_manager),
+) -> dict[str, Any]:
+    """Re-fetch effects, palettes, and segments from a WLED device and update cache.
+
+    Connects to the WLED device (via loaded device manager or config),
+    queries the WLED ``/json`` API, and persists the result to
+    ``.wled_cache.json`` under the correct ``device_id``.
+
+    Args:
+        device_id: WLED device identifier.
+
+    Returns:
+        Updated metadata dict with 'effects', 'palettes', 'segments'.
+
+    Raises:
+        HTTPException: 404 if device not found, 500 if fetch fails.
+    """
+    from boneio.core.remote.wled import WLEDRemoteDevice
+    from boneio.core.remote.wled_cache import update_device_metadata
+
+    # Try to use loaded device first
+    device = manager.remote_devices.get_device(device_id)
+    if device is not None and isinstance(device, WLEDRemoteDevice):
+        _LOGGER.info("Refreshing WLED cache for '%s' via loaded device", device_id)
+        try:
+            result = await device.discover_info()
+            if "error" in result:
+                raise HTTPException(status_code=500, detail=result["error"])
+            # discover_info() already updates cache via self._id
+            return {
+                "effects": result.get("effects", []),
+                "palettes": result.get("palettes", []),
+                "segments": result.get("segments", []),
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Fallback: read host/port from config and create temporary device
+    config = manager._config_helper.get_config()
+    device_configs = config.get("remote_devices", [])
+    dev_cfg = None
+    for cfg in device_configs:
+        if cfg.get("id") == device_id:
+            dev_cfg = cfg
+            break
+
+    if dev_cfg is None or dev_cfg.get("protocol") != "wled":
+        raise HTTPException(
+            status_code=404,
+            detail=f"WLED device '{device_id}' not found in config",
+        )
+
+    wled_cfg = dev_cfg.get("wled", {})
+    host = wled_cfg.get("host", "")
+    port = wled_cfg.get("port", 80)
+
+    if not host:
+        raise HTTPException(
+            status_code=400,
+            detail=f"WLED device '{device_id}' has no host configured",
+        )
+
+    _LOGGER.info("Refreshing WLED cache for '%s' via config (host=%s)", device_id, host)
+    temp = WLEDRemoteDevice(id=device_id, name=device_id, host=host, port=port)
+    try:
+        result = await temp.discover_info()
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+
+        # discover_info() saves cache under temp._id which is device_id — correct!
+        return {
+            "effects": result.get("effects", []),
+            "palettes": result.get("palettes", []),
+            "segments": result.get("segments", []),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        await temp.close()

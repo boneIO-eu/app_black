@@ -42,6 +42,17 @@ type SaveStatus = 'idle' | 'saving' | 'success' | 'error';
 type TargetCategory = 'output' | 'remote_output' | 'cover' | 'remote_cover';
 type RightTab = 'link' | 'bindings';
 
+/** Lightweight shape of a remote device returned by /api/remote-devices. */
+interface RemoteDeviceData {
+  id: string;
+  name: string;
+  protocol: string;
+  esphome_covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
+  covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
+  switches?: { id: string; name?: string }[];
+  lights?: { id: string; name?: string }[];
+}
+
 /** Extract a human-readable detail string from an axios-like error. */
 function extractErrorDetail(err: unknown, fallback: string): string {
   const axErr = err as { response?: { data?: { detail?: string | { message?: string } } }; message?: string } | undefined;
@@ -152,6 +163,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   // Bumped whenever bindings must be re-fetched
   const [bindingsVersion, setBindingsVersion] = useState(0);
 
+  // Remote devices fetched from API (for ESPHome covers / additional outputs)
+  const [remoteDevices, setRemoteDevices] = useState<RemoteDeviceData[]>([]);
+
   // --- NEW: Area filter ---
   const [areaFilter, setAreaFilter] = useState<string>('');
 
@@ -194,7 +208,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
       if (o.state.area) areas.set(o.state.area, o.state.area);
     });
     covers.forEach((c: CoverEvent) => {
-      if ((c.state as any).area) areas.set((c.state as any).area, (c.state as any).area);
+      if (c.state.area) areas.set(c.state.area, c.state.area);
     });
     return [...areas.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [validInputs, outputs, covers]);
@@ -339,6 +353,21 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
     setLeftCollapsed(true);
   }, [validInputs]);
 
+  // Fetch remote devices on open (once) for ESPHome covers and additional outputs
+  useEffect(() => {
+    if (!open) return;
+    const fetchRemoteDevices = async () => {
+      try {
+        const resp = await axios.get('/api/remote-devices');
+        const devices = Array.isArray(resp.data?.devices) ? resp.data.devices : [];
+        setRemoteDevices(devices as RemoteDeviceData[]);
+      } catch {
+        setRemoteDevices([]);
+      }
+    };
+    fetchRemoteDevices();
+  }, [open]);
+
   // Fetch existing bindings when input is detected
   useEffect(() => {
     if (!detectedInput) {
@@ -415,7 +444,7 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
 
   const localCoverItems: TeachEntityItem[] = useMemo(() => {
     return covers
-      .filter((c: CoverEvent) => !(c.state as any).remote)
+      .filter((c: CoverEvent) => !c.state.remote)
       .map((c: CoverEvent): TeachEntityItem => ({
         id: c.state.id || c.entity_id,
         name: c.state.name || c.state.id || c.entity_id,
@@ -426,8 +455,9 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
   }, [covers]);
 
   const remoteCoverItems: TeachEntityItem[] = useMemo(() => {
-    return covers
-      .filter((c: CoverEvent) => (c.state as any).remote)
+    // Start with covers from WebSocket that are flagged as remote
+    const wsItems = covers
+      .filter((c: CoverEvent) => c.state.remote)
       .map((c: CoverEvent): TeachEntityItem => {
         const entityId = c.entity_id;
         const parts = entityId.split('/');
@@ -441,7 +471,28 @@ const TeachMode: React.FC<TeachModeProps> = ({ open, onClose }) => {
           remoteDevice,
         };
       });
-  }, [covers]);
+
+    // Merge ESPHome covers from API (they don't appear in WebSocket covers)
+    const wsIds = new Set(wsItems.map(i => i.id));
+    const apiItems: TeachEntityItem[] = [];
+    for (const device of remoteDevices) {
+      const deviceCovers = device.esphome_covers || device.covers || [];
+      for (const cover of deviceCovers) {
+        const compositeId = `${device.id}/${cover.id}`;
+        if (wsIds.has(compositeId)) continue; // already from WebSocket
+        apiItems.push({
+          id: compositeId,
+          name: cover.name || cover.id,
+          badge: `🌐 ${cover.kind || 'cover'}`,
+          badgeClass: 'badge-secondary text-secondary-content',
+          actionType: 'remote_cover',
+          remoteDevice: device.id,
+        });
+      }
+    }
+
+    return [...wsItems, ...apiItems];
+  }, [covers, remoteDevices]);
 
   const availableCategories = useMemo(() => {
     const cats: { key: TargetCategory; label: string; count: number }[] = [];

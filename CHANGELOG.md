@@ -4,6 +4,25 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.6.0.dev1 (2026-08-02)
+
+### ✨ New Features
+
+- **Remote Cover Output support** — `remote_outputs` now supports `output_type: cover` for ESPHome covers. `RemoteCoverOutput` integrates with `CoverManager` and supports `is_open`/`is_closed` state tracking, toggle (open→close→open with stop during motion), and EventBus emission.
+- **ESPHome cover callbacks** — `ESPHomeRemoteDevice` now has `register_cover_callback()` / `unregister_cover_callback()` for independent cover state subscription, alongside existing switch and binary sensor callbacks.
+- **WLED cache refresh button** — New "Refresh effects & palettes cache" button in the WLED device edit form. Calls `POST /{device_id}/refresh_wled_cache` to re-fetch effects/palettes from the WLED device without removing and re-adding it.
+
+### 🐛 Bug Fixes
+
+- **WLED device type defaults to "boneIO Black"** — When manually adding a WLED device, changing the protocol to WLED now auto-sets `device_type` to `wled` (previously stayed at default `boneio_black`). Same fix for ESPHome API → `esphome`.
+- **Discovered WLED/ESPHome devices not filtered** — WLED and ESPHome scan results now filter out already-configured devices by host/IP, preventing duplicates in the discovery table. After deleting a device, re-scanning will show it again.
+
+### ♻️ Refactoring
+
+- **Remove `any` from `RemoteOutputForm`** — Replaced all 5 `any` types with proper interfaces (`RemoteOutputFormData`, `RemoteOutputFormSchema`, `RemoteOutputType`). `updateField` now uses generic constraint `<K extends keyof RemoteOutputFormData>`.
+
+---
+
 ## v1.5.1 (2026-08-01)
 
 ### 🐛 Bug Fixes

@@ -306,11 +306,13 @@ function extractOutputs(formData: Record<string, any>): OutputColumn[] {
     const device = ro.boneio_id || ro.remote_device || '';
     const outputId = ro.id || ro.output_id || '';
     const id = device ? `${device}/${outputId}` : (outputId || `remote_out_${i}`);
+    // Remote covers should appear as 'cover' type, not 'remote_output'
+    const isRemoteCover = (ro.output_type || '').toLowerCase() === 'cover';
     cols.push({
       id,
       name: ro.name || ro.id || outputId,
       area: ro.area || undefined,
-      type: 'remote_output',
+      type: isRemoteCover ? 'cover' : 'remote_output',
       remoteDevice: device,
       outputType: ro.output_type,
     });

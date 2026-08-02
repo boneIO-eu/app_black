@@ -90,6 +90,15 @@ interface QuickEntityItem extends EntityItem {
   remoteDevice?: string;
 }
 
+/** Lightweight shape of a remote device returned by /api/remote-devices. */
+interface QuickRemoteDeviceData {
+  id: string;
+  name: string;
+  protocol: string;
+  esphome_covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
+  covers?: { id: string; name?: string; kind?: string; supports_tilt?: boolean }[];
+}
+
 interface QuickActionSheetProps {
   /** Whether the sheet is open */
   open: boolean;
@@ -143,6 +152,9 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
   const [inputSectionType, setInputSectionType] = useState<'event' | 'binary_sensor' | 'remote_inputs'>('event');
   const fetchAbortRef = useRef<AbortController | null>(null);
 
+  // Remote devices for ESPHome covers
+  const [remoteDevices, setRemoteDevices] = useState<QuickRemoteDeviceData[]>([]);
+
   // Reset form and fetch existing actions when dialog opens
   useEffect(() => {
     if (open && inputEvent) {
@@ -154,6 +166,14 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
       setSaveStatus('idle');
       setErrorMessage('');
       setInputConfigEntry(null);
+
+      // Fetch remote devices for ESPHome covers
+      axios.get('/api/remote-devices')
+        .then(({ data }) => {
+          const devices = Array.isArray(data?.devices) ? data.devices : [];
+          setRemoteDevices(devices as QuickRemoteDeviceData[]);
+        })
+        .catch(() => setRemoteDevices([]));
 
       // Fetch config to get existing actions for this input
       const abortController = new AbortController();
@@ -254,7 +274,7 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
 
     // Local covers
     covers
-      .filter((c: CoverEvent) => !(c.state as any).remote)
+      .filter((c: CoverEvent) => !c.state.remote)
       .forEach((c: CoverEvent) => {
         items.push({
           id: c.state.id || c.entity_id,
@@ -265,9 +285,9 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
         });
       });
 
-    // Remote covers
+    // Remote covers from WebSocket
     covers
-      .filter((c: CoverEvent) => (c.state as any).remote)
+      .filter((c: CoverEvent) => c.state.remote)
       .forEach((c: CoverEvent) => {
         const entityId = c.entity_id;
         const parts = entityId.split('/');
@@ -283,8 +303,26 @@ const QuickActionSheet: React.FC<QuickActionSheetProps> = ({
         });
       });
 
+    // ESPHome covers from API (not present in WebSocket)
+    const existingIds = new Set(items.map(i => i.id));
+    for (const device of remoteDevices) {
+      const deviceCovers = device.esphome_covers || device.covers || [];
+      for (const cover of deviceCovers) {
+        const compositeId = `${device.id}/${cover.id}`;
+        if (existingIds.has(compositeId)) continue;
+        items.push({
+          id: compositeId,
+          name: cover.name || cover.id,
+          badge: `🌐 ${cover.kind || 'cover'}`,
+          badgeClass: 'badge-secondary',
+          actionType: 'remote_cover',
+          remoteDevice: device.id,
+        });
+      }
+    }
+
     return items;
-  }, [covers]);
+  }, [covers, remoteDevices]);
 
   const currentItems = targetMode === 'cover' ? coverItems : outputItems;
 
