@@ -869,7 +869,7 @@ export default function UISettings() {
               if (isNaN(addr)) {
                 addr = entry.id === 'mcp_left' ? 0x20 : 0x21;
               }
-              return { id: entry.id, address: addr };
+              return { id: entry.id, address: addr, inverted: entry.inverted };
             }
             return entry;
           })
