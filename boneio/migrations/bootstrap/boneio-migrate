@@ -619,7 +619,12 @@ def main() -> int:
         )
         return 2
 
-    write_applied_flag(version)
+    # Skip flag for internal operations (e.g. overlay repair) that should
+    # not leave .applied markers.
+    if not payload.get("skip_applied_flag", False):
+        write_applied_flag(version)
+    else:
+        _LOGGER.info("Skipping applied flag for version=%s (skip_applied_flag=True)", version)
     _LOGGER.info("Migration %s completed successfully.", version)
     return 0
 
