@@ -287,7 +287,7 @@ export default function UISettings() {
           const { data: wledCache } = await axios.get<Record<string, Record<string, unknown[]>>>('/api/remote-devices/wled_info');
           if (wledCache && typeof wledCache === 'object') {
             for (const device of configData.remote_devices) {
-              if (device?.protocol === 'wled' && device?.id && wledCache[device.id]) {
+              if ((device?.protocol === 'wled' || device?.wled) && device?.id && wledCache[device.id]) {
                 const cached = wledCache[device.id];
                 if (!device.wled) device.wled = {};
                 if (cached.effects) device.wled.effects = cached.effects;

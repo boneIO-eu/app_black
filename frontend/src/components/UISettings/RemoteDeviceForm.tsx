@@ -651,6 +651,15 @@ const RemoteDeviceForm: React.FC<RemoteDeviceFormProps> = ({ data, onChange }) =
                     );
                     const effectCount = result.effects?.length || 0;
                     const paletteCount = result.palettes?.length || 0;
+
+                    // Update form data so effects/palettes are immediately
+                    // available in UI dropdowns without a page reload.
+                    const updatedWled = { ...(data.wled || {}) };
+                    if (result.effects) updatedWled.effects = result.effects;
+                    if (result.palettes) updatedWled.palettes = result.palettes;
+                    if (result.segments) updatedWled.segments = result.segments;
+                    onChange({ ...data, wled: updatedWled });
+
                     setCacheRefreshResult(
                       t('remote_devices.wled_cache_refreshed', {
                         effects: effectCount,
