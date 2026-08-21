@@ -1010,6 +1010,13 @@ class IrrigationController:
             await self.next_valve()
 
     async def handle_zone_command(self, zone_id: str, payload: str) -> None:
+        """Handle ON/OFF command for a specific zone.
+
+        ON starts the zone in single-zone mode (shutting down any running cycle first).
+        OFF only shuts down the controller if ``zone_id`` matches the currently
+        active zone — this prevents HA state-sync messages (OFF for inactive
+        zones) from killing a running cycle.
+        """
         upper = payload.strip().upper()
         _LOGGER.debug(
             "Irrigation %s handle_zone_command: zone='%s' payload='%s' → upper='%s'", self.id, zone_id, payload, upper
@@ -1017,7 +1024,28 @@ class IrrigationController:
         if upper == ON:
             await self.start_single_zone(zone_id)
         elif upper == OFF:
-            await self.shutdown()
+            # Only shutdown if this zone is the one currently running.
+            # HA sends OFF to all zone switches when one is activated,
+            # so we must NOT shutdown the controller for inactive zones.
+            if self._state == ControllerState.IDLE:
+                return
+            active_zone = (
+                self._zones[self._active_zone_idx]
+                if self._active_zone_idx is not None and self._active_zone_idx < len(self._zones)
+                else None
+            )
+            if active_zone is not None and active_zone.id == zone_id:
+                _LOGGER.info(
+                    "Irrigation %s: OFF received for active zone '%s' — shutting down",
+                    self.id, zone_id,
+                )
+                await self.shutdown()
+            else:
+                _LOGGER.debug(
+                    "Irrigation %s: ignoring OFF for zone '%s' (active zone is '%s')",
+                    self.id, zone_id,
+                    active_zone.id if active_zone else "none",
+                )
 
     async def handle_zone_duration_command(self, zone_id: str, payload: str) -> None:
         """Handle duration change from HA (value in minutes)."""

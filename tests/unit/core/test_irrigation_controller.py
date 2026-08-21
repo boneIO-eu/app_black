@@ -1815,3 +1815,68 @@ class TestScheduleSurvival:
         # Schedule must survive both cycles
         assert len(ctrl._schedule_tasks) == 1
         mock_task.cancel.assert_not_called()
+
+
+# ── Regression: OFF on inactive zone must not kill running cycle ──────
+
+
+class TestZoneOffDoesNotKillOtherZones:
+    """Regression tests for bug where OFF on ANY zone would shutdown the
+    entire irrigation controller, even if a different zone was running.
+
+    HA sends OFF to all zone switches when one is activated, so the
+    controller must ignore OFF for zones that are not currently active.
+    """
+
+    @pytest.mark.asyncio
+    async def test_off_on_inactive_zone_does_not_shutdown(self):
+        """OFF for zone_1 while zone_0 is running should NOT shutdown."""
+        ctrl = _make_controller(zones=_make_zones(3))
+        await ctrl.start_single_zone("zone_0")
+        assert ctrl.state == ControllerState.RUNNING
+        assert ctrl._zones[ctrl._active_zone_idx].id == "zone_0"
+
+        # HA sends OFF to zone_1 (not running) — must be ignored
+        await ctrl.handle_zone_command("zone_1", "OFF")
+        assert ctrl.state == ControllerState.RUNNING
+        assert ctrl._zones[ctrl._active_zone_idx].id == "zone_0"
+        # zone_0 valve should NOT have been turned off
+        ctrl._zones[0].valve.async_turn_off.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_off_on_active_zone_does_shutdown(self):
+        """OFF for the currently active zone SHOULD shutdown."""
+        ctrl = _make_controller(zones=_make_zones(3))
+        await ctrl.start_single_zone("zone_0")
+        assert ctrl.state == ControllerState.RUNNING
+
+        await ctrl.handle_zone_command("zone_0", "OFF")
+        assert ctrl.state == ControllerState.IDLE
+
+    @pytest.mark.asyncio
+    async def test_off_when_idle_is_noop(self):
+        """OFF when controller is IDLE should be a no-op."""
+        ctrl = _make_controller(zones=_make_zones(3))
+        assert ctrl.state == ControllerState.IDLE
+
+        await ctrl.handle_zone_command("zone_0", "OFF")
+        assert ctrl.state == ControllerState.IDLE
+
+    @pytest.mark.asyncio
+    async def test_multiple_off_commands_only_active_stops(self):
+        """Simulate HA sending OFF to all zones — only the active one matters."""
+        ctrl = _make_controller(zones=_make_zones(4))
+        await ctrl.start_single_zone("zone_2")
+        assert ctrl.state == ControllerState.RUNNING
+        assert ctrl._zones[ctrl._active_zone_idx].id == "zone_2"
+
+        # HA sends OFF to zone_0, zone_1, zone_3 (all inactive)
+        await ctrl.handle_zone_command("zone_0", "OFF")
+        await ctrl.handle_zone_command("zone_1", "OFF")
+        await ctrl.handle_zone_command("zone_3", "OFF")
+        assert ctrl.state == ControllerState.RUNNING
+        assert ctrl._zones[ctrl._active_zone_idx].id == "zone_2"
+
+        # Now OFF for the actual active zone
+        await ctrl.handle_zone_command("zone_2", "OFF")
+        assert ctrl.state == ControllerState.IDLE

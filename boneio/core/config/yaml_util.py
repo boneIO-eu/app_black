@@ -720,13 +720,17 @@ class CustomValidator(Validator):
         return result
 
     def _normalize_coerce_positive_time_period(self, value) -> TimePeriod:
-        """Validate and transform time period with time unit and integer value."""
-        if isinstance(value, int):
+        """Validate and transform time period with time unit and integer value.
+
+        Bare integers (e.g. ``30``) are treated as **milliseconds** for
+        backward compatibility — the frontend and earlier configs sometimes
+        omit the unit for bounce_time / duration fields.
+        """
+        if isinstance(value, (int, float)):
             if value == 0:
                 return TimePeriod(seconds=0)
-            raise ConfigurationException(
-                f"Don't know what '{value}' means as it has no time *unit*! Did you mean '{value}s'?"
-            )
+            # Treat bare numbers as milliseconds for backward compatibility
+            return TimePeriod(milliseconds=float(value))
         if isinstance(value, TimePeriod):
             value = str(value)
         if not isinstance(value, str):
@@ -759,7 +763,14 @@ class CustomValidator(Validator):
         match = re.match(r"^([-+]?[0-9]*\.?[0-9]*)\s*(\w*)$", value)
         if match is None:
             raise ConfigurationException(f"Expected time period with unit, got {value}")
-        kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(match.group(2))]
+
+        unit_str = match.group(2)
+        # Bare number without unit (e.g. '30' from coerce: str on int 30)
+        # → treat as milliseconds for backward compatibility
+        if not unit_str:
+            return TimePeriod(milliseconds=float(match.group(1)))
+
+        kwarg = unit_to_kwarg[one_of(*unit_to_kwarg)(unit_str)]
         return TimePeriod(**{kwarg: float(match.group(1))})
 
     def _lookup_field(self, path: str) -> tuple:
@@ -928,6 +939,30 @@ def _run_config_migrations(doc: dict, config_file: str | None = None) -> tuple[d
     return doc, new_version > current_version
 
 
+def _strip_empty_strings_deep(obj: Any) -> Any:
+    """Recursively remove dictionary keys whose value is an empty string.
+
+    The frontend may occasionally persist ``''`` for optional fields
+    (e.g. ``bounce_time: ''``).  Cerberus ``positive_time_period``
+    coercion fails on bare empty strings, so we strip them before
+    normalization.  Only *empty* strings are removed – non-empty strings
+    and other falsy values (``0``, ``False``, ``None``) are preserved.
+    """
+    if isinstance(obj, dict):
+        return {
+            k: _strip_empty_strings_deep(v)
+            for k, v in obj.items()
+            if v != ""
+        }
+    if isinstance(obj, list):
+        return [
+            _strip_empty_strings_deep(item)
+            for item in obj
+            if item != ""
+        ]
+    return obj
+
+
 def load_config_from_string(config_str: str) -> dict:
     """Load config from string."""
     schema = _get_schema()  # Use cached schema instead of loading every time
@@ -939,6 +974,11 @@ def load_config_from_string(config_str: str) -> dict:
     # Apply migrations on raw dict BEFORE normalization/coercion
     # (coerce: positive_time_period would fail on bare int like transition: 2)
     migrated_doc, _ = _run_config_migrations(raw_doc, config_file=None)
+
+    # Strip empty string values that may have been saved by the frontend
+    # (e.g. bounce_time: '' instead of being omitted).  Cerberus coercion
+    # for positive_time_period chokes on bare empty strings.
+    migrated_doc = _strip_empty_strings_deep(migrated_doc)
 
     # Normalize the document (applies coercion rules)
     doc = v.normalized(migrated_doc, always_return_document=True)  # type: ignore[attr-defined]
@@ -1152,6 +1192,9 @@ def _full_config_validation(
     _t3 = _time.monotonic()
     config_yaml, migrations_applied = _run_config_migrations(config_yaml, config_file=config_file)
     _LOGGER.debug("[STARTUP TIMING] migrations: %.2fs", _time.monotonic() - _t3)
+
+    # Strip empty string values that may have been saved by the frontend
+    config_yaml = _strip_empty_strings_deep(config_yaml)
 
     # Normalize the document (applies coercion rules)
     _progress("Normalizing config...")
