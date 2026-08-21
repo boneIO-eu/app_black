@@ -109,9 +109,9 @@ const SimpleTimePeriodInput: React.FC<SimpleTimePeriodInputProps> = ({
     return { value: 0, unit: 's' };
   };
 
-  // Convert value + unit to string like "30s"
+  // Convert value + unit to string like "30s" — never returns empty string
   const toTimeString = (val: number, unit: string): string => {
-    if (!val && val !== 0) return '';
+    if (val === undefined || val === null || isNaN(val)) return `0${unit || 's'}`;
     return `${val}${unit}`;
   };
 

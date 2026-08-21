@@ -397,6 +397,26 @@ async def update_section_content(section: str, data: dict | list = Body(...)):
                 },
             )
 
+    # Strip empty string values from data to prevent cerberus coercion failures
+    # (e.g. bounce_time: '' instead of being omitted).
+    def _strip_empty_strings(obj: dict | list) -> dict | list:
+        """Recursively remove keys whose value is an empty string."""
+        if isinstance(obj, list):
+            return [
+                _strip_empty_strings(item) if isinstance(item, (dict, list)) else item
+                for item in obj
+                if item != ""
+            ]
+        if isinstance(obj, dict):
+            return {
+                k: _strip_empty_strings(v) if isinstance(v, (dict, list)) else v
+                for k, v in obj.items()
+                if v != ""
+            }
+        return obj
+
+    data = _strip_empty_strings(data)
+
     try:
         t_route_start = time.perf_counter()
         app_state = _get_app_state()
