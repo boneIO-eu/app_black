@@ -1060,8 +1060,9 @@ def _read_current_overlay(uenv_path: str) -> str | None:
         Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``) or None.
     """
     # Fix #5: tolerate trailing whitespace and inline comments after overlay name
+    # Fix #6: optional path prefix — uEnv.txt may use bare filename or full path
     pattern = re.compile(
-        r"^uboot_overlay_addr\d+=.*/(BONEIO-BLACK-PINS\S+\.dtbo)\s*(?:#.*)?$"
+        r"^uboot_overlay_addr\d+=(?:.*/)?(BONEIO-BLACK-PINS\S*\.dtbo)\s*(?:#.*)?$"
     )
     try:
         with open(uenv_path, encoding="utf-8", errors="replace") as f:
@@ -1099,7 +1100,8 @@ _OVERLAY_SEARCH_DIRS = [
 def _overlay_file_exists(overlay_name: str) -> bool:
     """Check if the overlay .dtbo file exists on disk.
 
-    Searches common overlay directories and any ``/boot/dtbs/*/overlays/`` paths.
+    Prefers the **current** kernel's DTB directory, then falls back to
+    common overlay directories and other kernel versions.
 
     Args:
         overlay_name: Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``).
@@ -1107,11 +1109,24 @@ def _overlay_file_exists(overlay_name: str) -> bool:
     Returns:
         True if the file is found in at least one location.
     """
+    # Prefer current kernel's DTB directory (this is what U-Boot actually loads)
+    try:
+        result = subprocess.run(
+            ["uname", "-r"], capture_output=True, text=True, timeout=5,
+        )
+        kernel_version = result.stdout.strip()
+        if kernel_version:
+            current_path = f"/boot/dtbs/{kernel_version}/overlays/{overlay_name}"
+            if os.path.isfile(current_path):
+                return True
+    except Exception:
+        pass
+
     for search_dir in _OVERLAY_SEARCH_DIRS:
         if os.path.isfile(os.path.join(search_dir, overlay_name)):
             return True
 
-    # Check /boot/dtbs/<kernel>/overlays/ for any installed kernel
+    # Fallback: check any kernel dir (overlay installed but maybe in old kernel)
     for path in glob.glob(f"/boot/dtbs/*/overlays/{overlay_name}"):
         if os.path.isfile(path):
             return True
@@ -1168,9 +1183,9 @@ async def get_overlay_status():
         "current_overlay": current,
         "expected_overlay": expected,
         "uenv_path": uenv,
-        "match": current == expected if (current and expected) else True,
+        "match": (current == expected) if (current is not None and expected is not None) else False,
         "has_backup": has_backup,
-        "overlay_available": _overlay_file_exists(expected) if expected else True,
+        "overlay_available": _overlay_file_exists(expected) if expected else False,
     }
 
 
@@ -1277,10 +1292,11 @@ async def change_overlay(body: OverlayChangeRequest, request: Request):
 
     # Fix #4: sed skips commented lines using address /^[[:space:]]*#/!
     # Only modifies uncommented uboot_overlay_addr lines containing BONEIO-BLACK-PINS
+    # Fix #7: handle both path-prefixed and bare overlay names in uEnv.txt
     sed_pattern = (
         r"/^[[:space:]]*#/!s|"
-        r"\(uboot_overlay_addr[0-9]*=.*/\)BONEIO-BLACK-PINS[^ ]*|"
-        rf"\1{overlay}|"
+        r"\(uboot_overlay_addr[0-9]*=\)\(.*\/\)\{0,1\}BONEIO-BLACK-PINS[^ ]*|"
+        rf"\1\2{overlay}|"
     )
 
     cmd = ["sudo", "-S", "sed", "-i", sed_pattern, uenv]
