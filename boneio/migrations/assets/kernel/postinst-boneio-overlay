@@ -1,0 +1,48 @@
+#!/bin/bash
+# /etc/kernel/postinst.d/zz-boneio-overlay
+# Copies boneIO overlay .dtbo files to new kernel DTB directory
+# after kernel installation/upgrade.
+#
+# Called by dpkg with args: <version> <image-path>
+
+NEW_KERNEL_VERSION="$1"
+if [ -z "$NEW_KERNEL_VERSION" ]; then
+    exit 0
+fi
+
+NEW_OVERLAY_DIR="/boot/dtbs/${NEW_KERNEL_VERSION}/overlays"
+
+# If new kernel dir doesn't exist yet, skip
+if [ ! -d "/boot/dtbs/${NEW_KERNEL_VERSION}" ]; then
+    exit 0
+fi
+
+# Already has our overlays? Skip.
+if ls "${NEW_OVERLAY_DIR}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
+    logger -t boneio-overlay "Overlays already present in ${NEW_OVERLAY_DIR}, skipping."
+    exit 0
+fi
+
+# Find source: any existing kernel directory that has our overlays.
+# Sort in reverse to prefer the newest kernel version as source.
+SRC_DIR=""
+for kdir in $(ls -1dr /boot/dtbs/*/overlays 2>/dev/null); do
+    [ "$kdir" = "${NEW_OVERLAY_DIR}" ] && continue
+    if ls "${kdir}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
+        SRC_DIR="${kdir}"
+        break
+    fi
+done
+
+if [ -z "$SRC_DIR" ]; then
+    logger -t boneio-overlay "WARNING: No source overlays found to copy to ${NEW_OVERLAY_DIR}"
+    exit 0
+fi
+
+mkdir -p "${NEW_OVERLAY_DIR}"
+if cp "${SRC_DIR}"/BONEIO-BLACK-PINS*.dtbo "${NEW_OVERLAY_DIR}/" 2>/dev/null; then
+    logger -t boneio-overlay "Copied overlays from ${SRC_DIR} to ${NEW_OVERLAY_DIR}"
+else
+    logger -t boneio-overlay "ERROR: Failed to copy overlays from ${SRC_DIR} to ${NEW_OVERLAY_DIR}"
+    exit 1
+fi

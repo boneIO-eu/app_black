@@ -114,6 +114,7 @@ class MigrationRunner:
         self.bootstrap_required: bool = False
         self.pending_count: int = 0
         self.last_error: str | None = None
+        self.overlay_repair_needed: bool = False
         self._manifest: dict[str, str] = {}
         self._all_migrations: list[MigrationInfo] = []
         self._applied: set[str] = set()
@@ -163,6 +164,10 @@ class MigrationRunner:
             _LOGGER.error("Migration startup_check failed: %s", exc, exc_info=True)
             self.last_error = str(exc)
             self.status = MigrationStatus.ERROR
+        finally:
+            # Safety net: always check overlay in current kernel dir,
+            # even when early-returning from no-pending or bootstrap paths.
+            self._check_overlay_in_current_kernel()
 
         return self.status
 
@@ -569,3 +574,125 @@ class MigrationRunner:
         # Applied flags are written by boneio-migrate helper (as root).
         # We reload from disk to pick them up.
         self._load_applied_flags()
+
+    def _check_overlay_in_current_kernel(self) -> None:
+        """Verify boneIO overlay exists in current kernel's DTB directory.
+
+        If missing, copies from another kernel's overlay directory via the
+        boneio-migrate helper.  This is a safety net for systems that had
+        their kernel upgraded before the ``zz-boneio-overlay`` postinst
+        hook was installed.
+
+        Sets :attr:`overlay_repair_needed` to ``True`` when overlays are
+        missing and a reboot is needed after repair.
+        """
+        try:
+            result = subprocess.run(
+                ["uname", "-r"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            kernel_version = result.stdout.strip()
+            if not kernel_version:
+                return
+
+            overlay_dir = Path(f"/boot/dtbs/{kernel_version}/overlays")
+            if not overlay_dir.parent.exists():
+                return
+
+            # Check if any boneIO overlay exists
+            existing = list(overlay_dir.glob("BONEIO-BLACK-PINS*.dtbo"))
+            if existing:
+                _LOGGER.debug(
+                    "Overlay check OK: %d overlay(s) in %s",
+                    len(existing),
+                    overlay_dir,
+                )
+                return
+
+            _LOGGER.warning(
+                "No boneIO overlays found in %s — searching other kernel dirs...",
+                overlay_dir,
+            )
+            self.overlay_repair_needed = True
+
+            # Find source from another kernel directory (prefer newest)
+            src_dir: Path | None = None
+            dtbs_root = Path("/boot/dtbs")
+            if not dtbs_root.exists():
+                return
+
+            for kdir in sorted(dtbs_root.iterdir(), reverse=True):
+                if not kdir.is_dir() or kdir.name == kernel_version:
+                    continue
+                overlay_subdir = kdir / "overlays"
+                if not overlay_subdir.is_dir():
+                    continue
+                candidates = list(overlay_subdir.glob("BONEIO-BLACK-PINS*.dtbo"))
+                if candidates:
+                    src_dir = overlay_subdir
+                    break
+
+            if src_dir is None:
+                _LOGGER.error(
+                    "No boneIO overlay source found in any kernel dir. "
+                    "Inputs may not work! Run: cd /opt/source/black-pins-overlay "
+                    "&& git pull && ./build_boneio_black_pins.sh && sudo reboot"
+                )
+                return
+
+            if not self._helper_installed():
+                _LOGGER.warning(
+                    "Cannot copy overlays — boneio-migrate helper not installed."
+                )
+                return
+
+            # Copy each overlay via boneio-migrate helper.
+            # Use skip_applied_flag to avoid writing a useless
+            # "_overlay_repair.applied" marker.
+            dtbo_files = list(src_dir.glob("BONEIO-BLACK-PINS*.dtbo"))
+            actions: list[dict[str, object]] = []
+            for dtbo in dtbo_files:
+                actions.append({
+                    "action": "install_file",
+                    "src": dtbo.name,
+                    "dst": str(overlay_dir / dtbo.name),
+                    "mode": 0o644,
+                    "owner": "root",
+                    "group": "root",
+                    "template_vars": {},
+                })
+
+            plan_payload = {
+                "version": "_overlay_repair",
+                "actions": actions,
+                "assets_base": str(src_dir),
+                "skip_applied_flag": True,
+            }
+
+            copy_result = subprocess.run(
+                ["sudo", "-n", HELPER_PATH],
+                input=json.dumps(plan_payload),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if copy_result.returncode == 0:
+                _LOGGER.warning(
+                    "Copied %d boneIO overlay(s) from %s to %s. "
+                    "Reboot required for changes to take effect.",
+                    len(dtbo_files),
+                    src_dir,
+                    overlay_dir,
+                )
+            else:
+                _LOGGER.error(
+                    "Failed to copy overlays (rc=%d): %s",
+                    copy_result.returncode,
+                    copy_result.stderr.strip(),
+                )
+        except Exception as exc:
+            _LOGGER.warning("Overlay check failed: %s", exc)
+
