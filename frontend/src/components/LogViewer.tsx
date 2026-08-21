@@ -68,7 +68,9 @@ export default function LogViewer() {
   const [isTopHalf, setIsTopHalf] = useState(true);
   const [selectedLogIndices, setSelectedLogIndices] = useState<Set<number>>(new Set());
   const [selectionStart, setSelectionStart] = useState<number | null>(null);
-  const [isSelecting, setIsSelecting] = useState(false);
+  const [hasTextSelection, setHasTextSelection] = useState(false);
+  const isSelectingTextRef = useRef(false);
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -189,7 +191,7 @@ export default function LogViewer() {
     }
   }, [fetchLogs, autoRefresh]);
 
-  // Close dropdowns when clicking outside + stop drag selection on global mouseup
+  // Close dropdowns when clicking outside + track mouseup globally
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (moduleDropdownRef.current && !moduleDropdownRef.current.contains(e.target as Node)) {
@@ -202,12 +204,39 @@ export default function LogViewer() {
         setDateFilterOpen(false);
       }
     };
-    const handleGlobalMouseUp = () => setIsSelecting(false);
+    const handleGlobalMouseUp = () => {
+      isSelectingTextRef.current = false;
+    };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('mouseup', handleGlobalMouseUp);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
+
+  // Track native text selection inside the log container to avoid auto-scroll interruptions
+  // and cleanly handle copy / discord actions.
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        setHasTextSelection(false);
+        return;
+      }
+      if (
+        logContainerRef.current &&
+        sel.anchorNode &&
+        logContainerRef.current.contains(sel.anchorNode)
+      ) {
+        setHasTextSelection(true);
+        // Clear row selection when native text selection is performed to avoid dual highlights
+        setSelectedLogIndices(prev => (prev.size > 0 ? new Set() : prev));
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
     };
   }, []);
 
@@ -457,11 +486,16 @@ export default function LogViewer() {
     }
   };
 
-  const scrollToBottom = () => {
-    if (logContainerRef.current && autoScroll) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+  const scrollToBottom = useCallback(() => {
+    if (!autoScroll || !logContainerRef.current) return;
+    const sel = window.getSelection();
+    const hasActiveTextSel = !!(sel && !sel.isCollapsed && sel.toString().trim().length > 0);
+    // Do not auto-scroll if user is dragging/selecting text, has text selected, or has selected rows
+    if (isSelectingTextRef.current || hasActiveTextSel || selectedLogIndices.size > 0) {
+      return;
     }
-  };
+    logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+  }, [autoScroll, selectedLogIndices]);
 
   const handleScroll = () => {
     if (logContainerRef.current) {
@@ -492,13 +526,20 @@ export default function LogViewer() {
   useEffect(() => {
     // Scroll to bottom when logs change
     scrollToBottom();
-  }, [logs]);
+  }, [logs, scrollToBottom]);
 
-  const handleLogSelection = (index: number, isShiftKey: boolean) => {
-    if (!isShiftKey) {
-      setSelectedLogIndices(new Set([index]));
-      setSelectionStart(index);
-    } else if (selectionStart !== null) {
+  const handleRowClick = (e: React.MouseEvent, index: number) => {
+    // If user dragged mouse (distance > 5px) or there is active text selection, treat as text drag, not row click
+    if (mouseDownPosRef.current) {
+      const dist = Math.hypot(e.clientX - mouseDownPosRef.current.x, e.clientY - mouseDownPosRef.current.y);
+      if (dist > 5) return;
+    }
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+      return;
+    }
+
+    if (e.shiftKey && selectionStart !== null) {
       const start = Math.min(selectionStart, index);
       const end = Math.max(selectionStart, index);
       const newSelection = new Set<number>();
@@ -506,12 +547,25 @@ export default function LogViewer() {
         newSelection.add(i);
       }
       setSelectedLogIndices(newSelection);
-    }
-  };
-
-  const handleMouseMove = (index: number) => {
-    if (isSelecting && selectionStart !== null) {
-      handleLogSelection(index, true);
+    } else if (e.ctrlKey || e.metaKey) {
+      setSelectedLogIndices(prev => {
+        const next = new Set(prev);
+        if (next.has(index)) {
+          next.delete(index);
+        } else {
+          next.add(index);
+        }
+        return next;
+      });
+      setSelectionStart(index);
+    } else {
+      setSelectedLogIndices(prev => {
+        if (prev.size === 1 && prev.has(index)) {
+          return new Set();
+        }
+        return new Set([index]);
+      });
+      setSelectionStart(index);
     }
   };
 
@@ -519,41 +573,62 @@ export default function LogViewer() {
   const DISCORD_WRAPPER_CHARS = '```bash\n\n```'.length; // 12 chars for the code block wrapper
 
   /**
-   * Build the raw text from selected log lines
+   * Build the raw text from either native text selection or selected log lines
    */
-  const getSelectedLogsText = () => {
-    return Array.from(selectedLogIndices)
-      .sort((a, b) => a - b)
-      .filter(index => index < filteredLogs.length)
-      .map(index => {
-        const log = filteredLogs[index];
-        return `${formatTimestamp(log.timestamp)} ${log.message}`;
-      })
-      .join('\n');
-  };
+  const getSelectedLogsText = useCallback((): string => {
+    // 1. Native text selection inside log container takes precedence
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) {
+      const text = sel.toString().trim();
+      if (
+        text.length > 0 &&
+        logContainerRef.current &&
+        sel.anchorNode &&
+        logContainerRef.current.contains(sel.anchorNode)
+      ) {
+        return text;
+      }
+    }
+    // 2. Fall back to selected row indices
+    if (selectedLogIndices.size > 0) {
+      return Array.from(selectedLogIndices)
+        .sort((a, b) => a - b)
+        .filter(index => index < filteredLogs.length)
+        .map(index => {
+          const log = filteredLogs[index];
+          return `${formatTimestamp(log.timestamp)} ${log.message}`;
+        })
+        .join('\n');
+    }
+    return '';
+  }, [selectedLogIndices, filteredLogs]);
+
+  const hasSelection = hasTextSelection || selectedLogIndices.size > 0;
+  const currentSelectionText = getSelectedLogsText();
 
   /**
    * Length of the Discord-formatted message for current selection
    */
   const discordMessageLength = useMemo(() => {
-    if (selectedLogIndices.size === 0) return 0;
-    const text = getSelectedLogsText();
-    return text.length + DISCORD_WRAPPER_CHARS;
-  }, [selectedLogIndices, filteredLogs]);
+    if (!hasSelection || !currentSelectionText) return 0;
+    return currentSelectionText.length + DISCORD_WRAPPER_CHARS;
+  }, [hasSelection, currentSelectionText]);
 
   const isDiscordOverLimit = discordMessageLength > DISCORD_MAX_CHARS;
 
   const handleCopyToClipboard = () => {
-    const selectedLogs = getSelectedLogsText();
+    const text = getSelectedLogsText();
+    if (!text) return;
 
-    copyToClipboard(selectedLogs).then(() => {
+    copyToClipboard(text).then(() => {
       showToast(t('log_viewer.copied_clipboard'));
     });
   };
 
   const handleCopyForDiscord = () => {
-    const selectedLogs = getSelectedLogsText();
-    const discordFormatted = '```bash\n' + selectedLogs + '\n```';
+    const text = getSelectedLogsText();
+    if (!text) return;
+    const discordFormatted = '```bash\n' + text + '\n```';
 
     copyToClipboard(discordFormatted).then(() => {
       showToast(t('log_viewer.copied_discord'));
@@ -820,7 +895,10 @@ export default function LogViewer() {
       <div 
         ref={logContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-auto p-2 sm:p-4 font-mono text-xs sm:text-sm relative min-w-0"
+        onMouseDown={() => {
+          isSelectingTextRef.current = true;
+        }}
+        className="flex-1 overflow-auto p-2 sm:p-4 font-mono text-xs sm:text-sm relative min-w-0 select-text"
       >
         {isLoading && logs.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
@@ -844,11 +922,11 @@ export default function LogViewer() {
             </button>
           </div>
         )}
-        <div className="space-y-1">
+        <div className="flex flex-col gap-0.5">
           {filteredLogs.map((log, index) => (
             <div 
               key={index} 
-              className={`flex gap-2 sm:gap-4 cursor-pointer px-1 sm:px-2 rounded transition-colors ${
+              className={`flex gap-2 sm:gap-4 px-1 sm:px-2 rounded transition-colors select-text cursor-pointer ${
                 selectedLogIndices.has(index)
                   ? '' 
                   : 'hover:bg-base-200'
@@ -859,29 +937,9 @@ export default function LogViewer() {
                   : getLogRowStyle(log.level)
               }
               onMouseDown={(e) => {
-                e.preventDefault(); // Prevent default text selection
-                longPressTriggered.current = false;
-                longPressTimer.current = setTimeout(() => {
-                  longPressTriggered.current = true;
-                  copyToClipboard(log.message).then(() => {
-                    showToast(t('log_viewer.copied_line'));
-                  });
-                }, 500);
-                if (e.shiftKey) {
-                  handleLogSelection(index, true);
-                } else {
-                  handleLogSelection(index, false);
-                }
-                setIsSelecting(true);
+                mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
               }}
-              onMouseEnter={() => {
-                handleMouseMove(index);
-                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-              }}
-              onMouseUp={() => {
-                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-                setIsSelecting(false);
-              }}
+              onClick={(e) => handleRowClick(e, index)}
               onTouchStart={() => {
                 longPressTriggered.current = false;
                 longPressTimer.current = setTimeout(() => {
@@ -899,26 +957,26 @@ export default function LogViewer() {
               }}
             >
               <span
-                className="whitespace-nowrap shrink-0 hidden sm:inline"
+                className="whitespace-nowrap shrink-0 hidden sm:inline select-text"
                 style={{ color: selectedLogIndices.has(index) ? 'var(--log-selected-timestamp)' : 'var(--log-timestamp)' }}
               >
                 {formatTimestamp(log.timestamp)}
               </span>
               <span
-                className="whitespace-nowrap shrink-0 sm:hidden"
+                className="whitespace-nowrap shrink-0 sm:hidden select-text"
                 style={{ color: selectedLogIndices.has(index) ? 'var(--log-selected-timestamp)' : 'var(--log-timestamp)' }}
               >
                 {formatTimestamp(log.timestamp).split(' ')[1] || formatTimestamp(log.timestamp)}
               </span>
               <span
-                className="flex-1 whitespace-pre-wrap break-all min-w-0"
+                className="flex-1 whitespace-pre-wrap break-all min-w-0 select-text"
                 style={selectedLogIndices.has(index) ? { color: 'var(--log-selected-text)' } : getLogLevelStyle(log.level)}
               >
                 {log.message}
               </span>
               {log.count > 1 && (
                 <span
-                  className="shrink-0 self-center badge badge-sm font-mono opacity-80"
+                  className="shrink-0 self-center badge badge-sm font-mono opacity-80 select-none"
                   style={{
                     backgroundColor: 'var(--log-error-bg, oklch(0.3 0.05 25))',
                     color: 'var(--log-error, oklch(0.8 0.15 25))',
@@ -937,7 +995,7 @@ export default function LogViewer() {
         </div>
         <div className="fixed bottom-6 right-6 flex flex-col items-end gap-2">
           {/* Discord limit warning */}
-          {selectedLogIndices.size > 0 && isDiscordOverLimit && (
+          {hasSelection && isDiscordOverLimit && (
             <div className="text-xs text-base-content/40 bg-base-200 rounded px-2 py-1 shadow">
               {t('log_viewer.discord_max_chars', { max: DISCORD_MAX_CHARS, current: discordMessageLength })}
             </div>
@@ -946,9 +1004,9 @@ export default function LogViewer() {
             {/* Share to Discord */}
             <button
               onClick={handleCopyForDiscord}
-              disabled={selectedLogIndices.size === 0 || isDiscordOverLimit}
+              disabled={!hasSelection || isDiscordOverLimit}
               className={`btn btn-circle btn-sm shadow-lg hover:shadow-xl ${
-                selectedLogIndices.size > 0 && !isDiscordOverLimit
+                hasSelection && !isDiscordOverLimit
                   ? 'bg-[#5865F2] hover:bg-[#4752C4] text-white border-none'
                   : 'bg-base-200'
               }`}
@@ -959,8 +1017,10 @@ export default function LogViewer() {
             {/* Copy */}
             <button
               onClick={handleCopyToClipboard}
-              disabled={selectedLogIndices.size === 0}
-              className="btn btn-circle btn-sm bg-base-200 shadow-lg hover:shadow-xl"
+              disabled={!hasSelection}
+              className={`btn btn-circle btn-sm shadow-lg hover:shadow-xl ${
+                hasSelection ? 'btn-primary' : 'bg-base-200'
+              }`}
               title={t('log_viewer.copy_selected')}
             >
               <FaCopy />
