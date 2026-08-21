@@ -175,6 +175,7 @@ const EntityCard: React.FC<OutputItemProps> = ({
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}
       onTouchStart={handlePressStart}
+      onTouchMove={handlePressEnd}
       onTouchEnd={handlePressEnd}
       title={onLongPress ? (longPressTitle || t('outputs.long_press_to_edit')) : undefined}
     >

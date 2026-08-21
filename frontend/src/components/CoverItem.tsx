@@ -74,6 +74,7 @@ const CoverItem: React.FC<CoverItemProps> = memo(({ cover, action, isGrid, error
       onMouseUp={handlePressEnd}
       onMouseLeave={handlePressEnd}
       onTouchStart={handlePressStart}
+      onTouchMove={handlePressEnd}
       onTouchEnd={handlePressEnd}
       title={onLongPress ? t('outputs.long_press_to_edit') : undefined}
     >
