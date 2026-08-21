@@ -9,7 +9,7 @@
     {
       "base": 4001,
       "length": 24,
-      "register_type": "input",
+      "register_type": "holding",
       "registers": [
         {
           "name": "Wydatek nawiewu",
