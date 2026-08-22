@@ -19,7 +19,18 @@ After=network.target mosquitto.service boneio-oled-boot.service
 
 [Service]
 Type=simple
-ExecStartPre=-/usr/sbin/oled_msg.sh "boneIO Black" "is starting..." "Please wait..."
+# No ExecStartPre OLED message here.
+#
+# It used to run /usr/sbin/oled_msg.sh "boneIO Black" "is starting..." which
+# cost 2.96 s of measured startup: oled_msg.sh has a fast FIFO path, but the
+# daemon that serves it is not running yet at boot, so it fell back to spawning
+# Python with PIL.
+#
+# Nothing is lost. boneio-oled-boot.service already displays "OS is starting. /
+# Please wait...", its ExecStop switches to "App is loading...", and boneIO's own
+# early_oled then draws real progress ("Loading config...", "Importing
+# modules...", "Initializing...") from bonecli.py. The removed message was
+# near-duplicate text charged at 2.96 s on the critical path.
 ExecStart=${BONEIO_HOME}/boneio/venv/bin/boneio run -c ${BONEIO_HOME}/boneio/config.yaml
 ExecStopPost=-/bin/sh -c 'if ! systemctl is-system-running --quiet 2>/dev/null; then /usr/sbin/oled_msg.sh "boneIO Black" "Shutting down..."; fi'
 User=${BONEIO_USER}
