@@ -43,12 +43,19 @@ class UpdateManager(AsyncUpdater):
         self,
         manager: Manager,
         update_interval: TimePeriod | None = None,
+        initial_delay: TimePeriod | None = None,
     ):
         """Initialize UpdateManager.
 
         Args:
             manager: Parent Manager instance
             update_interval: Time between update checks (default: 4 hours)
+            initial_delay: Delay before the first check (default: 5 minutes).
+                An update check is a GitHub round trip and is worthless to a
+                controller that is still starting up; running it immediately put
+                it squarely on the startup critical path. HA discovery for the
+                update entity is unaffected — Manager.send_ha_autodiscovery()
+                sends it as part of the normal discovery flow.
         """
         self.id = "update_manager"
         self._manager = manager
@@ -56,6 +63,8 @@ class UpdateManager(AsyncUpdater):
         # Update check interval (default: 4 hours)
         if update_interval is None:
             update_interval = TimePeriod(hours=4)
+        if initial_delay is None:
+            initial_delay = TimePeriod(minutes=5)
 
         # Cache for update info to avoid excessive GitHub API calls
         self._last_check_result: dict | None = None
@@ -64,9 +73,17 @@ class UpdateManager(AsyncUpdater):
         self._update_running: bool = False
 
         # Initialize AsyncUpdater (starts periodic task)
-        super().__init__(manager=manager, update_interval=update_interval)
+        super().__init__(
+            manager=manager,
+            update_interval=update_interval,
+            initial_delay=initial_delay,
+        )
 
-        _LOGGER.info("UpdateManager initialized (check interval: %s)", update_interval)
+        _LOGGER.info(
+            "UpdateManager initialized (check interval: %s, first check in %s)",
+            update_interval,
+            initial_delay,
+        )
 
     async def async_update(self, timestamp: float) -> float | None:
         """Perform periodic update check.
@@ -124,9 +141,9 @@ class UpdateManager(AsyncUpdater):
             }
 
         try:
-            from boneio.webui.routes.update import _fetch_github_releases
+            from boneio.webui.routes.update import _fetch_github_releases_async
 
-            releases, error = _fetch_github_releases()
+            releases, error = await _fetch_github_releases_async()
 
             if error:
                 return {"status": "error", "message": error, "current_version": current_version}

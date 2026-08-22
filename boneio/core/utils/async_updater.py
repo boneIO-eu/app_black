@@ -28,12 +28,23 @@ class AsyncUpdater:
     Implementation is validated at initialization time.
     """
 
-    def __init__(self, manager: Manager, update_interval: TimePeriod, **kwargs):
+    def __init__(
+        self,
+        manager: Manager,
+        update_interval: TimePeriod,
+        initial_delay: TimePeriod | None = None,
+        **kwargs,
+    ):
         """Initialize async updater.
 
         Args:
             manager: Manager instance to register the update task
             update_interval: Time period between updates
+            initial_delay: Optional delay before the *first* update. Without it
+                the refresh loop fires immediately, which puts the component on
+                the application's startup critical path. Use this for anything
+                that is not needed for the controller to serve I/O — network
+                calls in particular.
             **kwargs: Additional arguments (passed to parent classes)
 
         Raises:
@@ -64,6 +75,7 @@ class AsyncUpdater:
 
         self.manager = manager
         self._update_interval = update_interval or TimePeriod(seconds=60)
+        self._initial_delay = initial_delay
         self._wakeup_event = asyncio.Event()  # Event to wake up from sleep early
         self._requested_update_interval: float | None = None  # Custom interval for next update
         self.manager.append_task(coro=self._refresh, name=self.id)  # type: ignore[attr-defined]
@@ -111,7 +123,23 @@ class AsyncUpdater:
             # Determine which update method to use (check once, not every loop)
             use_async = self.__class__.async_update is not AsyncUpdater.async_update
 
-            # Perform first update immediately on startup
+            # Optional delay before the first update. Components that only
+            # report status (rather than drive hardware) use this so they do not
+            # compete with startup. Interruptible via request_update(), so an
+            # explicit refresh from the WebUI is still immediate.
+            if self._initial_delay is not None:
+                delay = self._initial_delay.total_in_seconds
+                if delay > 0:
+                    _LOGGER.debug(
+                        "%s: deferring first update by %ss",
+                        getattr(self, "id", "unknown"),
+                        delay,
+                    )
+                    try:
+                        await asyncio.wait_for(self._wakeup_event.wait(), timeout=delay)
+                        self._wakeup_event.clear()
+                    except TimeoutError:
+                        pass
 
             while True:
                 timestamp = time.time()

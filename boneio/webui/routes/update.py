@@ -51,6 +51,9 @@ def _get_cached_releases() -> list | None:
 def _fetch_github_releases(repo: str = "boneIO-eu/app_black") -> tuple[list | None, str | None]:
     """Fetch releases from GitHub API with caching.
 
+    BLOCKING. Do not call from a coroutine — use
+    :func:`_fetch_github_releases_async` instead.
+
     Returns:
         Tuple of (releases_list, error_message).
         On success error_message is None; on failure releases_list is None.
@@ -82,6 +85,35 @@ def _fetch_github_releases(repo: str = "boneIO-eu/app_black") -> tuple[list | No
     _LOGGER.debug("Fetched and cached %d GitHub releases", len(releases))
 
     return releases, None
+
+
+async def _fetch_github_releases_async(
+    repo: str = "boneIO-eu/app_black",
+) -> tuple[list | None, str | None]:
+    """Fetch releases from GitHub API without stalling the event loop.
+
+    :func:`_fetch_github_releases` uses a blocking ``requests.get()``. Every
+    caller sits in a coroutine, so calling it directly froze the entire
+    application — no MQTT, no GPIO handling, no web server — for the duration of
+    DNS resolution, the TLS handshake and JSON parsing.
+
+    Measured on a BeagleBone Black during startup: 23.3 s of complete
+    standstill between "Subscribed to update command topic" and "Starting
+    HYPERCORN web server". With no internet at the site it lasts until the
+    connect timeout instead.
+
+    A cache hit is answered inline; only a real network round trip is moved to a
+    worker thread.
+
+    Returns:
+        Tuple of (releases_list, error_message).
+    """
+    cached = _get_cached_releases()
+    if cached is not None:
+        _LOGGER.debug("Using cached GitHub releases (%d entries)", len(cached))
+        return cached, None
+
+    return await asyncio.to_thread(_fetch_github_releases, repo)
 
 
 def get_manager():
@@ -179,7 +211,7 @@ async def check_update():
         }
     
     try:
-        releases, error = _fetch_github_releases()
+        releases, error = await _fetch_github_releases_async()
         
         if error:
             return {
@@ -500,7 +532,7 @@ async def list_available_versions():
     current_version = __version__
     
     try:
-        releases, error = _fetch_github_releases()
+        releases, error = await _fetch_github_releases_async()
         
         if error:
             return {
