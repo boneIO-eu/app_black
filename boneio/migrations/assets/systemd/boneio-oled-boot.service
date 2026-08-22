@@ -2,7 +2,20 @@
 Description=boneIO OLED boot splash
 DefaultDependencies=no
 After=systemd-modules-load.service
-Before=sysinit.target multi-user.target boneio.service
+# NOT Before=sysinit.target.
+#
+# This unit costs 4.5 s — it is a Python process pulling in PIL to render three
+# lines of text. Ordering it before sysinit.target meant everything downstream
+# (basic.target, mosquitto, boneIO) was pushed back by that much, purely to
+# paint a splash screen.
+#
+# WantedBy=sysinit.target below still pulls it in at the same early point, but
+# without ordering, sysinit no longer waits for it: the render now overlaps the
+# ~45 s of work that follows instead of preceding it.
+#
+# Before=boneio.service is kept deliberately. boneIO drives the same SH1106 over
+# I2C via early_oled, and two writers on one bus produce a garbled display.
+Before=boneio.service
 ConditionPathExists=/usr/sbin/oled_boot_splash.sh
 # Skip if initramfs already showed the splash (marker created by initramfs hook)
 ConditionPathExists=!/dev/.boneio-oled-done
