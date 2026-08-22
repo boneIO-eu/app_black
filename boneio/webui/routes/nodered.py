@@ -708,7 +708,10 @@ async def upload_restore(
 def _fetch_docker_hub_tags() -> list[dict[str, str]]:
     """
     Fetch image tags for nodered/node-red from Docker Hub API.
-    
+
+    BLOCKING. Do not call from a coroutine — use
+    :func:`_fetch_docker_hub_tags_async` instead.
+
     Returns:
         List of dicts representing tags.
     """
@@ -742,6 +745,29 @@ def _fetch_docker_hub_tags() -> list[dict[str, str]]:
     return []
 
 
+async def _fetch_docker_hub_tags_async() -> list[dict[str, str]]:
+    """Fetch Docker Hub tags without stalling the event loop.
+
+    Same defect as the GitHub releases fetch: a blocking ``requests.get()``
+    reached from a coroutine freezes MQTT, GPIO handling and the web server for
+    the length of the round trip. Here it fires whenever someone opens the
+    Node-RED page in the WebUI, and Docker Hub is slower and more rate-limited
+    than the GitHub API.
+
+    A fresh cache entry is returned inline; only a real request is offloaded.
+
+    Returns:
+        List of dicts representing tags.
+    """
+    cached = _DOCKER_HUB_CACHE["data"]
+    fetched_at = _DOCKER_HUB_CACHE["fetched_at"]
+    if cached is not None and isinstance(fetched_at, float) and (time.monotonic() - fetched_at) < _DOCKER_HUB_TTL:
+        assert isinstance(cached, list)
+        return cached
+
+    return await asyncio.to_thread(_fetch_docker_hub_tags)
+
+
 @router.get("/update/check", response_model=UpdateCheckResponse)
 async def check_update() -> UpdateCheckResponse:
     """Check if Node-RED update is available."""
@@ -759,7 +785,7 @@ async def check_update() -> UpdateCheckResponse:
     # Strip suffix to get version part (e.g. 4.1.2-22-minimal -> 4.1.2)
     # The tag pattern on docker hub is often like 4.0.2-20-minimal or 4.0.2
     
-    tags = _fetch_docker_hub_tags()
+    tags = await _fetch_docker_hub_tags_async()
     if not tags:
         return UpdateCheckResponse(
             current_version=current_version,
