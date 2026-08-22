@@ -1,48 +1,79 @@
 #!/bin/bash
 # /etc/kernel/postinst.d/zz-boneio-overlay
-# Copies boneIO overlay .dtbo files to new kernel DTB directory
+# Copies boneIO overlay .dtbo files to a new kernel DTB directory
 # after kernel installation/upgrade.
 #
 # Called by dpkg with args: <version> <image-path>
+#
+# IMPORTANT: the .dtbo must land in BOTH locations:
+#
+#   /boot/dtbs/$K/           <- U-Boot resolves bare filenames from uEnv.txt here
+#                               ("uboot_overlay_addr0=BONEIO-BLACK-PINS-v1.0.dtbo")
+#   /boot/dtbs/$K/overlays/  <- kernel/userspace overlay tooling
+#
+# Copying only into overlays/ makes U-Boot report
+#   uboot_overlays: unable to find [mmc 0:3 BONEIO-BLACK-PINS-v1.0.dtbo]
+# and boot with the stock BeagleBone pinmux. That failure is invisible from
+# userspace apart from an empty /proc/device-tree/chosen/overlays/.
 
 NEW_KERNEL_VERSION="$1"
 if [ -z "$NEW_KERNEL_VERSION" ]; then
     exit 0
 fi
 
-NEW_OVERLAY_DIR="/boot/dtbs/${NEW_KERNEL_VERSION}/overlays"
+NEW_KERNEL_DIR="/boot/dtbs/${NEW_KERNEL_VERSION}"
+NEW_OVERLAY_DIR="${NEW_KERNEL_DIR}/overlays"
 
 # If new kernel dir doesn't exist yet, skip
-if [ ! -d "/boot/dtbs/${NEW_KERNEL_VERSION}" ]; then
+if [ ! -d "${NEW_KERNEL_DIR}" ]; then
     exit 0
 fi
 
-# Already has our overlays? Skip.
-if ls "${NEW_OVERLAY_DIR}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
-    logger -t boneio-overlay "Overlays already present in ${NEW_OVERLAY_DIR}, skipping."
+# Already present in BOTH required locations? Skip.
+# Checking only overlays/ was the previous behaviour and it let a half-installed
+# state (overlays/ populated, U-Boot path empty) persist across upgrades.
+if ls "${NEW_KERNEL_DIR}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1 &&
+    ls "${NEW_OVERLAY_DIR}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
+    logger -t boneio-overlay "Overlays already present in ${NEW_KERNEL_DIR} and ${NEW_OVERLAY_DIR}, skipping."
     exit 0
 fi
 
-# Find source: any existing kernel directory that has our overlays.
-# Sort in reverse to prefer the newest kernel version as source.
+# Find source: any existing kernel directory that has our overlays, looking in
+# both the kernel dir and its overlays/ subdir. Sort in reverse to prefer the
+# newest kernel version as source.
 SRC_DIR=""
-for kdir in $(ls -1dr /boot/dtbs/*/overlays 2>/dev/null); do
-    [ "$kdir" = "${NEW_OVERLAY_DIR}" ] && continue
-    if ls "${kdir}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
-        SRC_DIR="${kdir}"
-        break
-    fi
+for kdir in $(ls -1dr /boot/dtbs/*/ 2>/dev/null); do
+    for candidate in "${kdir%/}" "${kdir%/}/overlays"; do
+        [ "$candidate" = "${NEW_KERNEL_DIR}" ] && continue
+        [ "$candidate" = "${NEW_OVERLAY_DIR}" ] && continue
+        if ls "${candidate}"/BONEIO-BLACK-PINS*.dtbo 1>/dev/null 2>&1; then
+            SRC_DIR="${candidate}"
+            break 2
+        fi
+    done
 done
 
 if [ -z "$SRC_DIR" ]; then
-    logger -t boneio-overlay "WARNING: No source overlays found to copy to ${NEW_OVERLAY_DIR}"
+    logger -t boneio-overlay "WARNING: No source overlays found to copy to ${NEW_KERNEL_DIR}"
     exit 0
 fi
 
 mkdir -p "${NEW_OVERLAY_DIR}"
-if cp "${SRC_DIR}"/BONEIO-BLACK-PINS*.dtbo "${NEW_OVERLAY_DIR}/" 2>/dev/null; then
-    logger -t boneio-overlay "Copied overlays from ${SRC_DIR} to ${NEW_OVERLAY_DIR}"
-else
-    logger -t boneio-overlay "ERROR: Failed to copy overlays from ${SRC_DIR} to ${NEW_OVERLAY_DIR}"
-    exit 1
+
+RC=0
+# U-Boot lookup path
+if ! cp "${SRC_DIR}"/BONEIO-BLACK-PINS*.dtbo "${NEW_KERNEL_DIR}/" 2>/dev/null; then
+    logger -t boneio-overlay "ERROR: Failed to copy overlays from ${SRC_DIR} to ${NEW_KERNEL_DIR}"
+    RC=1
 fi
+# kernel/userspace tooling path
+if ! cp "${SRC_DIR}"/BONEIO-BLACK-PINS*.dtbo "${NEW_OVERLAY_DIR}/" 2>/dev/null; then
+    logger -t boneio-overlay "ERROR: Failed to copy overlays from ${SRC_DIR} to ${NEW_OVERLAY_DIR}"
+    RC=1
+fi
+
+if [ "$RC" -eq 0 ]; then
+    logger -t boneio-overlay "Copied overlays from ${SRC_DIR} to ${NEW_KERNEL_DIR} and ${NEW_OVERLAY_DIR}"
+fi
+
+exit "$RC"
