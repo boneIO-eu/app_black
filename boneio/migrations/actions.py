@@ -322,6 +322,42 @@ class PipInstallWheel(MigrationAction):
 
 
 # ---------------------------------------------------------------------------
+# AppArmor
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DisableApparmorProfiles(MigrationAction):
+    """Disable AppArmor profiles not needed on a headless controller.
+
+    Debian's ``apparmor`` package ships ~106 profiles in ``/etc/apparmor.d``,
+    almost entirely for desktop software — browsers, Discord, Slack, Steam,
+    1Password, MongoDB Compass, Xorg, plasmashell, and the sbuild/lxc tool
+    families. ``apparmor.service`` loads all of them at boot, which measured
+    11.4 s on a BeagleBone Black and sat ahead of ``networking.service`` on the
+    critical path.
+
+    Expressed as a keep-list so that a future apparmor package adding more
+    desktop profiles cannot silently reintroduce the cost.
+
+    Profiles are disabled via symlinks in ``/etc/apparmor.d/disable/`` — the
+    mechanism ``apparmor_parser`` honours natively. Files are never deleted,
+    since they belong to the apparmor package and would return on every upgrade.
+    Reversible by removing the symlinks.
+
+    Args:
+        keep: Profile basenames to leave enabled. Everything else in
+            ``/etc/apparmor.d`` is disabled.
+    """
+
+    keep: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dict."""
+        return {"action": "disable_apparmor_profiles", "keep": self.keep}
+
+
+# ---------------------------------------------------------------------------
 # Helper utilities (used by runner, not sent to boneio-migrate)
 # ---------------------------------------------------------------------------
 
