@@ -7,7 +7,6 @@ import subprocess
 from itertools import cycle
 from typing import TYPE_CHECKING
 
-import qrcode
 from luma.core.error import DeviceNotFoundError
 from luma.core.interface.serial import i2c
 from luma.core.render import canvas
@@ -211,6 +210,12 @@ class Oled:
         """Draw QR code on the OLED display."""
         if not url:
             return
+
+        # Imported here rather than at module level: qrcode costs 0.38 s to
+        # import on an AM335x and is only needed for this one screen, which the
+        # user has to navigate to. At module level it was paid on every startup,
+        # pulled in via early_oled -> display -> oled.
+        import qrcode
 
         # Create QR code with box_size 2 and scale down later
         qr = qrcode.QRCode(version=1, box_size=2, border=1)

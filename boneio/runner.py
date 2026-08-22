@@ -44,7 +44,6 @@ from boneio.const import (
     USERNAME,
     VIRTUAL_ENERGY_SENSOR,
 )
-from boneio.core.cloud import CloudRegistration
 from boneio.core.config import ConfigHelper
 from boneio.core.events import EventBus, GracefulExit
 from boneio.core.manager import Manager
@@ -361,6 +360,10 @@ async def async_run(
         local_ip = network_state.get("ip", "")
         serial = _config_helper.serial_number
         if local_ip and serial:
+            # Imported here: cloud registration is opt-in, so users with it
+            # disabled should not pay for the import at all.
+            from boneio.core.cloud import CloudRegistration
+
             cloud_reg = CloudRegistration(
                 serial_number=serial,
                 local_ip=local_ip,

@@ -258,9 +258,6 @@ def run(
         from boneio.const import ACTION
         _LOGGER.debug("[RUNNER IMPORT] boneio.const: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
-        from boneio.core.cloud import CloudRegistration
-        _LOGGER.debug("[RUNNER IMPORT] boneio.core.cloud: %.2fs", _time.monotonic() - _t_a)
-        _t_a = _time.monotonic()
         from boneio.core.manager import Manager
         _LOGGER.debug("[RUNNER IMPORT] boneio.core.manager: %.2fs", _time.monotonic() - _t_a)
         _t_a = _time.monotonic()
