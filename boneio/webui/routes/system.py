@@ -26,6 +26,7 @@ from boneio.core.config.yaml_util import (
     update_yaml_field,
     wait_for_pending_yaml_saves,
 )
+from boneio.core.utils import overlay as overlay_util
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
@@ -1103,33 +1104,36 @@ def _overlay_file_exists(overlay_name: str) -> bool:
     Prefers the **current** kernel's DTB directory, then falls back to
     common overlay directories and other kernel versions.
 
+    Note that U-Boot resolves bare overlay filenames from
+    ``/boot/dtbs/$uname_r/`` — *not* its ``overlays/`` subdirectory — so both
+    are checked. Checking only ``overlays/`` reported the overlay as installed
+    while U-Boot could not find it and silently booted the stock pinmux.
+
     Args:
         overlay_name: Overlay basename (e.g. ``BONEIO-BLACK-PINS-v0.4-v0.8.dtbo``).
 
     Returns:
         True if the file is found in at least one location.
     """
-    # Prefer current kernel's DTB directory (this is what U-Boot actually loads)
-    try:
-        result = subprocess.run(
-            ["uname", "-r"], capture_output=True, text=True, timeout=5,
-        )
-        kernel_version = result.stdout.strip()
-        if kernel_version:
-            current_path = f"/boot/dtbs/{kernel_version}/overlays/{overlay_name}"
-            if os.path.isfile(current_path):
+    # Prefer current kernel's DTB directories (this is what U-Boot actually loads)
+    kernel_version = overlay_util.kernel_release()
+    if kernel_version:
+        for directory in overlay_util.overlay_dirs_for_kernel(kernel_version):
+            if os.path.isfile(os.path.join(str(directory), overlay_name)):
                 return True
-    except Exception:
-        pass
 
     for search_dir in _OVERLAY_SEARCH_DIRS:
         if os.path.isfile(os.path.join(search_dir, overlay_name)):
             return True
 
     # Fallback: check any kernel dir (overlay installed but maybe in old kernel)
-    for path in glob.glob(f"/boot/dtbs/*/overlays/{overlay_name}"):
-        if os.path.isfile(path):
-            return True
+    for pattern in (
+        f"/boot/dtbs/*/{overlay_name}",
+        f"/boot/dtbs/*/overlays/{overlay_name}",
+    ):
+        for path in glob.glob(pattern):
+            if os.path.isfile(path):
+                return True
 
     return False
 
@@ -1186,6 +1190,11 @@ async def get_overlay_status():
         "match": (current == expected) if (current is not None and expected is not None) else False,
         "has_backup": has_backup,
         "overlay_available": _overlay_file_exists(expected) if expected else False,
+        # Effective state from the kernel, not the filesystem. uEnv.txt and the
+        # .dtbo files can both look correct while U-Boot merged nothing —
+        # /proc/device-tree/chosen/overlays/ is the only authoritative source.
+        "overlay_applied": overlay_util.is_boneio_overlay_applied(),
+        "applied_overlays": overlay_util.applied_overlay_names(),
     }
 
 
