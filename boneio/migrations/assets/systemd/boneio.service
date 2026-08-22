@@ -1,6 +1,21 @@
 [Unit]
 Description=boneIO
-After=multi-user.target network.target boneio-oled-boot.service
+# NOT After=multi-user.target.
+#
+# multi-user.target is only reached once every other unit wanted by it has
+# started — including docker.service (~30 s) and containerd.service (~7 s).
+# Combined with WantedBy=multi-user.target below, that made boneIO wait for the
+# entire rest of the system before its first line of Python ran: measured start
+# at 89 s into boot, while network.target was ready at 36 s.
+#
+# boneIO does not need Docker to drive I/O. Docker only serves the Caddy proxy
+# and Node-RED, which can come up afterwards.
+#
+# Default dependencies still apply (After=sysinit.target basic.target), so udev
+# has created /dev/i2c-* and /dev/gpiochip* and local filesystems are mounted
+# before we start. Only the ordering against the *rest* of multi-user.target is
+# dropped.
+After=network.target mosquitto.service boneio-oled-boot.service
 
 [Service]
 Type=simple
@@ -10,6 +25,14 @@ ExecStopPost=-/bin/sh -c 'if ! systemctl is-system-running --quiet 2>/dev/null; 
 User=${BONEIO_USER}
 Restart=always
 RestartSec=3
+
+# The BeagleBone Black is a single-core AM335x. Once boneIO starts in parallel
+# with dockerd/containerd instead of after them, it has to compete for that one
+# core. Default CPUWeight/IOWeight is 100, so these give boneIO a 10x share and
+# keep controller startup ahead of container startup.
+Nice=-5
+CPUWeight=1000
+IOWeight=1000
 
 [Install]
 WantedBy=multi-user.target
