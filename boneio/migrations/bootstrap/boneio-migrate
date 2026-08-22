@@ -62,6 +62,7 @@ ALLOWED_ACTIONS = {
     "ufw_allow",
     "apt_install",
     "pip_install_wheel",
+    "disable_apparmor_profiles",
 }
 
 # Debian package names accepted by the apt_install action
@@ -496,6 +497,71 @@ def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
     _LOGGER.info("INSTALLED: %s into %s", wheel_path.name, python)
 
 
+def handle_disable_apparmor_profiles(action: dict[str, Any], assets_base: str) -> None:
+    """Disable AppArmor profiles not needed on a headless controller.
+
+    Debian's ``apparmor`` package ships ~106 profiles in /etc/apparmor.d,
+    virtually all for desktop software: browsers, Discord, Slack, Steam,
+    1Password, MongoDB Compass, Xorg, plasmashell, nautilus, and the sbuild/lxc
+    tool families. apparmor.service loads every one of them at boot.
+
+    Measured on a BeagleBone Black: apparmor.service took 11.4 s and sat on the
+    critical path ahead of networking.service. Compiled policy is cached, so the
+    cost is reading ~9 MB of it from SD plus 111 kernel profile loads on a 1 GHz
+    single-core CPU.
+
+    Implemented as a **keep-list**, not a removal list: anything not named stays
+    disabled, so a future apparmor package that adds twenty new browser profiles
+    does not quietly restore the boot cost.
+
+    The profiles are owned by the apparmor package, so files are never deleted —
+    that would fight dpkg on every upgrade. Instead each profile gets a symlink
+    in /etc/apparmor.d/disable/, the mechanism apparmor_parser itself honours.
+    Fully reversible by removing the symlinks.
+
+    Args:
+        action: Action dict with ``keep`` (list of profile basenames to leave
+            enabled).
+        assets_base: Unused.
+    """
+    keep = set(action.get("keep", []))
+    profile_dir = Path("/etc/apparmor.d")
+    disable_dir = profile_dir / "disable"
+
+    if not profile_dir.is_dir():
+        _LOGGER.info("No /etc/apparmor.d — AppArmor not installed, skipping")
+        return
+
+    disable_dir.mkdir(mode=0o755, exist_ok=True)
+
+    disabled = 0
+    kept = []
+    for entry in sorted(profile_dir.iterdir()):
+        # Only top-level profile files. abstractions/, tunables/, local/ and
+        # disable/ are include trees, not profiles.
+        if not entry.is_file():
+            continue
+        name = entry.name
+        if name in keep:
+            kept.append(name)
+            continue
+        link = disable_dir / name
+        try:
+            if link.is_symlink() or link.exists():
+                continue
+            link.symlink_to(entry)
+            disabled += 1
+        except OSError as exc:
+            _LOGGER.warning("Cannot disable AppArmor profile %s: %s", name, exc)
+
+    _LOGGER.info(
+        "AppArmor: disabled %d profile(s), kept %d (%s)",
+        disabled,
+        len(kept),
+        ", ".join(kept) if kept else "none",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -512,6 +578,7 @@ ACTION_HANDLERS = {
     "ufw_allow": handle_ufw_allow,
     "apt_install": handle_apt_install,
     "pip_install_wheel": handle_pip_install_wheel,
+    "disable_apparmor_profiles": handle_disable_apparmor_profiles,
 }
 
 
