@@ -24,6 +24,7 @@ import logging.handlers
 import os
 import pwd
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -63,6 +64,7 @@ ALLOWED_ACTIONS = {
     "apt_install",
     "pip_install_wheel",
     "disable_apparmor_profiles",
+    "prune_orphaned_journal_dirs",
 }
 
 # Debian package names accepted by the apt_install action
@@ -497,6 +499,60 @@ def handle_pip_install_wheel(action: dict[str, Any], assets_base: str) -> None:
     _LOGGER.info("INSTALLED: %s into %s", wheel_path.name, python)
 
 
+def handle_prune_orphaned_journal_dirs(action: dict[str, Any], assets_base: str) -> None:
+    """Remove journal directories belonging to a previous machine-id.
+
+    journald manages only the directory matching /etc/machine-id. Any other
+    machine-id directory is invisible to journalctl --vacuum-* and to
+    SystemMaxUse, so it is never cleaned, yet log2ram rsyncs it on every boot.
+
+    They appear because the image pipeline truncates /etc/machine-id, so each
+    reflash leaves the previous journal directory behind permanently.
+
+    Args:
+        action: Unused.
+        assets_base: Unused.
+    """
+    try:
+        machine_id = Path("/etc/machine-id").read_text().strip()
+    except OSError as exc:
+        _LOGGER.warning("Cannot read /etc/machine-id: %s", exc)
+        return
+
+    if not re.fullmatch(r"[0-9a-f]{32}", machine_id):
+        _LOGGER.warning("Refusing to prune: /etc/machine-id is %r", machine_id)
+        return
+
+    removed = 0
+    freed_apparent = 0
+    for root in (Path("/var/log/journal"), Path("/var/hdd.log/journal")):
+        if not root.is_dir():
+            continue
+        for child in root.iterdir():
+            if not child.is_dir() or child.name == machine_id:
+                continue
+            # Only touch things that look like a machine-id.
+            if not re.fullmatch(r"[0-9a-f]{32}", child.name):
+                continue
+            try:
+                for f in child.rglob("*"):
+                    if f.is_file():
+                        freed_apparent += f.stat().st_size
+                shutil.rmtree(child)
+                removed += 1
+            except OSError as exc:
+                _LOGGER.warning("Cannot remove %s: %s", child, exc)
+
+    if removed:
+        _LOGGER.info(
+            "Removed %d orphaned journal dir(s), %.1f MB apparent",
+            removed,
+            freed_apparent / 1048576,
+        )
+    else:
+        _LOGGER.info("No orphaned journal directories found")
+
+
 def handle_disable_apparmor_profiles(action: dict[str, Any], assets_base: str) -> None:
     """Disable AppArmor profiles not needed on a headless controller.
 
@@ -579,6 +635,7 @@ ACTION_HANDLERS = {
     "apt_install": handle_apt_install,
     "pip_install_wheel": handle_pip_install_wheel,
     "disable_apparmor_profiles": handle_disable_apparmor_profiles,
+    "prune_orphaned_journal_dirs": handle_prune_orphaned_journal_dirs,
 }
 
 
