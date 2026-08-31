@@ -193,6 +193,21 @@ class MCP23017:
         self._write_register_unlocked(IOCON_A, IOCON_VALUE)
         self._write_register_unlocked(IOCON_B, IOCON_VALUE)
 
+    def _reconfigure_unlocked(self) -> None:
+        """Re-apply IOCON, the cached output latches and IODIR.
+
+        The latches go back *before* IODIR turns the pins into outputs again, so
+        re-enabling the drivers takes the relays straight to the last commanded
+        state instead of through the expander's power-on value.
+
+        Caller must hold both ``self._lock`` and the I2C lock.
+        """
+        self._force_bank0_unlocked()
+        self._write_register_unlocked(OLATA, self._port_a_state)
+        self._write_register_unlocked(OLATB, self._port_b_state)
+        self._write_register_unlocked(IODIRA, IODIR_ALL_OUTPUTS)
+        self._write_register_unlocked(IODIRB, IODIR_ALL_OUTPUTS)
+
     def health_check(self) -> bool:
         """Verify the expander still holds its output configuration; repair it if not.
 
@@ -247,14 +262,7 @@ class MCP23017:
                         f"0b{self._port_b_state:08b}",
                     )
 
-                    self._force_bank0_unlocked()
-                    # Restore the latches *before* the pins become outputs again,
-                    # so re-enabling the drivers takes the relays straight to the
-                    # last commanded state instead of through the POR value.
-                    self._write_register_unlocked(OLATA, self._port_a_state)
-                    self._write_register_unlocked(OLATB, self._port_b_state)
-                    self._write_register_unlocked(IODIRA, IODIR_ALL_OUTPUTS)
-                    self._write_register_unlocked(IODIRB, IODIR_ALL_OUTPUTS)
+                    self._reconfigure_unlocked()
                     return True
             except Exception as e:
                 _LOGGER.error(
@@ -384,24 +392,47 @@ class MCP23017:
             try:
                 # ATOMIC Read-Modify-Write: Single I2C lock for entire operation
                 with self._i2c:
-                    # Read current state from hardware
-                    current_state = self._read_register_unlocked(reg)
-                    
+                    # The cache is the authoritative record of what was commanded:
+                    # every mutation of it happens under self._lock, so it cannot
+                    # drift on its own. The hardware latch can — an expander that
+                    # was reset comes back with OLAT at its power-on value. Derive
+                    # the new state from the cache and use the hardware read only
+                    # to detect that divergence. Deriving it from the hardware read
+                    # instead would silently drop every other pin on this port
+                    # whenever the expander had been reset.
+                    cached_state = self._port_a_state if pin_number < 8 else self._port_b_state
+                    hw_state = self._read_register_unlocked(reg)
+
+                    if hw_state != cached_state:
+                        _LOGGER.warning(
+                            "MCP23017@0x%02X %s reads %s but software last wrote %s. "
+                            "The expander lost its state, so it is not driving its "
+                            "outputs. Reconfiguring now and applying this write on top "
+                            "of the commanded state.",
+                            self._address,
+                            "OLATA" if pin_number < 8 else "OLATB",
+                            f"0b{hw_state:08b}",
+                            f"0b{cached_state:08b}",
+                        )
+                        # Cannot call health_check() here: self._lock is not
+                        # reentrant and this thread already holds it.
+                        self._reconfigure_unlocked()
+
                     # Account for active-LOW inverted logic
                     effective_value = not value if self._inverted else value
 
                     # Calculate new state
                     if effective_value:
-                        new_state = current_state | (1 << bit)
+                        new_state = cached_state | (1 << bit)
                     else:
-                        new_state = current_state & ~(1 << bit)
+                        new_state = cached_state & ~(1 << bit)
                     
                     # Only write if state changed
-                    if new_state != current_state:
+                    if new_state != cached_state:
                         _LOGGER.debug(
                             f"MCP23017@0x{self._address:02X} pin {pin_number} -> {value} (phys={effective_value}): "
                             f"{'OLATA' if pin_number < 8 else 'OLATB'} "
-                            f"0b{current_state:08b} -> 0b{new_state:08b}"
+                            f"0b{cached_state:08b} -> 0b{new_state:08b}"
                         )
                         self._write_register_unlocked(reg, new_state)
                         
