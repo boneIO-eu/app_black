@@ -61,6 +61,20 @@ class TimeBasedCover(BaseCover):
         else:
             return
 
+        if duration == 0:
+            # A zero open_time/close_time makes movement impossible: the guard
+            # below returns before relay.turn_on(), so the relay is never
+            # energised and the motor never gets voltage — while the cover still
+            # reports IDLE and publishes state, so the UI looks like it worked.
+            # This is always a misconfiguration, never a normal outcome.
+            _LOGGER.error(
+                "Cover %s cannot move %s: %s_time is 0. The relay will NOT be "
+                "switched. Set a non-zero time in the cover configuration.",
+                self._id,
+                direction,
+                "open" if direction == OPEN else "close",
+            )
+
         if total_steps == 0 or duration == 0:
             self._current_operation = IDLE
             with suppress(RuntimeError):

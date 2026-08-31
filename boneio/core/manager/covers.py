@@ -235,6 +235,24 @@ class CoverManager:
         for time_key in ("open_time", "close_time", "actuator_activation_duration"):
             if time_key in config and config[time_key] is not None:
                 config[time_key] = ensure_time_period(config[time_key])
+
+        # A zero open_time/close_time leaves the cover permanently immobile: the
+        # movement thread bails out before energising the relay, and from
+        # position 0% even close() short-circuits, so no command can ever move
+        # it again. The WebUI form rejects sub-second values, but a hand-edited
+        # or imported config reaches here unchecked — say so at startup instead
+        # of letting the user discover it when the blinds fail to open.
+        for time_key in ("open_time", "close_time"):
+            value = config.get(time_key)
+            if value is not None and value.total_milliseconds == 0:
+                _LOGGER.error(
+                    "Cover %s has %s = 0. This cover will NOT move in that "
+                    "direction — its relay is never switched. Set a non-zero "
+                    "%s in the cover configuration.",
+                    cover_id,
+                    time_key,
+                    time_key,
+                )
         if tilt_duration is not None and not isinstance(tilt_duration, TimePeriod):
             tilt_duration = ensure_time_period(tilt_duration)
 
