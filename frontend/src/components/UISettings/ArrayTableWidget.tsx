@@ -274,7 +274,13 @@ const ArrayTableWidget: React.FC<ArrayTableWidgetProps> = ({ value = [], onChang
     } else if (device.protocol === 'wled' || device.wled) {
       setEditingItem({
         id: device.id, name: device.name || device.id, protocol: 'wled', device_type: 'wled',
-        wled: { host: device.wled?.host || '', port: device.wled?.port || 80, segments: device.wled?.segments || [] },
+        wled: {
+          host: device.wled?.host || '', port: device.wled?.port || 80,
+          segments: device.wled?.segments || [],
+          // Preserve cache-enriched fields so they survive save round-trips
+          ...(device.wled?.effects ? { effects: device.wled.effects } : {}),
+          ...(device.wled?.palettes ? { palettes: device.wled.palettes } : {}),
+        },
       });
     } else {
       setEditingItem({
