@@ -60,7 +60,7 @@ def display_time(seconds: int | float) -> str:
 
 
 def get_network_info() -> dict[str, str]:
-    """Fetch network information for eth0 interface.
+    """Fetch network information for Ethernet interface (eth0 or end0).
     
     Returns:
         Dictionary with keys: 'ip', 'mask', 'mac'
@@ -71,7 +71,8 @@ def get_network_info() -> dict[str, str]:
         {'ip': '192.168.1.100', 'mask': '255.255.255.0', 'mac': 'aa:bb:cc:dd:ee:ff'}
     """
     try:
-        addrs = psutil.net_if_addrs().get("eth0", [])
+        net_addrs = psutil.net_if_addrs()
+        addrs = net_addrs.get("eth0") or net_addrs.get("end0") or []
         out = {IP: NONE, MASK: NONE, MAC: NONE}
         
         for addr in addrs:
@@ -80,6 +81,21 @@ def get_network_info() -> dict[str, str]:
                 out["mask"] = addr.netmask if addr.netmask is not None else ""
             elif addr.family == psutil.AF_LINK:
                 out["mac"] = addr.address
+
+        # Fallback for MAC address via /sys if AF_LINK didn't populate it
+        if out["mac"] == NONE:
+            import os
+            for iface in ("eth0", "end0"):
+                mac_file = f"/sys/class/net/{iface}/address"
+                if os.path.exists(mac_file):
+                    try:
+                        with open(mac_file, "r") as f:
+                            mac_val = f.read().strip()
+                            if mac_val:
+                                out["mac"] = mac_val
+                                break
+                    except Exception:
+                        pass
         
         return out
     except (KeyError, AttributeError):
