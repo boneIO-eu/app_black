@@ -253,3 +253,160 @@ class TestMCP23017Inverted:
         assert mcp.get_pin_value(0) is True   # physical LOW → logical ON
         assert mcp.get_pin_value(1) is False  # physical HIGH → logical OFF
         assert mcp.get_pin_value(8) is False  # physical HIGH → logical OFF
+
+
+class TestMCP23017ColdBootSafeLevel:
+    """Cold boot must latch the OFF level for the board's polarity.
+
+    On cold boot the pins are still inputs, so nothing is driven and there is no
+    relay state worth preserving. The latch has to be primed with the level that
+    means OFF for this board *before* IODIR turns the pins into outputs.
+    """
+
+    def test_active_high_cold_boot_forces_latches_low(self):
+        """active-HIGH: OFF is LOW, so stale latch content must not be preserved."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()  # cold boot: IODIR = 0xFF
+        # A glitched expander can come back with non-zero latches. Preserving
+        # them on an active-HIGH board would energise every relay the moment
+        # IODIR enables the drivers.
+        registers[OLATA] = 0xFF
+        registers[OLATB] = 0xFF
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=False)  # type: ignore[arg-type]
+
+        assert mcp.inverted is False
+        assert mock_i2c.get_register(0x20, OLATA) == 0x00
+        assert mock_i2c.get_register(0x20, OLATB) == 0x00
+        assert mcp.get_pin_value(0) is False
+        assert mcp.get_pin_value(15) is False
+
+    def test_active_low_cold_boot_forces_latches_high(self):
+        """active-LOW: OFF is HIGH."""
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[OLATA] = 0x00
+        registers[OLATB] = 0x00
+        mock_i2c.add_device(0x20, registers)
+
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=True)  # type: ignore[arg-type]
+
+        assert mock_i2c.get_register(0x20, OLATA) == 0xFF
+        assert mock_i2c.get_register(0x20, OLATB) == 0xFF
+        # 0xFF is the physical OFF level for an active-LOW board.
+        assert mcp.get_pin_value(0) is False
+
+
+class TestMCP23017HealthCheck:
+    """The watchdog that catches an expander which quietly stopped driving."""
+
+    @staticmethod
+    def _make(address: int = 0x20, inverted: bool = False):
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[IODIRA] = 0x00  # warm start: already configured
+        registers[IODIRB] = 0x00
+        mock_i2c.add_device(address, registers)
+        mcp = MCP23017(i2c=mock_i2c, address=address, reset=False, inverted=inverted)  # type: ignore[arg-type]
+        return mock_i2c, mcp
+
+    def test_healthy_expander_needs_no_repair(self):
+        mock_i2c, mcp = self._make()
+        assert mcp.health_check() is False
+
+    def test_iodir_reset_to_inputs_is_detected_and_repaired(self):
+        """The actual field failure: chip reset back to all-inputs.
+
+        Writes to OLAT keep succeeding and read back correctly, so nothing in
+        the write path can notice. Only IODIR gives it away.
+        """
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(2, True)
+
+        # Simulate the expander losing its configuration (brown-out / glitch).
+        mock_i2c.set_register(0x20, IODIRA, 0xFF)
+        mock_i2c.set_register(0x20, IODIRB, 0xFF)
+
+        # A write still "succeeds" — this is why the failure is silent.
+        mcp.set_pin_value(3, True)
+        assert mock_i2c.get_register(0x20, IODIRA) == 0xFF
+
+        assert mcp.health_check() is True
+        assert mock_i2c.get_register(0x20, IODIRA) == 0x00
+        assert mock_i2c.get_register(0x20, IODIRB) == 0x00
+
+    def test_repair_restores_commanded_relay_states(self):
+        """After repair the latches must hold what software last commanded."""
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(0, True)
+        mcp.set_pin_value(5, True)
+        mcp.set_pin_value(9, True)
+        expected_a = mock_i2c.get_register(0x20, OLATA)
+        expected_b = mock_i2c.get_register(0x20, OLATB)
+
+        # Full power-on reset: IODIR back to inputs AND latches cleared.
+        mock_i2c.set_register(0x20, IODIRA, 0xFF)
+        mock_i2c.set_register(0x20, IODIRB, 0xFF)
+        mock_i2c.set_register(0x20, OLATA, 0x00)
+        mock_i2c.set_register(0x20, OLATB, 0x00)
+
+        assert mcp.health_check() is True
+        assert mock_i2c.get_register(0x20, OLATA) == expected_a
+        assert mock_i2c.get_register(0x20, OLATB) == expected_b
+        assert mcp.get_pin_value(0) is True
+        assert mcp.get_pin_value(5) is True
+        assert mcp.get_pin_value(9) is True
+
+    def test_repair_writes_latches_before_enabling_outputs(self):
+        """Ordering matters: latch first, then IODIR.
+
+        Enabling the drivers before restoring the latch would drive the relays
+        to the power-on value first and glitch them.
+        """
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(1, True)
+        mock_i2c.set_register(0x20, IODIRA, 0xFF)
+        mock_i2c.set_register(0x20, IODIRB, 0xFF)
+        mock_i2c.set_register(0x20, OLATA, 0x00)
+
+        writes: list[tuple[int, int]] = []
+        original = mock_i2c.write_byte_data
+
+        def recording_write(address: int, register: int, value: int) -> None:
+            writes.append((register, value))
+            original(address, register, value)
+
+        mock_i2c.write_byte_data = recording_write  # type: ignore[method-assign]
+        assert mcp.health_check() is True
+
+        assert OLATA in [reg for reg, _ in writes], writes
+        assert writes.index((OLATA, mcp._port_a_state)) < writes.index((IODIRA, 0x00))
+        assert writes.index((OLATB, mcp._port_b_state)) < writes.index((IODIRB, 0x00))
+
+    def test_bank1_is_detected_and_forced_back_to_bank0(self):
+        """A chip knocked into BANK=1 addresses a different register map.
+
+        Detection cannot rely on IOCON at 0x0A — with BANK=1 that address is
+        OLATA. Register 0x05 is the discriminator: IOCON (bit 7 set) in BANK=1,
+        GPINTENB (kept at 0) in BANK=0.
+        """
+        mock_i2c, mcp = self._make()
+        mock_i2c.set_register(0x20, 0x05, 0xA0)  # IOCON with BANK=1 set
+
+        assert mcp.health_check() is True
+        # 0x05 zeroed puts the map back to BANK=0, then IOCON gets its value.
+        assert mock_i2c.get_register(0x20, 0x05) == 0x00
+        assert mock_i2c.get_register(0x20, 0x0A) == 0x20
+        assert mock_i2c.get_register(0x20, IODIRA) == 0x00
+        assert mock_i2c.get_register(0x20, IODIRB) == 0x00
+
+    def test_health_check_never_raises_on_i2c_failure(self):
+        """The watchdog must survive a failing bus, not kill its task."""
+        mock_i2c, mcp = self._make()
+
+        def boom(address: int, register: int) -> int:
+            raise OSError("bus error")
+
+        mock_i2c.read_byte_data = boom  # type: ignore[method-assign]
+        assert mcp.health_check() is False
