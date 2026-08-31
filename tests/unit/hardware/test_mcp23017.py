@@ -410,3 +410,120 @@ class TestMCP23017HealthCheck:
 
         mock_i2c.read_byte_data = boom  # type: ignore[method-assign]
         assert mcp.health_check() is False
+
+
+class TestMCP23017WriteAfterExpanderReset:
+    """A write issued while the expander is reset must not corrupt the state.
+
+    This is the likeliest moment for a write to land: the user notices the
+    relays are not responding and starts clicking. `_write_pin` must therefore
+    derive the new port value from the cache (what software commanded), not from
+    the hardware latch (which the reset has zeroed).
+    """
+
+    @staticmethod
+    def _make(inverted: bool = False):
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[IODIRA] = 0x00  # warm start: already configured as outputs
+        registers[IODIRB] = 0x00
+        # Latch the level that means "all relays off" for this polarity. An
+        # active-LOW board sitting at 0x00 would mean all 16 relays energised,
+        # which is not a state a warm start can begin from.
+        off_level = 0xFF if inverted else 0x00
+        registers[OLATA] = off_level
+        registers[OLATB] = off_level
+        mock_i2c.add_device(0x20, registers)
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=inverted)  # type: ignore[arg-type]
+        assert all(mcp.get_pin_value(pin) is False for pin in range(16))
+        return mock_i2c, mcp
+
+    @staticmethod
+    def _simulate_reset(mock_i2c) -> None:
+        """Power-on state: pins back to inputs, latches cleared."""
+        mock_i2c.set_register(0x20, IODIRA, 0xFF)
+        mock_i2c.set_register(0x20, IODIRB, 0xFF)
+        mock_i2c.set_register(0x20, OLATA, 0x00)
+        mock_i2c.set_register(0x20, OLATB, 0x00)
+
+    def test_write_after_reset_does_not_drop_other_pins(self):
+        """Regression: switching one pin must not turn every other one off.
+
+        Deriving the new value from the hardware read made the write compute
+        0b00001000 from a zeroed latch instead of 0b00001100 from the cache,
+        losing pin 2 — and the watchdog then "repaired" the corrupted value,
+        making the loss permanent and silent.
+        """
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(2, True)
+        self._simulate_reset(mock_i2c)
+
+        mcp.set_pin_value(3, True)
+
+        assert mock_i2c.get_register(0x20, OLATA) == 0b00001100
+        assert mcp.get_pin_value(2) is True
+        assert mcp.get_pin_value(3) is True
+        # The repair must not survive into a bogus watchdog finding either.
+        assert mcp.health_check() is False
+
+    def test_write_after_reset_reconfigures_immediately(self):
+        """No need to wait up to 30s for the watchdog if a write comes first."""
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(1, True)
+        self._simulate_reset(mock_i2c)
+
+        mcp.set_pin_value(1, False)
+
+        assert mock_i2c.get_register(0x20, IODIRA) == 0x00
+        assert mock_i2c.get_register(0x20, IODIRB) == 0x00
+
+    def test_write_after_reset_warns(self, caplog):
+        import logging
+
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(4, True)
+        self._simulate_reset(mock_i2c)
+
+        with caplog.at_level(logging.WARNING):
+            mcp.set_pin_value(5, True)
+
+        assert "lost its state" in caplog.text
+        assert "OLATA" in caplog.text
+
+    def test_turning_a_pin_off_after_reset_keeps_the_others_on(self):
+        """The OFF direction must be computed from the cache too."""
+        mock_i2c, mcp = self._make()
+        mcp.set_pin_value(0, True)
+        mcp.set_pin_value(1, True)
+        self._simulate_reset(mock_i2c)
+
+        mcp.set_pin_value(0, False)
+
+        assert mock_i2c.get_register(0x20, OLATA) == 0b00000010
+        assert mcp.get_pin_value(0) is False
+        assert mcp.get_pin_value(1) is True
+
+    def test_inverted_board_state_survives_a_reset(self):
+        """Same guarantee on an active-LOW board, where OFF is the HIGH level."""
+        mock_i2c, mcp = self._make(inverted=True)
+        mcp.set_pin_value(2, True)  # logical ON -> physical LOW
+        expected = mock_i2c.get_register(0x20, OLATA)
+        self._simulate_reset(mock_i2c)
+
+        assert mcp.health_check() is True
+        assert mock_i2c.get_register(0x20, OLATA) == expected
+        assert mcp.get_pin_value(2) is True
+        # Every other pin must read back OFF, i.e. physically HIGH.
+        assert mock_i2c.get_register(0x20, OLATA) & 0x01 == 0x01
+        assert mcp.get_pin_value(0) is False
+
+    def test_inverted_board_write_after_reset_does_not_drop_other_pins(self):
+        mock_i2c, mcp = self._make(inverted=True)
+        mcp.set_pin_value(2, True)
+        self._simulate_reset(mock_i2c)
+
+        mcp.set_pin_value(3, True)
+
+        assert mcp.get_pin_value(2) is True
+        assert mcp.get_pin_value(3) is True
+        assert mcp.get_pin_value(4) is False
