@@ -64,6 +64,14 @@ _LOGGER = logging.getLogger(__name__)
 # Expander class mapping
 _EXPANDER_CLASS = {MCP: MCP23017, PCA: PCA9685, PCF: PCF8575}
 
+# How often to re-check that MCP23017 expanders still hold their output
+# configuration. A brown-out or electrical noise can reset an expander back to
+# all-inputs, which silently stops the relays from following commanded state
+# without producing a single I2C error (see MCP23017.health_check).
+EXPANDER_HEALTH_CHECK_INTERVAL = TimePeriod(seconds=30)
+# Keep the first check off the startup critical path.
+EXPANDER_HEALTH_CHECK_INITIAL_DELAY = TimePeriod(seconds=30)
+
 
 # Map output_type -> HA availability message builder
 _OUTPUT_HA_FUNC = {
@@ -163,6 +171,43 @@ class OutputManager:
                 exp_type=PCA,
             )
         )
+
+        if self._mcp:
+            self._manager.append_task(
+                self._expander_health_watchdog,
+                name="mcp23017_health_watchdog",
+            )
+
+    async def _expander_health_watchdog(self) -> None:
+        """Periodically re-assert MCP23017 output configuration.
+
+        An expander that has been reset back to all-inputs keeps accepting
+        writes, so nothing in the write path reports a problem — the relays
+        simply stop switching until something reconfigures the chip. Without
+        this loop the only recovery is restarting boneIO.
+
+        The check is a handful of I2C reads per expander, run in the default
+        executor so the blocking bus access stays off the event loop.
+        """
+        loop = asyncio.get_running_loop()
+        await asyncio.sleep(EXPANDER_HEALTH_CHECK_INITIAL_DELAY.total_seconds)
+        while True:
+            for expander_id, mcp in list(self._mcp.items()):
+                try:
+                    repaired = await loop.run_in_executor(None, mcp.health_check)
+                except Exception as err:  # noqa: BLE001 - watchdog must never die
+                    _LOGGER.error(
+                        "Health check for MCP %s raised: %s", expander_id, err
+                    )
+                    continue
+                if repaired:
+                    _LOGGER.warning(
+                        "MCP %s (0x%02X) was reconfigured by the health watchdog; "
+                        "its outputs are driving again.",
+                        expander_id,
+                        mcp.address,
+                    )
+            await asyncio.sleep(EXPANDER_HEALTH_CHECK_INTERVAL.total_seconds)
 
     def _create_expander(
         self,

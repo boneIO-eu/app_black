@@ -25,6 +25,16 @@ GPIOB = 0x13   # GPIO register for port B
 OLATA = 0x14   # Output latch register for port A
 OLATB = 0x15   # Output latch register for port B
 
+# IOCON is mirrored at 0x0A and 0x0B while BANK=0. With BANK=1 the whole
+# register map shifts and 0x05 becomes IOCON instead — see _force_bank0().
+IOCON_A = 0x0A
+IOCON_B = 0x0B
+IOCON_BANK1 = 0x05
+# SEQOP=1 (address pointer does not auto-increment), BANK=0.
+IOCON_VALUE = 0x20
+# Every pin driven as an output.
+IODIR_ALL_OUTPUTS = 0x00
+
 # Minimum delay between I2C operations in seconds
 # This prevents bus contention when switching multiple outputs rapidly
 I2C_OPERATION_DELAY = 0.002  # 2ms
@@ -95,11 +105,7 @@ class MCP23017:
             raise RuntimeError("Failed to lock I2C bus for MCP23017 initialization")
         
         try:
-            # Disable Sequential Operation (SEQOP) - logic assumes Byte mode
-            # IOCON register is at 0x0A and 0x0B (shared in BANK=0)
-            # Write to both registers for robustness in case of dirty startup
-            self._write_register_unlocked(0x0A, 0x20)  # SEQOP=1 (disabled), BANK=0
-            self._write_register_unlocked(0x0B, 0x20)  # Mirror register
+            self._force_bank0_unlocked()
 
             # Read IODIR to check if this is cold boot (all inputs = 0xFF)
             iodir_a = self._read_register_unlocked(IODIRA)
@@ -136,13 +142,20 @@ class MCP23017:
                 _LOGGER.info("MCP23017@0x%02X inverted fallback: False", address)
             
             # Read current output latch states from hardware to preserve relay states
-            if is_cold_boot and self._inverted:
-                # Cold boot with active-LOW relays: set all pins to HIGH (0xFF) before setting IODIR=0x00
-                # so relays stay OFF during initial output configuration
-                self._port_a_state = 0xFF
-                self._port_b_state = 0xFF
-                self._write_register_unlocked(OLATA, 0xFF)
-                self._write_register_unlocked(OLATB, 0xFF)
+            if is_cold_boot:
+                # The pins are still inputs, so nothing is being driven and there
+                # is no relay state worth preserving. Latch the OFF level for this
+                # board's polarity *before* IODIR turns the pins into outputs, so
+                # enabling the drivers cannot pulse the relays. The level depends
+                # on polarity: active-LOW boards are off at HIGH, active-HIGH
+                # boards are off at LOW. Deriving it (instead of only writing
+                # 0xFF when inverted) keeps a mis-detected polarity from turning
+                # every relay on at startup.
+                safe_level = 0xFF if self._inverted else 0x00
+                self._port_a_state = safe_level
+                self._port_b_state = safe_level
+                self._write_register_unlocked(OLATA, safe_level)
+                self._write_register_unlocked(OLATB, safe_level)
             else:
                 self._port_a_state = self._read_register_unlocked(OLATA)
                 self._port_b_state = self._read_register_unlocked(OLATB)
@@ -154,12 +167,100 @@ class MCP23017:
             
             # Initialize: Set all pins as outputs (IODIR=0x00)
             # This does NOT change the output latch values
-            self._write_register_unlocked(IODIRA, 0x00)
-            self._write_register_unlocked(IODIRB, 0x00)
+            self._write_register_unlocked(IODIRA, IODIR_ALL_OUTPUTS)
+            self._write_register_unlocked(IODIRB, IODIR_ALL_OUTPUTS)
             
             _LOGGER.info(f"Initialized MCP23017 at address 0x{address:02X} (inverted={self._inverted})")
         finally:
             self._i2c.unlock()
+
+    def _force_bank0_unlocked(self) -> None:
+        """Put IOCON into a known state, whichever bank the chip is currently in.
+
+        The register map depends on IOCON.BANK, and the driver's constants assume
+        BANK=0. A chip that came up dirty (or was glitched into BANK=1) addresses
+        a completely different map, so writing IOCON at 0x0A blind would land on
+        OLATA instead and never clear the bank bit.
+
+        With BANK=1, 0x05 *is* IOCON, so zeroing it switches the map back to
+        BANK=0. With BANK=0, 0x05 is GPINTENB, which this output-only driver
+        keeps at 0x00 anyway — so the write is a no-op either way, and afterwards
+        the map is guaranteed to be BANK=0.
+
+        Caller must hold the I2C lock.
+        """
+        self._write_register_unlocked(IOCON_BANK1, 0x00)
+        self._write_register_unlocked(IOCON_A, IOCON_VALUE)
+        self._write_register_unlocked(IOCON_B, IOCON_VALUE)
+
+    def health_check(self) -> bool:
+        """Verify the expander still holds its output configuration; repair it if not.
+
+        A brown-out on VDD or a glitch on the RESET/I2C lines resets the
+        MCP23017 to its power-on state: IODIR = 0xFF, every pin an input. The
+        normal write path cannot notice this. OLAT is writable and readable
+        regardless of IODIR, so ``_write_pin`` keeps succeeding, reads back the
+        value it just wrote and raises nothing — while the pins are high-Z and
+        the relays no longer follow the software state. Until something
+        re-asserts IODIR the outputs stay dead, which is why restarting the
+        service "fixes" it: ``__init__`` reconfigures the chip.
+
+        Returns:
+            True if a misconfiguration was found and repaired, False if the
+            expander was already healthy or the check itself failed.
+        """
+        with self._lock:
+            try:
+                with self._i2c:
+                    # Read 0x05 first: with BANK=1 it is IOCON (bit 7 = BANK, so
+                    # it reads back set), with BANK=0 it is GPINTENB, which this
+                    # driver never enables. It is the only single register that
+                    # tells the two maps apart.
+                    bank1 = bool(self._read_register_unlocked(IOCON_BANK1) & 0x80)
+                    if bank1:
+                        iocon = iodir_a = iodir_b = None
+                    else:
+                        iocon = self._read_register_unlocked(IOCON_A)
+                        iodir_a = self._read_register_unlocked(IODIRA)
+                        iodir_b = self._read_register_unlocked(IODIRB)
+                        if (
+                            iocon == IOCON_VALUE
+                            and iodir_a == IODIR_ALL_OUTPUTS
+                            and iodir_b == IODIR_ALL_OUTPUTS
+                        ):
+                            return False
+
+                    _LOGGER.warning(
+                        "MCP23017@0x%02X lost its configuration and stopped driving its "
+                        "outputs (BANK=%d, IOCON=%s, IODIRA=%s, IODIRB=%s, expected "
+                        "IOCON=0x%02X IODIR=0x%02X). Relays were not following commanded "
+                        "state. Reconfiguring and restoring A=%s B=%s. This is "
+                        "usually a supply brown-out or electrical noise on the expander.",
+                        self._address,
+                        1 if bank1 else 0,
+                        "n/a (BANK=1)" if iocon is None else f"0x{iocon:02X}",
+                        "n/a (BANK=1)" if iodir_a is None else f"0x{iodir_a:02X}",
+                        "n/a (BANK=1)" if iodir_b is None else f"0x{iodir_b:02X}",
+                        IOCON_VALUE,
+                        IODIR_ALL_OUTPUTS,
+                        f"0b{self._port_a_state:08b}",
+                        f"0b{self._port_b_state:08b}",
+                    )
+
+                    self._force_bank0_unlocked()
+                    # Restore the latches *before* the pins become outputs again,
+                    # so re-enabling the drivers takes the relays straight to the
+                    # last commanded state instead of through the POR value.
+                    self._write_register_unlocked(OLATA, self._port_a_state)
+                    self._write_register_unlocked(OLATB, self._port_b_state)
+                    self._write_register_unlocked(IODIRA, IODIR_ALL_OUTPUTS)
+                    self._write_register_unlocked(IODIRB, IODIR_ALL_OUTPUTS)
+                    return True
+            except Exception as e:
+                _LOGGER.error(
+                    "MCP23017@0x%02X health check failed: %s", self._address, e
+                )
+                return False
 
     def _write_register_unlocked(self, register: int, value: int) -> None:
         """Write byte to register (caller must hold I2C lock).
