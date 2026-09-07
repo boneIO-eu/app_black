@@ -401,17 +401,27 @@ class MCP23017:
                     # instead would silently drop every other pin on this port
                     # whenever the expander had been reset.
                     cached_state = self._port_a_state if pin_number < 8 else self._port_b_state
-                    hw_state = self._read_register_unlocked(reg)
 
-                    if hw_state != cached_state:
+                    # Check IODIR, not OLAT, to decide whether the expander is
+                    # still driving. IODIR has a state-independent expected value
+                    # (every pin an output), so the check holds in every commanded
+                    # state and on either polarity. Comparing the latch against the
+                    # cache would go blind whenever the commanded value happens to
+                    # equal the power-on value — which on an active-HIGH board is
+                    # simply "this port is all off", a very ordinary state.
+                    iodir_reg = IODIRA if pin_number < 8 else IODIRB
+                    iodir = self._read_register_unlocked(iodir_reg)
+
+                    if iodir != IODIR_ALL_OUTPUTS:
                         _LOGGER.warning(
-                            "MCP23017@0x%02X %s reads %s but software last wrote %s. "
-                            "The expander lost its state, so it is not driving its "
-                            "outputs. Reconfiguring now and applying this write on top "
-                            "of the commanded state.",
+                            "MCP23017@0x%02X %s reads %s, expected %s: the expander "
+                            "lost its configuration and is not driving its outputs. "
+                            "Reconfiguring now and applying this write on top of the "
+                            "commanded state %s.",
                             self._address,
-                            "OLATA" if pin_number < 8 else "OLATB",
-                            f"0b{hw_state:08b}",
+                            "IODIRA" if pin_number < 8 else "IODIRB",
+                            f"0x{iodir:02X}",
+                            f"0x{IODIR_ALL_OUTPUTS:02X}",
                             f"0b{cached_state:08b}",
                         )
                         # Cannot call health_check() here: self._lock is not
