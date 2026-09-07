@@ -4,6 +4,87 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
+## v1.5.2.dev1 (2026-08-31)
+
+Hotfix release. Branched from `v1.5.1` and carries the fixes that had accumulated
+on `dev-debian13`, minus the 1.6.0 feature work (remote cover output / WLED cache
+refresh button), which stays on the feature branch.
+
+### 🐛 Bug Fixes — relay outputs stop switching until restart
+
+Reported on a Black 32x10A: after 12-48 hours, OUT_09-OUT_15 stopped switching
+physically. WebUI and Hardware Test showed the state changing, no errors in the
+log, and `systemctl restart boneio` restored everything instantly. Those outputs
+are Port A of one expander (`mcp_right` @ 0x24) — a whole chip, not scattered pins.
+
+- **MCP23017 configuration loss is now detected and repaired.** A supply
+  brown-out or electrical noise resets the expander to its power-on state,
+  `IODIR = 0xFF`, every pin an input. Nothing in the write path could notice:
+  OLAT is writable and readable regardless of IODIR, so writes kept succeeding
+  and reading back correctly while the pins sat high-Z and the relays ignored
+  every command. `IODIR` was written once in `__init__` and never verified again,
+  which is exactly why restarting the service fixed it. A watchdog now re-checks
+  `IOCON`/`IODIR` on every MCP23017 every 30 s, logs a WARNING naming the
+  expander, and reconfigures it — restoring the latches *before* re-enabling the
+  drivers so the relays go straight to the last commanded state.
+- **`IOCON` is now set correctly regardless of the bank the chip is in.** The old
+  code wrote `0x20` to `0x0A` and `0x0B` "for robustness in case of dirty
+  startup", but with `BANK=1` address `0x0A` is `OLATA` — the write landed on the
+  output latch (turning on pin 5) and never cleared the bank bit, leaving the
+  driver addressing the wrong register map permanently. Zeroing `0x05` first
+  forces `BANK=0` from either map.
+- **Writes are computed from the driver's cache, not the hardware latch.**
+  `_write_pin` recomputed the whole port from an OLAT read, which is wrong once
+  the expander has been reset — and that is exactly when a command is most likely
+  to arrive, because the user has noticed the relays are dead and started
+  clicking. Switching one pin then dropped every other pin on that port from the
+  cache, and the watchdog faithfully restored the corrupted value, turning a
+  silently dead output into a silently wrong one. The cache only ever changes
+  under the driver's lock, so it cannot drift on its own; the hardware latch can.
+  The hardware read is now only used to detect that divergence — and when it is
+  found, the expander is reconfigured on the spot, so recovery happens on the
+  first write instead of up to 30 s later.
+- **Cold-boot safe level is derived from polarity** instead of only writing
+  `0xFF` when `inverted` is set. On an active-HIGH board a mis-detected polarity
+  made the "keep relays OFF" branch latch `0xFF` and energise all 16 relays as
+  soon as `IODIR` enabled the outputs.
+
+### 🐛 Bug Fixes — covers silently immobile
+
+Reported on a Black cover board: 4 of 10 blinds stopped responding to every
+command and a full reboot did not help. The log showed `open_time=0ms` for
+exactly those four.
+
+- **A cover with `open_time`/`close_time` = 0 now says so.** `_move_cover`
+  returned before `relay.turn_on()`, so the relay was never energised — while the
+  cover still flipped to IDLE and published state, making the UI and logs look
+  like the command had worked. From position 0% `close()` also short-circuits on
+  `position <= 0`, so no command could ever move the cover again. The condition is
+  now reported as an ERROR both at startup (naming the cover) and on every
+  movement attempt, for time-based and venetian covers alike. Movement behaviour
+  is unchanged — a zero time is still a misconfiguration to fix in the cover
+  settings, but it is no longer invisible.
+
+### 🐛 Bug Fixes — hostname out of sync with the MQTT serial
+
+- **Hostname never got set on Debian 13.** `set-hostname-once.sh` read the MAC
+  from `/sys/class/net/eth0/address`, but the NIC is `end0` on Debian 13, so the
+  read failed silently and the hostname kept whatever it had. The MQTT topic
+  prefix derives the same identifier from the live interface, so the two drifted
+  apart — a device answering as `blk266957` on the console while publishing to
+  `boneio/blk9e8fef`. That is not cosmetic: it makes a single device look like
+  two when correlating logs against a shell session, which is exactly what
+  happened while diagnosing the expander fault above.
+
+### 📋 Carried over from `dev-debian13`
+
+Overlay repair after kernel upgrade, journald/log2ram sizing, orphan journal
+pruning, non-blocking GitHub and Docker Hub fetches, irrigation control fix,
+Wanas 415 register type, WLED cache round-trip fix, frontend long-press and
+LogViewer fixes, and the Debian 13 boot/login performance work.
+
+---
+
 ## v1.5.1 (2026-08-01)
 
 ### 🐛 Bug Fixes
