@@ -318,8 +318,9 @@ class TestMCP23017HealthCheck:
     def test_iodir_reset_to_inputs_is_detected_and_repaired(self):
         """The actual field failure: chip reset back to all-inputs.
 
-        Writes to OLAT keep succeeding and read back correctly, so nothing in
-        the write path can notice. Only IODIR gives it away.
+        This is the backstop path — nobody touches the outputs, so no write is
+        there to notice. Writes to OLAT would keep succeeding and reading back
+        correctly; only IODIR gives the fault away.
         """
         mock_i2c, mcp = self._make()
         mcp.set_pin_value(2, True)
@@ -328,13 +329,11 @@ class TestMCP23017HealthCheck:
         mock_i2c.set_register(0x20, IODIRA, 0xFF)
         mock_i2c.set_register(0x20, IODIRB, 0xFF)
 
-        # A write still "succeeds" — this is why the failure is silent.
-        mcp.set_pin_value(3, True)
-        assert mock_i2c.get_register(0x20, IODIRA) == 0xFF
-
         assert mcp.health_check() is True
         assert mock_i2c.get_register(0x20, IODIRA) == 0x00
         assert mock_i2c.get_register(0x20, IODIRB) == 0x00
+        # Commanded state survived the repair.
+        assert mcp.get_pin_value(2) is True
 
     def test_repair_restores_commanded_relay_states(self):
         """After repair the latches must hold what software last commanded."""
@@ -487,8 +486,8 @@ class TestMCP23017WriteAfterExpanderReset:
         with caplog.at_level(logging.WARNING):
             mcp.set_pin_value(5, True)
 
-        assert "lost its state" in caplog.text
-        assert "OLATA" in caplog.text
+        assert "lost its configuration" in caplog.text
+        assert "IODIRA" in caplog.text
 
     def test_turning_a_pin_off_after_reset_keeps_the_others_on(self):
         """The OFF direction must be computed from the cache too."""
@@ -527,3 +526,58 @@ class TestMCP23017WriteAfterExpanderReset:
         assert mcp.get_pin_value(2) is True
         assert mcp.get_pin_value(3) is True
         assert mcp.get_pin_value(4) is False
+
+
+class TestWriteDetectorIsStateIndependent:
+    """The write-path detector must not depend on the commanded port value.
+
+    An earlier version compared the hardware latch against the cache, which went
+    blind whenever the two happened to agree — and after a power-on reset the
+    latch reads 0x00, which on an active-HIGH board is exactly "this port is all
+    off". That is an ordinary state, not a corner case, so on those boards a
+    write could not notice the expander had stopped driving.
+    """
+
+    @staticmethod
+    def _make(inverted: bool):
+        mock_i2c = MockSMBus2I2C(bus_number=2)
+        registers = MockMCP23017Registers.default()
+        registers[IODIRA] = 0x00
+        registers[IODIRB] = 0x00
+        off_level = 0xFF if inverted else 0x00
+        registers[OLATA] = off_level
+        registers[OLATB] = off_level
+        mock_i2c.add_device(0x20, registers)
+        mcp = MCP23017(i2c=mock_i2c, address=0x20, reset=False, inverted=inverted)  # type: ignore[arg-type]
+        # Power-on reset: pins back to inputs, latches cleared.
+        mock_i2c.set_register(0x20, IODIRA, 0xFF)
+        mock_i2c.set_register(0x20, IODIRB, 0xFF)
+        mock_i2c.set_register(0x20, OLATA, 0x00)
+        mock_i2c.set_register(0x20, OLATB, 0x00)
+        return mock_i2c, mcp
+
+    @pytest.mark.parametrize(
+        ("inverted", "board"),
+        [(True, "active-LOW"), (False, "active-HIGH")],
+        ids=["active-low", "active-high"],
+    )
+    def test_write_repairs_from_the_all_off_state(self, inverted, board):
+        """All outputs off is the state where a latch comparison fails."""
+        mock_i2c, mcp = self._make(inverted)
+        assert all(mcp.get_pin_value(pin) is False for pin in range(16))
+
+        mcp.set_pin_value(3, True)
+
+        assert mock_i2c.get_register(0x20, IODIRA) == 0x00, board
+        assert mock_i2c.get_register(0x20, IODIRB) == 0x00, board
+        assert mcp.get_pin_value(3) is True, board
+        assert mcp.health_check() is False, board
+
+    @pytest.mark.parametrize("inverted", [True, False], ids=["active-low", "active-high"])
+    def test_turning_off_from_the_all_off_state_also_repairs(self, inverted):
+        """Even a write that changes nothing must still restore the direction."""
+        mock_i2c, mcp = self._make(inverted)
+
+        mcp.set_pin_value(2, False)
+
+        assert mock_i2c.get_register(0x20, IODIRA) == 0x00
