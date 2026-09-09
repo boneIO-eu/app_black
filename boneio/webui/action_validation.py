@@ -14,7 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 # (plus SHARED_FIELDS) are valid. Mirrors frontend ActionFields/helpers.ts.
 ACTION_ALLOWED_FIELDS: dict[str, set[str]] = {
     "output": {"boneio_output", "action_output"},
-    "cover": {"boneio_cover", "action_cover", "data"},
+    "cover": {"boneio_cover", "action_cover", "data", "restore_tilt"},
     "mqtt": {"topic", "action_mqtt_msg"},
     "output_over_mqtt": {"boneio_id", "boneio_output", "action_output", "action_mqtt_msg"},
     "cover_over_mqtt": {"boneio_id", "boneio_cover", "action_cover", "action_mqtt_msg"},
@@ -24,10 +24,13 @@ ACTION_ALLOWED_FIELDS: dict[str, set[str]] = {
         "effect", "palette", "effect_speed", "effect_intensity",
         "colors", "presets",
     },
-    "remote_cover": {"remote_device", "cover_id", "action_cover", "data"},
+    "remote_cover": {"remote_device", "cover_id", "action_cover", "data", "restore_tilt"},
 }
 
-SHARED_FIELDS: set[str] = {"action", "min_duration", "max_duration", "repeat", "repeat_interval", "condition", "conditions"}
+SHARED_FIELDS: set[str] = {
+    "action", "min_duration", "max_duration", "repeat", "repeat_interval",
+    "condition", "conditions", "delay", "delay_cancel_on",
+}
 
 _EVENT_CLICK_TYPES = (
     "single", "double", "triple", "long",
@@ -189,7 +192,7 @@ def validate_section_actions(section: str, data: list) -> list[str]:
                 # Auto-clean stale fields first
                 removed = clean_action_fields(action)
                 if removed:
-                    _LOGGER.info(
+                    _LOGGER.warning(
                         "Entity '%s', %s[%d]: auto-stripped stale fields: %s",
                         name, click_type, idx, removed,
                     )
