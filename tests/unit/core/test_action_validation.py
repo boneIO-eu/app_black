@@ -6,7 +6,11 @@ before being written to disk.
 """
 
 import pytest
-from boneio.webui.action_validation import validate_action_fields as _validate_action_fields, validate_section_actions as _validate_section_actions
+from boneio.webui.action_validation import (
+    clean_action_fields as _clean_action_fields,
+    validate_action_fields as _validate_action_fields,
+    validate_section_actions as _validate_section_actions,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -392,3 +396,70 @@ class TestValidateSectionActions:
         ]
         errors = _validate_section_actions("event", data)
         assert len(errors) == 0
+
+
+# ---------------------------------------------------------------------------
+# Delayed execution fields (delay / delay_cancel_on)
+# ---------------------------------------------------------------------------
+
+class TestDelayFieldsPreserved:
+    """Delay fields are shared fields and must survive save/sanitize.
+
+    Regression: SHARED_FIELDS was missing 'delay' and 'delay_cancel_on', so
+    clean_action_fields silently stripped them from every saved action and the
+    UI's "delayed execution" setting never reached the YAML.
+    """
+
+    def test_clean_keeps_delay_fields(self):
+        action = {
+            "action": "output",
+            "boneio_output": "OUT_24",
+            "action_output": "OFF",
+            "delay": "2min",
+            "delay_cancel_on": ["pressed"],
+        }
+        removed = _clean_action_fields(action)
+        assert removed == []
+        assert action["delay"] == "2min"
+        assert action["delay_cancel_on"] == ["pressed"]
+
+    def test_validate_accepts_delay_fields(self):
+        action = {
+            "action": "output",
+            "boneio_output": "OUT_24",
+            "action_output": "OFF",
+            "delay": "2min",
+            "delay_cancel_on": ["pressed"],
+        }
+        assert _validate_action_fields(action) is None
+
+    def test_section_save_keeps_delay_fields(self):
+        data = [
+            {
+                "name": "Czujka_Bosh_1",
+                "boneio_input": "in_46",
+                "actions": {
+                    "released": [{
+                        "action": "output",
+                        "boneio_output": "OUT_24",
+                        "action_output": "OFF",
+                        "delay": "2min",
+                        "delay_cancel_on": ["pressed"],
+                    }],
+                },
+            }
+        ]
+        errors = _validate_section_actions("binary_sensor", data)
+        assert errors == []
+        saved = data[0]["actions"]["released"][0]
+        assert saved["delay"] == "2min"
+        assert saved["delay_cancel_on"] == ["pressed"]
+
+    @pytest.mark.parametrize("action_type,extra", [
+        ("cover", {"boneio_cover": "cover1", "action_cover": "TILT"}),
+        ("remote_cover", {"remote_device": "dev1", "cover_id": "c1", "action_cover": "TILT"}),
+    ])
+    def test_clean_keeps_restore_tilt(self, action_type, extra):
+        action = {"action": action_type, "restore_tilt": True, **extra}
+        assert _clean_action_fields(action) == []
+        assert action["restore_tilt"] is True
