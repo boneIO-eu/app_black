@@ -4,7 +4,7 @@ All notable changes to boneIO Black are documented in this file.
 
 ---
 
-## v1.5.2.dev1 (2026-08-31)
+## v1.5.2 (2026-09-10)
 
 Hotfix release. Branched from `v1.5.1` and carries the fixes that had accumulated
 on `dev-debian13`, minus the 1.6.0 feature work (remote cover output / WLED cache
