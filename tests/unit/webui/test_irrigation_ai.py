@@ -15,7 +15,7 @@ def _has_fastapi() -> bool:
         from fastapi.testclient import TestClient  # noqa: F401
         from boneio.webui.routes.irrigation import router  # noqa: F401
         return True
-    except ImportError:
+    except (ImportError, RuntimeError):
         return False
 
 
