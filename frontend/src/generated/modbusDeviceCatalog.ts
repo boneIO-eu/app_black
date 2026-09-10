@@ -254,6 +254,16 @@ export const MODBUS_DEVICE_CATALOG: Record<string, ModbusDeviceInfo> = {
     "defaultUpdateInterval": "10s",
     "hasSetBase": false
   },
+  "qdw90a": {
+    "modelKey": "qdw90a",
+    "displayName": "Liquid Pressure Sensor - QDW90A",
+    "manufacturer": "Generic",
+    "description": "Generic Modbus liquid pressure sensor",
+    "category": "sensors",
+    "defaultAddress": 1,
+    "defaultUpdateInterval": "60s",
+    "hasSetBase": true
+  },
   "sht20": {
     "modelKey": "sht20",
     "displayName": "SHT20 Sensor",
