@@ -1,0 +1,519 @@
+{
+  "model": "Defro AIR DRX",
+  "manufacturer": "Defro AIR",
+  "description": "Defro AIR DRX heat-recovery ventilation unit (rekuperator)",
+  "category": "hvac",
+  "default_address": 10,
+  "default_update_interval": "30s",
+  "registers_base": [
+    {
+      "base": 100,
+      "length": 10,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Wydatek Nawiewu",
+          "address": 100,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m3/h"
+        },
+        {
+          "name": "Wydatek Wywiewu",
+          "address": 101,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m3/h"
+        },
+        {
+          "name": "Bieg Nawiewu",
+          "address": 102,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Bieg 0",
+            "1": "Bieg 1",
+            "2": "Bieg 2",
+            "3": "Bieg 3"
+          }
+        },
+        {
+          "name": "Bieg Wywiewu",
+          "address": 103,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Bieg 0",
+            "1": "Bieg 1",
+            "2": "Bieg 2",
+            "3": "Bieg 3"
+          }
+        },
+        {
+          "name": "Temperatura Czerpni",
+          "address": 104,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura Wywiewu",
+          "address": 105,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura Nawiewu",
+          "address": 106,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura Wyrzutni",
+          "address": 107,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura GWC",
+          "address": 108,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        },
+        {
+          "name": "Temperatura Kontroli Nagrzewnicy",
+          "address": 109,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 131,
+      "length": 12,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "GWC",
+          "address": 131,
+          "write_address": 136,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Bypass",
+          "address": 132,
+          "write_address": 137,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Urlop Aktywny",
+          "address": 133,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Stan Filtrow",
+          "address": 134,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "d"
+        },
+        {
+          "name": "Alarm",
+          "address": 135,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Urlop Dni",
+          "address": 138,
+          "write_address": 138,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "d"
+        },
+        {
+          "name": "Funkcja Palenisko",
+          "address": 139,
+          "write_address": 139,
+          "entity_type": "writeable_sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "s"
+        },
+        {
+          "name": "Funkcja Party",
+          "address": 140,
+          "write_address": 140,
+          "entity_type": "writeable_sensor",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "s"
+        },
+        {
+          "name": "Alarm Wejscie Cyfrowe",
+          "address": 141,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Przelacznik Lazienkowy Wejscie Cyfrowe",
+          "address": 142,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        }
+      ]
+    },
+    {
+      "base": 148,
+      "length": 4,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Pozarowe Wejscie Cyfrowe",
+          "address": 148,
+          "write_address": 148,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Okap Wejscie Cyfrowe",
+          "address": 149,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Nawilzacz Wejscie Cyfrowe",
+          "address": 150,
+          "write_address": 150,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Czujniki Wejscie Cyfrowe",
+          "address": 151,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        }
+      ]
+    },
+    {
+      "base": 145,
+      "length": 3,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Nagrzewnica Wtorna",
+          "address": 145,
+          "write_address": 145,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Antyzamarzanie",
+          "address": 146,
+          "entity_type": "binary_sensor",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Temperatura Nagrzewnicy Wtornej",
+          "address": 147,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "S_WORD",
+          "unit_of_measurement": "°C",
+          "device_class": "temperature",
+          "filters": [
+            {
+              "multiply": 0.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "base": 152,
+      "length": 14,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Sterowanie Tygodniowe",
+          "address": 152,
+          "write_address": 152,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Bieg Zadany",
+          "address": 153,
+          "write_address": 153,
+          "entity_type": "writeable_sensor_discrete",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "x_mapping": {
+            "0": "Bieg 0",
+            "1": "Bieg 1",
+            "2": "Bieg 2",
+            "3": "Bieg 3"
+          }
+        },
+        {
+          "name": "Tryb Okna",
+          "address": 154,
+          "write_address": 154,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Nawilzacz",
+          "address": 155,
+          "write_address": 155,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Nagrzewnica Nawilzacza",
+          "address": 156,
+          "write_address": 156,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Moc Biegu 1",
+          "address": 157,
+          "write_address": 157,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "%"
+        },
+        {
+          "name": "Moc Biegu 2",
+          "address": 158,
+          "write_address": 158,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "%"
+        },
+        {
+          "name": "Moc Biegu 3",
+          "address": 159,
+          "write_address": 159,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "%"
+        },
+        {
+          "name": "Przeplyw Biegu 1",
+          "address": 160,
+          "write_address": 160,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m3/h"
+        },
+        {
+          "name": "Przeplyw Biegu 2",
+          "address": 161,
+          "write_address": 161,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m3/h"
+        },
+        {
+          "name": "Przeplyw Biegu 3",
+          "address": 162,
+          "write_address": 162,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "m3/h"
+        },
+        {
+          "name": "Flow Balancing",
+          "address": 164,
+          "write_address": 164,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        },
+        {
+          "name": "Wymiennik Entalpiczny",
+          "address": 165,
+          "write_address": 165,
+          "entity_type": "writeable_binary_sensor_discrete",
+          "value_type": "U_WORD",
+          "payload_off": "0",
+          "payload_on": "1"
+        }
+      ]
+    },
+    {
+      "base": 166,
+      "length": 5,
+      "register_type": "holding",
+      "registers": [
+        {
+          "name": "Czas Pracy Filtrow",
+          "address": 166,
+          "entity_type": "sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "d"
+        },
+        {
+          "name": "Wersja Oprogramowania",
+          "address": 167,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "Rozmiar Wybranej Centrali",
+          "address": 168,
+          "entity_type": "text_sensor",
+          "value_type": "U_WORD"
+        },
+        {
+          "name": "Bypass Dolna Temp Zalaczenia",
+          "address": 169,
+          "write_address": 169,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C"
+        },
+        {
+          "name": "Bypass Temp Komfortu",
+          "address": 170,
+          "write_address": 170,
+          "entity_type": "writeable_sensor",
+          "state_class": "measurement",
+          "value_type": "U_WORD",
+          "unit_of_measurement": "°C"
+        }
+      ]
+    }
+  ],
+  "additional_entities": [
+    {
+      "name": "GWC switch",
+      "source": "gwc",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Bypass switch",
+      "source": "bypass",
+      "entity_type": "switch",
+      "x_mapping": {
+        "0": "OFF",
+        "1": "ON"
+      },
+      "payload_off": "OFF",
+      "payload_on": "ON"
+    },
+    {
+      "name": "Bieg zadany select",
+      "source": "bieg_zadany",
+      "entity_type": "select",
+      "x_mapping": {
+        "0": "Bieg 0",
+        "1": "Bieg 1",
+        "2": "Bieg 2",
+        "3": "Bieg 3"
+      }
+    }
+  ]
+}
