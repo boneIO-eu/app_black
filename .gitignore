@@ -137,3 +137,7 @@ frontend/dev-dist/
 
 .vscode
 .windsurf
+
+.graft
+/graft
+.ignore
