@@ -168,6 +168,11 @@ class ESPHomeRemoteDevice(RemoteDevice):
         self._cover_keys: dict[str, int] = {}
         self._binary_sensor_keys: dict[str, int] = {}
 
+        # Entity device_id mappings (ESPHome multi-node/subdevice routing)
+        self._switch_device_ids: dict[str, int] = {}
+        self._light_device_ids: dict[str, int] = {}
+        self._cover_device_ids: dict[str, int] = {}
+
         # Current states (updated via subscription)
         self._switch_states: dict[str, bool] = {}
         self._light_states: dict[str, dict[str, Any]] = {}
@@ -393,8 +398,18 @@ class ESPHomeRemoteDevice(RemoteDevice):
             return
 
         try:
-            # Fetch entity list so we know keys for binary sensors, switches, etc.
-            entities, _ = await self._client.list_entities_services()
+            # First fetch device_info to populate the cache.
+            # This prevents list_entities_services() from using the combined
+            # device_info_and_list_entities() call which hangs on ESPHome 2026.8.x.
+            _LOGGER.info("Fetching device info from '%s'...", self._name)
+            await asyncio.wait_for(self._client.device_info(), timeout=10.0)
+
+            # Now fetch entity list (uses cached device_info path)
+            _LOGGER.info("Fetching entity list from '%s'...", self._name)
+            entities, _ = await asyncio.wait_for(
+                self._client.list_entities_services(), timeout=15.0
+            )
+            _LOGGER.info("Got %d entities from '%s'", len(entities), self._name)
 
             # Refresh binary sensor list from live entity info
             bs_list: list[dict[str, Any]] = []
@@ -411,36 +426,45 @@ class ESPHomeRemoteDevice(RemoteDevice):
 
                 # Also refresh switch/light/cover keys from live entity info
                 elif isinstance(entity, SwitchInfo):
+                    dev_id = getattr(entity, "device_id", 0) or 0
                     self._switch_keys[entity.object_id] = entity.key
+                    self._switch_device_ids[entity.object_id] = dev_id
                     # Ensure entity is in configured list
                     if not any(s.get("id") == entity.object_id for s in self._switches):
-                        self._switches.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                        self._switches.append({"id": entity.object_id, "name": entity.name, "key": entity.key, "device_id": dev_id})
                     else:
                         for s in self._switches:
                             if s.get("id") == entity.object_id:
                                 s["key"] = entity.key
+                                s["device_id"] = dev_id
                                 break
                 elif isinstance(entity, LightInfo):
+                    dev_id = getattr(entity, "device_id", 0) or 0
                     self._light_keys[entity.object_id] = entity.key
+                    self._light_device_ids[entity.object_id] = dev_id
                     if not any(l.get("id") == entity.object_id for l in self._lights):
-                        self._lights.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                        self._lights.append({"id": entity.object_id, "name": entity.name, "key": entity.key, "device_id": dev_id})
                     else:
                         for l in self._lights:
                             if l.get("id") == entity.object_id:
                                 l["key"] = entity.key
+                                l["device_id"] = dev_id
                                 break
                 elif isinstance(entity, CoverInfo):
+                    dev_id = getattr(entity, "device_id", 0) or 0
                     self._cover_keys[entity.object_id] = entity.key
+                    self._cover_device_ids[entity.object_id] = dev_id
                     if not any(c.get("id") == entity.object_id for c in self._covers_list):
-                        self._covers_list.append({"id": entity.object_id, "name": entity.name, "key": entity.key})
+                        self._covers_list.append({"id": entity.object_id, "name": entity.name, "key": entity.key, "device_id": dev_id})
                     else:
                         for c in self._covers_list:
                             if c.get("id") == entity.object_id:
                                 c["key"] = entity.key
+                                c["device_id"] = dev_id
                                 break
 
             self._binary_sensors = bs_list
-            _LOGGER.debug(
+            _LOGGER.info(
                 "Populated %d binary sensors, %d switches, %d lights, %d covers from entity list on '%s'",
                 len(bs_list),
                 len(self._switch_keys),
@@ -902,11 +926,12 @@ class ESPHomeRemoteDevice(RemoteDevice):
             if not await self.connect():
                 return False
 
-            # Find switch key (after connect so _on_entities populates the list)
+            # Find switch key and device_id (after connect so _on_entities populates the list)
             switch_key = self._get_entity_key(switch_id, self._switches, self._switch_keys)
             if switch_key is None:
                 _LOGGER.error("Switch '%s' not found on device '%s'", switch_id, self._name)
                 return False
+            switch_dev_id = self._get_entity_device_id(switch_id, self._switches, self._switch_device_ids)
 
             action_upper = action.upper()
 
@@ -923,8 +948,8 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 return False
 
             if self._client:
-                self._client.switch_command(switch_key, state)
-            _LOGGER.debug("Sent switch command: %s -> %s", switch_id, state)
+                self._client.switch_command(switch_key, state, device_id=switch_dev_id)
+            _LOGGER.debug("Sent switch command: %s -> %s (device_id=%d)", switch_id, state, switch_dev_id)
             return True
 
         except Exception as e:
@@ -969,6 +994,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
             if light_key is None:
                 _LOGGER.error("Light '%s' not found on device '%s'", light_id, self._name)
                 return False
+            light_dev_id = self._get_entity_device_id(light_id, self._lights, self._light_device_ids)
 
             action_upper = action.upper()
 
@@ -976,10 +1002,10 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 return False
 
             if action_upper == "OFF":
-                self._client.light_command(light_key, state=False, transition_length=transition)
+                self._client.light_command(light_key, state=False, transition_length=transition, device_id=light_dev_id)
 
             elif action_upper == "ON":
-                cmd_kwargs: dict[str, Any] = {"state": True, "transition_length": transition}
+                cmd_kwargs: dict[str, Any] = {"state": True, "transition_length": transition, "device_id": light_dev_id}
                 if brightness is not None:
                     cmd_kwargs["brightness"] = brightness / 255.0
                 if color_temp is not None:
@@ -997,7 +1023,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
 
                 if new_state:
                     # Turning ON - apply brightness/color_temp/rgb if provided
-                    toggle_kwargs: dict[str, Any] = {"state": True, "transition_length": transition}
+                    toggle_kwargs: dict[str, Any] = {"state": True, "transition_length": transition, "device_id": light_dev_id}
                     if brightness is not None:
                         toggle_kwargs["brightness"] = brightness / 255.0
                     if color_temp is not None:
@@ -1007,14 +1033,14 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     self._client.light_command(light_key, **toggle_kwargs)
                 else:
                     # Turning OFF - just turn off
-                    self._client.light_command(light_key, state=False, transition_length=transition)
+                    self._client.light_command(light_key, state=False, transition_length=transition, device_id=light_dev_id)
 
             elif action_upper == "SET_BRIGHTNESS":
                 if brightness is None:
                     _LOGGER.error("SET_BRIGHTNESS requires brightness parameter")
                     return False
                 self._client.light_command(
-                    light_key, state=True, brightness=brightness / 255.0, transition_length=transition
+                    light_key, state=True, brightness=brightness / 255.0, transition_length=transition, device_id=light_dev_id
                 )
 
             elif action_upper in ("BRIGHTNESS_UP", "BRIGHTNESS_UP_CYCLE"):
@@ -1024,7 +1050,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 if not is_on:
                     new_brightness = step_val
                     self._client.light_command(
-                        light_key, state=True, brightness=new_brightness, transition_length=transition
+                        light_key, state=True, brightness=new_brightness, transition_length=transition, device_id=light_dev_id
                     )
                 else:
                     current_brightness = light_state.get("brightness", 0.5)
@@ -1035,7 +1061,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                         else:
                             new_brightness = 1.0
                     self._client.light_command(
-                        light_key, state=True, brightness=new_brightness, transition_length=transition
+                        light_key, state=True, brightness=new_brightness, transition_length=transition, device_id=light_dev_id
                     )
                 # Optimistic update so next rapid command reads correct value
                 if light_id in self._light_states:
@@ -1050,7 +1076,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     if action_upper == "BRIGHTNESS_DOWN_CYCLE":
                         new_brightness = 1.0
                         self._client.light_command(
-                            light_key, state=True, brightness=new_brightness, transition_length=transition
+                            light_key, state=True, brightness=new_brightness, transition_length=transition, device_id=light_dev_id
                         )
                         if light_id in self._light_states:
                             self._light_states[light_id]["state"] = True
@@ -1064,7 +1090,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                     if action_upper == "BRIGHTNESS_DOWN_CYCLE":
                         new_brightness = 1.0
                     else:
-                        self._client.light_command(light_key, state=False, transition_length=transition)
+                        self._client.light_command(light_key, state=False, transition_length=transition, device_id=light_dev_id)
                         if light_id in self._light_states:
                             self._light_states[light_id]["state"] = False
                         _LOGGER.debug("Sent light command: %s -> OFF (brightness was at minimum)", light_id)
@@ -1072,7 +1098,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 else:
                     new_brightness = round(max(step_val, current_brightness - step_val), 3)
                 self._client.light_command(
-                    light_key, state=True, brightness=new_brightness, transition_length=transition
+                    light_key, state=True, brightness=new_brightness, transition_length=transition, device_id=light_dev_id
                 )
                 # Optimistic update so next rapid command reads correct value
                 if light_id in self._light_states:
@@ -1082,7 +1108,7 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 _LOGGER.error("Invalid light action: %s", action)
                 return False
 
-            _LOGGER.debug("Sent light command: %s -> %s", light_id, action)
+            _LOGGER.debug("Sent light command: %s -> %s (device_id=%d)", light_id, action, light_dev_id)
             return True
 
         except Exception as e:
@@ -1111,11 +1137,12 @@ class ESPHomeRemoteDevice(RemoteDevice):
             _LOGGER.error("aioesphomeapi not installed")
             return False
 
-        # Find cover key
+        # Find cover key and device_id
         cover_key = self._get_entity_key(cover_id, self._covers_list, self._cover_keys)
         if cover_key is None:
             _LOGGER.error("Cover '%s' not found on device '%s'", cover_id, self._name)
             return False
+        cover_dev_id = self._get_entity_device_id(cover_id, self._covers_list, self._cover_device_ids)
 
         try:
             if not await self.connect():
@@ -1130,15 +1157,15 @@ class ESPHomeRemoteDevice(RemoteDevice):
 
             if position is not None:
                 # Set position (0-100 -> 0.0-1.0)
-                self._client.cover_command(cover_key, position=position / 100.0)
+                self._client.cover_command(cover_key, position=position / 100.0, device_id=cover_dev_id)
             elif tilt_position is not None:
-                self._client.cover_command(cover_key, tilt=tilt_position / 100.0)
+                self._client.cover_command(cover_key, tilt=tilt_position / 100.0, device_id=cover_dev_id)
             elif action_upper == "OPEN":
-                self._client.cover_command(cover_key, position=1.0)
+                self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
             elif action_upper == "CLOSE":
-                self._client.cover_command(cover_key, position=0.0)
+                self._client.cover_command(cover_key, position=0.0, device_id=cover_dev_id)
             elif action_upper == "STOP":
-                self._client.cover_command(cover_key, stop=True)
+                self._client.cover_command(cover_key, stop=True, device_id=cover_dev_id)
             elif action_upper in ("TOGGLE", "SMART_TOGGLE"):
                 # Toggle based on current operation, position, or last known operation
                 state = self._cover_states.get(cover_id, {})
@@ -1147,68 +1174,69 @@ class ESPHomeRemoteDevice(RemoteDevice):
                 cover_pos = state.get("position")
                 always_open_till = kwargs.get("always_open_till", 50) if action_upper == "SMART_TOGGLE" else None
                 _LOGGER.debug(
-                    "ESPHome %s cover '%s': current_op=%s, last_op=%s, position=%s, always_open_till=%s",
+                    "ESPHome %s cover '%s': current_op=%s, last_op=%s, position=%s, always_open_till=%s (device_id=%d)",
                     action_upper,
                     cover_id,
                     current_op,
                     last_op,
                     cover_pos,
                     always_open_till,
+                    cover_dev_id,
                 )
 
                 if current_op != 0:  # If moving, stop it
                     _LOGGER.debug("%s -> STOP (cover is moving, current_op=%s)", action_upper, current_op)
-                    self._client.cover_command(cover_key, stop=True)
+                    self._client.cover_command(cover_key, stop=True, device_id=cover_dev_id)
                 elif cover_pos is not None:
                     # Position is known — use it for smarter decisions
                     pos_pct = int(cover_pos * 100)
                     if always_open_till is not None and pos_pct <= always_open_till:
                         # SMART_TOGGLE: below threshold → always open
                         _LOGGER.debug("SMART_TOGGLE -> OPEN (pos=%d%% <= threshold=%d%%)", pos_pct, always_open_till)
-                        self._client.cover_command(cover_key, position=1.0)
+                        self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
                     elif cover_pos >= 0.99:
                         # Fully open → close
                         _LOGGER.debug("%s -> CLOSE (fully open, pos=%.2f)", action_upper, cover_pos)
-                        self._client.cover_command(cover_key, position=0.0)
+                        self._client.cover_command(cover_key, position=0.0, device_id=cover_dev_id)
                     elif cover_pos <= 0.01:
                         # Fully closed → open
                         _LOGGER.debug("%s -> OPEN (fully closed, pos=%.2f)", action_upper, cover_pos)
-                        self._client.cover_command(cover_key, position=1.0)
+                        self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
                     elif last_op == 2:
                         # Last was closing → open
                         _LOGGER.debug("%s -> OPEN (last_op=CLOSING)", action_upper)
-                        self._client.cover_command(cover_key, position=1.0)
+                        self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
                     else:
                         # Last was opening → close
                         _LOGGER.debug("%s -> CLOSE (last_op=%s)", action_upper, last_op)
-                        self._client.cover_command(cover_key, position=0.0)
+                        self._client.cover_command(cover_key, position=0.0, device_id=cover_dev_id)
                 else:
                     # No position known — use last_op only
                     if last_op == 2:
                         _LOGGER.debug("%s -> OPEN (no position, last_op=CLOSING)", action_upper)
-                        self._client.cover_command(cover_key, position=1.0)
+                        self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
                     else:
                         _LOGGER.debug("%s -> CLOSE (no position, last_op=%s)", action_upper, last_op)
-                        self._client.cover_command(cover_key, position=0.0)
+                        self._client.cover_command(cover_key, position=0.0, device_id=cover_dev_id)
             elif action_upper == "TOGGLE_OPEN":
                 state = self._cover_states.get(cover_id, {})
                 current_op = state.get("current_operation", 0)
                 if current_op != 0:
-                    self._client.cover_command(cover_key, stop=True)
+                    self._client.cover_command(cover_key, stop=True, device_id=cover_dev_id)
                 else:
-                    self._client.cover_command(cover_key, position=1.0)
+                    self._client.cover_command(cover_key, position=1.0, device_id=cover_dev_id)
             elif action_upper == "TOGGLE_CLOSE":
                 state = self._cover_states.get(cover_id, {})
                 current_op = state.get("current_operation", 0)
                 if current_op != 0:
-                    self._client.cover_command(cover_key, stop=True)
+                    self._client.cover_command(cover_key, stop=True, device_id=cover_dev_id)
                 else:
-                    self._client.cover_command(cover_key, position=0.0)
+                    self._client.cover_command(cover_key, position=0.0, device_id=cover_dev_id)
             else:
                 _LOGGER.error("Invalid cover action: %s", action)
                 return False
 
-            _LOGGER.debug("Sent cover command: %s -> %s", cover_id, action)
+            _LOGGER.debug("Sent cover command: %s -> %s (device_id=%d)", cover_id, action, cover_dev_id)
             return True
 
         except Exception as e:
@@ -1242,6 +1270,30 @@ class ESPHomeRemoteDevice(RemoteDevice):
 
         return None
 
+    def _get_entity_device_id(
+        self, entity_id: str, entity_list: list[dict[str, Any]], dev_cache: dict[str, int]
+    ) -> int:
+        """Get entity device_id for API commands.
+
+        Args:
+            entity_id: Entity object_id
+            entity_list: List of entity definitions
+            dev_cache: Cache of entity_id -> device_id mappings
+
+        Returns:
+            Entity device_id (defaults to 0 if not present)
+        """
+        if entity_id in dev_cache:
+            return dev_cache[entity_id]
+
+        for entity in entity_list:
+            if entity.get("id") == entity_id:
+                dev_id = entity.get("device_id", 0) or 0
+                dev_cache[entity_id] = dev_id
+                return dev_id
+
+        return 0
+
     def set_switches(self, switches: list[dict[str, Any]]) -> None:
         """Set list of known switches.
 
@@ -1250,9 +1302,11 @@ class ESPHomeRemoteDevice(RemoteDevice):
         """
         self._switches = switches
         self._switch_keys.clear()
+        self._switch_device_ids.clear()
         for switch in switches:
             if switch.get("id") and switch.get("key"):
                 self._switch_keys[switch["id"]] = switch["key"]
+                self._switch_device_ids[switch["id"]] = switch.get("device_id", 0) or 0
 
     def set_lights(self, lights: list[dict[str, Any]]) -> None:
         """Set list of known lights.
@@ -1262,9 +1316,11 @@ class ESPHomeRemoteDevice(RemoteDevice):
         """
         self._lights = lights
         self._light_keys.clear()
+        self._light_device_ids.clear()
         for light in lights:
             if light.get("id") and light.get("key"):
                 self._light_keys[light["id"]] = light["key"]
+                self._light_device_ids[light["id"]] = light.get("device_id", 0) or 0
 
     def set_esphome_covers(self, covers: list[dict[str, Any]]) -> None:
         """Set list of known covers.
@@ -1274,9 +1330,11 @@ class ESPHomeRemoteDevice(RemoteDevice):
         """
         self._covers_list = covers
         self._cover_keys.clear()
+        self._cover_device_ids.clear()
         for cover in covers:
             if cover.get("id") and cover.get("key"):
                 self._cover_keys[cover["id"]] = cover["key"]
+                self._cover_device_ids[cover["id"]] = cover.get("device_id", 0) or 0
         # Also update parent class covers
         self.set_covers(covers)
 
