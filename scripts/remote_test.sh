@@ -152,7 +152,10 @@ emit PASS "harness is up ($($VENV/bin/python -c 'from boneio.version import __ve
 
 # fresh device: no accounts yet
 chk "init.needs_onboarding on a fresh device" "true"  "$(curl -fsS --max-time 15 "$BASE/api/init" | field needs_onboarding)"
-chk "protected route open before provisioning"  "200"  "$(code "$BASE/api/harness/protected")"
+# F-02: before 1.6 an unprovisioned device served this to anyone.
+chk "unprovisioned device refuses the API" "403" "$(code "$BASE/api/harness/protected")"
+chk "  ...with a setup_required code" "setup_required" \
+  "$(curl -s --max-time 15 "$BASE/api/harness/protected" | field code)"
 
 # create the first admin — times scrypt on real ARM
 t0=$(date +%s.%N)
@@ -179,6 +182,31 @@ chk "login correct → 200"  "200" "$(code -X POST "$BASE/api/login" -H 'Content
 chk "login wrong pw → 401" "401" "$(code -X POST "$BASE/api/login" -H 'Content-Type: application/json' -d '{"username":"pawel","password":"zle"}')"
 chk "login unknown → 401"  "401" "$(code -X POST "$BASE/api/login" -H 'Content-Type: application/json' -d '{"username":"nikt","password":"cokolwiek"}')"
 chk "login role is admin"  "admin" "$(curl -fsS --max-time 15 -X POST "$BASE/api/login" -H 'Content-Type: application/json' -d '{"username":"pawel","password":"dobre-haslo-123"}' | field role)"
+
+# --- roles: a viewer operates, an admin configures --------------------
+vcode=$(code -X POST "$BASE/api/accounts" -H "Authorization: Bearer $tok" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"gosc","password":"haslo-goscia","role":"viewer"}')
+chk "admin creates a viewer account" "201" "$vcode"
+
+vtok=$(curl -fsS --max-time 30 -X POST "$BASE/api/login" -H 'Content-Type: application/json' \
+  -d '{"username":"gosc","password":"haslo-goscia"}' | field token)
+[ -n "$vtok" ] && emit PASS "viewer can sign in" || emit FAIL "viewer could not sign in"
+VH="Authorization: Bearer $vtok"
+
+chk "viewer may operate an output" "200" \
+  "$(code -X POST "$BASE/api/outputs/relay_01/toggle" -H "$VH")"
+chk "viewer may read state" "200" "$(code -H "$VH" "$BASE/api/harness/protected")"
+chk "viewer may NOT restart the device" "403" "$(code -X POST "$BASE/api/restart" -H "$VH")"
+chk "viewer may NOT list accounts" "403" "$(code -H "$VH" "$BASE/api/accounts")"
+chk "viewer may NOT create an account" "403" \
+  "$(code -X POST "$BASE/api/accounts" -H "$VH" -H 'Content-Type: application/json' \
+     -d '{"username":"wlasny","password":"dobre-haslo","role":"admin"}')"
+chk "viewer MAY change their own password" "200" \
+  "$(code -X PUT "$BASE/api/account/password" -H "$VH" -H 'Content-Type: application/json' \
+     -d '{"current_password":"haslo-goscia","new_password":"nowe-haslo-123"}')"
+chk "admin may restart" "200" \
+  "$(code -X POST "$BASE/api/restart" -H "Authorization: Bearer $tok")"
 
 # users.json on the device's own filesystem
 chk "users.json is 0600" "600" "$(stat -c %a "$DIR/users.json" 2>/dev/null)"
