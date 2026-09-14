@@ -265,11 +265,23 @@ phase_live() {
   "${SSH[@]}" "$REMOTE" "sudo -n /usr/bin/systemctl restart boneio" \
     && ok "restart issued" || { bad "restart failed"; return; }
   local base="http://$REMOTE_HOST:$SERVICE_PORT" up=""
-  for _ in $(seq 1 60); do
+  # A cold start on a BBB imports a lot before the real server replaces the
+  # loading screen; allow for that plus a slow first .pyc pass after an rsync.
+  for _ in $(seq 1 120); do
     if curl -fsS -o /dev/null --max-time 5 "$base/api/init" 2>/dev/null; then up=1; break; fi
     sleep 1
   done
-  if [ -z "$up" ]; then bad "service did not answer on $base after restart"; return; fi
+  if [ -z "$up" ]; then
+    bad "service did not answer on $base after restart"
+    # Print why, instead of leaving the reader to go and look. A crash loop is
+    # the usual cause and the traceback says so in one line.
+    info "restart count: $("${SSH[@]}" "$REMOTE" 'systemctl show boneio -p NRestarts --value' 2>/dev/null | tr -d '\r')"
+    info "recent errors from the service:"
+    "${SSH[@]}" "$REMOTE" \
+      'journalctl -u boneio -n 60 --no-pager 2>/dev/null | grep -iE "error|traceback|exception|critical" | tail -8' \
+      2>/dev/null | sed 's/^/      /'
+    return
+  fi
   ok "service is back up"
   local ver auth need
   ver=$(curl -fsS "$base/api/init" | _json version)
