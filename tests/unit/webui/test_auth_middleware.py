@@ -232,13 +232,63 @@ def test_admin_may_do_both(rbac_client):
     ).status_code == 200
 
 
-def test_a_token_without_a_role_is_treated_as_viewer(rbac_client):
-    """Tokens issued before roles existed must not be silently promoted."""
+def test_a_token_without_a_role_gets_the_stored_one(rbac_client):
+    """Tokens predate roles, and the claim is not what decides: the store is
+    asked, and it says pawel is an admin."""
     headers = {"Authorization": f"Bearer {create_token({'sub': 'pawel'})}"}
+    assert rbac_client.post("/api/restart", headers=headers).status_code == 200
+
+
+def test_an_invented_role_gains_nothing(rbac_client):
+    """A signed token naming 'superadmin' for a real viewer stays a viewer."""
+    assert rbac_client.post("/api/restart", headers=_auth("superadmin", "gosc")).status_code == 403
+    assert rbac_client.get("/api/outputs", headers=_auth("superadmin", "gosc")).status_code == 200
+
+
+# ------------------------------------- account changes reach an open session
+
+
+def test_deleting_an_account_kills_its_session(rbac_client, store):
+    """Tokens are valid for weeks and cannot be revoked one by one, so the
+    store — not the claim — has to decide whether the caller still exists."""
+    headers = _auth("viewer", "gosc")
+    assert rbac_client.get("/api/outputs", headers=headers).status_code == 200
+
+    store.delete_user("gosc")
+
+    response = rbac_client.get("/api/outputs", headers=headers)
+    assert response.status_code == 401
+    assert response.json()["code"] == "account_gone"
+
+
+def test_demoting_an_admin_takes_effect_on_the_next_request(rbac_client, store):
+    store.add_user("druga", "haslo-admina", Role.ADMIN)
+    headers = _auth("admin", "pawel")
+    assert rbac_client.post("/api/restart", headers=headers).status_code == 200
+
+    store.set_role("pawel", Role.VIEWER)
+
+    # The token still claims admin; the store says otherwise and wins.
     assert rbac_client.post("/api/restart", headers=headers).status_code == 403
     assert rbac_client.get("/api/outputs", headers=headers).status_code == 200
 
 
-def test_an_invented_role_is_treated_as_viewer(rbac_client):
-    """A forged-but-signed token naming 'superadmin' gets no extra privilege."""
-    assert rbac_client.post("/api/restart", headers=_auth("superadmin", "x")).status_code == 403
+def test_promoting_a_viewer_takes_effect_without_a_new_token(rbac_client, store):
+    headers = _auth("viewer", "gosc")
+    assert rbac_client.post("/api/restart", headers=headers).status_code == 403
+
+    store.set_role("gosc", Role.ADMIN)
+
+    assert rbac_client.post("/api/restart", headers=headers).status_code == 200
+
+
+def test_a_forged_admin_claim_gains_nothing(rbac_client, store):
+    """Signed tokens are trusted for identity only — 'gosc' is a viewer in the
+    store whatever the claim says."""
+    assert rbac_client.post("/api/restart", headers=_auth("admin", "gosc")).status_code == 403
+
+
+def test_unknown_subject_is_rejected(rbac_client):
+    assert rbac_client.get(
+        "/api/outputs", headers=_auth("admin", "nigdy-nie-istnial")
+    ).status_code == 401

@@ -289,7 +289,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Invalid authorization header format"}
             )
 
-        role = _role_from_payload(payload)
+        role = _resolve_role(payload)
+        if role is None:
+            # The account behind this token is gone. Tokens live for weeks, so
+            # without this a deleted account keeps its access until expiry.
+            _LOGGER.warning(
+                "Rejected a token for '%s': the account no longer exists",
+                payload.get("sub", "?"),
+            )
+            return JSONResponse(
+                status_code=401,
+                content={
+                    "detail": "This account no longer exists.",
+                    "code": "account_gone",
+                },
+            )
+
         if not policy.role_allows(role, request.method, path):
             _LOGGER.warning(
                 "Refused %s %s for '%s' (role %s)",
@@ -312,6 +327,41 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.role = role
 
         return await call_next(request)
+
+
+def _resolve_role(payload: dict) -> Role | None:
+    """The caller's *current* role, looked up rather than taken on trust.
+
+    The token carries a role claim, but it is only a claim: tokens are valid
+    for weeks, so an account deleted or demoted in the meantime would keep the
+    privilege it was issued with until expiry. There is no per-token
+    revocation, so the store is consulted on every request instead — an
+    in-memory dict lookup, and one the request already pays for via
+    is_auth_required(). The token proves who you are; the store decides what
+    that is currently worth.
+
+    The claim is still the answer on a device that is not provisioned, where
+    the caller authenticated against a legacy web.auth pair that was never in
+    users.json.
+
+    Args:
+        payload: Verified JWT payload.
+
+    Returns:
+        The role to enforce, or None if the account is gone and the request
+        should be rejected.
+    """
+    store = _user_store
+    if store is not None:
+        try:
+            if store.is_provisioned():
+                user = store.get_user(str(payload.get("sub", "")))
+                return user.role if user is not None else None
+        except Exception as err:  # noqa: BLE001 - never fail open on a read error
+            _LOGGER.error("Cannot read the account store: %s", err)
+            return None
+
+    return _role_from_payload(payload)
 
 
 def _role_from_payload(payload: dict) -> Role:

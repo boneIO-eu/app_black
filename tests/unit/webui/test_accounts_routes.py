@@ -136,17 +136,34 @@ def test_cannot_delete_your_own_account(client, store):
     assert store.get_user("pawel") is not None
 
 
-def test_cannot_delete_the_last_admin(client, store):
+def test_the_last_admin_cannot_be_removed_through_the_api(client, store):
     store.add_user("inny", "haslo-admina", Role.ADMIN)
-    # 'inny' deletes 'pawel', leaving itself as the only admin...
+
+    # 'inny' removes 'pawel', leaving itself the only admin...
     assert client.delete(
         "/api/accounts/pawel", headers=_as("inny", "admin")
     ).status_code == 200
-    # ...and now cannot be removed by anyone.
+
+    # ...and now nothing can remove it: it is both the caller and the last
+    # admin, so the self-deletion guard answers first and the store's
+    # last-admin guard stands behind it (see test_auth_store.py).
     assert client.delete(
-        "/api/accounts/inny", headers=_as("pawel", "admin")
-    ).status_code == 400
+        "/api/accounts/inny", headers=_as("inny", "admin")
+    ).status_code == 409
     assert store.is_provisioned() is True
+
+
+def test_a_deleted_accounts_token_stops_working(client, store):
+    """Tokens outlive accounts by weeks, so deletion has to reach open
+    sessions — this used to keep working until the token expired."""
+    store.add_user("inny", "haslo-admina", Role.ADMIN)
+    gone = _as("pawel", "admin")
+
+    assert client.delete("/api/accounts/pawel", headers=_as("inny", "admin")).status_code == 200
+
+    response = client.get("/api/accounts", headers=gone)
+    assert response.status_code == 401
+    assert response.json()["code"] == "account_gone"
 
 
 def test_viewer_may_not_delete_accounts(client, store):
