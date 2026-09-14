@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 _PROTECTED_FILENAMES = frozenset({
     "secrets.yaml",
     "jwt_secret",
+    "users.json",
     ".env",
 })
 

@@ -19,8 +19,23 @@ Zasada: każda poprawka wdrażana jako **nowa funkcja** (nie łata w ukryciu), p
 ## Kolejność rekomendowana
 1 → 2 → 3 → 4 → reszta. Wdrożenia 1–2 to fundament auth/RBAC, na którym stoi reszta.
 
+## Zrobione
+
+### 1. Kreator pierwszego uruchomienia
+- `boneio/core/auth/` — model konta z rolami, haszowanie scrypt (stdlib, bez nowej zależności), magazyn `users.json` zapisywany atomowo z uprawnieniami 0600 obok `config.yaml`.
+- Migracja starego `web.auth` przy starcie: konto przenoszone do `users.json` jako hash, `config.yaml` nietykany, ostrzeżenie w logu o usunięciu sekcji. Krótkie stare hasło jest migrowane mimo polityki — odrzucenie zamieniłoby aktualizację w zablokowanie właściciela.
+- `GET /api/onboarding/status`, `POST /api/onboarding/admin` (odmawia z 409, gdy admin już istnieje), `needs_onboarding` w `/api/init`.
+- `AuthMiddleware` instalowany **bezwarunkowo** i bramkowany przez `is_auth_required()` — wcześniej był dodawany tylko, gdy `web.auth` istniało, więc urządzenie skonfigurowane kreatorem zostałoby otwarte aż do restartu.
+- `/api/login` uwierzytelnia przez `users.json` i wkłada rolę do tokenu.
+- Kreator w UI: 4 kroki, import backupu przez istniejące `POST /api/config/restore`, tłumaczenia PL/EN.
+- Testy: 100 nowych (backend) + 6 (frontend).
+
+**Domknięte przy okazji:** F-08 dla urządzeń z kontem (koniec tokenu na dowolne dane), przejęcie z F-14 przez nieuwierzytelnione ustawienie creds, F-03 w części dotyczącej `config.yaml` (konta wyprowadzone z pliku, więc backup i eksport nie mają czego wyciekać).
+
+**Świadomie zostawione:** urządzenie, które **nigdy** nie miało poświadczeń, dalej ma otwarte API (F-02) — to zachowanie sprzed 1.6 i domyka je wdrożenie #2.
+
 ## Status
-- [ ] 1. Onboarding
+- [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
 - [ ] 2. Role admin/read-only
 - [ ] 3. Twardnienie logowania
 - [ ] 4. Ochrona sekretów

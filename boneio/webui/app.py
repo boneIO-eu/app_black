@@ -21,6 +21,8 @@ from starlette.websockets import WebSocketState
 
 from boneio.components.input import RemoteInputBase
 from boneio.const import COVER, NONE
+from boneio.core.auth.migration import migrate_legacy_auth
+from boneio.core.auth.store import UserStore, UserStoreError
 from boneio.core.config import ConfigHelper
 from boneio.core.events import GracefulExit
 from boneio.core.manager import Manager
@@ -42,7 +44,13 @@ from boneio.models.events import (
 )
 from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
-from boneio.webui.middleware.auth import AuthMiddleware, set_auth_config, set_jwt_secret
+from boneio.webui.middleware.auth import (
+    AuthMiddleware,
+    is_auth_required,
+    set_auth_config,
+    set_jwt_secret,
+    set_user_store,
+)
 
 # Import routes
 from boneio.webui.routes import (
@@ -57,6 +65,7 @@ from boneio.webui.routes import (
     migrations_router,
     modbus_router,
     nodered_router,
+    onboarding_router,
     mqtt_reference_router,
     outputs_router,
     remote_devices_router,
@@ -67,6 +76,7 @@ from boneio.webui.routes import (
     update_router,
 )
 from boneio.webui.routes import config as config_module
+from boneio.webui.routes import onboarding as onboarding_module
 from boneio.webui.routes import system as system_module
 
 # Import WebSocket manager
@@ -155,6 +165,7 @@ app.include_router(modbus_router)
 app.include_router(sensors_router)
 app.include_router(caddy_router)
 app.include_router(nodered_router)
+app.include_router(onboarding_router)
 app.include_router(can_router)
 app.include_router(remote_devices_router)
 app.include_router(templates_router)
@@ -704,13 +715,40 @@ def init_app(
     # Set JWT secret in auth middleware so it uses the same secret as WebSocket
     set_jwt_secret(jwt_secret)
 
+    # Accounts live in users.json next to config.yaml. Build the store before
+    # anything reads the auth state, then move a pre-1.6 web.auth block across
+    # so upgrading never costs the owner their login.
+    user_store = UserStore.for_config_file(yaml_config_file)
+    migration_info: dict | None = None
+    try:
+        user_store.load()
+        migration = migrate_legacy_auth(user_store, auth_config)
+        if migration:
+            migration_info = {
+                "username": migration.username,
+                "used_secret_file": migration.used_secret_file,
+            }
+    except UserStoreError as err:
+        # Refusing to start would brick the UI over a file the user can fix,
+        # but the store must not be silently treated as empty either — that
+        # would reopen first-admin creation on a device that has an owner.
+        # is_auth_required() fails closed on a store it cannot read.
+        _LOGGER.error("Account store is unusable: %s", err)
+
+    set_user_store(user_store)
+    onboarding_module.set_user_store(user_store)
+    onboarding_module.set_legacy_migration(migration_info)
+
+    auth_required = is_auth_required()
+
     # Set app state
     app.state.manager = manager
     app.state.auth_config = auth_config
     app.state.yaml_config_file = yaml_config_file
     app.state.web_server = web_server
     app.state.config_helper = config_helper
-    app.state.websocket_manager = WebSocketManager(jwt_secret=jwt_secret, auth_required=bool(auth_config))
+    app.state.user_store = user_store
+    app.state.websocket_manager = WebSocketManager(jwt_secret=jwt_secret, auth_required=auth_required)
 
     # Configure route modules with app state
     config_module.set_app_state(app.state)
@@ -733,15 +771,26 @@ def init_app(
     config_dir = os.path.dirname(os.path.abspath(yaml_config_file))
     init_wled_cache(config_dir)
 
-    # Add auth middleware if configured
+    # Keep the legacy pair reachable for a device whose web.auth could not be
+    # migrated (an unrepresentable username, say), so it can still log in.
     if auth_config:
-        username = auth_config.get("username")
-        password = auth_config.get("password")
-        if not username or not password:
-            _LOGGER.error("Missing username or password in config!")
-        else:
+        if auth_config.get("username") and auth_config.get("password"):
             set_auth_config(auth_config)
-            app.add_middleware(AuthMiddleware)
+        else:
+            _LOGGER.error("Missing username or password in web.auth!")
+
+    # Always installed, never conditional on config.yaml. A device provisioned
+    # through the first-run wizard has an admin in users.json and an empty
+    # web.auth, and adding the middleware only when web.auth exists would leave
+    # that device unauthenticated until the next restart. The middleware itself
+    # decides per request whether credentials exist.
+    app.add_middleware(AuthMiddleware)
+
+    if not auth_required:
+        _LOGGER.warning(
+            "This device has no accounts: the API is reachable without "
+            "authentication. Open the web UI to run the first-run wizard."
+        )
 
     # Add CORS middleware — restrict to same-origin by default,
     # allow localhost dev servers when BONEIO_DEV is set.

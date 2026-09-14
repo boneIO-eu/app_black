@@ -25,6 +25,10 @@ interface AppInitData {
   serial_no: string;
   serial_override?: string | null;
   auth_required: boolean;
+  /** True when the device has no administrator yet and the wizard must run. */
+  needs_onboarding: boolean;
+  /** Set when a pre-1.6 web.auth block was migrated into users.json on boot. */
+  legacy_migration?: { username: string; used_secret_file: boolean } | null;
   pwa_name: string;
   pwa_default: string;
   pwa_max_length: number;
@@ -41,6 +45,17 @@ interface AppInitContextType {
   isLoading: boolean;
   /** Whether the API is available */
   isApiAvailable: boolean;
+  /**
+   * True once /api/init has reported an unprovisioned device, and stays true
+   * for the life of the page.
+   *
+   * Latched on purpose. `data.needs_onboarding` flips to false the instant the
+   * wizard creates the account, and this provider re-polls /api/init on a
+   * timer, so a consumer gating on the raw flag would unmount the wizard
+   * part-way through and strand the user. The wizard finishes by reloading the
+   * page, which is what clears this.
+   */
+  needsOnboarding: boolean;
   /** Re-fetch init data (e.g. after visibility change) */
   refetch: () => Promise<void>;
 }
@@ -49,6 +64,7 @@ const AppInitContext = createContext<AppInitContextType>({
   data: null,
   isLoading: true,
   isApiAvailable: true,
+  needsOnboarding: false,
   refetch: async () => {},
 });
 
@@ -57,6 +73,26 @@ const AppInitContext = createContext<AppInitContextType>({
  */
 export function useAppInit() {
   return useContext(AppInitContext);
+}
+
+/**
+ * Decide whether the first-run wizard should be on screen.
+ *
+ * Monotonic on purpose: once /api/init has reported an unprovisioned device,
+ * this stays true no matter what later polls say. `needs_onboarding` clears the
+ * instant the wizard creates the administrator, and this provider re-polls
+ * /api/init on a timer, so a consumer gating on the raw flag would unmount the
+ * wizard part-way through and strand the user with the import and summary
+ * steps unreachable. The wizard finishes with a page reload, which resets it.
+ *
+ * @param previous - Latch value so far.
+ * @param initData - Freshly fetched /api/init payload.
+ */
+export function latchNeedsOnboarding(
+  previous: boolean,
+  initData: { needs_onboarding?: boolean } | null | undefined,
+): boolean {
+  return previous || Boolean(initData?.needs_onboarding);
 }
 
 const MAX_RETRIES = 2;
@@ -70,6 +106,7 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppInitData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isApiAvailable, setIsApiAvailable] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   const fetchInit = useCallback(async () => {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -80,6 +117,7 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
           if (prev && JSON.stringify(prev) === JSON.stringify(initData)) return prev;
           return initData;
         });
+        setNeedsOnboarding(prev => latchNeedsOnboarding(prev, initData));
         setIsApiAvailable(true);
         setIsLoading(false);
         // Warm /api/config cache in background so UISettings loads instantly
@@ -119,7 +157,7 @@ export function AppInitProvider({ children }: { children: ReactNode }) {
   }, [fetchInit]);
 
   return (
-    <AppInitContext.Provider value={{ data, isLoading, isApiAvailable, refetch: fetchInit }}>
+    <AppInitContext.Provider value={{ data, isLoading, isApiAvailable, needsOnboarding, refetch: fetchInit }}>
       {children}
     </AppInitContext.Provider>
   );
