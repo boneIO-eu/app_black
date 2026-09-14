@@ -43,7 +43,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22'  # Latest LTS
+          node-version: '24'  # Active LTS
 
       - name: Install pnpm
         run: npm install -g pnpm@10
@@ -92,7 +92,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22'  # Latest LTS
+          node-version: '24'  # Active LTS
 
       - name: Install pnpm
         run: npm install -g pnpm@10
