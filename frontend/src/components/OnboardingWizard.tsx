@@ -141,6 +141,10 @@ export default function OnboardingWizard() {
           <div className="w-28">
             <Logo />
           </div>
+          {/* Brand name, not copy — deliberately not translated. */}
+          <span className="mt-1 text-xs font-semibold tracking-[0.35em] uppercase opacity-60">
+            Black
+          </span>
           <h1 className="mt-4 text-center text-2xl font-extrabold">
             {t('onboarding.title')}
           </h1>
