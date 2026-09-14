@@ -13,8 +13,7 @@
     "help": "Pomoc",
     "templates": "Szablony",
     "experimental": "EKSPERYMENTALNE",
-    "irrigation": "Nawadnianie",
-    "accounts": "Konta"
+    "irrigation": "Nawadnianie"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -710,7 +709,8 @@
     "can": "Magistrala CAN",
     "mcp23017": "MCP23017 (Zaawansowane)",
     "board_sensors": "Czujniki sterownika",
-    "oled": "Wyświetlacz OLED"
+    "oled": "Wyświetlacz OLED",
+    "accounts": "Konta użytkowników"
   },
   "mcp": {
     "info_title": "Konfiguracja MCP23017",

@@ -146,8 +146,8 @@ const WebServerForm: React.FC<WebServerFormProps> = ({ data, onChange }) => {
       <div className="alert alert-info text-sm">
         <span>
           {t('webserver.accounts_moved')}{' '}
-          <Link to="/accounts" className="link font-semibold">
-            {t('navigation.accounts')}
+          <Link to="/settings/accounts" className="link font-semibold">
+            {t('sections.accounts')}
           </Link>
         </span>
       </div>

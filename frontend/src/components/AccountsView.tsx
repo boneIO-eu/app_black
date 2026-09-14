@@ -23,12 +23,12 @@ function errorMessage(err: unknown, fallback: string): string {
 /**
  * Account management, for administrators.
  *
- * Its own page rather than a section of the Settings editor: that sidebar is
- * titled Configuration Sections and every entry in it reads, saves and
- * restores a slice of config.yaml, with a YAML preview to match. Accounts
- * write to users.json and have none of that, so they would need the save,
- * restore and preview chrome suppressed to sit there honestly. The Web server
- * section links here instead, from where the old password fields used to be.
+ * A section of the Settings editor, listed alongside the other tools. It is
+ * not schema-driven — accounts live in users.json, not config.yaml — so
+ * UISettings renders it on its own branch, without the save, restore and
+ * YAML-preview header the config sections carry. Same arrangement as the
+ * binding matrix. The Web server section links here, from where the old
+ * web.auth password fields used to be.
  *
  * Everything here is also enforced server-side — the middleware refuses a
  * viewer's request whatever this component renders — so the UI's job is to not

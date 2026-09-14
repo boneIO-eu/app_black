@@ -68,7 +68,10 @@ export default defineConfig(({ mode }) => {
           ],
         },
         devOptions: {
-          enabled: true,
+          // Off: the service worker would otherwise intercept requests on the
+          // dev server too, serving a cached app shell so source edits appear
+          // not to apply. The production build still ships the full PWA.
+          enabled: false,
         },
       }),
     ],

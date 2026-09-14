@@ -18,6 +18,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useConfig } from '@/contexts/ConfigContext';
 import { SectionContent, SettingsSidebar, SectionHeader } from './components';
+import AccountsView from '../AccountsView';
 import { useOverlayCheck } from './hooks/useOverlayCheck';
 import OverlayChangeDialog from './components/OverlayChangeDialog';
 
@@ -1429,7 +1430,15 @@ export default function UISettings() {
       {/* Main content area */}
       <div ref={contentRef} className="flex-1 flex flex-col overflow-hidden lg:min-h-0 pb-14 lg:pb-0">
         {/* Tool sections (not schema-driven) */}
-        {activeSection === 'binding_matrix' ? (
+        {activeSection === 'accounts' ? (
+          // Not schema-driven: accounts live in users.json, so this section has
+          // nothing to save, restore or preview as YAML and skips the header.
+          <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
+            <div className="flex-1 overflow-y-auto">
+              <AccountsView />
+            </div>
+          </Suspense>
+        ) : activeSection === 'binding_matrix' ? (
           <Suspense fallback={<div className="flex justify-center py-12"><span className="loading loading-ring loading-lg text-primary" /></div>}>
             <div className="flex-1 overflow-y-auto">
               <BindingMatrix

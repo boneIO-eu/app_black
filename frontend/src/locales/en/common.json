@@ -13,8 +13,7 @@
     "help": "Help",
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
-    "irrigation": "Irrigation",
-    "accounts": "Accounts"
+    "irrigation": "Irrigation"
   },
   "outputs": {
     "title": "Outputs",
@@ -746,7 +745,8 @@
     "can": "CAN Bus",
     "mcp23017": "MCP23017 (Advanced)",
     "board_sensors": "Board Sensors",
-    "oled": "OLED Display"
+    "oled": "OLED Display",
+    "accounts": "User accounts"
   },
   "mcp": {
     "info_title": "MCP23017 Configuration",
