@@ -38,7 +38,7 @@ const STEP_ORDER: Step[] = ['welcome', 'account', 'import', 'done'];
 export default function OnboardingWizard() {
   const { t } = useTranslation();
   const { loginWithToken } = useAuth();
-  const { data: initData, refetch } = useAppInit();
+  const { data: initData } = useAppInit();
 
   const [step, setStep] = useState<Step>('welcome');
   const [username, setUsername] = useState('');
@@ -82,7 +82,15 @@ export default function OnboardingWizard() {
       // The device is now ours; adopt the token before anything else so the
       // remaining steps run authenticated rather than through the open window.
       loginWithToken(response.data.token);
-      await refetch();
+      // Deliberately NOT refetching /api/init here. The gate in App.tsx keys
+      // the wizard off needs_onboarding, so refreshing it the moment the
+      // account exists unmounts this component mid-flow and the import and
+      // summary steps become unreachable. finish() reloads the page, which
+      // refetches everything anyway.
+      // Only cleared on success: a recoverable error (a rejected username,
+      // say) should not cost the user both passwords as well.
+      setPassword('');
+      setConfirmPassword('');
       setStep('import');
     } catch (err: unknown) {
       if ((err as ApiError)?.response?.status === 409) {
@@ -93,8 +101,6 @@ export default function OnboardingWizard() {
       }
     } finally {
       setIsSubmitting(false);
-      setPassword('');
-      setConfirmPassword('');
     }
   };
 
@@ -184,9 +190,12 @@ export default function OnboardingWizard() {
           <form className="space-y-4" onSubmit={handleCreateAccount}>
             <p className="text-sm opacity-80">{t('onboarding.account_intro')}</p>
 
-            <label className="form-control w-full">
-              <span className="label-text">{t('onboarding.username')}</span>
+            <div className="w-full">
+              <label htmlFor="onboarding-username" className="block text-sm mb-1">
+                {t('onboarding.username')}
+              </label>
               <input
+                id="onboarding-username"
                 type="text"
                 className="input w-full"
                 autoComplete="username"
@@ -194,11 +203,14 @@ export default function OnboardingWizard() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
-            </label>
+            </div>
 
-            <label className="form-control w-full">
-              <span className="label-text">{t('onboarding.password')}</span>
+            <div className="w-full">
+              <label htmlFor="onboarding-password" className="block text-sm mb-1">
+                {t('onboarding.password')}
+              </label>
               <input
+                id="onboarding-password"
                 type="password"
                 className="input w-full"
                 autoComplete="new-password"
@@ -207,14 +219,17 @@ export default function OnboardingWizard() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <span className="label-text-alt opacity-60">
+              <p className="text-xs opacity-60 mt-1">
                 {t('onboarding.password_hint', { min: MIN_PASSWORD_LENGTH })}
-              </span>
-            </label>
+              </p>
+            </div>
 
-            <label className="form-control w-full">
-              <span className="label-text">{t('onboarding.confirm_password')}</span>
+            <div className="w-full">
+              <label htmlFor="onboarding-confirm" className="block text-sm mb-1">
+                {t('onboarding.confirm_password')}
+              </label>
               <input
+                id="onboarding-confirm"
                 type="password"
                 className="input w-full"
                 autoComplete="new-password"
@@ -222,7 +237,7 @@ export default function OnboardingWizard() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
-            </label>
+            </div>
 
             {error && <div className="text-error text-sm text-center">{error}</div>}
 

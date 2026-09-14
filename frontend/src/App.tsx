@@ -92,7 +92,7 @@ export const WebSocketContext = createContext<{
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
-  const { data: initData, isApiAvailable, isLoading: initLoading } = useAppInit();
+  const { isApiAvailable, isLoading: initLoading, needsOnboarding } = useAppInit();
 
   // API confirmed unavailable after retries — show error screen
   if (!isApiAvailable && !initLoading) {
@@ -113,7 +113,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // A device with no administrator yet gets the first-run wizard instead of a
   // login form — there is nothing to log in to, and leaving it unprovisioned
   // means POST /api/onboarding/admin stays open to whoever reaches it first.
-  if (initData?.needs_onboarding) {
+  //
+  // needsOnboarding is latched by AppInitProvider rather than read straight
+  // off /api/init: the raw flag clears the moment the wizard creates the
+  // account, which would unmount the wizard part-way through.
+  if (needsOnboarding) {
     return <OnboardingWizard />
   }
 
