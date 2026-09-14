@@ -47,6 +47,7 @@ from boneio.version import __version__
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
     is_auth_required,
+    set_allow_anonymous,
     set_auth_config,
     set_jwt_secret,
     set_user_store,
@@ -739,6 +740,11 @@ def init_app(
     onboarding_module.set_user_store(user_store)
     onboarding_module.set_legacy_migration(migration_info)
 
+    # Explicit, config-file-only opt-out of authentication. Never exposed in the
+    # UI: see the note on _allow_anonymous in the auth middleware.
+    allow_anonymous = bool(auth_config.get("allow_anonymous"))
+    set_allow_anonymous(allow_anonymous)
+
     auth_required = is_auth_required()
 
     # Set app state
@@ -787,10 +793,20 @@ def init_app(
     app.add_middleware(AuthMiddleware)
 
     if not auth_required:
-        _LOGGER.warning(
-            "This device has no accounts: the API is reachable without "
-            "authentication. Open the web UI to run the first-run wizard."
-        )
+        if allow_anonymous:
+            _LOGGER.warning(
+                "SECURITY: web.auth.allow_anonymous is enabled. Anyone who can "
+                "reach this device on the network can read its configuration, "
+                "switch its outputs and reboot it, with no password. Remove "
+                "'allow_anonymous' from config.yaml and run the first-run "
+                "wizard to secure it."
+            )
+        else:
+            _LOGGER.warning(
+                "This device has no administrator account. The API is refusing "
+                "requests until setup is finished — open the web UI to run the "
+                "first-run wizard."
+            )
 
     # Add CORS middleware — restrict to same-origin by default,
     # allow localhost dev servers when BONEIO_DEV is set.
