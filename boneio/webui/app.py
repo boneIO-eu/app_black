@@ -55,6 +55,7 @@ from boneio.webui.middleware.auth import (
 
 # Import routes
 from boneio.webui.routes import (
+    accounts_router,
     auth_router,
     caddy_router,
     can_router,
@@ -155,6 +156,7 @@ def get_config_helper():
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(accounts_router)
 app.include_router(outputs_router)
 app.include_router(covers_router)
 app.include_router(dashboard_router)

@@ -30,7 +30,11 @@ from boneio.core.utils import overlay as overlay_util
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
-from boneio.webui.middleware.auth import get_user_store, is_auth_required
+from boneio.webui.middleware.auth import (
+    get_user_store,
+    is_anonymous_allowed,
+    is_auth_required,
+)
 from boneio.webui.services.logs import (
     get_standalone_logs,
     get_systemd_logs,
@@ -252,6 +256,7 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
         "serial_override": config_helper.serial_override,
         "auth_required": auth_required,
         "needs_onboarding": needs_onboarding,
+        "allow_anonymous": is_anonymous_allowed(),
         "pwa_name": config_helper.pwa_name,
         "pwa_default": f"bIO {serial_suffix}",
         "pwa_max_length": 12,
