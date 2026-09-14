@@ -742,9 +742,17 @@ def init_app(
     onboarding_module.set_user_store(user_store)
     onboarding_module.set_legacy_migration(migration_info)
 
-    # Explicit, config-file-only opt-out of authentication. Never exposed in the
-    # UI: see the note on _allow_anonymous in the auth middleware.
-    allow_anonymous = bool(auth_config.get("allow_anonymous"))
+    # Explicit opt-out of authentication. Never exposed in the UI: see the note
+    # on _allow_anonymous in the auth middleware.
+    #
+    # BONEIO_DEV opts in too, so a developer running the Vite dev server against
+    # a freshly flashed controller is not blocked by the wizard. It reuses this
+    # one mechanism rather than adding a second bypass path, which means it
+    # inherits the same limit: the moment an account exists, authentication is
+    # required again. A dev box therefore still exercises the real login and the
+    # real role checks — the part of the UI that depends on them stays testable.
+    dev_mode = bool(os.environ.get("BONEIO_DEV"))
+    allow_anonymous = bool(auth_config.get("allow_anonymous")) or dev_mode
     set_allow_anonymous(allow_anonymous)
 
     auth_required = is_auth_required()
@@ -797,11 +805,13 @@ def init_app(
     if not auth_required:
         if allow_anonymous:
             _LOGGER.warning(
-                "SECURITY: web.auth.allow_anonymous is enabled. Anyone who can "
-                "reach this device on the network can read its configuration, "
-                "switch its outputs and reboot it, with no password. Remove "
-                "'allow_anonymous' from config.yaml and run the first-run "
-                "wizard to secure it."
+                "SECURITY: unauthenticated access is enabled (%s). Anyone who "
+                "can reach this device on the network can read its "
+                "configuration, switch its outputs and reboot it, with no "
+                "password. It closes by itself as soon as an account exists — "
+                "run the first-run wizard, or create one with 'boneio accounts "
+                "add'.",
+                "BONEIO_DEV is set" if dev_mode else "web.auth.allow_anonymous",
             )
         else:
             _LOGGER.warning(

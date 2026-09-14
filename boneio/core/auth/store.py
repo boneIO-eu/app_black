@@ -95,6 +95,9 @@ class UserStore:
         self._users: dict[str, User] = {}
         self._lock = threading.RLock()
         self._loaded = False
+        # Fingerprint of the file as last read, so an edit made outside this
+        # process is picked up without a restart.
+        self._stamp: tuple[int, int] | None = None
 
     @classmethod
     def for_config_file(cls, yaml_config_file: str | os.PathLike[str]) -> UserStore:
@@ -131,6 +134,8 @@ class UserStore:
             self._users = {}
             self._loaded = True
 
+            self._stamp = self._file_stamp()
+
             if not self._path.exists():
                 _LOGGER.debug("No %s yet — device is not provisioned", self._path)
                 return
@@ -162,9 +167,33 @@ class UserStore:
                 "Loaded %d account(s) from %s", len(self._users), self._path
             )
 
+    def _file_stamp(self) -> tuple[int, int] | None:
+        """Cheap fingerprint of the backing file.
+
+        Returns:
+            (mtime_ns, size), or None when the file does not exist.
+        """
+        try:
+            info = self._path.stat()
+        except OSError:
+            return None
+        return (info.st_mtime_ns, info.st_size)
+
     def _ensure_loaded(self) -> None:
-        """Load the file on first use if the caller has not done so."""
+        """Load the file on first use, and re-read it if it changed on disk.
+
+        The running web server keeps this store in memory, so an account
+        created or reset with ``boneio accounts`` would otherwise not take
+        effect until the service restarted. Restarting a controller to recover
+        a password would interrupt whatever it is automating, so the file is
+        re-read instead — one stat call on the read paths.
+        """
         if not self._loaded:
+            self.load()
+            return
+
+        if self._file_stamp() != self._stamp:
+            _LOGGER.info("%s changed on disk — reloading accounts", self._path)
             self.load()
 
     # ---------------------------------------------------------------- saving
@@ -199,6 +228,7 @@ class UserStore:
             os.chmod(temp_path, 0o600)
             os.replace(temp_path, self._path)
             temp_path = None
+            self._stamp = self._file_stamp()
         except OSError as err:
             raise UserStoreError(f"Cannot write {self._path}: {err}") from err
         finally:
