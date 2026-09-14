@@ -30,7 +30,7 @@ from boneio.core.utils import overlay as overlay_util
 from boneio.exceptions import ConfigurationException
 from boneio.models.logs import LogEntry, LogsResponse
 from boneio.version import __version__
-from boneio.webui.middleware.auth import is_auth_required
+from boneio.webui.middleware.auth import get_user_store, is_auth_required
 from boneio.webui.services.logs import (
     get_standalone_logs,
     get_systemd_logs,
@@ -209,6 +209,16 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
     except Exception:
         auth_required = True
 
+    # Provisioning check — folded in here rather than given its own endpoint,
+    # so the first-run wizard costs no extra round-trip on every page load.
+    # A store that cannot be read reports "already provisioned": claiming
+    # otherwise would show the wizard on a device that has an owner.
+    try:
+        store = get_user_store()
+        needs_onboarding = store is not None and not store.is_provisioned()
+    except Exception:
+        needs_onboarding = False
+
     # Config metadata — lightweight flags to avoid a separate GET /api/config
     # on startup. All derived from config_helper which holds parsed config in memory.
     has_boneio = False
@@ -241,6 +251,7 @@ async def get_init(config_helper: ConfigHelper = Depends(get_config_helper)):
         "serial_no": config_helper.real_serial,
         "serial_override": config_helper.serial_override,
         "auth_required": auth_required,
+        "needs_onboarding": needs_onboarding,
         "pwa_name": config_helper.pwa_name,
         "pwa_default": f"bIO {serial_suffix}",
         "pwa_max_length": 12,

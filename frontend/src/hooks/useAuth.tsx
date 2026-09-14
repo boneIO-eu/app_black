@@ -8,6 +8,13 @@ export interface AuthContextType {
   isLoading: boolean;
   isAuthRequired: boolean;
   login: (username: string, password: string) => Promise<void>;
+  /**
+   * Adopt a token the backend already issued — used by the first-run wizard,
+   * which gets one back when it creates the administrator. Re-sending the
+   * password just to obtain a second token would cost another scrypt hash on
+   * the device for no benefit.
+   */
+  loginWithToken: (token: string) => void;
   logout: () => void;
 }
 
@@ -60,6 +67,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const loginWithToken = useCallback((token: string) => {
+    localStorage.setItem('token', token);
+    setIsAuthenticated(true);
+    setIsAuthRequired(true);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     // Token removal from localStorage is enough - interceptor reads from localStorage
@@ -68,7 +81,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, isAuthRequired, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, isAuthRequired, login, loginWithToken, logout }}>
       {children}
     </AuthContext.Provider>
   );

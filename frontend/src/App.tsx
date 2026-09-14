@@ -63,6 +63,7 @@ function prefetchRouteChunks() {
 }
 
 import LoginView from './components/LoginView';
+import OnboardingWizard from './components/OnboardingWizard';
 import Layout from './components/Layout';
 import { useWebSocket, StateUpdate, isCoverEvent, InputEvent, OutputEvent, SensorEvent, CoverEvent, ModbusDeviceEvent, GroupEvent, isOutputEvent, isGroupEvent, isConfigReloadEvent } from './hooks/useWebSocket';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -91,7 +92,7 @@ export const WebSocketContext = createContext<{
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: authLoading, isAuthRequired } = useAuth();
-  const { isApiAvailable, isLoading: initLoading } = useAppInit();
+  const { data: initData, isApiAvailable, isLoading: initLoading } = useAppInit();
 
   // API confirmed unavailable after retries — show error screen
   if (!isApiAvailable && !initLoading) {
@@ -109,6 +110,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   
+  // A device with no administrator yet gets the first-run wizard instead of a
+  // login form — there is nothing to log in to, and leaving it unprovisioned
+  // means POST /api/onboarding/admin stays open to whoever reaches it first.
+  if (initData?.needs_onboarding) {
+    return <OnboardingWizard />
+  }
+
   if (!isAuthenticated && isAuthRequired) {
     return <LoginView />
   }

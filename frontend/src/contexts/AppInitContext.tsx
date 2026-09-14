@@ -25,6 +25,10 @@ interface AppInitData {
   serial_no: string;
   serial_override?: string | null;
   auth_required: boolean;
+  /** True when the device has no administrator yet and the wizard must run. */
+  needs_onboarding: boolean;
+  /** Set when a pre-1.6 web.auth block was migrated into users.json on boot. */
+  legacy_migration?: { username: string; used_secret_file: boolean } | null;
   pwa_name: string;
   pwa_default: string;
   pwa_max_length: number;
