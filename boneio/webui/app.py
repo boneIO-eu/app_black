@@ -773,8 +773,9 @@ def init_app(
 
     # Pre-populate config cache if initial_config provided
     if initial_config is not None:
-        import os
-
+        # NOTE: no local `import os` here. The module already imports it, and a
+        # function-local import makes `os` local to this whole function, so any
+        # earlier use in init_app raises UnboundLocalError.
         from boneio.webui.routes.config import _config_cache, _get_config_mtime
 
         _config_cache["data"] = initial_config

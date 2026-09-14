@@ -112,7 +112,11 @@ def _warn_if_setup_required(
     try:
         from boneio.core.auth.store import UserStore
 
-        if bool(web_config.get("auth", {}).get("allow_anonymous")):
+        # BONEIO_DEV opens an unprovisioned device too, so the notice would be
+        # wrong there: the API is not refusing anything on a dev box.
+        if bool(web_config.get("auth", {}).get("allow_anonymous")) or os.environ.get(
+            "BONEIO_DEV"
+        ):
             return
 
         store = UserStore.for_config_file(config_file)
