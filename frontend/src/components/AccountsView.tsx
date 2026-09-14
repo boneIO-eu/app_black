@@ -184,13 +184,13 @@ export default function AccountsView() {
                     </td>
                     <td className="text-right whitespace-nowrap">
                       <button
-                        className="btn btn-ghost btn-xs"
+                        className="btn btn-outline btn-xs"
                         onClick={() => handleReset(account)}
                       >
                         {t('accounts.reset_password')}
                       </button>
                       <button
-                        className="btn btn-ghost btn-xs text-error"
+                        className="btn btn-outline btn-error btn-xs ml-2"
                         disabled={isMe}
                         onClick={() => handleDelete(account)}
                       >

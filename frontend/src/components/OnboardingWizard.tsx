@@ -289,7 +289,9 @@ export default function OnboardingWizard() {
                 {isImporting && <span className="loading loading-spinner loading-sm" />}
                 {t('onboarding.import_button')}
               </button>
-              <button className="btn btn-ghost flex-1" onClick={() => setStep('done')}>
+              {/* Outline, not ghost: ghost renders borderless on the light card,
+                  so this read as plain text rather than a button. */}
+              <button className="btn btn-outline flex-1" onClick={() => setStep('done')}>
                 {importDone ? t('onboarding.next') : t('onboarding.skip_import')}
               </button>
             </div>
