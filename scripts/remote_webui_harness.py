@@ -44,6 +44,7 @@ from boneio.webui.middleware.auth import (
     set_user_store,
 )
 from boneio.webui.routes import onboarding as onboarding_module
+from boneio.webui.routes.accounts import router as accounts_router
 from boneio.webui.routes.auth import router as auth_router
 from boneio.webui.routes.onboarding import router as onboarding_router
 
@@ -68,6 +69,7 @@ onboarding_module.set_legacy_migration(None)
 app = FastAPI(title="boneIO web UI harness")
 app.include_router(onboarding_router)
 app.include_router(auth_router)
+app.include_router(accounts_router)
 
 
 @app.get("/api/init")
@@ -95,6 +97,22 @@ async def init() -> dict:
         "board_version": None,
         "has_irrigation": False,
     }
+
+
+@app.post("/api/outputs/{output_id}/toggle")
+async def toggle_output(output_id: str) -> dict:
+    """Stand-in for an operating route, to prove a viewer may use one.
+
+    Deliberately does not touch GPIO: the harness runs alongside the live
+    service, which owns the hardware.
+    """
+    return {"toggled": output_id}
+
+
+@app.post("/api/restart")
+async def restart() -> dict:
+    """Stand-in for an administrative route, to prove a viewer may not."""
+    return {"restarting": True}
 
 
 @app.get("/api/harness/protected")

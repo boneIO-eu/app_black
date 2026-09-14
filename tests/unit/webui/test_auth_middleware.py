@@ -11,6 +11,7 @@ from boneio.core.auth.store import USERS_FILENAME, UserStore
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
     create_token,
+    set_allow_anonymous,
     set_auth_config,
     set_jwt_secret,
     set_user_store,
@@ -25,6 +26,7 @@ def store(tmp_path):
     store.load()
     set_jwt_secret("test-secret-for-middleware-tests")
     set_auth_config({})
+    set_allow_anonymous(False)
     set_user_store(store)
     onboarding_module.set_user_store(store)
     onboarding_module.set_legacy_migration(None)
@@ -32,6 +34,7 @@ def store(tmp_path):
     set_user_store(None)
     onboarding_module.set_user_store(None)
     set_auth_config({})
+    set_allow_anonymous(False)
 
 
 @pytest.fixture
@@ -48,15 +51,32 @@ def client(store):
     return TestClient(app)
 
 
-def test_device_without_accounts_stays_open(client):
-    """Pre-1.6 behaviour for a device that never had credentials (F-02)."""
+def test_device_without_accounts_refuses_until_setup(client):
+    """F-02: before 1.6 this served the whole API to anyone on the network."""
+    response = client.get("/api/protected")
+    assert response.status_code == 403
+    assert response.json()["code"] == "setup_required"
+
+
+def test_allow_anonymous_reopens_the_device(client):
+    """The config-file opt-out, for headless installs and upstream auth."""
+    set_allow_anonymous(True)
     assert client.get("/api/protected").status_code == 200
+
+
+def test_allow_anonymous_is_not_reachable_from_the_wizard(client):
+    """The opt-out must never be one click away in the setup flow."""
+    import boneio.webui.routes.onboarding as onboarding
+
+    body = client.get("/api/onboarding/status").json()
+    assert "allow_anonymous" not in body
+    assert not hasattr(onboarding.router, "allow_anonymous")
 
 
 def test_provisioning_closes_the_api_without_a_restart(client, store):
-    """The hole this guards: the wizard writes users.json, and config.yaml
-    stays empty, so a gate on web.auth would leave the API open until reboot."""
-    assert client.get("/api/protected").status_code == 200
+    """The wizard writes users.json and leaves config.yaml empty, so a gate on
+    web.auth would leave the API open until the next reboot."""
+    assert client.get("/api/protected").status_code == 403
 
     client.post(
         "/api/onboarding/admin",
@@ -141,3 +161,84 @@ def test_token_ttl_matches_the_configured_lifetime():
     remaining_days = (datetime.fromtimestamp(payload["exp"], tz=UTC) - datetime.now(UTC)).days
     # Allow a day of slack for the clock between issue and assertion.
     assert TOKEN_TTL_DAYS - 1 <= remaining_days <= TOKEN_TTL_DAYS
+
+
+# ------------------------------------------------------------ role enforcement
+
+
+@pytest.fixture
+def rbac_client(store):
+    """An app with one operating route and one admin route."""
+    app = FastAPI()
+
+    @app.post("/api/outputs/{output_id}/toggle")
+    async def toggle(output_id: str):
+        return {"toggled": output_id}
+
+    @app.post("/api/restart")
+    async def restart():
+        return {"restarting": True}
+
+    @app.get("/api/files/config.yaml")
+    async def raw_file():
+        return {"content": "secret"}
+
+    @app.get("/api/outputs")
+    async def list_outputs():
+        return {"outputs": []}
+
+    app.add_middleware(AuthMiddleware)
+    store.add_user("pawel", "dobre-haslo", Role.ADMIN)
+    store.add_user("gosc", "haslo-goscia", Role.VIEWER)
+    return TestClient(app)
+
+
+def _auth(role: str, user: str) -> dict:
+    return {"Authorization": f"Bearer {create_token({'sub': user, 'role': role})}"}
+
+
+def test_viewer_may_operate_outputs(rbac_client):
+    response = rbac_client.post(
+        "/api/outputs/relay_01/toggle", headers=_auth("viewer", "gosc")
+    )
+    assert response.status_code == 200
+
+
+def test_viewer_may_read_state(rbac_client):
+    assert rbac_client.get("/api/outputs", headers=_auth("viewer", "gosc")).status_code == 200
+
+
+def test_viewer_may_not_restart_the_device(rbac_client):
+    response = rbac_client.post("/api/restart", headers=_auth("viewer", "gosc"))
+    assert response.status_code == 403
+    body = response.json()
+    assert body["code"] == "forbidden"
+    assert body["required_role"] == "admin"
+
+
+def test_viewer_may_not_read_raw_files(rbac_client):
+    assert rbac_client.get(
+        "/api/files/config.yaml", headers=_auth("viewer", "gosc")
+    ).status_code == 403
+
+
+def test_admin_may_do_both(rbac_client):
+    assert rbac_client.post(
+        "/api/outputs/relay_01/toggle", headers=_auth("admin", "pawel")
+    ).status_code == 200
+    assert rbac_client.post("/api/restart", headers=_auth("admin", "pawel")).status_code == 200
+    assert rbac_client.get(
+        "/api/files/config.yaml", headers=_auth("admin", "pawel")
+    ).status_code == 200
+
+
+def test_a_token_without_a_role_is_treated_as_viewer(rbac_client):
+    """Tokens issued before roles existed must not be silently promoted."""
+    headers = {"Authorization": f"Bearer {create_token({'sub': 'pawel'})}"}
+    assert rbac_client.post("/api/restart", headers=headers).status_code == 403
+    assert rbac_client.get("/api/outputs", headers=headers).status_code == 200
+
+
+def test_an_invented_role_is_treated_as_viewer(rbac_client):
+    """A forged-but-signed token naming 'superadmin' gets no extra privilege."""
+    assert rbac_client.post("/api/restart", headers=_auth("superadmin", "x")).status_code == 403

@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer } from 'react-icons/fa';
+import { FaCode, FaList, FaLightbulb, FaInbox, FaQuestionCircle, FaThermometerHalf, FaSignOutAlt, FaNetworkWired, FaCog, FaToolbox, FaProjectDiagram, FaPuzzlePiece, FaServer, FaUsers } from 'react-icons/fa';
 import ThemeChanger from './ThemeChanger';
 import LanguageSelector from './LanguageSelector';
 import { useEffect } from 'react';
@@ -133,6 +133,7 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
   const location = useLocation();
   const { hasBoneioSection } = useConfig();
   const { isNodeRedAvailable } = useNodeRedAvailability();
+  const { isAdmin } = useAuth();
 
   const menuItems: MenuItem[] = [
     { path: '/', default: true, icon: FaLightbulb, label: t('navigation.outputs') },
@@ -141,13 +142,19 @@ function Menu({ sideMenu = false }: { sideMenu?: boolean }) {
     { path: '/modbus', icon: FaNetworkWired, label: t('navigation.modbus') },
     { path: '/templates', icon: FaPuzzlePiece, label: t('navigation.templates') },
     { path: '/tools', icon: FaToolbox, label: t('navigation.tools'), right: true },
-    // Settings (experimental) - only show if boneio section exists in config
-    ...(hasBoneioSection ? [{ path: '/settings', icon: FaCog, label: t('navigation.settings'), right: true }] : []),
-    { path: '/config', icon: FaCode, label: t('navigation.config'), right: true },
     { path: '/logs', icon: FaList, label: t('navigation.logs'), right: true },
-    { path: '/system', icon: FaServer, label: t('navigation.system_update'), right: true },
+    // Everything below configures the device, so a viewer is not offered it.
+    // The backend refuses these routes for a viewer regardless; hiding them
+    // just avoids dead ends. See boneio/webui/middleware/policy.py.
+    // Settings (experimental) - only show if boneio section exists in config
+    ...(isAdmin && hasBoneioSection ? [{ path: '/settings', icon: FaCog, label: t('navigation.settings'), right: true }] : []),
+    ...(isAdmin ? [
+      { path: '/config', icon: FaCode, label: t('navigation.config'), right: true },
+      { path: '/accounts', icon: FaUsers, label: t('navigation.accounts'), right: true },
+      { path: '/system', icon: FaServer, label: t('navigation.system_update'), right: true },
+    ] : []),
     // Node-RED - only show if available via nginx proxy
-    ...(isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),
+    ...(isAdmin && isNodeRedAvailable ? [{ path: '/nodered', icon: FaProjectDiagram, label: 'Node-RED', right: true }] : []),
   ];
 
   const isActive = (item: MenuItem) => 

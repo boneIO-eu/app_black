@@ -212,6 +212,25 @@ web:
           required: False
           meta:
             label: Password to web interface
+        allow_anonymous:
+          type: boolean
+          required: False
+          default: False
+          meta:
+            label: Allow unauthenticated access to the web UI and API
+            description: |
+              DANGEROUS. Leave this off unless you know why you need it.
+
+              From 1.6 a device with no administrator account refuses API
+              requests until the first-run wizard has been completed. Setting
+              this to true restores the pre-1.6 behaviour: anyone who can reach
+              the device on the network can read its configuration, switch its
+              outputs and reboot it, with no password.
+
+              It exists for headless provisioning and for installations where
+              authentication is already enforced in front of boneIO (for
+              example a reverse proxy or Home Assistant ingress). The device
+              logs a warning on every start while this is on.
 
 logger:
   type: dict

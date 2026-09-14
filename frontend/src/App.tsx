@@ -17,6 +17,7 @@ const lazyImports = {
   UISettings: () => import('./components/UISettings/UISettings'),
   SystemState: () => import('./components/UISettings/SystemState'),
   NodeRedView: () => import('./components/NodeRedView'),
+  AccountsView: () => import('./components/AccountsView'),
   TemplatesView: () => import('./components/TemplatesView'),
 } as const;
 
@@ -31,6 +32,7 @@ const HelpView = lazy(lazyImports.HelpView);
 const UISettings = lazy(lazyImports.UISettings);
 const SystemState = lazy(lazyImports.SystemState);
 const NodeRedView = lazy(lazyImports.NodeRedView);
+const AccountsView = lazy(lazyImports.AccountsView);
 const TemplatesView = lazy(lazyImports.TemplatesView);
 
 /**
@@ -452,6 +454,13 @@ function AppContent() {
           <ProtectedRoute>
             <Layout>
               <SystemState />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/accounts" element={
+          <ProtectedRoute>
+            <Layout>
+              <AccountsView />
             </Layout>
           </ProtectedRoute>
         } />

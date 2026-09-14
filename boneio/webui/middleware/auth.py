@@ -14,6 +14,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from boneio.core.auth.models import Role
+from boneio.webui.middleware import policy
+
 if TYPE_CHECKING:
     from boneio.core.auth.store import UserStore
 
@@ -35,6 +38,34 @@ TOKEN_TTL_DAYS = 30
 
 # Auth configuration - will be set by init_app
 _auth_config: dict = {}
+
+# Explicit opt-out of authentication, from `web.auth.allow_anonymous` in
+# config.yaml. Deliberately not reachable from the UI: a warning is a notice,
+# not a control, and a "skip" button in the first-run wizard would make the
+# unauthenticated state a normal outcome of the intended setup flow. Requiring
+# an SSH session and a YAML edit keeps the shipped default secure and makes the
+# opt-out a documented, greppable decision instead.
+_allow_anonymous: bool = False
+
+
+def set_allow_anonymous(allowed: bool) -> None:
+    """Record whether config.yaml opts this device out of authentication.
+
+    Args:
+        allowed: Value of ``web.auth.allow_anonymous``.
+    """
+    global _allow_anonymous
+    _allow_anonymous = bool(allowed)
+
+
+def is_anonymous_allowed() -> bool:
+    """Whether config.yaml opts this device out of authentication.
+
+    Returns:
+        True if anonymous access is explicitly permitted.
+    """
+    return _allow_anonymous
+
 
 # Account store (users.json) - set by init_app. From 1.6 this, not _auth_config,
 # is what decides whether the device has credentials; _auth_config only lingers
@@ -164,50 +195,54 @@ def verify_token(token: str) -> dict | None:
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware for JWT-based authentication.
-    
-    Skips authentication for:
-    - Non-API routes
-    - Login endpoint
-    - Auth required check endpoint
-    - Version endpoint
-    - First-run wizard endpoints, which a device with no account yet has no
-      way to authenticate against. They guard themselves instead: creating an
-      administrator is refused once one exists.
+    """Authenticates API requests and enforces the role policy.
+
+    Three gates, in order:
+
+    1. **Exempt routes** pass straight through: the SPA and its assets, plus
+       ``/api/login``, ``/api/init``, ``/api/version``, ``/api/auth/required``
+       and the first-run wizard. The wizard is open because a device with no
+       account has nothing to authenticate against; it guards itself by
+       refusing to create a second administrator.
+    2. **A device with no credentials is refused, not waved through.** Before
+       1.6 an unprovisioned device served its whole API to anyone on the
+       network (F-02). It now answers 403 ``setup_required`` until the wizard
+       has run, unless ``web.auth.allow_anonymous`` is set in config.yaml.
+       The rule keys off device state, not version, so it behaves the same
+       whether the owner came from 1.5, skipped 1.6, or flashed the image
+       fresh.
+    3. **The token's role decides**, per :mod:`boneio.webui.middleware.policy`.
     """
 
     async def dispatch(self, request: Request, call_next):
         """Process request and verify authentication if required."""
-        # Skip auth for non-API routes and specific endpoints
-        if (
-            not request.url.path.startswith("/api")
-            or request.url.path == "/api/login"
-            or request.url.path == "/api/auth/required"
-            or request.url.path == "/api/version"
-            or request.url.path == "/api/init"
-            or request.url.path.startswith("/api/onboarding")
-        ):
+        path = request.url.path
+
+        if not policy.is_api_path(path) or policy.is_exempt(path):
             return await call_next(request)
 
-        # Skip auth on a device that has no credentials at all.
-        #
-        # This reads the account store, not _auth_config: a device provisioned
-        # through the first-run wizard has an admin in users.json and nothing
-        # in config.yaml, and gating on _auth_config would leave its API wide
-        # open until the next restart.
-        #
-        # A device that has never had credentials is still open, which is the
-        # pre-1.6 behaviour. Closing that is deliverable #2 (admin/read-only
-        # roles) in SECURITY_ROADMAP_1.6.md.
         if not is_auth_required():
+            if not _allow_anonymous:
+                # The device has never been set up. Closing this is the whole
+                # point of the first-run wizard: leaving it open is how an
+                # unauthenticated reboot or config overwrite stayed reachable.
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "This device has no administrator account yet. Open "
+                            "the web UI to finish setup."
+                        ),
+                        "code": "setup_required",
+                    },
+                )
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization")
-        
+
         # For SSE endpoints, also check query params (EventSource doesn't support headers)
         token_from_query = request.query_params.get("token")
-        
+
         if not auth_header and not token_from_query:
             return JSONResponse(
                 status_code=401,
@@ -216,7 +251,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         try:
             token: str | None = None
-            
+
             # Try to get token from Authorization header first
             if auth_header:
                 scheme, token = auth_header.split()
@@ -235,7 +270,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     status_code=401,
                     content={"detail": "No token provided"}
                 )
-                
+
             payload = verify_token(token)
             if payload is None:
                 return JSONResponse(
@@ -254,4 +289,46 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Invalid authorization header format"}
             )
 
+        role = _role_from_payload(payload)
+        if not policy.role_allows(role, request.method, path):
+            _LOGGER.warning(
+                "Refused %s %s for '%s' (role %s)",
+                request.method,
+                path,
+                payload.get("sub", "?"),
+                role,
+            )
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "This account does not have permission for that.",
+                    "code": "forbidden",
+                    "required_role": str(policy.required_role(request.method, path)),
+                },
+            )
+
+        # Downstream handlers can read who is calling without decoding again.
+        request.state.user = payload.get("sub")
+        request.state.role = role
+
         return await call_next(request)
+
+
+def _role_from_payload(payload: dict) -> Role:
+    """Read the role out of a verified token.
+
+    A token with no role claim, or one naming a role this build does not know,
+    is treated as a viewer. Tokens issued before roles existed are the common
+    case, and quietly upgrading them to admin would hand out privilege the
+    issuer never granted.
+
+    Args:
+        payload: Verified JWT payload.
+
+    Returns:
+        The role to enforce.
+    """
+    try:
+        return Role(str(payload.get("role", "")).strip().lower())
+    except ValueError:
+        return Role.VIEWER

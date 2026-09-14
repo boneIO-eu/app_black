@@ -13,7 +13,8 @@
     "help": "Help",
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
-    "irrigation": "Irrigation"
+    "irrigation": "Irrigation",
+    "accounts": "Accounts"
   },
   "outputs": {
     "title": "Outputs",
@@ -2530,5 +2531,36 @@
     "done_summary": "All set. The administrator account “{{username}}” has been created and the panel is now password-protected.",
     "done_remove_web_auth": "Remember to remove the web.auth section from config.yaml.",
     "finish": "Go to the panel"
+  },
+  "accounts": {
+    "title": "User accounts",
+    "intro": "An administrator changes configuration and manages accounts. A read-only account (viewer) can watch the device and operate its outputs, but cannot change settings or restart the controller.",
+    "admin_only": "Only an administrator can manage accounts.",
+    "username": "Username",
+    "password": "Password",
+    "role": "Role",
+    "actions": "Actions",
+    "you": "you",
+    "role_admin": "Administrator",
+    "role_viewer": "Read-only",
+    "reset_password": "Change password",
+    "delete": "Delete",
+    "add_title": "Add account",
+    "add_intro": "New accounts are read-only by default.",
+    "add_button": "Add account",
+    "created": "Account created.",
+    "create_failed": "Could not create the account.",
+    "deleted": "Account “{{username}}” has been deleted.",
+    "delete_failed": "Could not delete the account.",
+    "confirm_delete": "Delete the account “{{username}}”?",
+    "role_failed": "Could not change the role.",
+    "prompt_new_password": "New password for “{{username}}” (at least 8 characters):",
+    "password_reset": "Password for “{{username}}” has been changed.",
+    "password_failed": "Could not change the password.",
+    "load_failed": "Could not load the account list."
+  },
+  "security": {
+    "anonymous_title": "Unauthenticated access is enabled.",
+    "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account."
   }
 }

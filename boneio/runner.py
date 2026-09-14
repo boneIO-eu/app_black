@@ -85,6 +85,54 @@ except Exception:
         pass  # noqa: E731
 
 
+
+def _warn_if_setup_required(
+    oled_device: Any | None, config_file: str, web_config: dict
+) -> None:
+    """Say on the OLED that the device is waiting to be set up.
+
+    A device with no administrator refuses its API from 1.6 on, and the owner
+    may have arrived here by jumping several versions and never reading a
+    release note. This is the one channel that reaches somebody standing in
+    front of a headless controller.
+
+    Written to the boot screen rather than inserted into the running display
+    rotation: that rotation is configured by the user in ``oled.screens``, and
+    pushing an uninvited screen into it is not this function's call.
+
+    Never raises — a missing display or an unreadable store must not stop the
+    device from booting.
+
+    Args:
+        oled_device: Early OLED device, or None when there is no display.
+        config_file: Path to the active config file.
+        web_config: The ``web`` section, read for the port and the
+            ``auth.allow_anonymous`` opt-out.
+    """
+    try:
+        from boneio.core.auth.store import UserStore
+
+        if bool(web_config.get("auth", {}).get("allow_anonymous")):
+            return
+
+        store = UserStore.for_config_file(config_file)
+        store.load()
+        if store.is_provisioned():
+            return
+
+        port = web_config.get("port", 8090)
+        _LOGGER.warning(
+            "SETUP REQUIRED: this device has no administrator account, so the "
+            "API is refusing requests. Open http://<device-ip>:%s to finish "
+            "setup. To keep the pre-1.6 unauthenticated behaviour instead, set "
+            "web.auth.allow_anonymous: true in %s.",
+            port,
+            config_file,
+        )
+        _draw_startup_status(oled_device, f"SETUP REQUIRED - open :{port}")
+    except Exception as err:  # noqa: BLE001 - never block boot on a notice
+        _LOGGER.debug("Could not report setup state: %s", err)
+
 def _draw_startup_status(device: Any | None, message: str) -> None:
     """Draw a startup status message on the OLED display.
 
@@ -262,6 +310,7 @@ async def async_run(
 
     # --- Start web server EARLY (before MQTT/discovery) for fast UI access ---
     _draw_startup_status(early_oled_device, "Starting web server...")
+    _warn_if_setup_required(early_oled_device, config_file, web_config)
     if web_active:
         _LOGGER.info("Starting Web server.")
         # Lazy import WebServer only when needed (saves ~4s on startup)
