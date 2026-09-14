@@ -283,7 +283,11 @@ class UserStore:
     # --------------------------------------------------------------- updates
 
     def add_user(
-        self, username: str, password: str, role: Role = Role.ADMIN
+        self,
+        username: str,
+        password: str,
+        role: Role = Role.ADMIN,
+        enforce_policy: bool = True,
     ) -> User:
         """Create an account and persist it.
 
@@ -291,6 +295,12 @@ class UserStore:
             username: Desired username.
             password: Plain-text password.
             role: Role to grant.
+            enforce_policy: Whether the password must satisfy the minimum
+                length. Only the migration of a pre-1.6 ``web.auth`` block
+                passes False: that password already guards the device, and
+                rejecting it for being short would lock the owner out of their
+                own box during an upgrade. Every interactive path leaves this
+                True.
 
         Returns:
             The created user.
@@ -301,7 +311,10 @@ class UserStore:
         """
         self._ensure_loaded()
         key = normalize_username(username)
-        validate_password(password)
+        if enforce_policy:
+            validate_password(password)
+        elif not password:
+            raise UserStoreError("Password must not be empty")
 
         with self._lock:
             if key in self._users:
