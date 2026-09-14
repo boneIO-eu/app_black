@@ -23,6 +23,10 @@ function errorMessage(err: unknown, fallback: string): string {
 /**
  * Account management, for administrators.
  *
+ * Rendered as a section of the System page, alongside the other device-level
+ * administration: accounts belong with hostname and updates, not with the
+ * boneIO configuration under Settings.
+ *
  * Everything here is also enforced server-side — the middleware refuses a
  * viewer's request whatever this component renders — so the UI's job is to not
  * offer actions that would fail, not to be the boundary.
@@ -124,20 +128,26 @@ export default function AccountsView() {
     }
   };
 
+  // A viewer cannot reach this through the navigation, but can still type the
+  // URL, so the section says why it is empty rather than rendering nothing.
   if (!isAdmin) {
     return (
-      <div className="p-4">
-        <div className="alert alert-warning">
-          <span>{t('accounts.admin_only')}</span>
+      <div className="card bg-base-200 shadow-xl">
+        <div className="card-body">
+          <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
+          <div className="alert alert-warning mt-2">
+            <span>{t('accounts.admin_only')}</span>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-3xl">
+    <div className="card bg-base-200 shadow-xl">
+      <div className="card-body space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{t('accounts.title')}</h1>
+        <h2 className="text-2xl font-bold">{t('accounts.title')}</h2>
         <p className="text-sm opacity-70 mt-1">{t('accounts.intro')}</p>
       </div>
 
@@ -148,7 +158,7 @@ export default function AccountsView() {
         <span className="loading loading-spinner loading-lg text-primary" />
       ) : (
         <div className="overflow-x-auto">
-          <table className="table table-zebra">
+          <table className="table table-zebra bg-base-100 rounded-box">
             <thead>
               <tr>
                 <th>{t('accounts.username')}</th>
@@ -205,8 +215,8 @@ export default function AccountsView() {
         </div>
       )}
 
-      <form className="space-y-3 border-t pt-4" onSubmit={handleCreate}>
-        <h2 className="font-semibold">{t('accounts.add_title')}</h2>
+      <form className="space-y-3 border-t border-base-300 pt-4" onSubmit={handleCreate}>
+        <h3 className="font-semibold">{t('accounts.add_title')}</h3>
         <p className="text-sm opacity-70">{t('accounts.add_intro')}</p>
 
         <div className="flex flex-col sm:flex-row gap-2">
@@ -248,6 +258,7 @@ export default function AccountsView() {
           {t('accounts.add_button')}
         </button>
       </form>
+      </div>
     </div>
   );
 }

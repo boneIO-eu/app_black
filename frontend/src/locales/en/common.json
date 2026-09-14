@@ -13,8 +13,7 @@
     "help": "Help",
     "templates": "Templates",
     "experimental": "EXPERIMENTAL",
-    "irrigation": "Irrigation",
-    "accounts": "Accounts"
+    "irrigation": "Irrigation"
   },
   "outputs": {
     "title": "Outputs",
