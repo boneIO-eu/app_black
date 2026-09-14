@@ -32,6 +32,7 @@ class WebServer:
         manager: Manager,
         port: int = 8080,
         auth: dict = None,
+        security: dict = None,
         logger: dict = None,
         debug_level: int = 0,
         initial_config: dict | None = None,
@@ -45,6 +46,8 @@ class WebServer:
             logger = {}
         if auth is None:
             auth = {}
+        if security is None:
+            security = {}
         self.config_file = config_file
         self.config_helper = config_helper
         self.manager = manager
@@ -60,6 +63,7 @@ class WebServer:
         # Set up JWT secret
         self.jwt_secret = self._get_jwt_secret_or_generate()
         self._auth_config = auth
+        self._security_config = security
 
         # Hypercorn config will be created lazily in start_webserver()
         # to avoid importing hypercorn at module load time
@@ -214,6 +218,7 @@ class WebServer:
             config_helper=self.config_helper,
             web_server=self,
             initial_config=self.initial_config,
+            web_security=self._security_config,
         )
 
         # Assign websocket manager back to Manager so it can broadcast events

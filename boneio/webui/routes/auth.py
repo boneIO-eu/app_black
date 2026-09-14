@@ -6,7 +6,7 @@ import asyncio
 import hmac
 import logging
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
 
 from boneio.webui.middleware.auth import (
     create_token,
@@ -14,6 +14,7 @@ from boneio.webui.middleware.auth import (
     get_user_store,
     is_auth_required,
 )
+from boneio.webui.rate_limit import ip_key, login_rate_limiter, user_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +38,11 @@ async def auth_required():
 
 
 @router.post("/login")
-async def login(username: str = Body(...), password: str = Body(...)):
+async def login(
+    request: Request,
+    username: str = Body(...),
+    password: str = Body(...),
+):
     """
     Authenticate user and return JWT token.
 
@@ -55,15 +60,44 @@ async def login(username: str = Body(...), password: str = Body(...)):
     Raises:
         HTTPException: 401 if credentials are invalid.
     """
+    # Throttled per IP and per account: neither alone is enough. Behind a
+    # reverse proxy every client shares the proxy's address, so an IP-only
+    # limit would let one attacker throttle the whole household; an
+    # account-only limit is blind to one guess sprayed across many names.
+    #
+    # The 429 is byte-identical whichever bucket is full, and is returned
+    # before the credentials are looked at, so the limiter cannot be used to
+    # ask whether an account exists.
+    client = request.client.host if request.client else "unknown"
+    keys = (ip_key(client), user_key(username))
+
+    if not login_rate_limiter.check_all(*keys):
+        retry_after = login_rate_limiter.retry_after(*keys)
+        _LOGGER.warning(
+            "Throttled login attempt for '%s' from %s; %ds remaining",
+            username,
+            client,
+            retry_after,
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="Too many sign-in attempts. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     store = get_user_store()
 
     if store is not None and store.is_provisioned():
         # scrypt is deliberately expensive, so keep it off the event loop.
         user = await asyncio.to_thread(store.verify_credentials, username, password)
         if user is None:
+            login_rate_limiter.record_failures(*keys)
             _LOGGER.warning("Failed login attempt for user: %s", username)
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
+        # Someone who mistyped twice and then got it right should not carry
+        # those failures around for the rest of the window.
+        login_rate_limiter.reset(*keys)
         token = create_token({"sub": user.username, "role": str(user.role)})
         return {"token": token, "role": str(user.role), "username": user.username}
 
@@ -91,8 +125,10 @@ async def login(username: str = Body(...), password: str = Body(...)):
     password_ok = hmac.compare_digest(password, expected_password)
 
     if username_ok and password_ok:
+        login_rate_limiter.reset(*keys)
         token = create_token({"sub": username, "role": "admin"})
         return {"token": token, "role": "admin", "username": username}
 
+    login_rate_limiter.record_failures(*keys)
     _LOGGER.warning("Failed login attempt for user: %s", username)
     raise HTTPException(status_code=401, detail="Invalid credentials")
