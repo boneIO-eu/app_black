@@ -15,8 +15,8 @@ from boneio.webui.middleware.auth import (
     set_jwt_secret,
     set_user_store,
 )
-from boneio.webui.routes.onboarding import router as onboarding_router
 from boneio.webui.routes import onboarding as onboarding_module
+from boneio.webui.routes.onboarding import router as onboarding_router
 
 
 @pytest.fixture
@@ -126,3 +126,18 @@ def test_legacy_web_auth_alone_still_closes_the_api(client):
     """A 1.5.x device whose credentials could not be migrated stays protected."""
     set_auth_config({"username": "pa/wel", "password": "stare-haslo"})
     assert client.get("/api/protected").status_code == 401
+
+
+def test_token_ttl_matches_the_configured_lifetime():
+    """The login token lifetime is a deliberate security/UX choice; guard it."""
+    from datetime import UTC, datetime
+
+    from boneio.webui.middleware.auth import TOKEN_TTL_DAYS, create_token, verify_token
+
+    set_jwt_secret("test-secret-for-ttl")
+    payload = verify_token(create_token({"sub": "pawel", "role": "admin"}))
+    assert payload is not None
+
+    remaining_days = (datetime.fromtimestamp(payload["exp"], tz=UTC) - datetime.now(UTC)).days
+    # Allow a day of slack for the clock between issue and assertion.
+    assert TOKEN_TTL_DAYS - 1 <= remaining_days <= TOKEN_TTL_DAYS

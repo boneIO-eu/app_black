@@ -23,6 +23,16 @@ _LOGGER = logging.getLogger(__name__)
 JWT_ALGORITHM = "HS256"
 _JWT_SECRET = os.getenv('JWT_SECRET', secrets.token_hex(32))
 
+# How long a login token stays valid. This is the interval at which a user has
+# to re-enter their password, so it is kept long: the password check is a
+# deliberately expensive scrypt hash (~0.9 s on a BeagleBone) and this is the
+# only thing that keeps that cost off the everyday path. The tradeoff is that a
+# leaked token stays usable until it expires — there is no per-token server-side
+# revocation, only logout (client-side) or rotating the JWT secret (logs
+# everyone out). For a LAN device with a handful of trusted users that is an
+# acceptable trade for not typing a password every week.
+TOKEN_TTL_DAYS = 30
+
 # Auth configuration - will be set by init_app
 _auth_config: dict = {}
 
@@ -127,7 +137,7 @@ def create_token(data: dict) -> str:
         Encoded JWT token string.
     """
     to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(days=7)
+    expire = datetime.now(UTC) + timedelta(days=TOKEN_TTL_DAYS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, _JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt

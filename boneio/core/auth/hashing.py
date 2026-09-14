@@ -19,8 +19,9 @@ import hmac
 import secrets
 
 # Cost parameters. n=2**14 with r=8 needs 128 * n * r = 16 MiB of memory per
-# hash, which a BeagleBone Black handles in a few hundred milliseconds — slow
-# enough to hurt an offline cracker, fast enough for an interactive login.
+# hash. Measured at ~0.9 s per hash on a BeagleBone Black (armv7l) — slow enough
+# to hurt an offline cracker, and only paid at login: a successful login issues
+# a JWT good for weeks (see TOKEN_TTL_DAYS), so the cost is not on the hot path.
 _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
