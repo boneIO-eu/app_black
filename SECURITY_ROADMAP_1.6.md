@@ -68,10 +68,21 @@ więc to domyślne hasło w przebraniu.
 
 **Świadomie zostawione:** viewer widzi `GET /api/config`, bo panel tego potrzebuje — maskowanie sekretów to wdrożenie #4.
 
+### 3. Twardnienie logowania (F-06, F-13)
+- **F-06 domknięte dla web.** `/api/login` throttlowany: 10 prób / 5 min, liczone **równolegle po IP i po koncie** (samo IP jest ślepe za reverse proxy, samo konto ślepe na rozsiew jednego hasła po wielu nazwach). Throttle, **nie lockout** — okno się wysuwa, więc napastnik może co najwyżej kazać właścicielowi poczekać. `429` zwracany **przed** sprawdzeniem poświadczeń i identyczny niezależnie od tego, czy konto istnieje. Udane logowanie zeruje liczniki. Uogólniono istniejący `sudo_rate_limiter` zamiast pisać drugi (raport sam to wytknął).
+- **F-13 domknięte.** Doszły `Content-Security-Policy`, `Permissions-Policy` i warunkowy `Strict-Transport-Security`.
+  - `X-Frame-Options` **nadal niewysyłane** — nie potrafi wskazać dozwolonego origin, więc nie wyrazi przypadku HA ingress. Zamiast tego CSP `frame-ancestors` jako `web.security.frame_ancestors`, **domyślnie nieustawione**, żeby nie zepsuć istniejących osadzeń.
+  - HSTS z `max-age=86400`, nie rocznym: przeglądarka ignoruje HSTS z niezweryfikowanego połączenia, więc self-signed nic nie traci; ryzyko jest odwrotne — urządzenie z rejestracją w chmurze ma prawdziwy certyfikat, a po jej wyłączeniu ta sama nazwa wraca na self-signed i roczny pin zablokowałby wejście bez możliwości kliknięcia dalej.
+  - CSP zweryfikowane **testem A/B na sprzęcie**: edytor YAML zachowuje się identycznie z polityką i bez niej.
+
+**Przeniesione do #8:** throttling SSH (`sshd` / fail2ban) — to konfiguracja obrazu w `black_debian_images`, nie aplikacji.
+
+**Uwaga:** F-08 zostało domknięte już w #1 dla urządzeń z kontem; otwarta zostaje tylko ścieżka urządzenia bez żadnych poświadczeń, czyli stan anonimowy opisany w #2.
+
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
 - [x] 2. Role admin/read-only — **zrobione** (gałąź `feature/rbac-admin-viewer`)
-- [ ] 3. Twardnienie logowania
+- [x] 3. Twardnienie logowania — **zrobione w aplikacji** (gałąź `feature/login-hardening`); część SSH przeniesiona do #8
 - [ ] 4. Ochrona sekretów
 - [ ] 5. Node-RED adminAuth
 - [ ] 6. SSRF
