@@ -395,7 +395,9 @@
     "confirm_shutdown": "Are you sure you want to shutdown the device? After shutdown, you will need to power it on physically.",
     "shutdown_failed": "Failed to shutdown device",
     "device_shutting_down": "Device is shutting down...",
-    "shutdown_warning": "After shutdown, the device must be powered on physically by disconnecting and reconnecting power."
+    "shutdown_warning": "After shutdown, the device must be powered on physically by disconnecting and reconnecting power.",
+    "web_sections": "Web panel",
+    "badge_restart": "restart"
   },
   "array_table_widget": {
     "fix_validation_errors_before_saving": "Please fix validation errors before saving",

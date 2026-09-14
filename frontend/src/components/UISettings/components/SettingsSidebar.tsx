@@ -161,6 +161,12 @@ function SidebarContent({
   const localReloadSections = reloadSections.filter(s => !s.group);
   const remoteReloadSections = reloadSections.filter(s => s.group === 'remote');
   const toolsSections = reloadSections.filter(s => s.group === 'tools');
+  // The web panel group is a domain group, so it draws from both lists: the
+  // server settings need a restart, the accounts do not. That difference is
+  // carried by a per-entry badge instead of by which box they sit in.
+  // Server settings first, then who may reach them — it reads as one story.
+  const webSections = [...restartSections, ...reloadSections].filter(s => s.group === 'web');
+  const ungroupedRestartSections = restartSections.filter(s => !s.group);
 
   // Show skeleton while config sections are still loading
   const isLoading = sections.length === 0;
@@ -222,6 +228,26 @@ function SidebarContent({
         </div>
       )}
 
+      {/* Web panel: how the panel is reached, and who may reach it */}
+      {webSections.length > 0 && (
+        <div className="mb-4 border border-primary/20 rounded-xl bg-primary/5 p-3">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-sm font-semibold text-primary">
+              🌐 {t('settings.web_sections')}
+            </span>
+          </div>
+          <SectionList
+            sections={sections}
+            filterSections={webSections}
+            configSections={configSections}
+            activeSection={activeSection}
+            saveStatus={saveStatus}
+            unsavedChanges={unsavedChanges}
+            onNavigate={onNavigate}
+          />
+        </div>
+      )}
+
       {/* Restart-required sections */}
       <div className="border border-warning/20 rounded-xl bg-warning/5 p-3">
         <div className="flex items-center gap-2 mb-2 px-1">
@@ -231,7 +257,7 @@ function SidebarContent({
         </div>
         <SectionList
           sections={sections}
-          filterSections={restartSections}
+          filterSections={ungroupedRestartSections}
           configSections={configSections}
           activeSection={activeSection}
           saveStatus={saveStatus}

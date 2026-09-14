@@ -9,7 +9,7 @@ export interface SectionDefinition {
   translationKey: string;
   /** Optional badge key (e.g. 'experimental') — shown next to section label. */
   badge?: string;
-  /** Optional group tag for visual grouping in sidebar (e.g. 'remote'). */
+  /** Optional group tag for visual grouping in sidebar (e.g. 'remote', 'web'). */
   group?: string;
 }
 
@@ -34,7 +34,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
   { name: 'remote_inputs', icon: '🔌', translationKey: 'sections.remote_inputs', group: 'remote' },
   { name: 'remote_outputs', icon: '📡', translationKey: 'sections.remote_outputs', group: 'remote' },
   { name: 'binding_matrix', icon: '📊', translationKey: 'sections.binding_matrix', group: 'tools' },
-  { name: 'accounts', icon: '👥', translationKey: 'sections.accounts', group: 'tools' },
+  { name: 'accounts', icon: '👥', translationKey: 'sections.accounts', group: 'web' },
 ];
 
 /**
@@ -44,7 +44,7 @@ export const RELOAD_SECTIONS: SectionDefinition[] = [
 export const RESTART_SECTIONS: SectionDefinition[] = [
   { name: 'boneio', icon: '🔧', translationKey: 'sections.boneio' },
   { name: 'mqtt', icon: '📡', translationKey: 'sections.mqtt' },
-  { name: 'web', icon: '🌐', translationKey: 'sections.web' },
+  { name: 'web', icon: '🌐', translationKey: 'sections.web', group: 'web', badge: 'restart' },
   { name: 'modbus', icon: '🔌', translationKey: 'sections.modbus' },
   { name: 'can', icon: '🔗', translationKey: 'sections.can' },
   { name: 'mcp23017', icon: '🔗', translationKey: 'sections.mcp23017' },
