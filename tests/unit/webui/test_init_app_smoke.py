@@ -152,3 +152,22 @@ def test_config_opt_out_also_stops_applying_once_provisioned(config_file, monkey
 
     _init(config_file, auth_config={"allow_anonymous": True}, monkeypatch=monkeypatch)
     assert _effective_anonymous() is False
+
+
+def test_dev_mode_warns_even_on_a_provisioned_device(config_file, monkeypatch, caplog):
+    """BONEIO_DEV mounts dev routes and widens CORS whether or not the device
+    has accounts, and it lives in a unit file that could be copied into an
+    image, so the warning must not be tied to the anonymous gate."""
+    seed = UserStore(config_file.parent / USERS_FILENAME)
+    seed.add_user("pawel", "haslo-admina", Role.ADMIN)
+
+    with caplog.at_level("WARNING"):
+        _init(config_file, monkeypatch=monkeypatch, dev=True)
+
+    assert any("BONEIO_DEV is set" in r.message for r in caplog.records)
+
+
+def test_no_dev_warning_without_the_variable(config_file, monkeypatch, caplog):
+    with caplog.at_level("WARNING"):
+        _init(config_file, monkeypatch=monkeypatch)
+    assert not any("BONEIO_DEV is set" in r.message for r in caplog.records)

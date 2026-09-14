@@ -796,6 +796,17 @@ def init_app(
         else:
             _LOGGER.error("Missing username or password in web.auth!")
 
+    if dev_mode:
+        # BONEIO_DEV also mounts the fake-device router and widens CORS to the
+        # Vite dev server, and it lives in a systemd unit file — one copy into
+        # an image and a shipped device carries developer surface. Say so on
+        # every start so that never goes unnoticed.
+        _LOGGER.warning(
+            "SECURITY: BONEIO_DEV is set. Development routes are mounted and "
+            "CORS accepts localhost dev servers. Unset it on any device that "
+            "is not a development board."
+        )
+
     # Always installed, never conditional on config.yaml. A device provisioned
     # through the first-run wizard has an admin in users.json and an empty
     # web.auth, and adding the middleware only when web.auth exists would leave

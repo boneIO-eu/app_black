@@ -2567,5 +2567,12 @@
   "security": {
     "anonymous_title": "Dostęp bez logowania jest włączony.",
     "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora."
+  },
+  "login": {
+    "title": "Zaloguj się do",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło",
+    "submit": "Zaloguj",
+    "invalid": "Nieprawidłowa nazwa użytkownika lub hasło."
   }
 }

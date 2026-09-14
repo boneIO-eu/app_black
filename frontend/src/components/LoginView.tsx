@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useTranslation } from '../hooks/useTranslation';
 import { useNavigate } from 'react-router-dom';
 import ThemeChanger from './ThemeChanger';
 import Logo from './Logo';
@@ -10,6 +11,7 @@ export default function LoginView() {
   const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ export default function LoginView() {
       await login(username, password);
       navigate('/');
     } catch (err) {
-      setError('Invalid username or password');
+      setError(t('login.invalid'));
     }
   };
 
@@ -34,14 +36,14 @@ export default function LoginView() {
             <Logo />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold">
-            <p>Sign in to your</p><p>boneIO Black</p>
+            <p>{t('login.title')}</p><p>boneIO Black</p>
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-xs -space-y-px">
             <div className='my-4'>
               <label htmlFor="username" className="sr-only">
-                Username
+                {t('login.username')}
               </label>
               <input
                 id="username"
@@ -49,14 +51,14 @@ export default function LoginView() {
                 type="text"
                 required
                 className="input  w-full"
-                placeholder="Username"
+                placeholder={t('login.username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
             </div>
             <div className="mt-4">
               <label htmlFor="password" className="sr-only">
-                Password
+                {t('login.password')}
               </label>
               <input
                 id="password"
@@ -64,7 +66,7 @@ export default function LoginView() {
                 type="password"
                 required
                 className="input  w-full"
-                placeholder="Password"
+                placeholder={t('login.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -79,7 +81,7 @@ export default function LoginView() {
 
           <div>
             <button type="submit" className="btn btn-primary w-full">
-              Sign in
+              {t('login.submit')}
             </button>
           </div>
         </form>

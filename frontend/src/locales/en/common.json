@@ -2568,5 +2568,12 @@
   "security": {
     "anonymous_title": "Unauthenticated access is enabled.",
     "anonymous_body": "Anyone who can reach this device on the network can read its configuration, switch its outputs and reboot it, with no password. Remove “allow_anonymous” from web.auth in config.yaml and create an administrator account."
+  },
+  "login": {
+    "title": "Sign in to your",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "invalid": "Invalid username or password."
   }
 }
