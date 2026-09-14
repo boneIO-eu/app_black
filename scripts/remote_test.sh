@@ -245,7 +245,9 @@ print("installing:", " ".join(specs))
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *specs])
 REMOTE_DEPS
   }
-  local target="tests/unit/core/test_auth_store.py tests/unit/core/test_auth_migration.py tests/unit/webui/test_onboarding_routes.py tests/unit/webui/test_auth_middleware.py"
+  # The auth/authz suites. Listed by directory glob rather than by file so a
+  # new test in these areas is picked up without editing this script.
+  local target="tests/unit/core/test_auth_*.py tests/unit/core/test_setup_required_notice.py tests/unit/webui/test_auth*.py tests/unit/webui/test_account*.py tests/unit/webui/test_onboarding_*.py"
   if [ "${FULL:-0}" = "1" ]; then target="tests"; info "running the FULL suite (slow on a BBB)"; fi
   local out
   out=$("${SSH[@]}" "$REMOTE" "cd $REMOTE_APP && $VENV/bin/python -m pytest $target -q 2>&1" )

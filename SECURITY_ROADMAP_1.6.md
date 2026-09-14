@@ -55,9 +55,22 @@ więc to domyślne hasło w przebraniu.
 
 **Świadomie zostawione:** urządzenie, które **nigdy** nie miało poświadczeń, dalej ma otwarte API (F-02) — to zachowanie sprzed 1.6 i domyka je wdrożenie #2.
 
+### 2. Role admin/viewer + domknięcie F-02
+- **F-02 domknięte.** Urządzenie bez konta odmawia API (403 `setup_required`) zamiast obsługiwać wszystkich. Reguła **stanowa, nie wersyjna** — działa tak samo dla świeżego flasha, 1.5->1.6 i 1.5->1.7.
+- Furtka: `web.auth.allow_anonymous: true` **tylko w config.yaml**, z WARNING-iem przy każdym starcie i trwałym banerem w UI. Działa wyłącznie na urządzeniu bez kont — skopiowana flaga nie odblokuje urządzenia, które ma użytkowników.
+- Polityka ról w `boneio/webui/middleware/policy.py` jako czytelna tabela. Viewer: podgląd + sterowanie (wyjścia, rolety, nawadnianie, termostaty, alarmy). Admin: wszystko. Trasa nieopisana w polityce wymaga admina (domyślnie zamknięte). Każda reguła wiąże **metodę** ze ścieżką.
+- Konta: `/api/accounts` (zarządzanie, admin) i `/api/account` (self-service — viewer może zmienić własne hasło, podając stare).
+- UI: ekran kont, ukrycie pozycji administracyjnych przed viewerem, baner trybu anonimowego.
+- OLED + log mówią `SETUP REQUIRED` na starcie nieskonfigurowanego urządzenia.
+- Testy: 1227 lokalnie, 110 na realnym ARM, 26/26 asercji HTTP na sterowniku.
+
+**Domknięte przy okazji:** część F-12 — pobieranie archiwów configu (pakują `secrets.yaml`) i surowy edytor plików wymagają teraz admina.
+
+**Świadomie zostawione:** viewer widzi `GET /api/config`, bo panel tego potrzebuje — maskowanie sekretów to wdrożenie #4.
+
 ## Status
 - [x] 1. Onboarding — **zrobione** (gałąź `feature/onboarding-wizard`, 1.6.0.dev1)
-- [ ] 2. Role admin/read-only
+- [x] 2. Role admin/read-only — **zrobione** (gałąź `feature/rbac-admin-viewer`)
 - [ ] 3. Twardnienie logowania
 - [ ] 4. Ochrona sekretów
 - [ ] 5. Node-RED adminAuth
