@@ -326,6 +326,7 @@ async def async_run(
             manager=manager,
             port=web_config.get("port", 8090),
             auth=web_config.get("auth", {}),
+            security=web_config.get("security", {}),
             logger=config.get("logger", {}),
             debug_level=debug,
             initial_config=config,  # Pre-populate cache for fast first request

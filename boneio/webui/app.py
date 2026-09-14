@@ -44,6 +44,7 @@ from boneio.models.events import (
 )
 from boneio.models.state import ModbusDeviceState
 from boneio.version import __version__
+from boneio.webui.security_headers import apply_security_headers
 from boneio.webui.middleware.auth import (
     AuthMiddleware,
     is_auth_required,
@@ -693,6 +694,7 @@ def init_app(
     jwt_secret: str | None = None,
     web_server: WebServer | None = None,
     initial_config: dict | None = None,
+    web_security: dict | None = None,
 ) -> BoneIOApp:
     """
     Initialize the FastAPI application with manager.
@@ -702,6 +704,8 @@ def init_app(
         yaml_config_file: Path to YAML config file.
         config_helper: ConfigHelper instance.
         auth_config: Authentication configuration.
+        web_security: The ``web.security`` section, carrying the optional CSP
+            frame-ancestors policy.
         jwt_secret: JWT secret for token signing.
         web_server: WebServer instance.
         initial_config: Pre-parsed config to populate cache.
@@ -852,14 +856,19 @@ def init_app(
         allow_headers=["*"],
     )
 
-    # Security headers middleware
-    # NOTE: No X-Frame-Options — boneIO must be embeddable in HA ingress iframe
+    # Security headers middleware (F-13).
+    # NOTE: still no X-Frame-Options — boneIO must be embeddable in an HA
+    # ingress iframe, and that header cannot name an allowed origin. Framing is
+    # expressed through CSP frame-ancestors instead, configured per install.
+    frame_ancestors = (web_security or {}).get("frame_ancestors")
+    if isinstance(frame_ancestors, list):
+        frame_ancestors = " ".join(str(item) for item in frame_ancestors)
+
     @app.middleware("http")
     async def security_headers_middleware(request, call_next):
         """Add security headers to all responses."""
         response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "same-origin"
+        apply_security_headers(request, response, frame_ancestors)
         return response
 
     # Add GZip compression
