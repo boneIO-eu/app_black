@@ -16,6 +16,27 @@ Zasada: każda poprawka wdrażana jako **nowa funkcja** (nie łata w ukryciu), p
 | 7 | **Ochrona CSRF** — sprawdzanie Origin/Referer lub token na operacjach zmieniających stan | F-07 | backend |
 | 8 | **Twardnienie kodu i systemu** — `O_EXCL`/`mkstemp` w `timezone_sudoers.py` (F-09), rejestracja `!secret` w migracji `v4_wled_cache.py` (F-16); poza-appowe (obraz/provisioning): sudo (F-04), domyślne MQTT (F-05), TLS cert (F-10), perms `/etc/mosquitto/passwd` (F-11) | F-04,05,09,10,11,16 | kod + obraz |
 
+## Decyzje przekrojowe
+
+### Wymuszenie konta (dotyczy #1 i #2)
+Reguła **oparta na stanie, nie na wersji**: każde boneIO >= 1.6, które wystartuje bez kont i bez jawnej flagi
+`web.auth.allow_anonymous: true`, wymusza kreator i **zamyka API**. Działa identycznie dla świeżego flasha,
+1.5->1.6 i 1.5->1.7, więc nie zakłada kolejności aktualizacji. Bez przycisku "Pomiń" w UI: ostrzeżenie to
+komunikat, nie mechanizm kontroli, a CRA wymaga bezpiecznej **konfiguracji domyślnej**. Furtka istnieje, ale
+w `config.yaml` — świadoma edycja przez SSH to odstępstwo eksperta, a nie domyślne zachowanie.
+Odkrywalność dla kogoś, kto przeskoczył wersje: komunikat na **OLED** ("Setup required") + WARNING w logu
+z gotową linijką do wklejenia.
+
+### Domyślne poświadczenia w obrazie (#8)
+`black_debian_images/scripts/build_image_usb.sh:174` wypala to samo hasło SSH na każdym urządzeniu
+(`chpasswd`), a `setup_boneio.sh:403` to samo hasło MQTT (`boneio123`, F-05). To **universal default
+password** — wprost zakazane przez EN 303 645 par. 5.1 i PSTI, i opublikowane w `UPDATE.md`.
+Kierunek: SSH domyślnie **bez logowania hasłem** (`PasswordAuthentication no`), klucz lub hasło ustawiane
+z panelu przez zalogowanego admina. Plan B: losowe hasło per urządzenie pokazywane na OLED **na żądanie**
+i tylko dopóki urządzenie jest nieskonfigurowane, rotowane po utworzeniu konta admina.
+**Nie** wyprowadzać hasła z numeru seryjnego — seryjny jest nadrukowany i rozgłaszany przez MQTT discovery,
+więc to domyślne hasło w przebraniu.
+
 ## Kolejność rekomendowana
 1 → 2 → 3 → 4 → reszta. Wdrożenia 1–2 to fundament auth/RBAC, na którym stoi reszta.
 
