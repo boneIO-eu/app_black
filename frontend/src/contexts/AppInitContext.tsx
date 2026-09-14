@@ -27,6 +27,8 @@ interface AppInitData {
   auth_required: boolean;
   /** True when the device has no administrator yet and the wizard must run. */
   needs_onboarding: boolean;
+  /** True when config.yaml opts this device out of authentication entirely. */
+  allow_anonymous?: boolean;
   /** Set when a pre-1.6 web.auth block was migrated into users.json on boot. */
   legacy_migration?: { username: string; used_secret_file: boolean } | null;
   pwa_name: string;

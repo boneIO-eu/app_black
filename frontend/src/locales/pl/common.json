@@ -13,7 +13,8 @@
     "help": "Pomoc",
     "templates": "Szablony",
     "experimental": "EKSPERYMENTALNE",
-    "irrigation": "Nawadnianie"
+    "irrigation": "Nawadnianie",
+    "accounts": "Konta"
   },
   "outputs": {
     "title": "Wyjścia",
@@ -2529,5 +2530,36 @@
     "done_summary": "Gotowe. Konto administratora „{{username}}” zostało utworzone, a panel jest teraz chroniony hasłem.",
     "done_remove_web_auth": "Pamiętaj, żeby usunąć sekcję web.auth z config.yaml.",
     "finish": "Przejdź do panelu"
+  },
+  "accounts": {
+    "title": "Konta użytkowników",
+    "intro": "Administrator zmienia konfigurację i zarządza kontami. Konto tylko do odczytu (viewer) może obserwować urządzenie i sterować wyjściami, ale nie zmieni ustawień ani nie zrestartuje sterownika.",
+    "admin_only": "Tylko administrator może zarządzać kontami.",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło",
+    "role": "Rola",
+    "actions": "Akcje",
+    "you": "to Ty",
+    "role_admin": "Administrator",
+    "role_viewer": "Tylko odczyt",
+    "reset_password": "Zmień hasło",
+    "delete": "Usuń",
+    "add_title": "Dodaj konto",
+    "add_intro": "Nowe konta domyślnie dostają rolę tylko do odczytu.",
+    "add_button": "Dodaj konto",
+    "created": "Konto zostało utworzone.",
+    "create_failed": "Nie udało się utworzyć konta.",
+    "deleted": "Konto „{{username}}” zostało usunięte.",
+    "delete_failed": "Nie udało się usunąć konta.",
+    "confirm_delete": "Usunąć konto „{{username}}”?",
+    "role_failed": "Nie udało się zmienić roli.",
+    "prompt_new_password": "Nowe hasło dla konta „{{username}}” (min. 8 znaków):",
+    "password_reset": "Hasło konta „{{username}}” zostało zmienione.",
+    "password_failed": "Nie udało się zmienić hasła.",
+    "load_failed": "Nie udało się wczytać listy kont."
+  },
+  "security": {
+    "anonymous_title": "Dostęp bez logowania jest włączony.",
+    "anonymous_body": "Każdy, kto ma dostęp do tego urządzenia w sieci, może odczytać konfigurację, przełączać wyjścia i je zrestartować — bez hasła. Usuń „allow_anonymous” z sekcji web.auth w config.yaml i utwórz konto administratora."
   }
 }

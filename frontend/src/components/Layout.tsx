@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import Navigation, { DrawerSide } from './Navigation';
 import StartupBanner from './StartupBanner';
 import MigrationBanner from './MigrationBanner';
+import AnonymousAccessBanner from './AnonymousAccessBanner';
 import clsx from 'clsx';
 
 interface LayoutProps {
@@ -18,6 +19,7 @@ export default function Layout({ children, configEditor = false }: LayoutProps) 
       
       <div className={clsx("flex flex-col drawer-content", { "max-h-screen": configEditor})}>
         <Navigation />
+        <AnonymousAccessBanner />
         <StartupBanner />
         <MigrationBanner />
         <main className={clsx("flex-1 bg-base-100", configEditor ? "overflow-hidden" : "overflow-y-auto")}>
